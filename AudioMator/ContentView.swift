@@ -150,27 +150,69 @@ struct InspectorPane: View {
     @ViewBuilder
     private func metadataSection(_ file: AudioFile) -> some View {
         GroupBox("元数据") {
-            LabeledContent("标题") { Text(file.title ?? "—") }
-            LabeledContent("艺术家") { Text(file.artist ?? "—") }
-            LabeledContent("专辑") { Text(file.album ?? "—") }
-            LabeledContent("作曲") { Text(file.composer ?? "—") }
-            LabeledContent("风格") { Text(file.genre ?? "—") }
-            LabeledContent("年份") { Text(file.year.map(String.init) ?? "—") }
-            LabeledContent("曲目") { Text(file.trackNumber.map(String.init) ?? "—") }
-            LabeledContent("碟号") { Text(file.discNumber.map(String.init) ?? "—") }
-            LabeledContent("备注") { Text(file.comments ?? "—") }
+            VStack(alignment: .leading, spacing: 0) {
+                metadataRow(label: "标题", value: file.title)
+                Divider()
+                metadataRow(label: "艺术家", value: file.artist)
+                Divider()
+                metadataRow(label: "专辑", value: file.album)
+                Divider()
+                metadataRow(label: "作曲", value: file.composer)
+                Divider()
+                metadataRow(label: "风格", value: file.genre)
+                Divider()
+                metadataRow(label: "年份", value: file.year.map(String.init))
+                Divider()
+                metadataRow(label: "曲目", value: file.trackNumber.map(String.init))
+                Divider()
+                metadataRow(label: "碟号", value: file.discNumber.map(String.init))
+                Divider()
+                metadataRow(label: "备注", value: file.comments)
+            }
+            .padding(.vertical, 4)
         }
+        .groupBoxStyle(.automatic)
+    }
+
+    @ViewBuilder
+    private func metadataRow(label: String, value: String?) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Text(value ?? "—")
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder
     private func technicalSection(_ file: AudioFile) -> some View {
         GroupBox("技术") {
-            LabeledContent("时长") { Text(formatDuration(file.duration)) }
-            LabeledContent("比特率") { Text(file.bitrate.map { "\($0) kbps" } ?? "—") }
-            LabeledContent("采样率") { Text(file.sampleRate.map { String(format: "%.0f Hz", $0) } ?? "—") }
-            LabeledContent("声道") { Text(file.channels.map(String.init) ?? "—") }
-            LabeledContent("格式") { Text(file.fileFormat ?? "—") }
+            VStack(alignment: .leading, spacing: 0) {
+                technicalRow(label: "时长", value: formatDuration(file.duration))
+                Divider()
+                technicalRow(label: "比特率", value: file.bitrate.map { "\($0) kbps" })
+                Divider()
+                technicalRow(label: "采样率", value: file.sampleRate.map { String(format: "%.0f Hz", $0) })
+                Divider()
+                technicalRow(label: "声道", value: file.channels.map(String.init))
+                Divider()
+                technicalRow(label: "格式", value: file.fileFormat)
+            }
+            .padding(.vertical, 4)
         }
+        .groupBoxStyle(.automatic)
+    }
+
+    @ViewBuilder
+    private func technicalRow(label: String, value: String?) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Text(value ?? "—")
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder

@@ -33,104 +33,156 @@ struct AudioFile: Identifiable, Hashable {
 
     let artwork: NSImage?
 
-    init(url: URL) {
-        self.url = url
-
+    static func load(from url: URL) async throws -> AudioFile {
         let asset = AVURLAsset(url: url)
-        let metadata = asset.metadata + asset.commonMetadata
 
-        func firstString(_ identifiers: [AVMetadataIdentifier]) -> String? {
-            for id in identifiers {
-                if let value = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: id).first?.stringValue {
-                    return value
+        let common = try await asset.load(.commonMetadata)
+        let base = try await asset.load(.metadata)
+        let id3 = try await asset.loadMetadata(for: .id3Metadata)
+        let itunes = try await asset.loadMetadata(for: .iTunesMetadata)
+        let quick = try await asset.loadMetadata(for: .quickTimeMetadata)
+
+        let metadata = common + base + id3 + itunes + quick
+
+        func firstString(_ ids: [AVMetadataIdentifier]) async -> String? {
+            for id in ids {
+                let items = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: id)
+                if let item = items.first {
+                    return try? await item.load(.stringValue)
                 }
             }
             return nil
         }
 
-        func firstNumber(_ identifiers: [AVMetadataIdentifier]) -> Int? {
-            for id in identifiers {
-                if let value = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: id).first?.numberValue {
-                    return value.intValue
+        func firstNumber(_ ids: [AVMetadataIdentifier]) async -> Int? {
+            for id in ids {
+                let items = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: id)
+                if let item = items.first {
+                    if let num = try? await item.load(.numberValue) {
+                        return num.intValue
+                    }
                 }
             }
             return nil
         }
 
-        self.title = firstString([.commonIdentifierTitle])
-        self.artist = firstString([.commonIdentifierArtist])
-        self.album = firstString([.commonIdentifierAlbumName])
-        self.composer = firstString([
+        let title = await firstString([.commonIdentifierTitle])
+        let artist = await firstString([.commonIdentifierArtist])
+        let album = await firstString([.commonIdentifierAlbumName])
+        let composer = await firstString([
             .id3MetadataComposer,
             .iTunesMetadataComposer,
             .quickTimeMetadataAuthor
         ])
-        self.genre = firstString([
+        let genre = await firstString([
             .id3MetadataContentType,
+            .iTunesMetadataUserGenre,
             .iTunesMetadataPredefinedGenre,
-            .iTunesMetadataUserGenre
+            .quickTimeMetadataGenre
         ])
-        self.comments = firstString([
+        let comments = await firstString([
             .commonIdentifierDescription,
             .id3MetadataComments,
             .quickTimeMetadataInformation
         ])
 
-        if let yearString = firstString([
-            .id3MetadataYear,
-            .iTunesMetadataReleaseDate
-        ]) {
-            self.year = Int(yearString.prefix(4))
-        } else {
-            self.year = nil
+        var year: Int? = nil
+        if let y = await firstString([.id3MetadataYear, .iTunesMetadataReleaseDate]) {
+            year = Int(y.prefix(4))
         }
 
-        self.trackNumber = firstNumber([.iTunesMetadataTrackNumber])
-        self.discNumber = firstNumber([.iTunesMetadataDiscNumber])
+        let trackNumber = await firstNumber([.iTunesMetadataTrackNumber, .id3MetadataTrackNumber])
+        let discNumber = await firstNumber([.iTunesMetadataDiscNumber, .id3MetadataPartOfASet])
 
+        var artwork: NSImage? = nil
         if let artItem = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork).first,
-           let data = artItem.dataValue,
-           let image = NSImage(data: data) {
-            self.artwork = image
-        } else {
-            self.artwork = nil
+           let data = try? await artItem.load(.dataValue) {
+            artwork = NSImage(data: data)
         }
 
-        if let track = asset.tracks(withMediaType: .audio).first {
-            let seconds = CMTimeGetSeconds(track.timeRange.duration)
-            self.duration = seconds.isFinite ? seconds : nil
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        var duration: Double? = nil
+        var bitrate: Int? = nil
+        var sampleRate: Double? = nil
+        var channels: Int? = nil
 
-            let estimatedRate = track.estimatedDataRate
-            self.bitrate = estimatedRate > 0 ? Int(estimatedRate / 1000) : nil
+        if let t = tracks.first {
+            let range = try await t.load(.timeRange)
+            let seconds = CMTimeGetSeconds(range.duration)
+            duration = seconds.isFinite ? seconds : nil
 
-            if let rawFormat = track.formatDescriptions.first {
-                let format = rawFormat as! CMAudioFormatDescription
-                if let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee {
-                    self.sampleRate = asbd.mSampleRate
-                    self.channels = Int(asbd.mChannelsPerFrame)
-                } else {
-                    self.sampleRate = nil
-                    self.channels = nil
-                }
-            } else {
-                self.sampleRate = nil
-                self.channels = nil
+            let rate = try await t.load(.estimatedDataRate)
+            bitrate = rate > 0 ? Int(rate / 1000) : nil
+
+            let desc = try await t.load(.formatDescriptions)
+            if let raw = desc.first,
+               let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(raw as! CMFormatDescription)?.pointee {
+                sampleRate = asbd.mSampleRate
+                channels = Int(asbd.mChannelsPerFrame)
             }
-        } else {
-            let seconds = CMTimeGetSeconds(asset.duration)
-            self.duration = seconds.isFinite ? seconds : nil
-            self.bitrate = nil
-            self.sampleRate = nil
-            self.channels = nil
         }
 
         let ext = url.pathExtension
-        self.fileFormat = ext.isEmpty ? nil : ext.uppercased()
+        let fileFormat = ext.isEmpty ? nil : ext.uppercased()
 
-        if let values = try? url.resourceValues(forKeys: [.fileSizeKey]) {
-            self.fileSize = values.fileSize
-        } else {
-            self.fileSize = nil
-        }
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+
+        return AudioFile(
+            url: url,
+            title: title,
+            artist: artist,
+            album: album,
+            composer: composer,
+            genre: genre,
+            comments: comments,
+            year: year,
+            trackNumber: trackNumber,
+            discNumber: discNumber,
+            duration: duration,
+            bitrate: bitrate,
+            sampleRate: sampleRate,
+            channels: channels,
+            fileFormat: fileFormat,
+            fileSize: size,
+            artwork: artwork
+        )
+    }
+
+    private init(
+        url: URL,
+        title: String?,
+        artist: String?,
+        album: String?,
+        composer: String?,
+        genre: String?,
+        comments: String?,
+        year: Int?,
+        trackNumber: Int?,
+        discNumber: Int?,
+        duration: Double?,
+        bitrate: Int?,
+        sampleRate: Double?,
+        channels: Int?,
+        fileFormat: String?,
+        fileSize: Int?,
+        artwork: NSImage?
+    ) {
+        self.url = url
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.composer = composer
+        self.genre = genre
+        self.comments = comments
+        self.year = year
+        self.trackNumber = trackNumber
+        self.discNumber = discNumber
+        self.duration = duration
+        self.bitrate = bitrate
+        self.sampleRate = sampleRate
+        self.channels = channels
+        self.fileFormat = fileFormat
+        self.fileSize = fileSize
+        self.artwork = artwork
     }
 }

@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import AppKit
+import UniformTypeIdentifiers
 
 @MainActor
 final class AudioViewModel: ObservableObject {
@@ -18,12 +19,24 @@ final class AudioViewModel: ObservableObject {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedFileTypes = ["mp3", "aac", "m4a", "flac", "wav", "aiff", "alac", "ogg", "opus"]
+        panel.allowedContentTypes = [
+            UTType.mp3,
+            UTType.mpeg4Audio,
+            UTType.wav,
+            UTType.aiff,
+        ]
         panel.title = "选择音频文件"
 
         guard panel.runModal() == .OK else { return }
 
-        let newFiles = panel.urls.map(AudioFile.init)
-        files.append(contentsOf: newFiles)
+        Task {
+            var loaded: [AudioFile] = []
+            for url in panel.urls {
+                if let file = try? await AudioFile.load(from: url) {
+                    loaded.append(file)
+                }
+            }
+            files.append(contentsOf: loaded)
+        }
     }
 }

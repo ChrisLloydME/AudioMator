@@ -13,5 +13,7 @@ struct AudioMatorApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified)  // 使用苹果规范的圆角+合并 titlebar
     }
 }

@@ -14,4 +14,5 @@ struct AudioMatorApp: App {
             ContentView()
         }
     }
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 }

@@ -1,35 +1,29 @@
 //
-//  AudioViewModel.swift
+//  AudioFile.swift
 //  AudioMator
 //
 //  Created by Christopher Lloyd on 2025.11.22.
 //
 
 import Foundation
-import AppKit
 import Combine
-import UniformTypeIdentifiers
+import AppKit
 
-class AudioViewModel: ObservableObject {
-    @Published var files: [AudioFile] = []
-    
+@MainActor
+final class AudioViewModel: ObservableObject {
+    @Published private(set) var files: [AudioFile] = []
+
     func addFiles() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        
-        if #available(macOS 11.0, *) {
-            panel.allowedContentTypes = [UTType.audio]
-        } else {
-            // 兼容旧系统：按扩展名过滤
-            panel.allowedFileTypes = ["mp3", "m4a", "aac", "wav", "aiff", "caf"]
-        }
-        
-        if panel.runModal() == .OK {
-            let urls = panel.urls
-            let newFiles = urls.map { AudioFile(url: $0) }
-            files.append(contentsOf: newFiles)
-        }
+        panel.allowedFileTypes = ["mp3", "aac", "m4a", "flac", "wav", "aiff", "alac", "ogg", "opus"]
+        panel.title = "选择音频文件"
+
+        guard panel.runModal() == .OK else { return }
+
+        let newFiles = panel.urls.map(AudioFile.init)
+        files.append(contentsOf: newFiles)
     }
 }

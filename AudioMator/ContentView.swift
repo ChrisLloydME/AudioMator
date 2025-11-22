@@ -9,7 +9,7 @@ final class SharedState: ObservableObject {
     @Published var selectedAudioID: AudioFile.ID?
 }
 
-// MARK: - Root ContentView (clean SwiftUI version)
+// MARK: - Root ContentView (pure SwiftUI A-style)
 
 struct ContentView: View {
     @StateObject private var viewModel = AudioViewModel()
@@ -123,6 +123,12 @@ struct InspectorPane: View {
                 )
             }
         }
+    }
+}
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
     }
 }
 

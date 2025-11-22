@@ -1,59 +1,126 @@
-//
-//  ContentView.swift
-//  AudioMator
-//
-//  Created by Christopher Lloyd on 2025.11.22.
-//
-
 import SwiftUI
+import Combine
+import AppKit
+
+// MARK: - Shared state
+
+final class SharedState: ObservableObject {
+    @Published var selectedSidebarItem: String? = "all"
+    @Published var selectedAudioID: AudioFile.ID?
+}
+
+// MARK: - Root ContentView (clean SwiftUI version)
 
 struct ContentView: View {
     @StateObject private var viewModel = AudioViewModel()
-    @State private var selectedID: AudioFile.ID?
-    
-    private var selectedFile: AudioFile? {
-        viewModel.files.first { $0.id == selectedID }
-    }
-    
+    @StateObject private var state = SharedState()
+
     var body: some View {
-        NavigationView {
-            // 左侧...
-            VStack {
-                Button("添加音频文件…") { viewModel.addFiles() }
-                    .padding()
-
-                List(selection: $selectedID) {
-                    ForEach(viewModel.files) { file in
-                        Text(file.url.lastPathComponent)
-                    }
-                }
-            }
-            .frame(minWidth: 250)
-
-            // 右侧...
-            Group {
-                if let file = selectedFile {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("文件名：\(file.url.lastPathComponent)")
-                            .font(.headline)
-                        Text("标题：\(file.title ?? "（无）")")
-                        Text("艺术家：\(file.artist ?? "（无）")")
-                        Text("专辑：\(file.album ?? "（无）")")
-                        Spacer()
-                    }
-                    .padding()
-                } else {
-                    Text("选择左侧音频文件以查看元数据")
-                        .foregroundColor(.secondary)
+        NavigationSplitView {
+            SidebarPane(state: state)
+        } content: {
+            ContentPane(viewModel: viewModel, state: state)
+        } detail: {
+            InspectorPane(viewModel: viewModel, state: state)
+        }
+        .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    viewModel.addFiles()
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
-        .frame(minWidth: 600, minHeight: 400)
-        
-        // ⭐ 必须加一个空 toolbar 来启用 unified 样式
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                EmptyView()
+    }
+}
+
+// MARK: Sidebar
+
+struct SidebarPane: View {
+    @ObservedObject var state: SharedState
+
+    var body: some View {
+        List(selection: $state.selectedSidebarItem) {
+            Section("Library") {
+                Text("All Audio")
+                    .tag("all" as String?)
+            }
+        }
+        .listStyle(.sidebar)
+    }
+}
+
+// MARK: Content (Center)
+
+struct ContentPane: View {
+    @ObservedObject var viewModel: AudioViewModel
+    @ObservedObject var state: SharedState
+
+    var body: some View {
+        Group {
+            if viewModel.files.isEmpty {
+                ContentUnavailableView(
+                    "没有音频文件",
+                    systemImage: "music.note.list",
+                    description: Text("点击右上角添加按钮导入音频文件")
+                )
+            } else {
+                Table(
+                    viewModel.files,
+                    selection: Binding(
+                        get: { state.selectedAudioID },
+                        set: { state.selectedAudioID = $0 }
+                    )
+                ) {
+                    TableColumn("文件名") { file in
+                        Text(file.url.lastPathComponent)
+                    }
+                    TableColumn("标题") { file in
+                        Text(file.title ?? "—")
+                    }
+                    TableColumn("艺术家") { file in
+                        Text(file.artist ?? "—")
+                    }
+                    TableColumn("专辑") { file in
+                        Text(file.album ?? "—")
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: Inspector (Right Pane)
+
+struct InspectorPane: View {
+    @ObservedObject var viewModel: AudioViewModel
+    @ObservedObject var state: SharedState
+
+    var body: some View {
+        Group {
+            if let id = state.selectedAudioID,
+               let file = viewModel.files.first(where: { $0.id == id }) {
+
+                Form {
+                    Section("文件") {
+                        Text(file.url.lastPathComponent)
+                    }
+
+                    Section("元数据") {
+                        LabeledContent("标题") { Text(file.title ?? "—") }
+                        LabeledContent("艺术家") { Text(file.artist ?? "—") }
+                        LabeledContent("专辑") { Text(file.album ?? "—") }
+                    }
+                }
+                .formStyle(.grouped)
+
+            } else {
+                ContentUnavailableView(
+                    "选择一个音频文件",
+                    systemImage: "music.quarternote.3"
+                )
             }
         }
     }

@@ -26,6 +26,7 @@
       "size" : "128x128"
     },
     {
+      "filename" : "AudioMator-iOS-Default-128x128@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "128x128"
@@ -36,11 +37,13 @@
       "size" : "256x256"
     },
     {
+      "filename" : "AudioMator-iOS-Default-256x256@2x.png",
       "idiom" : "mac",
       "scale" : "2x",
       "size" : "256x256"
     },
     {
+      "filename" : "AudioMator-iOS-Default-512x512@1x.png",
       "idiom" : "mac",
       "scale" : "1x",
       "size" : "512x512"

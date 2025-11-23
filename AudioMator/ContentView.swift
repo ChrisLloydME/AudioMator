@@ -43,7 +43,7 @@ struct SidebarPane: View {
     var body: some View {
         List(selection: $state.selectedSidebarItem) {
             Section("Library") {
-                Text("所有音频")
+                Text("All Audio")
                     .tag("all" as String?)
             }
         }
@@ -59,9 +59,9 @@ struct ContentPane: View {
         Group {
             if viewModel.files.isEmpty {
                 ContentUnavailableView(
-                    "没有音频文件",
+                    "No Audio Files",
                     systemImage: "music.note.list",
-                    description: Text("点击右上角添加按钮导入音频文件")
+                    description: Text("Click the add button in the toolbar to import audio files")
                 )
             } else {
                 Table(
@@ -71,19 +71,19 @@ struct ContentPane: View {
                         set: { state.selectedAudioID = $0 }
                     )
                 ) {
-                    TableColumn("文件名") { file in
+                    TableColumn("Filename") { file in
                         Text(file.url.lastPathComponent)
                     }
-                    TableColumn("标题") { file in
+                    TableColumn("Title") { file in
                         Text(file.title)
                     }
-                    TableColumn("艺术家") { file in
+                    TableColumn("Artist") { file in
                         Text(file.artist)
                     }
-                    TableColumn("专辑") { file in
+                    TableColumn("Album") { file in
                         Text(file.album)
                     }
-                    TableColumn("时长") { file in
+                    TableColumn("Duration") { file in
                         Text(formatDuration(file.duration))
                     }
                 }
@@ -116,7 +116,7 @@ struct InspectorPane: View {
                 }
             } else {
                 ContentUnavailableView(
-                    "选择一个音频文件",
+                    "Select an Audio File",
                     systemImage: "music.quarternote.3"
                 )
             }
@@ -130,7 +130,7 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func fileSection(_ file: AudioFile) -> some View {
-        GroupBox("文件") {
+        GroupBox("File") {
             VStack(alignment: .leading, spacing: 8) {
                 Text(file.url.lastPathComponent)
                     .font(.headline)
@@ -144,7 +144,7 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func artworkSection(_ file: AudioFile) -> some View {
-        GroupBox("封面") {
+        GroupBox("Artwork") {
             VStack {
                 if let image = file.artwork {
                     Image(nsImage: image)
@@ -170,25 +170,35 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func metadataSection(_ file: AudioFile) -> some View {
-        GroupBox("元数据") {
-            VStack(spacing: 0) {
-                metadataRow(label: "标题", value: file.title)
+        GroupBox("Metadata") {
+            VStack(spacing: 6) {
+                metadataRow(label: "Title", value: file.title)
                 Divider()
-                metadataRow(label: "艺术家", value: file.artist)
+                metadataRow(label: "Artist", value: file.artist)
                 Divider()
-                metadataRow(label: "专辑", value: file.album)
+                metadataRow(label: "Album", value: file.album)
                 Divider()
-                metadataRow(label: "作曲", value: file.composer)
+                metadataRow(label: "Composer", value: file.composer)
                 Divider()
-                metadataRow(label: "风格", value: file.genre)
+                metadataRow(label: "Genre", value: file.genre)
                 Divider()
-                metadataRow(label: "年份", value: file.year)
+                metadataRow(label: "Year", value: file.year)
                 Divider()
-                metadataRow(label: "曲目", value: "\(file.track) / \(file.trackTotal)")
+                metadataRow(label: "Track", value: "\(file.track) / \(file.trackTotal)")
                 Divider()
-                metadataRow(label: "碟号", value: "\(file.disc) / \(file.discTotal)")
+                metadataRow(label: "Disc", value: "\(file.disc) / \(file.discTotal)")
                 Divider()
-                metadataRow(label: "备注", value: file.comment)
+                metadataRow(label: "Comment", value: file.comment)
+                Divider()
+                metadataRow(label: "Album Artist", value: file.albumArtist)
+                Divider()
+                metadataRow(label: "Release Date", value: file.releasingTime)
+                Divider()
+                metadataRow(label: "Publisher", value: file.publisher)
+                Divider()
+                metadataRow(label: "Copyright", value: file.copyright)
+                Divider()
+                metadataRow(label: "Credits", value: file.credits)
             }
             .padding(.vertical, 4)
         }
@@ -196,17 +206,17 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func technicalSection(_ file: AudioFile) -> some View {
-        GroupBox("技术信息") {
+        GroupBox("Technical Info") {
             VStack(spacing: 0) {
-                metadataRow(label: "时长", value: formatDuration(file.duration))
+                metadataRow(label: "Duration", value: formatDuration(file.duration))
                 Divider()
-                metadataRow(label: "比特率", value: "\(file.bitrate) kbps")
+                metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps")
                 Divider()
-                metadataRow(label: "采样率", value: "\(Int(file.sampleRate)) Hz")
+                metadataRow(label: "Sample Rate", value: "\(Int(file.sampleRate)) Hz")
                 Divider()
-                metadataRow(label: "声道", value: "\(file.channels)")
+                metadataRow(label: "Channels", value: "\(file.channels)")
                 Divider()
-                metadataRow(label: "格式", value: file.format)
+                metadataRow(label: "Format", value: file.format)
             }
             .padding(.vertical, 4)
         }
@@ -214,13 +224,15 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func metadataRow(label: String, value: String?) -> some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
+                .font(.body)
             Spacer()
             Text(value ?? "—")
+                .font(.body)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 10)
     }
 
     private func formatDuration(_ seconds: Double?) -> String {

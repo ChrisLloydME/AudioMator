@@ -27,6 +27,11 @@ struct AudioFile: Identifiable {
     let disc: Int
     let discTotal: Int
     let year: String
+    let albumArtist: String
+    let releasingTime: String
+    let publisher: String
+    let copyright: String
+    let credits: String
 
     // MARK: – Technical
     let duration: Double
@@ -38,12 +43,37 @@ struct AudioFile: Identifiable {
     // MARK: – Artwork
     let artwork: NSImage?
 
+    private static func readMetadata(from asset: AVAsset, commonKeys: [AVMetadataKey], id3Keys: [String] = [], itunesKeys: [String] = []) -> String {
+        let metadata = asset.metadata
+        for key in commonKeys {
+            let items = AVMetadataItem.metadataItems(from: metadata, withKey: key, keySpace: .common)
+            if let value = items.first?.stringValue, !value.isEmpty {
+                return value
+            }
+        }
+        for key in id3Keys {
+            let items = AVMetadataItem.metadataItems(from: metadata, withKey: key, keySpace: .id3)
+            if let value = items.first?.stringValue, !value.isEmpty {
+                return value
+            }
+        }
+        for key in itunesKeys {
+            let items = AVMetadataItem.metadataItems(from: metadata, withKey: key, keySpace: .iTunes)
+            if let value = items.first?.stringValue, !value.isEmpty {
+                return value
+            }
+        }
+        return ""
+    }
+
     init(url: URL) async throws {
         self.url = url
 
         // ⭐ 使用正确的初始化方法，自动读取 metadata
         let file = try SFBAudioEngine.AudioFile(readingPropertiesAndMetadataFrom: url)
         let meta = file.metadata
+
+        let asset = AVURLAsset(url: url)
 
         self.title = meta.title ?? ""
         self.artist = meta.artist ?? ""
@@ -58,9 +88,27 @@ struct AudioFile: Identifiable {
         self.discTotal = meta.discTotal ?? 0
 
         self.year = meta.releaseDate ?? ""
+        self.albumArtist = meta.albumArtist ?? ""
+        self.releasingTime = meta.releaseDate ?? ""
+        self.publisher = AudioFile.readMetadata(
+            from: asset,
+            commonKeys: [.commonKeyPublisher],
+            id3Keys: ["TPUB"]
+        )
+
+        self.copyright = AudioFile.readMetadata(
+            from: asset,
+            commonKeys: [.commonKeyCopyrights],
+            id3Keys: ["TCOP"]
+        )
+
+        self.credits = AudioFile.readMetadata(
+            from: asset,
+            commonKeys: [],
+            id3Keys: ["TEXT"]
+        )
 
         // MARK: – Technical info via AVFoundation
-        let asset = AVURLAsset(url: url)
 
         let durationTime = try await asset.load(.duration)
         self.duration = CMTimeGetSeconds(durationTime)

@@ -83,6 +83,9 @@ struct ContentPane: View {
                     TableColumn("专辑") { file in
                         Text(file.album)
                     }
+                    TableColumn("时长") { file in
+                        Text(formatDuration(file.duration))
+                    }
                 }
             }
         }
@@ -105,7 +108,9 @@ struct InspectorPane: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         fileSection(file)
+                        artworkSection(file)
                         metadataSection(file)
+                        technicalSection(file)
                     }
                     .padding()
                 }
@@ -138,9 +143,35 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
+    private func artworkSection(_ file: AudioFile) -> some View {
+        GroupBox("封面") {
+            VStack {
+                if let image = file.artwork {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 200)
+                        .cornerRadius(8)
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.secondary.opacity(0.1))
+                            .frame(width: 200, height: 200)
+                        Image(systemName: "photo")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+        }
+    }
+
+    @ViewBuilder
     private func metadataSection(_ file: AudioFile) -> some View {
         GroupBox("元数据") {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 0) {
                 metadataRow(label: "标题", value: file.title)
                 Divider()
                 metadataRow(label: "艺术家", value: file.artist)
@@ -153,15 +184,32 @@ struct InspectorPane: View {
                 Divider()
                 metadataRow(label: "年份", value: file.year)
                 Divider()
-                metadataRow(label: "曲目", value: String(file.track))
+                metadataRow(label: "曲目", value: "\(file.track) / \(file.trackTotal)")
                 Divider()
-                metadataRow(label: "碟号", value: String(file.disc))
+                metadataRow(label: "碟号", value: "\(file.disc) / \(file.discTotal)")
                 Divider()
                 metadataRow(label: "备注", value: file.comment)
             }
             .padding(.vertical, 4)
         }
-        .groupBoxStyle(.automatic)
+    }
+
+    @ViewBuilder
+    private func technicalSection(_ file: AudioFile) -> some View {
+        GroupBox("技术信息") {
+            VStack(spacing: 0) {
+                metadataRow(label: "时长", value: formatDuration(file.duration))
+                Divider()
+                metadataRow(label: "比特率", value: "\(file.bitrate) kbps")
+                Divider()
+                metadataRow(label: "采样率", value: "\(Int(file.sampleRate)) Hz")
+                Divider()
+                metadataRow(label: "声道", value: "\(file.channels)")
+                Divider()
+                metadataRow(label: "格式", value: file.format)
+            }
+            .padding(.vertical, 4)
+        }
     }
 
     @ViewBuilder
@@ -175,13 +223,11 @@ struct InspectorPane: View {
         .padding(.vertical, 6)
     }
 
-
     private func formatDuration(_ seconds: Double?) -> String {
         guard let seconds else { return "—" }
         let total = Int(seconds)
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
-
 }
 
 #Preview {

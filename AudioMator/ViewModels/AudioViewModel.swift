@@ -28,13 +28,17 @@ final class AudioViewModel: ObservableObject {
         panel.title = "选择音频文件"
 
         guard panel.runModal() == .OK else { return }
-
-        var loaded: [AudioFile] = []
-        for url in panel.urls {
-            if let file = try? AudioFile(url: url) {
-                loaded.append(file)
+        let urls = panel.urls
+        Task {
+            var loaded: [AudioFile] = []
+            for url in urls {
+                if let file = try? await AudioFile(url: url) {
+                    loaded.append(file)
+                }
+            }
+            await MainActor.run {
+                files.append(contentsOf: loaded)
             }
         }
-        files.append(contentsOf: loaded)
     }
 }

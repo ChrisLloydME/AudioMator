@@ -38,7 +38,7 @@ struct AudioFile: Identifiable {
     // MARK: – Artwork
     let artwork: NSImage?
 
-    init(url: URL) throws {
+    init(url: URL) async throws {
         self.url = url
 
         // ⭐ 使用正确的初始化方法，自动读取 metadata
@@ -62,21 +62,21 @@ struct AudioFile: Identifiable {
         // MARK: – Technical info via AVFoundation
         let asset = AVURLAsset(url: url)
 
-        var durationSeconds: Double = 0
-        var bitrateKbps: Int = 0
-        var sampleRateHz: Double = 0
-        var channelsCount: Int = 0
-        var formatName: String = ""
+        let durationTime = try await asset.load(.duration)
+        self.duration = CMTimeGetSeconds(durationTime)
 
-        // Duration
-        durationSeconds = CMTimeGetSeconds(asset.duration)
+        var bitrateKbps = 0
+        var sampleRateHz = 0.0
+        var channelsCount = 0
+        var formatName = ""
 
-        // Use first audio track for technical details
-        if let track = asset.tracks(withMediaType: .audio).first {
-            // estimatedDataRate is in bits per second
-            bitrateKbps = Int(track.estimatedDataRate / 1000)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        if let track = audioTracks.first {
+            let estimatedRate = try await track.load(.estimatedDataRate)
+            bitrateKbps = Int(estimatedRate / 1000)
 
-            if let formatDescAny = track.formatDescriptions.first,
+            let descriptions = try await track.load(.formatDescriptions)
+            if let formatDescAny = descriptions.first,
                CFGetTypeID(formatDescAny as CFTypeRef) == CMFormatDescriptionGetTypeID(),
                let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescAny as! CMAudioFormatDescription) {
                 let asbd = asbdPtr.pointee
@@ -94,29 +94,30 @@ struct AudioFile: Identifiable {
             }
         }
 
-        self.duration = durationSeconds
         self.bitrate = bitrateKbps
         self.sampleRate = sampleRateHz
         self.channels = channelsCount
         self.format = formatName
 
         // MARK: – Artwork via AVFoundation
-        var artworkImage: NSImage? = nil
-
+        let metadataItems = try await asset.load(.commonMetadata)
         let commonArtwork = AVMetadataItem.metadataItems(
-            from: asset.commonMetadata,
+            from: metadataItems,
             withKey: AVMetadataKey.commonKeyArtwork,
             keySpace: .common
         )
 
         if let item = commonArtwork.first {
-            if let data = item.dataValue {
-                artworkImage = NSImage(data: data)
-            } else if let value = item.value as? Data {
-                artworkImage = NSImage(data: value)
+            if let data = try? await item.load(.dataValue) {
+                self.artwork = NSImage(data: data)
+            } else if let value = try? await item.load(.value),
+                      let data = value as? Data {
+                self.artwork = NSImage(data: data)
+            } else {
+                self.artwork = nil
             }
+        } else {
+            self.artwork = nil
         }
-
-        self.artwork = artworkImage
     }
 }

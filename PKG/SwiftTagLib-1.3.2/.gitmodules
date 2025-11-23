@@ -1,0 +1,6 @@
+[submodule "XCFrameworkPackage/Sources/taglib/taglib"]
+	path = XCFrameworkPackage/Sources/taglib/taglib
+	url = https://github.com/taglib/taglib
+[submodule "XCFrameworkPackage/Sources/taglib/utfcpp"]
+	path = XCFrameworkPackage/Sources/taglib/utfcpp
+	url = https://github.com/nemtrif/utfcpp

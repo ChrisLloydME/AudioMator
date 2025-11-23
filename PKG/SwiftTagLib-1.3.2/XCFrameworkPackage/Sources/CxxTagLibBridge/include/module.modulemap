@@ -1,0 +1,15 @@
+
+module CxxTagLibBridge {
+    requires cplusplus20
+    
+    header "CxxTagLibBridge/InterfaceEnums.hpp"
+    header "CxxTagLibBridge/AudioProperties.hpp"
+    header "CxxTagLibBridge/AudioMetadata.hpp"
+    header "CxxTagLibBridge/AbstractAudioFile.hpp"
+    header "CxxTagLibBridge/AudioFile.hpp"
+
+    link "CoreFoundation"
+    link "ImageIO"
+
+    export *
+}

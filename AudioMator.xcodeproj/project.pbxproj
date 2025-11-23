@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6ED09D842ED2F8AD0031CDAD /* SFBAudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 6ED09D832ED2F8AD0031CDAD /* SFBAudioEngine */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		6ED09D162ED1ED550031CDAD /* AudioMator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioMator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6ED09D842ED2F8AD0031CDAD /* SFBAudioEngine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +38,7 @@
 			isa = PBXGroup;
 			children = (
 				6ED09D182ED1ED550031CDAD /* AudioMator */,
+				6ED09D812ED2F8360031CDAD /* Frameworks */,
 				6ED09D172ED1ED550031CDAD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +49,13 @@
 				6ED09D162ED1ED550031CDAD /* AudioMator.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6ED09D812ED2F8360031CDAD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,6 +78,7 @@
 			);
 			name = AudioMator;
 			packageProductDependencies = (
+				6ED09D832ED2F8AD0031CDAD /* SFBAudioEngine */,
 			);
 			productName = AudioMator;
 			productReference = 6ED09D162ED1ED550031CDAD /* AudioMator.app */;
@@ -94,6 +108,9 @@
 			);
 			mainGroup = 6ED09D0D2ED1ED550031CDAD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6ED09D822ED2F8AD0031CDAD /* XCRemoteSwiftPackageReference "SFBAudioEngine" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6ED09D172ED1ED550031CDAD /* Products */;
 			projectDirPath = "";
@@ -333,6 +350,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6ED09D822ED2F8AD0031CDAD /* XCRemoteSwiftPackageReference "SFBAudioEngine" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sbooth/SFBAudioEngine";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6ED09D832ED2F8AD0031CDAD /* SFBAudioEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6ED09D822ED2F8AD0031CDAD /* XCRemoteSwiftPackageReference "SFBAudioEngine" */;
+			productName = SFBAudioEngine;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6ED09D0E2ED1ED550031CDAD /* Project object */;
 }

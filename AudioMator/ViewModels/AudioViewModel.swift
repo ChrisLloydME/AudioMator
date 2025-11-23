@@ -29,14 +29,12 @@ final class AudioViewModel: ObservableObject {
 
         guard panel.runModal() == .OK else { return }
 
-        Task {
-            var loaded: [AudioFile] = []
-            for url in panel.urls {
-                if let file = try? await AudioFile.load(from: url) {
-                    loaded.append(file)
-                }
+        var loaded: [AudioFile] = []
+        for url in panel.urls {
+            if let file = try? AudioFile(url: url) {
+                loaded.append(file)
             }
-            files.append(contentsOf: loaded)
         }
+        files.append(contentsOf: loaded)
     }
 }

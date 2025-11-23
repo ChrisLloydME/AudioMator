@@ -75,16 +75,13 @@ struct ContentPane: View {
                         Text(file.url.lastPathComponent)
                     }
                     TableColumn("标题") { file in
-                        Text(file.title ?? "—")
+                        Text(file.title)
                     }
                     TableColumn("艺术家") { file in
-                        Text(file.artist ?? "—")
+                        Text(file.artist)
                     }
                     TableColumn("专辑") { file in
-                        Text(file.album ?? "—")
-                    }
-                    TableColumn("时长") { file in
-                        Text(formatDuration(file.duration))
+                        Text(file.album)
                     }
                 }
             }
@@ -109,8 +106,6 @@ struct InspectorPane: View {
                     VStack(alignment: .leading, spacing: 16) {
                         fileSection(file)
                         metadataSection(file)
-                        technicalSection(file)
-                        artworkSection(file)
                     }
                     .padding()
                 }
@@ -137,11 +132,6 @@ struct InspectorPane: View {
                 Text(file.url.path)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if let size = file.fileSize {
-                    Text(fileSizeString(bytes: size))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -161,13 +151,13 @@ struct InspectorPane: View {
                 Divider()
                 metadataRow(label: "风格", value: file.genre)
                 Divider()
-                metadataRow(label: "年份", value: file.year.map(String.init))
+                metadataRow(label: "年份", value: file.year)
                 Divider()
-                metadataRow(label: "曲目", value: file.trackNumber.map(String.init))
+                metadataRow(label: "曲目", value: String(file.track))
                 Divider()
-                metadataRow(label: "碟号", value: file.discNumber.map(String.init))
+                metadataRow(label: "碟号", value: String(file.disc))
                 Divider()
-                metadataRow(label: "备注", value: file.comments)
+                metadataRow(label: "备注", value: file.comment)
             }
             .padding(.vertical, 4)
         }
@@ -185,52 +175,6 @@ struct InspectorPane: View {
         .padding(.vertical, 6)
     }
 
-    @ViewBuilder
-    private func technicalSection(_ file: AudioFile) -> some View {
-        GroupBox("技术") {
-            VStack(alignment: .leading, spacing: 0) {
-                technicalRow(label: "时长", value: formatDuration(file.duration))
-                Divider()
-                technicalRow(label: "比特率", value: file.bitrate.map { "\($0) kbps" })
-                Divider()
-                technicalRow(label: "采样率", value: file.sampleRate.map { String(format: "%.0f Hz", $0) })
-                Divider()
-                technicalRow(label: "声道", value: file.channels.map(String.init))
-                Divider()
-                technicalRow(label: "格式", value: file.fileFormat)
-            }
-            .padding(.vertical, 4)
-        }
-        .groupBoxStyle(.automatic)
-    }
-
-    @ViewBuilder
-    private func technicalRow(label: String, value: String?) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Text(value ?? "—")
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 6)
-    }
-
-    @ViewBuilder
-    private func artworkSection(_ file: AudioFile) -> some View {
-        GroupBox("封面") {
-            if let artwork = file.artwork {
-                Image(nsImage: artwork)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 240)
-                    .cornerRadius(12)
-                    .shadow(radius: 6)
-            } else {
-                ContentUnavailableView("无封面", systemImage: "photo")
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
 
     private func formatDuration(_ seconds: Double?) -> String {
         guard let seconds else { return "—" }
@@ -238,12 +182,6 @@ struct InspectorPane: View {
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
 
-    private func fileSizeString(bytes: Int?) -> String {
-        guard let bytes else { return "—" }
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: Int64(bytes))
-    }
 }
 
 #Preview {

@@ -100,6 +100,8 @@ struct ContentPane: View {
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    
+    @State private var editingMetadata = AudioMetadataEditor()
 
     var body: some View {
         Group {
@@ -112,6 +114,17 @@ struct InspectorPane: View {
                         technicalSection(file)
                     }
                     .padding()
+                }
+                .onAppear {
+                    if let file = selectedFiles.first {
+                        editingMetadata.title = file.title
+                        editingMetadata.artist = file.artist
+                        editingMetadata.album = file.album
+                        editingMetadata.composer = file.composer
+                        editingMetadata.genre = file.genre
+                        editingMetadata.year = file.year
+                        editingMetadata.comment = file.comment
+                    }
                 }
             } else if selectedFiles.count > 1 {
                 let merged = MergedAudioFile(files: selectedFiles)
@@ -178,23 +191,19 @@ struct InspectorPane: View {
     private func metadataSection(_ file: AudioFile) -> some View {
         GroupBox("Metadata") {
             VStack(spacing: 6) {
-                metadataRow(label: "Title", value: file.title)
+                editableRow(label: "Title", text: $editingMetadata.title)
                 Divider()
-                metadataRow(label: "Artist", value: file.artist)
+                editableRow(label: "Artist", text: $editingMetadata.artist)
                 Divider()
-                metadataRow(label: "Album", value: file.album)
+                editableRow(label: "Album", text: $editingMetadata.album)
                 Divider()
-                metadataRow(label: "Composer", value: file.composer)
+                editableRow(label: "Composer", text: $editingMetadata.composer)
                 Divider()
-                metadataRow(label: "Genre", value: file.genre)
+                editableRow(label: "Genre", text: $editingMetadata.genre)
                 Divider()
-                metadataRow(label: "Year", value: file.year)
+                editableRow(label: "Year", text: $editingMetadata.year)
                 Divider()
-                metadataRow(label: "Track", value: "\(file.track) / \(file.trackTotal)")
-                Divider()
-                metadataRow(label: "Disc", value: "\(file.disc) / \(file.discTotal)")
-                Divider()
-                metadataRow(label: "Comment", value: file.comment)
+                editableRow(label: "Comment", text: $editingMetadata.comment)
                 Divider()
                 metadataRow(label: "Album Artist", value: file.albumArtist)
                 Divider()
@@ -241,11 +250,33 @@ struct InspectorPane: View {
         .padding(.vertical, 14)    // balanced vertical centering between dividers
     }
 
+    @ViewBuilder
+    private func editableRow(label: String, text: Binding<String>) -> some View {
+        HStack {
+            Text(label).font(.headline)
+            Spacer()
+            TextField("", text: text)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 200)
+        }
+        .padding(.vertical, 14)
+    }
+
     private func formatDuration(_ seconds: Double?) -> String {
         guard let seconds else { return "—" }
         let total = Int(seconds)
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
+}
+
+struct AudioMetadataEditor {
+    var title: String = ""
+    var artist: String = ""
+    var album: String = ""
+    var composer: String = ""
+    var genre: String = ""
+    var year: String = ""
+    var comment: String = ""
 }
 
 #Preview {

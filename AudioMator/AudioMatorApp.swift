@@ -31,10 +31,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct AudioMatorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var viewModel = AudioViewModel()
+    @StateObject private var sharedState = SharedState()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .frame(minWidth: 900, minHeight: 600)
+                .environmentObject(viewModel)
+                .environmentObject(sharedState)
+        }
+        .commands {
+            CommandGroup(after: .textEditing) {
+                Button("Select All") {
+                    sharedState.selectedAudioIDs = Set(viewModel.files.map { $0.id })
+                }
+                .keyboardShortcut("a", modifiers: .command)
+            }
         }
         .defaultSize(width: 900, height: 600)
     }

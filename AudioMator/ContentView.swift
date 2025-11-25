@@ -11,7 +11,7 @@ import Combine
 
 final class SharedState: ObservableObject {
     @Published var selectedSidebarItem: String? = "all"
-    @Published var selectedAudioID: AudioFile.ID?
+    @Published var selectedAudioIDs: Set<AudioFile.ID> = []
 }
 
 struct ContentView: View {
@@ -54,6 +54,7 @@ struct SidebarPane: View {
 struct ContentPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    @FocusState private var tableFocused: Bool
 
     var body: some View {
         Group {
@@ -66,10 +67,7 @@ struct ContentPane: View {
             } else {
                 Table(
                     viewModel.files,
-                    selection: Binding(
-                        get: { state.selectedAudioID },
-                        set: { state.selectedAudioID = $0 }
-                    )
+                    selection: $state.selectedAudioIDs
                 ) {
                     TableColumn("Filename") { file in
                         Text(file.url.lastPathComponent)
@@ -87,6 +85,7 @@ struct ContentPane: View {
                         Text(formatDuration(file.duration))
                     }
                 }
+                .focused($tableFocused)
             }
         }
     }
@@ -104,13 +103,21 @@ struct InspectorPane: View {
 
     var body: some View {
         Group {
-            if let file = selectedFile {
+            if selectedFiles.count == 1, let file = selectedFiles.first {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         fileSection(file)
                         artworkSection(file)
                         metadataSection(file)
                         technicalSection(file)
+                    }
+                    .padding()
+                }
+            } else if selectedFiles.count > 1 {
+                let merged = MergedAudioFile(files: selectedFiles)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        mergedMetadataSection(merged)
                     }
                     .padding()
                 }
@@ -123,9 +130,8 @@ struct InspectorPane: View {
         }
     }
 
-    private var selectedFile: AudioFile? {
-        guard let id = state.selectedAudioID else { return nil }
-        return viewModel.files.first { $0.id == id }
+    private var selectedFiles: [AudioFile] {
+        viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
     }
 
     @ViewBuilder
@@ -224,15 +230,15 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func metadataRow(label: String, value: String?) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Text(label)
-                .font(.body)
+                .font(.headline)   // bold
             Spacer()
             Text(value ?? "—")
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 14)    // balanced vertical centering between dividers
     }
 
     private func formatDuration(_ seconds: Double?) -> String {
@@ -244,4 +250,92 @@ struct InspectorPane: View {
 
 #Preview {
     ContentView()
+}
+
+struct MergedAudioFile {
+    let title: String
+    let artist: String
+    let album: String
+    let composer: String
+    let genre: String
+    let year: String
+    let track: String
+    let disc: String
+    let comment: String
+    let albumArtist: String
+    let releaseDate: String
+    let publisher: String
+    let copyright: String
+    let credits: String
+
+    init(files: [AudioFile]) {
+        func merge(_ values: [String]) -> String {
+            guard let first = values.first else { return "—" }
+            return values.allSatisfy { $0 == first } ? first : "—"
+        }
+
+        title = merge(files.map { $0.title })
+        artist = merge(files.map { $0.artist })
+        album = merge(files.map { $0.album })
+        composer = merge(files.map { $0.composer })
+        genre = merge(files.map { $0.genre })
+        year = merge(files.map { $0.year })
+        track = merge(files.map { "\($0.track) / \($0.trackTotal)" })
+        disc = merge(files.map { "\($0.disc) / \($0.discTotal)" })
+        comment = merge(files.map { $0.comment })
+        albumArtist = merge(files.map { $0.albumArtist })
+        releaseDate = merge(files.map { $0.releasingTime })
+        publisher = merge(files.map { $0.publisher })
+        copyright = merge(files.map { $0.copyright })
+        credits = merge(files.map { $0.credits })
+    }
+}
+
+@ViewBuilder
+private func metadataRow(label: String, value: String?) -> some View {
+    HStack(alignment: .center, spacing: 12) {
+        Text(label)
+            .font(.headline)
+        Spacer()
+        Text(value ?? "—")
+            .font(.body)
+            .foregroundStyle(.secondary)
+    }
+    .padding(.vertical, 14)
+}
+
+@ViewBuilder
+private func mergedMetadataSection(_ m: MergedAudioFile) -> some View {
+    GroupBox("Metadata (Multiple Files)") {
+        VStack(spacing: 6) {
+            metadataRow(label: "Title", value: m.title)
+            Divider()
+            metadataRow(label: "Artist", value: m.artist)
+            Divider()
+            metadataRow(label: "Album", value: m.album)
+            Divider()
+            metadataRow(label: "Composer", value: m.composer)
+            Divider()
+            metadataRow(label: "Genre", value: m.genre)
+            Divider()
+            metadataRow(label: "Year", value: m.year)
+            Divider()
+            metadataRow(label: "Track", value: m.track)
+            Divider()
+            metadataRow(label: "Disc", value: m.disc)
+            Divider()
+            metadataRow(label: "Comment", value: m.comment)
+            Divider()
+            metadataRow(label: "Album Artist", value: m.albumArtist)
+            Divider()
+            metadataRow(label: "Release Date", value: m.releaseDate)
+            Divider()
+            metadataRow(label: "Publisher", value: m.publisher)
+            Divider()
+            metadataRow(label: "Copyright", value: m.copyright)
+            Divider()
+            metadataRow(label: "Credits", value: m.credits)
+        }
+        .padding(.vertical, 4)
+    }
 }

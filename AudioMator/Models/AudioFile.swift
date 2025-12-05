@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import SFBAudioEngine
+// import SFBAudioEngine
 import AVFoundation
 import CoreMedia
 import AppKit
@@ -70,10 +70,9 @@ struct AudioFile: Identifiable {
         self.url = url
 
         // ⭐ 使用正确的初始化方法，自动读取 metadata
+        /*
         let file = try SFBAudioEngine.AudioFile(readingPropertiesAndMetadataFrom: url)
         let meta = file.metadata
-
-        let asset = AVURLAsset(url: url)
 
         self.title = meta.title ?? ""
         self.artist = meta.artist ?? ""
@@ -90,6 +89,39 @@ struct AudioFile: Identifiable {
         self.year = meta.releaseDate ?? ""
         self.albumArtist = meta.albumArtist ?? ""
         self.releasingTime = meta.releaseDate ?? ""
+        */
+        if let tag = TagLibMetadataManager.readMetadata(from: url) {
+            self.title       = tag.title
+            self.artist      = tag.artist
+            self.album       = tag.album
+            self.composer    = tag.composer
+            self.genre       = tag.genre
+            self.comment     = tag.comment
+            self.track       = tag.track
+            self.trackTotal  = tag.trackTotal
+            self.disc        = tag.disc
+            self.discTotal   = tag.discTotal
+            self.year        = tag.year
+            self.albumArtist = tag.albumArtist
+            self.releasingTime = tag.year
+        } else {
+            self.title       = ""
+            self.artist      = ""
+            self.album       = ""
+            self.composer    = ""
+            self.genre       = ""
+            self.comment     = ""
+            self.track       = 0
+            self.trackTotal  = 0
+            self.disc        = 0
+            self.discTotal   = 0
+            self.year        = ""
+            self.albumArtist = ""
+            self.releasingTime = ""
+        }
+
+        let asset = AVURLAsset(url: url)
+
         self.publisher = AudioFile.readMetadata(
             from: asset,
             commonKeys: [.commonKeyPublisher],

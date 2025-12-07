@@ -25,7 +25,7 @@
 #include <iostream>
 #include <cstdlib>
 
-#include "taglib_config.h"
+// #include "taglib_config.h"
 #include "tbytevector.h"
 #include "mpegfile.h"
 #include "id3v2tag.h"

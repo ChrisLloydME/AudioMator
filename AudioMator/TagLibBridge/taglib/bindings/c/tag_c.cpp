@@ -30,7 +30,7 @@
 # include "config.h"
 #endif
 
-#include "taglib_config.h"
+// #include "taglib_config.h"
 #include "tstringlist.h"
 #include "tbytevectorstream.h"
 #include "tiostream.h"

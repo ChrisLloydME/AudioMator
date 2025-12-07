@@ -90,35 +90,21 @@ struct AudioFile: Identifiable {
         self.albumArtist = meta.albumArtist ?? ""
         self.releasingTime = meta.releaseDate ?? ""
         */
-        if let tag = TagLibMetadataManager.readMetadata(from: url) {
-            self.title       = tag.title
-            self.artist      = tag.artist
-            self.album       = tag.album
-            self.composer    = tag.composer
-            self.genre       = tag.genre
-            self.comment     = tag.comment
-            self.track       = tag.track
-            self.trackTotal  = tag.trackTotal
-            self.disc        = tag.disc
-            self.discTotal   = tag.discTotal
-            self.year        = tag.year
-            self.albumArtist = tag.albumArtist
-            self.releasingTime = tag.year
-        } else {
-            self.title       = ""
-            self.artist      = ""
-            self.album       = ""
-            self.composer    = ""
-            self.genre       = ""
-            self.comment     = ""
-            self.track       = 0
-            self.trackTotal  = 0
-            self.disc        = 0
-            self.discTotal   = 0
-            self.year        = ""
-            self.albumArtist = ""
-            self.releasingTime = ""
-        }
+        let tag = TagLibMetadataManager.readMetadata(from: url)
+
+        self.title       = tag.title
+        self.artist      = tag.artist
+        self.album       = tag.album
+        self.composer    = tag.composer
+        self.genre       = tag.genre
+        self.comment     = tag.comment
+        self.track       = tag.track
+        self.trackTotal  = tag.trackTotal
+        self.disc        = tag.disc
+        self.discTotal   = tag.discTotal
+        self.year        = tag.year
+        self.albumArtist = tag.albumArtist
+        self.releasingTime = tag.year
 
         let asset = AVURLAsset(url: url)
 

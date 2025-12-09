@@ -134,6 +134,14 @@ struct InspectorPane: View {
     @State private var inspectorQuickBinding: Binding<String>? = nil
     @State private var isInspectorQuickPresented: Bool = false
 
+    private var inspectorQuickPreview: String {
+        let text = inspectorQuickText
+        if text.isEmpty {
+            return " "
+        }
+        return text.replacingOccurrences(of: " ", with: "·")
+    }
+
     private func binding(for file: AudioFile,
                          keyPath: WritableKeyPath<SingleFileEditModel, String>) -> Binding<String> {
         Binding<String>(
@@ -183,10 +191,43 @@ struct InspectorPane: View {
         .sheet(isPresented: $isInspectorQuickPresented) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Edit \(inspectorQuickLabel)")
-                    .font(.headline)
+                    .font(.title2)
+                    .fontWeight(.semibold)
 
-                TextField("", text: $inspectorQuickText)
-                    .textFieldStyle(.roundedBorder)
+                // Main editable area – monospaced like an editor
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $inspectorQuickText)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
+                        .frame(minHeight: 80, idealHeight: 140)
+
+                    // Hint text when empty
+                    if inspectorQuickText.isEmpty {
+                        Text("Enter text…")
+                            .foregroundStyle(.secondary)
+                            .font(.system(.body, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 10)
+                            .allowsHitTesting(false)
+                    }
+                }
+
+                // Preview area with label
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Preview:")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    Text(inspectorQuickPreview)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 HStack {
                     Spacer()
@@ -201,7 +242,7 @@ struct InspectorPane: View {
                 }
             }
             .padding()
-            .frame(width: 420)
+            .frame(width: 480)
         }
     }
 

@@ -1001,6 +1001,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
 
 
 // Write metadata to file (currently only MP3/ID3v2 supported)
+// Write metadata to file (currently only MP3/ID3v2 supported)
 + (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
                 toURL:(NSURL *)fileURL
                 error:(NSError **)error
@@ -1027,6 +1028,22 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         return NO;
     }
     
+    // Log the incoming values so we can verify the bridge from Swift is correct
+    TLog(@"[WRITE-IN] '%@' title=%@ artist=%@ album=%@ composer=%@ genre=%@ comment=%@ albumArtist=%@ year=%@ track=%ld/%ld disc=%ld/%ld",
+         fileURL.lastPathComponent,
+         metadata.title ?: @"<nil>",
+         metadata.artist ?: @"<nil>",
+         metadata.album ?: @"<nil>",
+         metadata.composer ?: @"<nil>",
+         metadata.genre ?: @"<nil>",
+         metadata.comment ?: @"<nil>",
+         metadata.albumArtist ?: @"<nil>",
+         metadata.year ?: @"<nil>",
+         (long)metadata.trackNumber,
+         (long)metadata.totalTracks,
+         (long)metadata.discNumber,
+         (long)metadata.totalDiscs);
+    
     const char *filePath = fileURL.path.UTF8String;
     TagLib::MPEG::File mpegFile(filePath);
     
@@ -1052,22 +1069,29 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     }
     
     // --- Basic fields via TagLib::Tag ---
-    tag->setTitle(NSStringToTagString(metadata.title));
-    tag->setArtist(NSStringToTagString(metadata.artist));
-    tag->setAlbum(NSStringToTagString(metadata.album));
-    tag->setGenre(NSStringToTagString(metadata.genre));
-    tag->setComment(NSStringToTagString(metadata.comment));
+    // Only overwrite fields when we have a non-nil NSString from Swift.
+    if (metadata.title) {
+        tag->setTitle(NSStringToTagString(metadata.title));
+    }
+    if (metadata.artist) {
+        tag->setArtist(NSStringToTagString(metadata.artist));
+    }
+    if (metadata.album) {
+        tag->setAlbum(NSStringToTagString(metadata.album));
+    }
+    if (metadata.genre) {
+        tag->setGenre(NSStringToTagString(metadata.genre));
+    }
+    if (metadata.comment) {
+        tag->setComment(NSStringToTagString(metadata.comment));
+    }
     
     if (metadata.year.length > 0) {
         tag->setYear((unsigned int)metadata.year.integerValue);
-    } else {
-        tag->setYear(0);
     }
     
     if (metadata.trackNumber > 0) {
         tag->setTrack((unsigned int)metadata.trackNumber);
-    } else {
-        tag->setTrack(0);
     }
     
     // --- ID3v2-specific extended fields ---
@@ -1093,7 +1117,9 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             } else if (metadata.trackNumber > 0) {
                 trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
             }
-            SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
+            if (trackString.length > 0) {
+                SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
+            }
         }
         
         // Disc number / total (TPOS)
@@ -1106,7 +1132,9 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             } else if (metadata.discNumber > 0) {
                 discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
             }
-            SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
+            if (discString.length > 0) {
+                SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
+            }
         }
         
         // Release date (TDRL) – prefer explicit releaseDate, fallback to year

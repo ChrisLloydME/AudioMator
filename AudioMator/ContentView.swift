@@ -28,10 +28,24 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
+            // 导入文件按钮
             ToolbarItem(placement: .primaryAction) {
                 Button(action: viewModel.addFiles) {
                     Image(systemName: "plus")
                 }
+            }
+
+            // 取消 / 保存（单文件编辑）
+            ToolbarItemGroup(placement: .automatic) {
+                Button("Cancel") {
+                    viewModel.cancelEditing()
+                }
+                .disabled(state.selectedAudioIDs.isEmpty)
+
+                Button("Save") {
+                    viewModel.saveSingleEdits()
+                }
+                .disabled(state.selectedAudioIDs.isEmpty)
             }
         }
     }
@@ -86,6 +100,16 @@ struct ContentPane: View {
                     }
                 }
                 .focused($tableFocused)
+                .onChange(of: state.selectedAudioIDs) { newSelection in
+                    // 将中间列表的选中同步到 ViewModel，并刷新右侧 Inspector 的编辑模型
+                    viewModel.selectedAudioIDs = newSelection
+                    viewModel.updateEditForSelection()
+                }
+                .onAppear {
+                    // 初次出现时也同步一次，以防已有选中状态
+                    viewModel.selectedAudioIDs = state.selectedAudioIDs
+                    viewModel.updateEditForSelection()
+                }
             }
         }
     }

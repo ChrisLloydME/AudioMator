@@ -124,8 +124,25 @@ struct ContentPane: View {
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
-    
-    @State private var editingMetadata = AudioMetadataEditor()
+
+    private func binding(for file: AudioFile,
+                         keyPath: WritableKeyPath<SingleFileEditModel, String>) -> Binding<String> {
+        Binding<String>(
+            get: {
+                viewModel.edit?[keyPath: keyPath] ?? ""
+            },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current[keyPath: keyPath] = newValue
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model[keyPath: keyPath] = newValue
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
 
     var body: some View {
         Group {
@@ -138,17 +155,6 @@ struct InspectorPane: View {
                         technicalSection(file)
                     }
                     .padding()
-                }
-                .onAppear {
-                    if let file = selectedFiles.first {
-                        editingMetadata.title = file.title
-                        editingMetadata.artist = file.artist
-                        editingMetadata.album = file.album
-                        editingMetadata.composer = file.composer
-                        editingMetadata.genre = file.genre
-                        editingMetadata.year = file.year
-                        editingMetadata.comment = file.comment
-                    }
                 }
             } else if selectedFiles.count > 1 {
                 let merged = MergedAudioFile(files: selectedFiles)
@@ -215,20 +221,23 @@ struct InspectorPane: View {
     private func metadataSection(_ file: AudioFile) -> some View {
         GroupBox("Metadata") {
             VStack(spacing: 6) {
-                editableRow(label: "Title", text: $editingMetadata.title)
+                // Editable fields – bound directly into viewModel.edit
+                editableRow(label: "Title", text: binding(for: file, keyPath: \.title))
                 Divider()
-                editableRow(label: "Artist", text: $editingMetadata.artist)
+                editableRow(label: "Artist", text: binding(for: file, keyPath: \.artist))
                 Divider()
-                editableRow(label: "Album", text: $editingMetadata.album)
+                editableRow(label: "Album", text: binding(for: file, keyPath: \.album))
                 Divider()
-                editableRow(label: "Composer", text: $editingMetadata.composer)
+                editableRow(label: "Composer", text: binding(for: file, keyPath: \.composer))
                 Divider()
-                editableRow(label: "Genre", text: $editingMetadata.genre)
+                editableRow(label: "Genre", text: binding(for: file, keyPath: \.genre))
                 Divider()
-                editableRow(label: "Year", text: $editingMetadata.year)
+                editableRow(label: "Year", text: binding(for: file, keyPath: \.year))
                 Divider()
-                editableRow(label: "Comment", text: $editingMetadata.comment)
+                editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
                 Divider()
+
+                // Read-only fields – still来自当前文件的合并视图
                 metadataRow(label: "Album Artist", value: file.albumArtist)
                 Divider()
                 metadataRow(label: "Release Date", value: file.releasingTime)
@@ -291,16 +300,6 @@ struct InspectorPane: View {
         let total = Int(seconds)
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
-}
-
-struct AudioMetadataEditor {
-    var title: String = ""
-    var artist: String = ""
-    var album: String = ""
-    var composer: String = ""
-    var genre: String = ""
-    var year: String = ""
-    var comment: String = ""
 }
 
 #Preview {

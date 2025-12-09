@@ -146,34 +146,49 @@ final class AudioViewModel: ObservableObject {
 
         let file = files[index]
 
-        // 当前只对 mp3 执行写入，其它格式直接跳过
+        // 目前只对 mp3 写标签
         guard file.url.pathExtension.lowercased() == "mp3" else {
             print("Skip non-mp3 write for: \(file.url.lastPathComponent)")
             return
         }
 
-        // 构造 TagLibAudioMetadata（桥接到 TagLib 的对象）
+        // 构造 TagLibAudioMetadata（桥接对象）
         let meta = TagLibAudioMetadata()
-        meta.title       = edit.title
-        meta.artist      = edit.artist
-        meta.album       = edit.album
-        meta.composer    = edit.composer
-        meta.genre       = edit.genre
-        meta.comment     = edit.comment
-        meta.albumArtist = edit.albumArtist
-        meta.year        = edit.year
-        meta.trackNumber = edit.track
-        meta.totalTracks = edit.trackTotal
-        meta.discNumber  = edit.disc
-        meta.totalDiscs  = edit.discTotal
-        // 如果之后在 SingleFileEditModel 里加了 releaseDate / copyright / label，
-        // 也可以在这里一并赋值给 meta.*
+
+        // 去掉首尾空格，避免无意写入带空格的标签
+        meta.title       = edit.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.artist      = edit.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.album       = edit.album.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.composer    = edit.composer.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.genre       = edit.genre.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.comment     = edit.comment.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.albumArtist = edit.albumArtist.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.year        = edit.year.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 负数一律视为 0，避免写入奇怪的轨道号
+        meta.trackNumber = max(0, edit.track)
+        meta.totalTracks = max(0, edit.trackTotal)
+        meta.discNumber  = max(0, edit.disc)
+        meta.totalDiscs  = max(0, edit.discTotal)
+
+        print("""
+        [AudioMator] Will write metadata for \(file.url.lastPathComponent)
+          title       = \(meta.title ?? "<nil>")
+          artist      = \(meta.artist ?? "<nil>")
+          album       = \(meta.album ?? "<nil>")
+          composer    = \(meta.composer ?? "<nil>")
+          genre       = \(meta.genre ?? "<nil>")
+          comment     = \(meta.comment ?? "<nil>")
+          albumArtist = \(meta.albumArtist ?? "<nil>")
+          year        = \(meta.year ?? "<nil>")
+          track       = \(meta.trackNumber) / \(meta.totalTracks)
+          disc        = \(meta.discNumber) / \(meta.totalDiscs)
+        """)
 
         do {
-            // 1. 使用 TagLib 写入 mp3 标签
             try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
 
-            // 2. 从磁盘重新读取一遍，刷新 UI 和 Inspector
+            // 写完重新从磁盘读一遍，刷新 UI
             Task {
                 if let reloaded = try? await AudioFile(url: file.url) {
                     await MainActor.run {

@@ -88,6 +88,7 @@ static inline void TLog(NSString *format, ...) {
 
 #pragma mark - Helper Functions
 
+
 // Convert TagLib::String to NSString
 static NSString* _Nullable TagStringToNSString(const TagLib::String& str) {
     if (str.isEmpty()) {
@@ -120,6 +121,44 @@ static void ParseNumberPair(const TagLib::String& str, NSInteger& number, NSInte
     } else {
         number = str.toInt();
     }
+}
+
+// Convert NSString to TagLib::String (UTF-8)
+static TagLib::String NSStringToTagString(NSString * _Nullable string) {
+    if (!string || string.length == 0) {
+        return TagLib::String();
+    }
+    return TagLib::String(string.UTF8String, TagLib::String::UTF8);
+}
+
+// Ensure an ID3v2 text frame exists and set its text
+static void SetID3v2TextFrame(TagLib::ID3v2::Tag *tag,
+                              const char *frameID,
+                              NSString * _Nullable value) {
+    if (!tag || !frameID) {
+        return;
+    }
+    if (!value || value.length == 0) {
+        // For now, do not remove frames when the value is empty.
+        return;
+    }
+    
+    TagLib::ID3v2::FrameList frames = tag->frameList(frameID);
+    TagLib::ID3v2::TextIdentificationFrame *textFrame = nullptr;
+    
+    if (!frames.isEmpty()) {
+        textFrame = dynamic_cast<TagLib::ID3v2::TextIdentificationFrame *>(frames.front());
+    }
+    
+    TagLib::String tValue(value.UTF8String, TagLib::String::UTF8);
+    
+    if (!textFrame) {
+        TagLib::ByteVector id(frameID, 4);
+        textFrame = new TagLib::ID3v2::TextIdentificationFrame(id, TagLib::String::UTF8);
+        tag->addFrame(textFrame);
+    }
+    
+    textFrame->setText(tValue);
 }
 
 #pragma mark - Format-Specific Extraction
@@ -268,7 +307,7 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
         }
         // Attached picture (album art)
         else if (auto picFrame = dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(frame)) {
-            if (metadata.artworkData == nil && 
+            if (metadata.artworkData == nil &&
                 picFrame->type() == TagLib::ID3v2::AttachedPictureFrame::FrontCover) {
                 TagLib::ByteVector picData = picFrame->picture();
                 metadata.artworkData = [NSData dataWithBytes:picData.data() length:picData.size()];
@@ -675,7 +714,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
                 }
             }
             if (startPos < coverData.size()) {
-                metadata.artworkData = [NSData dataWithBytes:coverData.data() + startPos 
+                metadata.artworkData = [NSData dataWithBytes:coverData.data() + startPos
                                                       length:coverData.size() - startPos];
             }
         }
@@ -684,7 +723,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
 
 #pragma mark - Main Extraction Method
 
-+ (nullable TagLibAudioMetadata *)extractMetadataFromURL:(NSURL *)fileURL 
++ (nullable TagLibAudioMetadata *)extractMetadataFromURL:(NSURL *)fileURL
                                                    error:(NSError **)error {
     if (!fileURL || ![fileURL isFileURL]) {
         if (error) {
@@ -958,6 +997,149 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     }
     
     return metadata;
+}
+
+
+// Write metadata to file (currently only MP3/ID3v2 supported)
++ (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
+                toURL:(NSURL *)fileURL
+                error:(NSError **)error
+{
+    if (!fileURL || ![fileURL isFileURL]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:10
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file URL" }];
+        }
+        return NO;
+    }
+    
+    NSString *ext = fileURL.pathExtension.lowercaseString;
+    
+    // For now we only support writing MP3 (ID3v2) tags.
+    if (![ext isEqualToString:@"mp3"]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:11
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing metadata is currently supported only for MP3 files" }];
+        }
+        TLog(@"Write skipped for '%@' (extension '%@' not supported for writing)", fileURL.lastPathComponent, ext);
+        return NO;
+    }
+    
+    const char *filePath = fileURL.path.UTF8String;
+    TagLib::MPEG::File mpegFile(filePath);
+    
+    if (!mpegFile.isValid()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:12
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing metadata" }];
+        }
+        TLog(@"Failed to open '%@' for writing", fileURL.lastPathComponent);
+        return NO;
+    }
+    
+    TagLib::Tag *tag = mpegFile.tag();
+    if (!tag) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:13
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write metadata into" }];
+        }
+        TLog(@"No tag object available for '%@'", fileURL.lastPathComponent);
+        return NO;
+    }
+    
+    // --- Basic fields via TagLib::Tag ---
+    tag->setTitle(NSStringToTagString(metadata.title));
+    tag->setArtist(NSStringToTagString(metadata.artist));
+    tag->setAlbum(NSStringToTagString(metadata.album));
+    tag->setGenre(NSStringToTagString(metadata.genre));
+    tag->setComment(NSStringToTagString(metadata.comment));
+    
+    if (metadata.year.length > 0) {
+        tag->setYear((unsigned int)metadata.year.integerValue);
+    } else {
+        tag->setYear(0);
+    }
+    
+    if (metadata.trackNumber > 0) {
+        tag->setTrack((unsigned int)metadata.trackNumber);
+    } else {
+        tag->setTrack(0);
+    }
+    
+    // --- ID3v2-specific extended fields ---
+    TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true); // create if missing
+    if (id3v2Tag) {
+        // Album artist (TPE2)
+        if (metadata.albumArtist) {
+            SetID3v2TextFrame(id3v2Tag, "TPE2", metadata.albumArtist);
+        }
+        
+        // Composer (TCOM)
+        if (metadata.composer) {
+            SetID3v2TextFrame(id3v2Tag, "TCOM", metadata.composer);
+        }
+        
+        // Track number / total (TRCK)
+        if (metadata.trackNumber > 0 || metadata.totalTracks > 0) {
+            NSString *trackString = nil;
+            if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
+                trackString = [NSString stringWithFormat:@"%ld/%ld",
+                               (long)metadata.trackNumber,
+                               (long)metadata.totalTracks];
+            } else if (metadata.trackNumber > 0) {
+                trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
+            }
+            SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
+        }
+        
+        // Disc number / total (TPOS)
+        if (metadata.discNumber > 0 || metadata.totalDiscs > 0) {
+            NSString *discString = nil;
+            if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
+                discString = [NSString stringWithFormat:@"%ld/%ld",
+                              (long)metadata.discNumber,
+                              (long)metadata.totalDiscs];
+            } else if (metadata.discNumber > 0) {
+                discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
+            }
+            SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
+        }
+        
+        // Release date (TDRL) – prefer explicit releaseDate, fallback to year
+        if (metadata.releaseDate.length > 0) {
+            SetID3v2TextFrame(id3v2Tag, "TDRL", metadata.releaseDate);
+        } else if (metadata.year.length > 0) {
+            SetID3v2TextFrame(id3v2Tag, "TDRL", metadata.year);
+        }
+        
+        // Copyright (TCOP)
+        if (metadata.copyright.length > 0) {
+            SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
+        }
+        
+        // Publisher / label (TPUB)
+        if (metadata.label.length > 0) {
+            SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
+        }
+    }
+    
+    // --- Save ---
+    if (!mpegFile.save()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:14
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to file" }];
+        }
+        TLog(@"TagLib save() failed for '%@'", fileURL.lastPathComponent);
+        return NO;
+    }
+    
+    TLog(@"Successfully wrote metadata to '%@'", fileURL.lastPathComponent);
+    return YES;
 }
 
 #pragma mark - Format Support

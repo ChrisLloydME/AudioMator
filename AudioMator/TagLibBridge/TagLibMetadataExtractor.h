@@ -109,8 +109,18 @@ NS_ASSUME_NONNULL_BEGIN
 /// @param fileURL URL to the audio file
 /// @param error Error pointer for error handling
 /// @return Metadata object or nil if extraction fails
-+ (nullable TagLibAudioMetadata *)extractMetadataFromURL:(NSURL *)fileURL 
++ (nullable TagLibAudioMetadata *)extractMetadataFromURL:(NSURL *)fileURL
                                                    error:(NSError *_Nullable *_Nullable)error;
+
+/// Write metadata back to an audio file
+/// @param metadata Metadata object to write
+/// @param fileURL URL to the audio file
+/// @param error Error pointer for error handling
+/// @return YES if write succeeds, NO otherwise
++ (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
+                toURL:(NSURL *)fileURL
+                error:(NSError *_Nullable *_Nullable)error
+NS_SWIFT_NAME(writeMetadata(_:to:));
 
 /// Check if a file format is supported by TagLib
 /// @param fileExtension File extension (without dot)
@@ -124,4 +134,3 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
-

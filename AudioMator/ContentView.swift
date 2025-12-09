@@ -71,6 +71,8 @@ struct ContentPane: View {
     @ObservedObject var state: SharedState
     @FocusState private var tableFocused: Bool
 
+    
+
     var body: some View {
         Group {
             if viewModel.files.isEmpty {
@@ -120,11 +122,17 @@ struct ContentPane: View {
         let total = Int(seconds)
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
+
 }
 
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+
+    @State private var inspectorQuickLabel: String = ""
+    @State private var inspectorQuickText: String = ""
+    @State private var inspectorQuickBinding: Binding<String>? = nil
+    @State private var isInspectorQuickPresented: Bool = false
 
     private func binding(for file: AudioFile,
                          keyPath: WritableKeyPath<SingleFileEditModel, String>) -> Binding<String> {
@@ -171,6 +179,29 @@ struct InspectorPane: View {
                     systemImage: "music.quarternote.3"
                 )
             }
+        }
+        .sheet(isPresented: $isInspectorQuickPresented) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Edit \(inspectorQuickLabel)")
+                    .font(.headline)
+
+                TextField("", text: $inspectorQuickText)
+                    .textFieldStyle(.roundedBorder)
+
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        isInspectorQuickPresented = false
+                    }
+                    Button("Save") {
+                        inspectorQuickBinding?.wrappedValue = inspectorQuickText
+                        isInspectorQuickPresented = false
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding()
+            .frame(width: 420)
         }
     }
 
@@ -292,6 +323,13 @@ struct InspectorPane: View {
             TextField("", text: text)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 200)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            inspectorQuickLabel = label
+            inspectorQuickText = text.wrappedValue
+            inspectorQuickBinding = text
+            isInspectorQuickPresented = true
         }
         .padding(.vertical, 14)
     }

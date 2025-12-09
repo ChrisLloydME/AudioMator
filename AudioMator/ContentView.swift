@@ -25,6 +25,7 @@ struct ContentView: View {
             ContentPane(viewModel: viewModel, state: state)
         } detail: {
             InspectorPane(viewModel: viewModel, state: state)
+                .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {

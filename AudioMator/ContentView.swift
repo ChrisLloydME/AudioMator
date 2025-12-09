@@ -352,6 +352,7 @@ struct InspectorPane: View {
             Text(value ?? "—")
                 .font(.body)
                 .foregroundStyle(.secondary)
+                .frame(width: 220, alignment: .trailing)
         }
         .padding(.vertical, 14)    // balanced vertical centering between dividers
     }
@@ -362,8 +363,9 @@ struct InspectorPane: View {
             Text(label).font(.headline)
             Spacer()
             TextField("", text: text)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 200)
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 220, alignment: .trailing)
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -434,6 +436,7 @@ private func metadataRow(label: String, value: String?) -> some View {
         Text(value ?? "—")
             .font(.body)
             .foregroundStyle(.secondary)
+            .frame(width: 220, alignment: .trailing)
     }
     .padding(.vertical, 14)
 }

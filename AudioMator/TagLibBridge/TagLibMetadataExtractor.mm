@@ -75,6 +75,14 @@
 
 @end
 
+// Simple logging helper for TagLib debugging
+static inline void TLog(NSString *format, ...) {
+    va_list args;
+    va_start(args, format);
+    NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
+    va_end(args);
+    NSLog(@"[TagLib] %@", message);
+}
 
 @implementation TagLibMetadataExtractor
 
@@ -702,6 +710,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     }
     
     TagLibAudioMetadata* metadata = [[TagLibAudioMetadata alloc] init];
+    TLog(@"Created TagLibAudioMetadata object for '%@'", fileURL.lastPathComponent);
     
     // Extract basic tag information
     TagLib::Tag* tag = fileRef.tag();
@@ -721,6 +730,16 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         }
     }
     
+    TLog(@"Basic tag for '%@': title=%@ artist=%@ album=%@ genre=%@ comment=%@ year=%@ track=%ld",
+         fileURL.lastPathComponent,
+         metadata.title ?: @"<nil>",
+         metadata.artist ?: @"<nil>",
+         metadata.album ?: @"<nil>",
+         metadata.genre ?: @"<nil>",
+         metadata.comment ?: @"<nil>",
+         metadata.year ?: @"<nil>",
+         (long)metadata.trackNumber);
+    
     // Extract audio properties
     TagLib::AudioProperties* properties = fileRef.audioProperties();
     if (properties) {
@@ -729,6 +748,13 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         metadata.sampleRate = properties->sampleRate();
         metadata.channels = properties->channels();
     }
+    
+    TLog(@"Audio props for '%@': duration=%.1f s, bitrate=%ld kbps, sampleRate=%ld Hz, channels=%ld",
+         fileURL.lastPathComponent,
+         metadata.duration,
+         (long)metadata.bitrate,
+         (long)metadata.sampleRate,
+         (long)metadata.channels);
     
     // Extract format-specific metadata
     std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];

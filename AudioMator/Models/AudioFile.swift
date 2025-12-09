@@ -43,54 +43,48 @@ struct AudioFile: Identifiable {
     // MARK: – Artwork
     let artwork: NSImage?
 
-    private static func readMetadata(from asset: AVAsset, commonKeys: [AVMetadataKey], id3Keys: [String] = [], itunesKeys: [String] = []) -> String {
+    private static func readMetadata(from asset: AVAsset,
+                                     commonKeys: [AVMetadataKey],
+                                     id3Keys: [String] = [],
+                                     itunesKeys: [String] = []) -> String {
         let metadata = asset.metadata
+
         for key in commonKeys {
-            let items = AVMetadataItem.metadataItems(from: metadata, withKey: key, keySpace: .common)
+            let items = AVMetadataItem.metadataItems(from: metadata,
+                                                     withKey: key,
+                                                     keySpace: .common)
             if let value = items.first?.stringValue, !value.isEmpty {
                 return value
             }
         }
+
         for key in id3Keys {
-            let items = AVMetadataItem.metadataItems(from: metadata, withKey: key, keySpace: .id3)
+            let items = AVMetadataItem.metadataItems(from: metadata,
+                                                     withKey: key,
+                                                     keySpace: .id3)
             if let value = items.first?.stringValue, !value.isEmpty {
                 return value
             }
         }
+
         for key in itunesKeys {
-            let items = AVMetadataItem.metadataItems(from: metadata, withKey: key, keySpace: .iTunes)
+            let items = AVMetadataItem.metadataItems(from: metadata,
+                                                     withKey: key,
+                                                     keySpace: .iTunes)
             if let value = items.first?.stringValue, !value.isEmpty {
                 return value
             }
         }
+
         return ""
     }
 
     init(url: URL) async throws {
         self.url = url
 
-        // ⭐ 使用正确的初始化方法，自动读取 metadata
-        /*
-        let file = try SFBAudioEngine.AudioFile(readingPropertiesAndMetadataFrom: url)
-        let meta = file.metadata
-
-        self.title = meta.title ?? ""
-        self.artist = meta.artist ?? ""
-        self.album = meta.albumTitle ?? ""
-        self.composer = meta.composer ?? ""
-        self.genre = meta.genre ?? ""
-        self.comment = meta.comment ?? ""
-
-        self.track = meta.trackNumber ?? 0
-        self.trackTotal = meta.trackTotal ?? 0
-        self.disc = meta.discNumber ?? 0
-        self.discTotal = meta.discTotal ?? 0
-
-        self.year = meta.releaseDate ?? ""
-        self.albumArtist = meta.albumArtist ?? ""
-        self.releasingTime = meta.releaseDate ?? ""
-        */
-        let tag = TagLibMetadataManager.readMetadata(from: url)
+        // MARK: – Basic tags via TagLib
+        // TagLib 解析失败时，用 BasicMetadata.empty 兜底，避免到处写 if let
+        let tag = TagLibMetadataManager.readMetadata(from: url) ?? .empty
 
         self.title       = tag.title
         self.artist      = tag.artist
@@ -104,8 +98,9 @@ struct AudioFile: Identifiable {
         self.discTotal   = tag.discTotal
         self.year        = tag.year
         self.albumArtist = tag.albumArtist
-        self.releasingTime = tag.year
+        self.releasingTime = tag.year   // 目前先用 year 填，之后你要单独字段再改
 
+        // MARK: – Publisher / Copyright / Credits via AVFoundation
         let asset = AVURLAsset(url: url)
 
         self.publisher = AudioFile.readMetadata(
@@ -145,6 +140,7 @@ struct AudioFile: Identifiable {
             if let formatDescAny = descriptions.first,
                CFGetTypeID(formatDescAny as CFTypeRef) == CMFormatDescriptionGetTypeID(),
                let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescAny as! CMAudioFormatDescription) {
+
                 let asbd = asbdPtr.pointee
                 sampleRateHz = asbd.mSampleRate
                 channelsCount = Int(asbd.mChannelsPerFrame)
@@ -166,6 +162,7 @@ struct AudioFile: Identifiable {
         self.format = formatName
 
         // MARK: – Artwork via AVFoundation
+
         let metadataItems = try await asset.load(.commonMetadata)
         let commonArtwork = AVMetadataItem.metadataItems(
             from: metadataItems,

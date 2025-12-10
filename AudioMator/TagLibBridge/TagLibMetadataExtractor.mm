@@ -20,6 +20,7 @@
 #include "taglib/taglib/mpeg/id3v2/frames/attachedpictureframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/textidentificationframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/commentsframe.h"
+#include "taglib/taglib/mpeg/id3v2/frames/textidentificationframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/unsynchronizedlyricsframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/popularimeterframe.h"
 
@@ -69,6 +70,7 @@
         _bitDepth = 0;
         _bpm = 0;
         _compilation = NO;
+        _explicitContent = NO;
     }
     return self;
 }
@@ -159,6 +161,52 @@ static void SetID3v2TextFrame(TagLib::ID3v2::Tag *tag,
     }
     
     textFrame->setText(tValue);
+}
+
+// Ensure an ID3v2 user text frame (TXXX) with given description exists and set its text
+static void SetID3v2UserTextFrame(TagLib::ID3v2::Tag *tag,
+                                  const char *description,
+                                  NSString * _Nullable value)
+{
+    if (!tag || !description) {
+        return;
+    }
+
+    TagLib::String descStr(description, TagLib::String::UTF8);
+
+    // Find existing TXXX frame with matching description
+    TagLib::ID3v2::FrameList frames = tag->frameList("TXXX");
+    TagLib::ID3v2::UserTextIdentificationFrame *userFrame = nullptr;
+
+    for (auto it = frames.begin(); it != frames.end(); ++it) {
+        auto *f = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(*it);
+        if (!f) continue;
+        if (f->description().upper() == descStr.upper()) {
+            userFrame = f;
+            break;
+        }
+    }
+
+    // If the value is empty or nil, remove the frame (clear the field)
+    if (!value || value.length == 0) {
+        if (userFrame) {
+            tag->removeFrame(userFrame);
+        }
+        return;
+    }
+
+    TagLib::String tValue(value.UTF8String, TagLib::String::UTF8);
+    TagLib::StringList textList;
+    textList.append(tValue);
+
+    if (!userFrame) {
+        // Create a new TXXX frame with the given description
+        userFrame = new TagLib::ID3v2::UserTextIdentificationFrame(TagLib::String::UTF8);
+        userFrame->setDescription(descStr);
+        tag->addFrame(userFrame);
+    }
+
+    userFrame->setText(textList);
 }
 
 #pragma mark - Format-Specific Extraction
@@ -292,6 +340,17 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             else if (descStr == "ARTISTTYPE" || descStr == "MUSICBRAINZ ARTIST TYPE") {
                 metadata.artistType = TagStringToNSString(userValue);
             }
+            else if (descStr == "ITUNESADVISORY") {
+                // iTunes advisory: 0 = none, 1 = explicit, 2 = clean
+                TagLib::String upperVal = userValue.upper();
+                int advisory = userValue.toInt();
+
+                if (advisory == 1 || upperVal == "EXPLICIT") {
+                    metadata.explicitContent = YES;
+                } else if (advisory == 0 || advisory == 2 || upperVal == "CLEAN") {
+                    metadata.explicitContent = NO;
+                }
+            }
         }
         // Comments
         else if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame*>(frame)) {
@@ -350,6 +409,15 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
     // Compilation
     if (items.contains("cpil")) {
         metadata.compilation = items["cpil"].toBool();
+    }
+
+    // Explicit rating (rtng atom: 0 = none, 2 = clean, 4 = explicit)
+    if (items.contains("rtng")) {
+        const TagLib::MP4::Item &ratingItem = items["rtng"];
+        int rating = ratingItem.toInt();
+        if (rating == 4) {
+            metadata.explicitContent = YES;
+        }
     }
     
     // Sort fields
@@ -1009,6 +1077,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         }
     }
     
+    TLog(@"[READ-OUT] '%@' explicitContent=%@",
+         fileURL.lastPathComponent,
+         metadata.explicitContent ? @"YES" : @"NO");
+
     return metadata;
 }
 
@@ -1164,6 +1236,16 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         // Publisher / label (TPUB)
         if (metadata.label.length > 0) {
             SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
+        }
+
+        // Explicit advisory (TXXX:ITUNESADVISORY, 0 = none, 1 = explicit, 2 = clean)
+        // Here we treat `explicitContent == YES` as advisory = 1, otherwise 0.
+        if (metadata.explicitContent) {
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"1");
+        } else {
+            // If you prefer to completely remove the advisory when non-explicit,
+            // you can change @"0" to nil.
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
         }
     }
     

@@ -32,6 +32,7 @@ struct AudioFile: Identifiable {
     let publisher: String
     let copyright: String
     let credits: String
+    let isExplicit: Bool
 
     // MARK: – Technical
     let duration: Double
@@ -114,6 +115,7 @@ struct AudioFile: Identifiable {
         self.year        = tag.year
         self.albumArtist = tag.albumArtist
         self.releaseDate = tag.releaseDate
+        self.isExplicit  = tag.isExplicit
 
         // MARK: – Publisher / Copyright / Credits via AVFoundation
 

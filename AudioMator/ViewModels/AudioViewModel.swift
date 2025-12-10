@@ -27,6 +27,7 @@ struct SingleFileEditModel {
     var releaseDate: String
     var publisher: String
     var copyright: String
+    var isExplicit: Bool
 
     init(
         title: String = "",
@@ -43,7 +44,8 @@ struct SingleFileEditModel {
         albumArtist: String = "",
         releaseDate: String = "",
         publisher: String = "",
-        copyright: String = ""
+        copyright: String = "",
+        isExplicit: Bool = false
     ) {
         self.title = title
         self.artist = artist
@@ -60,6 +62,7 @@ struct SingleFileEditModel {
         self.releaseDate = releaseDate
         self.publisher = publisher
         self.copyright = copyright
+        self.isExplicit = isExplicit
     }
 
     init(from file: AudioFile) {
@@ -78,7 +81,8 @@ struct SingleFileEditModel {
             albumArtist: file.albumArtist,
             releaseDate: file.releaseDate,
             publisher: file.publisher,
-            copyright: file.copyright
+            copyright: file.copyright,
+            isExplicit: file.isExplicit
         )
     }
 }

@@ -160,6 +160,25 @@ struct InspectorPane: View {
             }
         )
     }
+    
+    private func boolBinding(for file: AudioFile,
+                             keyPath: WritableKeyPath<SingleFileEditModel, Bool>) -> Binding<Bool> {
+        Binding<Bool>(
+            get: {
+                viewModel.edit?[keyPath: keyPath] ?? false
+            },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current[keyPath: keyPath] = newValue
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model[keyPath: keyPath] = newValue
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
 
     var body: some View {
         Group {
@@ -319,6 +338,8 @@ struct InspectorPane: View {
                 Divider()
                 editableRow(label: "Copyright", text: binding(for: file, keyPath: \.copyright))
                 Divider()
+                explicitRow(label: "Explicit", isOn: boolBinding(for: file, keyPath: \.isExplicit))
+                Divider()
 
                 // Still read-only (not yet editable via TagLib bridge)
                 metadataRow(label: "Credits", value: file.credits)
@@ -375,6 +396,18 @@ struct InspectorPane: View {
             inspectorQuickText = text.wrappedValue
             inspectorQuickBinding = text
             isInspectorQuickPresented = true
+        }
+        .padding(.vertical, 14)
+    }
+    
+    @ViewBuilder
+    private func explicitRow(label: String, isOn: Binding<Bool>) -> some View {
+        HStack {
+            Text(label)
+                .font(.headline)
+            Spacer()
+            Toggle("", isOn: isOn)
+                .toggleStyle(.switch)
         }
         .padding(.vertical, 14)
     }

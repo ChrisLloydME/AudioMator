@@ -43,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Additional metadata
 @property (nonatomic, assign) NSInteger bpm;
 @property (nonatomic, assign) BOOL compilation;
+@property (nonatomic, assign) BOOL explicitContent; // YES = explicit, NO = non‑explicit/unknown
 @property (nonatomic, copy, nullable) NSString *copyright;
 @property (nonatomic, copy, nullable) NSString *lyrics;
 @property (nonatomic, copy, nullable) NSString *label;

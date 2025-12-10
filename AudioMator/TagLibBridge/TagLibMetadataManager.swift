@@ -22,6 +22,7 @@ struct BasicMetadata {
     var releaseDate: String
     var publisher: String
     var copyright: String
+    var isExplicit: Bool
 
     static let empty = BasicMetadata(
         title: "",
@@ -38,7 +39,8 @@ struct BasicMetadata {
         albumArtist: "",
         releaseDate: "",
         publisher: "",
-        copyright: ""
+        copyright: "",
+        isExplicit: false
     )
 }
 
@@ -81,7 +83,8 @@ struct TagLibMetadataManager {
                 albumArtist: meta.albumArtist ?? "",
                 releaseDate: meta.releaseDate ?? "",
                 publisher:   meta.label       ?? "",
-                copyright:   meta.copyright   ?? ""
+                copyright:   meta.copyright   ?? "",
+                isExplicit:  meta.explicitContent
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")

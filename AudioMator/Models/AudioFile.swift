@@ -28,7 +28,7 @@ struct AudioFile: Identifiable {
     let discTotal: Int
     let year: String
     let albumArtist: String
-    let releasingTime: String
+    let releaseDate: String    // ✅ 用 releaseDate，替代原来的 releasingTime
     let publisher: String
     let copyright: String
     let credits: String
@@ -43,34 +43,44 @@ struct AudioFile: Identifiable {
     // MARK: – Artwork
     let artwork: NSImage?
 
+    // 统一的元数据读取帮助函数
     private static func readMetadata(from asset: AVAsset,
                                      commonKeys: [AVMetadataKey],
                                      id3Keys: [String] = [],
                                      itunesKeys: [String] = []) -> String {
         let metadata = asset.metadata
 
+        // 1. Common metadata
         for key in commonKeys {
-            let items = AVMetadataItem.metadataItems(from: metadata,
-                                                     withKey: key,
-                                                     keySpace: .common)
+            let items = AVMetadataItem.metadataItems(
+                from: metadata,
+                withKey: key,
+                keySpace: .common
+            )
             if let value = items.first?.stringValue, !value.isEmpty {
                 return value
             }
         }
 
+        // 2. ID3 metadata
         for key in id3Keys {
-            let items = AVMetadataItem.metadataItems(from: metadata,
-                                                     withKey: key,
-                                                     keySpace: .id3)
+            let items = AVMetadataItem.metadataItems(
+                from: metadata,
+                withKey: key as (NSCopying & NSSecureCoding),
+                keySpace: .id3
+            )
             if let value = items.first?.stringValue, !value.isEmpty {
                 return value
             }
         }
 
+        // 3. iTunes metadata
         for key in itunesKeys {
-            let items = AVMetadataItem.metadataItems(from: metadata,
-                                                     withKey: key,
-                                                     keySpace: .iTunes)
+            let items = AVMetadataItem.metadataItems(
+                from: metadata,
+                withKey: key as (NSCopying & NSSecureCoding),
+                keySpace: .iTunes
+            )
             if let value = items.first?.stringValue, !value.isEmpty {
                 return value
             }
@@ -83,6 +93,7 @@ struct AudioFile: Identifiable {
         self.url = url
 
         // MARK: – Basic tags via TagLib
+        //
         // TagLib 解析失败时，用 BasicMetadata.empty 兜底，避免到处写 if let
         let tag = TagLibMetadataManager.readMetadata(from: url) ?? .empty
 
@@ -98,9 +109,12 @@ struct AudioFile: Identifiable {
         self.discTotal   = tag.discTotal
         self.year        = tag.year
         self.albumArtist = tag.albumArtist
-        self.releasingTime = tag.year   // 目前先用 year 填，之后你要单独字段再改
+        // 目前 TagLib 这层没有单独的发布日期字段，就先用 year 填充；
+        // 之后如果你在 TagLibMetadataExtractor/Manager 里加了 releaseDate 字段，再把这里改成 tag.releaseDate
+        self.releaseDate = tag.year
 
         // MARK: – Publisher / Copyright / Credits via AVFoundation
+
         let asset = AVURLAsset(url: url)
 
         self.publisher = AudioFile.readMetadata(
@@ -156,10 +170,10 @@ struct AudioFile: Identifiable {
             }
         }
 
-        self.bitrate = bitrateKbps
+        self.bitrate    = bitrateKbps
         self.sampleRate = sampleRateHz
-        self.channels = channelsCount
-        self.format = formatName
+        self.channels   = channelsCount
+        self.format     = formatName
 
         // MARK: – Artwork via AVFoundation
 

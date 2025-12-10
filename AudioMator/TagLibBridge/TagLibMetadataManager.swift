@@ -19,6 +19,9 @@ struct BasicMetadata {
     var discTotal: Int
     var year: String
     var albumArtist: String
+    var releaseDate: String
+    var publisher: String
+    var copyright: String
 
     static let empty = BasicMetadata(
         title: "",
@@ -32,7 +35,10 @@ struct BasicMetadata {
         disc: 0,
         discTotal: 0,
         year: "",
-        albumArtist: ""
+        albumArtist: "",
+        releaseDate: "",
+        publisher: "",
+        copyright: ""
     )
 }
 
@@ -72,7 +78,10 @@ struct TagLibMetadataManager {
                 disc:        Int(meta.discNumber),
                 discTotal:   Int(meta.totalDiscs),
                 year:        meta.year        ?? "",
-                albumArtist: meta.albumArtist ?? ""
+                albumArtist: meta.albumArtist ?? "",
+                releaseDate: meta.releaseDate ?? "",
+                publisher:   meta.label       ?? "",
+                copyright:   meta.copyright   ?? ""
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")

@@ -24,6 +24,9 @@ struct SingleFileEditModel {
     var discTotal: Int
     var year: String
     var albumArtist: String
+    var releaseDate: String
+    var publisher: String
+    var copyright: String
 
     init(
         title: String = "",
@@ -37,7 +40,10 @@ struct SingleFileEditModel {
         disc: Int = 0,
         discTotal: Int = 0,
         year: String = "",
-        albumArtist: String = ""
+        albumArtist: String = "",
+        releaseDate: String = "",
+        publisher: String = "",
+        copyright: String = ""
     ) {
         self.title = title
         self.artist = artist
@@ -51,6 +57,9 @@ struct SingleFileEditModel {
         self.discTotal = discTotal
         self.year = year
         self.albumArtist = albumArtist
+        self.releaseDate = releaseDate
+        self.publisher = publisher
+        self.copyright = copyright
     }
 
     init(from file: AudioFile) {
@@ -66,7 +75,10 @@ struct SingleFileEditModel {
             disc: file.disc,
             discTotal: file.discTotal,
             year: file.year,
-            albumArtist: file.albumArtist
+            albumArtist: file.albumArtist,
+            releaseDate: file.releaseDate,
+            publisher: file.publisher,
+            copyright: file.copyright
         )
     }
 }
@@ -164,6 +176,9 @@ final class AudioViewModel: ObservableObject {
         meta.comment     = edit.comment.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.albumArtist = edit.albumArtist.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.year        = edit.year.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.releaseDate = edit.releaseDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.label       = edit.publisher.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.copyright   = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // 负数一律视为 0，避免写入奇怪的轨道号
         meta.trackNumber = max(0, edit.track)
@@ -180,6 +195,9 @@ final class AudioViewModel: ObservableObject {
           genre       = \(meta.genre ?? "<nil>")
           comment     = \(meta.comment ?? "<nil>")
           albumArtist = \(meta.albumArtist ?? "<nil>")
+          releaseDate = \(meta.releaseDate ?? "<nil>")
+          publisher   = \(meta.label ?? "<nil>")
+          copyright   = \(meta.copyright ?? "<nil>")
           year        = \(meta.year ?? "<nil>")
           track       = \(meta.trackNumber) / \(meta.totalTracks)
           disc        = \(meta.discNumber) / \(meta.totalDiscs)

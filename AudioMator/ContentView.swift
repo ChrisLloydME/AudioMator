@@ -310,15 +310,17 @@ struct InspectorPane: View {
                 editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
                 Divider()
 
-                // Read-only fields – still来自当前文件的合并视图
-                metadataRow(label: "Album Artist", value: file.albumArtist)
+                // Additional editable fields
+                editableRow(label: "Album Artist", text: binding(for: file, keyPath: \.albumArtist))
                 Divider()
-                metadataRow(label: "Release Date", value: file.releasingTime)
+                editableRow(label: "Release Date", text: binding(for: file, keyPath: \.releaseDate))
                 Divider()
-                metadataRow(label: "Publisher", value: file.publisher)
+                editableRow(label: "Publisher", text: binding(for: file, keyPath: \.publisher))
                 Divider()
-                metadataRow(label: "Copyright", value: file.copyright)
+                editableRow(label: "Copyright", text: binding(for: file, keyPath: \.copyright))
                 Divider()
+
+                // Still read-only (not yet editable via TagLib bridge)
                 metadataRow(label: "Credits", value: file.credits)
             }
             .padding(.vertical, 4)
@@ -420,7 +422,7 @@ struct MergedAudioFile {
         disc = merge(files.map { "\($0.disc) / \($0.discTotal)" })
         comment = merge(files.map { $0.comment })
         albumArtist = merge(files.map { $0.albumArtist })
-        releaseDate = merge(files.map { $0.releasingTime })
+        releaseDate = merge(files.map { $0.releaseDate })
         publisher = merge(files.map { $0.publisher })
         copyright = merge(files.map { $0.copyright })
         credits = merge(files.map { $0.credits })

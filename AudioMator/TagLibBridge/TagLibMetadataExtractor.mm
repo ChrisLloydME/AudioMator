@@ -1001,7 +1001,6 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
 
 
 // Write metadata to file (currently only MP3/ID3v2 supported)
-// Write metadata to file (currently only MP3/ID3v2 supported)
 + (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
                 toURL:(NSURL *)fileURL
                 error:(NSError **)error

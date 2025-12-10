@@ -419,14 +419,16 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
     }
 
     // Date fields
-    // Standard iTunes/MP4 release date atom (e.g. "2024-11-12")
-    if (items.contains("\xA9day")) {
-        metadata->releaseDate = TagStringToNSString(items["\xA9day"].toStringList().toString());
+    // Standard iTunes/MP4 release date atom (©day, e.g. "2024-11-12")
+    // NOTE: We split the string literal so that the \xA9 escape stops before 'd',
+    //       avoiding an out-of-range hex escape like "\xA9d".
+    if (items.contains("\xA9" "day")) {
+        metadata.releaseDate = TagStringToNSString(items["\xA9" "day"].toStringList().toString());
     }
     
     // Some tools store original year as a freeform atom
     if (items.contains("----:com.apple.iTunes:ORIGINAL YEAR")) {
-        metadata->originalReleaseDate = TagStringToNSString(items["----:com.apple.iTunes:ORIGINAL YEAR"].toStringList().toString());
+        metadata.originalReleaseDate = TagStringToNSString(items["----:com.apple.iTunes:ORIGINAL YEAR"].toStringList().toString());
     }
     
     // Professional music player fields - freeform atoms

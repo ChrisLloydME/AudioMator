@@ -105,7 +105,23 @@ NS_ASSUME_NONNULL_BEGIN
 /// TagLib metadata extractor
 @interface TagLibMetadataExtractor : NSObject
 
-/// Extract metadata from an audio file
+/// Extract metadata from an audio file.
+///
+/// This method uses TagLib to read a wide range of tags, including:
+/// - Core tags: title, artist, album, albumArtist, composer, genre, year, comment
+/// - Track/disc info: trackNumber, totalTracks, discNumber, totalDiscs
+/// - Audio properties: duration, bitrate, sampleRate, channels, bitDepth, codec
+/// - Artwork: embedded cover image (artworkData + artworkMimeType)
+/// - Extended fields: bpm, compilation, copyright, lyrics, label, isrc,
+///   encoder / encoderSettings, sort fields, grouping, mood, etc.
+/// - Date fields: `releaseDate` and `originalReleaseDate` when available
+///   (for example ID3 TDRC/TDOR in MP3, or ©day / ORIGINAL YEAR atoms in MP4/M4A).
+/// - Professional music player fields (releaseType, catalogNumber, barcode,
+///   releaseCountry, artistType) and any custom freeform fields.
+///
+/// Unsupported or missing tags will simply remain nil or zero on the returned
+/// TagLibAudioMetadata instance.
+///
 /// @param fileURL URL to the audio file
 /// @param error Error pointer for error handling
 /// @return Metadata object or nil if extraction fails

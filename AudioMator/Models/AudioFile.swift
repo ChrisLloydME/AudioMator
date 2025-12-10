@@ -28,7 +28,7 @@ struct AudioFile: Identifiable {
     let discTotal: Int
     let year: String
     let albumArtist: String
-    let releaseDate: String    // ✅ 用 releaseDate，替代原来的 releasingTime
+    let releaseDate: String
     let publisher: String
     let copyright: String
     let credits: String
@@ -107,11 +107,13 @@ struct AudioFile: Identifiable {
         self.trackTotal  = tag.trackTotal
         self.disc        = tag.disc
         self.discTotal   = tag.discTotal
+
+        // Year 和 Release Date 作为两个独立字段处理：
+        // - year：TagLib 提供的纯年份（如果有）
+        // - releaseDate：TagLib 提供的完整发布日期字符串（如果有）
         self.year        = tag.year
         self.albumArtist = tag.albumArtist
-        // 目前 TagLib 这层没有单独的发布日期字段，就先用 year 填充；
-        // 之后如果你在 TagLibMetadataExtractor/Manager 里加了 releaseDate 字段，再把这里改成 tag.releaseDate
-        self.releaseDate = tag.year
+        self.releaseDate = tag.releaseDate
 
         // MARK: – Publisher / Copyright / Credits via AVFoundation
 

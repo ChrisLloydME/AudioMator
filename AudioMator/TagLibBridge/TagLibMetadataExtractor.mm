@@ -417,6 +417,17 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
             }
         }
     }
+
+    // Date fields
+    // Standard iTunes/MP4 release date atom (e.g. "2024-11-12")
+    if (items.contains("\xA9day")) {
+        metadata->releaseDate = TagStringToNSString(items["\xA9day"].toStringList().toString());
+    }
+    
+    // Some tools store original year as a freeform atom
+    if (items.contains("----:com.apple.iTunes:ORIGINAL YEAR")) {
+        metadata->originalReleaseDate = TagStringToNSString(items["----:com.apple.iTunes:ORIGINAL YEAR"].toStringList().toString());
+    }
     
     // Professional music player fields - freeform atoms
     // MP4 uses freeform identifiers like ----:com.apple.iTunes:FIELDNAME

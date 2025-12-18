@@ -18,6 +18,10 @@ struct ContentView: View {
     @StateObject private var viewModel = AudioViewModel()
     @StateObject private var state = SharedState()
 
+    // Full metadata dump (user-facing feature)
+    @State private var isMetadataDumpPresented: Bool = false
+    @State private var metadataDumpText: String = ""
+
     var body: some View {
         NavigationSplitView {
             SidebarPane(state: state)
@@ -36,6 +40,17 @@ struct ContentView: View {
                 }
             }
 
+            // Print / Show all metadata (user-facing)
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    presentMetadataDump()
+                } label: {
+                    Label("Metadata", systemImage: "doc.text.magnifyingglass")
+                }
+                .help("Show all metadata as text")
+                .disabled(state.selectedAudioIDs.isEmpty)
+            }
+
             // 取消 / 保存（单文件编辑）
             ToolbarItemGroup(placement: .automatic) {
                 Button("Cancel") {
@@ -48,6 +63,45 @@ struct ContentView: View {
                 }
                 .disabled(state.selectedAudioIDs.isEmpty)
             }
+        }
+        .sheet(isPresented: $isMetadataDumpPresented) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Metadata Dump")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    Spacer()
+
+                    Button("Copy") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(metadataDumpText, forType: .string)
+                    }
+                }
+
+                Text("All metadata is shown as plain text for easy inspection and copy/paste.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                TextEditor(text: .constant(metadataDumpText))
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(minHeight: 320)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                    )
+
+                HStack {
+                    Spacer()
+                    Button("Close") {
+                        isMetadataDumpPresented = false
+                    }
+                    .keyboardShortcut(.cancelAction)
+                }
+            }
+            .padding(16)
+            .frame(width: 720, height: 520)
         }
     }
 }
@@ -509,5 +563,78 @@ private func mergedMetadataSection(_ m: MergedAudioFile) -> some View {
             metadataRow(label: "Credits", value: m.credits)
         }
         .padding(.vertical, 4)
+    }
+}
+
+
+
+// MARK: - Metadata Dump (user-facing)
+extension ContentView {
+    // MARK: - Metadata Dump (user-facing)
+    private func presentMetadataDump() {
+        let selected = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        metadataDumpText = buildMetadataDump(for: selected)
+        isMetadataDumpPresented = true
+    }
+
+    private func buildMetadataDump(for files: [AudioFile]) -> String {
+        guard !files.isEmpty else { return "(No selection)" }
+        if files.count == 1, let file = files.first {
+            return buildMetadataDump(for: file)
+        }
+
+        var out: [String] = []
+        out.append("Selected files: \(files.count)")
+        out.append("")
+        for (idx, f) in files.enumerated() {
+            out.append("===== [\(idx + 1)] \(f.url.lastPathComponent) =====")
+            out.append(buildMetadataDump(for: f))
+            if idx != files.count - 1 { out.append("") }
+        }
+        return out.joined(separator: "\n")
+    }
+
+    private func buildMetadataDump(for file: AudioFile) -> String {
+        var lines: [String] = []
+        lines.append("File: \(file.url.lastPathComponent)")
+        lines.append("Path: \(file.url.path)")
+        lines.append("")
+
+        lines.append("[Basic]")
+        lines.append("Title: \(file.title)")
+        lines.append("Artist: \(file.artist)")
+        lines.append("Album: \(file.album)")
+        lines.append("Composer: \(file.composer)")
+        lines.append("Genre: \(file.genre)")
+        lines.append("Year: \(file.year)")
+        lines.append("Album Artist: \(file.albumArtist)")
+        lines.append("Release Date: \(file.releaseDate)")
+        lines.append("Publisher: \(file.publisher)")
+        lines.append("Copyright: \(file.copyright)")
+        lines.append("Credits: \(file.credits)")
+        lines.append("Comment: \(file.comment)")
+        lines.append("Track: \(file.track) / \(file.trackTotal)")
+        lines.append("Disc: \(file.disc) / \(file.discTotal)")
+        lines.append("")
+
+        lines.append("[Technical]")
+        lines.append("Duration: \(formatDuration(file.duration))")
+        lines.append("Bitrate: \(file.bitrate) kbps")
+        lines.append("Sample Rate: \(Int(file.sampleRate)) Hz")
+        lines.append("Channels: \(file.channels)")
+        lines.append("Format: \(file.format)")
+        lines.append("")
+
+        lines.append("[Artwork]")
+        let artworkPresent = (file.artwork == nil) ? "No" : "Yes"
+        lines.append("Artwork Present: \(artworkPresent)")
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func formatDuration(_ seconds: Double?) -> String {
+        guard let seconds else { return "—" }
+        let total = Int(seconds)
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 }

@@ -139,6 +139,17 @@ NS_ASSUME_NONNULL_BEGIN
                 error:(NSError *_Nullable *_Nullable)error
 NS_SWIFT_NAME(writeMetadata(_:to:));
 
+/// Return raw metadata as TagLib sees it for display purposes.
+/// The returned dictionary has two keys:
+/// - "properties": NSArray<NSDictionary<NSString *, NSString *> *> of unified TagLib PropertyMap entries
+/// - "id3v2Frames": NSArray<NSDictionary<NSString *, NSString *> *> of ID3v2 frames (frame ID, value, optional description)
+/// This is intended for GUI inspection, not for programmatic editing.
+///
+/// @param fileURL URL to the audio file
+/// @return NSDictionary containing raw metadata sections
++ (NSDictionary<NSString *, id> *)rawMetadataForURL:(NSURL *)fileURL
+NS_SWIFT_NAME(rawMetadata(for:));
+
 /// Check if a file format is supported by TagLib
 /// @param fileExtension File extension (without dot)
 /// @return YES if supported, NO otherwise

@@ -1260,8 +1260,108 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         return NO;
     }
     
+
     TLog(@"Successfully wrote metadata to '%@'", fileURL.lastPathComponent);
     return YES;
+}
+
+#pragma mark - Raw Metadata Dump (GUI feature)
+
+// Return a best-effort, "raw" view of metadata as TagLib sees it.
+// This is intended for displaying to users in a GUI, not for programmatic editing.
++ (NSDictionary<NSString *, NSObject *> *)rawMetadataForURL:(NSURL *)fileURL
+{
+    // Always return a dictionary with stable keys so Swift UI can render predictably.
+    NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut = [NSMutableArray array];
+    NSMutableArray<NSDictionary<NSString *, NSObject *> *> *id3v2FramesOut = [NSMutableArray array];
+
+    if (!fileURL || !fileURL.isFileURL) {
+        return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+    }
+
+    const char *filePath = fileURL.path.UTF8String;
+    if (!filePath) {
+        return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+    }
+
+    // 1) Properties: TagLib::File::properties() (unified PropertyMap)
+    TagLib::FileRef fileRef(filePath);
+    if (!fileRef.isNull() && fileRef.file()) {
+        TagLib::PropertyMap pm = fileRef.file()->properties();
+
+        for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
+            TagLib::String key = pit->first;
+            TagLib::StringList vals = pit->second;
+
+            NSString *nsKey = TagStringToNSString(key) ?: @"";
+            NSMutableArray<NSString *> *values = [NSMutableArray array];
+
+            for (auto vit = vals.begin(); vit != vals.end(); ++vit) {
+                NSString *v = TagStringToNSString(*vit) ?: @"";
+                [values addObject:v];
+            }
+
+            NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+
+            [propertiesOut addObject:@{
+                @"key": nsKey,
+                @"value": joined,
+                @"values": values,
+                @"count": @(values.count)
+            }];
+        }
+    }
+
+    // 2) ID3v2 frames (when applicable): list every frame with its frame ID and rendered value.
+    //    This is the "lowest-level" view users often want when tags have multiple naming schemes.
+    std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
+    if (ext == "mp3") {
+        TagLib::MPEG::File mpegFile(filePath);
+        if (mpegFile.isValid() && mpegFile.ID3v2Tag()) {
+            TagLib::ID3v2::Tag *id3 = mpegFile.ID3v2Tag();
+            TagLib::ID3v2::FrameList frames = id3->frameList();
+
+            for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
+                TagLib::ID3v2::Frame *frame = *fit;
+                if (!frame) continue;
+
+                TagLib::ByteVector id = frame->frameID();
+                std::string idStr(id.data(), id.size());
+                NSString *frameID = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
+
+                NSString *value = TagStringToNSString(frame->toString()) ?: @"";
+
+                NSMutableDictionary<NSString *, NSObject *> *item = [@{
+                    @"id": frameID ?: @"",
+                    @"value": value
+                } mutableCopy];
+
+                // User-defined text frames (TXXX) include a description which matters for display.
+                if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
+                    NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
+                    if (desc.length) {
+                        item[@"description"] = desc;
+                    }
+                }
+
+                // Comments frames can carry language/description.
+                if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
+                    NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
+                    if (desc.length) {
+                        item[@"description"] = desc;
+                    }
+                    NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
+                    if (lang.length) {
+                        item[@"language"] = lang;
+                    }
+                }
+
+                [id3v2FramesOut addObject:item];
+            }
+        }
+    }
+
+    return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
 }
 
 #pragma mark - Format Support

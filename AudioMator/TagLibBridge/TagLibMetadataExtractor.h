@@ -1,6 +1,6 @@
 //
 //  TagLibMetadataExtractor.h
-//  HiFidelity
+//  AudioMator (Re-write from HiFidelity)
 //
 //  Objective-C++ wrapper for TagLib metadata extraction
 //

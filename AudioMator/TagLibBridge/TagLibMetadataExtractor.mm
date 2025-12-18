@@ -1296,4 +1296,3 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
 }
 
 @end
-

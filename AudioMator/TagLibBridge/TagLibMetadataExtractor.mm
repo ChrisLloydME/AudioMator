@@ -1265,7 +1265,74 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     }
     
 
+
     TLog(@"Successfully wrote metadata to '%@'", fileURL.lastPathComponent);
+    return YES;
+}
+
+// Wipe (remove) all metadata from a file.
+// Currently implemented for MP3 by stripping ID3v1/ID3v2/APE tags.
++ (BOOL)wipeMetadataFromURL:(NSURL *)fileURL
+                      error:(NSError **)error
+{
+    if (!fileURL || ![fileURL isFileURL]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:30
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file URL" }];
+        }
+        return NO;
+    }
+
+    const char *filePath = fileURL.path.UTF8String;
+    if (!filePath) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:31
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file path" }];
+        }
+        return NO;
+    }
+
+    NSString *ext = fileURL.pathExtension.lowercaseString;
+
+    // For now, implement a robust wipe for MP3 by stripping all supported tag types.
+    if (![ext isEqualToString:@"mp3"]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:32
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Wiping metadata is currently supported only for MP3 files" }];
+        }
+        TLog(@"Wipe skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
+        return NO;
+    }
+
+    TagLib::MPEG::File mpegFile(filePath);
+    if (!mpegFile.isValid()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:33
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for wiping metadata" }];
+        }
+        TLog(@"Failed to open '%@' for wiping", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    // Remove all tag containers that TagLib can strip from MPEG files.
+    // This typically removes ID3v1, ID3v2 and APE tags.
+    mpegFile.strip(TagLib::MPEG::File::AllTags, true);
+
+    if (!mpegFile.save()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:34
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after wiping metadata" }];
+        }
+        TLog(@"TagLib save() failed after wiping for '%@'", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    TLog(@"Successfully wiped metadata for '%@'", fileURL.lastPathComponent);
     return YES;
 }
 

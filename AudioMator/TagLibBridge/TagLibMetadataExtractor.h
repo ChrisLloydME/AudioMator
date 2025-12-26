@@ -112,7 +112,8 @@ NS_ASSUME_NONNULL_BEGIN
 ///
 /// Unsupported or missing tags remain nil/zero on the returned object.
 + (nullable TagLibAudioMetadata *)extractMetadataFromURL:(NSURL *)fileURL
-                                                   error:(NSError *_Nullable *_Nullable)error;
+                                                   error:(NSError *_Nullable *_Nullable)error
+NS_SWIFT_NAME(extractMetadata(from:));
 
 /// Write metadata back to an audio file.
 + (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
@@ -121,10 +122,14 @@ NS_ASSUME_NONNULL_BEGIN
 NS_SWIFT_NAME(writeMetadata(_:to:));
 
 /// Return raw metadata as TagLib sees it for display purposes.
-/// The returned dictionary has two keys:
-/// - "properties": NSArray<NSDictionary<NSString *, NSString *> *> of TagLib PropertyMap entries
-/// - "id3v2Frames": NSArray<NSDictionary<NSString *, NSString *> *> of ID3v2 frames
-+ (NSDictionary<NSString *, NSObject *> *)rawMetadataForURL:(NSURL *)fileURL
+///
+/// The returned dictionary typically contains keys such as:
+/// - "properties": NSArray<NSDictionary<NSString *, NSString *> *> (TagLib PropertyMap entries)
+/// - "id3v2Frames": NSArray<NSDictionary<NSString *, NSString *> *> (ID3v2 frames)
+///
+/// If extraction fails, this returns nil and sets `error`.
++ (nullable NSDictionary<NSString *, NSObject *> *)rawMetadataForURL:(NSURL *)fileURL
+                                                              error:(NSError *_Nullable *_Nullable)error
 NS_SWIFT_NAME(rawMetadata(for:));
 
 /// Return a single plain-text dump of metadata as TagLib sees it.

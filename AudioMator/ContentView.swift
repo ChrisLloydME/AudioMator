@@ -188,8 +188,42 @@ struct ContentPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
     @FocusState private var tableFocused: Bool
+    @State private var isEraseAllTagsConfirmPresented: Bool = false
 
-    
+    private var selectedFiles: [AudioFile] {
+        viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+    }
+
+    private func openSelectedFiles() {
+        for file in selectedFiles {
+            NSWorkspace.shared.open(file.url)
+        }
+    }
+
+    private func revealSelectedFilesInFinder() {
+        let urls = selectedFiles.map { $0.url }
+        guard !urls.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(urls)
+    }
+
+    private func copySelectedFilePaths() {
+        let text = selectedFiles.map { $0.url.path }.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func copySelectedFileNames() {
+        let text = selectedFiles.map { $0.url.lastPathComponent }.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func clearAllMetadataForSelectedFiles() {
+        // Best-effort erase using TagLib bridge. This is a user-facing action.
+        for file in selectedFiles {
+            viewModel.eraseAllMetadata(file)
+        }
+    }
 
     var body: some View {
         Group {
@@ -230,6 +264,48 @@ struct ContentPane: View {
                     // 初次出现时也同步一次，以防已有选中状态
                     viewModel.selectedAudioIDs = state.selectedAudioIDs
                     viewModel.updateEditForSelection()
+                }
+                .contextMenu {
+                    Button("Open") {
+                        openSelectedFiles()
+                    }
+                    .disabled(selectedFiles.isEmpty)
+
+                    Button("Reveal in Finder") {
+                        revealSelectedFilesInFinder()
+                    }
+                    .disabled(selectedFiles.isEmpty)
+
+                    Divider()
+
+                    Button("Copy Path") {
+                        copySelectedFilePaths()
+                    }
+                    .disabled(selectedFiles.isEmpty)
+
+                    Button("Copy Filename") {
+                        copySelectedFileNames()
+                    }
+                    .disabled(selectedFiles.isEmpty)
+
+                    Divider()
+
+                    Button("Erase All Tags…", role: .destructive) {
+                        isEraseAllTagsConfirmPresented = true
+                    }
+                    .disabled(selectedFiles.isEmpty)
+                }
+                .confirmationDialog(
+                    "Erase all tags?",
+                    isPresented: $isEraseAllTagsConfirmPresented,
+                    titleVisibility: .visible
+                ) {
+                    Button("Erase", role: .destructive) {
+                        clearAllMetadataForSelectedFiles()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will remove metadata tags from the selected file(s). This action cannot be undone.")
                 }
             }
         }

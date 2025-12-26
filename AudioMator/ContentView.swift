@@ -5,9 +5,73 @@
 //  Created by Christopher Lloyd on 2025.11.22.
 //
 
+
 import SwiftUI
 import AppKit
 import Combine
+
+// MARK: - Helpers
+fileprivate func formatDuration(_ seconds: Double) -> String {
+    let total = max(0, Int(seconds.rounded(.down)))
+    return String(format: "%02d:%02d", total / 60, total % 60)
+}
+
+// MARK: - Read-only monospaced text view (AppKit-backed)
+struct ReadOnlyMonospacedTextView: NSViewRepresentable {
+    var text: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let textView = NSTextView(frame: .zero)
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.drawsBackground = false
+        textView.textColor = .labelColor
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+
+        // Seed initial content (SwiftUI may not call update before first draw in some sheet transitions)
+        textView.string = text
+
+        // Allow horizontal scrolling for very long lines
+        textView.isHorizontallyResizable = true
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        // Important: give the container an effectively unbounded width so the scroll view can scroll horizontally
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+
+        // Give the document view a non-zero frame so it actually renders inside the scroll view
+        textView.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
+
+        let scrollView = NSScrollView(frame: .zero)
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.documentView = textView
+
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let textView = nsView.documentView as? NSTextView else { return }
+
+        // Avoid resetting selection/scroll if the text didn't actually change
+        if textView.string != text {
+            textView.string = text
+            textView.needsDisplay = true
+        }
+    }
+}
 
 final class SharedState: ObservableObject {
     @Published var selectedSidebarItem: String? = "all"
@@ -45,7 +109,7 @@ struct ContentView: View {
                 Button {
                     presentMetadataDump()
                 } label: {
-                    Label("Metadata", systemImage: "doc.text.magnifyingglass")
+                    Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
                 }
                 .help("Show all metadata as text")
                 .disabled(state.selectedAudioIDs.isEmpty)
@@ -66,8 +130,8 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isMetadataDumpPresented) {
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Metadata Dump")
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Tag Inspector")
                         .font(.title2)
                         .fontWeight(.semibold)
 
@@ -79,17 +143,17 @@ struct ContentView: View {
                     }
                 }
 
-                Text("All metadata is shown as plain text for easy inspection and copy/paste.")
+                Text("Shows a raw TagLib metadata dump (properties + frames) for the selected file(s).")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                TextEditor(text: .constant(metadataDumpText))
-                    .font(.system(.body, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(minHeight: 320)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                ReadOnlyMonospacedTextView(text: metadataDumpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                           ? "(No TagLib metadata to display)"
+                                           : metadataDumpText)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.secondary.opacity(0.08))
                     )
 
                 HStack {
@@ -101,7 +165,7 @@ struct ContentView: View {
                 }
             }
             .padding(16)
-            .frame(width: 720, height: 520)
+            .frame(width: 760, height: 560)
         }
     }
 }
@@ -171,11 +235,6 @@ struct ContentPane: View {
         }
     }
 
-    private func formatDuration(_ seconds: Double?) -> String {
-        guard let seconds else { return "—" }
-        let total = Int(seconds)
-        return String(format: "%02d:%02d", total / 60, total % 60)
-    }
 
 }
 
@@ -466,11 +525,6 @@ struct InspectorPane: View {
         .padding(.vertical, 14)
     }
 
-    private func formatDuration(_ seconds: Double?) -> String {
-        guard let seconds else { return "—" }
-        let total = Int(seconds)
-        return String(format: "%02d:%02d", total / 60, total % 60)
-    }
 }
 
 #Preview {
@@ -568,73 +622,42 @@ private func mergedMetadataSection(_ m: MergedAudioFile) -> some View {
 
 
 
-// MARK: - Metadata Dump (user-facing)
+// MARK: - Full metadata dump (user-facing)
 extension ContentView {
-    // MARK: - Metadata Dump (user-facing)
     private func presentMetadataDump() {
         let selected = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-        metadataDumpText = buildMetadataDump(for: selected)
+        metadataDumpText = buildTagLibDump(for: selected)
         isMetadataDumpPresented = true
     }
 
-    private func buildMetadataDump(for files: [AudioFile]) -> String {
+    /// Produces a best-effort *raw* metadata dump using the TagLib bridge.
+    ///
+    /// This intentionally does **not** re-print the already-normalized fields shown in the right inspector.
+    private func buildTagLibDump(for files: [AudioFile]) -> String {
         guard !files.isEmpty else { return "(No selection)" }
+
+        // Single selection: show only the raw dump.
         if files.count == 1, let file = files.first {
-            return buildMetadataDump(for: file)
+            return buildTagLibDump(for: file.url)
         }
 
-        var out: [String] = []
-        out.append("Selected files: \(files.count)")
-        out.append("")
-        for (idx, f) in files.enumerated() {
-            out.append("===== [\(idx + 1)] \(f.url.lastPathComponent) =====")
-            out.append(buildMetadataDump(for: f))
-            if idx != files.count - 1 { out.append("") }
+        // Multiple selection: concatenate per-file dumps.
+        return files.map { buildTagLibDump(for: $0.url) }
+            .joined(separator: "\n\n")
+    }
+
+    /// Produces a best-effort *raw* metadata dump using the TagLib bridge.
+    private func buildTagLibDump(for url: URL) -> String {
+        if let text = TagLibMetadataManager.rawMetadataText(from: url),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return text
         }
-        return out.joined(separator: "\n")
-    }
 
-    private func buildMetadataDump(for file: AudioFile) -> String {
-        var lines: [String] = []
-        lines.append("File: \(file.url.lastPathComponent)")
-        lines.append("Path: \(file.url.path)")
-        lines.append("")
-
-        lines.append("[Basic]")
-        lines.append("Title: \(file.title)")
-        lines.append("Artist: \(file.artist)")
-        lines.append("Album: \(file.album)")
-        lines.append("Composer: \(file.composer)")
-        lines.append("Genre: \(file.genre)")
-        lines.append("Year: \(file.year)")
-        lines.append("Album Artist: \(file.albumArtist)")
-        lines.append("Release Date: \(file.releaseDate)")
-        lines.append("Publisher: \(file.publisher)")
-        lines.append("Copyright: \(file.copyright)")
-        lines.append("Credits: \(file.credits)")
-        lines.append("Comment: \(file.comment)")
-        lines.append("Track: \(file.track) / \(file.trackTotal)")
-        lines.append("Disc: \(file.disc) / \(file.discTotal)")
-        lines.append("")
-
-        lines.append("[Technical]")
-        lines.append("Duration: \(formatDuration(file.duration))")
-        lines.append("Bitrate: \(file.bitrate) kbps")
-        lines.append("Sample Rate: \(Int(file.sampleRate)) Hz")
-        lines.append("Channels: \(file.channels)")
-        lines.append("Format: \(file.format)")
-        lines.append("")
-
-        lines.append("[Artwork]")
-        let artworkPresent = (file.artwork == nil) ? "No" : "Yes"
-        lines.append("Artwork Present: \(artworkPresent)")
-
-        return lines.joined(separator: "\n")
-    }
-
-    private func formatDuration(_ seconds: Double?) -> String {
-        guard let seconds else { return "—" }
-        let total = Int(seconds)
-        return String(format: "%02d:%02d", total / 60, total % 60)
+        return [
+            "File: \(url.lastPathComponent)",
+            "Path: \(url.path)",
+            "",
+            "(No TagLib metadata to display. The file may contain no readable tags, or the TagLib bridge returned an empty result.)"
+        ].joined(separator: "\n")
     }
 }

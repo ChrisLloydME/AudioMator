@@ -77,6 +77,35 @@ enum TagLibManagerError: Error {
 /// 包一层，负责调用 Objective-C++ 的 TagLibMetadataExtractor
 struct TagLibMetadataManager {
 
+    // MARK: - Bridge Introspection (optional text dump API)
+
+    /// Some bridge versions expose a direct "dump text" API. To stay source-compatible across iterations,
+    /// we try a small set of selector names at runtime.
+    private static func bridgeTextDumpIfAvailable(for url: URL) -> String? {
+        let candidates = [
+            "rawMetadataTextFor:",
+            "rawMetadataTextForURL:",
+            "dumpMetadataTextFor:",
+            "dumpMetadataTextFrom:",
+            "dumpMetadataTextFromURL:",
+            "dumpMetadataTextForURL:"
+        ]
+
+        for name in candidates {
+            let sel = NSSelectorFromString(name)
+            guard TagLibMetadataExtractor.responds(to: sel) else { continue }
+
+            // perform(_:with:) only supports single-argument selectors.
+            if let unmanaged = TagLibMetadataExtractor.perform(sel, with: url) {
+                let any = unmanaged.takeUnretainedValue()
+                if let s = any as? String { return s }
+                if let s = any as? NSString { return s as String }
+            }
+        }
+
+        return nil
+    }
+
     static func readMetadata(from url: URL) -> BasicMetadata? {
         // 1. 按扩展名快速过滤
         let ext = url.pathExtension.lowercased()
@@ -87,29 +116,78 @@ struct TagLibMetadataManager {
             return nil
         }
 
-        // 2. 调用 ObjC++ 提供的接口（Swift 里是 throws 形式）
         do {
-            // 注意这里是 extractMetadata(from:)，没有 error: 这个参数
+            // ObjC++ 提供的接口（Swift 里是 throws 形式）
             let meta = try TagLibMetadataExtractor.extractMetadata(from: url)
+            let obj = meta as NSObject
 
-            // 3. 把 TagLibAudioMetadata -> BasicMetadata
+            // KVC 读取前先判断 selector 是否存在，避免 unknown key 直接崩溃
+            func string(_ key: String) -> String {
+                let sel = NSSelectorFromString(key)
+                guard obj.responds(to: sel) else { return "" }
+                return (obj.value(forKey: key) as? String) ?? ""
+            }
+
+            func int(_ key: String) -> Int {
+                let sel = NSSelectorFromString(key)
+                guard obj.responds(to: sel) else { return 0 }
+                if let n = obj.value(forKey: key) as? NSNumber { return n.intValue }
+                if let i = obj.value(forKey: key) as? Int { return i }
+                return 0
+            }
+
+            func bool(_ key: String) -> Bool {
+                let sel = NSSelectorFromString(key)
+                guard obj.responds(to: sel) else { return false }
+                if let n = obj.value(forKey: key) as? NSNumber { return n.boolValue }
+                if let b = obj.value(forKey: key) as? Bool { return b }
+                return false
+            }
+
+            // 兼容不同实现里可能存在的别名字段（例如 label/publisher）
+            func firstNonEmpty(_ keys: [String]) -> String {
+                for k in keys {
+                    let v = string(k)
+                    if !v.isEmpty { return v }
+                }
+                return ""
+            }
+
+            func firstInt(_ keys: [String]) -> Int {
+                for k in keys {
+                    let v = int(k)
+                    if v != 0 { return v }
+                }
+                return 0
+            }
+
+            func firstBool(_ keys: [String]) -> Bool {
+                for k in keys {
+                    let v = bool(k)
+                    if v { return true }
+                }
+                return false
+            }
+
+            // TagLibAudioMetadata -> BasicMetadata
             return BasicMetadata(
-                title:       meta.title       ?? "",
-                artist:      meta.artist      ?? "",
-                album:       meta.album       ?? "",
-                composer:    meta.composer    ?? "",
-                genre:       meta.genre       ?? "",
-                comment:     meta.comment     ?? "",
-                track:       Int(meta.trackNumber),
-                trackTotal:  Int(meta.totalTracks),
-                disc:        Int(meta.discNumber),
-                discTotal:   Int(meta.totalDiscs),
-                year:        meta.year        ?? "",
-                albumArtist: meta.albumArtist ?? "",
-                releaseDate: meta.releaseDate ?? "",
-                publisher:   meta.label       ?? "",
-                copyright:   meta.copyright   ?? "",
-                isExplicit:  meta.explicitContent
+                title:       firstNonEmpty(["title"]),
+                artist:      firstNonEmpty(["artist"]),
+                album:       firstNonEmpty(["album"]),
+                composer:    firstNonEmpty(["composer"]),
+                genre:       firstNonEmpty(["genre"]),
+                comment:     firstNonEmpty(["comment"]),
+                track:       firstInt(["trackNumber", "track"]),
+                trackTotal:  firstInt(["totalTracks", "trackTotal"]),
+                disc:        firstInt(["discNumber", "disc"]),
+                discTotal:   firstInt(["totalDiscs", "discTotal"]),
+                year:        firstNonEmpty(["year"]),
+                albumArtist: firstNonEmpty(["albumArtist"]),
+                // Release Date 字段：如果桥接层不提供，这里会是空字符串；AudioFile 可继续用 AVFoundation 兜底
+                releaseDate: firstNonEmpty(["releaseDate", "originalReleaseDate"]),
+                publisher:   firstNonEmpty(["publisher", "label"]),
+                copyright:   firstNonEmpty(["copyright"]),
+                isExplicit:  firstBool(["explicitContent", "isExplicit", "explicit"]) 
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")
@@ -127,11 +205,21 @@ struct TagLibMetadataManager {
     static func rawMetadata(from url: URL) -> RawMetadataDump? {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty else { return nil }
-        guard TagLibMetadataExtractor.isSupportedFormat(ext) else { return nil }
+
+        guard TagLibMetadataExtractor.isSupportedFormat(ext) else {
+            return nil
+        }
 
         // ObjC++ returns a Foundation dictionary for display; normalize it into Swift models.
-        let dictObj = TagLibMetadataExtractor.rawMetadata(for: url)
-        let dict = dictObj as NSDictionary
+        let dictAny: Any = TagLibMetadataExtractor.rawMetadata(for: url)
+        let dict: NSDictionary
+        if let d = dictAny as? NSDictionary {
+            dict = d
+        } else if let d = dictAny as? [String: Any] {
+            dict = d as NSDictionary
+        } else {
+            return .empty
+        }
 
         let propsAny = dict["properties"] as? [Any] ?? []
         let framesAny = dict["id3v2Frames"] as? [Any] ?? []
@@ -176,5 +264,73 @@ struct TagLibMetadataManager {
         }
 
         return RawMetadataDump(properties: properties, id3v2Frames: id3v2Frames)
+    }
+
+    /// Formats *raw* metadata (as seen by TagLib) into a single text blob for GUI display.
+    ///
+    /// This is intentionally **not** the same as the structured fields shown in the right inspector.
+    /// It surfaces:
+    /// - TagLib `PropertyMap` entries (including multi-value fields)
+    /// - ID3v2 frames (MP3 only), including TXXX/COMM details when available
+    static func rawMetadataText(from url: URL) -> String? {
+        // Prefer a direct text dump from the bridge if available.
+        if let text = bridgeTextDumpIfAvailable(for: url), !text.isEmpty {
+            return text
+        }
+
+        // Otherwise, build a readable text representation from the normalized dump models.
+        guard let dump = rawMetadata(from: url) else { return nil }
+
+        var lines: [String] = []
+        lines.append("File: \(url.lastPathComponent)")
+        lines.append("Path: \(url.path)")
+        lines.append("")
+
+        lines.append("[TagLib Properties]")
+        if dump.properties.isEmpty {
+            lines.append("(none)")
+        } else {
+            for p in dump.properties {
+                // Prefer showing the full values array when present.
+                if !p.values.isEmpty {
+                    if p.values.count == 1 {
+                        lines.append("\(p.key): \(p.values[0])")
+                    } else {
+                        lines.append("\(p.key):")
+                        for v in p.values {
+                            lines.append("  - \(v)")
+                        }
+                    }
+                } else if !p.value.isEmpty {
+                    lines.append("\(p.key): \(p.value)")
+                } else {
+                    lines.append("\(p.key):")
+                }
+            }
+        }
+
+        lines.append("")
+        lines.append("[ID3v2 Frames]")
+        if dump.id3v2Frames.isEmpty {
+            lines.append("(none)")
+        } else {
+            for f in dump.id3v2Frames {
+                let trimmedValue = f.value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Provide richer labeling for common “multi-field” frames.
+                if let desc = f.description, !desc.isEmpty {
+                    // Typically TXXX / COMM
+                    if let lang = f.language, !lang.isEmpty {
+                        lines.append("\(f.frameID) [\(lang)] (\(desc)): \(trimmedValue)")
+                    } else {
+                        lines.append("\(f.frameID) (\(desc)): \(trimmedValue)")
+                    }
+                } else {
+                    lines.append("\(f.frameID): \(trimmedValue)")
+                }
+            }
+        }
+
+        return lines.joined(separator: "\n")
     }
 }

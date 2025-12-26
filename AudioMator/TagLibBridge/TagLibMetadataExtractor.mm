@@ -6,6 +6,7 @@
 //
 
 #import "TagLibMetadataExtractor.h"
+#include <stdarg.h>
 
 // TagLib C++ headers
 #include "taglib/taglib/fileref.h"
@@ -20,7 +21,6 @@
 #include "taglib/taglib/mpeg/id3v2/frames/attachedpictureframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/textidentificationframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/commentsframe.h"
-#include "taglib/taglib/mpeg/id3v2/frames/textidentificationframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/unsynchronizedlyricsframe.h"
 #include "taglib/taglib/mpeg/id3v2/frames/popularimeterframe.h"
 
@@ -322,7 +322,11 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
         // User-defined text frames (TXXX) - for extended metadata
         else if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame*>(frame)) {
             TagLib::String description = userFrame->description();
-            TagLib::String userValue = userFrame->fieldList().back();
+            TagLib::StringList userFields = userFrame->fieldList();
+            if (userFields.isEmpty()) {
+                continue;
+            }
+            TagLib::String userValue = userFields.back();
             std::string descStr = description.upper().to8Bit(true);
             
             if (descStr == "RELEASETYPE" || descStr == "MUSICBRAINZ ALBUM TYPE") {
@@ -1265,7 +1269,90 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     return YES;
 }
 
+
 #pragma mark - Raw Metadata Dump (GUI feature)
+
+// Helpers for building a stable, user-facing dump.
+static inline void AppendLine(NSMutableString *out, NSString *line) {
+    if (!out || !line) return;
+    [out appendString:line];
+    [out appendString:@"\n"]; 
+}
+
+static inline NSString *NonNil(NSString *s) {
+    return s ?: @"";
+}
+
+static void AppendPropertyMap(NSMutableString *out, const TagLib::PropertyMap &pm) {
+    if (!out) return;
+
+    if (pm.isEmpty()) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    // Iterate PropertyMap directly (portable across TagLib versions).
+    for (auto it = pm.begin(); it != pm.end(); ++it) {
+        const TagLib::String &k = it->first;
+        const TagLib::StringList &vals = it->second;
+
+        NSString *nsKey = TagStringToNSString(k);
+        if (!nsKey) nsKey = @"";
+
+        NSMutableArray<NSString *> *valueStrings = [NSMutableArray array];
+        for (auto vit = vals.begin(); vit != vals.end(); ++vit) {
+            NSString *v = TagStringToNSString(*vit);
+            [valueStrings addObject:(v ?: @"")];
+        }
+
+        NSString *joined = valueStrings.count ? [valueStrings componentsJoinedByString:@"; "] : @"";
+        AppendLine(out, [NSString stringWithFormat:@"%@ = %@", nsKey, joined]);
+    }
+}
+
+static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
+    // Prefer string list (many atoms map cleanly here).
+    TagLib::StringList sl = item.toStringList();
+    if (!sl.isEmpty()) {
+        return TagStringToNSString(sl.toString("; ")) ?: @"";
+    }
+
+    // Try common scalar representations.
+    // Note: We intentionally avoid calling `isEmpty()` on MP4::Item (not available in some TagLib versions).
+    // Also avoid throwing conversions by keeping them simple.
+    @try {
+        int v = item.toInt();
+        return [NSString stringWithFormat:@"%d", v];
+    } @catch (...) {
+        // ignore
+    }
+
+    @try {
+        TagLib::MP4::Item::IntPair p = item.toIntPair();
+        return [NSString stringWithFormat:@"%d/%d", p.first, p.second];
+    } @catch (...) {
+        // ignore
+    }
+
+    @try {
+        bool b = item.toBool();
+        return b ? @"true" : @"false";
+    } @catch (...) {
+        // ignore
+    }
+
+    // Binary-like / artwork atoms: show a placeholder.
+    @try {
+        TagLib::MP4::CoverArtList arts = item.toCoverArtList();
+        if (!arts.isEmpty()) {
+            return [NSString stringWithFormat:@"<CoverArtList: %lu item(s)>", (unsigned long)arts.size()];
+        }
+    } @catch (...) {
+        // ignore
+    }
+
+    return @"<unavailable>";
+}
 
 // Return a best-effort, "raw" view of metadata as TagLib sees it.
 // This is intended for displaying to users in a GUI, not for programmatic editing.
@@ -1284,84 +1371,219 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
     }
 
-    // 1) Properties: TagLib::File::properties() (unified PropertyMap)
-    TagLib::FileRef fileRef(filePath);
-    if (!fileRef.isNull() && fileRef.file()) {
-        TagLib::PropertyMap pm = fileRef.file()->properties();
-
-        for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
-            TagLib::String key = pit->first;
-            TagLib::StringList vals = pit->second;
-
-            NSString *nsKey = TagStringToNSString(key) ?: @"";
-            NSMutableArray<NSString *> *values = [NSMutableArray array];
-
-            for (auto vit = vals.begin(); vit != vals.end(); ++vit) {
-                NSString *v = TagStringToNSString(*vit) ?: @"";
-                [values addObject:v];
-            }
-
-            NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
-
-            [propertiesOut addObject:@{
-                @"key": nsKey,
-                @"value": joined,
-                @"values": values,
-                @"count": @(values.count)
-            }];
-        }
-    }
-
-    // 2) ID3v2 frames (when applicable): list every frame with its frame ID and rendered value.
-    //    This is the "lowest-level" view users often want when tags have multiple naming schemes.
+    // 1) Unified properties: prefer format-specific File classes when possible.
     std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
+
     if (ext == "mp3") {
-        TagLib::MPEG::File mpegFile(filePath);
-        if (mpegFile.isValid() && mpegFile.ID3v2Tag()) {
-            TagLib::ID3v2::Tag *id3 = mpegFile.ID3v2Tag();
+        TagLib::MPEG::File f(filePath);
+        if (f.isValid()) {
+            TagLib::PropertyMap pm = f.properties();
+            for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
+                NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
+                NSMutableArray<NSString *> *values = [NSMutableArray array];
+                for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
+                    [values addObject:(TagStringToNSString(*vit) ?: @"")];
+                }
+                NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+                [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
+            }
+        }
+
+        // 2) ID3v2 frames (when applicable)
+        if (f.isValid() && f.ID3v2Tag()) {
+            TagLib::ID3v2::Tag *id3 = f.ID3v2Tag();
             TagLib::ID3v2::FrameList frames = id3->frameList();
 
             for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
                 TagLib::ID3v2::Frame *frame = *fit;
                 if (!frame) continue;
 
-                TagLib::ByteVector id = frame->frameID();
-                std::string idStr(id.data(), id.size());
+                TagLib::ByteVector frameIdBytes = frame->frameID();
+                std::string idStr(frameIdBytes.data(), frameIdBytes.size());
                 NSString *frameID = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
 
                 NSString *value = TagStringToNSString(frame->toString()) ?: @"";
 
-                NSMutableDictionary<NSString *, NSObject *> *item = [@{
-                    @"id": frameID ?: @"",
-                    @"value": value
-                } mutableCopy];
+                NSMutableDictionary<NSString *, NSObject *> *item = [@{ @"id": frameID ?: @"", @"value": value } mutableCopy];
 
-                // User-defined text frames (TXXX) include a description which matters for display.
                 if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
                     NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
-                    if (desc.length) {
-                        item[@"description"] = desc;
-                    }
+                    if (desc.length) item[@"description"] = desc;
                 }
 
-                // Comments frames can carry language/description.
                 if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
                     NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
-                    if (desc.length) {
-                        item[@"description"] = desc;
-                    }
+                    if (desc.length) item[@"description"] = desc;
                     NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
-                    if (lang.length) {
-                        item[@"language"] = lang;
-                    }
+                    if (lang.length) item[@"language"] = lang;
                 }
 
                 [id3v2FramesOut addObject:item];
             }
         }
+
+        return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+    }
+
+    // Fallback: use FileRef properties for other formats.
+    TagLib::FileRef fileRef(filePath);
+    if (!fileRef.isNull() && fileRef.file()) {
+        TagLib::PropertyMap pm = fileRef.file()->properties();
+        for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
+            NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
+            NSMutableArray<NSString *> *values = [NSMutableArray array];
+            for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
+                [values addObject:(TagStringToNSString(*vit) ?: @"")];
+            }
+            NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+            [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
+        }
     }
 
     return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+}
+
++ (nullable NSString *)dumpMetadataTextFromURL:(NSURL *)fileURL
+                                       error:(NSError **)error
+{
+    if (!fileURL || !fileURL.isFileURL) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:20
+                                     userInfo:@{ NSLocalizedDescriptionKey: @"Invalid file URL" }];
+        }
+        return nil;
+    }
+
+    const char *filePath = fileURL.path.UTF8String;
+    if (!filePath) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:21
+                                     userInfo:@{ NSLocalizedDescriptionKey: @"Invalid file path" }];
+        }
+        return nil;
+    }
+
+    NSMutableString *out = [NSMutableString string];
+    AppendLine(out, [NSString stringWithFormat:@"File: %@", NonNil(fileURL.lastPathComponent)]);
+    AppendLine(out, [NSString stringWithFormat:@"Path: %@", NonNil(fileURL.path)]);
+    AppendLine(out, @"");
+
+    std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
+
+    // 1) Unified properties (as TagLib sees them)
+    AppendLine(out, @"[TagLib Properties]" );
+
+    bool anyProperties = false;
+
+    if (ext == "mp3") {
+        TagLib::MPEG::File f(filePath);
+        if (f.isValid()) {
+            TagLib::PropertyMap pm = f.properties();
+            anyProperties = !pm.isEmpty();
+            AppendPropertyMap(out, pm);
+        } else {
+            AppendLine(out, @"(unable to open as MPEG)");
+        }
+    } else if (ext == "m4a" || ext == "m4b" || ext == "m4p" || ext == "mp4") {
+        TagLib::MP4::File f(filePath);
+        if (f.isValid()) {
+            TagLib::PropertyMap pm = f.properties();
+            anyProperties = !pm.isEmpty();
+            AppendPropertyMap(out, pm);
+        } else {
+            AppendLine(out, @"(unable to open as MP4)");
+        }
+    } else {
+        TagLib::FileRef fileRef(filePath);
+        if (!fileRef.isNull() && fileRef.file()) {
+            TagLib::PropertyMap pm = fileRef.file()->properties();
+            anyProperties = !pm.isEmpty();
+            AppendPropertyMap(out, pm);
+        } else {
+            AppendLine(out, @"(unable to open)");
+        }
+    }
+
+    // 2) Format-specific raw structures (these are what helps with "same field, different names")
+
+    if (ext == "mp3") {
+        AppendLine(out, @"");
+        AppendLine(out, @"[ID3v2 Frames]" );
+
+        TagLib::MPEG::File f(filePath);
+        if (f.isValid() && f.ID3v2Tag()) {
+            TagLib::ID3v2::Tag *id3 = f.ID3v2Tag();
+            TagLib::ID3v2::FrameList frames = id3->frameList();
+
+            if (frames.isEmpty()) {
+                AppendLine(out, @"(none)");
+            } else {
+                for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
+                    TagLib::ID3v2::Frame *frame = *fit;
+                    if (!frame) continue;
+
+                    TagLib::ByteVector frameIdBytes = frame->frameID();
+                    std::string idStr(frameIdBytes.data(), frameIdBytes.size());
+                    NSString *fid = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
+
+                    NSString *val = TagStringToNSString(frame->toString()) ?: @"";
+
+                    // Add descriptions where they matter (TXXX, COMM)
+                    if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
+                        NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
+                        if (desc.length > 0) {
+                            AppendLine(out, [NSString stringWithFormat:@"%@ (TXXX:%@) = %@", fid, desc, val]);
+                            continue;
+                        }
+                    }
+
+                    if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
+                        NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
+                        NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
+                        if (desc.length > 0 || lang.length > 0) {
+                            AppendLine(out, [NSString stringWithFormat:@"%@ (COMM:%@ %@) = %@", fid, desc, lang, val]);
+                            continue;
+                        }
+                    }
+
+                    AppendLine(out, [NSString stringWithFormat:@"%@ = %@", fid, val]);
+                }
+            }
+        } else {
+            AppendLine(out, @"(no ID3v2 tag)");
+        }
+    }
+
+    if (ext == "m4a" || ext == "m4b" || ext == "m4p" || ext == "mp4") {
+        AppendLine(out, @"");
+        AppendLine(out, @"[MP4 ItemMap]" );
+
+        TagLib::MP4::File f(filePath);
+        if (f.isValid() && f.tag()) {
+            const TagLib::MP4::ItemMap &items = f.tag()->itemMap();
+            if (items.isEmpty()) {
+                AppendLine(out, @"(none)");
+            } else {
+                for (auto it = items.begin(); it != items.end(); ++it) {
+                    NSString *k = TagStringToNSString(it->first) ?: @"";
+                    NSString *v = MP4ItemToDisplayString(it->second);
+                    AppendLine(out, [NSString stringWithFormat:@"%@ = %@", k, v]);
+                }
+            }
+        } else {
+            AppendLine(out, @"(unable to read MP4 tag)");
+        }
+    }
+
+    // If absolutely nothing useful could be printed, provide a clear message.
+    // (Avoid returning nil so the GUI always has something to show.)
+    if (!anyProperties && out.length > 0) {
+        // Keep as-is; the sections above already printed (none/unable...).
+    }
+
+    return out;
 }
 
 #pragma mark - Format Support

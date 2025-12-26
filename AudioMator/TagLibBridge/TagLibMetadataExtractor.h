@@ -5,6 +5,8 @@
 //  Objective-C++ wrapper for TagLib metadata extraction
 //
 
+#pragma once
+
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -30,10 +32,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Audio properties
 @property (nonatomic, assign) NSTimeInterval duration;
-@property (nonatomic, assign) NSInteger bitrate; // in kbps
-@property (nonatomic, assign) NSInteger sampleRate; // in Hz
+@property (nonatomic, assign) NSInteger bitrate;     // kbps
+@property (nonatomic, assign) NSInteger sampleRate;  // Hz
 @property (nonatomic, assign) NSInteger channels;
-@property (nonatomic, assign) NSInteger bitDepth; // bits per sample
+@property (nonatomic, assign) NSInteger bitDepth;    // bits per sample
 @property (nonatomic, copy, nullable) NSString *codec;
 
 // Artwork
@@ -43,7 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Additional metadata
 @property (nonatomic, assign) NSInteger bpm;
 @property (nonatomic, assign) BOOL compilation;
-@property (nonatomic, assign) BOOL explicitContent; // YES = explicit, NO = non‑explicit/unknown
+@property (nonatomic, assign) BOOL explicitContent; // YES = explicit, NO = non-explicit/unknown
 @property (nonatomic, copy, nullable) NSString *copyright;
 @property (nonatomic, copy, nullable) NSString *lyrics;
 @property (nonatomic, copy, nullable) NSString *label;
@@ -90,14 +92,14 @@ NS_ASSUME_NONNULL_BEGIN
 // Media type
 @property (nonatomic, copy, nullable) NSString *mediaType;
 
-// Release information (Professional music player fields)
-@property (nonatomic, copy, nullable) NSString *releaseType;      // Album, EP, Single, Compilation, Live, etc.
+// Release information (professional fields)
+@property (nonatomic, copy, nullable) NSString *releaseType;      // Album, EP, Single, etc.
 @property (nonatomic, copy, nullable) NSString *catalogNumber;    // Catalog/Matrix number
-@property (nonatomic, copy, nullable) NSString *barcode;          // UPC/EAN barcode
+@property (nonatomic, copy, nullable) NSString *barcode;          // UPC/EAN
 @property (nonatomic, copy, nullable) NSString *releaseCountry;   // ISO country code
-@property (nonatomic, copy, nullable) NSString *artistType;       // Person, Group, Orchestra, etc.
+@property (nonatomic, copy, nullable) NSString *artistType;       // Person, Group, etc.
 
-// Custom/Extended fields dictionary
+// Custom/Extended fields
 @property (nonatomic, strong, nullable) NSDictionary<NSString *, NSString *> *customFields;
 
 @end
@@ -108,32 +110,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Extract metadata from an audio file.
 ///
-/// This method uses TagLib to read a wide range of tags, including:
-/// - Core tags: title, artist, album, albumArtist, composer, genre, year, comment
-/// - Track/disc info: trackNumber, totalTracks, discNumber, totalDiscs
-/// - Audio properties: duration, bitrate, sampleRate, channels, bitDepth, codec
-/// - Artwork: embedded cover image (artworkData + artworkMimeType)
-/// - Extended fields: bpm, compilation, copyright, lyrics, label, isrc,
-///   encoder / encoderSettings, sort fields, grouping, mood, etc.
-/// - Date fields: `releaseDate` and `originalReleaseDate` when available
-///   (for example ID3 TDRC/TDOR in MP3, or ©day / ORIGINAL YEAR atoms in MP4/M4A).
-/// - Professional music player fields (releaseType, catalogNumber, barcode,
-///   releaseCountry, artistType) and any custom freeform fields.
-///
-/// Unsupported or missing tags will simply remain nil or zero on the returned
-/// TagLibAudioMetadata instance.
-///
-/// @param fileURL URL to the audio file
-/// @param error Error pointer for error handling
-/// @return Metadata object or nil if extraction fails
+/// Unsupported or missing tags remain nil/zero on the returned object.
 + (nullable TagLibAudioMetadata *)extractMetadataFromURL:(NSURL *)fileURL
                                                    error:(NSError *_Nullable *_Nullable)error;
 
-/// Write metadata back to an audio file
-/// @param metadata Metadata object to write
-/// @param fileURL URL to the audio file
-/// @param error Error pointer for error handling
-/// @return YES if write succeeds, NO otherwise
+/// Write metadata back to an audio file.
 + (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
                 toURL:(NSURL *)fileURL
                 error:(NSError *_Nullable *_Nullable)error
@@ -141,22 +122,21 @@ NS_SWIFT_NAME(writeMetadata(_:to:));
 
 /// Return raw metadata as TagLib sees it for display purposes.
 /// The returned dictionary has two keys:
-/// - "properties": NSArray<NSDictionary<NSString *, NSString *> *> of unified TagLib PropertyMap entries
-/// - "id3v2Frames": NSArray<NSDictionary<NSString *, NSString *> *> of ID3v2 frames (frame ID, value, optional description)
-/// This is intended for GUI inspection, not for programmatic editing.
-///
-/// @param fileURL URL to the audio file
-/// @return NSDictionary containing raw metadata sections
-+ (NSDictionary<NSString *, id> *)rawMetadataForURL:(NSURL *)fileURL
+/// - "properties": NSArray<NSDictionary<NSString *, NSString *> *> of TagLib PropertyMap entries
+/// - "id3v2Frames": NSArray<NSDictionary<NSString *, NSString *> *> of ID3v2 frames
++ (NSDictionary<NSString *, NSObject *> *)rawMetadataForURL:(NSURL *)fileURL
 NS_SWIFT_NAME(rawMetadata(for:));
 
-/// Check if a file format is supported by TagLib
-/// @param fileExtension File extension (without dot)
-/// @return YES if supported, NO otherwise
+/// Return a single plain-text dump of metadata as TagLib sees it.
+/// Intended for GUI inspection and copy/paste.
++ (nullable NSString *)dumpMetadataTextFromURL:(NSURL *)fileURL
+                                        error:(NSError *_Nullable *_Nullable)error
+NS_SWIFT_NAME(dumpMetadataText(from:));
+
+/// Check if a file format is supported by TagLib.
 + (BOOL)isSupportedFormat:(NSString *)fileExtension;
 
-/// Get list of all supported file extensions
-/// @return Array of supported extensions
+/// Get list of all supported file extensions.
 + (NSArray<NSString *> *)supportedExtensions;
 
 @end

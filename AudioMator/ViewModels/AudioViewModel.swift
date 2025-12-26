@@ -183,6 +183,7 @@ final class AudioViewModel: ObservableObject {
         meta.releaseDate = edit.releaseDate.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.label       = edit.publisher.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.copyright   = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.explicitContent = edit.isExplicit
 
         // 负数一律视为 0，避免写入奇怪的轨道号
         meta.trackNumber = max(0, edit.track)
@@ -202,25 +203,91 @@ final class AudioViewModel: ObservableObject {
           releaseDate = \(meta.releaseDate ?? "<nil>")
           publisher   = \(meta.label ?? "<nil>")
           copyright   = \(meta.copyright ?? "<nil>")
+          explicit    = \(meta.explicitContent ? "YES" : "NO")
           year        = \(meta.year ?? "<nil>")
           track       = \(meta.trackNumber) / \(meta.totalTracks)
           disc        = \(meta.discNumber) / \(meta.totalDiscs)
         """)
 
-        do {
-            try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+        Task(priority: .userInitiated) {
+            do {
+                try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
 
-            // 写完重新从磁盘读一遍，刷新 UI
-            Task {
+                // 写完重新从磁盘读一遍，刷新 UI（并保持选中项不丢）
                 if let reloaded = try? await AudioFile(url: file.url) {
-                    await MainActor.run {
-                        self.files[index] = reloaded
-                        self.edit = SingleFileEditModel(from: reloaded)
-                    }
+                    self.files[index] = reloaded
+                    self.selectedAudioIDs = [reloaded.id]
+                    self.edit = SingleFileEditModel(from: reloaded)
                 }
+            } catch {
+                print("Failed to write metadata via TagLib: \(error)")
             }
-        } catch {
-            print("Failed to write metadata via TagLib: \(error)")
+        }
+    }
+
+    // MARK: - 右键菜单动作（中间列表）
+
+    func openWithDefaultApp(_ file: AudioFile) {
+        NSWorkspace.shared.open(file.url)
+    }
+
+    func revealInFinder(_ file: AudioFile) {
+        NSWorkspace.shared.activateFileViewerSelecting([file.url])
+    }
+
+    func copyFilePath(_ file: AudioFile) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(file.url.path, forType: .string)
+    }
+
+    func removeFromList(_ file: AudioFile) {
+        files.removeAll { $0.id == file.id }
+        selectedAudioIDs.remove(file.id)
+        if selectedAudioIDs.isEmpty {
+            edit = nil
+        }
+    }
+
+    /// 尝试抹掉文件的所有元数据（当前仅对 mp3 生效；实现为“写入空标签并覆盖”）
+    func eraseAllMetadata(_ file: AudioFile) {
+        guard file.url.pathExtension.lowercased() == "mp3" else {
+            print("Skip non-mp3 erase for: \(file.url.lastPathComponent)")
+            return
+        }
+
+        guard let index = files.firstIndex(where: { $0.id == file.id }) else { return }
+
+        let meta = TagLibAudioMetadata()
+        meta.title = ""
+        meta.artist = ""
+        meta.album = ""
+        meta.composer = ""
+        meta.genre = ""
+        meta.comment = ""
+        meta.albumArtist = ""
+        meta.year = ""
+        meta.releaseDate = ""
+        meta.label = ""
+        meta.copyright = ""
+        meta.trackNumber = 0
+        meta.totalTracks = 0
+        meta.discNumber = 0
+        meta.totalDiscs = 0
+        meta.explicitContent = false
+
+        Task(priority: .userInitiated) {
+            do {
+                try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+
+                if let reloaded = try? await AudioFile(url: file.url) {
+                    self.files[index] = reloaded
+                    self.selectedAudioIDs = [reloaded.id]
+                    self.edit = SingleFileEditModel(from: reloaded)
+                }
+            } catch {
+                print("Failed to erase metadata via TagLib: \(error)")
+            }
         }
     }
 }

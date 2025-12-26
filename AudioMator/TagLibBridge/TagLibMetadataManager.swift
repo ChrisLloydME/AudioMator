@@ -77,11 +77,20 @@ enum TagLibManagerError: Error {
 /// 包一层，负责调用 Objective-C++ 的 TagLibMetadataExtractor
 struct TagLibMetadataManager {
 
-    // MARK: - Bridge Introspection (optional text dump API)
+    // MARK: - Bridge Dump API
 
-    /// Some bridge versions expose a direct "dump text" API. To stay source-compatible across iterations,
-    /// we try a small set of selector names at runtime.
+    /// Return a single plain-text dump of metadata as TagLib sees it.
+    ///
+    /// Preferred path: call the ObjC++ bridge API directly (Swift `throws`).
+    /// Fallback path: attempt older single-argument selector names via `perform` for compatibility.
     private static func bridgeTextDumpIfAvailable(for url: URL) -> String? {
+        // Newer bridge (preferred): `dumpMetadataText(from:)` is exposed as a Swift-throwing method.
+        if let text = try? TagLibMetadataExtractor.dumpMetadataText(from: url) {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+
+        // Older bridge variants: try a small set of single-argument selector names at runtime.
         let candidates = [
             "rawMetadataTextFor:",
             "rawMetadataTextForURL:",
@@ -98,8 +107,14 @@ struct TagLibMetadataManager {
             // perform(_:with:) only supports single-argument selectors.
             if let unmanaged = TagLibMetadataExtractor.perform(sel, with: url) {
                 let any = unmanaged.takeUnretainedValue()
-                if let s = any as? String { return s }
-                if let s = any as? NSString { return s as String }
+                if let s = any as? String {
+                    let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return trimmed }
+                }
+                if let s = any as? NSString {
+                    let trimmed = (s as String).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return trimmed }
+                }
             }
         }
 
@@ -187,12 +202,75 @@ struct TagLibMetadataManager {
                 releaseDate: firstNonEmpty(["releaseDate", "originalReleaseDate"]),
                 publisher:   firstNonEmpty(["publisher", "label"]),
                 copyright:   firstNonEmpty(["copyright"]),
-                isExplicit:  firstBool(["explicitContent", "isExplicit", "explicit"]) 
+                isExplicit:  firstBool(["explicitContent", "isExplicit", "explicit"])
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")
             return nil
         }
+    }
+
+    // MARK: - Write / Erase
+
+    /// Write `BasicMetadata` back to the file using TagLib.
+    ///
+    /// Notes:
+    /// - This is intended for formats supported by our TagLib bridge (currently MP3-first).
+    /// - Fields that are empty strings are written as `nil` (i.e. removed/cleared).
+    /// - `publisher` is mapped to TagLib's `label` field.
+    @discardableResult
+    static func writeMetadata(_ meta: BasicMetadata, to url: URL) throws -> Bool {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
+            throw TagLibManagerError.unsupportedFormat
+        }
+
+        let m = TagLibAudioMetadata()
+
+        func nilIfEmpty(_ s: String) -> String? {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.isEmpty ? nil : t
+        }
+
+        // Core tags
+        m.title = nilIfEmpty(meta.title)
+        m.artist = nilIfEmpty(meta.artist)
+        m.album = nilIfEmpty(meta.album)
+        m.albumArtist = nilIfEmpty(meta.albumArtist)
+        m.composer = nilIfEmpty(meta.composer)
+        m.genre = nilIfEmpty(meta.genre)
+        m.comment = nilIfEmpty(meta.comment)
+
+        // Numbers
+        // TagLib bridge uses `Int` for these fields; use 0 to represent “not set/clear”.
+        m.trackNumber = meta.track
+        m.totalTracks = meta.trackTotal
+        m.discNumber = meta.disc
+        m.totalDiscs = meta.discTotal
+
+        // Dates
+        m.year = nilIfEmpty(meta.year)
+        m.releaseDate = nilIfEmpty(meta.releaseDate)
+
+        // Legal / publisher
+        m.label = nilIfEmpty(meta.publisher)
+        m.copyright = nilIfEmpty(meta.copyright)
+
+        // Explicit
+        m.explicitContent = meta.isExplicit
+
+        // Persist
+        try TagLibMetadataExtractor.writeMetadata(m, to: url)
+        return true
+    }
+
+    /// Remove (as much as TagLib allows) all metadata from a file.
+    ///
+    /// Implementation strategy: write an empty `TagLibAudioMetadata` object.
+    /// This should clear the common tag fields and reset numeric fields to 0.
+    @discardableResult
+    static func eraseAllMetadata(from url: URL) throws -> Bool {
+        return try writeMetadata(.empty, to: url)
     }
 
     /// Raw metadata dump for GUI inspection ("show me everything TagLib sees").
@@ -211,7 +289,13 @@ struct TagLibMetadataManager {
         }
 
         // ObjC++ returns a Foundation dictionary for display; normalize it into Swift models.
-        let dictAny: Any = TagLibMetadataExtractor.rawMetadata(for: url)
+        let dictAny: Any
+        do {
+            dictAny = try TagLibMetadataExtractor.rawMetadata(for: url)
+        } catch {
+            print("TagLib rawMetadata error for \(url.lastPathComponent): \(error)")
+            return .empty
+        }
         let dict: NSDictionary
         if let d = dictAny as? NSDictionary {
             dict = d
@@ -274,7 +358,7 @@ struct TagLibMetadataManager {
     /// - ID3v2 frames (MP3 only), including TXXX/COMM details when available
     static func rawMetadataText(from url: URL) -> String? {
         // Prefer a direct text dump from the bridge if available.
-        if let text = bridgeTextDumpIfAvailable(for: url), !text.isEmpty {
+        if let text = bridgeTextDumpIfAvailable(for: url) {
             return text
         }
 

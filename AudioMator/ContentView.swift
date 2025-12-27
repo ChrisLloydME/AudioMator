@@ -9,6 +9,7 @@
 import SwiftUI
 import AppKit
 import Combine
+import UniformTypeIdentifiers
 
 // MARK: - Helpers
 fileprivate func formatDuration(_ seconds: Double) -> String {
@@ -76,6 +77,12 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
 final class SharedState: ObservableObject {
     @Published var selectedSidebarItem: String? = "all"
     @Published var selectedAudioIDs: Set<AudioFile.ID> = []
+
+    // Custom ordering for the middle list (session-only)
+    @Published var customOrder: [AudioFile.ID] = []
+
+    // Drag source tracking for row reordering
+    @Published var draggingAudioID: AudioFile.ID? = nil
 }
 
 struct ContentView: View {
@@ -194,6 +201,83 @@ struct ContentPane: View {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
     }
 
+    private var orderedFiles: [AudioFile] {
+        // If no custom order yet, fall back to the raw array order
+        if state.customOrder.isEmpty {
+            return viewModel.files
+        }
+
+        // Map ids -> file and emit in custom order
+        let map = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        var result: [AudioFile] = []
+        result.reserveCapacity(viewModel.files.count)
+
+        for id in state.customOrder {
+            if let f = map[id] {
+                result.append(f)
+            }
+        }
+
+        // Append any new files that are not in the order array yet (e.g. newly imported)
+        let existing = Set(result.map { $0.id })
+        for f in viewModel.files where !existing.contains(f.id) {
+            result.append(f)
+        }
+
+        return result
+    }
+
+    private func syncCustomOrderWithFiles() {
+        let ids = viewModel.files.map { $0.id }
+        let idSet = Set(ids)
+
+        if state.customOrder.isEmpty {
+            state.customOrder = ids
+            return
+        }
+
+        // Remove ids that no longer exist
+        state.customOrder.removeAll { !idSet.contains($0) }
+
+        // Append newly added ids
+        let existing = Set(state.customOrder)
+        for id in ids where !existing.contains(id) {
+            state.customOrder.append(id)
+        }
+    }
+    private struct FileReorderDropDelegate: DropDelegate {
+        let targetID: AudioFile.ID
+        @Binding var customOrder: [AudioFile.ID]
+        @Binding var draggingID: AudioFile.ID?
+
+        func dropEntered(info: DropInfo) {
+            guard let draggingID, draggingID != targetID else { return }
+            guard let fromIndex = customOrder.firstIndex(of: draggingID),
+                  let toIndex = customOrder.firstIndex(of: targetID) else { return }
+
+            // Reorder immediately on hover for a responsive UX
+            if fromIndex != toIndex {
+                withAnimation(.default) {
+                    let from = IndexSet(integer: fromIndex)
+                    customOrder.move(fromOffsets: from, toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+                }
+            }
+        }
+
+        func performDrop(info: DropInfo) -> Bool {
+            draggingID = nil
+            return true
+        }
+
+        func dropUpdated(info: DropInfo) -> DropProposal? {
+            DropProposal(operation: .move)
+        }
+
+        func dropExited(info: DropInfo) {
+            // no-op
+        }
+    }
+
     private func openSelectedFiles() {
         for file in selectedFiles {
             NSWorkspace.shared.open(file.url)
@@ -235,11 +319,27 @@ struct ContentPane: View {
                 )
             } else {
                 Table(
-                    viewModel.files,
+                    orderedFiles,
                     selection: $state.selectedAudioIDs
                 ) {
                     TableColumn("Filename") { file in
                         Text(file.url.lastPathComponent)
+                            .onDrag {
+                                // Ensure the order array is initialized before dragging
+                                if state.customOrder.isEmpty {
+                                    state.customOrder = viewModel.files.map { $0.id }
+                                }
+                                state.draggingAudioID = file.id
+                                return NSItemProvider(object: file.id.uuidString as NSString)
+                            }
+                            .onDrop(
+                                of: [.text],
+                                delegate: FileReorderDropDelegate(
+                                    targetID: file.id,
+                                    customOrder: $state.customOrder,
+                                    draggingID: $state.draggingAudioID
+                                )
+                            )
                     }
                     TableColumn("Title") { file in
                         Text(file.title)
@@ -264,6 +364,10 @@ struct ContentPane: View {
                     // 初次出现时也同步一次，以防已有选中状态
                     viewModel.selectedAudioIDs = state.selectedAudioIDs
                     viewModel.updateEditForSelection()
+                    syncCustomOrderWithFiles()
+                }
+                .onChange(of: viewModel.files.map { $0.id }) { _ in
+                    syncCustomOrderWithFiles()
                 }
                 .contextMenu {
                     Button("Open") {

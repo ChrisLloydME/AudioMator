@@ -403,7 +403,7 @@ final class AudioViewModel: ObservableObject {
                 do {
                     _ = try TagLibMetadataExtractor.writeTrackNumber(
                         newNumber,
-                        totalTracks: targetFiles.count,
+                        totalTracks: 0,
                         padWidth: padWidth,
                         to: file.url
                     )

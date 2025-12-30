@@ -10,6 +10,48 @@ import Combine
 import AppKit
 import UniformTypeIdentifiers
 
+// MARK: - Track Renumbering
+
+enum TrackRenumberDirection: String, CaseIterable, Identifiable {
+    case ascending
+    case descending
+
+    var id: String { rawValue }
+}
+
+struct TrackRenumberOptions: Equatable {
+    var direction: TrackRenumberDirection = .ascending
+    var startNumber: Int = 1
+    var padWithZeros: Bool = true
+}
+
+struct TrackRenumberFailure: Identifiable, Equatable {
+    let id = UUID()
+    let fileName: String
+    let reason: String
+}
+
+struct TrackRenumberResult: Equatable {
+    var totalTargets: Int
+    var succeeded: Int
+    var skippedUnsupported: Int
+    var failed: Int
+    var failures: [TrackRenumberFailure]
+
+    static let empty = TrackRenumberResult(
+        totalTargets: 0,
+        succeeded: 0,
+        skippedUnsupported: 0,
+        failed: 0,
+        failures: []
+    )
+}
+
+private func digitCount(_ value: Int) -> Int {
+    let v = abs(value)
+    return String(v).count
+}
+
 // 单文件编辑模型：右侧 Inspector 绑定的数据载体
 struct SingleFileEditModel {
     var title: String
@@ -289,5 +331,91 @@ final class AudioViewModel: ObservableObject {
                 print("Failed to erase metadata via TagLib: \(error)")
             }
         }
+    }
+
+    // MARK: - 批量按列表顺序重写 Track Number
+
+    /// 根据中间栏列表的排序顺序批量重写 Track Number（TRCK）。
+    ///
+    /// - Parameters:
+    ///   - orderedIDs: 列表排序来源（通常传 `SharedState.customOrder`；若为空则传当前 `files.map(\.id)`）。
+    ///   - selectedIDs: 当前选中项；若非空，则只对选中项（按 orderedIDs 的出现顺序）执行重写。
+    ///   - options: 重写配置（顺序/倒序、起始号、是否补零）。
+    ///
+    /// - Returns: 可用于 UI 展示的汇总结果。
+    func renumberTrackNumbers(orderedIDs: [UUID], selectedIDs: Set<UUID>, options: TrackRenumberOptions) async -> TrackRenumberResult {
+        // 1) Build the target list by ordered appearance.
+        let targetsInOrder: [UUID] = {
+            let base = orderedIDs
+            if selectedIDs.isEmpty { return base }
+            return base.filter { selectedIDs.contains($0) }
+        }()
+
+        guard !targetsInOrder.isEmpty else {
+            return .empty
+        }
+
+        // 2) Resolve UUIDs to current files (and keep order).
+        //    NOTE: We intentionally skip IDs that are no longer present.
+        let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: self.files.map { ($0.id, $0) })
+        let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
+
+        guard !targetFiles.isEmpty else {
+            return .empty
+        }
+
+        // 3) Prepare numbering sequence.
+        let count = targetFiles.count
+        let start = max(0, options.startNumber)
+
+        let numbers: [Int] = {
+            switch options.direction {
+            case .ascending:
+                return (0..<count).map { start + $0 }
+            case .descending:
+                // “倒序分配”的直觉定义：列表第一首拿到最大号，最后一首拿到最小号。
+                return (0..<count).map { start + (count - 1 - $0) }
+            }
+        }()
+
+        let maxNumber = numbers.max() ?? start
+        let padWidth = options.padWithZeros ? digitCount(maxNumber) : 0
+
+        // 4) Execute writes off the main thread.
+        return await Task.detached(priority: .userInitiated) { [targetFiles, numbers, padWidth] in
+            var result = TrackRenumberResult(
+                totalTargets: targetFiles.count,
+                succeeded: 0,
+                skippedUnsupported: 0,
+                failed: 0,
+                failures: []
+            )
+
+            for (idx, file) in targetFiles.enumerated() {
+                let newNumber = numbers[idx]
+
+                let ext = file.url.pathExtension.lowercased()
+                guard ext == "mp3" else {
+                    result.skippedUnsupported += 1
+                    continue
+                }
+
+                do {
+                    _ = try TagLibMetadataExtractor.writeTrackNumber(
+                        newNumber,
+                        totalTracks: targetFiles.count,
+                        padWidth: padWidth,
+                        to: file.url
+                    )
+                    result.succeeded += 1
+                } catch {
+                    result.failed += 1
+                    let reason = (error as NSError).localizedDescription
+                    result.failures.append(TrackRenumberFailure(fileName: file.url.lastPathComponent, reason: reason))
+                }
+            }
+
+            return result
+        }.value
     }
 }

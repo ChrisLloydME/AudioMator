@@ -1089,6 +1089,262 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
 }
 
 
+
+// Build an ID3v2 TRCK text string.
+// - If padWidth > 0, the track number is left-padded with zeros to that width (e.g. 1 -> "01").
+// - The total track count is written as-is (no padding).
+static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger totalTracks, NSInteger padWidth) {
+    if (trackNumber <= 0 && totalTracks <= 0) {
+        return nil;
+    }
+
+    NSString *trackPart = nil;
+    if (trackNumber > 0) {
+        if (padWidth > 0) {
+            trackPart = [NSString stringWithFormat:@"%0*ld", (int)padWidth, (long)trackNumber];
+        } else {
+            trackPart = [NSString stringWithFormat:@"%ld", (long)trackNumber];
+        }
+    } else {
+        trackPart = @"0";
+    }
+
+    if (totalTracks > 0) {
+        return [NSString stringWithFormat:@"%@/%ld", trackPart, (long)totalTracks];
+    }
+
+    return trackPart;
+}
+
+// Write only track numbering (TRCK + TagLib::Tag::setTrack) to a file.
++ (BOOL)writeTrackNumber:(NSInteger)trackNumber
+             totalTracks:(NSInteger)totalTracks
+                padWidth:(NSInteger)padWidth
+                   toURL:(NSURL *)fileURL
+                   error:(NSError **)error
+{
+    if (!fileURL || ![fileURL isFileURL]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:40
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file URL" }];
+        }
+        return NO;
+    }
+
+    NSString *ext = fileURL.pathExtension.lowercaseString;
+    if (![ext isEqualToString:@"mp3"]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:41
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track numbers is currently supported only for MP3 files" }];
+        }
+        TLog(@"Track renumber skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
+        return NO;
+    }
+
+    const char *filePath = fileURL.path.UTF8String;
+    TagLib::MPEG::File mpegFile(filePath);
+
+    if (!mpegFile.isValid()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:42
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing track numbers" }];
+        }
+        TLog(@"Failed to open '%@' for track renumbering", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    TagLib::Tag *tag = mpegFile.tag();
+    if (!tag) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:43
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write track numbers into" }];
+        }
+        TLog(@"No tag object available for '%@' (track renumbering)", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    if (trackNumber > 0) {
+        tag->setTrack((unsigned int)trackNumber);
+    }
+
+    TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
+    if (id3v2Tag) {
+        NSString *trck = BuildTRCKString(trackNumber, totalTracks, padWidth);
+        if (trck.length > 0) {
+            SetID3v2TextFrame(id3v2Tag, "TRCK", trck);
+        }
+    }
+
+    if (!mpegFile.save()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:44
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after writing track numbers" }];
+        }
+        TLog(@"TagLib save() failed after track renumbering for '%@'", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    TLog(@"Successfully wrote track numbers to '%@' (track=%ld, total=%ld, padWidth=%ld)",
+         fileURL.lastPathComponent,
+         (long)trackNumber,
+         (long)totalTracks,
+         (long)padWidth);
+
+    return YES;
+}
+
+// Parse an NSString like "03/12" or "03" into numeric components and an inferred pad width.
+// padWidth is inferred only from the *track/disc part* (before '/'): if it contains leading zeros,
+// we treat its string length as the desired pad width.
+static void ParseNumberPairFromNSString(NSString *text,
+                                       NSInteger &number,
+                                       NSInteger &total,
+                                       NSInteger &padWidth)
+{
+    number = 0;
+    total = 0;
+    padWidth = 0;
+
+    if (!text || text.length == 0) {
+        return;
+    }
+
+    NSString *trimmed = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (trimmed.length == 0) {
+        return;
+    }
+
+    NSArray<NSString *> *parts = [trimmed componentsSeparatedByString:@"/"];
+    NSString *left = parts.count > 0 ? parts[0] : trimmed;
+
+    // Infer padding width from leading zeros in the left part.
+    // Example: "01" -> padWidth=2, "1" -> padWidth=0.
+    NSString *leftTrim = [left stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (leftTrim.length > 1 && [leftTrim hasPrefix:@"0"]) {
+        padWidth = (NSInteger)leftTrim.length;
+    }
+
+    // Parse numbers.
+    number = leftTrim.integerValue;
+    if (parts.count >= 2) {
+        NSString *right = [parts[1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        total = right.integerValue;
+    }
+}
+
+// Write only track/disc number text. This is useful for auto-renumbering where the UI
+// may already have produced a padded representation like "01/10".
++ (BOOL)writeTrackNumberText:(NSString *)trackNumberText
+              discNumberText:(NSString *)discNumberText
+                       toURL:(NSURL *)fileURL
+                       error:(NSError **)error
+{
+    if (!fileURL || ![fileURL isFileURL]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:50
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file URL" }];
+        }
+        return NO;
+    }
+
+    NSString *ext = fileURL.pathExtension.lowercaseString;
+    if (![ext isEqualToString:@"mp3"]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:51
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track/disc numbers is currently supported only for MP3 files" }];
+        }
+        TLog(@"Track/disc write skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
+        return NO;
+    }
+
+    const char *filePath = fileURL.path.UTF8String;
+    TagLib::MPEG::File mpegFile(filePath);
+
+    if (!mpegFile.isValid()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:52
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing track/disc numbers" }];
+        }
+        TLog(@"Failed to open '%@' for track/disc write", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    TagLib::Tag *tag = mpegFile.tag();
+    if (!tag) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:53
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write track/disc numbers into" }];
+        }
+        TLog(@"No tag object available for '%@' (track/disc write)", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
+
+    // Track
+    if (trackNumberText.length > 0) {
+        NSInteger trackNumber = 0;
+        NSInteger totalTracks = 0;
+        NSInteger padWidth = 0;
+        ParseNumberPairFromNSString(trackNumberText, trackNumber, totalTracks, padWidth);
+
+        if (trackNumber > 0) {
+            tag->setTrack((unsigned int)trackNumber);
+        }
+
+        if (id3v2Tag) {
+            // Preserve caller-provided formatting (including padding and "/total"),
+            // but also ensure we can generate a consistent string when only a number is provided.
+            NSString *trimmed = [trackNumberText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            NSString *trckToWrite = trimmed;
+
+            // Rebuild from parsed numbers to normalize whitespace and keep padding semantics.
+            NSString *rebuilt = BuildTRCKString(trackNumber, totalTracks, padWidth);
+            if (rebuilt.length > 0) {
+                trckToWrite = rebuilt;
+            }
+
+            if (trckToWrite.length > 0) {
+                SetID3v2TextFrame(id3v2Tag, "TRCK", trckToWrite);
+            }
+        }
+    }
+
+    // Disc (ID3v2 only; TagLib::Tag has no disc setter)
+    if (discNumberText.length > 0 && id3v2Tag) {
+        // We keep disc text as provided (after trimming). Most software uses TPOS like "1/2".
+        NSString *trimmed = [discNumberText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (trimmed.length > 0) {
+            SetID3v2TextFrame(id3v2Tag, "TPOS", trimmed);
+        }
+    }
+
+    if (!mpegFile.save()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:54
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after writing track/disc numbers" }];
+        }
+        TLog(@"TagLib save() failed after track/disc write for '%@'", fileURL.lastPathComponent);
+        return NO;
+    }
+
+    TLog(@"Successfully wrote track/disc text to '%@' (TRCK=%@, TPOS=%@)",
+         fileURL.lastPathComponent,
+         trackNumberText ?: @"<nil>",
+         discNumberText ?: @"<nil>");
+
+    return YES;
+}
 // Write metadata to file (currently only MP3/ID3v2 supported)
 + (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
                 toURL:(NSURL *)fileURL
@@ -1343,7 +1599,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
 static inline void AppendLine(NSMutableString *out, NSString *line) {
     if (!out || !line) return;
     [out appendString:line];
-    [out appendString:@"\n"]; 
+    [out appendString:@"\n"];
 }
 
 static inline NSString *NonNil(NSString *s) {
@@ -1683,5 +1939,6 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
         @"oga",                      // OGG FLAC
     ];
 }
+
 
 @end

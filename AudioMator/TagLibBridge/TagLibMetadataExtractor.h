@@ -7,6 +7,7 @@
 
 #pragma once
 
+#ifdef __OBJC__
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -29,6 +30,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSInteger totalTracks;
 @property (nonatomic, assign) NSInteger discNumber;
 @property (nonatomic, assign) NSInteger totalDiscs;
+/// Optional text form for writing track/disc with padding, e.g. "01/10".
+/// If set, the writer should prefer these over the numeric fields when possible.
+@property (nonatomic, copy, nullable) NSString *trackNumberText;
+@property (nonatomic, copy, nullable) NSString *discNumberText;
 
 // Audio properties
 @property (nonatomic, assign) NSTimeInterval duration;
@@ -121,6 +126,28 @@ NS_SWIFT_NAME(extractMetadata(from:));
                 error:(NSError *_Nullable *_Nullable)error
 NS_SWIFT_NAME(writeMetadata(_:to:));
 
+/// Write only track/disc number text (useful for auto-renumbering with padding).
+/// - trackNumberText: Examples: "1", "01", "01/10"
+/// - discNumberText:  Examples: "1", "01", "01/02" (pass nil to leave disc unchanged)
++ (BOOL)writeTrackNumberText:(NSString *)trackNumberText
+              discNumberText:(nullable NSString *)discNumberText
+                       toURL:(NSURL *)fileURL
+                       error:(NSError *_Nullable *_Nullable)error
+NS_SWIFT_NAME(writeTrackNumberText(_:discNumberText:to:));
+
+/// Write only the track number (and optionally total tracks) to an audio file.
+/// This is a low-level API used by the auto-renumbering feature.
+///
+/// - trackNumber: Track index to write.
+/// - totalTracks: Total number of tracks in the release (pass 0 to omit the "/total" part when possible).
+/// - padWidth: If > 0, the written TRCK text will be left-padded with zeros to this width (e.g. 2 -> "01/10").
++ (BOOL)writeTrackNumber:(NSInteger)trackNumber
+             totalTracks:(NSInteger)totalTracks
+                padWidth:(NSInteger)padWidth
+                   toURL:(NSURL *)fileURL
+                   error:(NSError *_Nullable *_Nullable)error
+NS_SWIFT_NAME(writeTrackNumber(_:totalTracks:padWidth:to:));
+
 /// Return raw metadata as TagLib sees it for display purposes.
 ///
 /// The returned dictionary typically contains keys such as:
@@ -147,3 +174,4 @@ NS_SWIFT_NAME(dumpMetadataText(from:));
 @end
 
 NS_ASSUME_NONNULL_END
+#endif /* __OBJC__ */

@@ -587,6 +587,23 @@ struct InspectorPane: View {
         return text.replacingOccurrences(of: " ", with: "·")
     }
 
+    private func formatNumberPair(number: Int, total: Int) -> String? {
+        // Treat 0/empty as missing.
+        guard number > 0 else { return nil }
+        if total > 0 {
+            return "\(number) / \(total)"
+        }
+        return "\(number)"
+    }
+
+    private func trackDisplayText(for file: AudioFile) -> String? {
+        formatNumberPair(number: file.track, total: file.trackTotal)
+    }
+
+    private func discDisplayText(for file: AudioFile) -> String? {
+        formatNumberPair(number: file.disc, total: file.discTotal)
+    }
+
     private func binding(for file: AudioFile,
                          keyPath: WritableKeyPath<SingleFileEditModel, String>) -> Binding<String> {
         Binding<String>(
@@ -771,6 +788,13 @@ struct InspectorPane: View {
                 Divider()
                 editableRow(label: "Year", text: binding(for: file, keyPath: \.year))
                 Divider()
+
+                // Track / Disc (editable; single-file save uses the same flow as other fields)
+                editableRow(label: "Track Number", text: binding(for: file, keyPath: \.trackNumberText))
+                Divider()
+                editableRow(label: "Disc Number", text: binding(for: file, keyPath: \.discNumberText))
+                Divider()
+
                 editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
                 Divider()
 

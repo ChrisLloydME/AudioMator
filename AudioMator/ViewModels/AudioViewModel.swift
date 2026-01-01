@@ -65,6 +65,8 @@ struct SingleFileEditModel {
     var disc: Int
     var discTotal: Int
     var year: String
+    var trackNumberText: String   // e.g. "1" / "01" / "01/10" (TRCK)
+    var discNumberText: String    // e.g. "1" / "1/2" (TPOS)
     var albumArtist: String
     var releaseDate: String
     var publisher: String
@@ -83,6 +85,8 @@ struct SingleFileEditModel {
         disc: Int = 0,
         discTotal: Int = 0,
         year: String = "",
+        trackNumberText: String = "",
+        discNumberText: String = "",
         albumArtist: String = "",
         releaseDate: String = "",
         publisher: String = "",
@@ -100,6 +104,8 @@ struct SingleFileEditModel {
         self.disc = disc
         self.discTotal = discTotal
         self.year = year
+        self.trackNumberText = trackNumberText
+        self.discNumberText = discNumberText
         self.albumArtist = albumArtist
         self.releaseDate = releaseDate
         self.publisher = publisher
@@ -120,6 +126,8 @@ struct SingleFileEditModel {
             disc: file.disc,
             discTotal: file.discTotal,
             year: file.year,
+            trackNumberText: file.track > 0 ? (file.trackTotal > 0 ? "\(file.track)/\(file.trackTotal)" : "\(file.track)") : "",
+            discNumberText: file.disc > 0 ? (file.discTotal > 0 ? "\(file.disc)/\(file.discTotal)" : "\(file.disc)") : "",
             albumArtist: file.albumArtist,
             releaseDate: file.releaseDate,
             publisher: file.publisher,
@@ -227,11 +235,12 @@ final class AudioViewModel: ObservableObject {
         meta.copyright   = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.explicitContent = edit.isExplicit
 
-        // 负数一律视为 0，避免写入奇怪的轨道号
-        meta.trackNumber = max(0, edit.track)
-        meta.totalTracks = max(0, edit.trackTotal)
-        meta.discNumber  = max(0, edit.disc)
-        meta.totalDiscs  = max(0, edit.discTotal)
+        // Track/Disc are written via `writeTrackNumberText(...)` below so the UI can accept
+        // formats like "01" or "01/10" (and so we can omit the "/total" part when desired).
+        meta.trackNumber = 0
+        meta.totalTracks = 0
+        meta.discNumber  = 0
+        meta.totalDiscs  = 0
 
         print("""
         [AudioMator] Will write metadata for \(file.url.lastPathComponent)
@@ -247,13 +256,27 @@ final class AudioViewModel: ObservableObject {
           copyright   = \(meta.copyright ?? "<nil>")
           explicit    = \(meta.explicitContent ? "YES" : "NO")
           year        = \(meta.year ?? "<nil>")
-          track       = \(meta.trackNumber) / \(meta.totalTracks)
-          disc        = \(meta.discNumber) / \(meta.totalDiscs)
+          trackText   = \(edit.trackNumberText.isEmpty ? "<empty>" : edit.trackNumberText)
+          discText    = \(edit.discNumberText.isEmpty ? "<empty>" : edit.discNumberText)
         """)
 
         Task(priority: .userInitiated) {
             do {
                 try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+
+                // Write Track/Disc number text using the same Save button flow as other fields.
+                // Note: ObjC NSError-style API is imported as `throws` in Swift.
+                do {
+                    let trackText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let discText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    _ = try TagLibMetadataExtractor.writeTrackNumberText(
+                        trackText,
+                        discNumberText: discText,
+                        to: file.url
+                    )
+                } catch {
+                    print("Failed to write Track/Disc numbers: \(error)")
+                }
 
                 // 写完重新从磁盘读一遍，刷新 UI（并保持选中项不丢）
                 if let reloaded = try? await AudioFile(url: file.url) {

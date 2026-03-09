@@ -88,6 +88,7 @@ final class SharedState: ObservableObject {
 struct ContentView: View {
     @StateObject private var viewModel = AudioViewModel()
     @StateObject private var state = SharedState()
+    @State private var isInspectorVisible: Bool = true
 
     // Full metadata dump (user-facing feature)
     @State private var isMetadataDumpPresented: Bool = false
@@ -104,56 +105,45 @@ struct ContentView: View {
         NavigationSplitView {
             SidebarPane(state: state)
         } content: {
-            ContentPane(viewModel: viewModel, state: state)
+            ContentPane(
+                viewModel: viewModel,
+                state: state,
+                onAddFiles: viewModel.addFiles,
+                onShowMetadataDump: presentMetadataDump,
+                onOpenTrackRenumber: openTrackRenumberSheet,
+                onCancelEdits: viewModel.cancelEditing,
+                onSaveEdits: viewModel.saveSingleEdits
+            )
         } detail: {
-            InspectorPane(viewModel: viewModel, state: state)
-                .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
+            Group {
+                if isInspectorVisible {
+                    InspectorPane(
+                        viewModel: viewModel,
+                        state: state
+                    )
+                    .background(
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .opacity(0.9)
+                    )
+                    .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
+                } else {
+                    Color.clear
+                        .navigationSplitViewColumnWidth(min: 0, ideal: 0, max: 0)
+                }
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
-            // 导入文件按钮
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: viewModel.addFiles) {
-                    Image(systemName: "plus")
-                }
-            }
-
-            // Print / Show all metadata (user-facing)
-            ToolbarItem(placement: .automatic) {
+            ToolbarItem(placement: .confirmationAction) {
                 Button {
-                    presentMetadataDump()
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isInspectorVisible.toggle()
+                    }
                 } label: {
-                    Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+                    Image(systemName: "sidebar.right")
                 }
-                .help("Show all metadata as text")
-                .disabled(state.selectedAudioIDs.isEmpty)
-            }
-
-            // 重写 Track Number（按中间栏列表顺序）
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    // Seed defaults each time the sheet opens
-                    trackRenumberStartText = String(max(1, trackRenumberOptions.startNumber))
-                    trackRenumberResult = .empty
-                    isTrackRenumberPresented = true
-                } label: {
-                    Label("Renumber Tracks…", systemImage: "number")
-                }
-                .help("Rewrite Track Number (TRCK) by the middle list order")
-                .disabled(viewModel.files.isEmpty)
-            }
-
-            // 取消 / 保存（单文件编辑）
-            ToolbarItemGroup(placement: .automatic) {
-                Button("Cancel") {
-                    viewModel.cancelEditing()
-                }
-                .disabled(state.selectedAudioIDs.isEmpty)
-
-                Button("Save") {
-                    viewModel.saveSingleEdits()
-                }
-                .disabled(state.selectedAudioIDs.isEmpty)
+                .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
             }
         }
         .sheet(isPresented: $isMetadataDumpPresented) {
@@ -327,6 +317,13 @@ struct ContentView: View {
             .frame(width: 560, height: 520)
         }
     }
+
+    private func openTrackRenumberSheet() {
+        // Seed defaults each time the sheet opens
+        trackRenumberStartText = String(max(1, trackRenumberOptions.startNumber))
+        trackRenumberResult = .empty
+        isTrackRenumberPresented = true
+    }
 }
 
 struct SidebarPane: View {
@@ -346,6 +343,11 @@ struct SidebarPane: View {
 struct ContentPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    let onAddFiles: () -> Void
+    let onShowMetadataDump: () -> Void
+    let onOpenTrackRenumber: () -> Void
+    let onCancelEdits: () -> Void
+    let onSaveEdits: () -> Void
     @FocusState private var tableFocused: Bool
     @State private var isEraseAllTagsConfirmPresented: Bool = false
 
@@ -563,6 +565,31 @@ struct ContentPane: View {
                 } message: {
                     Text("This will remove metadata tags from the selected file(s). This action cannot be undone.")
                 }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button(action: onAddFiles) {
+                    Image(systemName: "plus")
+                }
+
+                Button(action: onShowMetadataDump) {
+                    Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+                }
+                .help("Show all metadata as text")
+                .disabled(state.selectedAudioIDs.isEmpty)
+
+                Button(action: onOpenTrackRenumber) {
+                    Label("Renumber Tracks…", systemImage: "number")
+                }
+                .help("Rewrite Track Number (TRCK) by the middle list order")
+                .disabled(viewModel.files.isEmpty)
+
+                Button("Cancel", action: onCancelEdits)
+                    .disabled(state.selectedAudioIDs.isEmpty)
+
+                Button("Save", action: onSaveEdits)
+                    .disabled(state.selectedAudioIDs.isEmpty)
             }
         }
     }

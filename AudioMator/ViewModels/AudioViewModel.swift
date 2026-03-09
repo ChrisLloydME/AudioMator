@@ -411,6 +411,7 @@ final class AudioViewModel: ObservableObject {
 
         // 4) Execute writes off the main thread.
         return await Task.detached(priority: .userInitiated) { [targetFiles, numbers, padWidth] in
+            let supportedExtensions: Set<String> = ["mp3", "m4a", "m4b", "m4p", "mp4"]
             var result = TrackRenumberResult(
                 totalTargets: targetFiles.count,
                 succeeded: 0,
@@ -423,7 +424,7 @@ final class AudioViewModel: ObservableObject {
                 let newNumber = numbers[idx]
 
                 let ext = file.url.pathExtension.lowercased()
-                guard isTagWriteSupportedExtension(ext) else {
+                guard supportedExtensions.contains(ext) else {
                     result.skippedUnsupported += 1
                     continue
                 }

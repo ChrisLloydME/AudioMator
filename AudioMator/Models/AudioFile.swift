@@ -45,11 +45,10 @@ struct AudioFile: Identifiable {
     let artwork: NSImage?
 
     // 统一的元数据读取帮助函数
-    private static func readMetadata(from asset: AVAsset,
+    private static func readMetadata(from metadata: [AVMetadataItem],
                                      commonKeys: [AVMetadataKey],
                                      id3Keys: [String] = [],
-                                     itunesKeys: [String] = []) -> String {
-        let metadata = asset.metadata
+                                     itunesKeys: [String] = []) async -> String {
 
         // 1. Common metadata
         for key in commonKeys {
@@ -58,8 +57,10 @@ struct AudioFile: Identifiable {
                 withKey: key,
                 keySpace: .common
             )
-            if let value = items.first?.stringValue, !value.isEmpty {
-                return value
+            for item in items {
+                if let value = try? await item.load(.stringValue), !value.isEmpty {
+                    return value
+                }
             }
         }
 
@@ -70,8 +71,10 @@ struct AudioFile: Identifiable {
                 withKey: key as (NSCopying & NSSecureCoding),
                 keySpace: .id3
             )
-            if let value = items.first?.stringValue, !value.isEmpty {
-                return value
+            for item in items {
+                if let value = try? await item.load(.stringValue), !value.isEmpty {
+                    return value
+                }
             }
         }
 
@@ -82,8 +85,10 @@ struct AudioFile: Identifiable {
                 withKey: key as (NSCopying & NSSecureCoding),
                 keySpace: .iTunes
             )
-            if let value = items.first?.stringValue, !value.isEmpty {
-                return value
+            for item in items {
+                if let value = try? await item.load(.stringValue), !value.isEmpty {
+                    return value
+                }
             }
         }
 
@@ -121,20 +126,22 @@ struct AudioFile: Identifiable {
 
         let asset = AVURLAsset(url: url)
 
-        self.publisher = AudioFile.readMetadata(
-            from: asset,
+        let allMetadataItems = try await asset.load(.metadata)
+
+        self.publisher = await AudioFile.readMetadata(
+            from: allMetadataItems,
             commonKeys: [.commonKeyPublisher],
             id3Keys: ["TPUB"]
         )
 
-        self.copyright = AudioFile.readMetadata(
-            from: asset,
+        self.copyright = await AudioFile.readMetadata(
+            from: allMetadataItems,
             commonKeys: [.commonKeyCopyrights],
             id3Keys: ["TCOP"]
         )
 
-        self.credits = AudioFile.readMetadata(
-            from: asset,
+        self.credits = await AudioFile.readMetadata(
+            from: allMetadataItems,
             commonKeys: [],
             id3Keys: ["TEXT"]
         )
@@ -155,9 +162,8 @@ struct AudioFile: Identifiable {
             bitrateKbps = Int(estimatedRate / 1000)
 
             let descriptions = try await track.load(.formatDescriptions)
-            if let formatDescAny = descriptions.first,
-               CFGetTypeID(formatDescAny as CFTypeRef) == CMFormatDescriptionGetTypeID(),
-               let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescAny as! CMAudioFormatDescription) {
+            if let formatDesc = descriptions.first,
+               let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc) {
 
                 let asbd = asbdPtr.pointee
                 sampleRateHz = asbd.mSampleRate

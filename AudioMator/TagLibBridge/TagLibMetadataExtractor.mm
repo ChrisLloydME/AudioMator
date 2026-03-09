@@ -1916,8 +1916,11 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
 
 // Return a best-effort, "raw" view of metadata as TagLib sees it.
 // This is intended for displaying to users in a GUI, not for programmatic editing.
-+ (NSDictionary<NSString *, NSObject *> *)rawMetadataForURL:(NSURL *)fileURL
++ (nullable NSDictionary<NSString *, NSObject *> *)rawMetadataForURL:(NSURL *)fileURL
+                                                              error:(NSError *_Nullable *_Nullable)error
 {
+    (void)error;
+
     // Always return a dictionary with stable keys so Swift UI can render predictably.
     NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut = [NSMutableArray array];
     NSMutableArray<NSDictionary<NSString *, NSObject *> *> *id3v2FramesOut = [NSMutableArray array];

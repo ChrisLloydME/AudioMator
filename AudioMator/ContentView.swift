@@ -117,15 +117,17 @@ struct ContentView: View {
         } detail: {
             Group {
                 if isInspectorVisible {
-                    InspectorPane(
-                        viewModel: viewModel,
-                        state: state
-                    )
-                    .background(
+                    ZStack {
                         Rectangle()
                             .fill(.ultraThinMaterial)
-                            .opacity(0.9)
-                    )
+                            .ignoresSafeArea()
+
+                        InspectorPane(
+                            viewModel: viewModel,
+                            state: state,
+                            isInspectorVisible: $isInspectorVisible
+                        )
+                    }
                     .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
                 } else {
                     Color.clear
@@ -600,6 +602,7 @@ struct ContentPane: View {
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    @Binding var isInspectorVisible: Bool
 
     @State private var inspectorQuickLabel: String = ""
     @State private var inspectorQuickText: String = ""

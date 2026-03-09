@@ -511,7 +511,7 @@ struct ContentPane: View {
                     }
                 }
                 .focused($tableFocused)
-                .onChange(of: state.selectedAudioIDs) { newSelection in
+                .onChange(of: state.selectedAudioIDs) { _, newSelection in
                     // 将中间列表的选中同步到 ViewModel，并刷新右侧 Inspector 的编辑模型
                     viewModel.selectedAudioIDs = newSelection
                     viewModel.updateEditForSelection()
@@ -522,7 +522,7 @@ struct ContentPane: View {
                     viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
                 }
-                .onChange(of: viewModel.files.map { $0.id }) { _ in
+                .onChange(of: viewModel.files.map { $0.id }) {
                     syncCustomOrderWithFiles()
                 }
                 .contextMenu {

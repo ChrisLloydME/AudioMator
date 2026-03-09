@@ -52,6 +52,11 @@ private func digitCount(_ value: Int) -> Int {
     return String(v).count
 }
 
+private func isTagWriteSupportedExtension(_ ext: String) -> Bool {
+    let lower = ext.lowercased()
+    return lower == "mp3" || lower == "m4a" || lower == "m4b" || lower == "m4p" || lower == "mp4"
+}
+
 // 单文件编辑模型：右侧 Inspector 绑定的数据载体
 struct SingleFileEditModel {
     var title: String
@@ -200,7 +205,7 @@ final class AudioViewModel: ObservableObject {
 
     // MARK: - 单文件写入（使用 TagLib）
 
-    /// 将当前 Inspector 中的编辑结果写回到选中的 mp3 文件（直接调用 TagLib 桥接）
+    /// 将当前 Inspector 中的编辑结果写回到选中的音频文件（直接调用 TagLib 桥接）
     func saveSingleEdits() {
         guard
             let edit = edit,
@@ -212,9 +217,9 @@ final class AudioViewModel: ObservableObject {
 
         let file = files[index]
 
-        // 目前只对 mp3 写标签
-        guard file.url.pathExtension.lowercased() == "mp3" else {
-            print("Skip non-mp3 write for: \(file.url.lastPathComponent)")
+        // 当前支持 MP3 和 MP4/M4A 家族写标签
+        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
+            print("Skip unsupported write format for: \(file.url.lastPathComponent)")
             return
         }
 
@@ -314,10 +319,10 @@ final class AudioViewModel: ObservableObject {
         }
     }
 
-    /// 尝试抹掉文件的所有元数据（当前仅对 mp3 生效；实现为“写入空标签并覆盖”）
+    /// 尝试抹掉文件的所有元数据（当前对 MP3 和 MP4/M4A 生效；实现为“写入空标签并覆盖”）
     func eraseAllMetadata(_ file: AudioFile) {
-        guard file.url.pathExtension.lowercased() == "mp3" else {
-            print("Skip non-mp3 erase for: \(file.url.lastPathComponent)")
+        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
+            print("Skip unsupported erase format for: \(file.url.lastPathComponent)")
             return
         }
 
@@ -418,7 +423,7 @@ final class AudioViewModel: ObservableObject {
                 let newNumber = numbers[idx]
 
                 let ext = file.url.pathExtension.lowercased()
-                guard ext == "mp3" else {
+                guard isTagWriteSupportedExtension(ext) else {
                     result.skippedUnsupported += 1
                     continue
                 }

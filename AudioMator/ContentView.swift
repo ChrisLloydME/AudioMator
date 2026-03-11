@@ -92,10 +92,8 @@ struct ContentView: View {
                 MetadataWriteSuccessHUDView(hud: hud)
                     .id(hud.id)
                     .padding(.bottom, 40)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: viewModel.metadataWriteSuccessHUD?.id)
     }
 
     private func openTrackRenumberSheet() {
@@ -107,37 +105,22 @@ struct ContentView: View {
 }
 
 private struct MetadataWriteSuccessHUDView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let hud: MetadataWriteSuccessHUD
 
     var body: some View {
         VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.38, green: 0.86, blue: 0.50),
-                                Color(red: 0.16, green: 0.72, blue: 0.34)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 54, height: 54)
-
-                Image(systemName: "checkmark")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.white)
-            }
+            AnimatedCheckmarkBadge(colorScheme: colorScheme)
 
             VStack(spacing: 3) {
                 Text(hud.title)
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(primaryTextColor)
 
                 Text(hud.subtitle)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.72))
+                    .foregroundStyle(secondaryTextColor)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -147,14 +130,119 @@ private struct MetadataWriteSuccessHUDView: View {
         .padding(.vertical, 18)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black.opacity(0.72))
+                .fill(backgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                .strokeBorder(borderColor, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.28), radius: 18, x: 0, y: 12)
+        .shadow(color: shadowColor, radius: 18, x: 0, y: 12)
         .allowsHitTesting(false)
+    }
+
+    private var backgroundColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0.10, green: 0.10, blue: 0.11).opacity(0.94)
+            : Color.white.opacity(0.96)
+    }
+
+    private var borderColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.08)
+            : Color.black.opacity(0.08)
+    }
+
+    private var shadowColor: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.30)
+            : Color.black.opacity(0.14)
+    }
+
+    private var primaryTextColor: Color {
+        colorScheme == .dark ? Color.white : Color.black.opacity(0.88)
+    }
+
+    private var secondaryTextColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.66)
+            : Color.black.opacity(0.56)
+    }
+}
+
+private struct AnimatedCheckmarkBadge: View {
+    let colorScheme: ColorScheme
+
+    @State private var ringScale: CGFloat = 0.9
+    @State private var ringOpacity: CGFloat = 0.0
+    @State private var checkProgress: CGFloat = 0.0
+    @State private var checkScale: CGFloat = 0.92
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(badgeFillColor)
+                .frame(width: 54, height: 54)
+
+            Circle()
+                .stroke(ringStrokeColor, lineWidth: 1)
+                .frame(width: 54, height: 54)
+                .scaleEffect(ringScale)
+                .opacity(ringOpacity)
+
+            CheckmarkShape()
+                .trim(from: 0, to: checkProgress)
+                .stroke(
+                    checkColor,
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                )
+                .frame(width: 24, height: 18)
+                .scaleEffect(checkScale)
+        }
+        .onAppear {
+            ringScale = 0.9
+            ringOpacity = 0.0
+            checkProgress = 0.0
+            checkScale = 0.92
+
+            withAnimation(.easeOut(duration: 0.18)) {
+                ringScale = 1.0
+                ringOpacity = 1.0
+            }
+
+            withAnimation(.timingCurve(0.22, 0.9, 0.24, 1.0, duration: 0.32).delay(0.04)) {
+                checkProgress = 1.0
+            }
+
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.68).delay(0.08)) {
+                checkScale = 1.0
+            }
+        }
+    }
+
+    private var badgeFillColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.08)
+            : Color.black.opacity(0.06)
+    }
+
+    private var ringStrokeColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.12)
+            : Color.black.opacity(0.12)
+    }
+
+    private var checkColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.84)
+    }
+}
+
+private struct CheckmarkShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + rect.width * 0.10, y: rect.minY + rect.height * 0.56))
+        path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.42, y: rect.maxY - rect.height * 0.12))
+        path.addLine(to: CGPoint(x: rect.maxX - rect.width * 0.08, y: rect.minY + rect.height * 0.12))
+        return path
     }
 }
 

@@ -1,0 +1,239 @@
+{
+  "" : {
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMator-primary.dia",
+    "emit-module-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMator-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMator-primary-emit-module.dia",
+    "pch" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMator-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMator-primary.swiftdeps"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/AudioMatorApp.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioMatorApp~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/ContentView.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/AudioFile.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioFile~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/MergedAudioFile.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedAudioFile~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/SharedState.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SharedState~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/SingleFileEditModel.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/TrackRenumber.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/TagLibBridge/TagLibMetadataManager.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/ViewModels/AudioViewModel+FileActions.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+FileActions~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/ViewModels/AudioViewModel+Import.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+Import~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/ViewModels/AudioViewModel+MetadataWrite.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel+MetadataWrite~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/ViewModels/AudioViewModel.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/AudioViewModel~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/InspectorPopup.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPopup~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/ContentPane.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ContentPane~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/Formatters.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/Formatters~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/InspectorPane.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/InspectorPane~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/MergedMetadataSectionView.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MergedMetadataSectionView~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/MetadataDumpSheet.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataDumpSheet~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/ReadOnlyMonospacedTextView.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/ReadOnlyMonospacedTextView~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/SidebarPane.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SidebarPane~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/Main/TrackRenumberSheet.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumberSheet~partial.swiftmodule"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Views/MetadataInspector/MetadataInspectorSheet.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.dia",
+    "index-unit-output-path" : "/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.o",
+    "llvm-bc" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.bc",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet.swiftdeps",
+    "swiftmodule" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/MetadataInspectorSheet~partial.swiftmodule"
+  }
+}

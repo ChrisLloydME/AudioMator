@@ -261,6 +261,133 @@ static void SetID3v2UserTextFrame(TagLib::ID3v2::Tag *tag,
     userFrame->setText(textList);
 }
 
+static NSString * _Nullable FirstStringFromProperty(const TagLib::PropertyMap &properties,
+                                                    std::initializer_list<const char *> keys)
+{
+    for (const char *key : keys) {
+        if (!key) continue;
+        if (properties.contains(key) && !properties[key].isEmpty()) {
+            return TagStringToNSString(properties[key].front());
+        }
+    }
+    return nil;
+}
+
+static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &properties,
+                                            TagLibAudioMetadata *metadata)
+{
+    if (!metadata || properties.isEmpty()) return;
+
+    metadata.title = FirstStringFromProperty(properties, {"TITLE"}) ?: metadata.title;
+    metadata.artist = FirstStringFromProperty(properties, {"ARTIST", "ARTISTS"}) ?: metadata.artist;
+    metadata.album = FirstStringFromProperty(properties, {"ALBUM"}) ?: metadata.album;
+    metadata.comment = FirstStringFromProperty(properties, {"COMMENT"}) ?: metadata.comment;
+    metadata.genre = FirstStringFromProperty(properties, {"GENRE"}) ?: metadata.genre;
+    metadata.composer = FirstStringFromProperty(properties, {"COMPOSER"}) ?: metadata.composer;
+    metadata.albumArtist = FirstStringFromProperty(properties, {"ALBUMARTIST"}) ?: metadata.albumArtist;
+
+    NSString *dateValue = FirstStringFromProperty(properties, {"RELEASEDATE", "DATE"});
+    if (dateValue.length > 0) {
+        metadata.releaseDate = dateValue;
+        if (metadata.year.length == 0 && dateValue.length >= 4) {
+            metadata.year = [dateValue substringToIndex:4];
+        }
+    }
+
+    NSString *originalDate = FirstStringFromProperty(properties, {"ORIGINALDATE"});
+    if (originalDate.length > 0) {
+        metadata.originalReleaseDate = originalDate;
+    }
+
+    if (properties.contains("TRACKNUMBER") && !properties["TRACKNUMBER"].isEmpty()) {
+        NSInteger trackNum = 0, trackTotal = 0;
+        ParseNumberPair(properties["TRACKNUMBER"].front(), trackNum, trackTotal);
+        if (trackNum > 0) metadata.trackNumber = trackNum;
+        if (trackTotal > 0) metadata.totalTracks = trackTotal;
+    }
+
+    if (properties.contains("DISCNUMBER") && !properties["DISCNUMBER"].isEmpty()) {
+        NSInteger discNum = 0, discTotal = 0;
+        ParseNumberPair(properties["DISCNUMBER"].front(), discNum, discTotal);
+        if (discNum > 0) metadata.discNumber = discNum;
+        if (discTotal > 0) metadata.totalDiscs = discTotal;
+    }
+
+    NSString *copyrightValue = FirstStringFromProperty(properties, {"COPYRIGHT"});
+    if (copyrightValue.length > 0) metadata.copyright = copyrightValue;
+
+    NSString *lyricsValue = FirstStringFromProperty(properties, {"LYRICS"});
+    if (lyricsValue.length > 0) metadata.lyrics = lyricsValue;
+
+    NSString *labelValue = FirstStringFromProperty(properties, {"LABEL"});
+    if (labelValue.length > 0) metadata.label = labelValue;
+
+    NSString *isrcValue = FirstStringFromProperty(properties, {"ISRC"});
+    if (isrcValue.length > 0) metadata.isrc = isrcValue;
+
+    NSString *encodedByValue = FirstStringFromProperty(properties, {"ENCODEDBY", "ENCODING"});
+    if (encodedByValue.length > 0) metadata.encodedBy = encodedByValue;
+
+    NSString *sortTitle = FirstStringFromProperty(properties, {"TITLESORT"});
+    if (sortTitle.length > 0) metadata.sortTitle = sortTitle;
+    NSString *sortArtist = FirstStringFromProperty(properties, {"ARTISTSORT"});
+    if (sortArtist.length > 0) metadata.sortArtist = sortArtist;
+    NSString *sortAlbum = FirstStringFromProperty(properties, {"ALBUMSORT"});
+    if (sortAlbum.length > 0) metadata.sortAlbum = sortAlbum;
+    NSString *sortAlbumArtist = FirstStringFromProperty(properties, {"ALBUMARTISTSORT"});
+    if (sortAlbumArtist.length > 0) metadata.sortAlbumArtist = sortAlbumArtist;
+    NSString *sortComposer = FirstStringFromProperty(properties, {"COMPOSERSORT"});
+    if (sortComposer.length > 0) metadata.sortComposer = sortComposer;
+
+    NSString *groupingValue = FirstStringFromProperty(properties, {"GROUPING"});
+    if (groupingValue.length > 0) metadata.grouping = groupingValue;
+
+    NSString *subtitleValue = FirstStringFromProperty(properties, {"SUBTITLE"});
+    if (subtitleValue.length > 0) metadata.subtitle = subtitleValue;
+
+    NSString *lyricistValue = FirstStringFromProperty(properties, {"LYRICIST"});
+    if (lyricistValue.length > 0) metadata.lyricist = lyricistValue;
+
+    NSString *conductorValue = FirstStringFromProperty(properties, {"CONDUCTOR"});
+    if (conductorValue.length > 0) metadata.conductor = conductorValue;
+
+    NSString *remixerValue = FirstStringFromProperty(properties, {"REMIXER"});
+    if (remixerValue.length > 0) metadata.remixer = remixerValue;
+
+    NSString *producerValue = FirstStringFromProperty(properties, {"PRODUCER"});
+    if (producerValue.length > 0) metadata.producer = producerValue;
+
+    NSString *engineerValue = FirstStringFromProperty(properties, {"ENGINEER"});
+    if (engineerValue.length > 0) metadata.engineer = engineerValue;
+
+    NSString *moodValue = FirstStringFromProperty(properties, {"MOOD"});
+    if (moodValue.length > 0) metadata.mood = moodValue;
+
+    NSString *languageValue = FirstStringFromProperty(properties, {"LANGUAGE"});
+    if (languageValue.length > 0) metadata.language = languageValue;
+
+    NSString *releaseTypeValue = FirstStringFromProperty(properties, {"RELEASETYPE"});
+    if (releaseTypeValue.length > 0) metadata.releaseType = releaseTypeValue;
+
+    NSString *barcodeValue = FirstStringFromProperty(properties, {"BARCODE", "UPC", "EAN"});
+    if (barcodeValue.length > 0) metadata.barcode = barcodeValue;
+
+    NSString *catalogValue = FirstStringFromProperty(properties, {"CATALOGNUMBER"});
+    if (catalogValue.length > 0) metadata.catalogNumber = catalogValue;
+
+    NSString *releaseCountryValue = FirstStringFromProperty(properties, {"RELEASECOUNTRY"});
+    if (releaseCountryValue.length > 0) metadata.releaseCountry = releaseCountryValue;
+
+    if (properties.contains("BPM") && !properties["BPM"].isEmpty()) {
+        metadata.bpm = ExtractNumber(properties["BPM"].front());
+    }
+
+    if (properties.contains("COMPILATION") && !properties["COMPILATION"].isEmpty()) {
+        TagLib::String comp = properties["COMPILATION"].front();
+        metadata.compilation = (comp == "1" || comp.upper() == "TRUE");
+    }
+}
+
 #pragma mark - Format-Specific Extraction
 
 // Extract ID3v2 metadata (MP3)
@@ -436,6 +563,8 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
 static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metadata) {
     if (!tag) return;
     
+    ApplyGenericPropertyMapMetadata(tag->properties(), metadata);
+
     const TagLib::MP4::ItemMap& items = tag->itemMap();
     
     // Track number
@@ -881,24 +1010,18 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     }
     
     const char* filePath = [fileURL.path UTF8String];
-    
-    // Create FileRef for basic metadata
+    std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
+
+    // Create FileRef for best-effort basic metadata. Some MP4/M4A files expose
+    // richer metadata only through the format-specific API, so do not fail early
+    // when FileRef or its generic tag view is unavailable.
     TagLib::FileRef fileRef(filePath);
-    
-    if (fileRef.isNull() || !fileRef.tag()) {
-        if (error) {
-            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                         code:2
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Unable to read file or no metadata found"}];
-        }
-        return nil;
-    }
     
     TagLibAudioMetadata* metadata = [[TagLibAudioMetadata alloc] init];
     TLog(@"Created TagLibAudioMetadata object for '%@'", fileURL.lastPathComponent);
     
     // Extract basic tag information
-    TagLib::Tag* tag = fileRef.tag();
+    TagLib::Tag* tag = fileRef.isNull() ? nullptr : fileRef.tag();
     if (tag) {
         metadata.title = TagStringToNSString(tag->title());
         metadata.artist = TagStringToNSString(tag->artist());
@@ -926,7 +1049,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
          (long)metadata.trackNumber);
     
     // Extract audio properties
-    TagLib::AudioProperties* properties = fileRef.audioProperties();
+    TagLib::AudioProperties* properties = fileRef.isNull() ? nullptr : fileRef.audioProperties();
     if (properties) {
         metadata.duration = properties->lengthInSeconds();
         metadata.bitrate = properties->bitrate();
@@ -942,8 +1065,6 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
          (long)metadata.channels);
     
     // Extract format-specific metadata
-    std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
-    
     // MP3
     if (ext == "mp3") {
         TagLib::MPEG::File mpegFile(filePath);
@@ -1145,6 +1266,29 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     TLog(@"[READ-OUT] '%@' explicitContent=%@",
          fileURL.lastPathComponent,
          metadata.explicitContent ? @"YES" : @"NO");
+
+    bool hasReadableMetadata =
+        metadata.title.length > 0 ||
+        metadata.artist.length > 0 ||
+        metadata.album.length > 0 ||
+        metadata.genre.length > 0 ||
+        metadata.comment.length > 0 ||
+        metadata.composer.length > 0 ||
+        metadata.albumArtist.length > 0 ||
+        metadata.releaseDate.length > 0 ||
+        metadata.year.length > 0 ||
+        metadata.trackNumber > 0 ||
+        metadata.discNumber > 0 ||
+        metadata.artworkData.length > 0;
+
+    if (fileRef.isNull() && !hasReadableMetadata && metadata.duration <= 0.0 && metadata.bitrate <= 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:2
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Unable to read file or no metadata found"}];
+        }
+        return nil;
+    }
 
     return metadata;
 }

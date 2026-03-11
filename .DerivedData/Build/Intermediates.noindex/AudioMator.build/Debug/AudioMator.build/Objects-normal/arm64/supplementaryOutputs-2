@@ -1,0 +1,23 @@
+{
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/SingleFileEditModel.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.dia",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/SingleFileEditModel.swiftdeps"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/Models/TrackRenumber.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.dia",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TrackRenumber.swiftdeps"
+  },
+  "/Users/lloyd/Developer/Xcode/AudioMator/AudioMator/TagLibBridge/TagLibMetadataManager.swift" : {
+    "const-values" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.swiftconstvalues",
+    "dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.d",
+    "diagnostics" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.dia",
+    "object" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.o",
+    "swift-dependencies" : "/Users/lloyd/Developer/Xcode/AudioMator/.DerivedData/Build/Intermediates.noindex/AudioMator.build/Debug/AudioMator.build/Objects-normal/arm64/TagLibMetadataManager.swiftdeps"
+  }
+}

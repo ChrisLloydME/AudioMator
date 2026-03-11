@@ -150,6 +150,29 @@ static bool IsMP4LikeExtension(NSString * _Nullable ext) {
            [lower isEqualToString:@"mp4"];
 }
 
+static bool IsMPEGLikeExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    NSString *lower = ext.lowercaseString;
+    return [lower isEqualToString:@"mp3"] ||
+           [lower isEqualToString:@"mp2"] ||
+           [lower isEqualToString:@"aac"];
+}
+
+static bool IsAIFFLikeExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    NSString *lower = ext.lowercaseString;
+    return [lower isEqualToString:@"aiff"] ||
+           [lower isEqualToString:@"aif"];
+}
+
+static bool IsPropertyMapWritableExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    NSString *lower = ext.lowercaseString;
+    return [lower isEqualToString:@"flac"] ||
+           [lower isEqualToString:@"wav"] ||
+           IsAIFFLikeExtension(lower);
+}
+
 static void SetMP4TextItem(TagLib::MP4::Tag *tag,
                            const char *key,
                            NSString * _Nullable value)
@@ -183,6 +206,77 @@ static void SetMP4IntPairItem(TagLib::MP4::Tag *tag,
     }
 
     tag->setItem(key, TagLib::MP4::Item(first, second));
+}
+
+static void SetPropertyMapString(TagLib::PropertyMap &properties,
+                                 const char *key,
+                                 NSString * _Nullable value)
+{
+    if (!key) return;
+
+    NSString *trimmed = TrimmedStringOrNil(value);
+    if (!trimmed) {
+        properties.erase(key);
+        return;
+    }
+
+    TagLib::StringList values;
+    values.append(NSStringToTagString(trimmed));
+    properties.replace(key, values);
+}
+
+static void SetPropertyMapNumberText(TagLib::PropertyMap &properties,
+                                     const char *key,
+                                     NSString * _Nullable value)
+{
+    SetPropertyMapString(properties, key, value);
+}
+
+static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata)
+{
+    TagLib::PropertyMap properties;
+    if (!metadata) return properties;
+
+    SetPropertyMapString(properties, "TITLE", metadata.title);
+    SetPropertyMapString(properties, "ARTIST", metadata.artist);
+    SetPropertyMapString(properties, "ALBUM", metadata.album);
+    SetPropertyMapString(properties, "COMPOSER", metadata.composer);
+    SetPropertyMapString(properties, "GENRE", metadata.genre);
+    SetPropertyMapString(properties, "COMMENT", metadata.comment);
+    SetPropertyMapString(properties, "ALBUMARTIST", metadata.albumArtist);
+    SetPropertyMapString(properties, "DATE", metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year);
+    SetPropertyMapString(properties, "COPYRIGHT", metadata.copyright);
+    SetPropertyMapString(properties, "LABEL", metadata.label);
+
+    if (metadata.trackNumber > 0 || metadata.totalTracks > 0) {
+        NSString *trackText = nil;
+        if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
+            trackText = [NSString stringWithFormat:@"%ld/%ld",
+                         (long)metadata.trackNumber,
+                         (long)metadata.totalTracks];
+        } else if (metadata.trackNumber > 0) {
+            trackText = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
+        }
+        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
+    } else {
+        properties.erase("TRACKNUMBER");
+    }
+
+    if (metadata.discNumber > 0 || metadata.totalDiscs > 0) {
+        NSString *discText = nil;
+        if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
+            discText = [NSString stringWithFormat:@"%ld/%ld",
+                        (long)metadata.discNumber,
+                        (long)metadata.totalDiscs];
+        } else if (metadata.discNumber > 0) {
+            discText = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
+        }
+        SetPropertyMapNumberText(properties, "DISCNUMBER", discText);
+    } else {
+        properties.erase("DISCNUMBER");
+    }
+
+    return properties;
 }
 
 // Ensure an ID3v2 text frame exists and set its text
@@ -449,6 +543,17 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             // Date fields
             else if (frameIDStr == "TDRL") {
                 metadata.releaseDate = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "TDRC") {
+                NSString *dateValue = TagStringToNSString(value);
+                if (dateValue.length > 0) {
+                    if (metadata.year.length == 0 && dateValue.length >= 4) {
+                        metadata.year = [dateValue substringToIndex:4];
+                    }
+                    if (metadata.releaseDate.length == 0) {
+                        metadata.releaseDate = dateValue;
+                    }
+                }
             }
             else if (frameIDStr == "TDOR") {
                 metadata.originalReleaseDate = TagStringToNSString(value);
@@ -832,6 +937,8 @@ static void ExtractXiphCommentMetadata(TagLib::Ogg::XiphComment* tag, TagLibAudi
     // Date fields
     if (properties.contains("RELEASEDATE")) {
         metadata.releaseDate = TagStringToNSString(properties["RELEASEDATE"].front());
+    } else if (properties.contains("DATE")) {
+        metadata.releaseDate = TagStringToNSString(properties["DATE"].front());
     }
     if (properties.contains("ORIGINALDATE")) {
         metadata.originalReleaseDate = TagStringToNSString(properties["ORIGINALDATE"].front());
@@ -1066,10 +1173,16 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     
     // Extract format-specific metadata
     // MP3
-    if (ext == "mp3") {
+    if (ext == "mp3" || ext == "mp2" || ext == "aac") {
         TagLib::MPEG::File mpegFile(filePath);
         if (mpegFile.isValid()) {
-            metadata.codec = @"MP3";
+            if (ext == "aac") {
+                metadata.codec = @"AAC";
+            } else if (ext == "mp2") {
+                metadata.codec = @"MP2";
+            } else {
+                metadata.codec = @"MP3";
+            }
             
             if (mpegFile.ID3v2Tag()) {
                 ExtractID3v2Metadata(mpegFile.ID3v2Tag(), metadata);
@@ -1338,18 +1451,18 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
     }
 
     NSString *ext = fileURL.pathExtension.lowercaseString;
-    if (![ext isEqualToString:@"mp3"] && !IsMP4LikeExtension(ext)) {
+    if (!IsMPEGLikeExtension(ext) && !IsMP4LikeExtension(ext) && !IsPropertyMapWritableExtension(ext)) {
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:41
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track numbers is currently supported for MP3 and MP4/M4A files" }];
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track numbers is currently supported for MPEG, MP4/M4A, FLAC, WAV and AIFF files" }];
         }
         TLog(@"Track renumber skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
         return NO;
     }
 
     const char *filePath = fileURL.path.UTF8String;
-    if ([ext isEqualToString:@"mp3"]) {
+    if (IsMPEGLikeExtension(ext)) {
         TagLib::MPEG::File mpegFile(filePath);
 
         if (!mpegFile.isValid()) {
@@ -1394,7 +1507,7 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
             TLog(@"TagLib save() failed after track renumbering for '%@'", fileURL.lastPathComponent);
             return NO;
         }
-    } else {
+    } else if (IsMP4LikeExtension(ext)) {
         TagLib::MP4::File mp4File(filePath);
 
         if (!mp4File.isValid()) {
@@ -1433,6 +1546,87 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
                                          userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save MP4/M4A track numbers" }];
             }
             TLog(@"TagLib save() failed after MP4 track renumbering for '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"flac"]) {
+        TagLib::FLAC::File flacFile(filePath);
+
+        if (!flacFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:48
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open FLAC file for writing track numbers" }];
+            }
+            TLog(@"Failed to open FLAC '%@' for track renumbering", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = flacFile.properties();
+        NSString *trackText = BuildTRCKString(trackNumber, totalTracks, padWidth);
+        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
+        flacFile.setProperties(properties);
+
+        if (!flacFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:49
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save FLAC track numbers" }];
+            }
+            TLog(@"TagLib save() failed after FLAC track renumbering for '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"wav"]) {
+        TagLib::RIFF::WAV::File wavFile(filePath);
+
+        if (!wavFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:60
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open WAV file for writing track numbers" }];
+            }
+            TLog(@"Failed to open WAV '%@' for track renumbering", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = wavFile.properties();
+        NSString *trackText = BuildTRCKString(trackNumber, totalTracks, padWidth);
+        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
+        wavFile.setProperties(properties);
+
+        if (!wavFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:61
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save WAV track numbers" }];
+            }
+            TLog(@"TagLib save() failed after WAV track renumbering for '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else {
+        TagLib::RIFF::AIFF::File aiffFile(filePath);
+
+        if (!aiffFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:62
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open AIFF file for writing track numbers" }];
+            }
+            TLog(@"Failed to open AIFF '%@' for track renumbering", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = aiffFile.properties();
+        NSString *trackText = BuildTRCKString(trackNumber, totalTracks, padWidth);
+        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
+        aiffFile.setProperties(properties);
+
+        if (!aiffFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:63
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save AIFF track numbers" }];
+            }
+            TLog(@"TagLib save() failed after AIFF track renumbering for '%@'", fileURL.lastPathComponent);
             return NO;
         }
     }
@@ -1502,18 +1696,18 @@ static void ParseNumberPairFromNSString(NSString *text,
     }
 
     NSString *ext = fileURL.pathExtension.lowercaseString;
-    if (![ext isEqualToString:@"mp3"] && !IsMP4LikeExtension(ext)) {
+    if (!IsMPEGLikeExtension(ext) && !IsMP4LikeExtension(ext) && !IsPropertyMapWritableExtension(ext)) {
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:51
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track/disc numbers is currently supported for MP3 and MP4/M4A files" }];
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track/disc numbers is currently supported for MPEG, MP4/M4A, FLAC, WAV and AIFF files" }];
         }
         TLog(@"Track/disc write skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
         return NO;
     }
 
     const char *filePath = fileURL.path.UTF8String;
-    if ([ext isEqualToString:@"mp3"]) {
+    if (IsMPEGLikeExtension(ext)) {
         TagLib::MPEG::File mpegFile(filePath);
 
         if (!mpegFile.isValid()) {
@@ -1586,7 +1780,7 @@ static void ParseNumberPairFromNSString(NSString *text,
             TLog(@"TagLib save() failed after track/disc write for '%@'", fileURL.lastPathComponent);
             return NO;
         }
-    } else {
+    } else if (IsMP4LikeExtension(ext)) {
         TagLib::MP4::File mp4File(filePath);
 
         if (!mp4File.isValid()) {
@@ -1638,6 +1832,99 @@ static void ParseNumberPairFromNSString(NSString *text,
             TLog(@"TagLib save() failed after MP4 track/disc write for '%@'", fileURL.lastPathComponent);
             return NO;
         }
+    } else if ([ext isEqualToString:@"flac"]) {
+        TagLib::FLAC::File flacFile(filePath);
+
+        if (!flacFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:58
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open FLAC file for writing track/disc numbers" }];
+            }
+            TLog(@"Failed to open FLAC '%@' for track/disc write", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = flacFile.properties();
+        if (trackNumberText.length > 0) {
+            SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+        }
+        if (discNumberText.length > 0) {
+            SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+        }
+        flacFile.setProperties(properties);
+
+        if (!flacFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:59
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save FLAC track/disc numbers" }];
+            }
+            TLog(@"TagLib save() failed after FLAC track/disc write for '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"wav"]) {
+        TagLib::RIFF::WAV::File wavFile(filePath);
+
+        if (!wavFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:64
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open WAV file for writing track/disc numbers" }];
+            }
+            TLog(@"Failed to open WAV '%@' for track/disc write", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = wavFile.properties();
+        if (trackNumberText.length > 0) {
+            SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+        }
+        if (discNumberText.length > 0) {
+            SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+        }
+        wavFile.setProperties(properties);
+
+        if (!wavFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:65
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save WAV track/disc numbers" }];
+            }
+            TLog(@"TagLib save() failed after WAV track/disc write for '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else {
+        TagLib::RIFF::AIFF::File aiffFile(filePath);
+
+        if (!aiffFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:66
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open AIFF file for writing track/disc numbers" }];
+            }
+            TLog(@"Failed to open AIFF '%@' for track/disc write", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = aiffFile.properties();
+        if (trackNumberText.length > 0) {
+            SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+        }
+        if (discNumberText.length > 0) {
+            SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+        }
+        aiffFile.setProperties(properties);
+
+        if (!aiffFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:67
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save AIFF track/disc numbers" }];
+            }
+            TLog(@"TagLib save() failed after AIFF track/disc write for '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
     }
 
     TLog(@"Successfully wrote track/disc text to '%@' (TRCK=%@, TPOS=%@)",
@@ -1647,7 +1934,7 @@ static void ParseNumberPairFromNSString(NSString *text,
 
     return YES;
 }
-// Write metadata to file (MP3/ID3v2 and MP4/M4A supported)
+// Write metadata to file (MPEG, MP4/M4A, FLAC, WAV, AIFF supported)
 + (BOOL)writeMetadata:(TagLibAudioMetadata *)metadata
                 toURL:(NSURL *)fileURL
                 error:(NSError **)error
@@ -1663,14 +1950,15 @@ static void ParseNumberPairFromNSString(NSString *text,
     
     NSString *ext = fileURL.pathExtension.lowercaseString;
     
-    bool isMP3 = [ext isEqualToString:@"mp3"];
+    bool isMPEG = IsMPEGLikeExtension(ext);
     bool isMP4Like = IsMP4LikeExtension(ext);
+    bool isPropertyMapWritable = IsPropertyMapWritableExtension(ext);
 
-    if (!isMP3 && !isMP4Like) {
+    if (!isMPEG && !isMP4Like && !isPropertyMapWritable) {
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:11
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing metadata is currently supported for MP3 and MP4/M4A files" }];
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing metadata is currently supported for MPEG, MP4/M4A, FLAC, WAV and AIFF files" }];
         }
         TLog(@"Write skipped for '%@' (extension '%@' not supported for writing)", fileURL.lastPathComponent, ext);
         return NO;
@@ -1693,7 +1981,7 @@ static void ParseNumberPairFromNSString(NSString *text,
          (long)metadata.totalDiscs);
     
     const char *filePath = fileURL.path.UTF8String;
-    if (isMP3) {
+    if (isMPEG) {
         TagLib::MPEG::File mpegFile(filePath);
 
         if (!mpegFile.isValid()) {
@@ -1828,7 +2116,7 @@ static void ParseNumberPairFromNSString(NSString *text,
             TLog(@"TagLib save() failed for '%@'", fileURL.lastPathComponent);
             return NO;
         }
-    } else {
+    } else if (isMP4Like) {
         TagLib::MP4::File mp4File(filePath);
 
         if (!mp4File.isValid()) {
@@ -1897,6 +2185,81 @@ static void ParseNumberPairFromNSString(NSString *text,
                                          userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to MP4/M4A file" }];
             }
             TLog(@"TagLib save() failed for MP4 '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"flac"]) {
+        TagLib::FLAC::File flacFile(filePath);
+
+        if (!flacFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:18
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open FLAC file for writing metadata" }];
+            }
+            TLog(@"Failed to open FLAC '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
+        flacFile.setProperties(properties);
+
+        if (!flacFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:19
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to FLAC file" }];
+            }
+            TLog(@"TagLib save() failed for FLAC '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"wav"]) {
+        TagLib::RIFF::WAV::File wavFile(filePath);
+
+        if (!wavFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:20
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open WAV file for writing metadata" }];
+            }
+            TLog(@"Failed to open WAV '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
+        wavFile.setProperties(properties);
+
+        if (!wavFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:21
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to WAV file" }];
+            }
+            TLog(@"TagLib save() failed for WAV '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else {
+        TagLib::RIFF::AIFF::File aiffFile(filePath);
+
+        if (!aiffFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:22
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open AIFF file for writing metadata" }];
+            }
+            TLog(@"Failed to open AIFF '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
+        aiffFile.setProperties(properties);
+
+        if (!aiffFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:23
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to AIFF file" }];
+            }
+            TLog(@"TagLib save() failed for AIFF '%@'", fileURL.lastPathComponent);
             return NO;
         }
     }

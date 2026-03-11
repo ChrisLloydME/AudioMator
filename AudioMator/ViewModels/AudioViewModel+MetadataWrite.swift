@@ -1,6 +1,10 @@
 import Foundation
 
-private let supportedTagWriteExtensions: Set<String> = ["mp3", "m4a", "m4b", "m4p", "mp4"]
+private let supportedTagWriteExtensions: Set<String> = [
+    "mp3", "mp2", "aac",
+    "m4a", "m4b", "m4p", "mp4",
+    "flac", "wav", "aiff", "aif"
+]
 
 private func digitCount(_ value: Int) -> Int {
     let v = abs(value)
@@ -26,7 +30,7 @@ extension AudioViewModel {
 
         let file = files[index]
 
-        // 当前支持 MP3 和 MP4/M4A 家族写标签
+        // 当前支持 MPEG、MP4/M4A、FLAC、WAV、AIFF 写标签
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported write format for: \(file.url.lastPathComponent)")
             return
@@ -103,7 +107,7 @@ extension AudioViewModel {
         }
     }
 
-    /// 尝试抹掉文件的所有元数据（当前对 MP3 和 MP4/M4A 生效；实现为“写入空标签并覆盖”）
+    /// 尝试抹掉文件的所有元数据（当前对 MPEG、MP4/M4A、FLAC、WAV、AIFF 生效；实现为“写入空标签并覆盖”）
     func eraseAllMetadata(_ file: AudioFile) {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported erase format for: \(file.url.lastPathComponent)")
@@ -196,9 +200,10 @@ extension AudioViewModel {
 
         let maxNumber = numbers.max() ?? start
         let padWidth = options.padWithZeros ? digitCount(maxNumber) : 0
+        let writableExtensions = supportedTagWriteExtensions
 
         // 4) Execute writes off the main thread.
-        return await Task.detached(priority: .userInitiated) { [targetFiles, numbers, padWidth] in
+        return await Task.detached(priority: .userInitiated) { [targetFiles, numbers, padWidth, writableExtensions] in
             var result = TrackRenumberResult(
                 totalTargets: targetFiles.count,
                 succeeded: 0,
@@ -211,7 +216,7 @@ extension AudioViewModel {
                 let newNumber = numbers[idx]
 
                 let ext = file.url.pathExtension.lowercased()
-                guard supportedTagWriteExtensions.contains(ext) else {
+                guard writableExtensions.contains(ext) else {
                     result.skippedUnsupported += 1
                     continue
                 }

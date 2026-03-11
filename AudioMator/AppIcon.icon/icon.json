@@ -1,27 +1,55 @@
 {
   "fill" : {
-    "automatic-gradient" : "display-p3:0.92334,0.92334,0.92334,1.00000"
+    "automatic-gradient" : "display-p3:0.91699,0.20093,0.22913,1.00000"
   },
   "groups" : [
     {
-      "blend-mode" : "normal",
-      "blur-material" : null,
       "layers" : [
         {
-          "image-name" : "audiomator_icon_subject.svg",
-          "name" : "audiomator_icon_subject",
+          "image-name" : "Group 3.png",
+          "name" : "Group 3",
           "position" : {
             "scale" : 1,
             "translation-in-points" : [
-              -29.299999999999955,
-              34.49999999999994
+              -120.32552083333337,
+              116.78971354166663
             ]
           }
         }
       ],
-      "lighting" : "combined",
       "position" : {
-        "scale" : 1.3,
+        "scale" : 0.75,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "image-name" : "Group 4.png",
+          "name" : "Group 4",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0.5,
+              5.684341886080802e-14
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 1.35,
         "translation-in-points" : [
           0,
           0

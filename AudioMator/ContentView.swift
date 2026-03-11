@@ -174,8 +174,9 @@ private struct AnimatedCheckmarkBadge: View {
 
     @State private var ringScale: CGFloat = 0.9
     @State private var ringOpacity: CGFloat = 0.0
-    @State private var checkProgress: CGFloat = 0.0
+    @State private var revealProgress: CGFloat = 0.0
     @State private var checkScale: CGFloat = 0.92
+    @State private var checkOpacity: CGFloat = 0.0
 
     var body: some View {
         ZStack {
@@ -189,28 +190,37 @@ private struct AnimatedCheckmarkBadge: View {
                 .scaleEffect(ringScale)
                 .opacity(ringOpacity)
 
-            CheckmarkShape()
-                .trim(from: 0, to: checkProgress)
-                .stroke(
-                    checkColor,
-                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
-                )
-                .frame(width: 24, height: 18)
+            Image(systemName: "checkmark")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(checkColor)
                 .scaleEffect(checkScale)
+                .opacity(checkOpacity)
+                .mask(alignment: .leading) {
+                    GeometryReader { proxy in
+                        Rectangle()
+                            .frame(width: max(1, proxy.size.width * revealProgress))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
         }
         .onAppear {
             ringScale = 0.9
             ringOpacity = 0.0
-            checkProgress = 0.0
+            revealProgress = 0.0
             checkScale = 0.92
+            checkOpacity = 0.0
 
             withAnimation(.easeOut(duration: 0.18)) {
                 ringScale = 1.0
                 ringOpacity = 1.0
             }
 
-            withAnimation(.timingCurve(0.22, 0.9, 0.24, 1.0, duration: 0.32).delay(0.04)) {
-                checkProgress = 1.0
+            withAnimation(.easeOut(duration: 0.08).delay(0.03)) {
+                checkOpacity = 1.0
+            }
+
+            withAnimation(.timingCurve(0.22, 0.9, 0.24, 1.0, duration: 0.24).delay(0.04)) {
+                revealProgress = 1.0
             }
 
             withAnimation(.spring(response: 0.28, dampingFraction: 0.68).delay(0.08)) {
@@ -233,16 +243,6 @@ private struct AnimatedCheckmarkBadge: View {
 
     private var checkColor: Color {
         colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.84)
-    }
-}
-
-private struct CheckmarkShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + rect.width * 0.10, y: rect.minY + rect.height * 0.56))
-        path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.42, y: rect.maxY - rect.height * 0.12))
-        path.addLine(to: CGPoint(x: rect.maxX - rect.width * 0.08, y: rect.minY + rect.height * 0.12))
-        return path
     }
 }
 

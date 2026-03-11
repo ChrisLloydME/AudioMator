@@ -8,6 +8,8 @@
 import Foundation
 import Combine
 
+private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
+
 struct MetadataWriteSuccessHUD: Identifiable, Equatable {
     let id = UUID()
     let title: String
@@ -71,7 +73,7 @@ final class AudioViewModel: ObservableObject {
         metadataWriteSuccessHUD = hud
 
         metadataWriteSuccessDismissTask = Task { [weak self, hudID = hud.id] in
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: metadataWriteSuccessHUDDuration)
             guard !Task.isCancelled else { return }
 
             await MainActor.run {

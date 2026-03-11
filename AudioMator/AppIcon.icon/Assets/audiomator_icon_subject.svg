@@ -1,0 +1,44 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bodyGrad" x1="236" y1="188" x2="794" y2="836" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B8CFF"/>
+      <stop offset="0.55" stop-color="#7A5CFF"/>
+      <stop offset="1" stop-color="#A44DFF"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="384" y1="320" x2="704" y2="736" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#E9E8FF" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="shadow" x="148" y="132" width="728" height="760" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="22"/>
+      <feGaussianBlur stdDeviation="26"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.1098 0 0 0 0 0.0824 0 0 0 0 0.302 0 0 0 0.18 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <!-- Main tag body -->
+  <g filter="url(#shadow)">
+    <path d="M295.536 225.536C316.043 205.029 343.858 193.5 372.858 193.5H596.978C626.129 193.5 654.086 205.146 674.65 225.857L789.645 341.677C809.782 361.955 821.1 389.362 821.1 417.942V650.5C821.1 711.803 771.403 761.5 710.1 761.5H372.5C311.197 761.5 261.5 711.803 261.5 650.5V336.142C261.5 307.142 273.029 279.327 293.536 258.82L295.536 225.536Z" fill="url(#bodyGrad)"/>
+    <path d="M596.978 193.5C626.129 193.5 654.086 205.146 674.65 225.857L789.645 341.677C809.782 361.955 821.1 389.362 821.1 417.942V438H688.5C637.415 438 596 396.585 596 345.5V193.5H596.978Z" fill="#FFFFFF" fill-opacity="0.14"/>
+    <path d="M372.858 220H582.812C606.955 220 630.092 229.652 647.129 246.792L761.629 361.983C778.315 378.768 787.685 401.47 787.685 425.137V647.142C787.685 694.656 749.156 733.185 701.642 733.185H378.358C330.844 733.185 292.315 694.656 292.315 647.142V339.185C292.315 307.693 304.824 277.491 327.094 255.222C339.898 242.417 356.295 234.014 373.91 230.763L372.858 220Z" stroke="white" stroke-opacity="0.18" stroke-width="13"/>
+  </g>
+
+  <!-- Tag hole -->
+  <circle cx="399" cy="337" r="42" fill="#FFFFFF" fill-opacity="0.95"/>
+  <circle cx="399" cy="337" r="18" fill="#7B63FF" fill-opacity="0.9"/>
+
+  <!-- Main symbol: note + equalizer -->
+  <g>
+    <path d="M631 345V611.177C631 662.232 591.906 703 542.5 703C493.094 703 454 662.232 454 611.177C454 560.122 493.094 519.354 542.5 519.354C563.978 519.354 583.652 527.063 599 539.96V408.453L474.63 438.722C447.55 445.314 419 424.787 419 396.917C419 376.718 432.807 359.145 452.439 354.367L611.809 315.58C621.002 313.342 631 320.302 631 329.763V345Z" fill="url(#accentGrad)"/>
+    <rect x="667" y="377" width="56" height="250" rx="28" fill="#FFFFFF" fill-opacity="0.92"/>
+    <rect x="739" y="438" width="56" height="189" rx="28" fill="#FFFFFF" fill-opacity="0.86"/>
+    <rect x="811" y="332" width="56" height="295" rx="28" fill="#FFFFFF" fill-opacity="0.78" transform="translate(-91 0)"/>
+  </g>
+
+  <!-- Subtle highlight -->
+  <path d="M334 614C391.5 687 487.5 726 585 719" stroke="white" stroke-opacity="0.16" stroke-width="24" stroke-linecap="round"/>
+</svg>

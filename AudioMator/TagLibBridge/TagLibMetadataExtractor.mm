@@ -232,6 +232,63 @@ static void SetPropertyMapNumberText(TagLib::PropertyMap &properties,
     SetPropertyMapString(properties, key, value);
 }
 
+static bool ParseExplicitTagValue(const TagLib::String &value, BOOL &explicitContent)
+{
+    if (value.isEmpty()) {
+        return false;
+    }
+
+    TagLib::String upper = value.upper();
+    std::string raw = upper.to8Bit(true);
+
+    if (upper == "EXPLICIT" || upper == "TRUE" || upper == "YES") {
+        explicitContent = YES;
+        return true;
+    }
+
+    if (upper == "CLEAN" || upper == "FALSE" || upper == "NO" || upper == "NONE") {
+        explicitContent = NO;
+        return true;
+    }
+
+    if (raw == "4" || raw == "1") {
+        explicitContent = YES;
+        return true;
+    }
+
+    if (raw == "2" || raw == "0" || raw == "-1") {
+        explicitContent = NO;
+        return true;
+    }
+
+    return false;
+}
+
+static void ApplyExplicitPropertyKeys(const TagLib::PropertyMap &properties,
+                                      TagLibAudioMetadata *metadata)
+{
+    if (!metadata || properties.isEmpty()) return;
+
+    static const char *kExplicitKeys[] = {
+        "ITUNESADVISORY",
+        "ADVISORY",
+        "EXPLICITCONTENT",
+        "EXPLICIT"
+    };
+
+    for (const char *key : kExplicitKeys) {
+        if (!properties.contains(key) || properties[key].isEmpty()) {
+            continue;
+        }
+
+        BOOL explicitValue = metadata.explicitContent;
+        if (ParseExplicitTagValue(properties[key].front(), explicitValue)) {
+            metadata.explicitContent = explicitValue;
+            return;
+        }
+    }
+}
+
 static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata)
 {
     TagLib::PropertyMap properties;
@@ -247,6 +304,7 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     SetPropertyMapString(properties, "DATE", metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year);
     SetPropertyMapString(properties, "COPYRIGHT", metadata.copyright);
     SetPropertyMapString(properties, "LABEL", metadata.label);
+    SetPropertyMapString(properties, "ITUNESADVISORY", metadata.explicitContent ? @"1" : @"0");
 
     if (metadata.trackNumber > 0 || metadata.totalTracks > 0) {
         NSString *trackText = nil;
@@ -480,6 +538,8 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
         TagLib::String comp = properties["COMPILATION"].front();
         metadata.compilation = (comp == "1" || comp.upper() == "TRUE");
     }
+
+    ApplyExplicitPropertyKeys(properties, metadata);
 }
 
 #pragma mark - Format-Specific Extraction
@@ -629,14 +689,9 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
                 metadata.artistType = TagStringToNSString(userValue);
             }
             else if (descStr == "ITUNESADVISORY") {
-                // iTunes advisory: 0 = none, 1 = explicit, 2 = clean
-                TagLib::String upperVal = userValue.upper();
-                int advisory = userValue.toInt();
-
-                if (advisory == 1 || upperVal == "EXPLICIT") {
-                    metadata.explicitContent = YES;
-                } else if (advisory == 0 || advisory == 2 || upperVal == "CLEAN") {
-                    metadata.explicitContent = NO;
+                BOOL explicitValue = metadata.explicitContent;
+                if (ParseExplicitTagValue(userValue, explicitValue)) {
+                    metadata.explicitContent = explicitValue;
                 }
             }
         }
@@ -709,9 +764,20 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
     // Explicit rating (rtng atom: 0 = none, 2 = clean, 4 = explicit)
     if (items.contains("rtng")) {
         const TagLib::MP4::Item &ratingItem = items["rtng"];
-        int rating = ratingItem.toInt();
-        if (rating == 4) {
-            metadata.explicitContent = YES;
+        BOOL explicitValue = metadata.explicitContent;
+        std::string ratingRaw = std::to_string(ratingItem.toInt());
+        TagLib::String ratingString(ratingRaw.c_str(), TagLib::String::UTF8);
+        if (ParseExplicitTagValue(ratingString, explicitValue)) {
+            metadata.explicitContent = explicitValue;
+        }
+    }
+
+    if (items.contains("----:com.apple.iTunes:ITUNESADVISORY")) {
+        TagLib::String advisoryValue =
+            items["----:com.apple.iTunes:ITUNESADVISORY"].toStringList().toString();
+        BOOL explicitValue = metadata.explicitContent;
+        if (ParseExplicitTagValue(advisoryValue, explicitValue)) {
+            metadata.explicitContent = explicitValue;
         }
     }
     
@@ -1002,6 +1068,8 @@ static void ExtractXiphCommentMetadata(TagLib::Ogg::XiphComment* tag, TagLibAudi
         TagLib::String compStr = properties["COMPILATION"].front();
         metadata.compilation = (compStr == "1" || compStr.upper() == "TRUE");
     }
+
+    ApplyExplicitPropertyKeys(properties, metadata);
 }
 
 // Extract FLAC picture
@@ -2167,6 +2235,7 @@ static void ParseNumberPairFromNSString(NSString *text,
 
         // Publisher/label convention for MP4 freeform atoms.
         SetMP4TextItem(tag, "----:com.apple.iTunes:LABEL", metadata.label);
+        SetMP4TextItem(tag, "----:com.apple.iTunes:ITUNESADVISORY", metadata.explicitContent ? @"1" : @"0");
 
         SetMP4IntPairItem(tag, "trkn", metadata.trackNumber, metadata.totalTracks);
         SetMP4IntPairItem(tag, "disk", metadata.discNumber, metadata.totalDiscs);

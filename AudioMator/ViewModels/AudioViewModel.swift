@@ -8,6 +8,12 @@
 import Foundation
 import Combine
 
+struct MetadataWriteSuccessHUD: Identifiable, Equatable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+}
+
 @MainActor
 final class AudioViewModel: ObservableObject {
     // 当前加载到中间列表里的所有音频文件
@@ -16,6 +22,14 @@ final class AudioViewModel: ObservableObject {
     @Published var selectedAudioIDs: Set<UUID> = []
     // 右侧 Inspector 绑定的单文件编辑模型
     @Published var edit: SingleFileEditModel?
+    @Published var metadataWriteSuccessHUD: MetadataWriteSuccessHUD?
+
+    private var metadataWriteSuccessDismissTask: Task<Void, Never>?
+    private var pendingMetadataWriteSuccessHUDs: [MetadataWriteSuccessHUD] = []
+
+    deinit {
+        metadataWriteSuccessDismissTask?.cancel()
+    }
 
     // MARK: - 选中与编辑同步
 
@@ -35,5 +49,42 @@ final class AudioViewModel: ObservableObject {
     /// 放弃当前编辑，恢复为磁盘上的最新标签
     func cancelEditing() {
         updateEditForSelection()
+    }
+
+    func presentMetadataWriteSuccess(for fileName: String) {
+        let hud = MetadataWriteSuccessHUD(
+            title: "Metadata Written",
+            subtitle: fileName
+        )
+        pendingMetadataWriteSuccessHUDs.append(hud)
+
+        guard metadataWriteSuccessHUD == nil else { return }
+        showNextMetadataWriteSuccessHUD()
+    }
+
+    private func showNextMetadataWriteSuccessHUD() {
+        guard metadataWriteSuccessHUD == nil, !pendingMetadataWriteSuccessHUDs.isEmpty else { return }
+
+        metadataWriteSuccessDismissTask?.cancel()
+
+        let hud = pendingMetadataWriteSuccessHUDs.removeFirst()
+        metadataWriteSuccessHUD = hud
+
+        metadataWriteSuccessDismissTask = Task { [weak self, hudID = hud.id] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                guard let self, self.metadataWriteSuccessHUD?.id == hudID else { return }
+                self.metadataWriteSuccessHUD = nil
+            }
+
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                self?.showNextMetadataWriteSuccessHUD()
+            }
+        }
     }
 }

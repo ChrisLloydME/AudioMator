@@ -189,6 +189,10 @@ struct ContentPane: View {
         } message: {
             Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
+            guard !viewModel.files.isEmpty else { return }
+            isClearListConfirmPresented = true
+        }
     }
 
     private func syncCustomOrderWithFiles() {

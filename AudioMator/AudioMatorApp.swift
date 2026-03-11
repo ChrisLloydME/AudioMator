@@ -10,6 +10,10 @@ import AppKit
 
 extension Notification.Name {
     static let showWelcomeSplash = Notification.Name("showWelcomeSplash")
+    static let requestMetadataDump = Notification.Name("requestMetadataDump")
+    static let requestTrackRenumber = Notification.Name("requestTrackRenumber")
+    static let requestToggleInspector = Notification.Name("requestToggleInspector")
+    static let requestClearListConfirmation = Notification.Name("requestClearListConfirmation")
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -40,18 +44,11 @@ struct AudioMatorApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: viewModel, state: sharedState)
                 .frame(minWidth: 900, minHeight: 600)
-                .environmentObject(viewModel)
-                .environmentObject(sharedState)
         }
         .commands {
-            CommandGroup(after: .textEditing) {
-                Button("Select All") {
-                    sharedState.selectedAudioIDs = Set(viewModel.files.map { $0.id })
-                }
-                .keyboardShortcut("a", modifiers: .command)
-            }
+            ToolbarEditCommands(viewModel: viewModel, sharedState: sharedState)
 
             CommandGroup(after: .help) {
                 Button {
@@ -62,5 +59,74 @@ struct AudioMatorApp: App {
             }
         }
         .defaultSize(width: 900, height: 600)
+    }
+}
+
+struct ToolbarEditCommands: Commands {
+    @ObservedObject var viewModel: AudioViewModel
+    @ObservedObject var sharedState: SharedState
+
+    var body: some Commands {
+        CommandGroup(after: .textEditing) {
+            Button("Select All") {
+                sharedState.selectedAudioIDs = Set(viewModel.files.map { $0.id })
+            }
+            .keyboardShortcut("a", modifiers: .command)
+
+            Divider()
+
+            Button {
+                viewModel.addFiles()
+            } label: {
+                Label("Add Files…", systemImage: "plus")
+            }
+            .keyboardShortcut("o", modifiers: .command)
+
+            Button {
+                NotificationCenter.default.post(name: .requestMetadataDump, object: nil)
+            } label: {
+                Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+            }
+            .disabled(sharedState.selectedAudioIDs.isEmpty)
+
+            Button {
+                NotificationCenter.default.post(name: .requestTrackRenumber, object: nil)
+            } label: {
+                Label("Renumber Tracks…", systemImage: "number")
+            }
+            .disabled(viewModel.files.isEmpty)
+
+            Button(role: .destructive) {
+                NotificationCenter.default.post(name: .requestClearListConfirmation, object: nil)
+            } label: {
+                Label("Clear List", systemImage: "trash")
+            }
+            .keyboardShortcut(.delete, modifiers: [])
+            .disabled(viewModel.files.isEmpty)
+
+            Divider()
+
+            Button {
+                viewModel.cancelEditing()
+            } label: {
+                Label("Cancel Edits", systemImage: "xmark.circle")
+            }
+            .disabled(sharedState.selectedAudioIDs.isEmpty)
+
+            Button {
+                viewModel.saveSingleEdits()
+            } label: {
+                Label("Save Edits", systemImage: "square.and.arrow.down")
+            }
+            .disabled(sharedState.selectedAudioIDs.isEmpty)
+
+            Divider()
+
+            Button {
+                NotificationCenter.default.post(name: .requestToggleInspector, object: nil)
+            } label: {
+                Label("Toggle Inspector", systemImage: "sidebar.right")
+            }
+        }
     }
 }

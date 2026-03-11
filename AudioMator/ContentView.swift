@@ -8,9 +8,10 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var viewModel: AudioViewModel
+    @ObservedObject var state: SharedState
+
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
-    @StateObject private var viewModel = AudioViewModel()
-    @StateObject private var state = SharedState()
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
 
@@ -63,9 +64,7 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        isInspectorVisible.toggle()
-                    }
+                    toggleInspector()
                 } label: {
                     Image(systemName: "sidebar.right")
                 }
@@ -110,6 +109,17 @@ struct ContentView: View {
             guard !isWelcomeSplashPresented else { return }
             isWelcomeSplashPresented = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .requestMetadataDump)) { _ in
+            guard !state.selectedAudioIDs.isEmpty else { return }
+            presentMetadataDump()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestTrackRenumber)) { _ in
+            guard !viewModel.files.isEmpty else { return }
+            openTrackRenumberSheet()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestToggleInspector)) { _ in
+            toggleInspector()
+        }
     }
 
     private func openTrackRenumberSheet() {
@@ -130,6 +140,12 @@ struct ContentView: View {
         Task { @MainActor in
             await Task.yield()
             NSApplication.shared.terminate(nil)
+        }
+    }
+
+    private func toggleInspector() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isInspectorVisible.toggle()
         }
     }
 }
@@ -277,7 +293,7 @@ private struct AnimatedCheckmarkBadge: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(viewModel: AudioViewModel(), state: SharedState())
 }
 
 // MARK: - Full metadata dump (user-facing)

@@ -8,9 +8,11 @@
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
     @StateObject private var viewModel = AudioViewModel()
     @StateObject private var state = SharedState()
     @State private var isInspectorVisible: Bool = true
+    @State private var isWelcomeSplashPresented: Bool = false
 
     // Full metadata dump (user-facing feature)
     @State private var isMetadataDumpPresented: Bool = false
@@ -87,12 +89,26 @@ struct ContentView: View {
                 trackRenumberResult: $trackRenumberResult
             )
         }
+        .sheet(isPresented: $isWelcomeSplashPresented) {
+            WelcomeSplashView(
+                onQuit: quitApplication,
+                onContinue: dismissWelcomeSplash
+            )
+        }
         .overlay(alignment: .bottom) {
             if let hud = viewModel.metadataWriteSuccessHUD {
                 MetadataWriteSuccessHUDView(hud: hud)
                     .id(hud.id)
                     .padding(.bottom, 40)
             }
+        }
+        .task {
+            guard !hasCompletedWelcomeSplash, !isWelcomeSplashPresented else { return }
+            isWelcomeSplashPresented = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showWelcomeSplash)) { _ in
+            guard !isWelcomeSplashPresented else { return }
+            isWelcomeSplashPresented = true
         }
     }
 
@@ -101,6 +117,20 @@ struct ContentView: View {
         trackRenumberStartText = String(max(1, trackRenumberOptions.startNumber))
         trackRenumberResult = .empty
         isTrackRenumberPresented = true
+    }
+
+    private func dismissWelcomeSplash() {
+        hasCompletedWelcomeSplash = true
+        isWelcomeSplashPresented = false
+    }
+
+    private func quitApplication() {
+        isWelcomeSplashPresented = false
+
+        Task { @MainActor in
+            await Task.yield()
+            NSApplication.shared.terminate(nil)
+        }
     }
 }
 

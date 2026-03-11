@@ -8,6 +8,10 @@
 import SwiftUI
 import AppKit
 
+extension Notification.Name {
+    static let showWelcomeSplash = Notification.Name("showWelcomeSplash")
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let hasLaunchedKey = "hasLaunchedBefore"
 
@@ -47,6 +51,14 @@ struct AudioMatorApp: App {
                     sharedState.selectedAudioIDs = Set(viewModel.files.map { $0.id })
                 }
                 .keyboardShortcut("a", modifiers: .command)
+            }
+
+            CommandGroup(after: .help) {
+                Button {
+                    NotificationCenter.default.post(name: .showWelcomeSplash, object: nil)
+                } label: {
+                    Label("Show Welcome Screen", systemImage: "sparkles.rectangle.stack")
+                }
             }
         }
         .defaultSize(width: 900, height: 600)

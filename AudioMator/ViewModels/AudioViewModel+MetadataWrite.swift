@@ -95,6 +95,8 @@ extension AudioViewModel {
                     print("Failed to write Track/Disc numbers: \(error)")
                 }
 
+                self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
+
                 // 写完重新从磁盘读一遍，刷新 UI（并保持选中项不丢）
                 if let reloaded = try? await AudioFile(url: file.url) {
                     self.files[index] = reloaded
@@ -137,6 +139,7 @@ extension AudioViewModel {
         Task(priority: .userInitiated) {
             do {
                 try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+                self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
 
                 if let reloaded = try? await AudioFile(url: file.url) {
                     self.files[index] = reloaded

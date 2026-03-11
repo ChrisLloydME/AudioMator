@@ -87,6 +87,15 @@ struct ContentView: View {
                 trackRenumberResult: $trackRenumberResult
             )
         }
+        .overlay(alignment: .bottom) {
+            if let hud = viewModel.metadataWriteSuccessHUD {
+                MetadataWriteSuccessHUDView(hud: hud)
+                    .id(hud.id)
+                    .padding(.bottom, 40)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: viewModel.metadataWriteSuccessHUD?.id)
     }
 
     private func openTrackRenumberSheet() {
@@ -94,6 +103,58 @@ struct ContentView: View {
         trackRenumberStartText = String(max(1, trackRenumberOptions.startNumber))
         trackRenumberResult = .empty
         isTrackRenumberPresented = true
+    }
+}
+
+private struct MetadataWriteSuccessHUDView: View {
+    let hud: MetadataWriteSuccessHUD
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.38, green: 0.86, blue: 0.50),
+                                Color(red: 0.16, green: 0.72, blue: 0.34)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 54, height: 54)
+
+                Image(systemName: "checkmark")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            VStack(spacing: 3) {
+                Text(hud.title)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+
+                Text(hud.subtitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.72))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .frame(width: 220)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.black.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.28), radius: 18, x: 0, y: 12)
+        .allowsHitTesting(false)
     }
 }
 

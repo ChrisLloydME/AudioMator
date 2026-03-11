@@ -4,6 +4,8 @@ import AppKit
 // MARK: - Read-only monospaced text view (AppKit-backed)
 struct ReadOnlyMonospacedTextView: NSViewRepresentable {
     var text: String
+    var font: NSFont = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    var textColor: NSColor = .labelColor
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView(frame: .zero)
@@ -12,9 +14,9 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
         textView.isRichText = false
         textView.importsGraphics = false
         textView.drawsBackground = false
-        textView.textColor = .labelColor
+        textView.textColor = textColor
         textView.textContainerInset = NSSize(width: 10, height: 10)
-        textView.font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        textView.font = font
 
         // Seed initial content (SwiftUI may not call update before first draw in some sheet transitions)
         textView.string = text
@@ -49,6 +51,14 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView else { return }
+
+        if textView.font != font {
+            textView.font = font
+        }
+
+        if textView.textColor != textColor {
+            textView.textColor = textColor
+        }
 
         // Avoid resetting selection/scroll if the text didn't actually change
         if textView.string != text {

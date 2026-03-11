@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
@@ -15,11 +16,45 @@ struct InspectorPane: View {
     }
 
     private var inspectorQuickPreview: String {
-        let text = inspectorQuickText
-        if text.isEmpty {
-            return " "
+        renderedPreview(from: inspectorQuickText)
+    }
+
+    private var inspectorQuickCharacterCount: Int {
+        inspectorQuickText.count
+    }
+
+    private var inspectorQuickLineCount: Int {
+        max(inspectorQuickText.split(separator: "\n", omittingEmptySubsequences: false).count, 1)
+    }
+
+    private var previewFont: NSFont {
+        NSFont(name: "Menlo-Regular", size: 13) ??
+            NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+    }
+
+    private func renderedPreview(from text: String) -> String {
+        guard !text.isEmpty else { return "" }
+
+        var rendered = ""
+        for scalar in text.unicodeScalars {
+            switch scalar {
+            case " ":
+                rendered.append("·")
+            case "\t":
+                rendered.append("⇥")
+            case "\n":
+                rendered.append("↩")
+                rendered.append("\n")
+            case "\r":
+                rendered.append("␍")
+            case "\u{00A0}":
+                rendered.append("⍽")
+            default:
+                rendered.unicodeScalars.append(scalar)
+            }
         }
-        return text.replacingOccurrences(of: " ", with: "·")
+
+        return rendered
     }
 
     private func binding(
@@ -92,42 +127,105 @@ struct InspectorPane: View {
             }
         }
         .sheet(isPresented: $isInspectorQuickPresented) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Edit \(inspectorQuickLabel)")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $inspectorQuickText)
-                        .font(.system(.body, design: .monospaced))
-                        .padding(4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                        )
-                        .frame(minHeight: 80, idealHeight: 140)
-
-                    if inspectorQuickText.isEmpty {
-                        Text("Enter text…")
-                            .foregroundStyle(.secondary)
-                            .font(.system(.body, design: .monospaced))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 10)
-                            .allowsHitTesting(false)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Preview:")
-                        .font(.subheadline)
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Edit \(inspectorQuickLabel)")
+                        .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text(inspectorQuickPreview)
-                        .font(.system(.body, design: .monospaced))
+                    Text("The left side keeps the original input unchanged, while the right side shows a real-time preview using a clearer monospaced font and highlights hidden characters.")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
+
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Label("Source", systemImage: "square.and.pencil")
+                                .font(.headline)
+
+                            Spacer()
+
+                            Text("\(inspectorQuickCharacterCount) chars · \(inspectorQuickLineCount) lines")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        ZStack(alignment: .topLeading) {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color.primary.opacity(0.035))
+
+                            TextEditor(text: $inspectorQuickText)
+                                .scrollContentBackground(.hidden)
+                                .font(.system(size: 14, weight: .regular, design: .monospaced))
+                                .foregroundStyle(.primary.opacity(0.82))
+                                .padding(10)
+
+                            if inspectorQuickText.isEmpty {
+                                Text("Enter text…")
+                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 14, weight: .regular, design: .monospaced))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 18)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                        )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Label("Preview", systemImage: "text.magnifyingglass")
+                                .font(.headline)
+
+                            Spacer()
+
+                            Text("· space  ⇥ tab  ↩ newline  ⍽ nbsp")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        ZStack(alignment: .topLeading) {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.accentColor.opacity(0.12),
+                                            Color.primary.opacity(0.06)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+
+                            ReadOnlyMonospacedTextView(
+                                text: inspectorQuickPreview,
+                                font: previewFont,
+                                textColor: .labelColor
+                            )
+                            .padding(1)
+
+                            if inspectorQuickText.isEmpty {
+                                Text("Preview updates as you type.")
+                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 14)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
+                        )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
+                .frame(maxHeight: .infinity)
 
                 HStack {
                     Spacer()
@@ -141,8 +239,8 @@ struct InspectorPane: View {
                     .keyboardShortcut(.defaultAction)
                 }
             }
-            .padding()
-            .frame(width: 480)
+            .padding(20)
+            .frame(width: 860, height: 420)
         }
     }
 

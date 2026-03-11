@@ -13,6 +13,7 @@ struct ContentPane: View {
 
     @FocusState private var tableFocused: Bool
     @State private var isEraseAllTagsConfirmPresented: Bool = false
+    @State private var isClearListConfirmPresented: Bool = false
 
     private var selectedFiles: [AudioFile] {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
@@ -161,12 +162,32 @@ struct ContentPane: View {
                 .help("Rewrite Track Number (TRCK) by the middle list order")
                 .disabled(viewModel.files.isEmpty)
 
+                Button(role: .destructive) {
+                    isClearListConfirmPresented = true
+                } label: {
+                    Label("Clear List", systemImage: "trash")
+                }
+                .help("Remove all files from the current list")
+                .disabled(viewModel.files.isEmpty)
+
                 Button("Cancel", action: onCancelEdits)
                     .disabled(state.selectedAudioIDs.isEmpty)
 
                 Button("Save", action: onSaveEdits)
                     .disabled(state.selectedAudioIDs.isEmpty)
             }
+        }
+        .confirmationDialog(
+            "Clear the current list?",
+            isPresented: $isClearListConfirmPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Clear List", role: .destructive) {
+                clearFileList()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
         }
     }
 
@@ -218,6 +239,13 @@ struct ContentPane: View {
         for file in selectedFiles {
             viewModel.eraseAllMetadata(file)
         }
+    }
+
+    private func clearFileList() {
+        viewModel.clearList()
+        state.selectedAudioIDs.removeAll()
+        state.customOrder.removeAll()
+        state.draggingAudioID = nil
     }
 }
 

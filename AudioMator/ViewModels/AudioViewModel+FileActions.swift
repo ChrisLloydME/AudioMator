@@ -24,4 +24,10 @@ extension AudioViewModel {
             edit = nil
         }
     }
+
+    func clearList() {
+        files.removeAll()
+        selectedAudioIDs.removeAll()
+        edit = nil
+    }
 }

@@ -337,6 +337,38 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     return properties;
 }
 
+static NSString *NormalizedArtworkMimeType(NSString * _Nullable mimeType)
+{
+    NSString *trimmed = TrimmedStringOrNil(mimeType);
+    if (!trimmed) {
+        return @"image/png";
+    }
+
+    NSString *lower = trimmed.lowercaseString;
+    if ([lower isEqualToString:@"image/jpg"]) {
+        return @"image/jpeg";
+    }
+
+    return lower;
+}
+
+static TagLib::List<TagLib::VariantMap> BuildPictureComplexProperties(TagLibAudioMetadata *metadata)
+{
+    TagLib::List<TagLib::VariantMap> pictures;
+    if (!metadata || metadata.artworkData.length == 0) {
+        return pictures;
+    }
+
+    TagLib::VariantMap picture;
+    picture.insert("data", TagLib::ByteVector((const char *)metadata.artworkData.bytes,
+                                               (unsigned int)metadata.artworkData.length));
+    picture.insert("mimeType", NSStringToTagString(NormalizedArtworkMimeType(metadata.artworkMimeType)));
+    picture.insert("pictureType", NSStringToTagString(@"Front Cover"));
+    pictures.append(picture);
+
+    return pictures;
+}
+
 // Ensure an ID3v2 text frame exists and set its text
 static void SetID3v2TextFrame(TagLib::ID3v2::Tag *tag,
                               const char *frameID,
@@ -2172,6 +2204,18 @@ static void ParseNumberPairFromNSString(NSString *text,
                 // you can change @"0" to nil.
                 SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
             }
+
+            if (metadata.artworkData.length > 0) {
+                if (!id3v2Tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
+                    if (error) {
+                        *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                     code:68
+                                                 userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the ID3v2 tag" }];
+                    }
+                    TLog(@"Failed to write artwork for '%@' via ID3v2 complex properties", fileURL.lastPathComponent);
+                    return NO;
+                }
+            }
         }
 
         // --- Save ---
@@ -2247,6 +2291,18 @@ static void ParseNumberPairFromNSString(NSString *text,
             tag->removeItem("rtng");
         }
 
+        if (metadata.artworkData.length > 0) {
+            if (!tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:69
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the MP4 tag" }];
+                }
+                TLog(@"Failed to write artwork for MP4 '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
+        }
+
         if (!mp4File.save()) {
             if (error) {
                 *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
@@ -2271,6 +2327,18 @@ static void ParseNumberPairFromNSString(NSString *text,
 
         TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
         flacFile.setProperties(properties);
+
+        if (metadata.artworkData.length > 0) {
+            if (!flacFile.setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:70
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the FLAC metadata blocks" }];
+                }
+                TLog(@"Failed to write artwork for FLAC '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
+        }
 
         if (!flacFile.save()) {
             if (error) {

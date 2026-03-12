@@ -100,7 +100,18 @@ struct InspectorPane: View {
     }
 
     private func displayedArtwork(for file: AudioFile) -> NSImage? {
-        viewModel.edit?.pendingArtwork?.image ?? file.artwork
+        switch viewModel.edit?.artworkEditAction ?? .unchanged {
+        case .unchanged:
+            return file.artwork
+        case .replace(let artwork):
+            return artwork.image
+        case .remove:
+            return nil
+        }
+    }
+
+    private func hasArtwork(for file: AudioFile) -> Bool {
+        displayedArtwork(for: file) != nil
     }
 
     var body: some View {
@@ -292,6 +303,16 @@ struct InspectorPane: View {
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {
                 viewModel.pickArtwork(for: file)
+            }
+            .contextMenu {
+                Button("Import from Clipboard") {
+                    viewModel.importArtworkFromClipboard(for: file)
+                }
+
+                Button("Clear Artwork") {
+                    viewModel.clearArtwork(for: file)
+                }
+                .disabled(!hasArtwork(for: file))
             }
         }
     }

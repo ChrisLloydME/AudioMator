@@ -36,13 +36,7 @@ extension AudioViewModel {
     }
 
     func pickArtwork(for file: AudioFile) {
-        guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
-            presentMetadataWriteFailure(
-                for: file.url.lastPathComponent,
-                reason: "This format does not support embedded artwork writing yet."
-            )
-            return
-        }
+        guard validateArtworkEditingSupport(for: file) else { return }
 
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -55,7 +49,7 @@ extension AudioViewModel {
 
         do {
             let pendingArtwork = try loadPendingArtwork(from: url)
-            applyPendingArtwork(pendingArtwork, to: file)
+            applyArtworkEditAction(.replace(pendingArtwork), to: file)
         } catch {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
@@ -64,13 +58,53 @@ extension AudioViewModel {
         }
     }
 
-    private func applyPendingArtwork(_ pendingArtwork: PendingArtwork, to file: AudioFile) {
+    func importArtworkFromClipboard(for file: AudioFile) {
+        guard validateArtworkEditingSupport(for: file) else { return }
+
+        let pasteboard = NSPasteboard.general
+        guard let image = pasteboard.readObjects(forClasses: [NSImage.self])?.first as? NSImage else {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: "No image was found in the clipboard."
+            )
+            return
+        }
+
+        do {
+            let pendingArtwork = try loadPendingArtwork(from: image)
+            applyArtworkEditAction(.replace(pendingArtwork), to: file)
+        } catch {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: (error as NSError).localizedDescription
+            )
+        }
+    }
+
+    func clearArtwork(for file: AudioFile) {
+        guard validateArtworkEditingSupport(for: file) else { return }
+        applyArtworkEditAction(.remove, to: file)
+    }
+
+    private func validateArtworkEditingSupport(for file: AudioFile) -> Bool {
+        guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: "This format does not support embedded artwork writing yet."
+            )
+            return false
+        }
+
+        return true
+    }
+
+    private func applyArtworkEditAction(_ action: ArtworkEditAction, to file: AudioFile) {
         if var current = edit {
-            current.pendingArtwork = pendingArtwork
+            current.artworkEditAction = action
             edit = current
         } else {
             var model = SingleFileEditModel(from: file)
-            model.pendingArtwork = pendingArtwork
+            model.artworkEditAction = action
             edit = model
         }
     }
@@ -84,6 +118,10 @@ extension AudioViewModel {
             )
         }
 
+        return try loadPendingArtwork(from: image)
+    }
+
+    private func loadPendingArtwork(from image: NSImage) throws -> PendingArtwork {
         guard
             let tiffData = image.tiffRepresentation,
             let bitmap = NSBitmapImageRep(data: tiffData),

@@ -6,6 +6,12 @@ struct PendingArtwork {
     var mimeType: String
 }
 
+enum ArtworkEditAction {
+    case unchanged
+    case replace(PendingArtwork)
+    case remove
+}
+
 struct SingleFileEditModel {
     var title: String
     var artist: String
@@ -25,7 +31,7 @@ struct SingleFileEditModel {
     var publisher: String
     var copyright: String
     var isExplicit: Bool
-    var pendingArtwork: PendingArtwork?
+    var artworkEditAction: ArtworkEditAction
 
     init(
         title: String = "",
@@ -46,7 +52,7 @@ struct SingleFileEditModel {
         publisher: String = "",
         copyright: String = "",
         isExplicit: Bool = false,
-        pendingArtwork: PendingArtwork? = nil
+        artworkEditAction: ArtworkEditAction = .unchanged
     ) {
         self.title = title
         self.artist = artist
@@ -66,7 +72,7 @@ struct SingleFileEditModel {
         self.publisher = publisher
         self.copyright = copyright
         self.isExplicit = isExplicit
-        self.pendingArtwork = pendingArtwork
+        self.artworkEditAction = artworkEditAction
     }
 
     init(from file: AudioFile) {

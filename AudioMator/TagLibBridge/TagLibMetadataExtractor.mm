@@ -71,6 +71,7 @@
         _bpm = 0;
         _compilation = NO;
         _explicitContent = NO;
+        _removeArtwork = NO;
     }
     return self;
 }
@@ -2205,11 +2206,21 @@ static void ParseNumberPairFromNSString(NSString *text,
                 SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
             }
 
-            if (metadata.artworkData.length > 0) {
-                if (!id3v2Tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
+            if (metadata.removeArtwork) {
+                if (!id3v2Tag->setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
                     if (error) {
                         *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                                      code:68
+                                                 userInfo:@{ NSLocalizedDescriptionKey : @"Unable to clear artwork from the ID3v2 tag" }];
+                    }
+                    TLog(@"Failed to clear artwork for '%@' via ID3v2 complex properties", fileURL.lastPathComponent);
+                    return NO;
+                }
+            } else if (metadata.artworkData.length > 0) {
+                if (!id3v2Tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
+                    if (error) {
+                        *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                     code:69
                                                  userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the ID3v2 tag" }];
                     }
                     TLog(@"Failed to write artwork for '%@' via ID3v2 complex properties", fileURL.lastPathComponent);
@@ -2291,11 +2302,21 @@ static void ParseNumberPairFromNSString(NSString *text,
             tag->removeItem("rtng");
         }
 
-        if (metadata.artworkData.length > 0) {
+        if (metadata.removeArtwork) {
+            if (!tag->setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:70
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to clear artwork from the MP4 tag" }];
+                }
+                TLog(@"Failed to clear artwork for MP4 '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
+        } else if (metadata.artworkData.length > 0) {
             if (!tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
                 if (error) {
                     *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                 code:69
+                                                 code:71
                                              userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the MP4 tag" }];
                 }
                 TLog(@"Failed to write artwork for MP4 '%@'", fileURL.lastPathComponent);
@@ -2328,11 +2349,21 @@ static void ParseNumberPairFromNSString(NSString *text,
         TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
         flacFile.setProperties(properties);
 
-        if (metadata.artworkData.length > 0) {
+        if (metadata.removeArtwork) {
+            if (!flacFile.setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:72
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to clear artwork from the FLAC metadata blocks" }];
+                }
+                TLog(@"Failed to clear artwork for FLAC '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
+        } else if (metadata.artworkData.length > 0) {
             if (!flacFile.setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
                 if (error) {
                     *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                 code:70
+                                                 code:73
                                              userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the FLAC metadata blocks" }];
                 }
                 TLog(@"Failed to write artwork for FLAC '%@'", fileURL.lastPathComponent);

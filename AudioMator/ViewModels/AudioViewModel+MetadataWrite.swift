@@ -63,8 +63,16 @@ extension AudioViewModel {
         meta.label = edit.publisher.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.copyright = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.explicitContent = edit.isExplicit
-        meta.artworkData = edit.pendingArtwork?.data
-        meta.artworkMimeType = edit.pendingArtwork?.mimeType
+        switch edit.artworkEditAction {
+        case .unchanged:
+            meta.removeArtwork = false
+        case .replace(let artwork):
+            meta.artworkData = artwork.data
+            meta.artworkMimeType = artwork.mimeType
+            meta.removeArtwork = false
+        case .remove:
+            meta.removeArtwork = true
+        }
 
         // Track/Disc are written via `writeTrackNumberText(...)` below so the UI can accept
         // formats like "01" or "01/10" (and so we can omit the "/total" part when desired).

@@ -46,6 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Artwork
 @property (nonatomic, strong, nullable) NSData *artworkData;
 @property (nonatomic, copy, nullable) NSString *artworkMimeType;
+@property (nonatomic, assign) BOOL removeArtwork;
 
 // Additional metadata
 @property (nonatomic, assign) NSInteger bpm;

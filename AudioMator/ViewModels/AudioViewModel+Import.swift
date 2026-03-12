@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 extension AudioViewModel {
-    // MARK: - 文件导入
+    // MARK: - File Import
 
     func addFiles() {
         let panel = NSOpenPanel()
@@ -16,7 +16,7 @@ extension AudioViewModel {
             UTType.wav,
             UTType.aiff,
         ]
-        panel.title = "选择音频文件"
+        panel.title = "Choose Audio Files"
 
         guard panel.runModal() == .OK else { return }
         let urls = panel.urls
@@ -43,7 +43,7 @@ extension AudioViewModel {
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.allowedContentTypes = [.image]
-        panel.title = "选择 Artwork 图片"
+        panel.title = "Choose Artwork Image"
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 

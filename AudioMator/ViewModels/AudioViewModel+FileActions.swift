@@ -1,7 +1,7 @@
 import AppKit
 
 extension AudioViewModel {
-    // MARK: - 右键菜单动作（中间列表）
+    // MARK: - Context Menu Actions (Middle List)
 
     func openWithDefaultApp(_ file: AudioFile) {
         NSWorkspace.shared.open(file.url)

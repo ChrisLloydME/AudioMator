@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// 和 AudioFile.swift 中使用的字段一一对应
+/// Mirrors the metadata fields used in `AudioFile.swift`.
 struct BasicMetadata {
     var title: String
     var artist: String
@@ -74,7 +74,7 @@ enum TagLibManagerError: Error {
     case failedToRead
 }
 
-/// 包一层，负责调用 Objective-C++ 的 TagLibMetadataExtractor
+/// Thin wrapper around the Objective-C++ `TagLibMetadataExtractor`.
 struct TagLibMetadataManager {
 
     // MARK: - Bridge Dump API
@@ -122,21 +122,21 @@ struct TagLibMetadataManager {
     }
 
     static func readMetadata(from url: URL) -> BasicMetadata? {
-        // 1. 按扩展名快速过滤
+        // 1. Quickly filter by file extension.
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty else { return nil }
 
         if !TagLibMetadataExtractor.isSupportedFormat(ext) {
-            // 不支持的格式，让调用方回退到 AVFoundation
+            // Unsupported formats fall back to the AVFoundation path.
             return nil
         }
 
         do {
-            // ObjC++ 提供的接口（Swift 里是 throws 形式）
+            // ObjC++ bridge API imported into Swift as `throws`.
             let meta = try TagLibMetadataExtractor.extractMetadata(from: url)
             let obj = meta as NSObject
 
-            // KVC 读取前先判断 selector 是否存在，避免 unknown key 直接崩溃
+            // Check selector availability before KVC access to avoid `unknown key` crashes.
             func string(_ key: String) -> String {
                 let sel = NSSelectorFromString(key)
                 guard obj.responds(to: sel) else { return "" }
@@ -159,7 +159,7 @@ struct TagLibMetadataManager {
                 return false
             }
 
-            // 兼容不同实现里可能存在的别名字段（例如 label/publisher）
+            // Support possible alias fields across bridge implementations, such as `label` / `publisher`.
             func firstNonEmpty(_ keys: [String]) -> String {
                 for k in keys {
                     let v = string(k)
@@ -198,7 +198,7 @@ struct TagLibMetadataManager {
                 discTotal:   firstInt(["totalDiscs", "discTotal"]),
                 year:        firstNonEmpty(["year"]),
                 albumArtist: firstNonEmpty(["albumArtist"]),
-                // Release Date 字段：如果桥接层不提供，这里会是空字符串；AudioFile 可继续用 AVFoundation 兜底
+                // If the bridge does not expose Release Date, leave it empty and let `AudioFile` fall back to AVFoundation.
                 releaseDate: firstNonEmpty(["releaseDate", "originalReleaseDate"]),
                 publisher:   firstNonEmpty(["publisher", "label"]),
                 copyright:   firstNonEmpty(["copyright"]),

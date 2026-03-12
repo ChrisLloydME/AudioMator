@@ -23,16 +23,18 @@ extension AudioViewModel {
         guard
             let edit = edit,
             let id = selectedAudioIDs.first,
-            let index = files.firstIndex(where: { $0.id == id })
+            let file = files.first(where: { $0.id == id })
         else {
             return
         }
 
-        let file = files[index]
-
         // 当前支持 MPEG、MP4/M4A、FLAC、WAV、AIFF 写标签
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported write format for: \(file.url.lastPathComponent)")
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: "This format does not support metadata writing yet."
+            )
             return
         }
 
@@ -80,6 +82,7 @@ extension AudioViewModel {
         Task(priority: .userInitiated) {
             do {
                 try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+                var warnings: [String] = []
 
                 // Write Track/Disc number text using the same Save button flow as other fields.
                 // Note: ObjC NSError-style API is imported as `throws` in Swift.
@@ -93,18 +96,27 @@ extension AudioViewModel {
                     )
                 } catch {
                     print("Failed to write Track/Disc numbers: \(error)")
+                    warnings.append("Track/Disc numbers were not fully saved: \((error as NSError).localizedDescription)")
                 }
 
-                self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
+                if let refreshWarning = await self.reloadEditedFile(file) {
+                    warnings.append(refreshWarning)
+                }
 
-                // 写完重新从磁盘读一遍，刷新 UI（并保持选中项不丢）
-                if let reloaded = try? await AudioFile(url: file.url) {
-                    self.files[index] = reloaded
-                    self.selectedAudioIDs = [reloaded.id]
-                    self.edit = SingleFileEditModel(from: reloaded)
+                if warnings.isEmpty {
+                    self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
+                } else {
+                    self.presentMetadataWriteWarning(
+                        title: "Saved with Issues",
+                        subtitle: ([file.url.lastPathComponent] + warnings).joined(separator: "\n")
+                    )
                 }
             } catch {
                 print("Failed to write metadata via TagLib: \(error)")
+                self.presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent,
+                    reason: (error as NSError).localizedDescription
+                )
             }
         }
     }
@@ -113,10 +125,12 @@ extension AudioViewModel {
     func eraseAllMetadata(_ file: AudioFile) {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported erase format for: \(file.url.lastPathComponent)")
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: "This format does not support metadata writing yet."
+            )
             return
         }
-
-        guard let index = files.firstIndex(where: { $0.id == file.id }) else { return }
 
         let meta = TagLibAudioMetadata()
         meta.title = ""
@@ -139,16 +153,40 @@ extension AudioViewModel {
         Task(priority: .userInitiated) {
             do {
                 try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
-                self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
 
-                if let reloaded = try? await AudioFile(url: file.url) {
-                    self.files[index] = reloaded
-                    self.selectedAudioIDs = [reloaded.id]
-                    self.edit = SingleFileEditModel(from: reloaded)
+                if let refreshWarning = await self.reloadEditedFile(file) {
+                    self.presentMetadataWriteWarning(
+                        title: "Saved, Refresh Failed",
+                        subtitle: [file.url.lastPathComponent, refreshWarning].joined(separator: "\n")
+                    )
+                } else {
+                    self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
                 }
             } catch {
                 print("Failed to erase metadata via TagLib: \(error)")
+                self.presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent,
+                    reason: (error as NSError).localizedDescription
+                )
             }
+        }
+    }
+
+    private func reloadEditedFile(_ file: AudioFile) async -> String? {
+        do {
+            let reloaded = try await AudioFile(url: file.url, id: file.id)
+
+            if let index = files.firstIndex(where: { $0.id == file.id }) {
+                files[index] = reloaded
+            }
+
+            if selectedAudioIDs.contains(file.id) {
+                edit = SingleFileEditModel(from: reloaded)
+            }
+
+            return nil
+        } catch {
+            return "Saved to disk, but the inspector could not refresh: \((error as NSError).localizedDescription)"
         }
     }
 

@@ -95,8 +95,8 @@ struct ContentView: View {
             )
         }
         .overlay(alignment: .bottom) {
-            if let hud = viewModel.metadataWriteSuccessHUD {
-                MetadataWriteSuccessHUDView(hud: hud)
+            if let hud = viewModel.metadataWriteHUD {
+                MetadataWriteHUDView(hud: hud)
                     .id(hud.id)
                     .padding(.bottom, 40)
             }
@@ -150,14 +150,14 @@ struct ContentView: View {
     }
 }
 
-private struct MetadataWriteSuccessHUDView: View {
+private struct MetadataWriteHUDView: View {
     @Environment(\.colorScheme) private var colorScheme
 
-    let hud: MetadataWriteSuccessHUD
+    let hud: MetadataWriteHUD
 
     var body: some View {
         VStack(spacing: 10) {
-            AnimatedCheckmarkBadge(colorScheme: colorScheme)
+            MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
 
             VStack(spacing: 3) {
                 Text(hud.title)
@@ -167,11 +167,11 @@ private struct MetadataWriteSuccessHUDView: View {
                 Text(hud.subtitle)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(secondaryTextColor)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .lineLimit(4)
+                    .multilineTextAlignment(.center)
             }
         }
-        .frame(width: 220)
+        .frame(width: 320)
         .padding(.horizontal, 22)
         .padding(.vertical, 18)
         .background(
@@ -193,9 +193,16 @@ private struct MetadataWriteSuccessHUDView: View {
     }
 
     private var borderColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.08)
-            : Color.black.opacity(0.08)
+        switch hud.style {
+        case .success:
+            return colorScheme == .dark
+                ? Color.white.opacity(0.08)
+                : Color.black.opacity(0.08)
+        case .warning:
+            return Color.orange.opacity(colorScheme == .dark ? 0.55 : 0.35)
+        case .failure:
+            return Color.red.opacity(colorScheme == .dark ? 0.58 : 0.38)
+        }
     }
 
     private var shadowColor: Color {
@@ -215,14 +222,9 @@ private struct MetadataWriteSuccessHUDView: View {
     }
 }
 
-private struct AnimatedCheckmarkBadge: View {
+private struct MetadataWriteHUDIcon: View {
+    let style: MetadataWriteHUDStyle
     let colorScheme: ColorScheme
-
-    @State private var ringScale: CGFloat = 0.9
-    @State private var ringOpacity: CGFloat = 0.0
-    @State private var revealProgress: CGFloat = 0.0
-    @State private var checkScale: CGFloat = 0.92
-    @State private var checkOpacity: CGFloat = 0.0
 
     var body: some View {
         ZStack {
@@ -233,62 +235,59 @@ private struct AnimatedCheckmarkBadge: View {
             Circle()
                 .stroke(ringStrokeColor, lineWidth: 1)
                 .frame(width: 54, height: 54)
-                .scaleEffect(ringScale)
-                .opacity(ringOpacity)
 
-            Image(systemName: "checkmark")
+            Image(systemName: symbolName)
                 .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(checkColor)
-                .scaleEffect(checkScale)
-                .opacity(checkOpacity)
-                .mask(alignment: .leading) {
-                    GeometryReader { proxy in
-                        Rectangle()
-                            .frame(width: max(1, proxy.size.width * revealProgress))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-        }
-        .onAppear {
-            ringScale = 0.9
-            ringOpacity = 0.0
-            revealProgress = 0.0
-            checkScale = 0.92
-            checkOpacity = 0.0
-
-            withAnimation(.easeOut(duration: 0.18)) {
-                ringScale = 1.0
-                ringOpacity = 1.0
-            }
-
-            withAnimation(.easeOut(duration: 0.08).delay(0.03)) {
-                checkOpacity = 1.0
-            }
-
-            withAnimation(.timingCurve(0.22, 0.9, 0.24, 1.0, duration: 0.24).delay(0.04)) {
-                revealProgress = 1.0
-            }
-
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.68).delay(0.08)) {
-                checkScale = 1.0
-            }
+                .foregroundStyle(symbolColor)
         }
     }
 
     private var badgeFillColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.08)
-            : Color.black.opacity(0.06)
+        switch style {
+        case .success:
+            return colorScheme == .dark
+                ? Color.white.opacity(0.08)
+                : Color.black.opacity(0.06)
+        case .warning:
+            return Color.orange.opacity(colorScheme == .dark ? 0.18 : 0.14)
+        case .failure:
+            return Color.red.opacity(colorScheme == .dark ? 0.18 : 0.14)
+        }
     }
 
     private var ringStrokeColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.12)
-            : Color.black.opacity(0.12)
+        switch style {
+        case .success:
+            return colorScheme == .dark
+                ? Color.white.opacity(0.12)
+                : Color.black.opacity(0.12)
+        case .warning:
+            return Color.orange.opacity(colorScheme == .dark ? 0.42 : 0.28)
+        case .failure:
+            return Color.red.opacity(colorScheme == .dark ? 0.44 : 0.30)
+        }
     }
 
-    private var checkColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.84)
+    private var symbolColor: Color {
+        switch style {
+        case .success:
+            return colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.84)
+        case .warning:
+            return colorScheme == .dark ? Color.orange.opacity(0.92) : Color.orange.opacity(0.86)
+        case .failure:
+            return colorScheme == .dark ? Color.red.opacity(0.92) : Color.red.opacity(0.86)
+        }
+    }
+
+    private var symbolName: String {
+        switch style {
+        case .success:
+            return "checkmark"
+        case .warning:
+            return "exclamationmark.triangle.fill"
+        case .failure:
+            return "xmark"
+        }
     }
 }
 

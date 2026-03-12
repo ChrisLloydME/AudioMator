@@ -12,7 +12,7 @@ import CoreMedia
 import AppKit
 
 struct AudioFile: Identifiable {
-    let id = UUID()
+    let id: UUID
 
     // MARK: – Basic Tags
     let url: URL
@@ -95,7 +95,8 @@ struct AudioFile: Identifiable {
         return ""
     }
 
-    init(url: URL) async throws {
+    init(url: URL, id: UUID = UUID()) async throws {
+        self.id = id
         self.url = url
 
         // MARK: – Basic tags via TagLib

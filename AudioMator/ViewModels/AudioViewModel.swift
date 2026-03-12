@@ -10,8 +10,15 @@ import Combine
 
 private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
 
-struct MetadataWriteSuccessHUD: Identifiable, Equatable {
+enum MetadataWriteHUDStyle: Equatable {
+    case success
+    case warning
+    case failure
+}
+
+struct MetadataWriteHUD: Identifiable, Equatable {
     let id = UUID()
+    let style: MetadataWriteHUDStyle
     let title: String
     let subtitle: String
 }
@@ -24,13 +31,13 @@ final class AudioViewModel: ObservableObject {
     @Published var selectedAudioIDs: Set<UUID> = []
     // 右侧 Inspector 绑定的单文件编辑模型
     @Published var edit: SingleFileEditModel?
-    @Published var metadataWriteSuccessHUD: MetadataWriteSuccessHUD?
+    @Published var metadataWriteHUD: MetadataWriteHUD?
 
-    private var metadataWriteSuccessDismissTask: Task<Void, Never>?
-    private var pendingMetadataWriteSuccessHUDs: [MetadataWriteSuccessHUD] = []
+    private var metadataWriteHUDDismissTask: Task<Void, Never>?
+    private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []
 
     deinit {
-        metadataWriteSuccessDismissTask?.cancel()
+        metadataWriteHUDDismissTask?.cancel()
     }
 
     // MARK: - 选中与编辑同步
@@ -54,38 +61,69 @@ final class AudioViewModel: ObservableObject {
     }
 
     func presentMetadataWriteSuccess(for fileName: String) {
-        let hud = MetadataWriteSuccessHUD(
-            title: "Metadata Written",
+        enqueueMetadataWriteHUD(
+            style: .success,
+            title: "Saved to Disk",
             subtitle: fileName
         )
-        pendingMetadataWriteSuccessHUDs.append(hud)
-
-        guard metadataWriteSuccessHUD == nil else { return }
-        showNextMetadataWriteSuccessHUD()
     }
 
-    private func showNextMetadataWriteSuccessHUD() {
-        guard metadataWriteSuccessHUD == nil, !pendingMetadataWriteSuccessHUDs.isEmpty else { return }
+    func presentMetadataWriteWarning(title: String, subtitle: String) {
+        enqueueMetadataWriteHUD(
+            style: .warning,
+            title: title,
+            subtitle: subtitle
+        )
+    }
 
-        metadataWriteSuccessDismissTask?.cancel()
+    func presentMetadataWriteFailure(for fileName: String, reason: String) {
+        enqueueMetadataWriteHUD(
+            style: .failure,
+            title: "Save Failed",
+            subtitle: [fileName, reason]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+        )
+    }
 
-        let hud = pendingMetadataWriteSuccessHUDs.removeFirst()
-        metadataWriteSuccessHUD = hud
+    private func enqueueMetadataWriteHUD(
+        style: MetadataWriteHUDStyle,
+        title: String,
+        subtitle: String
+    ) {
+        let hud = MetadataWriteHUD(
+            style: style,
+            title: title,
+            subtitle: subtitle
+        )
+        pendingMetadataWriteHUDs.append(hud)
 
-        metadataWriteSuccessDismissTask = Task { [weak self, hudID = hud.id] in
+        guard metadataWriteHUD == nil else { return }
+        showNextMetadataWriteHUD()
+    }
+
+    private func showNextMetadataWriteHUD() {
+        guard metadataWriteHUD == nil, !pendingMetadataWriteHUDs.isEmpty else { return }
+
+        metadataWriteHUDDismissTask?.cancel()
+
+        let hud = pendingMetadataWriteHUDs.removeFirst()
+        metadataWriteHUD = hud
+
+        metadataWriteHUDDismissTask = Task { [weak self, hudID = hud.id] in
             try? await Task.sleep(for: metadataWriteSuccessHUDDuration)
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
-                guard let self, self.metadataWriteSuccessHUD?.id == hudID else { return }
-                self.metadataWriteSuccessHUD = nil
+                guard let self, self.metadataWriteHUD?.id == hudID else { return }
+                self.metadataWriteHUD = nil
             }
 
             try? await Task.sleep(for: .milliseconds(120))
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
-                self?.showNextMetadataWriteSuccessHUD()
+                self?.showNextMetadataWriteHUD()
             }
         }
     }

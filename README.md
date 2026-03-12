@@ -1,7 +1,7 @@
 # AudioMator
 
 <p align="center">
-  <img src="AudioMator/AppIcon.icon/Assets/Group%204.png" alt="AudioMator app icon" width="140" />
+  <img src="AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="140" />
 </p>
 
 <p align="center">

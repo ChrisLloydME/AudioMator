@@ -26,9 +26,9 @@ func isArtworkWriteSupportedExtension(_ ext: String) -> Bool {
 }
 
 extension AudioViewModel {
-    // MARK: - 单文件写入（使用 TagLib）
+    // MARK: - Single-File Writes (TagLib)
 
-    /// 将当前 Inspector 中的编辑结果写回到选中的音频文件（直接调用 TagLib 桥接）
+    /// Writes the current inspector edits back to the selected audio file through the TagLib bridge.
     func saveSingleEdits() {
         guard
             let edit = edit,
@@ -38,7 +38,7 @@ extension AudioViewModel {
             return
         }
 
-        // 当前支持 MPEG、MP4/M4A、FLAC、WAV、AIFF 写标签
+        // Tag writing is currently supported for MPEG, MP4/M4A, FLAC, WAV, and AIFF.
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported write format for: \(file.url.lastPathComponent)")
             presentMetadataWriteFailure(
@@ -50,7 +50,7 @@ extension AudioViewModel {
 
         let meta = TagLibAudioMetadata()
 
-        // 去掉首尾空格，避免无意写入带空格的标签
+        // Trim surrounding whitespace to avoid writing accidental padded tags.
         meta.title = edit.title.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.artist = edit.artist.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.album = edit.album.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -141,7 +141,7 @@ extension AudioViewModel {
         }
     }
 
-    /// 尝试抹掉文件的所有元数据（当前对 MPEG、MP4/M4A、FLAC、WAV、AIFF 生效；实现为“写入空标签并覆盖”）
+    /// Attempts to erase all metadata from a file by writing empty tags over the existing values.
     func eraseAllMetadata(_ file: AudioFile) {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported erase format for: \(file.url.lastPathComponent)")
@@ -210,16 +210,16 @@ extension AudioViewModel {
         }
     }
 
-    // MARK: - 批量按列表顺序重写 Track Number
+    // MARK: - Batch Track Renumbering by List Order
 
-    /// 根据中间栏列表的排序顺序批量重写 Track Number（TRCK）。
+    /// Batch-rewrites Track Number (`TRCK`) using the current ordering of the middle list.
     ///
     /// - Parameters:
-    ///   - orderedIDs: 列表排序来源（通常传 `SharedState.customOrder`；若为空则传当前 `files.map(\.id)`）。
-    ///   - selectedIDs: 当前选中项；若非空，则只对选中项（按 orderedIDs 的出现顺序）执行重写。
-    ///   - options: 重写配置（顺序/倒序、起始号、是否补零）。
+    ///   - orderedIDs: Source list order, usually `SharedState.customOrder`; use `files.map(\.id)` when empty.
+    ///   - selectedIDs: Current selection. When non-empty, only selected items are rewritten in `orderedIDs` order.
+    ///   - options: Rewrite options including direction, start value, and zero padding.
     ///
-    /// - Returns: 可用于 UI 展示的汇总结果。
+    /// - Returns: A summary result suitable for UI presentation.
     func renumberTrackNumbers(
         orderedIDs: [UUID],
         selectedIDs: Set<UUID>,
@@ -254,7 +254,7 @@ extension AudioViewModel {
             case .ascending:
                 return (0..<count).map { start + $0 }
             case .descending:
-                // “倒序分配”的直觉定义：列表第一首拿到最大号，最后一首拿到最小号。
+                // Descending means the first item gets the highest number and the last item gets the lowest.
                 return (0..<count).map { start + (count - 1 - $0) }
             }
         }()

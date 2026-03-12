@@ -44,7 +44,7 @@ struct AudioFile: Identifiable {
     // MARK: – Artwork
     let artwork: NSImage?
 
-    // 统一的元数据读取帮助函数
+    // Shared helper for reading metadata values.
     private static func readMetadata(from metadata: [AVMetadataItem],
                                      commonKeys: [AVMetadataKey],
                                      id3Keys: [String] = [],
@@ -101,7 +101,7 @@ struct AudioFile: Identifiable {
 
         // MARK: – Basic tags via TagLib
         //
-        // TagLib 解析失败时，用 BasicMetadata.empty 兜底，避免到处写 if let
+        // Fall back to `BasicMetadata.empty` when TagLib parsing fails to avoid repeated optional handling.
         let tag = TagLibMetadataManager.readMetadata(from: url) ?? .empty
 
         self.title       = tag.title
@@ -115,9 +115,9 @@ struct AudioFile: Identifiable {
         self.disc        = tag.disc
         self.discTotal   = tag.discTotal
 
-        // Year 和 Release Date 作为两个独立字段处理：
-        // - year：TagLib 提供的纯年份（如果有）
-        // - releaseDate：TagLib 提供的完整发布日期字符串（如果有）
+        // Treat Year and Release Date as separate fields:
+        // - `year`: plain year provided by TagLib, if available
+        // - `releaseDate`: full release date string provided by TagLib, if available
         self.year        = tag.year
         self.albumArtist = tag.albumArtist
         self.releaseDate = tag.releaseDate

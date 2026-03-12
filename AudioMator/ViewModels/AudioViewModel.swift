@@ -25,11 +25,11 @@ struct MetadataWriteHUD: Identifiable, Equatable {
 
 @MainActor
 final class AudioViewModel: ObservableObject {
-    // 当前加载到中间列表里的所有音频文件
+    // All audio files currently loaded into the middle list.
     @Published var files: [AudioFile] = []
-    // 中间列表的选中项（支持多选，但目前单文件编辑只用第一个）
+    // Current selection in the middle list. Multi-select is supported, but single-file editing uses the first item only.
     @Published var selectedAudioIDs: Set<UUID> = []
-    // 右侧 Inspector 绑定的单文件编辑模型
+    // Single-file edit model bound to the right-side inspector.
     @Published var edit: SingleFileEditModel?
     @Published var metadataWriteHUD: MetadataWriteHUD?
 
@@ -40,9 +40,9 @@ final class AudioViewModel: ObservableObject {
         metadataWriteHUDDismissTask?.cancel()
     }
 
-    // MARK: - 选中与编辑同步
+    // MARK: - Selection and Edit Sync
 
-    /// 当中间列表的选中项变化时调用，保持右侧 Inspector 内容与当前文件同步
+    /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
         guard
             let id = selectedAudioIDs.first,
@@ -55,7 +55,7 @@ final class AudioViewModel: ObservableObject {
         edit = SingleFileEditModel(from: file)
     }
 
-    /// 放弃当前编辑，恢复为磁盘上的最新标签
+    /// Discard the current edits and restore the latest tags from disk.
     func cancelEditing() {
         updateEditForSelection()
     }

@@ -12,7 +12,7 @@ struct InspectorPopup<Content: View>: View {
     let subtitle: String?
     @Binding var isPresented: Bool
 
-    // 你可以按需要调整
+    // Tune these values as needed.
     let width: CGFloat
     let minHeight: CGFloat
 
@@ -54,7 +54,7 @@ struct InspectorPopup<Content: View>: View {
             .frame(width: width)
             .frame(minHeight: minHeight)
             .background(
-                // macOS 13+ 玻璃质感
+                // macOS 13+ glass material styling
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.regularMaterial)
             )
@@ -67,14 +67,14 @@ struct InspectorPopup<Content: View>: View {
             .transition(.scale(scale: 0.98).combined(with: .opacity))
         }
         .animation(.easeInOut(duration: 0.16), value: isPresented)
-        .onExitCommand { dismiss() } // ESC 关闭（macOS）
+        .onExitCommand { dismiss() } // Close on Escape (macOS)
     }
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 20, weight: .semibold))  // “Edit Album”更大更符合 HIG 的感觉
+                    .font(.system(size: 20, weight: .semibold))  // Slightly larger title to better match the macOS HIG.
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.subheadline)

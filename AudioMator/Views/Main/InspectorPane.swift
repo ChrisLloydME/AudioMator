@@ -99,6 +99,10 @@ struct InspectorPane: View {
         )
     }
 
+    private func displayedArtwork(for file: AudioFile) -> NSImage? {
+        viewModel.edit?.pendingArtwork?.image ?? file.artwork
+    }
+
     var body: some View {
         Group {
             if selectedFiles.count == 1, let file = selectedFiles.first {
@@ -262,11 +266,11 @@ struct InspectorPane: View {
     private func artworkSection(_ file: AudioFile) -> some View {
         GroupBox("Artwork") {
             VStack {
-                if let image = file.artwork {
+                if let image = displayedArtwork(for: file) {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: 200)
+                        .frame(maxWidth: 200, maxHeight: 200)
                         .cornerRadius(8)
                 } else {
                     ZStack {
@@ -278,9 +282,17 @@ struct InspectorPane: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Text("Double-click to replace or add artwork")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 8)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                viewModel.pickArtwork(for: file)
+            }
         }
     }
 

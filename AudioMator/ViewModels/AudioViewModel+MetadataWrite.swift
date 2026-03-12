@@ -6,6 +6,12 @@ private let supportedTagWriteExtensions: Set<String> = [
     "flac", "wav", "aiff", "aif"
 ]
 
+private let supportedArtworkWriteExtensions: Set<String> = [
+    "mp3", "mp2", "aac",
+    "m4a", "m4b", "m4p", "mp4",
+    "flac"
+]
+
 private func digitCount(_ value: Int) -> Int {
     let v = abs(value)
     return String(v).count
@@ -13,6 +19,10 @@ private func digitCount(_ value: Int) -> Int {
 
 private func isTagWriteSupportedExtension(_ ext: String) -> Bool {
     supportedTagWriteExtensions.contains(ext.lowercased())
+}
+
+func isArtworkWriteSupportedExtension(_ ext: String) -> Bool {
+    supportedArtworkWriteExtensions.contains(ext.lowercased())
 }
 
 extension AudioViewModel {
@@ -53,6 +63,8 @@ extension AudioViewModel {
         meta.label = edit.publisher.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.copyright = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.explicitContent = edit.isExplicit
+        meta.artworkData = edit.pendingArtwork?.data
+        meta.artworkMimeType = edit.pendingArtwork?.mimeType
 
         // Track/Disc are written via `writeTrackNumberText(...)` below so the UI can accept
         // formats like "01" or "01/10" (and so we can omit the "/total" part when desired).

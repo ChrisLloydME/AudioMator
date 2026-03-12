@@ -1,3 +1,11 @@
+import AppKit
+
+struct PendingArtwork {
+    var image: NSImage
+    var data: Data
+    var mimeType: String
+}
+
 struct SingleFileEditModel {
     var title: String
     var artist: String
@@ -17,6 +25,7 @@ struct SingleFileEditModel {
     var publisher: String
     var copyright: String
     var isExplicit: Bool
+    var pendingArtwork: PendingArtwork?
 
     init(
         title: String = "",
@@ -36,7 +45,8 @@ struct SingleFileEditModel {
         releaseDate: String = "",
         publisher: String = "",
         copyright: String = "",
-        isExplicit: Bool = false
+        isExplicit: Bool = false,
+        pendingArtwork: PendingArtwork? = nil
     ) {
         self.title = title
         self.artist = artist
@@ -56,6 +66,7 @@ struct SingleFileEditModel {
         self.publisher = publisher
         self.copyright = copyright
         self.isExplicit = isExplicit
+        self.pendingArtwork = pendingArtwork
     }
 
     init(from file: AudioFile) {

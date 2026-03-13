@@ -44,10 +44,8 @@ struct MergedMetadataSectionView: View {
             Text(label)
                 .font(.headline)
             Spacer()
-            Text(value ?? "—")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(width: 220, alignment: .trailing)
+            ScrollableInspectorValueText(text: value ?? "—", width: 220)
+                .frame(width: 220, height: 22, alignment: .trailing)
         }
         .padding(.vertical, 14)
     }

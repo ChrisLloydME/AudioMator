@@ -46,8 +46,8 @@ struct MergedMetadataSectionView: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
             FlexibleScrollableInspectorValueText(text: value ?? "—")
-                .frame(maxWidth: .infinity, minHeight: 22, alignment: .trailing)
+                .frame(maxWidth: .infinity, minHeight: inspectorRowContentHeight, alignment: .trailing)
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, inspectorRowVerticalPadding)
     }
 }

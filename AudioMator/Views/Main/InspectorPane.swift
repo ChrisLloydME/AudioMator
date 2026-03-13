@@ -1,6 +1,9 @@
 import SwiftUI
 import AppKit
 
+let inspectorRowContentHeight: CGFloat = 20
+let inspectorRowVerticalPadding: CGFloat = 6
+
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
@@ -355,7 +358,7 @@ struct InspectorPane: View {
                 Divider()
                 metadataRow(label: "Credits", value: file.credits)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 3)
         } label: {
             inspectorSectionLabel("Metadata", systemImage: "tag")
         }
@@ -364,7 +367,7 @@ struct InspectorPane: View {
     @ViewBuilder
     private func technicalSection(_ file: AudioFile) -> some View {
         GroupBox {
-            VStack(spacing: 0) {
+            VStack(spacing: 6) {
                 metadataRow(label: "Duration", value: formatDuration(file.duration))
                 Divider()
                 metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps")
@@ -375,7 +378,7 @@ struct InspectorPane: View {
                 Divider()
                 metadataRow(label: "Format", value: file.format)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 3)
         } label: {
             inspectorSectionLabel("Technical Info", systemImage: "waveform")
         }
@@ -399,9 +402,9 @@ struct InspectorPane: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
             FlexibleScrollableInspectorValueText(text: value ?? "—")
-                .frame(maxWidth: .infinity, minHeight: 22, alignment: .trailing)
+                .frame(maxWidth: .infinity, minHeight: inspectorRowContentHeight, alignment: .trailing)
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, inspectorRowVerticalPadding)
     }
 
     @ViewBuilder
@@ -420,7 +423,7 @@ struct InspectorPane: View {
                 inspectorQuickBinding = text
                 isInspectorQuickPresented = true
             }
-            .frame(maxWidth: .infinity, minHeight: 22, alignment: .trailing)
+            .frame(maxWidth: .infinity, minHeight: inspectorRowContentHeight, alignment: .trailing)
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -429,7 +432,7 @@ struct InspectorPane: View {
             inspectorQuickBinding = text
             isInspectorQuickPresented = true
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, inspectorRowVerticalPadding)
     }
 
     @ViewBuilder
@@ -441,7 +444,7 @@ struct InspectorPane: View {
             Toggle("", isOn: isOn)
                 .toggleStyle(.switch)
         }
-        .padding(.vertical, 14)
+        .padding(.vertical, inspectorRowVerticalPadding)
     }
 }
 
@@ -477,9 +480,9 @@ struct FlexibleScrollableInspectorValueText: View {
             let availableWidth = max(proxy.size.width, 1)
 
             ScrollableInspectorValueText(text: text, width: availableWidth)
-                .frame(width: availableWidth, height: 22, alignment: .trailing)
+                .frame(width: availableWidth, height: inspectorRowContentHeight, alignment: .trailing)
         }
-        .frame(height: 22)
+        .frame(height: inspectorRowContentHeight)
     }
 }
 
@@ -595,7 +598,7 @@ final class InspectorValueScrollView: NSScrollView {
         textField.sizeToFit()
 
         let contentWidth = max(width, ceil(textField.fittingSize.width))
-        let contentHeight: CGFloat = 22
+        let contentHeight = inspectorRowContentHeight
 
         containerView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: contentHeight)
         frame.size = NSSize(width: width, height: contentHeight)

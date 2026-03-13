@@ -337,15 +337,15 @@ struct InspectorPane: View {
                 Divider()
                 editableRow(label: "Year", text: binding(for: file, keyPath: \.year))
                 Divider()
-                editableRow(label: "Track Number", text: binding(for: file, keyPath: \.trackNumberText))
+                editableRow(label: "Track Number", text: binding(for: file, keyPath: \.trackNumberText), valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
-                editableRow(label: "Disc Number", text: binding(for: file, keyPath: \.discNumberText))
+                editableRow(label: "Disc Number", text: binding(for: file, keyPath: \.discNumberText), valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
                 editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
                 Divider()
-                editableRow(label: "Album Artist", text: binding(for: file, keyPath: \.albumArtist))
+                editableRow(label: "Album Artist", text: binding(for: file, keyPath: \.albumArtist), valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
-                editableRow(label: "Release Date", text: binding(for: file, keyPath: \.releaseDate))
+                editableRow(label: "Release Date", text: binding(for: file, keyPath: \.releaseDate), valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
                 editableRow(label: "Publisher", text: binding(for: file, keyPath: \.publisher))
                 Divider()
@@ -353,7 +353,7 @@ struct InspectorPane: View {
                 Divider()
                 explicitRow(label: "Explicit", isOn: boolBinding(for: file, keyPath: \.isExplicit))
                 Divider()
-                metadataRow(label: "Credits", value: file.credits)
+                metadataRow(label: "Credits", value: file.credits, valueWidth: 120, keepsLabelOnOneLine: true)
             }
             .padding(.vertical, 4)
         } label: {
@@ -410,14 +410,22 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
-    private func editableRow(label: String, text: Binding<String>) -> some View {
+    private func editableRow(
+        label: String,
+        text: Binding<String>,
+        valueWidth: CGFloat = 220,
+        keepsLabelOnOneLine: Bool = false
+    ) -> some View {
         HStack {
-            Text(label).font(.headline)
+            Text(label)
+                .font(.headline)
+                .lineLimit(keepsLabelOnOneLine ? 1 : nil)
+                .fixedSize(horizontal: keepsLabelOnOneLine, vertical: false)
             Spacer()
             TextField("", text: text)
                 .textFieldStyle(.plain)
                 .multilineTextAlignment(.trailing)
-                .frame(width: 220, alignment: .trailing)
+                .frame(width: valueWidth, alignment: .trailing)
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {

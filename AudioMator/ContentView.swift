@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 
 struct ContentView: View {
     @ObservedObject var viewModel: AudioViewModel
@@ -299,38 +300,134 @@ private struct MetadataWriteHUDIcon: View {
 extension ContentView {
     private func presentMetadataDump() {
         let selected = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-        metadataDumpText = buildTagLibDump(for: selected)
+        metadataDumpText = "Loading metadata..."
         isMetadataDumpPresented = true
+
+        Task {
+            let text = await buildMetadataDump(for: selected)
+            await MainActor.run {
+                guard isMetadataDumpPresented else { return }
+                metadataDumpText = text
+            }
+        }
     }
 
-    /// Produces a best-effort *raw* metadata dump using the TagLib bridge.
+    /// Produces a best-effort raw metadata dump for the selected files.
     ///
-    /// This intentionally does **not** re-print the already-normalized fields shown in the right inspector.
-    private func buildTagLibDump(for files: [AudioFile]) -> String {
+    /// This intentionally bypasses the normalized right-inspector model and instead
+    /// re-reads metadata directly from the file through multiple backends.
+    private func buildMetadataDump(for files: [AudioFile]) async -> String {
         guard !files.isEmpty else { return "(No selection)" }
 
-        // Single selection: show only the raw dump.
         if files.count == 1, let file = files.first {
-            return buildTagLibDump(for: file.url)
+            return await buildMetadataDump(for: file.url)
         }
 
-        // Multiple selection: concatenate per-file dumps.
-        return files.map { buildTagLibDump(for: $0.url) }
-            .joined(separator: "\n\n")
+        var dumps: [String] = []
+        dumps.reserveCapacity(files.count)
+
+        for file in files {
+            dumps.append(await buildMetadataDump(for: file.url))
+        }
+
+        return dumps.joined(separator: "\n\n")
     }
 
-    /// Produces a best-effort *raw* metadata dump using the TagLib bridge.
-    private func buildTagLibDump(for url: URL) -> String {
-        if let text = TagLibMetadataManager.rawMetadataText(from: url),
-           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return text
+    private func buildMetadataDump(for url: URL) async -> String {
+        var sections: [String] = []
+
+        let tagLibText = TagLibMetadataManager.rawMetadataText(from: url)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !tagLibText.isEmpty {
+            sections.append(tagLibText)
         }
 
-        return [
+        if let avFoundationText = await buildAVFoundationMetadataDump(for: url) {
+            sections.append(avFoundationText)
+        }
+
+        if !sections.isEmpty {
+            return sections.joined(separator: "\n\n")
+        }
+
+        return """
+        File: \(url.lastPathComponent)
+        Path: \(url.path)
+
+        (No metadata could be read by either TagLib or AVFoundation.)
+        """
+    }
+
+    private func buildAVFoundationMetadataDump(for url: URL) async -> String? {
+        let asset = AVURLAsset(url: url)
+
+        let metadataItems: [AVMetadataItem]
+        do {
+            metadataItems = try await asset.load(.metadata)
+        } catch {
+            return """
+            File: \(url.lastPathComponent)
+            Path: \(url.path)
+
+            [AVFoundation Metadata]
+            (failed to load metadata: \((error as NSError).localizedDescription))
+            """
+        }
+
+        guard !metadataItems.isEmpty else { return nil }
+
+        var lines: [String] = [
             "File: \(url.lastPathComponent)",
             "Path: \(url.path)",
             "",
-            "(No TagLib metadata to display. The file may contain no readable tags, or the TagLib bridge returned an empty result.)"
-        ].joined(separator: "\n")
+            "[AVFoundation Metadata]"
+        ]
+
+        for item in metadataItems {
+            let keySpace = item.keySpace?.rawValue ?? "unknown"
+
+            let keyName: String = {
+                if let identifier = item.identifier?.rawValue, !identifier.isEmpty {
+                    return identifier
+                }
+                if let commonKey = item.commonKey?.rawValue, !commonKey.isEmpty {
+                    return commonKey
+                }
+                if let key = item.key {
+                    return String(describing: key)
+                }
+                return "(unknown key)"
+            }()
+
+            let valueDescription = await describeAVMetadataValue(item)
+            lines.append("[\(keySpace)] \(keyName) = \(valueDescription)")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func describeAVMetadataValue(_ item: AVMetadataItem) async -> String {
+        if let stringValue = try? await item.load(.stringValue),
+           !stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return stringValue
+        }
+
+        if let numberValue = try? await item.load(.numberValue) {
+            return numberValue.stringValue
+        }
+
+        if let dateValue = try? await item.load(.dateValue) {
+            return ISO8601DateFormatter().string(from: dateValue)
+        }
+
+        if let dataValue = try? await item.load(.dataValue) {
+            return "<Data: \(dataValue.count) bytes>"
+        }
+
+        if let value = try? await item.load(.value) {
+            return String(describing: value)
+        }
+
+        return "(unreadable value)"
     }
 }

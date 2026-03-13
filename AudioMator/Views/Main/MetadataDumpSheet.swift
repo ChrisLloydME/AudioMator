@@ -7,7 +7,7 @@ struct MetadataDumpSheet: View {
 
     private var displayText: String {
         metadataDumpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "(No TagLib metadata to display)"
+            ? "(No metadata details available)"
             : metadataDumpText
     }
 
@@ -26,7 +26,7 @@ struct MetadataDumpSheet: View {
                 }
             }
 
-            Text("Shows a raw TagLib metadata dump (properties + frames) for the selected file(s).")
+            Text("Shows detailed metadata for the selected file(s), including file properties and tag entries.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 

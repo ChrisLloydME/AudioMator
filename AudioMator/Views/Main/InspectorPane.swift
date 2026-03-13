@@ -365,15 +365,15 @@ struct InspectorPane: View {
     private func technicalSection(_ file: AudioFile) -> some View {
         GroupBox {
             VStack(spacing: 0) {
-                metadataRow(label: "Duration", value: formatDuration(file.duration))
+                metadataRow(label: "Duration", value: formatDuration(file.duration), valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
-                metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps")
+                metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps", valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
-                metadataRow(label: "Sample Rate", value: "\(Int(file.sampleRate)) Hz")
+                metadataRow(label: "Sample Rate", value: "\(Int(file.sampleRate)) Hz", valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
-                metadataRow(label: "Channels", value: "\(file.channels)")
+                metadataRow(label: "Channels", value: "\(file.channels)", valueWidth: 120, keepsLabelOnOneLine: true)
                 Divider()
-                metadataRow(label: "Format", value: file.format)
+                metadataRow(label: "Format", value: file.format, valueWidth: 120, keepsLabelOnOneLine: true)
             }
             .padding(.vertical, 4)
         } label: {
@@ -389,15 +389,22 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
-    private func metadataRow(label: String, value: String?) -> some View {
+    private func metadataRow(
+        label: String,
+        value: String?,
+        valueWidth: CGFloat = 220,
+        keepsLabelOnOneLine: Bool = false
+    ) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.headline)
+                .lineLimit(keepsLabelOnOneLine ? 1 : nil)
+                .fixedSize(horizontal: keepsLabelOnOneLine, vertical: false)
             Spacer()
             Text(value ?? "—")
                 .font(.body)
                 .foregroundStyle(.secondary)
-                .frame(width: 220, alignment: .trailing)
+                .frame(width: valueWidth, alignment: .trailing)
         }
         .padding(.vertical, 14)
     }

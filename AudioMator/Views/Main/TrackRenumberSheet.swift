@@ -276,7 +276,11 @@ struct TrackRenumberSheet: View {
     }
 
     private var resultSection: some View {
-        GroupBox("Last Run") {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Results", systemImage: "checkmark.circle")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
             VStack(alignment: .leading, spacing: 14) {
                 LazyVGrid(
                     columns: [
@@ -312,8 +316,8 @@ struct TrackRenumberSheet: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(cardInset)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(Color.secondary.opacity(0.06))
+                                        RoundedRectangle(cornerRadius: previewInnerRadius)
+                                            .fill(Color.secondary.opacity(0.08))
                                     )
                                 }
                             }
@@ -323,7 +327,11 @@ struct TrackRenumberSheet: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
+            .padding(setupSectionInset)
+            .background(
+                RoundedRectangle(cornerRadius: setupSectionRadius)
+                    .fill(Color.secondary.opacity(0.06))
+            )
         }
     }
 
@@ -388,7 +396,7 @@ struct TrackRenumberSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(cardInset)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: previewInnerRadius)
                 .fill(Color.secondary.opacity(0.08))
         )
     }

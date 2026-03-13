@@ -401,10 +401,8 @@ struct InspectorPane: View {
                 .lineLimit(keepsLabelOnOneLine ? 1 : nil)
                 .fixedSize(horizontal: keepsLabelOnOneLine, vertical: false)
             Spacer()
-            Text(value ?? "—")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(width: valueWidth, alignment: .trailing)
+            ScrollableInspectorValueText(text: value ?? "—", width: valueWidth)
+                .frame(width: valueWidth, height: 22, alignment: .trailing)
         }
         .padding(.vertical, 14)
     }
@@ -422,10 +420,13 @@ struct InspectorPane: View {
                 .lineLimit(keepsLabelOnOneLine ? 1 : nil)
                 .fixedSize(horizontal: keepsLabelOnOneLine, vertical: false)
             Spacer()
-            TextField("", text: text)
-                .textFieldStyle(.plain)
-                .multilineTextAlignment(.trailing)
-                .frame(width: valueWidth, alignment: .trailing)
+            InspectorEditableValueField(text: text, width: valueWidth) {
+                inspectorQuickLabel = label
+                inspectorQuickText = text.wrappedValue
+                inspectorQuickBinding = text
+                isInspectorQuickPresented = true
+            }
+            .frame(width: valueWidth, height: 22, alignment: .trailing)
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -447,5 +448,201 @@ struct InspectorPane: View {
                 .toggleStyle(.switch)
         }
         .padding(.vertical, 14)
+    }
+}
+
+struct ScrollableInspectorValueText: NSViewRepresentable {
+    let text: String
+    let width: CGFloat
+
+    func makeNSView(context: Context) -> InspectorValueScrollView {
+        let scrollView = InspectorValueScrollView()
+        updateScrollView(scrollView)
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: InspectorValueScrollView, context: Context) {
+        updateScrollView(nsView)
+    }
+
+    private func updateScrollView(_ scrollView: InspectorValueScrollView) {
+        scrollView.update(
+            text: text,
+            width: width,
+            font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
+            textColor: .secondaryLabelColor
+        )
+    }
+}
+
+struct InspectorEditableValueField: View {
+    @Binding var text: String
+    let width: CGFloat
+    let onDoubleClick: () -> Void
+
+    @FocusState private var isFocused: Bool
+    @State private var isEditing = false
+
+    var body: some View {
+        Group {
+            if isEditing {
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.trailing)
+                    .focused($isFocused)
+                    .onAppear {
+                        isFocused = true
+                    }
+                    .onSubmit {
+                        isEditing = false
+                    }
+                    .onChange(of: isFocused) { _, focused in
+                        if !focused {
+                            isEditing = false
+                        }
+                    }
+            } else {
+                ScrollableInspectorValueText(text: text.isEmpty ? "—" : text, width: width)
+                    .frame(width: width, height: 22, alignment: .trailing)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        isEditing = true
+                    }
+                    .simultaneousGesture(
+                        TapGesture(count: 2)
+                            .onEnded {
+                                onDoubleClick()
+                            }
+                    )
+            }
+        }
+    }
+}
+
+final class InspectorValueScrollView: NSScrollView {
+    private let containerView = WheelForwardingStackView()
+    private let spacerView = NSView(frame: .zero)
+    private let textField = WheelForwardingLabel(labelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        containerView.orientation = .horizontal
+        containerView.alignment = .centerY
+        containerView.distribution = .fill
+        containerView.spacing = 0
+
+        spacerView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacerView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        textField.isBezeled = false
+        textField.drawsBackground = false
+        textField.isEditable = false
+        textField.isSelectable = false
+        textField.setContentHuggingPriority(.required, for: .horizontal)
+        textField.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        if let cell = textField.cell as? NSTextFieldCell {
+            cell.wraps = false
+            cell.usesSingleLineMode = true
+            cell.lineBreakMode = .byClipping
+        }
+
+        containerView.addArrangedSubview(spacerView)
+        containerView.addArrangedSubview(textField)
+
+        drawsBackground = false
+        borderType = .noBorder
+        hasVerticalScroller = false
+        hasHorizontalScroller = true
+        autohidesScrollers = true
+        scrollerStyle = .overlay
+        horizontalScrollElasticity = .automatic
+        verticalScrollElasticity = .none
+        documentView = containerView
+        horizontalScroller?.alphaValue = 0.001
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(text: String, width: CGFloat, font: NSFont, textColor: NSColor) {
+        horizontalScroller?.alphaValue = 0.001
+
+        let textDidChange = textField.stringValue != text
+
+        if textField.stringValue != text {
+            textField.stringValue = text
+        }
+
+        if textField.font != font {
+            textField.font = font
+        }
+
+        if textField.textColor != textColor {
+            textField.textColor = textColor
+        }
+
+        textField.sizeToFit()
+
+        let contentWidth = max(width, ceil(textField.fittingSize.width))
+        let contentHeight: CGFloat = 22
+
+        containerView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: contentHeight)
+        frame.size = NSSize(width: width, height: contentHeight)
+
+        let maxOffsetX = max(contentWidth - width, 0)
+        let currentOffsetX = textDidChange ? maxOffsetX : min(contentView.bounds.origin.x, maxOffsetX)
+        contentView.scroll(to: NSPoint(x: currentOffsetX, y: 0))
+        reflectScrolledClipView(contentView)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard let documentView else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        let maxOffsetX = max(documentView.frame.width - contentView.bounds.width, 0)
+        guard maxOffsetX > 0 else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        let preciseScale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
+        let deltaX = event.scrollingDeltaX
+        let deltaY = event.scrollingDeltaY
+        let horizontalDelta = abs(deltaX) > 0.01 ? deltaX : deltaY
+
+        guard abs(horizontalDelta) > 0.01 else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        let currentOffsetX = contentView.bounds.origin.x
+        let proposedOffsetX = currentOffsetX - (horizontalDelta * preciseScale)
+        let clampedOffsetX = min(max(proposedOffsetX, 0), maxOffsetX)
+
+        guard clampedOffsetX != currentOffsetX else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        contentView.scroll(to: NSPoint(x: clampedOffsetX, y: 0))
+        reflectScrolledClipView(contentView)
+    }
+}
+
+final class WheelForwardingStackView: NSStackView {
+    override func scrollWheel(with event: NSEvent) {
+        enclosingScrollView?.scrollWheel(with: event)
+    }
+}
+
+final class WheelForwardingLabel: NSTextField {
+    override func scrollWheel(with event: NSEvent) {
+        enclosingScrollView?.scrollWheel(with: event)
     }
 }

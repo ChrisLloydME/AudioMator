@@ -337,15 +337,15 @@ struct InspectorPane: View {
                 Divider()
                 editableRow(label: "Year", text: binding(for: file, keyPath: \.year))
                 Divider()
-                editableRow(label: "Track Number", text: binding(for: file, keyPath: \.trackNumberText), valueWidth: 200, keepsLabelOnOneLine: true)
+                editableRow(label: "Track Number", text: binding(for: file, keyPath: \.trackNumberText))
                 Divider()
-                editableRow(label: "Disc Number", text: binding(for: file, keyPath: \.discNumberText), valueWidth: 200, keepsLabelOnOneLine: true)
+                editableRow(label: "Disc Number", text: binding(for: file, keyPath: \.discNumberText))
                 Divider()
                 editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
                 Divider()
-                editableRow(label: "Album Artist", text: binding(for: file, keyPath: \.albumArtist), valueWidth: 200, keepsLabelOnOneLine: true)
+                editableRow(label: "Album Artist", text: binding(for: file, keyPath: \.albumArtist))
                 Divider()
-                editableRow(label: "Release Date", text: binding(for: file, keyPath: \.releaseDate), valueWidth: 200, keepsLabelOnOneLine: true)
+                editableRow(label: "Release Date", text: binding(for: file, keyPath: \.releaseDate))
                 Divider()
                 editableRow(label: "Publisher", text: binding(for: file, keyPath: \.publisher))
                 Divider()
@@ -353,7 +353,7 @@ struct InspectorPane: View {
                 Divider()
                 explicitRow(label: "Explicit", isOn: boolBinding(for: file, keyPath: \.isExplicit))
                 Divider()
-                metadataRow(label: "Credits", value: file.credits, valueWidth: 120, keepsLabelOnOneLine: true)
+                metadataRow(label: "Credits", value: file.credits)
             }
             .padding(.vertical, 4)
         } label: {
@@ -365,15 +365,15 @@ struct InspectorPane: View {
     private func technicalSection(_ file: AudioFile) -> some View {
         GroupBox {
             VStack(spacing: 0) {
-                metadataRow(label: "Duration", value: formatDuration(file.duration), valueWidth: 120, keepsLabelOnOneLine: true)
+                metadataRow(label: "Duration", value: formatDuration(file.duration))
                 Divider()
-                metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps", valueWidth: 120, keepsLabelOnOneLine: true)
+                metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps")
                 Divider()
-                metadataRow(label: "Sample Rate", value: "\(Int(file.sampleRate)) Hz", valueWidth: 120, keepsLabelOnOneLine: true)
+                metadataRow(label: "Sample Rate", value: "\(Int(file.sampleRate)) Hz")
                 Divider()
-                metadataRow(label: "Channels", value: "\(file.channels)", valueWidth: 120, keepsLabelOnOneLine: true)
+                metadataRow(label: "Channels", value: "\(file.channels)")
                 Divider()
-                metadataRow(label: "Format", value: file.format, valueWidth: 120, keepsLabelOnOneLine: true)
+                metadataRow(label: "Format", value: file.format)
             }
             .padding(.vertical, 4)
         } label: {
@@ -391,18 +391,15 @@ struct InspectorPane: View {
     @ViewBuilder
     private func metadataRow(
         label: String,
-        value: String?,
-        valueWidth: CGFloat = 220,
-        keepsLabelOnOneLine: Bool = false
+        value: String?
     ) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.headline)
-                .lineLimit(keepsLabelOnOneLine ? 1 : nil)
-                .fixedSize(horizontal: keepsLabelOnOneLine, vertical: false)
-            Spacer()
-            ScrollableInspectorValueText(text: value ?? "—", width: valueWidth)
-                .frame(width: valueWidth, height: 22, alignment: .trailing)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+            FlexibleScrollableInspectorValueText(text: value ?? "—")
+                .frame(maxWidth: .infinity, minHeight: 22, alignment: .trailing)
         }
         .padding(.vertical, 14)
     }
@@ -410,23 +407,20 @@ struct InspectorPane: View {
     @ViewBuilder
     private func editableRow(
         label: String,
-        text: Binding<String>,
-        valueWidth: CGFloat = 220,
-        keepsLabelOnOneLine: Bool = false
+        text: Binding<String>
     ) -> some View {
-        HStack {
+        HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.headline)
-                .lineLimit(keepsLabelOnOneLine ? 1 : nil)
-                .fixedSize(horizontal: keepsLabelOnOneLine, vertical: false)
-            Spacer()
-            InspectorEditableValueField(text: text, width: valueWidth) {
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+            InspectorEditableValueField(text: text) {
                 inspectorQuickLabel = label
                 inspectorQuickText = text.wrappedValue
                 inspectorQuickBinding = text
                 isInspectorQuickPresented = true
             }
-            .frame(width: valueWidth, height: 22, alignment: .trailing)
+            .frame(maxWidth: .infinity, minHeight: 22, alignment: .trailing)
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -475,9 +469,22 @@ struct ScrollableInspectorValueText: NSViewRepresentable {
     }
 }
 
+struct FlexibleScrollableInspectorValueText: View {
+    let text: String
+
+    var body: some View {
+        GeometryReader { proxy in
+            let availableWidth = max(proxy.size.width, 1)
+
+            ScrollableInspectorValueText(text: text, width: availableWidth)
+                .frame(width: availableWidth, height: 22, alignment: .trailing)
+        }
+        .frame(height: 22)
+    }
+}
+
 struct InspectorEditableValueField: View {
     @Binding var text: String
-    let width: CGFloat
     let onDoubleClick: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -489,6 +496,7 @@ struct InspectorEditableValueField: View {
                 TextField("", text: $text)
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                     .focused($isFocused)
                     .onAppear {
                         isFocused = true
@@ -502,8 +510,7 @@ struct InspectorEditableValueField: View {
                         }
                     }
             } else {
-                ScrollableInspectorValueText(text: text.isEmpty ? "—" : text, width: width)
-                    .frame(width: width, height: 22, alignment: .trailing)
+                FlexibleScrollableInspectorValueText(text: text.isEmpty ? "—" : text)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         isEditing = true

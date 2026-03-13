@@ -43,9 +43,10 @@ struct MergedMetadataSectionView: View {
         HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.headline)
-            Spacer()
-            ScrollableInspectorValueText(text: value ?? "—", width: 220)
-                .frame(width: 220, height: 22, alignment: .trailing)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+            FlexibleScrollableInspectorValueText(text: value ?? "—")
+                .frame(maxWidth: .infinity, minHeight: 22, alignment: .trailing)
         }
         .padding(.vertical, 14)
     }

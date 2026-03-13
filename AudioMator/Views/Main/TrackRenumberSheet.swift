@@ -112,14 +112,19 @@ struct TrackRenumberSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            header
-            configurationSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    header
+                    configurationSection
 
-            if hasResult {
-                resultSection
+                    if hasResult {
+                        resultSection
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 4)
             }
-
-            Spacer(minLength: 0)
+            .scrollBounceBehavior(.basedOnSize)
 
             footer
         }

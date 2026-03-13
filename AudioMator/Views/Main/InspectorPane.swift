@@ -261,7 +261,7 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func fileSection(_ file: AudioFile) -> some View {
-        GroupBox("File") {
+        GroupBox {
             VStack(alignment: .leading, spacing: 8) {
                 Text(file.url.lastPathComponent)
                     .font(.headline)
@@ -270,12 +270,14 @@ struct InspectorPane: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            inspectorSectionLabel("File", systemImage: "doc.text")
         }
     }
 
     @ViewBuilder
     private func artworkSection(_ file: AudioFile) -> some View {
-        GroupBox("Artwork") {
+        GroupBox {
             VStack {
                 if let image = displayedArtwork(for: file) {
                     Image(nsImage: image)
@@ -314,12 +316,14 @@ struct InspectorPane: View {
                 }
                 .disabled(!hasArtwork(for: file))
             }
+        } label: {
+            inspectorSectionLabel("Artwork", systemImage: "photo.on.rectangle.angled")
         }
     }
 
     @ViewBuilder
     private func metadataSection(_ file: AudioFile) -> some View {
-        GroupBox("Metadata") {
+        GroupBox {
             VStack(spacing: 6) {
                 editableRow(label: "Title", text: binding(for: file, keyPath: \.title))
                 Divider()
@@ -352,12 +356,14 @@ struct InspectorPane: View {
                 metadataRow(label: "Credits", value: file.credits)
             }
             .padding(.vertical, 4)
+        } label: {
+            inspectorSectionLabel("Metadata", systemImage: "tag")
         }
     }
 
     @ViewBuilder
     private func technicalSection(_ file: AudioFile) -> some View {
-        GroupBox("Technical Info") {
+        GroupBox {
             VStack(spacing: 0) {
                 metadataRow(label: "Duration", value: formatDuration(file.duration))
                 Divider()
@@ -370,7 +376,16 @@ struct InspectorPane: View {
                 metadataRow(label: "Format", value: file.format)
             }
             .padding(.vertical, 4)
+        } label: {
+            inspectorSectionLabel("Technical Info", systemImage: "waveform")
         }
+    }
+
+    private func inspectorSectionLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.title3.weight(.bold))
+            .foregroundStyle(.secondary)
+            .symbolRenderingMode(.hierarchical)
     }
 
     @ViewBuilder

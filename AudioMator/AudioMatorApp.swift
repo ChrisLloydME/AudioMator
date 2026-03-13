@@ -48,7 +48,9 @@ struct AudioMatorApp: App {
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
+            SidebarCommands()
             ToolbarEditCommands(viewModel: viewModel, sharedState: sharedState)
+            ViewLayoutCommands()
 
             CommandGroup(after: .help) {
                 Button {
@@ -119,9 +121,13 @@ struct ToolbarEditCommands: Commands {
                 Label("Save Edits", systemImage: "square.and.arrow.down")
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
+        }
+    }
+}
 
-            Divider()
-
+struct ViewLayoutCommands: Commands {
+    var body: some Commands {
+        CommandGroup(after: .sidebar) {
             Button {
                 NotificationCenter.default.post(name: .requestToggleInspector, object: nil)
             } label: {

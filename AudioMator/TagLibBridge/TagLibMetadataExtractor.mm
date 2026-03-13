@@ -16,6 +16,7 @@
 
 // Format-specific headers
 #include "taglib/taglib/mpeg/mpegfile.h"
+#include "taglib/taglib/mpeg/id3v1/id3v1tag.h"
 #include "taglib/taglib/mpeg/id3v2/id3v2tag.h"
 #include "taglib/taglib/mpeg/id3v2/id3v2frame.h"
 #include "taglib/taglib/mpeg/id3v2/frames/attachedpictureframe.h"
@@ -1245,6 +1246,13 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             metadata.trackNumber = tag->track();
         }
     }
+
+    // FileRef's PropertyMap is broader than the legacy Tag view for several containers
+    // (for example APE-on-MPEG and many non-core fields), so use it as the first
+    // normalization pass before format-specific extraction.
+    if (!fileRef.isNull() && fileRef.file()) {
+        ApplyGenericPropertyMapMetadata(fileRef.file()->properties(), metadata);
+    }
     
     TLog(@"Basic tag for '%@': title=%@ artist=%@ album=%@ genre=%@ comment=%@ year=%@ track=%ld",
          fileURL.lastPathComponent,
@@ -1287,6 +1295,14 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             
             if (mpegFile.ID3v2Tag()) {
                 ExtractID3v2Metadata(mpegFile.ID3v2Tag(), metadata);
+            }
+
+            if (mpegFile.APETag()) {
+                ExtractAPEMetadata(mpegFile.APETag(), metadata);
+            }
+
+            if (mpegFile.ID3v1Tag()) {
+                ApplyGenericPropertyMapMetadata(mpegFile.ID3v1Tag()->properties(), metadata);
             }
         }
     }
@@ -1380,6 +1396,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         TagLib::RIFF::WAV::File wavFile(filePath);
         if (wavFile.isValid()) {
             metadata.codec = @"WAV";
+
+            if (wavFile.InfoTag()) {
+                ApplyGenericPropertyMapMetadata(wavFile.InfoTag()->properties(), metadata);
+            }
             
             if (wavFile.ID3v2Tag()) {
                 ExtractID3v2Metadata(wavFile.ID3v2Tag(), metadata);
@@ -1416,6 +1436,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             if (ttaFile.ID3v2Tag()) {
                 ExtractID3v2Metadata(ttaFile.ID3v2Tag(), metadata);
             }
+
+            if (ttaFile.ID3v1Tag()) {
+                ApplyGenericPropertyMapMetadata(ttaFile.ID3v1Tag()->properties(), metadata);
+            }
             
             // Extract bit depth
             if (ttaFile.audioProperties()) {
@@ -1450,7 +1474,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         TagLib::ASF::File asfFile(filePath);
         if (asfFile.isValid()) {
             metadata.codec = @"WMA";
-            // ASF uses its own tag format, basic info already extracted
+            ApplyGenericPropertyMapMetadata(asfFile.properties(), metadata);
         }
     }
     // DSF
@@ -2518,6 +2542,36 @@ static inline NSString *NonNil(NSString *s) {
     return s ?: @"";
 }
 
+static inline void AppendSectionHeader(NSMutableString *out, NSString *title) {
+    if (!out || !title) return;
+    if (out.length > 0) {
+        AppendLine(out, @"");
+    }
+    AppendLine(out, title);
+}
+
+static NSString *ByteVectorToNSString(const TagLib::ByteVector &data) {
+    if (data.isEmpty()) {
+        return @"";
+    }
+
+    NSString *text = [[NSString alloc] initWithBytes:data.data()
+                                              length:data.size()
+                                            encoding:NSUTF8StringEncoding];
+    if (text.length > 0) {
+        return text;
+    }
+
+    text = [[NSString alloc] initWithBytes:data.data()
+                                    length:data.size()
+                                  encoding:NSASCIIStringEncoding];
+    if (text.length > 0) {
+        return text;
+    }
+
+    return [NSString stringWithFormat:@"<%d bytes>", data.size()];
+}
+
 static void AppendPropertyMap(NSMutableString *out, const TagLib::PropertyMap &pm) {
     if (!out) return;
 
@@ -2587,6 +2641,218 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
     }
 
     return @"<unavailable>";
+}
+
+static void AppendID3v2FramesSection(NSMutableString *out,
+                                     TagLib::ID3v2::Tag *tag,
+                                     NSString *title)
+{
+    AppendSectionHeader(out, title);
+
+    if (!tag) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    TagLib::ID3v2::FrameList frames = tag->frameList();
+    if (frames.isEmpty()) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
+        TagLib::ID3v2::Frame *frame = *fit;
+        if (!frame) continue;
+
+        TagLib::ByteVector frameIdBytes = frame->frameID();
+        std::string idStr(frameIdBytes.data(), frameIdBytes.size());
+        NSString *fid = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
+        NSString *val = TagStringToNSString(frame->toString()) ?: @"";
+
+        if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
+            NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
+            if (desc.length > 0) {
+                AppendLine(out, [NSString stringWithFormat:@"%@ (TXXX:%@) = %@", fid, desc, val]);
+                continue;
+            }
+        }
+
+        if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
+            NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
+            NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
+            if (desc.length > 0 || lang.length > 0) {
+                AppendLine(out, [NSString stringWithFormat:@"%@ (COMM:%@ %@) = %@", fid, desc, lang, val]);
+                continue;
+            }
+        }
+
+        AppendLine(out, [NSString stringWithFormat:@"%@ = %@", fid, val]);
+    }
+}
+
+static void AppendSimpleTagSection(NSMutableString *out,
+                                   NSString *title,
+                                   TagLib::Tag *tag)
+{
+    AppendSectionHeader(out, title);
+
+    if (!tag || tag->isEmpty()) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    bool appended = false;
+
+    NSString *value = TagStringToNSString(tag->title());
+    if (value.length > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Title = %@", value]);
+        appended = true;
+    }
+
+    value = TagStringToNSString(tag->artist());
+    if (value.length > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Artist = %@", value]);
+        appended = true;
+    }
+
+    value = TagStringToNSString(tag->album());
+    if (value.length > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Album = %@", value]);
+        appended = true;
+    }
+
+    value = TagStringToNSString(tag->comment());
+    if (value.length > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Comment = %@", value]);
+        appended = true;
+    }
+
+    value = TagStringToNSString(tag->genre());
+    if (value.length > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Genre = %@", value]);
+        appended = true;
+    }
+
+    if (tag->year() > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Year = %u", tag->year()]);
+        appended = true;
+    }
+
+    if (tag->track() > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"Track = %u", tag->track()]);
+        appended = true;
+    }
+
+    if (!appended) {
+        AppendLine(out, @"(present but empty)");
+    }
+}
+
+static NSString *APEItemTypeToString(TagLib::APE::Item::ItemTypes type)
+{
+    switch (type) {
+        case TagLib::APE::Item::Text: return @"text";
+        case TagLib::APE::Item::Binary: return @"binary";
+        case TagLib::APE::Item::Locator: return @"locator";
+    }
+}
+
+static void AppendAPEItemsSection(NSMutableString *out,
+                                  TagLib::APE::Tag *tag,
+                                  NSString *title)
+{
+    AppendSectionHeader(out, title);
+
+    if (!tag) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    const TagLib::APE::ItemListMap &items = tag->itemListMap();
+    if (items.isEmpty()) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    for (auto it = items.begin(); it != items.end(); ++it) {
+        NSString *key = TagStringToNSString(it->first) ?: @"";
+        const TagLib::APE::Item &item = it->second;
+
+        if (item.type() == TagLib::APE::Item::Text) {
+            NSMutableArray<NSString *> *values = [NSMutableArray array];
+            TagLib::StringList textValues = item.values();
+            for (auto vit = textValues.begin(); vit != textValues.end(); ++vit) {
+                [values addObject:(TagStringToNSString(*vit) ?: @"")];
+            }
+            NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+            AppendLine(out, [NSString stringWithFormat:@"%@ [%@] = %@",
+                             key,
+                             APEItemTypeToString(item.type()),
+                             joined]);
+        } else {
+            AppendLine(out, [NSString stringWithFormat:@"%@ [%@] = <%d bytes>",
+                             key,
+                             APEItemTypeToString(item.type()),
+                             item.binaryData().size()]);
+        }
+    }
+}
+
+static void AppendXiphCommentSection(NSMutableString *out,
+                                     TagLib::Ogg::XiphComment *tag,
+                                     NSString *title)
+{
+    AppendSectionHeader(out, title);
+
+    if (!tag) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    NSString *vendor = TagStringToNSString(tag->vendorID()) ?: @"";
+    if (vendor.length > 0) {
+        AppendLine(out, [NSString stringWithFormat:@"VENDOR = %@", vendor]);
+    }
+
+    const TagLib::Ogg::FieldListMap &fields = tag->fieldListMap();
+    if (fields.isEmpty()) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        NSString *key = TagStringToNSString(it->first) ?: @"";
+        NSMutableArray<NSString *> *values = [NSMutableArray array];
+        for (auto vit = it->second.begin(); vit != it->second.end(); ++vit) {
+            [values addObject:(TagStringToNSString(*vit) ?: @"")];
+        }
+        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+        AppendLine(out, [NSString stringWithFormat:@"%@ = %@", key, joined]);
+    }
+}
+
+static void AppendRIFFInfoSection(NSMutableString *out,
+                                  TagLib::RIFF::Info::Tag *tag,
+                                  NSString *title)
+{
+    AppendSectionHeader(out, title);
+
+    if (!tag) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    TagLib::RIFF::Info::FieldListMap fields = tag->fieldListMap();
+    if (fields.isEmpty()) {
+        AppendLine(out, @"(none)");
+        return;
+    }
+
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        NSString *key = ByteVectorToNSString(it->first);
+        NSString *value = TagStringToNSString(it->second) ?: @"";
+        AppendLine(out, [NSString stringWithFormat:@"%@ = %@", key, value]);
+    }
 }
 
 // Return a best-effort, "raw" view of metadata as TagLib sees it.
@@ -2706,16 +2972,16 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
     NSMutableString *out = [NSMutableString string];
     AppendLine(out, [NSString stringWithFormat:@"File: %@", NonNil(fileURL.lastPathComponent)]);
     AppendLine(out, [NSString stringWithFormat:@"Path: %@", NonNil(fileURL.path)]);
-    AppendLine(out, @"");
 
     std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
+    TagLib::FileRef fileRef(filePath);
 
     // 1) Unified properties (as TagLib sees them)
-    AppendLine(out, @"[TagLib Properties]" );
+    AppendSectionHeader(out, @"[TagLib Properties]");
 
     bool anyProperties = false;
 
-    if (ext == "mp3") {
+    if (IsMPEGLikeExtension(fileURL.pathExtension)) {
         TagLib::MPEG::File f(filePath);
         if (f.isValid()) {
             TagLib::PropertyMap pm = f.properties();
@@ -2734,7 +3000,6 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
             AppendLine(out, @"(unable to open as MP4)");
         }
     } else {
-        TagLib::FileRef fileRef(filePath);
         if (!fileRef.isNull() && fileRef.file()) {
             TagLib::PropertyMap pm = fileRef.file()->properties();
             anyProperties = !pm.isEmpty();
@@ -2746,57 +3011,21 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
 
     // 2) Format-specific raw structures (these are what helps with "same field, different names")
 
-    if (ext == "mp3") {
-        AppendLine(out, @"");
-        AppendLine(out, @"[ID3v2 Frames]" );
-
+    if (IsMPEGLikeExtension(fileURL.pathExtension)) {
         TagLib::MPEG::File f(filePath);
-        if (f.isValid() && f.ID3v2Tag()) {
-            TagLib::ID3v2::Tag *id3 = f.ID3v2Tag();
-            TagLib::ID3v2::FrameList frames = id3->frameList();
-
-            if (frames.isEmpty()) {
-                AppendLine(out, @"(none)");
-            } else {
-                for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
-                    TagLib::ID3v2::Frame *frame = *fit;
-                    if (!frame) continue;
-
-                    TagLib::ByteVector frameIdBytes = frame->frameID();
-                    std::string idStr(frameIdBytes.data(), frameIdBytes.size());
-                    NSString *fid = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
-
-                    NSString *val = TagStringToNSString(frame->toString()) ?: @"";
-
-                    // Add descriptions where they matter (TXXX, COMM)
-                    if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
-                        NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
-                        if (desc.length > 0) {
-                            AppendLine(out, [NSString stringWithFormat:@"%@ (TXXX:%@) = %@", fid, desc, val]);
-                            continue;
-                        }
-                    }
-
-                    if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
-                        NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
-                        NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
-                        if (desc.length > 0 || lang.length > 0) {
-                            AppendLine(out, [NSString stringWithFormat:@"%@ (COMM:%@ %@) = %@", fid, desc, lang, val]);
-                            continue;
-                        }
-                    }
-
-                    AppendLine(out, [NSString stringWithFormat:@"%@ = %@", fid, val]);
-                }
-            }
+        if (f.isValid()) {
+            AppendID3v2FramesSection(out, f.hasID3v2Tag() ? f.ID3v2Tag() : nullptr, @"[ID3v2 Frames]");
+            AppendAPEItemsSection(out, f.hasAPETag() ? f.APETag() : nullptr, @"[APE Items]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", f.hasID3v1Tag() ? f.ID3v1Tag() : nullptr);
         } else {
-            AppendLine(out, @"(no ID3v2 tag)");
+            AppendID3v2FramesSection(out, nullptr, @"[ID3v2 Frames]");
+            AppendAPEItemsSection(out, nullptr, @"[APE Items]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", nullptr);
         }
     }
 
     if (ext == "m4a" || ext == "m4b" || ext == "m4p" || ext == "mp4") {
-        AppendLine(out, @"");
-        AppendLine(out, @"[MP4 ItemMap]" );
+        AppendSectionHeader(out, @"[MP4 ItemMap]");
 
         TagLib::MP4::File f(filePath);
         if (f.isValid() && f.tag()) {
@@ -2812,6 +3041,97 @@ static NSString *MP4ItemToDisplayString(const TagLib::MP4::Item &item) {
             }
         } else {
             AppendLine(out, @"(unable to read MP4 tag)");
+        }
+    }
+
+    if (ext == "flac") {
+        TagLib::FLAC::File f(filePath);
+        if (f.isValid()) {
+            AppendXiphCommentSection(out, f.hasXiphComment() ? f.xiphComment() : nullptr, @"[Xiph Comment]");
+            AppendID3v2FramesSection(out, f.hasID3v2Tag() ? f.ID3v2Tag() : nullptr, @"[ID3v2 Frames]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", f.hasID3v1Tag() ? f.ID3v1Tag() : nullptr);
+        } else {
+            AppendXiphCommentSection(out, nullptr, @"[Xiph Comment]");
+            AppendID3v2FramesSection(out, nullptr, @"[ID3v2 Frames]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", nullptr);
+        }
+    }
+
+    if (ext == "ogg" || ext == "oga") {
+        TagLib::Ogg::Vorbis::File vorbisFile(filePath);
+        if (vorbisFile.isValid()) {
+            AppendXiphCommentSection(out, vorbisFile.tag(), @"[Xiph Comment]");
+        } else {
+            TagLib::Ogg::FLAC::File oggFlacFile(filePath);
+            if (oggFlacFile.isValid()) {
+                AppendXiphCommentSection(out, oggFlacFile.tag(), @"[Xiph Comment]");
+            } else {
+                AppendXiphCommentSection(out, nullptr, @"[Xiph Comment]");
+            }
+        }
+    }
+
+    if (ext == "opus") {
+        TagLib::Ogg::Opus::File f(filePath);
+        AppendXiphCommentSection(out, f.isValid() ? f.tag() : nullptr, @"[Xiph Comment]");
+    }
+
+    if (ext == "spx") {
+        TagLib::Ogg::Speex::File f(filePath);
+        AppendXiphCommentSection(out, f.isValid() ? f.tag() : nullptr, @"[Xiph Comment]");
+    }
+
+    if (ext == "ape") {
+        TagLib::APE::File f(filePath);
+        AppendAPEItemsSection(out, (f.isValid() && f.hasAPETag()) ? f.APETag() : nullptr, @"[APE Items]");
+    }
+
+    if (ext == "wav") {
+        TagLib::RIFF::WAV::File f(filePath);
+        if (f.isValid()) {
+            AppendRIFFInfoSection(out, f.hasInfoTag() ? f.InfoTag() : nullptr, @"[RIFF INFO]");
+            AppendID3v2FramesSection(out, f.hasID3v2Tag() ? f.ID3v2Tag() : nullptr, @"[ID3v2 Frames]");
+        } else {
+            AppendRIFFInfoSection(out, nullptr, @"[RIFF INFO]");
+            AppendID3v2FramesSection(out, nullptr, @"[ID3v2 Frames]");
+        }
+    }
+
+    if (IsAIFFLikeExtension(fileURL.pathExtension)) {
+        TagLib::RIFF::AIFF::File f(filePath);
+        AppendID3v2FramesSection(out, (f.isValid() && f.hasID3v2Tag()) ? f.tag() : nullptr, @"[ID3v2 Frames]");
+    }
+
+    if (ext == "wv") {
+        TagLib::WavPack::File f(filePath);
+        if (f.isValid()) {
+            AppendAPEItemsSection(out, f.hasAPETag() ? f.APETag() : nullptr, @"[APE Items]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", f.hasID3v1Tag() ? f.ID3v1Tag() : nullptr);
+        } else {
+            AppendAPEItemsSection(out, nullptr, @"[APE Items]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", nullptr);
+        }
+    }
+
+    if (ext == "mpc") {
+        TagLib::MPC::File f(filePath);
+        if (f.isValid()) {
+            AppendAPEItemsSection(out, f.hasAPETag() ? f.APETag() : nullptr, @"[APE Items]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", f.hasID3v1Tag() ? f.ID3v1Tag() : nullptr);
+        } else {
+            AppendAPEItemsSection(out, nullptr, @"[APE Items]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", nullptr);
+        }
+    }
+
+    if (ext == "tta") {
+        TagLib::TrueAudio::File f(filePath);
+        if (f.isValid()) {
+            AppendID3v2FramesSection(out, f.hasID3v2Tag() ? f.ID3v2Tag() : nullptr, @"[ID3v2 Frames]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", f.hasID3v1Tag() ? f.ID3v1Tag() : nullptr);
+        } else {
+            AppendID3v2FramesSection(out, nullptr, @"[ID3v2 Frames]");
+            AppendSimpleTagSection(out, @"[ID3v1 Tag]", nullptr);
         }
     }
 

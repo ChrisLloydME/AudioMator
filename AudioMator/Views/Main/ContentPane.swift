@@ -15,6 +15,8 @@ struct ContentPane: View {
     @FocusState private var tableFocused: Bool
     @State private var isEraseAllTagsConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
+    @State private var isTextMetadataImportPresented: Bool = false
+    @State private var textMetadataImportTargets: [AudioFile] = []
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -177,6 +179,12 @@ struct ContentPane: View {
                 .help("Rewrite Track Number (TRCK) by the middle list order")
                 .disabled(viewModel.files.isEmpty)
 
+                Button(action: openTextMetadataImportSheet) {
+                    Label("Import Field…", systemImage: "square.and.arrow.down")
+                }
+                .help("Import one metadata field from a text file into the selected rows")
+                .disabled(state.selectedAudioIDs.isEmpty)
+
                 Button(role: .destructive) {
                     isClearListConfirmPresented = true
                 } label: {
@@ -203,6 +211,13 @@ struct ContentPane: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
+        }
+        .sheet(isPresented: $isTextMetadataImportPresented) {
+            TextMetadataImportSheet(
+                viewModel: viewModel,
+                targetFiles: textMetadataImportTargets,
+                isPresented: $isTextMetadataImportPresented
+            )
         }
         .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
             guard isQuickImportMode, !viewModel.files.isEmpty else { return }
@@ -277,6 +292,13 @@ struct ContentPane: View {
         for id in ids where !existing.contains(id) {
             state.customOrder.append(id)
         }
+    }
+
+    private func openTextMetadataImportSheet() {
+        textMetadataImportTargets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+
+        guard !textMetadataImportTargets.isEmpty else { return }
+        isTextMetadataImportPresented = true
     }
 
     private func openSelectedFiles() {

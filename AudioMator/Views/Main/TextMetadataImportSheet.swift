@@ -3,6 +3,7 @@ import AppKit
 
 private let textImportInnerRadius: CGFloat = 12
 private let textImportSectionInset: CGFloat = 10
+private let textImportControlColumnWidth: CGFloat = 260
 
 private enum TextMetadataImportDelimiter: String, CaseIterable, Identifiable {
     case newline
@@ -279,7 +280,7 @@ struct TextMetadataImportSheet: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
-                                .frame(maxWidth: 260, alignment: .trailing)
+                                .frame(maxWidth: textImportControlColumnWidth, alignment: .trailing)
                         }
                     }
                 }
@@ -296,7 +297,7 @@ struct TextMetadataImportSheet: View {
                         }
                     }
                     .labelsHidden()
-                    .frame(width: 260)
+                    .fixedSize()
                     .disabled(isApplying || !hasLoadedSourceFile)
                 }
 
@@ -312,10 +313,11 @@ struct TextMetadataImportSheet: View {
                         }
                     }
                     .labelsHidden()
-                    .frame(width: 260)
+                    .fixedSize()
                     .disabled(isApplying)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(textImportSectionInset)
             .background(
                 RoundedRectangle(cornerRadius: sectionRadius)
@@ -437,8 +439,10 @@ struct TextMetadataImportSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             content()
-                .frame(width: 260, alignment: .trailing)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(width: textImportControlColumnWidth, alignment: .trailing)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func chooseTextFile() {

@@ -176,6 +176,37 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
     case publisher
     case copyright
 
+    var displayName: String {
+        switch self {
+        case .title:
+            return "Title"
+        case .artist:
+            return "Artist"
+        case .album:
+            return "Album"
+        case .composer:
+            return "Composer"
+        case .genre:
+            return "Genre"
+        case .year:
+            return "Year"
+        case .trackNumberText:
+            return "Track Number"
+        case .discNumberText:
+            return "Disc Number"
+        case .comment:
+            return "Comment"
+        case .albumArtist:
+            return "Album Artist"
+        case .releaseDate:
+            return "Release Date"
+        case .publisher:
+            return "Publisher"
+        case .copyright:
+            return "Copyright"
+        }
+    }
+
     var keyPath: WritableKeyPath<SingleFileEditModel, String> {
         switch self {
         case .title:

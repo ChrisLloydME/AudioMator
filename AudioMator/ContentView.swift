@@ -49,7 +49,7 @@ struct ContentView: View {
                 onShowMetadataDump: presentMetadataDump,
                 onOpenTrackRenumber: openTrackRenumberSheet,
                 onCancelEdits: viewModel.cancelEditing,
-                onSaveEdits: viewModel.saveSingleEdits
+                onSaveEdits: viewModel.saveInspectorEdits
             )
         } detail: {
             Group {

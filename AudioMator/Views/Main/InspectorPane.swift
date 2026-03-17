@@ -102,6 +102,32 @@ struct InspectorPane: View {
         )
     }
 
+    private func multiBinding(for field: MultiFileEditableTextField) -> Binding<String> {
+        Binding<String>(
+            get: {
+                viewModel.multiEdit?.text(for: field) ?? ""
+            },
+            set: { newValue in
+                guard var current = viewModel.multiEdit else { return }
+                current.setText(newValue, for: field)
+                viewModel.multiEdit = current
+            }
+        )
+    }
+
+    private var multiExplicitBinding: Binding<MultiFileExplicitEditState> {
+        Binding<MultiFileExplicitEditState>(
+            get: {
+                viewModel.multiEdit?.explicitEditState ?? .keepExisting
+            },
+            set: { newValue in
+                guard var current = viewModel.multiEdit else { return }
+                current.explicitEditState = newValue
+                viewModel.multiEdit = current
+            }
+        )
+    }
+
     private func displayedArtwork(for file: AudioFile) -> NSImage? {
         switch viewModel.edit?.artworkEditAction ?? .unchanged {
         case .unchanged:
@@ -117,6 +143,26 @@ struct InspectorPane: View {
         displayedArtwork(for: file) != nil
     }
 
+    private var multiDisplayedArtwork: NSImage? {
+        viewModel.multiEdit?.displayedArtwork
+    }
+
+    private var multiArtworkSummary: String {
+        viewModel.multiEdit?.artworkSummary ?? "Artwork differs across selected files"
+    }
+
+    private var multiArtworkPlaceholderSymbolName: String {
+        viewModel.multiEdit?.artworkPlaceholderSymbolName ?? "photo.on.rectangle.angled"
+    }
+
+    private var canClearMultiArtwork: Bool {
+        viewModel.multiEdit?.canClearArtwork ?? false
+    }
+
+    private var hasPendingMultiArtworkChange: Bool {
+        viewModel.multiEdit?.hasPendingArtworkChange ?? false
+    }
+
     var body: some View {
         Group {
             if selectedFiles.count == 1, let file = selectedFiles.first {
@@ -130,10 +176,11 @@ struct InspectorPane: View {
                     .padding()
                 }
             } else if selectedFiles.count > 1 {
-                let merged = MergedAudioFile(files: selectedFiles)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        MergedMetadataSectionView(merged: merged)
+                        multiSelectionSection(selectedFiles)
+                        multiArtworkSection(selectedFiles)
+                        multiMetadataSection(selectedFiles)
                     }
                     .padding()
                 }
@@ -279,6 +326,23 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
+    private func multiSelectionSection(_ files: [AudioFile]) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\(files.count) files selected")
+                    .font(.headline)
+
+                Text("Edited fields apply to all selected files. Untouched fields remain unchanged, even when they currently show multiple values.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            inspectorSectionLabel("Selection", systemImage: "checklist")
+        }
+    }
+
+    @ViewBuilder
     private func artworkSection(_ file: AudioFile) -> some View {
         GroupBox {
             VStack {
@@ -325,6 +389,96 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
+    private func multiArtworkSection(_ files: [AudioFile]) -> some View {
+        GroupBox {
+            VStack(spacing: 12) {
+                Group {
+                    if let image = multiDisplayedArtwork {
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 220, maxHeight: 220)
+                            .cornerRadius(8)
+                    } else {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.secondary.opacity(0.1))
+                                .frame(width: 220, height: 220)
+
+                            VStack(spacing: 10) {
+                                Image(systemName: multiArtworkPlaceholderSymbolName)
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+
+                                Text(multiArtworkSummary)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
+                            }
+                        }
+                    }
+                }
+
+                if multiDisplayedArtwork != nil {
+                    Text(multiArtworkSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                Text("Double-click to replace artwork for all selected files")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button("Choose Artwork…") {
+                        viewModel.pickArtwork(for: files)
+                    }
+
+                    Button("Clear All") {
+                        viewModel.clearArtwork(for: files)
+                    }
+                    .disabled(!canClearMultiArtwork)
+
+                    Button("Keep Existing") {
+                        viewModel.keepArtwork(for: files)
+                    }
+                    .disabled(!hasPendingMultiArtworkChange)
+                }
+                .buttonStyle(.borderless)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                viewModel.pickArtwork(for: files)
+            }
+            .contextMenu {
+                Button("Choose Artwork…") {
+                    viewModel.pickArtwork(for: files)
+                }
+
+                Button("Import from Clipboard") {
+                    viewModel.importArtworkFromClipboard(for: files)
+                }
+
+                Button("Clear All Artwork") {
+                    viewModel.clearArtwork(for: files)
+                }
+                .disabled(!canClearMultiArtwork)
+
+                Button("Keep Existing Artwork") {
+                    viewModel.keepArtwork(for: files)
+                }
+                .disabled(!hasPendingMultiArtworkChange)
+            }
+        } label: {
+            inspectorSectionLabel("Artwork", systemImage: "photo.on.rectangle.angled")
+        }
+    }
+
+    @ViewBuilder
     private func metadataSection(_ file: AudioFile) -> some View {
         GroupBox {
             VStack(spacing: 6) {
@@ -359,6 +513,106 @@ struct InspectorPane: View {
                 metadataRow(label: "Credits", value: file.credits)
             }
             .padding(.vertical, 3)
+        } label: {
+            inspectorSectionLabel("Metadata", systemImage: "tag")
+        }
+    }
+
+    @ViewBuilder
+    private func multiMetadataSection(_ files: [AudioFile]) -> some View {
+        let merged = MergedAudioFile(files: files)
+
+        GroupBox {
+            if viewModel.multiEdit != nil {
+                VStack(spacing: 6) {
+                    editableRow(
+                        label: "Title",
+                        text: multiBinding(for: .title),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .title)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Artist",
+                        text: multiBinding(for: .artist),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .artist)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Album",
+                        text: multiBinding(for: .album),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .album)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Composer",
+                        text: multiBinding(for: .composer),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .composer)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Genre",
+                        text: multiBinding(for: .genre),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .genre)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Year",
+                        text: multiBinding(for: .year),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .year)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Track Number",
+                        text: multiBinding(for: .trackNumberText),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .trackNumberText)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Disc Number",
+                        text: multiBinding(for: .discNumberText),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .discNumberText)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Comment",
+                        text: multiBinding(for: .comment),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .comment)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Album Artist",
+                        text: multiBinding(for: .albumArtist),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .albumArtist)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Release Date",
+                        text: multiBinding(for: .releaseDate),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Publisher",
+                        text: multiBinding(for: .publisher),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .publisher)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Copyright",
+                        text: multiBinding(for: .copyright),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .copyright)
+                    )
+                    Divider()
+                    multiExplicitRow(
+                        label: "Explicit",
+                        selection: multiExplicitBinding,
+                        currentValueDescription: viewModel.multiEdit?.explicitCurrentValueDescription ?? "Current values differ"
+                    )
+                    Divider()
+                    metadataRow(label: "Credits", value: merged.credits)
+                }
+                .padding(.vertical, 3)
+            }
         } label: {
             inspectorSectionLabel("Metadata", systemImage: "tag")
         }
@@ -410,14 +664,15 @@ struct InspectorPane: View {
     @ViewBuilder
     private func editableRow(
         label: String,
-        text: Binding<String>
+        text: Binding<String>,
+        placeholder: String? = nil
     ) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.headline)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-            InspectorEditableValueField(text: text) {
+            InspectorEditableValueField(text: text, placeholder: placeholder) {
                 inspectorQuickLabel = label
                 inspectorQuickText = text.wrappedValue
                 inspectorQuickBinding = text
@@ -431,6 +686,33 @@ struct InspectorPane: View {
             inspectorQuickText = text.wrappedValue
             inspectorQuickBinding = text
             isInspectorQuickPresented = true
+        }
+        .padding(.vertical, inspectorRowVerticalPadding)
+    }
+
+    @ViewBuilder
+    private func multiExplicitRow(
+        label: String,
+        selection: Binding<MultiFileExplicitEditState>,
+        currentValueDescription: String
+    ) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(label)
+                .font(.headline)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Picker("", selection: selection) {
+                    Text("Keep Existing").tag(MultiFileExplicitEditState.keepExisting)
+                    Text("Set Explicit").tag(MultiFileExplicitEditState.markExplicit)
+                    Text("Set Clean").tag(MultiFileExplicitEditState.markClean)
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+
+                Text(currentValueDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, inspectorRowVerticalPadding)
     }
@@ -488,6 +770,7 @@ struct FlexibleScrollableInspectorValueText: View {
 
 struct InspectorEditableValueField: View {
     @Binding var text: String
+    var placeholder: String? = nil
     let onDoubleClick: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -496,7 +779,7 @@ struct InspectorEditableValueField: View {
     var body: some View {
         Group {
             if isEditing {
-                TextField("", text: $text)
+                TextField("", text: $text, prompt: placeholder.map(Text.init))
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -513,7 +796,7 @@ struct InspectorEditableValueField: View {
                         }
                     }
             } else {
-                FlexibleScrollableInspectorValueText(text: text.isEmpty ? "—" : text)
+                FlexibleScrollableInspectorValueText(text: displayText)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         isEditing = true
@@ -526,6 +809,18 @@ struct InspectorEditableValueField: View {
                     )
             }
         }
+    }
+
+    private var displayText: String {
+        if !text.isEmpty {
+            return text
+        }
+
+        if let placeholder, !placeholder.isEmpty {
+            return placeholder
+        }
+
+        return "—"
     }
 }
 

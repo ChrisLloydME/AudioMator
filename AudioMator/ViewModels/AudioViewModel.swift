@@ -10,12 +10,6 @@ import Combine
 import AppKit
 
 private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
-let supportedAudioImportExtensions: Set<String> = [
-    "mp3", "aac",
-    "m4a", "m4b", "m4p", "mp4",
-    "wav", "aiff", "aif",
-    "flac"
-]
 
 enum MetadataWriteHUDStyle: Equatable {
     case success
@@ -35,10 +29,11 @@ final class AudioViewModel: ObservableObject {
     // All audio files currently loaded into the middle list.
     @Published var files: [AudioFile] = []
     @Published private(set) var watchedFolders: [WatchedFolder] = []
-    // Current selection in the middle list. Multi-select is supported, but single-file editing uses the first item only.
+    // Current selection in the middle list. Single-file and multi-file inspector editing both use this selection.
     @Published var selectedAudioIDs: Set<UUID> = []
-    // Single-file edit model bound to the right-side inspector.
+    // Inspector edit models bound to the right-side inspector.
     @Published var edit: SingleFileEditModel?
+    @Published var multiEdit: MultiFileEditModel?
     @Published var metadataWriteHUD: MetadataWriteHUD?
 
     private let watchedFolderStore: WatchedFolderStore
@@ -53,7 +48,11 @@ final class AudioViewModel: ObservableObject {
     private var securityScopedFolderURLs: [UUID: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
 
-    init(watchedFolderStore: WatchedFolderStore = WatchedFolderStore()) {
+    convenience init() {
+        self.init(watchedFolderStore: WatchedFolderStore())
+    }
+
+    init(watchedFolderStore: WatchedFolderStore) {
         self.watchedFolderStore = watchedFolderStore
 
         let restoredFolders = watchedFolderStore.loadFolders()
@@ -71,7 +70,7 @@ final class AudioViewModel: ObservableObject {
     deinit {
         metadataWriteHUDDismissTask?.cancel()
         folderRescanTasks.values.forEach { $0.cancel() }
-        folderDirectoryMonitors.values.flatMap(\.values).forEach { $0.stop() }
+        folderDirectoryMonitors.removeAll()
         securityScopedFolderURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
     }
 
@@ -80,6 +79,10 @@ final class AudioViewModel: ObservableObject {
     }
 
     var hasUnsavedInspectorChanges: Bool {
+        if selectedAudioIDs.count > 1 {
+            return multiEdit?.hasUnsavedChanges ?? false
+        }
+
         guard
             selectedAudioIDs.count == 1,
             let id = selectedAudioIDs.first,
@@ -101,15 +104,19 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
-        guard
-            let id = selectedAudioIDs.first,
-            let file = files.first(where: { $0.id == id })
-        else {
-            edit = nil
-            return
-        }
+        let selectedFiles = files.filter { selectedAudioIDs.contains($0.id) }
 
-        edit = SingleFileEditModel(from: file)
+        switch selectedFiles.count {
+        case 0:
+            edit = nil
+            multiEdit = nil
+        case 1:
+            edit = SingleFileEditModel(from: selectedFiles[0])
+            multiEdit = nil
+        default:
+            edit = nil
+            multiEdit = MultiFileEditModel(files: selectedFiles)
+        }
     }
 
     /// Discard the current edits and restore the latest tags from disk.
@@ -117,8 +124,20 @@ final class AudioViewModel: ObservableObject {
         updateEditForSelection()
     }
 
-    func presentMetadataWriteSuccess(for fileName: String) {
+    func presentMetadataWriteHUD(
+        style: MetadataWriteHUDStyle,
+        title: String,
+        subtitle: String
+    ) {
         enqueueMetadataWriteHUD(
+            style: style,
+            title: title,
+            subtitle: subtitle
+        )
+    }
+
+    func presentMetadataWriteSuccess(for fileName: String) {
+        presentMetadataWriteHUD(
             style: .success,
             title: "Saved to Disk",
             subtitle: fileName
@@ -126,7 +145,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     func presentMetadataWriteWarning(title: String, subtitle: String) {
-        enqueueMetadataWriteHUD(
+        presentMetadataWriteHUD(
             style: .warning,
             title: title,
             subtitle: subtitle
@@ -134,7 +153,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     func presentMetadataWriteFailure(for fileName: String, reason: String) {
-        enqueueMetadataWriteHUD(
+        presentMetadataWriteHUD(
             style: .failure,
             title: "Save Failed",
             subtitle: [fileName, reason]
@@ -497,6 +516,12 @@ final class AudioViewModel: ObservableObject {
     }
 
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {
+        let supportedExtensions: Set<String> = [
+            "mp3", "aac",
+            "m4a", "m4b", "m4p", "mp4",
+            "wav", "aiff", "aif",
+            "flac"
+        ]
         var audioURLs: [URL] = []
         var directoryURLs: [URL] = [folderURL.standardizedFileURL]
         var seenAudioKeys = Set<String>()
@@ -525,7 +550,7 @@ final class AudioViewModel: ObservableObject {
             }
 
             guard values.isRegularFile == true else { continue }
-            guard supportedAudioImportExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            guard supportedExtensions.contains(url.pathExtension.lowercased()) else { continue }
 
             let key = urlKey(for: url)
             guard seenAudioKeys.insert(key).inserted else { continue }

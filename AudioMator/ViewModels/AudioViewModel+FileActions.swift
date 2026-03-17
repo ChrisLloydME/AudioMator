@@ -24,6 +24,7 @@ extension AudioViewModel {
         selectedAudioIDs.remove(file.id)
         if selectedAudioIDs.isEmpty {
             edit = nil
+            multiEdit = nil
         }
     }
 
@@ -33,5 +34,6 @@ extension AudioViewModel {
         clearQuickImportFiles()
         selectedAudioIDs.removeAll()
         edit = nil
+        multiEdit = nil
     }
 }

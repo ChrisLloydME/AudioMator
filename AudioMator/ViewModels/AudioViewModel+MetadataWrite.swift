@@ -25,8 +25,106 @@ func isArtworkWriteSupportedExtension(_ ext: String) -> Bool {
     supportedArtworkWriteExtensions.contains(ext.lowercased())
 }
 
+private struct MetadataWriteSuccessOutcome {
+    let warnings: [String]
+    let didRefreshFileModel: Bool
+}
+
+private enum MetadataWriteExecutionResult {
+    case success(MetadataWriteSuccessOutcome)
+    case failure(String)
+}
+
+private struct BatchMetadataWriteIssue {
+    let fileName: String
+    let messages: [String]
+}
+
+private struct BatchMetadataWriteSummary {
+    let totalTargets: Int
+    var succeeded: Int = 0
+    var warningIssues: [BatchMetadataWriteIssue] = []
+    var failureIssues: [BatchMetadataWriteIssue] = []
+    var allSuccessfulFilesRefreshed = true
+
+    var hudStyle: MetadataWriteHUDStyle {
+        if failureIssues.isEmpty && warningIssues.isEmpty {
+            return .success
+        }
+
+        if failureIssues.isEmpty {
+            return .warning
+        }
+
+        return succeeded > 0 ? .warning : .failure
+    }
+
+    var hudTitle: String {
+        if failureIssues.isEmpty && warningIssues.isEmpty {
+            return "Saved to Disk"
+        }
+
+        if failureIssues.isEmpty {
+            return "Saved with Issues"
+        }
+
+        return succeeded > 0 ? "Partially Saved" : "Save Failed"
+    }
+
+    var hudSubtitle: String {
+        if failureIssues.isEmpty && warningIssues.isEmpty {
+            return fileCountLabel(succeeded)
+        }
+
+        var lines: [String] = [summaryLine]
+
+        if !warningIssues.isEmpty {
+            lines.append("\(warningIssues.count) file(s) saved with issues")
+        }
+
+        if !failureIssues.isEmpty {
+            lines.append("\(failureIssues.count) file(s) failed")
+        }
+
+        let detailSource = failureIssues.isEmpty ? warningIssues : failureIssues
+        for issue in detailSource.prefix(2) {
+            let detail = issue.messages.joined(separator: " ")
+            lines.append("\(issue.fileName): \(detail)")
+        }
+
+        if detailSource.count > 2 {
+            lines.append("...and \(detailSource.count - 2) more")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private var summaryLine: String {
+        switch succeeded {
+        case totalTargets:
+            return "\(totalTargets) of \(totalTargets) files saved"
+        case 0:
+            return "No files were saved"
+        default:
+            return "\(succeeded) of \(totalTargets) files saved"
+        }
+    }
+}
+
+private func fileCountLabel(_ count: Int) -> String {
+    count == 1 ? "1 file" : "\(count) files"
+}
+
 extension AudioViewModel {
-    // MARK: - Single-File Writes (TagLib)
+    // MARK: - Inspector Writes (TagLib)
+
+    func saveInspectorEdits() {
+        if selectedAudioIDs.count > 1 {
+            saveMultiFileEdits()
+        } else {
+            saveSingleEdits()
+        }
+    }
 
     /// Writes the current inspector edits back to the selected audio file through the TagLib bridge.
     func saveSingleEdits() {
@@ -38,16 +136,136 @@ extension AudioViewModel {
             return
         }
 
-        // Tag writing is currently supported for MPEG, MP4/M4A, FLAC, WAV, and AIFF.
-        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            print("Skip unsupported write format for: \(file.url.lastPathComponent)")
-            presentMetadataWriteFailure(
-                for: file.url.lastPathComponent,
-                reason: "This format does not support metadata writing yet."
-            )
+        Task(priority: .userInitiated) {
+            let result = await self.persistMetadataEdit(edit, to: file)
+
+            switch result {
+            case .success(let success):
+                if success.warnings.isEmpty {
+                    self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
+                } else {
+                    self.presentMetadataWriteWarning(
+                        title: "Saved with Issues",
+                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
+                    )
+                }
+            case .failure(let reason):
+                self.presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent,
+                    reason: reason
+                )
+            }
+        }
+    }
+
+    /// Applies only the modified multi-file fields to each selected file, then reuses the existing write path.
+    func saveMultiFileEdits() {
+        guard selectedAudioIDs.count > 1, let multiEdit else {
             return
         }
 
+        guard multiEdit.hasUnsavedChanges else {
+            return
+        }
+
+        let targetFiles = files.filter { selectedAudioIDs.contains($0.id) }
+        guard !targetFiles.isEmpty else { return }
+
+        let editSnapshot = multiEdit
+
+        Task(priority: .userInitiated) {
+            var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
+
+            for file in targetFiles {
+                let effectiveEdit = editSnapshot.applyingChanges(to: file)
+                let result = await self.persistMetadataEdit(
+                    effectiveEdit,
+                    to: file,
+                    syncInspectorAfterReload: false
+                )
+
+                switch result {
+                case .success(let success):
+                    summary.succeeded += 1
+                    summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
+
+                    if !success.warnings.isEmpty {
+                        summary.warningIssues.append(
+                            BatchMetadataWriteIssue(
+                                fileName: file.url.lastPathComponent,
+                                messages: success.warnings
+                            )
+                        )
+                    }
+                case .failure(let reason):
+                    summary.failureIssues.append(
+                        BatchMetadataWriteIssue(
+                            fileName: file.url.lastPathComponent,
+                            messages: [reason]
+                        )
+                    )
+                }
+            }
+
+            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
+                self.updateEditForSelection()
+            }
+
+            self.presentBatchMetadataWriteSummary(summary)
+        }
+    }
+
+    private func persistMetadataEdit(
+        _ edit: SingleFileEditModel,
+        to file: AudioFile,
+        syncInspectorAfterReload: Bool = true
+    ) async -> MetadataWriteExecutionResult {
+        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
+            print("Skip unsupported write format for: \(file.url.lastPathComponent)")
+            return .failure("This format does not support metadata writing yet.")
+        }
+
+        let meta = makeTagLibMetadata(from: edit)
+        logMetadataWrite(meta, edit: edit, file: file)
+
+        do {
+            try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+            var warnings: [String] = []
+
+            do {
+                let trackText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let discText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+                _ = try TagLibMetadataExtractor.writeTrackNumberText(
+                    trackText,
+                    discNumberText: discText,
+                    to: file.url
+                )
+            } catch {
+                print("Failed to write Track/Disc numbers: \(error)")
+                warnings.append("Track/Disc numbers were not fully saved: \((error as NSError).localizedDescription)")
+            }
+
+            let refreshWarning = await reloadEditedFile(
+                file,
+                syncInspectorAfterReload: syncInspectorAfterReload
+            )
+            if let refreshWarning {
+                warnings.append(refreshWarning)
+            }
+
+            return .success(
+                MetadataWriteSuccessOutcome(
+                    warnings: warnings,
+                    didRefreshFileModel: refreshWarning == nil
+                )
+            )
+        } catch {
+            print("Failed to write metadata via TagLib: \(error)")
+            return .failure((error as NSError).localizedDescription)
+        }
+    }
+
+    private func makeTagLibMetadata(from edit: SingleFileEditModel) -> TagLibAudioMetadata {
         let meta = TagLibAudioMetadata()
 
         // Trim surrounding whitespace to avoid writing accidental padded tags.
@@ -63,6 +281,7 @@ extension AudioViewModel {
         meta.label = edit.publisher.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.copyright = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.explicitContent = edit.isExplicit
+
         switch edit.artworkEditAction {
         case .unchanged:
             meta.removeArtwork = false
@@ -81,6 +300,14 @@ extension AudioViewModel {
         meta.discNumber = 0
         meta.totalDiscs = 0
 
+        return meta
+    }
+
+    private func logMetadataWrite(
+        _ meta: TagLibAudioMetadata,
+        edit: SingleFileEditModel,
+        file: AudioFile
+    ) {
         print("""
         [AudioMator] Will write metadata for \(file.url.lastPathComponent)
           title       = \(meta.title ?? "<nil>")
@@ -98,47 +325,16 @@ extension AudioViewModel {
           trackText   = \(edit.trackNumberText.isEmpty ? "<empty>" : edit.trackNumberText)
           discText    = \(edit.discNumberText.isEmpty ? "<empty>" : edit.discNumberText)
         """)
+    }
 
-        Task(priority: .userInitiated) {
-            do {
-                try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
-                var warnings: [String] = []
+    private func presentBatchMetadataWriteSummary(_ summary: BatchMetadataWriteSummary) {
+        guard summary.totalTargets > 0 else { return }
 
-                // Write Track/Disc number text using the same Save button flow as other fields.
-                // Note: ObjC NSError-style API is imported as `throws` in Swift.
-                do {
-                    let trackText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let discText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-                    _ = try TagLibMetadataExtractor.writeTrackNumberText(
-                        trackText,
-                        discNumberText: discText,
-                        to: file.url
-                    )
-                } catch {
-                    print("Failed to write Track/Disc numbers: \(error)")
-                    warnings.append("Track/Disc numbers were not fully saved: \((error as NSError).localizedDescription)")
-                }
-
-                if let refreshWarning = await self.reloadEditedFile(file) {
-                    warnings.append(refreshWarning)
-                }
-
-                if warnings.isEmpty {
-                    self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
-                } else {
-                    self.presentMetadataWriteWarning(
-                        title: "Saved with Issues",
-                        subtitle: ([file.url.lastPathComponent] + warnings).joined(separator: "\n")
-                    )
-                }
-            } catch {
-                print("Failed to write metadata via TagLib: \(error)")
-                self.presentMetadataWriteFailure(
-                    for: file.url.lastPathComponent,
-                    reason: (error as NSError).localizedDescription
-                )
-            }
-        }
+        presentMetadataWriteHUD(
+            style: summary.hudStyle,
+            title: summary.hudTitle,
+            subtitle: summary.hudSubtitle
+        )
     }
 
     /// Attempts to erase all metadata from a file by writing empty tags over the existing values.
@@ -192,13 +388,16 @@ extension AudioViewModel {
         }
     }
 
-    private func reloadEditedFile(_ file: AudioFile) async -> String? {
+    private func reloadEditedFile(
+        _ file: AudioFile,
+        syncInspectorAfterReload: Bool = true
+    ) async -> String? {
         do {
             let reloaded = try await AudioFile(url: file.url, id: file.id)
             replaceLoadedFile(reloaded)
 
-            if selectedAudioIDs.contains(file.id) {
-                edit = SingleFileEditModel(from: reloaded)
+            if syncInspectorAfterReload, selectedAudioIDs.contains(file.id) {
+                updateEditForSelection()
             }
 
             return nil

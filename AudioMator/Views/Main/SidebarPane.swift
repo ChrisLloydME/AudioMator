@@ -8,14 +8,14 @@ struct SidebarPane: View {
         List {
             Section {
                 sourceRow(
-                    title: "Imported Files",
+                    title: "Session Files",
                     systemImage: "bolt.horizontal.circle",
                     selection: .quickImport
                 )
             } header: {
-                Text("Quick Import")
+                Text("Current Session")
             } footer: {
-                Text("Session only. Imported files are cleared when AudioMator closes.")
+                Text("Session only. Files loaded here are cleared when AudioMator closes.")
             }
 
             Section {

@@ -162,7 +162,7 @@ struct ContentPane: View {
                 Button(action: onAddFiles) {
                     Image(systemName: "plus")
                 }
-                .help(isQuickImportMode ? "Import audio files into the current session" : "Switch to Quick Import in the sidebar to add files")
+                .help(isQuickImportMode ? "Add audio files to the current session" : "Switch to Current Session in the sidebar to add files")
                 .disabled(!isQuickImportMode)
 
                 Button(action: onShowMetadataDump) {
@@ -182,7 +182,7 @@ struct ContentPane: View {
                 } label: {
                     Label("Clear List", systemImage: "trash")
                 }
-                .help(isQuickImportMode ? "Remove all files from the current Quick Import list" : "Watched folder lists are managed from the sidebar")
+                .help(isQuickImportMode ? "Remove all files from the current session list" : "Watched folder lists are managed from the sidebar")
                 .disabled(!isQuickImportMode || viewModel.files.isEmpty)
 
                 Button("Cancel", action: onCancelEdits)
@@ -213,7 +213,7 @@ struct ContentPane: View {
     private var emptyStateTitle: String {
         switch currentSidebarSelection {
         case .quickImport:
-            return "No Imported Audio Files"
+            return "No Session Files"
         case .watchedLibrary:
             return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : "No Audio Files Found"
         case .watchedFolder:
@@ -237,7 +237,7 @@ struct ContentPane: View {
     private var emptyStateDescription: String {
         switch currentSidebarSelection {
         case .quickImport:
-            return "Import audio files for one-off edits. This list is cleared when AudioMator closes."
+            return "Add audio files for one-off edits. This list is cleared when AudioMator closes."
         case .watchedLibrary:
             if viewModel.watchedFolders.isEmpty {
                 return "Add a folder from the sidebar to keep it available across launches and use it as a persistent file source."

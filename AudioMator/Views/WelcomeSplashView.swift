@@ -181,7 +181,7 @@ private struct FeaturesPage: View {
                     WelcomeFeatureRow(
                         symbol: "music.note.list",
                         title: "Choose temporary or persistent sources",
-                        description: "Use Quick Import for one-off editing sessions, or pin watched folders in the sidebar so AudioMator can keep their audio files available every time you reopen the app."
+                        description: "Use Current Session for one-off editing work, or pin watched folders in the sidebar so AudioMator can keep their audio files available every time you reopen the app."
                     )
 
                     WelcomeFeatureRow(
@@ -216,7 +216,7 @@ private struct PrivacyPage: View {
                     PrivacyRow(
                         symbol: "folder.badge.questionmark",
                         title: "You choose the files and folders",
-                        description: "AudioMator only reads locations that you explicitly pick. Quick Import stays session-only, and watched folders are limited to the sidebar sources you add and can remove at any time."
+                        description: "AudioMator only reads locations that you explicitly pick. Current Session stays session-only, and watched folders are limited to the sidebar sources you add and can remove at any time."
                     )
 
                     PrivacyRow(

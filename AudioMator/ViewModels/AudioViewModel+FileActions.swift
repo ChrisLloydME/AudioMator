@@ -18,7 +18,9 @@ extension AudioViewModel {
     }
 
     func removeFromList(_ file: AudioFile) {
-        files.removeAll { $0.id == file.id }
+        guard currentFileSourceMode == .quickImport else { return }
+
+        removeQuickImportFile(id: file.id)
         selectedAudioIDs.remove(file.id)
         if selectedAudioIDs.isEmpty {
             edit = nil
@@ -26,7 +28,9 @@ extension AudioViewModel {
     }
 
     func clearList() {
-        files.removeAll()
+        guard currentFileSourceMode == .quickImport else { return }
+
+        clearQuickImportFiles()
         selectedAudioIDs.removeAll()
         edit = nil
     }

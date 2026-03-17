@@ -195,10 +195,7 @@ extension AudioViewModel {
     private func reloadEditedFile(_ file: AudioFile) async -> String? {
         do {
             let reloaded = try await AudioFile(url: file.url, id: file.id)
-
-            if let index = files.firstIndex(where: { $0.id == file.id }) {
-                files[index] = reloaded
-            }
+            replaceLoadedFile(reloaded)
 
             if selectedAudioIDs.contains(file.id) {
                 edit = SingleFileEditModel(from: reloaded)

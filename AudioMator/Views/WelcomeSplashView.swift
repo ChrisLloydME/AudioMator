@@ -180,8 +180,8 @@ private struct FeaturesPage: View {
                 VStack(alignment: .leading, spacing: 22) {
                     WelcomeFeatureRow(
                         symbol: "music.note.list",
-                        title: "Import local audio files",
-                        description: "Open MP3, M4A/MP4, WAV, and AIFF files from Finder, keep them together in one list, and review filename, title, artist, album, and duration without jumping between windows."
+                        title: "Choose temporary or persistent sources",
+                        description: "Use Quick Import for one-off editing sessions, or pin watched folders in the sidebar so AudioMator can keep their audio files available every time you reopen the app."
                     )
 
                     WelcomeFeatureRow(
@@ -208,15 +208,15 @@ private struct PrivacyPage: View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeader(
                 title: "Privacy",
-                subtitle: "AudioMator keeps the metadata workflow local to your Mac. The app is intentionally explicit about file access, and it avoids background behavior that would make your library harder to reason about."
+                subtitle: "AudioMator keeps the metadata workflow local to your Mac. The app is intentionally explicit about file access, and any background refresh is limited to the watched folders you add yourself."
             )
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 22) {
                     PrivacyRow(
                         symbol: "folder.badge.questionmark",
-                        title: "You choose the files",
-                        description: "AudioMator only reads files that you explicitly import through the open panel. It does not browse your music folders on its own and does not watch directories in the background."
+                        title: "You choose the files and folders",
+                        description: "AudioMator only reads locations that you explicitly pick. Quick Import stays session-only, and watched folders are limited to the sidebar sources you add and can remove at any time."
                     )
 
                     PrivacyRow(

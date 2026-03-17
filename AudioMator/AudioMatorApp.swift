@@ -14,6 +14,7 @@ extension Notification.Name {
     static let requestTrackRenumber = Notification.Name("requestTrackRenumber")
     static let requestToggleInspector = Notification.Name("requestToggleInspector")
     static let requestClearListConfirmation = Notification.Name("requestClearListConfirmation")
+    static let requestSelectAllTracks = Notification.Name("requestSelectAllTracks")
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -71,7 +72,7 @@ struct ToolbarEditCommands: Commands {
     var body: some Commands {
         CommandGroup(after: .textEditing) {
             Button("Select All") {
-                sharedState.selectedAudioIDs = Set(viewModel.files.map { $0.id })
+                NotificationCenter.default.post(name: .requestSelectAllTracks, object: nil)
             }
             .keyboardShortcut("a", modifiers: .command)
 
@@ -83,6 +84,15 @@ struct ToolbarEditCommands: Commands {
                 Label("Add Files…", systemImage: "plus")
             }
             .keyboardShortcut("o", modifiers: .command)
+            .disabled(sharedState.currentFileSourceMode != .quickImport)
+
+            Button {
+                if let selection = viewModel.addWatchedFolders() {
+                    sharedState.selectedSidebarItem = selection
+                }
+            } label: {
+                Label("Add Watched Folder…", systemImage: "folder.badge.plus")
+            }
 
             Button {
                 NotificationCenter.default.post(name: .requestMetadataDump, object: nil)
@@ -104,7 +114,7 @@ struct ToolbarEditCommands: Commands {
                 Label("Clear List", systemImage: "trash")
             }
             .keyboardShortcut(.delete, modifiers: [])
-            .disabled(viewModel.files.isEmpty)
+            .disabled(sharedState.currentFileSourceMode != .quickImport || viewModel.files.isEmpty)
 
             Divider()
 

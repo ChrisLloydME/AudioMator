@@ -13,6 +13,7 @@ struct ContentView: View {
     @ObservedObject var state: SharedState
 
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
 
@@ -27,13 +28,23 @@ struct ContentView: View {
     @State private var isTrackRenumberRunning: Bool = false
     @State private var trackRenumberResult: TrackRenumberResult = .empty
 
+    private var guardedSelection: Binding<Set<AudioFile.ID>> {
+        Binding(
+            get: { state.selectedAudioIDs },
+            set: { newSelection in
+                attemptSelectionChange(to: newSelection)
+            }
+        )
+    }
+
     var body: some View {
         NavigationSplitView {
-            SidebarPane(state: state)
+            SidebarPane(viewModel: viewModel, state: state)
         } content: {
             ContentPane(
                 viewModel: viewModel,
                 state: state,
+                selection: guardedSelection,
                 onAddFiles: viewModel.addFiles,
                 onShowMetadataDump: presentMetadataDump,
                 onOpenTrackRenumber: openTrackRenumberSheet,
@@ -102,9 +113,15 @@ struct ContentView: View {
                     .padding(.bottom, 40)
             }
         }
+        .onAppear {
+            viewModel.setSidebarSelection(state.selectedSidebarItem)
+        }
         .task {
             guard !hasCompletedWelcomeSplash, !isWelcomeSplashPresented else { return }
             isWelcomeSplashPresented = true
+        }
+        .onChange(of: state.selectedSidebarItem) { _, newSelection in
+            viewModel.setSidebarSelection(newSelection)
         }
         .onReceive(NotificationCenter.default.publisher(for: .showWelcomeSplash)) { _ in
             guard !isWelcomeSplashPresented else { return }
@@ -117,6 +134,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .requestTrackRenumber)) { _ in
             guard !viewModel.files.isEmpty else { return }
             openTrackRenumberSheet()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
+            attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
         }
         .onReceive(NotificationCenter.default.publisher(for: .requestToggleInspector)) { _ in
             toggleInspector()
@@ -144,9 +164,79 @@ struct ContentView: View {
         }
     }
 
-    private func toggleInspector() {
+    private func attemptSelectionChange(to newSelection: Set<AudioFile.ID>) {
+        guard newSelection != state.selectedAudioIDs else { return }
+
+        confirmDiscardUnsavedInspectorEditsIfNeeded {
+            state.selectedAudioIDs = newSelection
+        }
+    }
+
+    private func discardInspectorEditsIfNeeded() {
+        guard viewModel.hasUnsavedInspectorChanges else { return }
+        viewModel.cancelEditing()
+    }
+
+    private func confirmDiscardUnsavedInspectorEditsIfNeeded(_ action: @escaping () -> Void) {
+        guard viewModel.hasUnsavedInspectorChanges else {
+            action()
+            return
+        }
+
+        let continueAction = {
+            discardInspectorEditsIfNeeded()
+            action()
+        }
+
+        guard !suppressesUnsavedInspectorDiscardWarning else {
+            continueAction()
+            return
+        }
+
+        presentUnsavedInspectorDiscardAlert(onContinue: continueAction)
+    }
+
+    private func presentUnsavedInspectorDiscardAlert(onContinue: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "You Have Unsaved Inspector Changes"
+        alert.informativeText = "The edits in the inspector haven't been saved yet. If you continue, those changes will be discarded."
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Don't remind me again"
+
+        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn else { return }
+
+            if alert.suppressionButton?.state == .on {
+                suppressesUnsavedInspectorDiscardWarning = true
+            }
+
+            onContinue()
+        }
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window, completionHandler: handleResponse)
+        } else {
+            let response = alert.runModal()
+            handleResponse(response)
+        }
+    }
+
+    private func setInspectorVisibility(_ isVisible: Bool) {
         withAnimation(.easeInOut(duration: 0.18)) {
-            isInspectorVisible.toggle()
+            isInspectorVisible = isVisible
+        }
+    }
+
+    private func toggleInspector() {
+        if isInspectorVisible {
+            confirmDiscardUnsavedInspectorEditsIfNeeded {
+                setInspectorVisibility(false)
+            }
+        } else {
+            setInspectorVisibility(true)
         }
     }
 }

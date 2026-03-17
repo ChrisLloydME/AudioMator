@@ -97,4 +97,37 @@ struct SingleFileEditModel {
             isExplicit: file.isExplicit
         )
     }
+
+    func hasUnsavedChanges(comparedTo file: AudioFile) -> Bool {
+        let baseline = SingleFileEditModel(from: file)
+
+        let hasMetadataChanges =
+            title != baseline.title ||
+            artist != baseline.artist ||
+            album != baseline.album ||
+            composer != baseline.composer ||
+            genre != baseline.genre ||
+            comment != baseline.comment ||
+            track != baseline.track ||
+            trackTotal != baseline.trackTotal ||
+            disc != baseline.disc ||
+            discTotal != baseline.discTotal ||
+            year != baseline.year ||
+            trackNumberText != baseline.trackNumberText ||
+            discNumberText != baseline.discNumberText ||
+            albumArtist != baseline.albumArtist ||
+            releaseDate != baseline.releaseDate ||
+            publisher != baseline.publisher ||
+            copyright != baseline.copyright ||
+            isExplicit != baseline.isExplicit
+
+        switch artworkEditAction {
+        case .unchanged:
+            return hasMetadataChanges
+        case .replace:
+            return true
+        case .remove:
+            return hasMetadataChanges || file.artwork != nil
+        }
+    }
 }

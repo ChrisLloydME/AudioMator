@@ -6,6 +6,8 @@ extension AudioViewModel {
     // MARK: - File Import
 
     func addFiles() {
+        guard currentFileSourceMode == .quickImport else { return }
+
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -15,24 +17,13 @@ extension AudioViewModel {
             UTType.mpeg4Audio,
             UTType.wav,
             UTType.aiff,
-        ]
+            UTType(filenameExtension: "flac")
+        ].compactMap { $0 }
         panel.title = "Choose Audio Files"
 
         guard panel.runModal() == .OK else { return }
-        let urls = panel.urls
 
-        Task {
-            var loaded: [AudioFile] = []
-            for url in urls {
-                if let file = try? await AudioFile(url: url) {
-                    loaded.append(file)
-                }
-            }
-
-            await MainActor.run {
-                self.files.append(contentsOf: loaded)
-            }
-        }
+        importQuickFiles(from: panel.urls)
     }
 
     func pickArtwork(for file: AudioFile) {

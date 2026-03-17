@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct ContentPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    let selection: Binding<Set<AudioFile.ID>>
     let onAddFiles: () -> Void
     let onShowMetadataDump: () -> Void
     let onOpenTrackRenumber: () -> Void
@@ -14,6 +15,14 @@ struct ContentPane: View {
     @FocusState private var tableFocused: Bool
     @State private var isEraseAllTagsConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
+
+    private var currentSidebarSelection: SidebarSelection {
+        state.selectedSidebarItem ?? .quickImport
+    }
+
+    private var isQuickImportMode: Bool {
+        state.currentFileSourceMode == .quickImport
+    }
 
     private var selectedFiles: [AudioFile] {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
@@ -49,12 +58,12 @@ struct ContentPane: View {
         Group {
             if viewModel.files.isEmpty {
                 ContentUnavailableView(
-                    "No Audio Files",
-                    systemImage: "music.note.list",
-                    description: Text("Click the add button in the toolbar to import audio files")
+                    emptyStateTitle,
+                    systemImage: emptyStateSymbol,
+                    description: Text(emptyStateDescription)
                 )
             } else {
-                Table(orderedFiles, selection: $state.selectedAudioIDs) {
+                Table(orderedFiles, selection: selection) {
                     TableColumn("Filename") { file in
                         Text(file.url.lastPathComponent)
                             .onDrag {
@@ -93,11 +102,15 @@ struct ContentPane: View {
                     viewModel.updateEditForSelection()
                 }
                 .onAppear {
+                    syncSelectionWithFiles()
                     viewModel.selectedAudioIDs = state.selectedAudioIDs
                     viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
                 }
                 .onChange(of: viewModel.files.map { $0.id }) {
+                    syncSelectionWithFiles()
+                    viewModel.selectedAudioIDs = state.selectedAudioIDs
+                    viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
                 }
                 .contextMenu {
@@ -149,6 +162,8 @@ struct ContentPane: View {
                 Button(action: onAddFiles) {
                     Image(systemName: "plus")
                 }
+                .help(isQuickImportMode ? "Import audio files into the current session" : "Switch to Quick Import in the sidebar to add files")
+                .disabled(!isQuickImportMode)
 
                 Button(action: onShowMetadataDump) {
                     Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
@@ -167,8 +182,8 @@ struct ContentPane: View {
                 } label: {
                     Label("Clear List", systemImage: "trash")
                 }
-                .help("Remove all files from the current list")
-                .disabled(viewModel.files.isEmpty)
+                .help(isQuickImportMode ? "Remove all files from the current Quick Import list" : "Watched folder lists are managed from the sidebar")
+                .disabled(!isQuickImportMode || viewModel.files.isEmpty)
 
                 Button("Cancel", action: onCancelEdits)
                     .disabled(state.selectedAudioIDs.isEmpty)
@@ -190,8 +205,58 @@ struct ContentPane: View {
             Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
         }
         .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
-            guard !viewModel.files.isEmpty else { return }
+            guard isQuickImportMode, !viewModel.files.isEmpty else { return }
             isClearListConfirmPresented = true
+        }
+    }
+
+    private var emptyStateTitle: String {
+        switch currentSidebarSelection {
+        case .quickImport:
+            return "No Imported Audio Files"
+        case .watchedLibrary:
+            return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : "No Audio Files Found"
+        case .watchedFolder:
+            return "No Audio Files Found"
+        }
+    }
+
+    private var emptyStateSymbol: String {
+        switch currentSidebarSelection {
+        case .quickImport:
+            return "bolt.horizontal.circle"
+        case .watchedLibrary where viewModel.watchedFolders.isEmpty:
+            return "folder.badge.plus"
+        case .watchedLibrary:
+            return "folder.badge.gearshape"
+        case .watchedFolder:
+            return "folder"
+        }
+    }
+
+    private var emptyStateDescription: String {
+        switch currentSidebarSelection {
+        case .quickImport:
+            return "Import audio files for one-off edits. This list is cleared when AudioMator closes."
+        case .watchedLibrary:
+            if viewModel.watchedFolders.isEmpty {
+                return "Add a folder from the sidebar to keep it available across launches and use it as a persistent file source."
+            }
+            return "AudioMator is watching the folders in the sidebar, but no supported audio files were found yet."
+        case .watchedFolder(let folderID):
+            if let folder = viewModel.watchedFolders.first(where: { $0.id == folderID }) {
+                return "\(folder.displayName) does not contain any supported audio files yet."
+            }
+            return "Select a watched folder from the sidebar or add a new one."
+        }
+    }
+
+    private func syncSelectionWithFiles() {
+        let validIDs = Set(viewModel.files.map(\.id))
+        let prunedSelection = state.selectedAudioIDs.intersection(validIDs)
+
+        if prunedSelection != state.selectedAudioIDs {
+            state.selectedAudioIDs = prunedSelection
         }
     }
 
@@ -246,6 +311,7 @@ struct ContentPane: View {
     }
 
     private func clearFileList() {
+        guard isQuickImportMode else { return }
         viewModel.clearList()
         state.selectedAudioIDs.removeAll()
         state.customOrder.removeAll()

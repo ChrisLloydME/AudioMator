@@ -17,6 +17,8 @@ struct ContentPane: View {
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isTextMetadataImportPresented: Bool = false
     @State private var textMetadataImportTargets: [AudioFile] = []
+    @State private var isMetadataFilenameRenamePresented: Bool = false
+    @State private var metadataFilenameRenameTargetIDs: [AudioFile.ID] = []
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -82,6 +84,12 @@ struct ContentPane: View {
                     .help("Rewrite Track Number (TRCK) by the middle list order")
                     .disabled(viewModel.files.isEmpty)
 
+                    Button(action: openMetadataFilenameRenameSheet) {
+                        Label("Rename Files…", systemImage: "pencil.line")
+                    }
+                    .help("Rename the selected files from metadata tokens and static text")
+                    .disabled(state.selectedAudioIDs.isEmpty)
+
                     Button(action: openTextMetadataImportSheet) {
                         Label("Import Field…", systemImage: "square.and.arrow.down")
                     }
@@ -122,9 +130,20 @@ struct ContentPane: View {
                     isPresented: $isTextMetadataImportPresented
                 )
             }
+            .sheet(isPresented: $isMetadataFilenameRenamePresented) {
+                MetadataFilenameRenameSheet(
+                    viewModel: viewModel,
+                    targetFileIDs: metadataFilenameRenameTargetIDs,
+                    isPresented: $isMetadataFilenameRenamePresented
+                )
+            }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }
                 isClearListConfirmPresented = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestMetadataFilenameRename)) { _ in
+                guard !state.selectedAudioIDs.isEmpty else { return }
+                openMetadataFilenameRenameSheet()
             }
     }
 
@@ -429,6 +448,23 @@ struct ContentPane: View {
 
         guard !textMetadataImportTargets.isEmpty else { return }
         isTextMetadataImportPresented = true
+    }
+
+    private func openMetadataFilenameRenameSheet() {
+        let targets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+
+        guard !targets.isEmpty else { return }
+        if let failure = viewModel.ensureRenameDirectoryAccess(for: targets.map(\.url)) {
+            viewModel.presentMetadataWriteHUD(
+                style: .warning,
+                title: "Folder Access Needed",
+                subtitle: failure
+            )
+            return
+        }
+
+        metadataFilenameRenameTargetIDs = targets.map(\.id)
+        isMetadataFilenameRenamePresented = true
     }
 
     private func openSelectedFiles() {

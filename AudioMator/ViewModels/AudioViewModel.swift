@@ -26,6 +26,10 @@ struct MetadataWriteHUD: Identifiable, Equatable {
 
 @MainActor
 final class AudioViewModel: ObservableObject {
+    nonisolated private static let readableAudioExtensions: Set<String> = Set(
+        TagLibMetadataExtractor.supportedExtensions().map { $0.lowercased() }
+    )
+
     // All audio files currently loaded into the middle list.
     @Published var files: [AudioFile] = []
     @Published private(set) var watchedFolders: [WatchedFolder] = []
@@ -46,6 +50,9 @@ final class AudioViewModel: ObservableObject {
     private var folderRescanTasks: [UUID: Task<Void, Never>] = [:]
     private var folderDirectoryMonitors: [UUID: [String: DirectoryMonitor]] = [:]
     private var securityScopedFolderURLs: [UUID: URL] = [:]
+    private var securityScopedQuickImportFileURLs: [String: URL] = [:]
+    private var securityScopedQuickImportDirectoryURLs: [String: URL] = [:]
+    private var securityScopedQuickImportRenameDirectoryURLs: [String: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
 
     convenience init() {
@@ -72,6 +79,9 @@ final class AudioViewModel: ObservableObject {
         folderRescanTasks.values.forEach { $0.cancel() }
         folderDirectoryMonitors.removeAll()
         securityScopedFolderURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
+        securityScopedQuickImportFileURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
+        securityScopedQuickImportDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
+        securityScopedQuickImportRenameDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
     }
 
     var currentFileSourceMode: FileSourceMode {
@@ -279,11 +289,13 @@ final class AudioViewModel: ObservableObject {
 
     func mergeQuickImportFiles(_ incoming: [AudioFile]) {
         quickImportFiles = mergeFilesPreservingExistingOrder(existing: quickImportFiles, incoming: incoming)
+        syncQuickImportSecurityScopedResources()
         rebuildVisibleFiles()
     }
 
     func importQuickFiles(from urls: [URL]) {
         let candidateURLs = Self.uniqueSortedURLs(urls)
+        beginAccessingQuickImportResources(for: candidateURLs)
 
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -302,12 +314,14 @@ final class AudioViewModel: ObservableObject {
 
     func clearQuickImportFiles() {
         quickImportFiles.removeAll()
+        syncQuickImportSecurityScopedResources()
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
         rebuildVisibleFiles()
     }
 
     func removeQuickImportFile(id: UUID) {
         quickImportFiles.removeAll { $0.id == id }
+        syncQuickImportSecurityScopedResources()
         rebuildVisibleFiles()
     }
 
@@ -324,6 +338,87 @@ final class AudioViewModel: ObservableObject {
         }
 
         rebuildVisibleFiles()
+    }
+
+    func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) {
+        guard !changes.isEmpty else { return }
+
+        let urlsByID = Dictionary(uniqueKeysWithValues: changes.map { ($0.id, $0.newURL) })
+
+        quickImportFiles = quickImportFiles.map { file in
+            guard let newURL = urlsByID[file.id] else { return file }
+            return file.withUpdatedURL(newURL)
+        }
+        syncQuickImportSecurityScopedResources()
+
+        for folderID in watchedFolderFiles.keys {
+            guard let folderFiles = watchedFolderFiles[folderID] else { continue }
+            watchedFolderFiles[folderID] = folderFiles.map { file in
+                guard let newURL = urlsByID[file.id] else { return file }
+                return file.withUpdatedURL(newURL)
+            }
+        }
+
+        rebuildVisibleFiles()
+    }
+
+    func withSecurityScopedAccessForQuickImportURLs<T>(
+        _ urls: [URL],
+        perform body: () throws -> T
+    ) rethrows -> T {
+        var accessedURLs: [URL] = []
+        let fileURLs = Self.urlsByKey(urls).values
+        let directoryURLs = Self.parentDirectoryURLsByKey(for: urls).values
+
+        for url in fileURLs {
+            if url.startAccessingSecurityScopedResource() {
+                accessedURLs.append(url)
+            }
+        }
+
+        for directoryURL in directoryURLs {
+            if directoryURL.startAccessingSecurityScopedResource() {
+                accessedURLs.append(directoryURL)
+            }
+        }
+
+        defer {
+            for accessedURL in accessedURLs.reversed() {
+                accessedURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try body()
+    }
+
+    func ensureRenameDirectoryAccess(for urls: [URL]) -> String? {
+        guard currentFileSourceMode == .quickImport else { return nil }
+
+        let directoryURLs = Self.parentDirectoryURLsByKey(for: urls).values.sorted(by: Self.compareURLs)
+        for directoryURL in directoryURLs {
+            if hasRenameDirectoryAccess(for: directoryURL) {
+                continue
+            }
+
+            if let failure = requestRenameDirectoryAccess(for: directoryURL) {
+                return failure
+            }
+        }
+
+        return nil
+    }
+
+    func registerMovedFiles(_ changes: [(id: UUID, oldURL: URL, newURL: URL)]) {
+        guard !changes.isEmpty else { return }
+
+        let oldKeys = Set(changes.map { Self.urlKey(for: $0.oldURL) })
+        for oldKey in oldKeys {
+            fileIDsByKey.removeValue(forKey: oldKey)
+        }
+
+        for change in changes {
+            fileIDsByKey[Self.urlKey(for: change.newURL)] = change.id
+        }
     }
 
     func scheduleWatchedFolderRescan(for id: UUID, debounceMilliseconds: UInt64 = 350) {
@@ -469,14 +564,102 @@ final class AudioViewModel: ObservableObject {
         stopAccessingWatchedFolder(id)
     }
 
+    private func syncQuickImportSecurityScopedResources() {
+        let quickImportURLs = quickImportFiles.map(\.url)
+        let desiredFileURLsByKey = Self.urlsByKey(quickImportURLs)
+        let desiredDirectoryURLsByKey = Self.parentDirectoryURLsByKey(for: quickImportURLs)
+
+        for key in Array(securityScopedQuickImportFileURLs.keys) where desiredFileURLsByKey[key] == nil {
+            securityScopedQuickImportFileURLs[key]?.stopAccessingSecurityScopedResource()
+            securityScopedQuickImportFileURLs[key] = nil
+        }
+
+        for (key, url) in desiredFileURLsByKey where securityScopedQuickImportFileURLs[key] == nil {
+            if url.startAccessingSecurityScopedResource() {
+                securityScopedQuickImportFileURLs[key] = url
+            }
+        }
+
+        for key in Array(securityScopedQuickImportDirectoryURLs.keys) where desiredDirectoryURLsByKey[key] == nil {
+            securityScopedQuickImportDirectoryURLs[key]?.stopAccessingSecurityScopedResource()
+            securityScopedQuickImportDirectoryURLs[key] = nil
+        }
+
+        for (key, url) in desiredDirectoryURLsByKey where securityScopedQuickImportDirectoryURLs[key] == nil {
+            if url.startAccessingSecurityScopedResource() {
+                securityScopedQuickImportDirectoryURLs[key] = url
+            }
+        }
+    }
+
+    private func beginAccessingQuickImportResources(for urls: [URL]) {
+        let fileURLsByKey = Self.urlsByKey(urls)
+        let directoryURLsByKey = Self.parentDirectoryURLsByKey(for: urls)
+
+        for (key, url) in fileURLsByKey where securityScopedQuickImportFileURLs[key] == nil {
+            if url.startAccessingSecurityScopedResource() {
+                securityScopedQuickImportFileURLs[key] = url
+            }
+        }
+
+        for (key, url) in directoryURLsByKey where securityScopedQuickImportDirectoryURLs[key] == nil {
+            if url.startAccessingSecurityScopedResource() {
+                securityScopedQuickImportDirectoryURLs[key] = url
+            }
+        }
+    }
+
+    private func hasRenameDirectoryAccess(for directoryURL: URL) -> Bool {
+        let key = Self.urlKey(for: directoryURL)
+        if securityScopedQuickImportRenameDirectoryURLs[key] != nil {
+            return true
+        }
+
+        if securityScopedQuickImportDirectoryURLs[key] != nil {
+            return true
+        }
+
+        return securityScopedFolderURLs.values.contains { folderURL in
+            Self.isSameOrDescendant(directoryURL, of: folderURL)
+        }
+    }
+
+    private func requestRenameDirectoryAccess(for directoryURL: URL) -> String? {
+        let displayName = FileManager.default.displayName(atPath: directoryURL.path)
+        let key = Self.urlKey(for: directoryURL)
+
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.directoryURL = directoryURL.deletingLastPathComponent()
+        panel.title = "Allow Folder Access"
+        panel.prompt = "Allow"
+        panel.message = "To rename imported files, select the folder “\(displayName)”."
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
+            return "Renaming requires folder access for “\(displayName)”."
+        }
+
+        guard Self.urlKey(for: selectedURL) == key else {
+            return "Select the exact folder “\(displayName)” to continue renaming."
+        }
+
+        guard selectedURL.startAccessingSecurityScopedResource() else {
+            return "AudioMator couldn't access “\(displayName)” after you selected it."
+        }
+
+        securityScopedQuickImportRenameDirectoryURLs[key] = selectedURL
+        return nil
+    }
+
     private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {
-        let normalizedDirectories = Dictionary(
-            uniqueKeysWithValues: directories.map { (Self.urlKey(for: $0), $0.standardizedFileURL) }
-        )
+        let normalizedDirectories = Self.urlsByKey(directories)
 
         var monitors = folderDirectoryMonitors[folderID] ?? [:]
 
-        for key in monitors.keys where normalizedDirectories[key] == nil {
+        for key in Array(monitors.keys) where normalizedDirectories[key] == nil {
             monitors[key]?.stop()
             monitors[key] = nil
         }
@@ -544,7 +727,7 @@ final class AudioViewModel: ObservableObject {
             }
 
             guard values.isRegularFile == true else { continue }
-            guard AudioFormatSupport.readableExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            guard readableAudioExtensions.contains(url.pathExtension.lowercased()) else { continue }
 
             let key = urlKey(for: url)
             guard seenAudioKeys.insert(key).inserted else { continue }
@@ -558,13 +741,41 @@ final class AudioViewModel: ObservableObject {
     }
 
     nonisolated private static func uniqueSortedURLs(_ urls: [URL]) -> [URL] {
-        var uniqueURLsByKey: [String: URL] = [:]
+        urlsByKey(urls).values.sorted(by: compareURLs)
+    }
+
+    nonisolated private static func urlsByKey(_ urls: [URL]) -> [String: URL] {
+        var urlsByKey: [String: URL] = [:]
 
         for url in urls {
-            uniqueURLsByKey[urlKey(for: url)] = url.standardizedFileURL
+            let standardizedURL = url.standardizedFileURL
+            urlsByKey[urlKey(for: standardizedURL)] = standardizedURL
         }
 
-        return uniqueURLsByKey.values.sorted(by: compareURLs)
+        return urlsByKey
+    }
+
+    nonisolated private static func parentDirectoryURLsByKey(for urls: [URL]) -> [String: URL] {
+        var directoryURLsByKey: [String: URL] = [:]
+
+        for url in urls {
+            let directoryURL = url.standardizedFileURL.deletingLastPathComponent()
+            directoryURLsByKey[urlKey(for: directoryURL)] = directoryURL
+        }
+
+        return directoryURLsByKey
+    }
+
+    nonisolated private static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
+        let normalizedURL = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let normalizedAncestorURL = ancestorURL.standardizedFileURL.resolvingSymlinksInPath().path
+
+        if normalizedURL == normalizedAncestorURL {
+            return true
+        }
+
+        let ancestorPrefix = normalizedAncestorURL == "/" ? "/" : normalizedAncestorURL + "/"
+        return normalizedURL.hasPrefix(ancestorPrefix)
     }
 
     nonisolated private static func urlKey(for url: URL) -> String {

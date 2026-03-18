@@ -46,6 +46,96 @@ struct AudioFile: Identifiable {
     // MARK: – Artwork
     let artwork: NSImage?
 
+    init(
+        id: UUID,
+        url: URL,
+        title: String,
+        artist: String,
+        album: String,
+        composer: String,
+        genre: String,
+        comment: String,
+        track: Int,
+        trackTotal: Int,
+        disc: Int,
+        discTotal: Int,
+        trackNumberText: String,
+        discNumberText: String,
+        year: String,
+        albumArtist: String,
+        releaseDate: String,
+        publisher: String,
+        copyright: String,
+        credits: String,
+        isExplicit: Bool,
+        duration: Double,
+        bitrate: Int,
+        sampleRate: Double,
+        channels: Int,
+        format: String,
+        artwork: NSImage?
+    ) {
+        self.id = id
+        self.url = url
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.composer = composer
+        self.genre = genre
+        self.comment = comment
+        self.track = track
+        self.trackTotal = trackTotal
+        self.disc = disc
+        self.discTotal = discTotal
+        self.trackNumberText = trackNumberText
+        self.discNumberText = discNumberText
+        self.year = year
+        self.albumArtist = albumArtist
+        self.releaseDate = releaseDate
+        self.publisher = publisher
+        self.copyright = copyright
+        self.credits = credits
+        self.isExplicit = isExplicit
+        self.duration = duration
+        self.bitrate = bitrate
+        self.sampleRate = sampleRate
+        self.channels = channels
+        self.format = format
+        self.artwork = artwork
+    }
+
+    func withUpdatedURL(_ url: URL) -> AudioFile {
+        AudioFile(
+            id: id,
+            url: url,
+            title: title,
+            artist: artist,
+            album: album,
+            composer: composer,
+            genre: genre,
+            comment: comment,
+            track: track,
+            trackTotal: trackTotal,
+            disc: disc,
+            discTotal: discTotal,
+            trackNumberText: trackNumberText,
+            discNumberText: discNumberText,
+            year: year,
+            albumArtist: albumArtist,
+            releaseDate: releaseDate,
+            publisher: publisher,
+            copyright: copyright,
+            credits: credits,
+            isExplicit: isExplicit,
+            duration: duration,
+            bitrate: bitrate,
+            sampleRate: sampleRate,
+            channels: channels,
+            format: format,
+            artwork: artwork
+        )
+    }
+
     // Shared helper for reading metadata values.
     private static func normalizedNumberText(
         rawText: String,

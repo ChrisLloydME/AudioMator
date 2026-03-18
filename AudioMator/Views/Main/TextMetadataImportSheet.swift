@@ -354,8 +354,9 @@ struct TextMetadataImportSheet: View {
                             Text("\(row.position)")
                                 .monospacedDigit()
                                 .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
                         }
-                        .width(44)
+                        .width(36)
 
                         TableColumn("File") { row in
                             Text(row.fileName)
@@ -377,12 +378,13 @@ struct TextMetadataImportSheet: View {
                         }
                         .width(min: 170, ideal: 210)
 
-                        TableColumn("Status") { row in
-                            Label(row.status.title, systemImage: row.status.symbolName)
-                                .font(.caption.weight(.medium))
+                        TableColumn("") { row in
+                            Image(systemName: row.status.symbolName)
                                 .foregroundStyle(row.status.tint)
+                                .frame(maxWidth: .infinity)
+                                .help(row.status.title)
                         }
-                        .width(min: 110, ideal: 130)
+                        .width(34)
                     }
                     .frame(minHeight: 280)
                 } else {

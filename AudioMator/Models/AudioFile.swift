@@ -153,23 +153,25 @@ struct AudioFile: Identifiable {
         self.releaseDate = tag.releaseDate
         self.isExplicit  = tag.isExplicit
 
-        // MARK: – Publisher / Copyright / Credits via AVFoundation
-
         let asset = AVURLAsset(url: url)
 
-        let allMetadataItems = try await asset.load(.metadata)
+        // MARK: – Publisher / Copyright / Credits via AVFoundation (best effort)
 
-        self.publisher = await AudioFile.readMetadata(
+        let allMetadataItems = (try? await asset.load(.metadata)) ?? []
+
+        let publisherFromAV = await AudioFile.readMetadata(
             from: allMetadataItems,
             commonKeys: [.commonKeyPublisher],
             id3Keys: ["TPUB"]
         )
+        self.publisher = publisherFromAV.isEmpty ? tag.publisher : publisherFromAV
 
-        self.copyright = await AudioFile.readMetadata(
+        let copyrightFromAV = await AudioFile.readMetadata(
             from: allMetadataItems,
             commonKeys: [.commonKeyCopyrights],
             id3Keys: ["TCOP"]
         )
+        self.copyright = copyrightFromAV.isEmpty ? tag.copyright : copyrightFromAV
 
         self.credits = await AudioFile.readMetadata(
             from: allMetadataItems,
@@ -177,28 +179,42 @@ struct AudioFile: Identifiable {
             id3Keys: ["TEXT"]
         )
 
-        // MARK: – Technical info via AVFoundation
+        // MARK: – Technical info with TagLib fallback
 
-        let durationTime = try await asset.load(.duration)
-        self.duration = CMTimeGetSeconds(durationTime)
+        var durationSeconds = tag.duration
+        if let durationTime = try? await asset.load(.duration) {
+            let seconds = CMTimeGetSeconds(durationTime)
+            if seconds.isFinite && seconds >= 0 {
+                durationSeconds = seconds
+            }
+        }
+        self.duration = durationSeconds
 
-        var bitrateKbps = 0
-        var sampleRateHz = 0.0
-        var channelsCount = 0
-        var formatName = ""
+        var bitrateKbps = tag.bitrate
+        var sampleRateHz = tag.sampleRate
+        var channelsCount = tag.channels
+        var formatName = tag.format
 
-        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-        if let track = audioTracks.first {
-            let estimatedRate = try await track.load(.estimatedDataRate)
-            bitrateKbps = Int(estimatedRate / 1000)
+        if let audioTracks = try? await asset.loadTracks(withMediaType: .audio),
+           let track = audioTracks.first {
+            if let estimatedRate = try? await track.load(.estimatedDataRate) {
+                let avBitrate = Int(estimatedRate / 1000)
+                if avBitrate > 0 {
+                    bitrateKbps = avBitrate
+                }
+            }
 
-            let descriptions = try await track.load(.formatDescriptions)
-            if let formatDesc = descriptions.first,
+            if let descriptions = try? await track.load(.formatDescriptions),
+               let formatDesc = descriptions.first,
                let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc) {
 
                 let asbd = asbdPtr.pointee
-                sampleRateHz = asbd.mSampleRate
-                channelsCount = Int(asbd.mChannelsPerFrame)
+                if asbd.mSampleRate > 0 {
+                    sampleRateHz = asbd.mSampleRate
+                }
+                if asbd.mChannelsPerFrame > 0 {
+                    channelsCount = Int(asbd.mChannelsPerFrame)
+                }
 
                 switch asbd.mFormatID {
                 case kAudioFormatMPEGLayer3:
@@ -206,19 +222,19 @@ struct AudioFile: Identifiable {
                 case kAudioFormatMPEG4AAC:
                     formatName = "AAC"
                 default:
-                    formatName = "Audio"
+                    break
                 }
             }
         }
 
-        self.bitrate    = bitrateKbps
+        self.bitrate = bitrateKbps
         self.sampleRate = sampleRateHz
-        self.channels   = channelsCount
-        self.format     = formatName
+        self.channels = channelsCount
+        self.format = formatName.isEmpty ? url.pathExtension.uppercased() : formatName
 
-        // MARK: – Artwork via AVFoundation
+        // MARK: – Artwork with TagLib fallback
 
-        let metadataItems = try await asset.load(.commonMetadata)
+        let metadataItems = (try? await asset.load(.commonMetadata)) ?? []
         let commonArtwork = AVMetadataItem.metadataItems(
             from: metadataItems,
             withKey: AVMetadataKey.commonKeyArtwork,
@@ -231,9 +247,13 @@ struct AudioFile: Identifiable {
             } else if let value = try? await item.load(.value),
                       let data = value as? Data {
                 self.artwork = NSImage(data: data)
+            } else if let data = tag.artworkData {
+                self.artwork = NSImage(data: data)
             } else {
                 self.artwork = nil
             }
+        } else if let data = tag.artworkData {
+            self.artwork = NSImage(data: data)
         } else {
             self.artwork = nil
         }

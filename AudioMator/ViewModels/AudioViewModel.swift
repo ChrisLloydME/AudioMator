@@ -516,12 +516,6 @@ final class AudioViewModel: ObservableObject {
     }
 
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {
-        let supportedExtensions: Set<String> = [
-            "mp3", "aac",
-            "m4a", "m4b", "m4p", "mp4",
-            "wav", "aiff", "aif",
-            "flac"
-        ]
         var audioURLs: [URL] = []
         var directoryURLs: [URL] = [folderURL.standardizedFileURL]
         var seenAudioKeys = Set<String>()
@@ -550,7 +544,7 @@ final class AudioViewModel: ObservableObject {
             }
 
             guard values.isRegularFile == true else { continue }
-            guard supportedExtensions.contains(url.pathExtension.lowercased()) else { continue }
+            guard AudioFormatSupport.readableExtensions.contains(url.pathExtension.lowercased()) else { continue }
 
             let key = urlKey(for: url)
             guard seenAudioKeys.insert(key).inserted else { continue }

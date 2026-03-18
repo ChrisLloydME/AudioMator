@@ -1,7 +1,6 @@
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
-
 extension AudioViewModel {
     // MARK: - File Import
 
@@ -12,13 +11,7 @@ extension AudioViewModel {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [
-            UTType.mp3,
-            UTType.mpeg4Audio,
-            UTType.wav,
-            UTType.aiff,
-            UTType(filenameExtension: "flac")
-        ].compactMap { $0 }
+        panel.allowedContentTypes = AudioFormatSupport.openPanelContentTypes
         panel.title = "Choose Audio Files"
 
         guard panel.runModal() == .OK else { return }

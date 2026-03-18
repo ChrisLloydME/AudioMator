@@ -206,12 +206,47 @@ static bool IsAIFFLikeExtension(NSString * _Nullable ext) {
            [lower isEqualToString:@"aif"];
 }
 
-static bool IsPropertyMapWritableExtension(NSString * _Nullable ext) {
+static bool IsXiphLikeExtension(NSString * _Nullable ext) {
     if (!ext) return false;
     NSString *lower = ext.lowercaseString;
     return [lower isEqualToString:@"flac"] ||
-           [lower isEqualToString:@"wav"] ||
-           IsAIFFLikeExtension(lower);
+           [lower isEqualToString:@"ogg"] ||
+           [lower isEqualToString:@"opus"] ||
+           [lower isEqualToString:@"spx"] ||
+           [lower isEqualToString:@"oga"];
+}
+
+static bool IsAPELikeExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    NSString *lower = ext.lowercaseString;
+    return [lower isEqualToString:@"ape"] ||
+           [lower isEqualToString:@"wv"] ||
+           [lower isEqualToString:@"mpc"];
+}
+
+static bool IsASFLikeExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    NSString *lower = ext.lowercaseString;
+    return [lower isEqualToString:@"wma"] ||
+           [lower isEqualToString:@"asf"];
+}
+
+static bool IsID3v2PropertyWritableExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    NSString *lower = ext.lowercaseString;
+    return [lower isEqualToString:@"wav"] ||
+           IsAIFFLikeExtension(lower) ||
+           [lower isEqualToString:@"tta"] ||
+           [lower isEqualToString:@"dsf"] ||
+           [lower isEqualToString:@"dff"];
+}
+
+static bool IsPropertyMapWritableExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    return IsXiphLikeExtension(ext) ||
+           IsAPELikeExtension(ext) ||
+           IsASFLikeExtension(ext) ||
+           IsID3v2PropertyWritableExtension(ext);
 }
 
 static void SetMP4TextItem(TagLib::MP4::Tag *tag,
@@ -357,8 +392,8 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     SetPropertyMapString(properties, "LABEL", metadata.label);
     SetPropertyMapString(properties, "ITUNESADVISORY", metadata.explicitContent ? @"1" : @"0");
 
-    if (metadata.trackNumber > 0 || metadata.totalTracks > 0) {
-        NSString *trackText = nil;
+    NSString *trackText = TrimmedStringOrNil(metadata.trackNumberText);
+    if (!trackText && (metadata.trackNumber > 0 || metadata.totalTracks > 0)) {
         if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
             trackText = [NSString stringWithFormat:@"%ld/%ld",
                          (long)metadata.trackNumber,
@@ -366,13 +401,11 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
         } else if (metadata.trackNumber > 0) {
             trackText = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
         }
-        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
-    } else {
-        properties.erase("TRACKNUMBER");
     }
+    SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
 
-    if (metadata.discNumber > 0 || metadata.totalDiscs > 0) {
-        NSString *discText = nil;
+    NSString *discText = TrimmedStringOrNil(metadata.discNumberText);
+    if (!discText && (metadata.discNumber > 0 || metadata.totalDiscs > 0)) {
         if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
             discText = [NSString stringWithFormat:@"%ld/%ld",
                         (long)metadata.discNumber,
@@ -380,10 +413,8 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
         } else if (metadata.discNumber > 0) {
             discText = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
         }
-        SetPropertyMapNumberText(properties, "DISCNUMBER", discText);
-    } else {
-        properties.erase("DISCNUMBER");
     }
+    SetPropertyMapNumberText(properties, "DISCNUMBER", discText);
 
     return properties;
 }
@@ -420,6 +451,136 @@ static TagLib::List<TagLib::VariantMap> BuildPictureComplexProperties(TagLibAudi
     return pictures;
 }
 
+template <typename ComplexPropertyTarget>
+static bool ApplyPictureComplexProperties(ComplexPropertyTarget *target,
+                                          TagLibAudioMetadata *metadata,
+                                          NSError **error,
+                                          NSInteger clearErrorCode,
+                                          NSString *clearErrorMessage,
+                                          NSInteger writeErrorCode,
+                                          NSString *writeErrorMessage,
+                                          NSString *logContext)
+{
+    if (!target || !metadata) {
+        return true;
+    }
+
+    if (metadata.removeArtwork) {
+        if (!target->setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:clearErrorCode
+                                         userInfo:@{ NSLocalizedDescriptionKey : clearErrorMessage }];
+            }
+            TLog(@"Failed to clear artwork for %@ via complex properties", logContext);
+            return false;
+        }
+    } else if (metadata.artworkData.length > 0) {
+        if (!target->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:writeErrorCode
+                                         userInfo:@{ NSLocalizedDescriptionKey : writeErrorMessage }];
+            }
+            TLog(@"Failed to write artwork for %@ via complex properties", logContext);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+template <typename ComplexPropertyTarget>
+static void ExtractArtworkFromComplexProperties(ComplexPropertyTarget *target,
+                                                TagLibAudioMetadata *metadata)
+{
+    if (!target || !metadata || metadata.artworkData.length > 0) {
+        return;
+    }
+
+    TagLib::List<TagLib::VariantMap> pictures = target->complexProperties("PICTURE");
+    if (pictures.isEmpty()) {
+        return;
+    }
+
+    TagLib::ByteVector fallbackData;
+    NSString *fallbackMimeType = nil;
+
+    for (const auto &picture : pictures) {
+        TagLib::ByteVector imageData = picture.value("data").value<TagLib::ByteVector>();
+        if (imageData.isEmpty()) {
+            continue;
+        }
+
+        NSString *mimeType = TagStringToNSString(picture.value("mimeType").value<TagLib::String>());
+        TagLib::String pictureType = picture.value("pictureType").value<TagLib::String>();
+
+        if (fallbackData.isEmpty()) {
+            fallbackData = imageData;
+            fallbackMimeType = mimeType;
+        }
+
+        if (pictureType.isEmpty() || pictureType.upper() == "FRONT COVER") {
+            metadata.artworkData = [NSData dataWithBytes:imageData.data() length:imageData.size()];
+            metadata.artworkMimeType = mimeType;
+            return;
+        }
+    }
+
+    if (!fallbackData.isEmpty()) {
+        metadata.artworkData = [NSData dataWithBytes:fallbackData.data() length:fallbackData.size()];
+        metadata.artworkMimeType = fallbackMimeType;
+    }
+}
+
+template <typename FileType>
+static void ApplyGenericPropertyMapToFile(FileType &file, TagLibAudioMetadata *metadata)
+{
+    TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
+    file.setProperties(properties);
+}
+
+template <typename FileType>
+static bool WritePropertyMapNumberTextToFile(FileType &file,
+                                             NSString * _Nullable trackNumberText,
+                                             NSString * _Nullable discNumberText,
+                                             NSError **error,
+                                             NSInteger openErrorCode,
+                                             NSString *openErrorMessage,
+                                             NSInteger saveErrorCode,
+                                             NSString *saveErrorMessage,
+                                             NSString *logContext)
+{
+    if (!file.isValid()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:openErrorCode
+                                     userInfo:@{ NSLocalizedDescriptionKey : openErrorMessage }];
+        }
+        TLog(@"Failed to open %@ for track/disc write", logContext);
+        return false;
+    }
+
+    TagLib::PropertyMap properties = file.properties();
+    SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+    if (discNumberText != nil) {
+        SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+    }
+    file.setProperties(properties);
+
+    if (!file.save()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:saveErrorCode
+                                     userInfo:@{ NSLocalizedDescriptionKey : saveErrorMessage }];
+        }
+        TLog(@"TagLib save() failed after track/disc write for %@", logContext);
+        return false;
+    }
+
+    return true;
+}
+
 // Ensure an ID3v2 text frame exists and set its text
 static void SetID3v2TextFrame(TagLib::ID3v2::Tag *tag,
                               const char *frameID,
@@ -427,19 +588,23 @@ static void SetID3v2TextFrame(TagLib::ID3v2::Tag *tag,
     if (!tag || !frameID) {
         return;
     }
-    if (!value || value.length == 0) {
-        // For now, do not remove frames when the value is empty.
+    NSString *trimmed = TrimmedStringOrNil(value);
+    TagLib::ID3v2::FrameList frames = tag->frameList(frameID);
+
+    if (!trimmed) {
+        for (auto it = frames.begin(); it != frames.end(); ++it) {
+            tag->removeFrame(*it);
+        }
         return;
     }
-    
-    TagLib::ID3v2::FrameList frames = tag->frameList(frameID);
+
     TagLib::ID3v2::TextIdentificationFrame *textFrame = nullptr;
     
     if (!frames.isEmpty()) {
         textFrame = dynamic_cast<TagLib::ID3v2::TextIdentificationFrame *>(frames.front());
     }
     
-    TagLib::String tValue(value.UTF8String, TagLib::String::UTF8);
+    TagLib::String tValue(trimmed.UTF8String, TagLib::String::UTF8);
     
     if (!textFrame) {
         TagLib::ByteVector id(frameID, 4);
@@ -1443,6 +1608,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             
             if (vorbisFile.tag()) {
                 ExtractXiphCommentMetadata(vorbisFile.tag(), metadata);
+                ExtractArtworkFromComplexProperties(vorbisFile.tag(), metadata);
             }
         }
     }
@@ -1454,6 +1620,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             
             if (opusFile.tag()) {
                 ExtractXiphCommentMetadata(opusFile.tag(), metadata);
+                ExtractArtworkFromComplexProperties(opusFile.tag(), metadata);
             }
         }
     }
@@ -1465,6 +1632,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             
             if (oggFlacFile.tag()) {
                 ExtractXiphCommentMetadata(oggFlacFile.tag(), metadata);
+                ExtractArtworkFromComplexProperties(oggFlacFile.tag(), metadata);
             }
         }
     }
@@ -1565,6 +1733,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             
             if (speexFile.tag()) {
                 ExtractXiphCommentMetadata(speexFile.tag(), metadata);
+                ExtractArtworkFromComplexProperties(speexFile.tag(), metadata);
             }
         }
     }
@@ -1574,6 +1743,9 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         if (asfFile.isValid()) {
             metadata.codec = @"WMA";
             ApplyGenericPropertyMapMetadata(asfFile.properties(), metadata);
+            if (asfFile.tag()) {
+                ExtractArtworkFromComplexProperties(asfFile.tag(), metadata);
+            }
         }
     }
     // DSF
@@ -1596,7 +1768,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         TagLib::DSDIFF::File dsdiffFile(filePath);
         if (dsdiffFile.isValid()) {
             metadata.codec = @"DSDIFF";
-            // DSDIFF metadata is minimal
+
+            if (dsdiffFile.hasID3v2Tag()) {
+                ExtractID3v2Metadata(dsdiffFile.ID3v2Tag(), metadata);
+            }
         }
     }
     
@@ -1679,7 +1854,7 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:41
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track numbers is currently supported for MPEG, MP4/M4A, FLAC, WAV and AIFF files" }];
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track numbers is currently supported for every format that AudioMator can edit metadata for" }];
         }
         TLog(@"Track renumber skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
         return NO;
@@ -1715,12 +1890,7 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
         }
 
         TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
-        if (id3v2Tag) {
-            NSString *trck = BuildTRCKString(trackNumber, totalTracks, padWidth);
-            if (trck.length > 0) {
-                SetID3v2TextFrame(id3v2Tag, "TRCK", trck);
-            }
-        }
+        SetID3v2TextFrame(id3v2Tag, "TRCK", BuildTRCKString(trackNumber, totalTracks, padWidth));
 
         if (!mpegFile.save()) {
             if (error) {
@@ -1774,83 +1944,184 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
         }
     } else if ([ext isEqualToString:@"flac"]) {
         TagLib::FLAC::File flacFile(filePath);
-
-        if (!flacFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:48
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open FLAC file for writing track numbers" }];
-            }
-            TLog(@"Failed to open FLAC '%@' for track renumbering", fileURL.lastPathComponent);
+        if (!WritePropertyMapNumberTextToFile(flacFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              48,
+                                              @"Unable to open FLAC file for writing track numbers",
+                                              49,
+                                              @"TagLib failed to save FLAC track numbers",
+                                              [NSString stringWithFormat:@"FLAC '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
-
-        TagLib::PropertyMap properties = flacFile.properties();
-        NSString *trackText = BuildTRCKString(trackNumber, totalTracks, padWidth);
-        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
-        flacFile.setProperties(properties);
-
-        if (!flacFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:49
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save FLAC track numbers" }];
-            }
-            TLog(@"TagLib save() failed after FLAC track renumbering for '%@'", fileURL.lastPathComponent);
+    } else if ([ext isEqualToString:@"ogg"]) {
+        TagLib::Ogg::Vorbis::File vorbisFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(vorbisFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              74,
+                                              @"Unable to open Ogg Vorbis file for writing track numbers",
+                                              75,
+                                              @"TagLib failed to save Ogg Vorbis track numbers",
+                                              [NSString stringWithFormat:@"Ogg Vorbis '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"opus"]) {
+        TagLib::Ogg::Opus::File opusFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(opusFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              76,
+                                              @"Unable to open Opus file for writing track numbers",
+                                              77,
+                                              @"TagLib failed to save Opus track numbers",
+                                              [NSString stringWithFormat:@"Opus '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"oga"]) {
+        TagLib::Ogg::FLAC::File oggFlacFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(oggFlacFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              78,
+                                              @"Unable to open Ogg FLAC file for writing track numbers",
+                                              79,
+                                              @"TagLib failed to save Ogg FLAC track numbers",
+                                              [NSString stringWithFormat:@"Ogg FLAC '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"spx"]) {
+        TagLib::Ogg::Speex::File speexFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(speexFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              80,
+                                              @"Unable to open Speex file for writing track numbers",
+                                              81,
+                                              @"TagLib failed to save Speex track numbers",
+                                              [NSString stringWithFormat:@"Speex '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"ape"]) {
+        TagLib::APE::File apeFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(apeFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              82,
+                                              @"Unable to open APE file for writing track numbers",
+                                              83,
+                                              @"TagLib failed to save APE track numbers",
+                                              [NSString stringWithFormat:@"APE '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"wv"]) {
+        TagLib::WavPack::File wavPackFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(wavPackFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              84,
+                                              @"Unable to open WavPack file for writing track numbers",
+                                              85,
+                                              @"TagLib failed to save WavPack track numbers",
+                                              [NSString stringWithFormat:@"WavPack '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"mpc"]) {
+        TagLib::MPC::File mpcFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(mpcFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              86,
+                                              @"Unable to open Musepack file for writing track numbers",
+                                              87,
+                                              @"TagLib failed to save Musepack track numbers",
+                                              [NSString stringWithFormat:@"Musepack '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
     } else if ([ext isEqualToString:@"wav"]) {
         TagLib::RIFF::WAV::File wavFile(filePath);
-
-        if (!wavFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:60
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open WAV file for writing track numbers" }];
-            }
-            TLog(@"Failed to open WAV '%@' for track renumbering", fileURL.lastPathComponent);
+        if (!WritePropertyMapNumberTextToFile(wavFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              60,
+                                              @"Unable to open WAV file for writing track numbers",
+                                              61,
+                                              @"TagLib failed to save WAV track numbers",
+                                              [NSString stringWithFormat:@"WAV '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
-
-        TagLib::PropertyMap properties = wavFile.properties();
-        NSString *trackText = BuildTRCKString(trackNumber, totalTracks, padWidth);
-        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
-        wavFile.setProperties(properties);
-
-        if (!wavFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:61
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save WAV track numbers" }];
-            }
-            TLog(@"TagLib save() failed after WAV track renumbering for '%@'", fileURL.lastPathComponent);
+    } else if (IsAIFFLikeExtension(ext)) {
+        TagLib::RIFF::AIFF::File aiffFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(aiffFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              62,
+                                              @"Unable to open AIFF file for writing track numbers",
+                                              63,
+                                              @"TagLib failed to save AIFF track numbers",
+                                              [NSString stringWithFormat:@"AIFF '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"tta"]) {
+        TagLib::TrueAudio::File ttaFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(ttaFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              88,
+                                              @"Unable to open TrueAudio file for writing track numbers",
+                                              89,
+                                              @"TagLib failed to save TrueAudio track numbers",
+                                              [NSString stringWithFormat:@"TrueAudio '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if (IsASFLikeExtension(ext)) {
+        TagLib::ASF::File asfFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(asfFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              90,
+                                              @"Unable to open ASF/WMA file for writing track numbers",
+                                              91,
+                                              @"TagLib failed to save ASF/WMA track numbers",
+                                              [NSString stringWithFormat:@"ASF/WMA '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"dsf"]) {
+        TagLib::DSF::File dsfFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(dsfFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              92,
+                                              @"Unable to open DSF file for writing track numbers",
+                                              93,
+                                              @"TagLib failed to save DSF track numbers",
+                                              [NSString stringWithFormat:@"DSF '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
     } else {
-        TagLib::RIFF::AIFF::File aiffFile(filePath);
-
-        if (!aiffFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:62
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open AIFF file for writing track numbers" }];
-            }
-            TLog(@"Failed to open AIFF '%@' for track renumbering", fileURL.lastPathComponent);
-            return NO;
-        }
-
-        TagLib::PropertyMap properties = aiffFile.properties();
-        NSString *trackText = BuildTRCKString(trackNumber, totalTracks, padWidth);
-        SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
-        aiffFile.setProperties(properties);
-
-        if (!aiffFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:63
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save AIFF track numbers" }];
-            }
-            TLog(@"TagLib save() failed after AIFF track renumbering for '%@'", fileURL.lastPathComponent);
+        TagLib::DSDIFF::File dsdiffFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(dsdiffFile,
+                                              BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                              nil,
+                                              error,
+                                              94,
+                                              @"Unable to open DSDIFF file for writing track numbers",
+                                              95,
+                                              @"TagLib failed to save DSDIFF track numbers",
+                                              [NSString stringWithFormat:@"DSDIFF '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
     }
@@ -1924,7 +2195,7 @@ static void ParseNumberPairFromNSString(NSString *text,
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:51
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track/disc numbers is currently supported for MPEG, MP4/M4A, FLAC, WAV and AIFF files" }];
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing track/disc numbers is currently supported for every format that AudioMator can edit metadata for" }];
         }
         TLog(@"Track/disc write skipped for '%@' (extension '%@' not supported)", fileURL.lastPathComponent, ext);
         return NO;
@@ -1957,42 +2228,25 @@ static void ParseNumberPairFromNSString(NSString *text,
 
         TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
 
-        // Track
-        if (trackNumberText.length > 0) {
+        NSString *trimmedTrackText = TrimmedStringOrNil(trackNumberText);
+        if (trimmedTrackText) {
             NSInteger trackNumber = 0;
             NSInteger totalTracks = 0;
             NSInteger padWidth = 0;
-            ParseNumberPairFromNSString(trackNumberText, trackNumber, totalTracks, padWidth);
-
-            if (trackNumber > 0) {
-                tag->setTrack((unsigned int)trackNumber);
-            }
+            ParseNumberPairFromNSString(trimmedTrackText, trackNumber, totalTracks, padWidth);
+            tag->setTrack(trackNumber > 0 ? (unsigned int)trackNumber : 0);
 
             if (id3v2Tag) {
-                // Preserve caller-provided formatting (including padding and "/total"),
-                // but also ensure we can generate a consistent string when only a number is provided.
-                NSString *trimmed = [trackNumberText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                NSString *trckToWrite = trimmed;
-
-                // Rebuild from parsed numbers to normalize whitespace and keep padding semantics.
-                NSString *rebuilt = BuildTRCKString(trackNumber, totalTracks, padWidth);
-                if (rebuilt.length > 0) {
-                    trckToWrite = rebuilt;
-                }
-
-                if (trckToWrite.length > 0) {
-                    SetID3v2TextFrame(id3v2Tag, "TRCK", trckToWrite);
-                }
+                NSString *trckToWrite = BuildTRCKString(trackNumber, totalTracks, padWidth) ?: trimmedTrackText;
+                SetID3v2TextFrame(id3v2Tag, "TRCK", trckToWrite);
             }
+        } else {
+            tag->setTrack(0);
+            SetID3v2TextFrame(id3v2Tag, "TRCK", nil);
         }
 
-        // Disc (ID3v2 only; TagLib::Tag has no disc setter)
-        if (discNumberText.length > 0 && id3v2Tag) {
-            // We keep disc text as provided (after trimming). Most software uses TPOS like "1/2".
-            NSString *trimmed = [discNumberText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            if (trimmed.length > 0) {
-                SetID3v2TextFrame(id3v2Tag, "TPOS", trimmed);
-            }
+        if (discNumberText != nil && id3v2Tag) {
+            SetID3v2TextFrame(id3v2Tag, "TPOS", TrimmedStringOrNil(discNumberText));
         }
 
         if (!mpegFile.save()) {
@@ -2071,95 +2325,184 @@ static void ParseNumberPairFromNSString(NSString *text,
         }
     } else if ([ext isEqualToString:@"flac"]) {
         TagLib::FLAC::File flacFile(filePath);
-
-        if (!flacFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:58
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open FLAC file for writing track/disc numbers" }];
-            }
-            TLog(@"Failed to open FLAC '%@' for track/disc write", fileURL.lastPathComponent);
+        if (!WritePropertyMapNumberTextToFile(flacFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              58,
+                                              @"Unable to open FLAC file for writing track/disc numbers",
+                                              59,
+                                              @"TagLib failed to save FLAC track/disc numbers",
+                                              [NSString stringWithFormat:@"FLAC '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
-
-        TagLib::PropertyMap properties = flacFile.properties();
-        if (trackNumberText.length > 0) {
-            SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+    } else if ([ext isEqualToString:@"ogg"]) {
+        TagLib::Ogg::Vorbis::File vorbisFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(vorbisFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              96,
+                                              @"Unable to open Ogg Vorbis file for writing track/disc numbers",
+                                              97,
+                                              @"TagLib failed to save Ogg Vorbis track/disc numbers",
+                                              [NSString stringWithFormat:@"Ogg Vorbis '%@'", fileURL.lastPathComponent])) {
+            return NO;
         }
-        if (discNumberText.length > 0) {
-            SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+    } else if ([ext isEqualToString:@"opus"]) {
+        TagLib::Ogg::Opus::File opusFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(opusFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              98,
+                                              @"Unable to open Opus file for writing track/disc numbers",
+                                              99,
+                                              @"TagLib failed to save Opus track/disc numbers",
+                                              [NSString stringWithFormat:@"Opus '%@'", fileURL.lastPathComponent])) {
+            return NO;
         }
-        flacFile.setProperties(properties);
-
-        if (!flacFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:59
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save FLAC track/disc numbers" }];
-            }
-            TLog(@"TagLib save() failed after FLAC track/disc write for '%@'", fileURL.lastPathComponent);
+    } else if ([ext isEqualToString:@"oga"]) {
+        TagLib::Ogg::FLAC::File oggFlacFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(oggFlacFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              100,
+                                              @"Unable to open Ogg FLAC file for writing track/disc numbers",
+                                              101,
+                                              @"TagLib failed to save Ogg FLAC track/disc numbers",
+                                              [NSString stringWithFormat:@"Ogg FLAC '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"spx"]) {
+        TagLib::Ogg::Speex::File speexFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(speexFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              102,
+                                              @"Unable to open Speex file for writing track/disc numbers",
+                                              103,
+                                              @"TagLib failed to save Speex track/disc numbers",
+                                              [NSString stringWithFormat:@"Speex '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"ape"]) {
+        TagLib::APE::File apeFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(apeFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              104,
+                                              @"Unable to open APE file for writing track/disc numbers",
+                                              105,
+                                              @"TagLib failed to save APE track/disc numbers",
+                                              [NSString stringWithFormat:@"APE '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"wv"]) {
+        TagLib::WavPack::File wavPackFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(wavPackFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              106,
+                                              @"Unable to open WavPack file for writing track/disc numbers",
+                                              107,
+                                              @"TagLib failed to save WavPack track/disc numbers",
+                                              [NSString stringWithFormat:@"WavPack '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"mpc"]) {
+        TagLib::MPC::File mpcFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(mpcFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              108,
+                                              @"Unable to open Musepack file for writing track/disc numbers",
+                                              109,
+                                              @"TagLib failed to save Musepack track/disc numbers",
+                                              [NSString stringWithFormat:@"Musepack '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
     } else if ([ext isEqualToString:@"wav"]) {
         TagLib::RIFF::WAV::File wavFile(filePath);
-
-        if (!wavFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:64
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open WAV file for writing track/disc numbers" }];
-            }
-            TLog(@"Failed to open WAV '%@' for track/disc write", fileURL.lastPathComponent);
+        if (!WritePropertyMapNumberTextToFile(wavFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              64,
+                                              @"Unable to open WAV file for writing track/disc numbers",
+                                              65,
+                                              @"TagLib failed to save WAV track/disc numbers",
+                                              [NSString stringWithFormat:@"WAV '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
-
-        TagLib::PropertyMap properties = wavFile.properties();
-        if (trackNumberText.length > 0) {
-            SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+    } else if (IsAIFFLikeExtension(ext)) {
+        TagLib::RIFF::AIFF::File aiffFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(aiffFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              66,
+                                              @"Unable to open AIFF file for writing track/disc numbers",
+                                              67,
+                                              @"TagLib failed to save AIFF track/disc numbers",
+                                              [NSString stringWithFormat:@"AIFF '%@'", fileURL.lastPathComponent])) {
+            return NO;
         }
-        if (discNumberText.length > 0) {
-            SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+    } else if ([ext isEqualToString:@"tta"]) {
+        TagLib::TrueAudio::File ttaFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(ttaFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              110,
+                                              @"Unable to open TrueAudio file for writing track/disc numbers",
+                                              111,
+                                              @"TagLib failed to save TrueAudio track/disc numbers",
+                                              [NSString stringWithFormat:@"TrueAudio '%@'", fileURL.lastPathComponent])) {
+            return NO;
         }
-        wavFile.setProperties(properties);
-
-        if (!wavFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:65
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save WAV track/disc numbers" }];
-            }
-            TLog(@"TagLib save() failed after WAV track/disc write for '%@'", fileURL.lastPathComponent);
+    } else if (IsASFLikeExtension(ext)) {
+        TagLib::ASF::File asfFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(asfFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              112,
+                                              @"Unable to open ASF/WMA file for writing track/disc numbers",
+                                              113,
+                                              @"TagLib failed to save ASF/WMA track/disc numbers",
+                                              [NSString stringWithFormat:@"ASF/WMA '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"dsf"]) {
+        TagLib::DSF::File dsfFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(dsfFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              114,
+                                              @"Unable to open DSF file for writing track/disc numbers",
+                                              115,
+                                              @"TagLib failed to save DSF track/disc numbers",
+                                              [NSString stringWithFormat:@"DSF '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
     } else {
-        TagLib::RIFF::AIFF::File aiffFile(filePath);
-
-        if (!aiffFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:66
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open AIFF file for writing track/disc numbers" }];
-            }
-            TLog(@"Failed to open AIFF '%@' for track/disc write", fileURL.lastPathComponent);
-            return NO;
-        }
-
-        TagLib::PropertyMap properties = aiffFile.properties();
-        if (trackNumberText.length > 0) {
-            SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
-        }
-        if (discNumberText.length > 0) {
-            SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
-        }
-        aiffFile.setProperties(properties);
-
-        if (!aiffFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:67
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save AIFF track/disc numbers" }];
-            }
-            TLog(@"TagLib save() failed after AIFF track/disc write for '%@'", fileURL.lastPathComponent);
+        TagLib::DSDIFF::File dsdiffFile(filePath);
+        if (!WritePropertyMapNumberTextToFile(dsdiffFile,
+                                              TrimmedStringOrNil(trackNumberText),
+                                              discNumberText,
+                                              error,
+                                              116,
+                                              @"Unable to open DSDIFF file for writing track/disc numbers",
+                                              117,
+                                              @"TagLib failed to save DSDIFF track/disc numbers",
+                                              [NSString stringWithFormat:@"DSDIFF '%@'", fileURL.lastPathComponent])) {
             return NO;
         }
     }
@@ -2195,7 +2538,7 @@ static void ParseNumberPairFromNSString(NSString *text,
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:11
-                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing metadata is currently supported for MPEG, MP4/M4A, FLAC, WAV and AIFF files" }];
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Writing metadata is currently supported for every format that AudioMator can edit metadata for" }];
         }
         TLog(@"Write skipped for '%@' (extension '%@' not supported for writing)", fileURL.lastPathComponent, ext);
         return NO;
@@ -2275,62 +2618,36 @@ static void ParseNumberPairFromNSString(NSString *text,
         // --- ID3v2-specific extended fields ---
         TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true); // create if missing
         if (id3v2Tag) {
-            // Album artist (TPE2)
-            if (metadata.albumArtist) {
-                SetID3v2TextFrame(id3v2Tag, "TPE2", metadata.albumArtist);
-            }
+            SetID3v2TextFrame(id3v2Tag, "TPE2", metadata.albumArtist);
+            SetID3v2TextFrame(id3v2Tag, "TCOM", metadata.composer);
 
-            // Composer (TCOM)
-            if (metadata.composer) {
-                SetID3v2TextFrame(id3v2Tag, "TCOM", metadata.composer);
+            NSString *trackString = nil;
+            if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
+                trackString = [NSString stringWithFormat:@"%ld/%ld",
+                               (long)metadata.trackNumber,
+                               (long)metadata.totalTracks];
+            } else if (metadata.trackNumber > 0) {
+                trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
             }
+            SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
 
-            // Track number / total (TRCK)
-            if (metadata.trackNumber > 0 || metadata.totalTracks > 0) {
-                NSString *trackString = nil;
-                if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
-                    trackString = [NSString stringWithFormat:@"%ld/%ld",
-                                   (long)metadata.trackNumber,
-                                   (long)metadata.totalTracks];
-                } else if (metadata.trackNumber > 0) {
-                    trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
-                }
-                if (trackString.length > 0) {
-                    SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
-                }
+            NSString *discString = nil;
+            if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
+                discString = [NSString stringWithFormat:@"%ld/%ld",
+                              (long)metadata.discNumber,
+                              (long)metadata.totalDiscs];
+            } else if (metadata.discNumber > 0) {
+                discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
             }
+            SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
 
-            // Disc number / total (TPOS)
-            if (metadata.discNumber > 0 || metadata.totalDiscs > 0) {
-                NSString *discString = nil;
-                if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
-                    discString = [NSString stringWithFormat:@"%ld/%ld",
-                                  (long)metadata.discNumber,
-                                  (long)metadata.totalDiscs];
-                } else if (metadata.discNumber > 0) {
-                    discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
-                }
-                if (discString.length > 0) {
-                    SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
-                }
-            }
-
-            // Release date (TDRL) – prefer explicit releaseDate, fallback to year
-            if (metadata.releaseDate.length > 0) {
-                SetID3v2TextFrame(id3v2Tag, "TDRL", metadata.releaseDate);
-            } else if (metadata.year.length > 0) {
-                SetID3v2TextFrame(id3v2Tag, "TDRL", metadata.year);
-            }
-
-            // Copyright (TCOP)
-            if (metadata.copyright.length > 0) {
-                SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
-            }
-
-            // Publisher / label (TPUB)
-            if (metadata.label.length > 0) {
-                SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
-            }
+            SetID3v2TextFrame(
+                id3v2Tag,
+                "TDRL",
+                metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year
+            );
+            SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
+            SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
 
             // Explicit advisory (TXXX:ITUNESADVISORY, 0 = none, 1 = explicit, 2 = clean)
             // Here we treat `explicitContent == YES` as advisory = 1, otherwise 0.
@@ -2342,26 +2659,15 @@ static void ParseNumberPairFromNSString(NSString *text,
                 SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
             }
 
-            if (metadata.removeArtwork) {
-                if (!id3v2Tag->setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
-                    if (error) {
-                        *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                     code:68
-                                                 userInfo:@{ NSLocalizedDescriptionKey : @"Unable to clear artwork from the ID3v2 tag" }];
-                    }
-                    TLog(@"Failed to clear artwork for '%@' via ID3v2 complex properties", fileURL.lastPathComponent);
-                    return NO;
-                }
-            } else if (metadata.artworkData.length > 0) {
-                if (!id3v2Tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
-                    if (error) {
-                        *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                     code:69
-                                                 userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the ID3v2 tag" }];
-                    }
-                    TLog(@"Failed to write artwork for '%@' via ID3v2 complex properties", fileURL.lastPathComponent);
-                    return NO;
-                }
+            if (!ApplyPictureComplexProperties(id3v2Tag,
+                                               metadata,
+                                               error,
+                                               68,
+                                               @"Unable to clear artwork from the ID3v2 tag",
+                                               69,
+                                               @"Unable to write artwork into the ID3v2 tag",
+                                               [NSString stringWithFormat:@"MPEG '%@'", fileURL.lastPathComponent])) {
+                return NO;
             }
         }
 
@@ -2440,26 +2746,15 @@ static void ParseNumberPairFromNSString(NSString *text,
             tag->removeItem("rtng");
         }
 
-        if (metadata.removeArtwork) {
-            if (!tag->setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
-                if (error) {
-                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                 code:70
-                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to clear artwork from the MP4 tag" }];
-                }
-                TLog(@"Failed to clear artwork for MP4 '%@'", fileURL.lastPathComponent);
-                return NO;
-            }
-        } else if (metadata.artworkData.length > 0) {
-            if (!tag->setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
-                if (error) {
-                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                 code:71
-                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the MP4 tag" }];
-                }
-                TLog(@"Failed to write artwork for MP4 '%@'", fileURL.lastPathComponent);
-                return NO;
-            }
+        if (!ApplyPictureComplexProperties(tag,
+                                           metadata,
+                                           error,
+                                           70,
+                                           @"Unable to clear artwork from the MP4 tag",
+                                           71,
+                                           @"Unable to write artwork into the MP4 tag",
+                                           [NSString stringWithFormat:@"MP4 '%@'", fileURL.lastPathComponent])) {
+            return NO;
         }
 
         if (!mp4File.save()) {
@@ -2484,29 +2779,16 @@ static void ParseNumberPairFromNSString(NSString *text,
             return NO;
         }
 
-        TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
-        flacFile.setProperties(properties);
-
-        if (metadata.removeArtwork) {
-            if (!flacFile.setComplexProperties("PICTURE", TagLib::List<TagLib::VariantMap>())) {
-                if (error) {
-                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                 code:72
-                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to clear artwork from the FLAC metadata blocks" }];
-                }
-                TLog(@"Failed to clear artwork for FLAC '%@'", fileURL.lastPathComponent);
-                return NO;
-            }
-        } else if (metadata.artworkData.length > 0) {
-            if (!flacFile.setComplexProperties("PICTURE", BuildPictureComplexProperties(metadata))) {
-                if (error) {
-                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                                 code:73
-                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to write artwork into the FLAC metadata blocks" }];
-                }
-                TLog(@"Failed to write artwork for FLAC '%@'", fileURL.lastPathComponent);
-                return NO;
-            }
+        ApplyGenericPropertyMapToFile(flacFile, metadata);
+        if (!ApplyPictureComplexProperties(&flacFile,
+                                           metadata,
+                                           error,
+                                           72,
+                                           @"Unable to clear artwork from the FLAC metadata blocks",
+                                           73,
+                                           @"Unable to write artwork into the FLAC metadata blocks",
+                                           [NSString stringWithFormat:@"FLAC '%@'", fileURL.lastPathComponent])) {
+            return NO;
         }
 
         if (!flacFile.save()) {
@@ -2516,6 +2798,244 @@ static void ParseNumberPairFromNSString(NSString *text,
                                          userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to FLAC file" }];
             }
             TLog(@"TagLib save() failed for FLAC '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"ogg"]) {
+        TagLib::Ogg::Vorbis::File vorbisFile(filePath);
+
+        if (!vorbisFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:118
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open Ogg Vorbis file for writing metadata" }];
+            }
+            TLog(@"Failed to open Ogg Vorbis '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(vorbisFile, metadata);
+        if (!ApplyPictureComplexProperties(vorbisFile.tag(),
+                                           metadata,
+                                           error,
+                                           120,
+                                           @"Unable to clear artwork from the Ogg Vorbis comments",
+                                           121,
+                                           @"Unable to write artwork into the Ogg Vorbis comments",
+                                           [NSString stringWithFormat:@"Ogg Vorbis '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!vorbisFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:119
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to Ogg Vorbis file" }];
+            }
+            TLog(@"TagLib save() failed for Ogg Vorbis '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"opus"]) {
+        TagLib::Ogg::Opus::File opusFile(filePath);
+
+        if (!opusFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:122
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open Opus file for writing metadata" }];
+            }
+            TLog(@"Failed to open Opus '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(opusFile, metadata);
+        if (!ApplyPictureComplexProperties(opusFile.tag(),
+                                           metadata,
+                                           error,
+                                           124,
+                                           @"Unable to clear artwork from the Opus comments",
+                                           125,
+                                           @"Unable to write artwork into the Opus comments",
+                                           [NSString stringWithFormat:@"Opus '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!opusFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:123
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to Opus file" }];
+            }
+            TLog(@"TagLib save() failed for Opus '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"oga"]) {
+        TagLib::Ogg::FLAC::File oggFlacFile(filePath);
+
+        if (!oggFlacFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:126
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open Ogg FLAC file for writing metadata" }];
+            }
+            TLog(@"Failed to open Ogg FLAC '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(oggFlacFile, metadata);
+        if (!ApplyPictureComplexProperties(oggFlacFile.tag(),
+                                           metadata,
+                                           error,
+                                           128,
+                                           @"Unable to clear artwork from the Ogg FLAC comments",
+                                           129,
+                                           @"Unable to write artwork into the Ogg FLAC comments",
+                                           [NSString stringWithFormat:@"Ogg FLAC '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!oggFlacFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:127
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to Ogg FLAC file" }];
+            }
+            TLog(@"TagLib save() failed for Ogg FLAC '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"spx"]) {
+        TagLib::Ogg::Speex::File speexFile(filePath);
+
+        if (!speexFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:130
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open Speex file for writing metadata" }];
+            }
+            TLog(@"Failed to open Speex '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(speexFile, metadata);
+        if (!ApplyPictureComplexProperties(speexFile.tag(),
+                                           metadata,
+                                           error,
+                                           132,
+                                           @"Unable to clear artwork from the Speex comments",
+                                           133,
+                                           @"Unable to write artwork into the Speex comments",
+                                           [NSString stringWithFormat:@"Speex '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!speexFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:131
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to Speex file" }];
+            }
+            TLog(@"TagLib save() failed for Speex '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"ape"]) {
+        TagLib::APE::File apeFile(filePath);
+
+        if (!apeFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:134
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open APE file for writing metadata" }];
+            }
+            TLog(@"Failed to open APE '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(apeFile, metadata);
+        if (!ApplyPictureComplexProperties(apeFile.APETag(true),
+                                           metadata,
+                                           error,
+                                           136,
+                                           @"Unable to clear artwork from the APE tag",
+                                           137,
+                                           @"Unable to write artwork into the APE tag",
+                                           [NSString stringWithFormat:@"APE '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!apeFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:135
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to APE file" }];
+            }
+            TLog(@"TagLib save() failed for APE '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"wv"]) {
+        TagLib::WavPack::File wavPackFile(filePath);
+
+        if (!wavPackFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:138
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open WavPack file for writing metadata" }];
+            }
+            TLog(@"Failed to open WavPack '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(wavPackFile, metadata);
+        if (!ApplyPictureComplexProperties(wavPackFile.APETag(true),
+                                           metadata,
+                                           error,
+                                           140,
+                                           @"Unable to clear artwork from the WavPack tag",
+                                           141,
+                                           @"Unable to write artwork into the WavPack tag",
+                                           [NSString stringWithFormat:@"WavPack '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!wavPackFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:139
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to WavPack file" }];
+            }
+            TLog(@"TagLib save() failed for WavPack '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"mpc"]) {
+        TagLib::MPC::File mpcFile(filePath);
+
+        if (!mpcFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:142
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open Musepack file for writing metadata" }];
+            }
+            TLog(@"Failed to open Musepack '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(mpcFile, metadata);
+        if (!ApplyPictureComplexProperties(mpcFile.APETag(true),
+                                           metadata,
+                                           error,
+                                           144,
+                                           @"Unable to clear artwork from the Musepack tag",
+                                           145,
+                                           @"Unable to write artwork into the Musepack tag",
+                                           [NSString stringWithFormat:@"Musepack '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!mpcFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:143
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to Musepack file" }];
+            }
+            TLog(@"TagLib save() failed for Musepack '%@'", fileURL.lastPathComponent);
             return NO;
         }
     } else if ([ext isEqualToString:@"wav"]) {
@@ -2531,8 +3051,17 @@ static void ParseNumberPairFromNSString(NSString *text,
             return NO;
         }
 
-        TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
-        wavFile.setProperties(properties);
+        ApplyGenericPropertyMapToFile(wavFile, metadata);
+        if (!ApplyPictureComplexProperties(wavFile.ID3v2Tag(),
+                                           metadata,
+                                           error,
+                                           146,
+                                           @"Unable to clear artwork from the WAV ID3v2 tag",
+                                           147,
+                                           @"Unable to write artwork into the WAV ID3v2 tag",
+                                           [NSString stringWithFormat:@"WAV '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
 
         if (!wavFile.save()) {
             if (error) {
@@ -2543,7 +3072,7 @@ static void ParseNumberPairFromNSString(NSString *text,
             TLog(@"TagLib save() failed for WAV '%@'", fileURL.lastPathComponent);
             return NO;
         }
-    } else {
+    } else if (IsAIFFLikeExtension(ext)) {
         TagLib::RIFF::AIFF::File aiffFile(filePath);
 
         if (!aiffFile.isValid()) {
@@ -2556,8 +3085,17 @@ static void ParseNumberPairFromNSString(NSString *text,
             return NO;
         }
 
-        TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
-        aiffFile.setProperties(properties);
+        ApplyGenericPropertyMapToFile(aiffFile, metadata);
+        if (!ApplyPictureComplexProperties(aiffFile.tag(),
+                                           metadata,
+                                           error,
+                                           148,
+                                           @"Unable to clear artwork from the AIFF ID3v2 tag",
+                                           149,
+                                           @"Unable to write artwork into the AIFF ID3v2 tag",
+                                           [NSString stringWithFormat:@"AIFF '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
 
         if (!aiffFile.save()) {
             if (error) {
@@ -2566,6 +3104,142 @@ static void ParseNumberPairFromNSString(NSString *text,
                                          userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to AIFF file" }];
             }
             TLog(@"TagLib save() failed for AIFF '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"tta"]) {
+        TagLib::TrueAudio::File ttaFile(filePath);
+
+        if (!ttaFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:150
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open TrueAudio file for writing metadata" }];
+            }
+            TLog(@"Failed to open TrueAudio '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(ttaFile, metadata);
+        if (!ApplyPictureComplexProperties(ttaFile.ID3v2Tag(true),
+                                           metadata,
+                                           error,
+                                           152,
+                                           @"Unable to clear artwork from the TrueAudio ID3v2 tag",
+                                           153,
+                                           @"Unable to write artwork into the TrueAudio ID3v2 tag",
+                                           [NSString stringWithFormat:@"TrueAudio '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!ttaFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:151
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to TrueAudio file" }];
+            }
+            TLog(@"TagLib save() failed for TrueAudio '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if (IsASFLikeExtension(ext)) {
+        TagLib::ASF::File asfFile(filePath);
+
+        if (!asfFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:154
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open ASF/WMA file for writing metadata" }];
+            }
+            TLog(@"Failed to open ASF/WMA '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(asfFile, metadata);
+        if (!ApplyPictureComplexProperties(asfFile.tag(),
+                                           metadata,
+                                           error,
+                                           156,
+                                           @"Unable to clear artwork from the ASF/WMA tag",
+                                           157,
+                                           @"Unable to write artwork into the ASF/WMA tag",
+                                           [NSString stringWithFormat:@"ASF/WMA '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!asfFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:155
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to ASF/WMA file" }];
+            }
+            TLog(@"TagLib save() failed for ASF/WMA '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else if ([ext isEqualToString:@"dsf"]) {
+        TagLib::DSF::File dsfFile(filePath);
+
+        if (!dsfFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:158
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open DSF file for writing metadata" }];
+            }
+            TLog(@"Failed to open DSF '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(dsfFile, metadata);
+        if (!ApplyPictureComplexProperties(dsfFile.tag(),
+                                           metadata,
+                                           error,
+                                           160,
+                                           @"Unable to clear artwork from the DSF ID3v2 tag",
+                                           161,
+                                           @"Unable to write artwork into the DSF ID3v2 tag",
+                                           [NSString stringWithFormat:@"DSF '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!dsfFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:159
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to DSF file" }];
+            }
+            TLog(@"TagLib save() failed for DSF '%@'", fileURL.lastPathComponent);
+            return NO;
+        }
+    } else {
+        TagLib::DSDIFF::File dsdiffFile(filePath);
+
+        if (!dsdiffFile.isValid()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:162
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open DSDIFF file for writing metadata" }];
+            }
+            TLog(@"Failed to open DSDIFF '%@' for writing", fileURL.lastPathComponent);
+            return NO;
+        }
+
+        ApplyGenericPropertyMapToFile(dsdiffFile, metadata);
+        if (!ApplyPictureComplexProperties(dsdiffFile.ID3v2Tag(true),
+                                           metadata,
+                                           error,
+                                           164,
+                                           @"Unable to clear artwork from the DSDIFF ID3v2 tag",
+                                           165,
+                                           @"Unable to write artwork into the DSDIFF ID3v2 tag",
+                                           [NSString stringWithFormat:@"DSDIFF '%@'", fileURL.lastPathComponent])) {
+            return NO;
+        }
+
+        if (!dsdiffFile.save()) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                             code:163
+                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to DSDIFF file" }];
+            }
+            TLog(@"TagLib save() failed for DSDIFF '%@'", fileURL.lastPathComponent);
             return NO;
         }
     }
@@ -2801,115 +3475,6 @@ static void AppendID3v2FramesSection(NSMutableString *out,
         }
 
         AppendLine(out, [NSString stringWithFormat:@"%@ = %@", fid, val]);
-    }
-}
-
-static void AddPropertyMapEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
-                                  const TagLib::PropertyMap &pm)
-{
-    for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
-        NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
-        NSMutableArray<NSString *> *values = [NSMutableArray array];
-        for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
-            [values addObject:(TagStringToNSString(*vit) ?: @"")];
-        }
-        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
-        [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
-    }
-}
-
-static void AddID3v2FrameEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *id3v2FramesOut,
-                                 TagLib::ID3v2::Tag *tag)
-{
-    if (!tag) {
-        return;
-    }
-
-    TagLib::ID3v2::FrameList frames = tag->frameList();
-    for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
-        TagLib::ID3v2::Frame *frame = *fit;
-        if (!frame) continue;
-
-        TagLib::ByteVector frameIdBytes = frame->frameID();
-        std::string idStr(frameIdBytes.data(), frameIdBytes.size());
-        NSString *frameID = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
-        NSString *value = TagStringToNSString(frame->toString()) ?: @"";
-
-        NSMutableDictionary<NSString *, NSObject *> *item = [@{ @"id": frameID ?: @"", @"value": value } mutableCopy];
-
-        if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
-            NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
-            if (desc.length) item[@"description"] = desc;
-        }
-
-        if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
-            NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
-            if (desc.length) item[@"description"] = desc;
-            NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
-            if (lang.length) item[@"language"] = lang;
-        }
-
-        [id3v2FramesOut addObject:item];
-    }
-}
-
-static void AddAPEItemEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
-                              TagLib::APE::Tag *tag)
-{
-    if (!tag) {
-        return;
-    }
-
-    const TagLib::APE::ItemListMap &items = tag->itemListMap();
-    for (auto it = items.begin(); it != items.end(); ++it) {
-        const TagLib::APE::Item &item = it->second;
-        if (item.type() != TagLib::APE::Item::Text) {
-            continue;
-        }
-
-        NSString *key = TagStringToNSString(it->first) ?: @"";
-        NSMutableArray<NSString *> *values = [NSMutableArray array];
-        TagLib::StringList textValues = item.values();
-        for (auto vit = textValues.begin(); vit != textValues.end(); ++vit) {
-            [values addObject:(TagStringToNSString(*vit) ?: @"")];
-        }
-        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
-        [propertiesOut addObject:@{ @"key": key, @"value": joined, @"values": values, @"count": @(values.count) }];
-    }
-}
-
-static void AddXiphCommentEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
-                                  TagLib::Ogg::XiphComment *tag)
-{
-    if (!tag) {
-        return;
-    }
-
-    const TagLib::Ogg::FieldListMap &fields = tag->fieldListMap();
-    for (auto it = fields.begin(); it != fields.end(); ++it) {
-        NSString *key = TagStringToNSString(it->first) ?: @"";
-        NSMutableArray<NSString *> *values = [NSMutableArray array];
-        for (auto vit = it->second.begin(); vit != it->second.end(); ++vit) {
-            [values addObject:(TagStringToNSString(*vit) ?: @"")];
-        }
-        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
-        [propertiesOut addObject:@{ @"key": key, @"value": joined, @"values": values, @"count": @(values.count) }];
-    }
-}
-
-static void AddRIFFInfoEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
-                               TagLib::RIFF::Info::Tag *tag)
-{
-    if (!tag) {
-        return;
-    }
-
-    TagLib::RIFF::Info::FieldListMap fields = tag->fieldListMap();
-    for (auto it = fields.begin(); it != fields.end(); ++it) {
-        NSString *key = ByteVectorToNSString(it->first);
-        NSString *value = TagStringToNSString(it->second) ?: @"";
-        NSArray<NSString *> *values = value.length > 0 ? @[value] : @[];
-        [propertiesOut addObject:@{ @"key": key ?: @"", @"value": value, @"values": values, @"count": @(values.count) }];
     }
 }
 

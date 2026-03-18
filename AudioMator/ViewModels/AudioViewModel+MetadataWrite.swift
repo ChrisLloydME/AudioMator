@@ -1,16 +1,8 @@
 import Foundation
 
-private let supportedTagWriteExtensions: Set<String> = [
-    "mp3", "mp2", "aac",
-    "m4a", "m4b", "m4p", "mp4",
-    "flac", "wav", "aiff", "aif"
-]
+private let supportedTagWriteExtensions = AudioFormatSupport.metadataWritableExtensions
 
-private let supportedArtworkWriteExtensions: Set<String> = [
-    "mp3", "mp2", "aac",
-    "m4a", "m4b", "m4p", "mp4",
-    "flac"
-]
+private let supportedArtworkWriteExtensions = AudioFormatSupport.artworkWritableExtensions
 
 private func formattedTrackNumberText(_ value: Int, padWidth: Int) -> String {
     guard padWidth > 0 else { return String(value) }
@@ -426,6 +418,7 @@ extension AudioViewModel {
         meta.discNumber = 0
         meta.totalDiscs = 0
         meta.explicitContent = false
+        meta.removeArtwork = true
 
         Task(priority: .userInitiated) {
             do {

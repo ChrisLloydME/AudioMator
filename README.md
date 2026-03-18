@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  A SwiftUI-based macOS audio metadata editor for inspecting, organizing, and updating tags in local audio files.
+  A local-first macOS audio metadata editor for inspecting, cleaning, and rewriting tags in files you choose.
 </p>
 
 <p align="center">
@@ -14,26 +14,103 @@
 
 ## Overview
 
-AudioMator is a desktop tool for browsing a local audio library, inspecting metadata, editing common tag fields, and writing changes back to disk. The current app focuses on practical single-file editing, metadata inspection, and a few workflow-oriented bulk actions.
+AudioMator is currently a native three-pane macOS app with:
 
-## Features
+- a sidebar for session files and watched folders
+- a center table for browsing and reordering tracks
+- a right-side inspector for single-file edits, multi-file edits, artwork, and technical details
 
-- Import local audio files and browse them in a table view
-- Inspect and edit single-file metadata in the right-side inspector
-- Show a merged metadata view when multiple files are selected
-- Save edits through the TagLib-backed write path
-- Batch-renumber track numbers by current list order
-- View raw metadata text through the tag inspector / metadata dump
-- Use context menu actions to open files, reveal them in Finder, copy paths, or erase all tags
+The app is local-first. It works on files and folders you explicitly choose, keeps watched folders on your machine, and writes metadata back to disk through the bundled TagLib bridge.
+
+## Current Capabilities
+
+### Library Workflow
+
+- Import audio files into a temporary `Session Files` list
+- Add persistent watched folders to the sidebar
+- Automatically rescan watched folders when their contents change
+- Switch between `Session Files`, `All Watched Files`, and individual watched folders
+- Reorder the visible list with drag and drop
+- Customize visible table columns from the middle-list header context menu
+- Clear the session list without touching files on disk
+
+### Metadata Inspection and Editing
+
+- Single-file inspector editing
+- Multi-file editing for shared text fields
+- Raw metadata inspection through `Tag Inspector`
+- Technical read-only fields such as duration, bitrate, sample rate, channels, and format
+- Embedded artwork preview in the inspector
+- Replace artwork from an image file or the clipboard
+- Remove artwork for one file or many selected files
+- Unsaved-change detection with discard confirmation
+- Save feedback HUDs for success, warning, partial-save, and failure states
+
+### Batch and Utility Tools
+
+- Renumber track numbers by the current visible list order
+- Renumber either the full list or only the current selection
+- Choose ascending or descending numbering
+- Set a custom starting number
+- Optionally pad track numbers with leading zeros
+- Import one metadata field from a text file into the selected rows
+- Open selected files
+- Reveal selected files in Finder
+- Copy selected paths
+- Copy selected filenames
+- Erase supported metadata fields from selected files
+
+## Editable Fields
+
+AudioMator currently exposes these user-facing editable fields:
+
+- `Title`
+- `Artist`
+- `Album`
+- `Composer`
+- `Genre`
+- `Year`
+- `Track Number`
+- `Disc Number`
+- `Comment`
+- `Album Artist`
+- `Release Date`
+- `Publisher`
+- `Copyright`
+- `Explicit`
+- `Artwork`
+
+`Credits` are currently displayed as read-only data when available.
 
 ## Supported Formats
 
-| Capability | Formats |
-| --- | --- |
-| Import / read | `mp3`, `m4a`, `mp4`, `wav`, `aiff` |
-| Tag writing | `mp3`, `m4a`, `m4b`, `m4p`, `mp4` |
+The current implementation advertises the same extension set for file import, metadata writing, and artwork writing through the TagLib bridge:
 
-`wav` and `aiff` are currently used mainly for reading and display. Writing is skipped for those formats in the current implementation.
+- `mp3`
+- `mp2`
+- `m4a`
+- `m4b`
+- `m4p`
+- `mp4`
+- `aac`
+- `ogg`
+- `opus`
+- `mpc`
+- `wma`
+- `asf`
+- `spx`
+- `flac`
+- `ape`
+- `wv`
+- `tta`
+- `wav`
+- `aiff`
+- `aif`
+- `dsf`
+- `dff`
+- `oga`
+
+Practical metadata coverage can still vary by container and tag layout. `Erase All Tags` should be treated as a best-effort metadata-clearing action, not a guaranteed deep wipe for every format.
 
 ## Quick Start
 
@@ -45,44 +122,43 @@ open AudioMator.xcodeproj
 
 ### Run
 
-1. Select the `AudioMator` scheme.
-2. Use the `Debug` configuration for development.
-3. Press Run in Xcode.
+1. Open the `AudioMator` scheme in Xcode.
+2. Review signing settings for your local machine or team.
+3. Build and run from Xcode.
 
-### Optional command-line build
+### Command-Line Build
 
 ```bash
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug build
+xcodebuild \
+  -project AudioMator.xcodeproj \
+  -scheme AudioMator \
+  -configuration Debug \
+  -derivedDataPath .deriveddata \
+  build
 ```
 
-## Development Notes
+## Build Notes
 
-- UI: SwiftUI
-- Audio metadata / technical info: AVFoundation
-- Metadata read/write bridge: TagLib Bridge
-- Language / toolchain: Swift 5
-- Deployment target: `26.1` in [AudioMator.xcodeproj/project.pbxproj](/Users/lloyd/Developer/Xcode/AudioMator/AudioMator.xcodeproj/project.pbxproj)
-
-If your local Xcode or macOS version does not match the deployment target, adjust the project settings before building.
+- Project version: `1.1`
+- Swift version: `5.0`
+- Current deployment target: macOS `26.1`
+- The checked-in project is configured with Apple code signing, so you may need to replace the signing team or certificate before local builds succeed
 
 ## Project Structure
 
-- `AudioMator/`: SwiftUI app source, models, view models, and views
-- `AudioMator/TagLibBridge/`: Swift + Objective-C++ bridge layer around TagLib
+- `AudioMator/`: app source, models, services, view models, and views
+- `AudioMator/TagLibBridge/`: Swift and Objective-C++ bridge layer around TagLib
 - `AudioMator.xcodeproj/`: Xcode project configuration
+- `RELEASE_NOTES.md`: release-oriented feature summary
 
-## Interaction Notes
+## Current Limitations
 
-- Drag-and-drop reordering in the middle list affects batch track renumbering order
-- The `Save` button applies to the currently selected single-file edit model
-- `Erase All Tags` is destructive and cannot be undone
+- Session file lists are temporary and are cleared when the app closes
+- Manual file import is disabled while a watched-folder source is selected
+- Multi-file editing only applies fields you explicitly change
+- Raw metadata inspection is read-only
+- No separate test target is currently checked into the repository
 
 ## Disclaimer
 
-> This is a student project. Code quality is not guaranteed, test coverage is limited, and the current test surface is small. The project has not been thoroughly audited for safety or security risks. Review the code critically and use it with caution.
-
-## Possible Next Improvements
-
-- Add write support for more formats such as `wav` and `aiff`
-- Add batch editing for shared fields such as `Artist` and `Album`
-- Add automated renaming rules and exportable reports
+> This is still a small, evolving project. Review the code critically before relying on it for destructive metadata workflows or large-library cleanup.

@@ -2,6 +2,8 @@ import Combine
 import Foundation
 
 final class SharedState: ObservableObject {
+    private static let visibleMiddleListColumnsDefaultsKey = "middleList.visibleColumns"
+
     @Published var selectedSidebarItem: SidebarSelection? = .quickImport
     @Published var selectedAudioIDs: Set<AudioFile.ID> = []
 
@@ -10,6 +12,37 @@ final class SharedState: ObservableObject {
 
     // Drag source tracking for row reordering
     @Published var draggingAudioID: AudioFile.ID? = nil
+
+    @Published var visibleMiddleListColumns: Set<MiddleListColumn> {
+        didSet {
+            let fallbackColumns = Set(MiddleListColumn.defaultVisibleColumns)
+            let normalizedColumns = visibleMiddleListColumns.isEmpty ? fallbackColumns : visibleMiddleListColumns
+
+            guard normalizedColumns == visibleMiddleListColumns else {
+                visibleMiddleListColumns = normalizedColumns
+                return
+            }
+
+            UserDefaults.standard.set(
+                MiddleListColumn.allCases
+                    .filter(normalizedColumns.contains)
+                    .map(\.rawValue),
+                forKey: Self.visibleMiddleListColumnsDefaultsKey
+            )
+        }
+    }
+
+    init() {
+        let storedColumns = UserDefaults.standard
+            .stringArray(forKey: Self.visibleMiddleListColumnsDefaultsKey)?
+            .compactMap(MiddleListColumn.init(rawValue:))
+        let fallbackColumns = Set(MiddleListColumn.defaultVisibleColumns)
+        self.visibleMiddleListColumns = storedColumns.map(Set.init) ?? fallbackColumns
+
+        if visibleMiddleListColumns.isEmpty {
+            visibleMiddleListColumns = fallbackColumns
+        }
+    }
 
     var currentFileSourceMode: FileSourceMode {
         (selectedSidebarItem ?? .quickImport).sourceMode

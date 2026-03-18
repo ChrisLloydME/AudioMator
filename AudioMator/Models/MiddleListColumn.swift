@@ -99,9 +99,13 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
         case .year:
             return file.year
         case .track:
-            return formatTrackIndex(file.track, total: file.trackTotal)
+            return file.trackNumberText.isEmpty
+                ? formatTrackIndex(file.track, total: file.trackTotal)
+                : file.trackNumberText
         case .disc:
-            return formatTrackIndex(file.disc, total: file.discTotal)
+            return file.discNumberText.isEmpty
+                ? formatTrackIndex(file.disc, total: file.discTotal)
+                : file.discNumberText
         case .comment:
             return file.comment
         case .releaseDate:

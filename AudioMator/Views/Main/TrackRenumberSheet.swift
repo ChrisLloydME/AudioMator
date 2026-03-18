@@ -65,9 +65,8 @@ struct TrackRenumberSheet: View {
     }
 
     private var previewPadWidth: Int {
-        guard trackRenumberOptions.padWithZeros else { return 0 }
         let maxValue = previewNumbers.max() ?? sanitizedStartNumber
-        return String(maxValue).count
+        return trackRenumberPadWidth(maxNumber: maxValue, padWithZeros: trackRenumberOptions.padWithZeros)
     }
 
     private var previewSequenceText: String {

@@ -4,11 +4,6 @@ private let supportedTagWriteExtensions = AudioFormatSupport.metadataWritableExt
 
 private let supportedArtworkWriteExtensions = AudioFormatSupport.artworkWritableExtensions
 
-private func formattedTrackNumberText(_ value: Int, padWidth: Int) -> String {
-    guard padWidth > 0 else { return String(value) }
-    return String(format: "%0*d", padWidth, value)
-}
-
 private func isTagWriteSupportedExtension(_ ext: String) -> Bool {
     supportedTagWriteExtensions.contains(ext.lowercased())
 }
@@ -103,7 +98,7 @@ private struct BatchMetadataWriteSummary {
     }
 }
 
-private func fileCountLabel(_ count: Int) -> String {
+func fileCountLabel(_ count: Int) -> String {
     count == 1 ? "1 file" : "\(count) files"
 }
 
@@ -442,7 +437,7 @@ extension AudioViewModel {
         }
     }
 
-    private func reloadEditedFile(
+    func reloadEditedFile(
         _ file: AudioFile,
         syncInspectorAfterReload: Bool = true
     ) async -> String? {
@@ -453,7 +448,7 @@ extension AudioViewModel {
         )
     }
 
-    private func reloadEditedFile(
+    func reloadEditedFile(
         at url: URL,
         id: UUID,
         syncInspectorAfterReload: Bool = true
@@ -547,8 +542,13 @@ extension AudioViewModel {
                 }
 
                 do {
+                    let formattedTrackNumber =
+                        padWidth > 0
+                        ? String(format: "%0*d", padWidth, newNumber)
+                        : String(newNumber)
+
                     _ = try TagLibMetadataExtractor.writeTrackNumberText(
-                        formattedTrackNumberText(newNumber, padWidth: padWidth),
+                        formattedTrackNumber,
                         discNumberText: nil,
                         to: target.url
                     )

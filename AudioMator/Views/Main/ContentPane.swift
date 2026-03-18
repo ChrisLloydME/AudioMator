@@ -30,6 +30,10 @@ struct ContentPane: View {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
     }
 
+    private var visibleColumns: Set<MiddleListColumn> {
+        state.visibleMiddleListColumns
+    }
+
     private var orderedFiles: [AudioFile] {
         // If no custom order yet, fall back to the raw array order
         if state.customOrder.isEmpty {
@@ -57,6 +61,75 @@ struct ContentPane: View {
     }
 
     var body: some View {
+        mainContent
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button(action: onAddFiles) {
+                        Image(systemName: "plus")
+                    }
+                    .help(isQuickImportMode ? "Add audio files to the current session" : "Switch to Current Session in the sidebar to add files")
+                    .disabled(!isQuickImportMode)
+
+                    Button(action: onShowMetadataDump) {
+                        Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+                    }
+                    .help("Show all metadata as text")
+                    .disabled(state.selectedAudioIDs.isEmpty)
+
+                    Button(action: onOpenTrackRenumber) {
+                        Label("Renumber Tracks…", systemImage: "number")
+                    }
+                    .help("Rewrite Track Number (TRCK) by the middle list order")
+                    .disabled(viewModel.files.isEmpty)
+
+                    Button(action: openTextMetadataImportSheet) {
+                        Label("Import Field…", systemImage: "square.and.arrow.down")
+                    }
+                    .help("Import one metadata field from a text file into the selected rows")
+                    .disabled(state.selectedAudioIDs.isEmpty)
+
+                    Button(role: .destructive) {
+                        isClearListConfirmPresented = true
+                    } label: {
+                        Label("Clear List", systemImage: "trash")
+                    }
+                    .help(isQuickImportMode ? "Remove all files from the current session list" : "Watched folder lists are managed from the sidebar")
+                    .disabled(!isQuickImportMode || viewModel.files.isEmpty)
+
+                    Button("Cancel", action: onCancelEdits)
+                        .disabled(state.selectedAudioIDs.isEmpty)
+
+                    Button("Save", action: onSaveEdits)
+                        .disabled(state.selectedAudioIDs.isEmpty)
+                }
+            }
+            .confirmationDialog(
+                "Clear the current list?",
+                isPresented: $isClearListConfirmPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Clear List", role: .destructive) {
+                    clearFileList()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
+            }
+            .sheet(isPresented: $isTextMetadataImportPresented) {
+                TextMetadataImportSheet(
+                    viewModel: viewModel,
+                    targetFiles: textMetadataImportTargets,
+                    isPresented: $isTextMetadataImportPresented
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
+                guard isQuickImportMode, !viewModel.files.isEmpty else { return }
+                isClearListConfirmPresented = true
+            }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
         Group {
             if viewModel.files.isEmpty {
                 ContentUnavailableView(
@@ -66,38 +139,16 @@ struct ContentPane: View {
                 )
             } else {
                 Table(orderedFiles, selection: selection) {
-                    TableColumn("Filename") { file in
-                        Text(file.url.lastPathComponent)
-                            .onDrag {
-                                // Ensure the order array is initialized before dragging
-                                if state.customOrder.isEmpty {
-                                    state.customOrder = viewModel.files.map { $0.id }
-                                }
-                                state.draggingAudioID = file.id
-                                return NSItemProvider(object: file.id.uuidString as NSString)
-                            }
-                            .onDrop(
-                                of: [.text],
-                                delegate: FileReorderDropDelegate(
-                                    targetID: file.id,
-                                    customOrder: $state.customOrder,
-                                    draggingID: $state.draggingAudioID
-                                )
-                            )
-                    }
-                    TableColumn("Title") { file in
-                        Text(file.title)
-                    }
-                    TableColumn("Artist") { file in
-                        Text(file.artist)
-                    }
-                    TableColumn("Album") { file in
-                        Text(file.album)
-                    }
-                    TableColumn("Duration") { file in
-                        Text(formatDuration(file.duration))
-                    }
+                    primaryMetadataColumns
+                    secondaryMetadataColumns
+                    auxiliaryMetadataColumns
+                    technicalMetadataColumns
                 }
+                .background(
+                    MiddleListHeaderContextMenuInstaller(
+                        visibleColumns: $state.visibleMiddleListColumns
+                    )
+                )
                 .focused($tableFocused)
                 .onChange(of: state.selectedAudioIDs) { _, newSelection in
                     viewModel.selectedAudioIDs = newSelection
@@ -159,69 +210,126 @@ struct ContentPane: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button(action: onAddFiles) {
-                    Image(systemName: "plus")
-                }
-                .help(isQuickImportMode ? "Add audio files to the current session" : "Switch to Current Session in the sidebar to add files")
-                .disabled(!isQuickImportMode)
+    }
 
-                Button(action: onShowMetadataDump) {
-                    Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
-                }
-                .help("Show all metadata as text")
-                .disabled(state.selectedAudioIDs.isEmpty)
-
-                Button(action: onOpenTrackRenumber) {
-                    Label("Renumber Tracks…", systemImage: "number")
-                }
-                .help("Rewrite Track Number (TRCK) by the middle list order")
-                .disabled(viewModel.files.isEmpty)
-
-                Button(action: openTextMetadataImportSheet) {
-                    Label("Import Field…", systemImage: "square.and.arrow.down")
-                }
-                .help("Import one metadata field from a text file into the selected rows")
-                .disabled(state.selectedAudioIDs.isEmpty)
-
-                Button(role: .destructive) {
-                    isClearListConfirmPresented = true
-                } label: {
-                    Label("Clear List", systemImage: "trash")
-                }
-                .help(isQuickImportMode ? "Remove all files from the current session list" : "Watched folder lists are managed from the sidebar")
-                .disabled(!isQuickImportMode || viewModel.files.isEmpty)
-
-                Button("Cancel", action: onCancelEdits)
-                    .disabled(state.selectedAudioIDs.isEmpty)
-
-                Button("Save", action: onSaveEdits)
-                    .disabled(state.selectedAudioIDs.isEmpty)
+    @TableColumnBuilder<AudioFile, Never>
+    private var primaryMetadataColumns: some TableColumnContent<AudioFile, Never> {
+        if visibleColumns.contains(.filename) {
+            TableColumn(MiddleListColumn.filename.displayName) { file in
+                middleListCell(for: file, column: .filename)
             }
         }
-        .confirmationDialog(
-            "Clear the current list?",
-            isPresented: $isClearListConfirmPresented,
-            titleVisibility: .visible
-        ) {
-            Button("Clear List", role: .destructive) {
-                clearFileList()
+        if visibleColumns.contains(.title) {
+            TableColumn(MiddleListColumn.title.displayName) { file in
+                middleListCell(for: file, column: .title)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
         }
-        .sheet(isPresented: $isTextMetadataImportPresented) {
-            TextMetadataImportSheet(
-                viewModel: viewModel,
-                targetFiles: textMetadataImportTargets,
-                isPresented: $isTextMetadataImportPresented
-            )
+        if visibleColumns.contains(.artist) {
+            TableColumn(MiddleListColumn.artist.displayName) { file in
+                middleListCell(for: file, column: .artist)
+            }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
-            guard isQuickImportMode, !viewModel.files.isEmpty else { return }
-            isClearListConfirmPresented = true
+        if visibleColumns.contains(.album) {
+            TableColumn(MiddleListColumn.album.displayName) { file in
+                middleListCell(for: file, column: .album)
+            }
+        }
+        if visibleColumns.contains(.albumArtist) {
+            TableColumn(MiddleListColumn.albumArtist.displayName) { file in
+                middleListCell(for: file, column: .albumArtist)
+            }
+        }
+        if visibleColumns.contains(.composer) {
+            TableColumn(MiddleListColumn.composer.displayName) { file in
+                middleListCell(for: file, column: .composer)
+            }
+        }
+    }
+
+    @TableColumnBuilder<AudioFile, Never>
+    private var secondaryMetadataColumns: some TableColumnContent<AudioFile, Never> {
+        if visibleColumns.contains(.genre) {
+            TableColumn(MiddleListColumn.genre.displayName) { file in
+                middleListCell(for: file, column: .genre)
+            }
+        }
+        if visibleColumns.contains(.year) {
+            TableColumn(MiddleListColumn.year.displayName) { file in
+                middleListCell(for: file, column: .year)
+            }
+        }
+        if visibleColumns.contains(.track) {
+            TableColumn(MiddleListColumn.track.displayName) { file in
+                middleListCell(for: file, column: .track)
+            }
+        }
+        if visibleColumns.contains(.disc) {
+            TableColumn(MiddleListColumn.disc.displayName) { file in
+                middleListCell(for: file, column: .disc)
+            }
+        }
+        if visibleColumns.contains(.comment) {
+            TableColumn(MiddleListColumn.comment.displayName) { file in
+                middleListCell(for: file, column: .comment)
+            }
+        }
+    }
+
+    @TableColumnBuilder<AudioFile, Never>
+    private var auxiliaryMetadataColumns: some TableColumnContent<AudioFile, Never> {
+        if visibleColumns.contains(.releaseDate) {
+            TableColumn(MiddleListColumn.releaseDate.displayName) { file in
+                middleListCell(for: file, column: .releaseDate)
+            }
+        }
+        if visibleColumns.contains(.publisher) {
+            TableColumn(MiddleListColumn.publisher.displayName) { file in
+                middleListCell(for: file, column: .publisher)
+            }
+        }
+        if visibleColumns.contains(.copyright) {
+            TableColumn(MiddleListColumn.copyright.displayName) { file in
+                middleListCell(for: file, column: .copyright)
+            }
+        }
+        if visibleColumns.contains(.credits) {
+            TableColumn(MiddleListColumn.credits.displayName) { file in
+                middleListCell(for: file, column: .credits)
+            }
+        }
+        if visibleColumns.contains(.explicit) {
+            TableColumn(MiddleListColumn.explicit.displayName) { file in
+                middleListCell(for: file, column: .explicit)
+            }
+        }
+    }
+
+    @TableColumnBuilder<AudioFile, Never>
+    private var technicalMetadataColumns: some TableColumnContent<AudioFile, Never> {
+        if visibleColumns.contains(.duration) {
+            TableColumn(MiddleListColumn.duration.displayName) { file in
+                middleListCell(for: file, column: .duration)
+            }
+        }
+        if visibleColumns.contains(.bitrate) {
+            TableColumn(MiddleListColumn.bitrate.displayName) { file in
+                middleListCell(for: file, column: .bitrate)
+            }
+        }
+        if visibleColumns.contains(.sampleRate) {
+            TableColumn(MiddleListColumn.sampleRate.displayName) { file in
+                middleListCell(for: file, column: .sampleRate)
+            }
+        }
+        if visibleColumns.contains(.channels) {
+            TableColumn(MiddleListColumn.channels.displayName) { file in
+                middleListCell(for: file, column: .channels)
+            }
+        }
+        if visibleColumns.contains(.format) {
+            TableColumn(MiddleListColumn.format.displayName) { file in
+                middleListCell(for: file, column: .format)
+            }
         }
     }
 
@@ -264,6 +372,28 @@ struct ContentPane: View {
             }
             return "Select a watched folder from the sidebar or add a new one."
         }
+    }
+
+    @ViewBuilder
+    private func middleListCell(for file: AudioFile, column: MiddleListColumn) -> some View {
+        Text(column.text(for: file))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .onDrag {
+                if state.customOrder.isEmpty {
+                    state.customOrder = viewModel.files.map { $0.id }
+                }
+                state.draggingAudioID = file.id
+                return NSItemProvider(object: file.id.uuidString as NSString)
+            }
+            .onDrop(
+                of: [.text],
+                delegate: FileReorderDropDelegate(
+                    targetID: file.id,
+                    customOrder: $state.customOrder,
+                    draggingID: $state.draggingAudioID
+                )
+            )
     }
 
     private func syncSelectionWithFiles() {

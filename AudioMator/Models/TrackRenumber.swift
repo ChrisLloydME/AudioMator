@@ -13,6 +13,11 @@ struct TrackRenumberOptions: Equatable {
     var padWithZeros: Bool = true
 }
 
+func trackRenumberPadWidth(maxNumber: Int, padWithZeros: Bool) -> Int {
+    guard padWithZeros else { return 0 }
+    return max(2, String(abs(maxNumber)).count)
+}
+
 struct TrackRenumberFailure: Identifiable, Equatable {
     let id = UUID()
     let fileName: String

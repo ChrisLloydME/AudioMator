@@ -17,6 +17,8 @@ struct BasicMetadata {
     var trackTotal: Int
     var disc: Int
     var discTotal: Int
+    var trackNumberText: String
+    var discNumberText: String
     var year: String
     var albumArtist: String
     var releaseDate: String
@@ -35,6 +37,8 @@ struct BasicMetadata {
         trackTotal: 0,
         disc: 0,
         discTotal: 0,
+        trackNumberText: "",
+        discNumberText: "",
         year: "",
         albumArtist: "",
         releaseDate: "",
@@ -42,6 +46,102 @@ struct BasicMetadata {
         copyright: "",
         isExplicit: false
     )
+}
+
+private func preferredRawNumberText(_ currentValue: String, _ candidateValue: String) -> String {
+    func normalized(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func score(_ value: String) -> Int {
+        let trimmed = normalized(value)
+        guard !trimmed.isEmpty else { return .min }
+
+        let leftPart = trimmed.split(separator: "/", maxSplits: 1).first.map(String.init) ?? trimmed
+        let hasLeadingZeros = leftPart.count > 1 && leftPart.hasPrefix("0")
+        let hasExplicitTotal = trimmed.contains("/")
+        return (hasLeadingZeros ? 1000 : 0) + (hasExplicitTotal ? 100 : 0) + trimmed.count
+    }
+
+    let trimmedCurrent = normalized(currentValue)
+    let trimmedCandidate = normalized(candidateValue)
+
+    guard !trimmedCandidate.isEmpty else { return trimmedCurrent }
+    guard !trimmedCurrent.isEmpty else { return trimmedCandidate }
+    return score(trimmedCandidate) > score(trimmedCurrent) ? trimmedCandidate : trimmedCurrent
+}
+
+private func rawNumberTexts(fromRawMetadata rawMetadata: Any) -> (track: String, disc: String) {
+    let payload: [String: Any]
+    if let dict = rawMetadata as? [String: Any] {
+        payload = dict
+    } else if let dict = rawMetadata as? NSDictionary {
+        payload = dict as? [String: Any] ?? [:]
+    } else {
+        return (track: "", disc: "")
+    }
+
+    func firstFrameValue(in frames: [Any], ids: Set<String>) -> String {
+        var bestValue = ""
+        for frame in frames {
+            let item: [String: Any]
+            if let dict = frame as? [String: Any] {
+                item = dict
+            } else if let dict = frame as? NSDictionary {
+                item = dict as? [String: Any] ?? [:]
+            } else {
+                continue
+            }
+
+            let id = (item["id"] as? String ?? "").uppercased()
+            guard ids.contains(id) else { continue }
+            let value = (item["value"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            bestValue = preferredRawNumberText(bestValue, value)
+        }
+        return bestValue
+    }
+
+    func firstPropertyValue(in properties: [Any], keys: Set<String>) -> String {
+        var bestValue = ""
+        for property in properties {
+            let item: [String: Any]
+            if let dict = property as? [String: Any] {
+                item = dict
+            } else if let dict = property as? NSDictionary {
+                item = dict as? [String: Any] ?? [:]
+            } else {
+                continue
+            }
+
+            let key = (item["key"] as? String ?? "").uppercased()
+            guard keys.contains(key) else { continue }
+
+            if let values = item["values"] as? [String] {
+                for value in values {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    bestValue = preferredRawNumberText(bestValue, trimmed)
+                }
+            }
+
+            let value = (item["value"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            bestValue = preferredRawNumberText(bestValue, value)
+        }
+        return bestValue
+    }
+
+    let id3v2Frames = payload["id3v2Frames"] as? [Any] ?? []
+    let properties = payload["properties"] as? [Any] ?? []
+
+    let track = preferredRawNumberText(
+        firstPropertyValue(in: properties, keys: ["TRACKNUMBER", "TRACK"]),
+        firstFrameValue(in: id3v2Frames, ids: ["TRCK"])
+    )
+    let disc = preferredRawNumberText(
+        firstPropertyValue(in: properties, keys: ["DISCNUMBER", "DISC"]),
+        firstFrameValue(in: id3v2Frames, ids: ["TPOS"])
+    )
+
+    return (track: track, disc: disc)
 }
 
 // MARK: - Raw Metadata Dump Models (for GUI display)
@@ -134,75 +234,28 @@ struct TagLibMetadataManager {
         do {
             // ObjC++ bridge API imported into Swift as `throws`.
             let meta = try TagLibMetadataExtractor.extractMetadata(from: url)
-            let obj = meta as NSObject
+            let rawMetadata = try? TagLibMetadataExtractor.rawMetadata(for: url)
+            let rawNumberText = rawMetadata.map(rawNumberTexts(fromRawMetadata:)) ?? (track: "", disc: "")
 
-            // Check selector availability before KVC access to avoid `unknown key` crashes.
-            func string(_ key: String) -> String {
-                let sel = NSSelectorFromString(key)
-                guard obj.responds(to: sel) else { return "" }
-                return (obj.value(forKey: key) as? String) ?? ""
-            }
-
-            func int(_ key: String) -> Int {
-                let sel = NSSelectorFromString(key)
-                guard obj.responds(to: sel) else { return 0 }
-                if let n = obj.value(forKey: key) as? NSNumber { return n.intValue }
-                if let i = obj.value(forKey: key) as? Int { return i }
-                return 0
-            }
-
-            func bool(_ key: String) -> Bool {
-                let sel = NSSelectorFromString(key)
-                guard obj.responds(to: sel) else { return false }
-                if let n = obj.value(forKey: key) as? NSNumber { return n.boolValue }
-                if let b = obj.value(forKey: key) as? Bool { return b }
-                return false
-            }
-
-            // Support possible alias fields across bridge implementations, such as `label` / `publisher`.
-            func firstNonEmpty(_ keys: [String]) -> String {
-                for k in keys {
-                    let v = string(k)
-                    if !v.isEmpty { return v }
-                }
-                return ""
-            }
-
-            func firstInt(_ keys: [String]) -> Int {
-                for k in keys {
-                    let v = int(k)
-                    if v != 0 { return v }
-                }
-                return 0
-            }
-
-            func firstBool(_ keys: [String]) -> Bool {
-                for k in keys {
-                    let v = bool(k)
-                    if v { return true }
-                }
-                return false
-            }
-
-            // TagLibAudioMetadata -> BasicMetadata
             return BasicMetadata(
-                title:       firstNonEmpty(["title"]),
-                artist:      firstNonEmpty(["artist"]),
-                album:       firstNonEmpty(["album"]),
-                composer:    firstNonEmpty(["composer"]),
-                genre:       firstNonEmpty(["genre"]),
-                comment:     firstNonEmpty(["comment"]),
-                track:       firstInt(["trackNumber", "track"]),
-                trackTotal:  firstInt(["totalTracks", "trackTotal"]),
-                disc:        firstInt(["discNumber", "disc"]),
-                discTotal:   firstInt(["totalDiscs", "discTotal"]),
-                year:        firstNonEmpty(["year"]),
-                albumArtist: firstNonEmpty(["albumArtist"]),
-                // If the bridge does not expose Release Date, leave it empty and let `AudioFile` fall back to AVFoundation.
-                releaseDate: firstNonEmpty(["releaseDate", "originalReleaseDate"]),
-                publisher:   firstNonEmpty(["publisher", "label"]),
-                copyright:   firstNonEmpty(["copyright"]),
-                isExplicit:  firstBool(["explicitContent", "isExplicit", "explicit"])
+                title: meta.title ?? "",
+                artist: meta.artist ?? "",
+                album: meta.album ?? "",
+                composer: meta.composer ?? "",
+                genre: meta.genre ?? "",
+                comment: meta.comment ?? "",
+                track: Int(meta.trackNumber),
+                trackTotal: Int(meta.totalTracks),
+                disc: Int(meta.discNumber),
+                discTotal: Int(meta.totalDiscs),
+                trackNumberText: preferredRawNumberText(meta.trackNumberText ?? "", rawNumberText.track),
+                discNumberText: preferredRawNumberText(meta.discNumberText ?? "", rawNumberText.disc),
+                year: meta.year ?? "",
+                albumArtist: meta.albumArtist ?? "",
+                releaseDate: meta.releaseDate ?? meta.originalReleaseDate ?? "",
+                publisher: meta.label ?? "",
+                copyright: meta.copyright ?? "",
+                isExplicit: meta.explicitContent
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")
@@ -247,6 +300,8 @@ struct TagLibMetadataManager {
         m.totalTracks = meta.trackTotal
         m.discNumber = meta.disc
         m.totalDiscs = meta.discTotal
+        m.trackNumberText = nilIfEmpty(meta.trackNumberText)
+        m.discNumberText = nilIfEmpty(meta.discNumberText)
 
         // Dates
         m.year = nilIfEmpty(meta.year)

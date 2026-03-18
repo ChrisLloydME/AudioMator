@@ -26,6 +26,8 @@ struct AudioFile: Identifiable {
     let trackTotal: Int
     let disc: Int
     let discTotal: Int
+    let trackNumberText: String
+    let discNumberText: String
     let year: String
     let albumArtist: String
     let releaseDate: String
@@ -45,6 +47,24 @@ struct AudioFile: Identifiable {
     let artwork: NSImage?
 
     // Shared helper for reading metadata values.
+    private static func normalizedNumberText(
+        rawText: String,
+        number: Int,
+        total: Int
+    ) -> String {
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            if trimmed.contains("/") || total == 0 {
+                return trimmed
+            }
+
+            return "\(trimmed)/\(total)"
+        }
+
+        guard number > 0 else { return "" }
+        return total > 0 ? "\(number)/\(total)" : "\(number)"
+    }
+
     private static func readMetadata(from metadata: [AVMetadataItem],
                                      commonKeys: [AVMetadataKey],
                                      id3Keys: [String] = [],
@@ -114,6 +134,16 @@ struct AudioFile: Identifiable {
         self.trackTotal  = tag.trackTotal
         self.disc        = tag.disc
         self.discTotal   = tag.discTotal
+        self.trackNumberText = AudioFile.normalizedNumberText(
+            rawText: tag.trackNumberText,
+            number: tag.track,
+            total: tag.trackTotal
+        )
+        self.discNumberText = AudioFile.normalizedNumberText(
+            rawText: tag.discNumberText,
+            number: tag.disc,
+            total: tag.discTotal
+        )
 
         // Treat Year and Release Date as separate fields:
         // - `year`: plain year provided by TagLib, if available

@@ -12,9 +12,9 @@ private let supportedArtworkWriteExtensions: Set<String> = [
     "flac"
 ]
 
-private func digitCount(_ value: Int) -> Int {
-    let v = abs(value)
-    return String(v).count
+private func formattedTrackNumberText(_ value: Int, padWidth: Int) -> String {
+    guard padWidth > 0 else { return String(value) }
+    return String(format: "%0*d", padWidth, value)
 }
 
 private func isTagWriteSupportedExtension(_ ext: String) -> Bool {
@@ -354,6 +354,8 @@ extension AudioViewModel {
 
         // Track/Disc are written via `writeTrackNumberText(...)` below so the UI can accept
         // formats like "01" or "01/10" (and so we can omit the "/total" part when desired).
+        meta.trackNumberText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.discNumberText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
         meta.trackNumber = 0
         meta.totalTracks = 0
         meta.discNumber = 0
@@ -451,11 +453,23 @@ extension AudioViewModel {
         _ file: AudioFile,
         syncInspectorAfterReload: Bool = true
     ) async -> String? {
+        await reloadEditedFile(
+            at: file.url,
+            id: file.id,
+            syncInspectorAfterReload: syncInspectorAfterReload
+        )
+    }
+
+    private func reloadEditedFile(
+        at url: URL,
+        id: UUID,
+        syncInspectorAfterReload: Bool = true
+    ) async -> String? {
         do {
-            let reloaded = try await AudioFile(url: file.url, id: file.id)
+            let reloaded = try await AudioFile(url: url, id: id)
             replaceLoadedFile(reloaded)
 
-            if syncInspectorAfterReload, selectedAudioIDs.contains(file.id) {
+            if syncInspectorAfterReload, selectedAudioIDs.contains(id) {
                 updateEditForSelection()
             }
 
@@ -495,13 +509,14 @@ extension AudioViewModel {
         //    NOTE: We intentionally skip IDs that are no longer present.
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: self.files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
+        let writeTargets: [(id: UUID, url: URL)] = targetFiles.map { ($0.id, $0.url) }
 
-        guard !targetFiles.isEmpty else {
+        guard !writeTargets.isEmpty else {
             return .empty
         }
 
         // 3) Prepare numbering sequence.
-        let count = targetFiles.count
+        let count = writeTargets.count
         let start = max(0, options.startNumber)
 
         let numbers: [Int] = {
@@ -515,44 +530,61 @@ extension AudioViewModel {
         }()
 
         let maxNumber = numbers.max() ?? start
-        let padWidth = options.padWithZeros ? digitCount(maxNumber) : 0
+        let padWidth = trackRenumberPadWidth(maxNumber: maxNumber, padWithZeros: options.padWithZeros)
         let writableExtensions = supportedTagWriteExtensions
 
         // 4) Execute writes off the main thread.
-        return await Task.detached(priority: .userInitiated) { [targetFiles, numbers, padWidth, writableExtensions] in
+        let writeOutcome = await Task.detached(priority: .userInitiated) { [writeTargets, numbers, padWidth, writableExtensions] in
             var result = TrackRenumberResult(
-                totalTargets: targetFiles.count,
+                totalTargets: writeTargets.count,
                 succeeded: 0,
                 skippedUnsupported: 0,
                 failed: 0,
                 failures: []
             )
+            var successfulTargets: [(id: UUID, url: URL)] = []
 
-            for (idx, file) in targetFiles.enumerated() {
+            for (idx, target) in writeTargets.enumerated() {
                 let newNumber = numbers[idx]
 
-                let ext = file.url.pathExtension.lowercased()
+                let ext = target.url.pathExtension.lowercased()
                 guard writableExtensions.contains(ext) else {
                     result.skippedUnsupported += 1
                     continue
                 }
 
                 do {
-                    _ = try TagLibMetadataExtractor.writeTrackNumber(
-                        newNumber,
-                        totalTracks: 0,
-                        padWidth: padWidth,
-                        to: file.url
+                    _ = try TagLibMetadataExtractor.writeTrackNumberText(
+                        formattedTrackNumberText(newNumber, padWidth: padWidth),
+                        discNumberText: nil,
+                        to: target.url
                     )
                     result.succeeded += 1
+                    successfulTargets.append(target)
                 } catch {
                     result.failed += 1
                     let reason = (error as NSError).localizedDescription
-                    result.failures.append(TrackRenumberFailure(fileName: file.url.lastPathComponent, reason: reason))
+                    result.failures.append(TrackRenumberFailure(fileName: target.url.lastPathComponent, reason: reason))
                 }
             }
 
-            return result
+            return (result, successfulTargets)
         }.value
+
+        for target in writeOutcome.1 {
+            if let refreshWarning = await reloadEditedFile(
+                at: target.url,
+                id: target.id,
+                syncInspectorAfterReload: false
+            ) {
+                print("[AudioMator] Track renumber saved but refresh failed for \(target.url.lastPathComponent): \(refreshWarning)")
+            }
+        }
+
+        if !writeOutcome.1.isEmpty {
+            updateEditForSelection()
+        }
+
+        return writeOutcome.0
     }
 }

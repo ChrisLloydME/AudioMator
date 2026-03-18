@@ -143,6 +143,45 @@ static NSString * _Nullable TrimmedStringOrNil(NSString * _Nullable value) {
     return trimmed.length > 0 ? trimmed : nil;
 }
 
+static NSInteger NumberTextPreferenceScore(NSString * _Nullable value) {
+    NSString *trimmed = TrimmedStringOrNil(value);
+    if (!trimmed) {
+        return NSIntegerMin;
+    }
+
+    NSArray<NSString *> *parts = [trimmed componentsSeparatedByString:@"/"];
+    NSString *leftPart = parts.count > 0 ? parts[0] : trimmed;
+    NSString *leftTrimmed = [leftPart stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+    BOOL hasLeadingZeros = leftTrimmed.length > 1 && [leftTrimmed hasPrefix:@"0"];
+    BOOL hasExplicitTotal = [trimmed containsString:@"/"];
+
+    return (hasLeadingZeros ? 1000 : 0)
+        + (hasExplicitTotal ? 100 : 0)
+        + (NSInteger)trimmed.length;
+}
+
+static NSString * _Nullable PreferredNumberText(NSString * _Nullable currentValue,
+                                                NSString * _Nullable candidateValue) {
+    NSString *trimmedCurrent = TrimmedStringOrNil(currentValue);
+    NSString *trimmedCandidate = TrimmedStringOrNil(candidateValue);
+
+    if (!trimmedCandidate) {
+        return trimmedCurrent;
+    }
+
+    if (!trimmedCurrent) {
+        return trimmedCandidate;
+    }
+
+    return NumberTextPreferenceScore(trimmedCandidate) > NumberTextPreferenceScore(trimmedCurrent)
+        ? trimmedCandidate
+        : trimmedCurrent;
+}
+
+static constexpr const char *kAudioMatorMP4TrackNumberTextKey = "----:com.apple.iTunes:AUDIOMATOR_TRACKNUMBER_TEXT";
+static constexpr const char *kAudioMatorMP4DiscNumberTextKey = "----:com.apple.iTunes:AUDIOMATOR_DISCNUMBER_TEXT";
+
 static bool IsMP4LikeExtension(NSString * _Nullable ext) {
     if (!ext) return false;
     NSString *lower = ext.lowercaseString;
@@ -190,6 +229,16 @@ static void SetMP4TextItem(TagLib::MP4::Tag *tag,
     TagLib::StringList list;
     list.append(NSStringToTagString(trimmed));
     tag->setItem(key, TagLib::MP4::Item(list));
+}
+
+static NSString * _Nullable MP4TextItemValue(const TagLib::MP4::ItemMap &items,
+                                             const char *key)
+{
+    if (!key || !items.contains(key)) {
+        return nil;
+    }
+
+    return TrimmedStringOrNil(TagStringToNSString(items[key].toStringList().toString(", ")));
 }
 
 static void SetMP4IntPairItem(TagLib::MP4::Tag *tag,
@@ -486,15 +535,19 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
     }
 
     if (properties.contains("TRACKNUMBER") && !properties["TRACKNUMBER"].isEmpty()) {
+        NSString *trackText = TrimmedStringOrNil(TagStringToNSString(properties["TRACKNUMBER"].front()));
         NSInteger trackNum = 0, trackTotal = 0;
         ParseNumberPair(properties["TRACKNUMBER"].front(), trackNum, trackTotal);
+        metadata.trackNumberText = PreferredNumberText(metadata.trackNumberText, trackText);
         if (trackNum > 0) metadata.trackNumber = trackNum;
         if (trackTotal > 0) metadata.totalTracks = trackTotal;
     }
 
     if (properties.contains("DISCNUMBER") && !properties["DISCNUMBER"].isEmpty()) {
+        NSString *discText = TrimmedStringOrNil(TagStringToNSString(properties["DISCNUMBER"].front()));
         NSInteger discNum = 0, discTotal = 0;
         ParseNumberPair(properties["DISCNUMBER"].front(), discNum, discTotal);
+        metadata.discNumberText = PreferredNumberText(metadata.discNumberText, discText);
         if (discNum > 0) metadata.discNumber = discNum;
         if (discTotal > 0) metadata.totalDiscs = discTotal;
     }
@@ -600,6 +653,10 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             if (frameIDStr == "TRCK") {
                 NSInteger trackNum = 0, trackTotal = 0;
                 ParseNumberPair(value, trackNum, trackTotal);
+                metadata.trackNumberText = PreferredNumberText(
+                    metadata.trackNumberText,
+                    TagStringToNSString(value)
+                );
                 metadata.trackNumber = trackNum;
                 metadata.totalTracks = trackTotal;
             }
@@ -607,6 +664,10 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             else if (frameIDStr == "TPOS") {
                 NSInteger discNum = 0, discTotal = 0;
                 ParseNumberPair(value, discNum, discTotal);
+                metadata.discNumberText = PreferredNumberText(
+                    metadata.discNumberText,
+                    TagStringToNSString(value)
+                );
                 metadata.discNumber = discNum;
                 metadata.totalDiscs = discTotal;
             }
@@ -760,12 +821,25 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
     ApplyGenericPropertyMapMetadata(tag->properties(), metadata);
 
     const TagLib::MP4::ItemMap& items = tag->itemMap();
+    metadata.trackNumberText = PreferredNumberText(
+        metadata.trackNumberText,
+        MP4TextItemValue(items, kAudioMatorMP4TrackNumberTextKey)
+    );
+    metadata.discNumberText = PreferredNumberText(
+        metadata.discNumberText,
+        MP4TextItemValue(items, kAudioMatorMP4DiscNumberTextKey)
+    );
     
     // Track number
     if (items.contains("trkn")) {
         TagLib::MP4::Item::IntPair trackPair = items["trkn"].toIntPair();
         metadata.trackNumber = trackPair.first;
         metadata.totalTracks = trackPair.second;
+        if (metadata.trackNumberText.length == 0 && trackPair.first > 0) {
+            metadata.trackNumberText = trackPair.second > 0
+                ? [NSString stringWithFormat:@"%d/%d", trackPair.first, trackPair.second]
+                : [NSString stringWithFormat:@"%d", trackPair.first];
+        }
     }
     
     // Disc number
@@ -773,6 +847,11 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
         TagLib::MP4::Item::IntPair discPair = items["disk"].toIntPair();
         metadata.discNumber = discPair.first;
         metadata.totalDiscs = discPair.second;
+        if (metadata.discNumberText.length == 0 && discPair.first > 0) {
+            metadata.discNumberText = discPair.second > 0
+                ? [NSString stringWithFormat:@"%d/%d", discPair.first, discPair.second]
+                : [NSString stringWithFormat:@"%d", discPair.first];
+        }
     }
     
     // BPM
@@ -930,6 +1009,10 @@ static void ExtractXiphCommentMetadata(TagLib::Ogg::XiphComment* tag, TagLibAudi
         TagLib::String trackStr = properties["TRACKNUMBER"].front();
         NSInteger trackNum = 0, trackTotal = 0;
         ParseNumberPair(trackStr, trackNum, trackTotal);
+        metadata.trackNumberText = PreferredNumberText(
+            metadata.trackNumberText,
+            TagStringToNSString(trackStr)
+        );
         metadata.trackNumber = trackNum;
         if (trackTotal > 0) metadata.totalTracks = trackTotal;
     }
@@ -941,6 +1024,10 @@ static void ExtractXiphCommentMetadata(TagLib::Ogg::XiphComment* tag, TagLibAudi
         TagLib::String discStr = properties["DISCNUMBER"].front();
         NSInteger discNum = 0, discTotal = 0;
         ParseNumberPair(discStr, discNum, discTotal);
+        metadata.discNumberText = PreferredNumberText(
+            metadata.discNumberText,
+            TagStringToNSString(discStr)
+        );
         metadata.discNumber = discNum;
         if (discTotal > 0) metadata.totalDiscs = discTotal;
     }
@@ -1132,6 +1219,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         TagLib::String trackStr = items["TRACK"].values().front();
         NSInteger trackNum = 0, trackTotal = 0;
         ParseNumberPair(trackStr, trackNum, trackTotal);
+        metadata.trackNumberText = PreferredNumberText(
+            metadata.trackNumberText,
+            TagStringToNSString(trackStr)
+        );
         metadata.trackNumber = trackNum;
         if (trackTotal > 0) metadata.totalTracks = trackTotal;
     }
@@ -1139,6 +1230,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         TagLib::String discStr = items["DISC"].values().front();
         NSInteger discNum = 0, discTotal = 0;
         ParseNumberPair(discStr, discNum, discTotal);
+        metadata.discNumberText = PreferredNumberText(
+            metadata.discNumberText,
+            TagStringToNSString(discStr)
+        );
         metadata.discNumber = discNum;
         if (discTotal > 0) metadata.totalDiscs = discTotal;
     }
@@ -1244,6 +1339,10 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         
         if (tag->track() > 0) {
             metadata.trackNumber = tag->track();
+            metadata.trackNumberText = PreferredNumberText(
+                metadata.trackNumberText,
+                [NSString stringWithFormat:@"%u", tag->track()]
+            );
         }
     }
 
@@ -1929,23 +2028,36 @@ static void ParseNumberPairFromNSString(NSString *text,
             return NO;
         }
 
-        if (trackNumberText.length > 0) {
+        NSString *trimmedTrackText = TrimmedStringOrNil(trackNumberText);
+        if (trimmedTrackText) {
             NSInteger trackNumber = 0;
             NSInteger totalTracks = 0;
             NSInteger padWidth = 0;
-            ParseNumberPairFromNSString(trackNumberText, trackNumber, totalTracks, padWidth);
+            ParseNumberPairFromNSString(trimmedTrackText, trackNumber, totalTracks, padWidth);
             (void)padWidth;
             SetMP4IntPairItem(mp4Tag, "trkn", trackNumber, totalTracks);
             mp4Tag->setTrack(trackNumber > 0 ? (unsigned int)trackNumber : 0);
+            SetMP4TextItem(mp4Tag, kAudioMatorMP4TrackNumberTextKey, trimmedTrackText);
+        } else {
+            mp4Tag->removeItem("trkn");
+            mp4Tag->setTrack(0);
+            SetMP4TextItem(mp4Tag, kAudioMatorMP4TrackNumberTextKey, nil);
         }
 
-        if (discNumberText.length > 0) {
-            NSInteger discNumber = 0;
-            NSInteger totalDiscs = 0;
-            NSInteger padWidth = 0;
-            ParseNumberPairFromNSString(discNumberText, discNumber, totalDiscs, padWidth);
-            (void)padWidth;
-            SetMP4IntPairItem(mp4Tag, "disk", discNumber, totalDiscs);
+        if (discNumberText) {
+            NSString *trimmedDiscText = TrimmedStringOrNil(discNumberText);
+            if (trimmedDiscText) {
+                NSInteger discNumber = 0;
+                NSInteger totalDiscs = 0;
+                NSInteger padWidth = 0;
+                ParseNumberPairFromNSString(trimmedDiscText, discNumber, totalDiscs, padWidth);
+                (void)padWidth;
+                SetMP4IntPairItem(mp4Tag, "disk", discNumber, totalDiscs);
+                SetMP4TextItem(mp4Tag, kAudioMatorMP4DiscNumberTextKey, trimmedDiscText);
+            } else {
+                mp4Tag->removeItem("disk");
+                SetMP4TextItem(mp4Tag, kAudioMatorMP4DiscNumberTextKey, nil);
+            }
         }
 
         if (!mp4File.save()) {
@@ -2315,6 +2427,8 @@ static void ParseNumberPairFromNSString(NSString *text,
         // Publisher/label convention for MP4 freeform atoms.
         SetMP4TextItem(tag, "----:com.apple.iTunes:LABEL", metadata.label);
         SetMP4TextItem(tag, "----:com.apple.iTunes:ITUNESADVISORY", metadata.explicitContent ? @"1" : @"0");
+        SetMP4TextItem(tag, kAudioMatorMP4TrackNumberTextKey, metadata.trackNumberText);
+        SetMP4TextItem(tag, kAudioMatorMP4DiscNumberTextKey, metadata.discNumberText);
 
         SetMP4IntPairItem(tag, "trkn", metadata.trackNumber, metadata.totalTracks);
         SetMP4IntPairItem(tag, "disk", metadata.discNumber, metadata.totalDiscs);
@@ -2687,6 +2801,115 @@ static void AppendID3v2FramesSection(NSMutableString *out,
         }
 
         AppendLine(out, [NSString stringWithFormat:@"%@ = %@", fid, val]);
+    }
+}
+
+static void AddPropertyMapEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
+                                  const TagLib::PropertyMap &pm)
+{
+    for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
+        NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
+        NSMutableArray<NSString *> *values = [NSMutableArray array];
+        for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
+            [values addObject:(TagStringToNSString(*vit) ?: @"")];
+        }
+        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+        [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
+    }
+}
+
+static void AddID3v2FrameEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *id3v2FramesOut,
+                                 TagLib::ID3v2::Tag *tag)
+{
+    if (!tag) {
+        return;
+    }
+
+    TagLib::ID3v2::FrameList frames = tag->frameList();
+    for (auto fit = frames.begin(); fit != frames.end(); ++fit) {
+        TagLib::ID3v2::Frame *frame = *fit;
+        if (!frame) continue;
+
+        TagLib::ByteVector frameIdBytes = frame->frameID();
+        std::string idStr(frameIdBytes.data(), frameIdBytes.size());
+        NSString *frameID = idStr.empty() ? @"" : [NSString stringWithUTF8String:idStr.c_str()];
+        NSString *value = TagStringToNSString(frame->toString()) ?: @"";
+
+        NSMutableDictionary<NSString *, NSObject *> *item = [@{ @"id": frameID ?: @"", @"value": value } mutableCopy];
+
+        if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(frame)) {
+            NSString *desc = TagStringToNSString(userFrame->description()) ?: @"";
+            if (desc.length) item[@"description"] = desc;
+        }
+
+        if (auto commFrame = dynamic_cast<TagLib::ID3v2::CommentsFrame *>(frame)) {
+            NSString *desc = TagStringToNSString(commFrame->description()) ?: @"";
+            if (desc.length) item[@"description"] = desc;
+            NSString *lang = TagStringToNSString(commFrame->language()) ?: @"";
+            if (lang.length) item[@"language"] = lang;
+        }
+
+        [id3v2FramesOut addObject:item];
+    }
+}
+
+static void AddAPEItemEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
+                              TagLib::APE::Tag *tag)
+{
+    if (!tag) {
+        return;
+    }
+
+    const TagLib::APE::ItemListMap &items = tag->itemListMap();
+    for (auto it = items.begin(); it != items.end(); ++it) {
+        const TagLib::APE::Item &item = it->second;
+        if (item.type() != TagLib::APE::Item::Text) {
+            continue;
+        }
+
+        NSString *key = TagStringToNSString(it->first) ?: @"";
+        NSMutableArray<NSString *> *values = [NSMutableArray array];
+        TagLib::StringList textValues = item.values();
+        for (auto vit = textValues.begin(); vit != textValues.end(); ++vit) {
+            [values addObject:(TagStringToNSString(*vit) ?: @"")];
+        }
+        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+        [propertiesOut addObject:@{ @"key": key, @"value": joined, @"values": values, @"count": @(values.count) }];
+    }
+}
+
+static void AddXiphCommentEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
+                                  TagLib::Ogg::XiphComment *tag)
+{
+    if (!tag) {
+        return;
+    }
+
+    const TagLib::Ogg::FieldListMap &fields = tag->fieldListMap();
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        NSString *key = TagStringToNSString(it->first) ?: @"";
+        NSMutableArray<NSString *> *values = [NSMutableArray array];
+        for (auto vit = it->second.begin(); vit != it->second.end(); ++vit) {
+            [values addObject:(TagStringToNSString(*vit) ?: @"")];
+        }
+        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+        [propertiesOut addObject:@{ @"key": key, @"value": joined, @"values": values, @"count": @(values.count) }];
+    }
+}
+
+static void AddRIFFInfoEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
+                               TagLib::RIFF::Info::Tag *tag)
+{
+    if (!tag) {
+        return;
+    }
+
+    TagLib::RIFF::Info::FieldListMap fields = tag->fieldListMap();
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        NSString *key = ByteVectorToNSString(it->first);
+        NSString *value = TagStringToNSString(it->second) ?: @"";
+        NSArray<NSString *> *values = value.length > 0 ? @[value] : @[];
+        [propertiesOut addObject:@{ @"key": key ?: @"", @"value": value, @"values": values, @"count": @(values.count) }];
     }
 }
 

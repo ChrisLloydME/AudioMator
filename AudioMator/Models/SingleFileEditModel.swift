@@ -117,8 +117,8 @@ struct SingleFileEditModel {
             disc: file.disc,
             discTotal: file.discTotal,
             year: file.year,
-            trackNumberText: file.track > 0 ? (file.trackTotal > 0 ? "\(file.track)/\(file.trackTotal)" : "\(file.track)") : "",
-            discNumberText: file.disc > 0 ? (file.discTotal > 0 ? "\(file.disc)/\(file.discTotal)" : "\(file.disc)") : "",
+            trackNumberText: file.trackNumberText,
+            discNumberText: file.discNumberText,
             albumArtist: file.albumArtist,
             releaseDate: file.releaseDate,
             publisher: file.publisher,
@@ -253,13 +253,9 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
         case .year:
             return file.year
         case .trackNumberText:
-            return file.track > 0
-                ? (file.trackTotal > 0 ? "\(file.track)/\(file.trackTotal)" : "\(file.track)")
-                : ""
+            return file.trackNumberText
         case .discNumberText:
-            return file.disc > 0
-                ? (file.discTotal > 0 ? "\(file.disc)/\(file.discTotal)" : "\(file.disc)")
-                : ""
+            return file.discNumberText
         case .comment:
             return file.comment
         case .albumArtist:

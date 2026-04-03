@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 struct MusicBrainzSearchSeed {
+    var mode: MusicBrainzSearchMode
     var title: String
     var artist: String
     var album: String
@@ -9,6 +10,7 @@ struct MusicBrainzSearchSeed {
 
     var query: MusicBrainzSearchQuery {
         MusicBrainzSearchQuery(
+            mode: mode,
             title: title,
             artist: artist,
             album: album
@@ -18,12 +20,13 @@ struct MusicBrainzSearchSeed {
 
 @MainActor
 final class MusicBrainzBrowserStore: ObservableObject {
+    @Published var mode: MusicBrainzSearchMode = .track
     @Published var titleQuery: String = ""
     @Published var artistQuery: String = ""
     @Published var albumQuery: String = ""
     @Published private(set) var isSearching: Bool = false
     @Published private(set) var errorMessage: String?
-    @Published private(set) var results: [MusicBrainzRecordingResult] = []
+    @Published private(set) var results: MusicBrainzSearchResults = .recordings([])
     @Published private(set) var lastSubmittedQuery: MusicBrainzSearchQuery?
     @Published private(set) var sourceDescription: String = "Edit the fields below or seed them from the current AudioMator selection."
 
@@ -40,6 +43,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     var currentQuery: MusicBrainzSearchQuery {
         MusicBrainzSearchQuery(
+            mode: mode,
             title: titleQuery,
             artist: artistQuery,
             album: albumQuery
@@ -50,9 +54,14 @@ final class MusicBrainzBrowserStore: ObservableObject {
         !currentQuery.isEmpty
     }
 
+    var visibleResultMode: MusicBrainzSearchMode {
+        lastSubmittedQuery?.mode ?? mode
+    }
+
     func apply(seed: MusicBrainzSearchSeed?) {
         guard let seed else { return }
 
+        mode = seed.mode
         titleQuery = seed.title
         artistQuery = seed.artist
         albumQuery = seed.album
@@ -65,18 +74,38 @@ final class MusicBrainzBrowserStore: ObservableObject {
         titleQuery = ""
         artistQuery = ""
         albumQuery = ""
-        results = []
+        mode = .track
+        results = .recordings([])
         errorMessage = nil
         lastSubmittedQuery = nil
         isSearching = false
         sourceDescription = "Edit the fields below or seed them from the current AudioMator selection."
     }
 
+    func handleModeChange(from oldMode: MusicBrainzSearchMode, to newMode: MusicBrainzSearchMode) {
+        guard oldMode != newMode else { return }
+        searchTask?.cancel()
+        isSearching = false
+        errorMessage = nil
+        lastSubmittedQuery = nil
+
+        switch newMode {
+        case .track:
+            results = .recordings([])
+        case .album:
+            if albumQuery.isEmpty, !titleQuery.isEmpty {
+                albumQuery = titleQuery
+            }
+            titleQuery = ""
+            results = .releases([])
+        }
+    }
+
     func search() {
         let query = currentQuery
 
         guard !query.isEmpty else {
-            results = []
+            results = query.mode == .track ? .recordings([]) : .releases([])
             errorMessage = MusicBrainzClientError.emptyQuery.localizedDescription
             lastSubmittedQuery = nil
             isSearching = false
@@ -90,7 +119,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         searchTask = Task { [client] in
             do {
-                let results = try await client.searchRecordings(matching: query)
+                let results = try await client.search(matching: query)
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
@@ -106,7 +135,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
-                    self.results = []
+                    self.results = query.mode == .track ? .recordings([]) : .releases([])
                     self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     self.isSearching = false
                 }

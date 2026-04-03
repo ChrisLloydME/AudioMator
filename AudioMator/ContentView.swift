@@ -11,6 +11,8 @@ import AVFoundation
 struct ContentView: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @Environment(\.openWindow) private var openWindow
 
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
@@ -47,6 +49,7 @@ struct ContentView: View {
                 selection: guardedSelection,
                 onAddFiles: viewModel.addFiles,
                 onShowMetadataDump: presentMetadataDump,
+                onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
                 onOpenTrackRenumber: openTrackRenumberSheet,
                 onCancelEdits: viewModel.cancelEditing,
                 onSaveEdits: viewModel.saveInspectorEdits
@@ -135,6 +138,9 @@ struct ContentView: View {
             guard !viewModel.files.isEmpty else { return }
             openTrackRenumberSheet()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .requestMusicBrainzBrowser)) { _ in
+            openMusicBrainzBrowser()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
             attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
         }
@@ -148,6 +154,15 @@ struct ContentView: View {
         trackRenumberStartText = String(max(1, trackRenumberOptions.startNumber))
         trackRenumberResult = .empty
         isTrackRenumberPresented = true
+    }
+
+    private func openMusicBrainzBrowser() {
+        musicBrainzBrowserStore.apply(seed: currentMusicBrainzSearchSeed())
+        openWindow(id: MusicBrainzBrowserView.windowID)
+
+        if musicBrainzBrowserStore.hasSearchText {
+            musicBrainzBrowserStore.search()
+        }
     }
 
     private func dismissWelcomeSplash() {
@@ -228,6 +243,34 @@ struct ContentView: View {
         withAnimation(.easeInOut(duration: 0.18)) {
             isInspectorVisible = isVisible
         }
+    }
+
+    private func currentMusicBrainzSearchSeed() -> MusicBrainzSearchSeed? {
+        let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        guard let selectedFile = selectedFiles.first else { return nil }
+
+        if selectedFiles.count == 1, let edit = viewModel.edit {
+            return MusicBrainzSearchSeed(
+                title: edit.title,
+                artist: edit.artist,
+                album: edit.album,
+                sourceDescription: "Seeded from the current inspector fields for \(selectedFile.url.lastPathComponent)."
+            )
+        }
+
+        let sourceDescription: String
+        if selectedFiles.count == 1 {
+            sourceDescription = "Seeded from the selected file \(selectedFile.url.lastPathComponent)."
+        } else {
+            sourceDescription = "Seeded from the first of \(selectedFiles.count) selected files: \(selectedFile.url.lastPathComponent)."
+        }
+
+        return MusicBrainzSearchSeed(
+            title: selectedFile.title,
+            artist: selectedFile.artist,
+            album: selectedFile.album,
+            sourceDescription: sourceDescription
+        )
     }
 
     private func toggleInspector() {
@@ -382,8 +425,14 @@ private struct MetadataWriteHUDIcon: View {
     }
 }
 
-#Preview {
-    ContentView(viewModel: AudioViewModel(), state: SharedState())
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView(
+            viewModel: AudioViewModel(),
+            state: SharedState(),
+            musicBrainzBrowserStore: MusicBrainzBrowserStore()
+        )
+    }
 }
 
 // MARK: - Full metadata dump (user-facing)

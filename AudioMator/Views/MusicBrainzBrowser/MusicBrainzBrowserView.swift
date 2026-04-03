@@ -16,7 +16,19 @@ struct MusicBrainzBrowserView: View {
         .frame(minWidth: 920, minHeight: 620)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: store.mode) { oldMode, newMode in
+            store.handleModeChange(from: oldMode, to: newMode)
+        }
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Search Mode", selection: $store.mode) {
+                    ForEach(MusicBrainzSearchMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Search") {
                     store.search()
@@ -39,58 +51,39 @@ struct MusicBrainzBrowserView: View {
     }
 
     private var searchHeader: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("MusicBrainz Browser")
-                    .font(.system(size: 24, weight: .semibold))
-
-                Text(store.sourceDescription)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(alignment: .bottom, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
                 MusicBrainzQueryField(
-                    title: "Title",
-                    text: $store.titleQuery,
-                    prompt: "Track title"
+                    title: store.mode == .track ? "Track Title" : "Album Title",
+                    symbolName: store.mode == .track ? "music.note" : "square.stack",
+                    text: primaryQueryBinding
                 )
 
                 MusicBrainzQueryField(
                     title: "Artist",
-                    text: $store.artistQuery,
-                    prompt: "Artist credit"
+                    symbolName: "person",
+                    text: $store.artistQuery
                 )
 
-                MusicBrainzQueryField(
-                    title: "Album",
-                    text: $store.albumQuery,
-                    prompt: "Release title"
-                )
-
+                if store.mode == .track {
+                    MusicBrainzQueryField(
+                        title: "Album",
+                        symbolName: "opticaldisc",
+                        text: $store.albumQuery
+                    )
+                }
             }
 
-            if let lastSubmittedQuery = store.lastSubmittedQuery, !lastSubmittedQuery.isEmpty {
-                HStack(spacing: 8) {
-                    Text("Current search")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Spacer()
 
-                    Text(lastSubmittedQuery.summaryText)
+                if store.isSearching {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if store.lastSubmittedQuery != nil {
+                    Text("\(store.results.count) \(store.visibleResultMode == .track ? "track" : "album") result\(store.results.count == 1 ? "" : "s")")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-
-                    Spacer()
-
-                    if store.isSearching {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Text("\(store.results.count) result\(store.results.count == 1 ? "" : "s")")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
                 }
             }
         }
@@ -129,9 +122,9 @@ struct MusicBrainzBrowserView: View {
                     store.lastSubmittedQuery == nil ? "No Search Yet" : "No Results",
                     systemImage: "magnifyingglass",
                     description: Text(
-                        store.lastSubmittedQuery == nil
-                            ? "Open this window from the toolbar to seed the query from the current track, or type your own fields above."
-                            : "MusicBrainz did not return any recordings for the current query."
+                            store.lastSubmittedQuery == nil
+                                ? "Choose Track or Album search, then fill in the fields above."
+                            : "MusicBrainz did not return any \(store.visibleResultMode == .track ? "tracks" : "albums") for the current query."
                     )
                 )
                 .padding(.top, 36)
@@ -140,29 +133,52 @@ struct MusicBrainzBrowserView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         } else {
-            List(store.results) { result in
-                MusicBrainzRecordingRow(result: result)
-                    .padding(.vertical, 6)
+            List {
+                switch store.results {
+                case .recordings(let results):
+                    ForEach(results) { result in
+                        MusicBrainzRecordingRow(result: result)
+                            .padding(.vertical, 6)
+                    }
+                case .releases(let results):
+                    ForEach(results) { result in
+                        MusicBrainzReleaseRow(result: result)
+                            .padding(.vertical, 6)
+                    }
+                }
             }
             .listStyle(.inset)
+        }
+    }
+
+    private var primaryQueryBinding: Binding<String> {
+        switch store.mode {
+        case .track:
+            return $store.titleQuery
+        case .album:
+            return $store.albumQuery
         }
     }
 }
 
 private struct MusicBrainzQueryField: View {
     let title: String
+    let symbolName: String
     @Binding var text: String
-    let prompt: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Label {
+                Text(title)
+            } icon: {
+                Image(systemName: symbolName)
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
 
-            TextField(prompt, text: $text)
+            TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 180)
+                .frame(minWidth: 220)
         }
     }
 }
@@ -272,6 +288,70 @@ private struct MusicBrainzRecordingRow: View {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return "\(minutes):" + String(format: "%02d", seconds)
+    }
+}
+
+private struct MusicBrainzReleaseRow: View {
+    let result: MusicBrainzReleaseSearchResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(result.title)
+                    .font(.system(size: 15, weight: .semibold))
+
+                Text("Score \(result.score)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.accentColor.opacity(0.12))
+                    )
+                    .foregroundStyle(Color.accentColor)
+
+                Spacer()
+
+                if let url = result.musicBrainzURL {
+                    Link(destination: url) {
+                        Label("Release", systemImage: "arrow.up.right.square")
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+
+            if !result.artistCredit.isEmpty {
+                Label(result.artistCredit, systemImage: "person.2")
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                if !result.date.isEmpty {
+                    MusicBrainzMetaPill(title: "Release Date", value: result.date)
+                }
+
+                if !result.country.isEmpty {
+                    MusicBrainzMetaPill(title: "Country", value: result.country)
+                }
+
+                if !result.status.isEmpty {
+                    MusicBrainzMetaPill(title: "Status", value: result.status)
+                }
+            }
+
+            if let releaseGroup = result.releaseGroup,
+               !releaseGroup.primaryType.isEmpty || !releaseGroup.secondaryTypes.isEmpty {
+                let detail = ([releaseGroup.primaryType] + releaseGroup.secondaryTypes)
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " • ")
+
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }
 

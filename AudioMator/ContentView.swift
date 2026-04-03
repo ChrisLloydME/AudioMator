@@ -251,6 +251,7 @@ struct ContentView: View {
 
         if selectedFiles.count == 1, let edit = viewModel.edit {
             return MusicBrainzSearchSeed(
+                mode: .track,
                 title: edit.title,
                 artist: edit.artist,
                 album: edit.album,
@@ -266,6 +267,7 @@ struct ContentView: View {
         }
 
         return MusicBrainzSearchSeed(
+            mode: .track,
             title: selectedFile.title,
             artist: selectedFile.artist,
             album: selectedFile.album,

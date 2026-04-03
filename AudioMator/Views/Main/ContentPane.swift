@@ -8,6 +8,7 @@ struct ContentPane: View {
     let selection: Binding<Set<AudioFile.ID>>
     let onAddFiles: () -> Void
     let onShowMetadataDump: () -> Void
+    let onOpenMusicBrainzBrowser: () -> Void
     let onOpenTrackRenumber: () -> Void
     let onCancelEdits: () -> Void
     let onSaveEdits: () -> Void
@@ -83,6 +84,11 @@ struct ContentPane: View {
                     }
                     .help("Rewrite Track Number (TRCK) by the middle list order")
                     .disabled(viewModel.files.isEmpty)
+
+                    Button(action: onOpenMusicBrainzBrowser) {
+                        Label("MusicBrainz Browser", systemImage: "magnifyingglass.circle")
+                    }
+                    .help("Open a MusicBrainz search window seeded from the current track fields")
 
                     Button(action: openMetadataFilenameRenameSheet) {
                         Label("Rename Files…", systemImage: "pencil.line")

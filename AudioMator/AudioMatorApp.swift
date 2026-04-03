@@ -13,6 +13,7 @@ extension Notification.Name {
     static let requestMetadataDump = Notification.Name("requestMetadataDump")
     static let requestTrackRenumber = Notification.Name("requestTrackRenumber")
     static let requestMetadataFilenameRename = Notification.Name("requestMetadataFilenameRename")
+    static let requestMusicBrainzBrowser = Notification.Name("requestMusicBrainzBrowser")
     static let requestToggleInspector = Notification.Name("requestToggleInspector")
     static let requestClearListConfirmation = Notification.Name("requestClearListConfirmation")
     static let requestSelectAllTracks = Notification.Name("requestSelectAllTracks")
@@ -43,10 +44,15 @@ struct AudioMatorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var viewModel = AudioViewModel()
     @StateObject private var sharedState = SharedState()
+    @StateObject private var musicBrainzBrowserStore = MusicBrainzBrowserStore()
 
     var body: some Scene {
         WindowGroup {
-            ContentView(viewModel: viewModel, state: sharedState)
+            ContentView(
+                viewModel: viewModel,
+                state: sharedState,
+                musicBrainzBrowserStore: musicBrainzBrowserStore
+            )
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
@@ -63,6 +69,11 @@ struct AudioMatorApp: App {
             }
         }
         .defaultSize(width: 900, height: 600)
+
+        Window("MusicBrainz Browser", id: MusicBrainzBrowserView.windowID) {
+            MusicBrainzBrowserView(store: musicBrainzBrowserStore)
+        }
+        .defaultSize(width: 980, height: 700)
     }
 }
 
@@ -115,6 +126,12 @@ struct ToolbarEditCommands: Commands {
                 Label("Rename Files…", systemImage: "pencil.line")
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
+
+            Button {
+                NotificationCenter.default.post(name: .requestMusicBrainzBrowser, object: nil)
+            } label: {
+                Label("MusicBrainz Browser", systemImage: "magnifyingglass.circle")
+            }
 
             Button(role: .destructive) {
                 NotificationCenter.default.post(name: .requestClearListConfirmation, object: nil)

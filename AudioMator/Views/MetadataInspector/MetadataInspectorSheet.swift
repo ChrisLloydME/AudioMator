@@ -110,10 +110,11 @@ struct MetadataInspectorSheet: View {
     }
 }
 
-#Preview {
-    MetadataInspectorSheet(
-        fileURL: URL(fileURLWithPath: "/Users/lloyd/Music/Test/01 - Example.mp3"),
-        dumpText: """
+struct MetadataInspectorSheet_Previews: PreviewProvider {
+    static var previews: some View {
+        MetadataInspectorSheet(
+            fileURL: URL(fileURLWithPath: "/Users/lloyd/Music/Test/01 - Example.mp3"),
+            dumpText: """
 [TagLib::PropertyMap]
 TIT2 = Carpe Diem
 TPE1 = Maurice Jarre
@@ -127,5 +128,6 @@ TIT2: Carpe Diem
 TPE1: Maurice Jarre
 TALB: Dead Poets Society
 """
-    )
+        )
+    }
 }

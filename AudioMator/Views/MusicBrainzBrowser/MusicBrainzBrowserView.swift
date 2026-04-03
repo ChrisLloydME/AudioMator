@@ -14,6 +14,28 @@ struct MusicBrainzBrowserView: View {
             content
         }
         .frame(minWidth: 920, minHeight: 620)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("Search") {
+                    store.search()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!store.hasSearchText || store.isSearching)
+
+                Button("Clear") {
+                    store.clearSearch()
+                }
+                .disabled(
+                    store.titleQuery.isEmpty &&
+                    store.artistQuery.isEmpty &&
+                    store.albumQuery.isEmpty &&
+                    store.results.isEmpty &&
+                    store.errorMessage == nil
+                )
+            }
+        }
     }
 
     private var searchHeader: some View {
@@ -46,22 +68,6 @@ struct MusicBrainzBrowserView: View {
                     prompt: "Release title"
                 )
 
-                Button("Search") {
-                    store.search()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!store.hasSearchText || store.isSearching)
-
-                Button("Clear") {
-                    store.clearSearch()
-                }
-                .disabled(
-                    store.titleQuery.isEmpty &&
-                    store.artistQuery.isEmpty &&
-                    store.albumQuery.isEmpty &&
-                    store.results.isEmpty &&
-                    store.errorMessage == nil
-                )
             }
 
             if let lastSubmittedQuery = store.lastSubmittedQuery, !lastSubmittedQuery.isEmpty {
@@ -88,7 +94,9 @@ struct MusicBrainzBrowserView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(.horizontal, 20)
+        .padding(.top, 18)
+        .padding(.bottom, 16)
         .onSubmit {
             store.search()
         }
@@ -97,27 +105,40 @@ struct MusicBrainzBrowserView: View {
     @ViewBuilder
     private var content: some View {
         if store.isSearching && store.results.isEmpty {
-            VStack {
-                Spacer()
+            VStack(spacing: 0) {
                 ProgressView("Searching MusicBrainz…")
-                Spacer()
+                    .padding(.top, 56)
+                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         } else if let errorMessage = store.errorMessage {
-            ContentUnavailableView(
-                "Search Failed",
-                systemImage: "exclamationmark.triangle",
-                description: Text(errorMessage)
-            )
-        } else if store.results.isEmpty {
-            ContentUnavailableView(
-                store.lastSubmittedQuery == nil ? "No Search Yet" : "No Results",
-                systemImage: "magnifyingglass",
-                description: Text(
-                    store.lastSubmittedQuery == nil
-                        ? "Open this window from the toolbar to seed the query from the current track, or type your own fields above."
-                        : "MusicBrainz did not return any recordings for the current query."
+            VStack(spacing: 0) {
+                ContentUnavailableView(
+                    "Search Failed",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(errorMessage)
                 )
-            )
+                .padding(.top, 36)
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        } else if store.results.isEmpty {
+            VStack(spacing: 0) {
+                ContentUnavailableView(
+                    store.lastSubmittedQuery == nil ? "No Search Yet" : "No Results",
+                    systemImage: "magnifyingglass",
+                    description: Text(
+                        store.lastSubmittedQuery == nil
+                            ? "Open this window from the toolbar to seed the query from the current track, or type your own fields above."
+                            : "MusicBrainz did not return any recordings for the current query."
+                    )
+                )
+                .padding(.top, 36)
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         } else {
             List(store.results) { result in
                 MusicBrainzRecordingRow(result: result)

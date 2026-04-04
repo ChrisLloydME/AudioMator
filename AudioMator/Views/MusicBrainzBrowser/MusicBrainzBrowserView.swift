@@ -51,7 +51,9 @@ struct MusicBrainzBrowserView: View {
                 .disabled(
                     store.titleQuery.isEmpty &&
                     store.artistQuery.isEmpty &&
+                    store.albumArtistQuery.isEmpty &&
                     store.albumQuery.isEmpty &&
+                    store.trackNumberQuery.isEmpty &&
                     store.linkQuery.isEmpty &&
                     store.results.isEmpty &&
                     store.errorMessage == nil
@@ -113,7 +115,7 @@ struct MusicBrainzBrowserView: View {
                     systemImage: "magnifyingglass",
                     description: Text(
                             store.lastSubmittedQuery == nil
-                                ? "Choose Track, Album, or MusicBrainz Link search, then fill in the fields above."
+                                ? "Choose Track, Album, File, or MusicBrainz Link search, then fill in the fields above."
                                 : noResultsDescription
                     )
                 )
@@ -182,6 +184,43 @@ struct MusicBrainzBrowserView: View {
                     text: $store.artistQuery
                 )
             }
+        case .file:
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    MusicBrainzQueryField(
+                        title: "Track",
+                        symbolName: "music.note",
+                        text: $store.titleQuery
+                    )
+
+                    MusicBrainzQueryField(
+                        title: "Artist",
+                        symbolName: "person",
+                        text: $store.artistQuery
+                    )
+
+                    MusicBrainzQueryField(
+                        title: "Album Artist",
+                        symbolName: "person.2",
+                        text: $store.albumArtistQuery
+                    )
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    MusicBrainzQueryField(
+                        title: "Album",
+                        symbolName: "opticaldisc",
+                        text: $store.albumQuery
+                    )
+
+                    MusicBrainzQueryField(
+                        title: "Track No.",
+                        symbolName: "number",
+                        text: $store.trackNumberQuery,
+                        minimumWidth: 140
+                    )
+                }
+            }
         case .link:
             MusicBrainzQueryField(
                 title: "MusicBrainz Link",
@@ -197,6 +236,8 @@ struct MusicBrainzBrowserView: View {
             return "track"
         case .album:
             return "album"
+        case .file:
+            return "track"
         case .link:
             switch store.results {
             case .recordings:
@@ -213,6 +254,8 @@ struct MusicBrainzBrowserView: View {
             return "MusicBrainz did not return any tracks for the current query."
         case .album:
             return "MusicBrainz did not return any albums for the current query."
+        case .file:
+            return "MusicBrainz did not return any good track matches for the current file metadata."
         case .link:
             return "MusicBrainz did not resolve the supplied link to a supported result."
         }
@@ -223,6 +266,7 @@ private struct MusicBrainzQueryField: View {
     let title: String
     let symbolName: String
     @Binding var text: String
+    var minimumWidth: CGFloat = 220
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -241,7 +285,7 @@ private struct MusicBrainzQueryField: View {
 
             TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 220)
+                .frame(minWidth: minimumWidth)
         }
     }
 }

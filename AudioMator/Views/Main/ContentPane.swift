@@ -9,6 +9,7 @@ struct ContentPane: View {
     let onAddFiles: () -> Void
     let onShowMetadataDump: () -> Void
     let onOpenMusicBrainzBrowser: () -> Void
+    let onFindSelectedFileInMusicBrainz: () -> Void
     let onOpenTrackRenumber: () -> Void
     let onCancelEdits: () -> Void
     let onSaveEdits: () -> Void
@@ -31,6 +32,10 @@ struct ContentPane: View {
 
     private var selectedFiles: [AudioFile] {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+    }
+
+    private var isSingleFileSelected: Bool {
+        selectedFiles.count == 1
     }
 
     private var visibleColumns: Set<MiddleListColumn> {
@@ -85,10 +90,11 @@ struct ContentPane: View {
                     .help("Rewrite Track Number (TRCK) by the middle list order")
                     .disabled(viewModel.files.isEmpty)
 
-                    Button(action: onOpenMusicBrainzBrowser) {
-                        Label("MusicBrainz Browser", systemImage: "network")
+                    Button(action: onFindSelectedFileInMusicBrainz) {
+                        Label("Find in MusicBrainz", systemImage: "network")
                     }
-                    .help("Open a MusicBrainz search window seeded from the current track fields")
+                    .help("Search MusicBrainz using the selected file's metadata")
+                    .disabled(!isSingleFileSelected)
 
                     Button(action: openMetadataFilenameRenameSheet) {
                         Label("Rename Files…", systemImage: "pencil.line")
@@ -213,6 +219,13 @@ struct ContentPane: View {
                         copySelectedFileNames()
                     }
                     .disabled(selectedFiles.isEmpty)
+
+                    Divider()
+
+                    Button("Find in MusicBrainz") {
+                        onFindSelectedFileInMusicBrainz()
+                    }
+                    .disabled(!isSingleFileSelected)
 
                     Divider()
 

@@ -3,6 +3,7 @@ import Foundation
 enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
     case track
     case album
+    case file
     case link
 
     var id: String { rawValue }
@@ -11,6 +12,7 @@ enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
         switch self {
         case .track: return "Track"
         case .album: return "Album"
+        case .file: return "File"
         case .link: return "Link"
         }
     }
@@ -20,29 +22,50 @@ struct MusicBrainzSearchQuery: Equatable {
     var mode: MusicBrainzSearchMode
     var title: String
     var artist: String
+    var albumArtist: String
     var album: String
+    var trackNumber: String
     var link: String
 
     init(
         mode: MusicBrainzSearchMode = .track,
         title: String = "",
         artist: String = "",
+        albumArtist: String = "",
         album: String = "",
+        trackNumber: String = "",
         link: String = ""
     ) {
         self.mode = mode
         self.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         self.artist = artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.albumArtist = albumArtist.trimmingCharacters(in: .whitespacesAndNewlines)
         self.album = album.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.trackNumber = trackNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         self.link = link.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var isEmpty: Bool {
         switch mode {
-        case .track, .album:
+        case .track:
             title.isEmpty && artist.isEmpty && album.isEmpty
+        case .album:
+            title.isEmpty && artist.isEmpty && album.isEmpty
+        case .file:
+            title.isEmpty && artist.isEmpty && albumArtist.isEmpty && album.isEmpty && trackNumber.isEmpty
         case .link:
             link.isEmpty
+        }
+    }
+
+    var artistCandidates: [String] {
+        switch mode {
+        case .file:
+            deduplicatedValues([artist, albumArtist])
+        case .track, .album:
+            deduplicatedValues([artist])
+        case .link:
+            []
         }
     }
 
@@ -57,8 +80,16 @@ struct MusicBrainzSearchQuery: Equatable {
             parts.append("artist: \(artist)")
         }
 
+        if !albumArtist.isEmpty {
+            parts.append("album artist: \(albumArtist)")
+        }
+
         if !album.isEmpty {
             parts.append("album: \(album)")
+        }
+
+        if !trackNumber.isEmpty {
+            parts.append("track: \(trackNumber)")
         }
 
         if !link.isEmpty {
@@ -66,6 +97,14 @@ struct MusicBrainzSearchQuery: Equatable {
         }
 
         return parts.joined(separator: " • ")
+    }
+
+    private func deduplicatedValues(_ values: [String]) -> [String] {
+        let trimmedValues = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        return (Array(NSOrderedSet(array: trimmedValues)) as? [String]) ?? trimmedValues
     }
 }
 
@@ -321,6 +360,8 @@ struct MusicBrainzClient {
             return .recordings(try await searchRecordings(matching: query, limit: limit))
         case .album:
             return .releases(try await searchReleases(matching: query, limit: limit))
+        case .file:
+            return .recordings(try await searchFiles(matching: query, limit: max(limit, 50)))
         case .link:
             return try await searchByLink(matching: query)
         }
@@ -383,7 +424,10 @@ struct MusicBrainzClient {
         } catch let error as DecodingError {
             throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
         }
-        return payload.recordings.map(MusicBrainzRecordingResult.init)
+        return MusicBrainzResultRanker.rerankRecordings(
+            payload.recordings.map(MusicBrainzRecordingResult.init),
+            query: query
+        )
     }
 
     func searchReleases(matching query: MusicBrainzSearchQuery, limit: Int = 25) async throws -> [MusicBrainzReleaseSearchResult] {
@@ -428,7 +472,59 @@ struct MusicBrainzClient {
             throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
         }
 
-        return payload.releases.map(MusicBrainzReleaseSearchResult.init)
+        return MusicBrainzResultRanker.rerankReleases(
+            payload.releases.map(MusicBrainzReleaseSearchResult.init),
+            query: query
+        )
+    }
+
+    func searchFiles(matching query: MusicBrainzSearchQuery, limit: Int = 50) async throws -> [MusicBrainzRecordingResult] {
+        guard !query.isEmpty else {
+            throw MusicBrainzClientError.emptyQuery
+        }
+
+        let luceneQuery = MusicBrainzLuceneQueryBuilder.fileSearchQuery(from: query)
+
+        var components = URLComponents(
+            url: Self.baseURL.appending(path: "recording"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [
+            URLQueryItem(name: "query", value: luceneQuery),
+            URLQueryItem(name: "fmt", value: "json"),
+            URLQueryItem(name: "limit", value: String(max(1, min(limit, 100))))
+        ]
+
+        guard let url = components?.url else {
+            throw MusicBrainzClientError.invalidRequest
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        try await rateLimiter.waitIfNeeded()
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw MusicBrainzClientError.invalidResponse
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+
+        let payload: MusicBrainzRecordingSearchResponse
+        do {
+            payload = try decoder.decode(MusicBrainzRecordingSearchResponse.self, from: data)
+        } catch let error as DecodingError {
+            throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
+        }
+
+        return MusicBrainzResultRanker.rerankRecordings(
+            payload.recordings.map(MusicBrainzRecordingResult.init),
+            query: query
+        )
     }
 
     func recordingDetail(
@@ -583,42 +679,66 @@ private enum MusicBrainzLuceneQueryBuilder {
     private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
 
     static func recordingSearchQuery(from query: MusicBrainzSearchQuery) -> String {
-        var clauses: [String] = []
-
-        if !query.title.isEmpty {
-            clauses.append(fieldClause(name: "recording", value: query.title))
-        }
-
-        if !query.artist.isEmpty {
-            clauses.append(fieldClause(name: "artist", value: query.artist))
-        }
-
-        if !query.album.isEmpty {
-            clauses.append(fieldClause(name: "release", value: query.album))
-        }
-
-        return clauses.joined(separator: " AND ")
+        joinPreferredClauses(recordingSearchClauses(from: query))
     }
 
     static func releaseSearchQuery(from query: MusicBrainzSearchQuery) -> String {
         var clauses: [String] = []
 
+        if !query.album.isEmpty, !query.artist.isEmpty {
+            clauses.append(allOf([
+                fieldClause(name: "release", value: query.album),
+                fieldClause(name: "artist", value: query.artist)
+            ]))
+        }
+
         if !query.album.isEmpty {
             clauses.append(fieldClause(name: "release", value: query.album))
+            clauses.append(generalClause(query.album))
         } else if !query.title.isEmpty {
             clauses.append(fieldClause(name: "release", value: query.title))
+            clauses.append(generalClause(query.title))
         }
 
         if !query.artist.isEmpty {
             clauses.append(fieldClause(name: "artist", value: query.artist))
+            clauses.append(generalClause(query.artist))
         }
 
-        return clauses.joined(separator: " AND ")
+        return joinPreferredClauses(clauses)
+    }
+
+    static func fileSearchQuery(from query: MusicBrainzSearchQuery) -> String {
+        joinPreferredClauses(recordingSearchClauses(from: query))
     }
 
     private static func fieldClause(name: String, value: String) -> String {
         let escaped = escapeLucene(value)
         return "\(name):\"\(escaped)\""
+    }
+
+    private static func generalClause(_ value: String) -> String {
+        let tokens = searchTokens(in: value)
+        guard !tokens.isEmpty else { return "" }
+
+        if tokens.count == 1 {
+            return escapeLucene(tokens[0])
+        }
+
+        return allOf(tokens.map(escapeLucene))
+    }
+
+    private static func allOf(_ clauses: [String]) -> String {
+        "(" + clauses.joined(separator: " AND ") + ")"
+    }
+
+    private static func numericClause(name: String, value: Int) -> String {
+        "\(name):\(value)"
+    }
+
+    private static func joinPreferredClauses(_ clauses: [String]) -> String {
+        let deduplicated = (Array(NSOrderedSet(array: clauses.filter { !$0.isEmpty })) as? [String]) ?? []
+        return deduplicated.joined(separator: " OR ")
     }
 
     private static func escapeLucene(_ raw: String) -> String {
@@ -633,6 +753,98 @@ private enum MusicBrainzLuceneQueryBuilder {
         }
 
         return escaped
+    }
+
+    private static func searchTokens(in raw: String) -> [String] {
+        raw
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .map(String.init)
+            .filter { !$0.isEmpty }
+    }
+
+    private static func recordingSearchClauses(from query: MusicBrainzSearchQuery) -> [String] {
+        let titleClause = query.title.isEmpty ? "" : fieldClause(name: "recording", value: query.title)
+        let releaseClause = query.album.isEmpty ? "" : fieldClause(name: "release", value: query.album)
+        let artistClauses = query.artistCandidates.map { fieldClause(name: "artist", value: $0) }
+        let trackClauses = trackNumberClauses(query.trackNumber)
+
+        var clauses: [String] = []
+
+        if !titleClause.isEmpty && !artistClauses.isEmpty && !releaseClause.isEmpty {
+            for artistClause in artistClauses {
+                clauses.append(allOf([titleClause, artistClause, releaseClause]))
+            }
+        }
+
+        if !titleClause.isEmpty && !artistClauses.isEmpty {
+            for artistClause in artistClauses {
+                clauses.append(allOf([titleClause, artistClause]))
+            }
+        }
+
+        if !titleClause.isEmpty && !releaseClause.isEmpty {
+            clauses.append(allOf([titleClause, releaseClause]))
+        }
+
+        if !releaseClause.isEmpty && !artistClauses.isEmpty {
+            for artistClause in artistClauses {
+                clauses.append(allOf([releaseClause, artistClause]))
+            }
+        }
+
+        if !titleClause.isEmpty && !trackClauses.isEmpty {
+            for trackClause in trackClauses {
+                clauses.append(allOf([titleClause, trackClause]))
+            }
+        }
+
+        if !releaseClause.isEmpty && !trackClauses.isEmpty {
+            for trackClause in trackClauses {
+                clauses.append(allOf([releaseClause, trackClause]))
+            }
+        }
+
+        if !titleClause.isEmpty {
+            clauses.append(titleClause)
+            clauses.append(generalClause(query.title))
+        }
+
+        if !releaseClause.isEmpty {
+            clauses.append(releaseClause)
+            clauses.append(generalClause(query.album))
+        }
+
+        clauses.append(contentsOf: artistClauses)
+        clauses.append(contentsOf: trackClauses)
+
+        return clauses
+    }
+
+    private static func trackNumberClauses(_ rawValue: String) -> [String] {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        let normalized = trimmed
+            .split(separator: "/")
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? trimmed
+
+        var clauses: [String] = []
+
+        let numericToken = String(normalized.drop(while: { $0 == "0" }))
+
+        if let numericValue = Int(numericToken), numericValue > 0 {
+            clauses.append(numericClause(name: "tnum", value: numericValue))
+        } else if let numericValue = Int(normalized), numericValue > 0 {
+            clauses.append(numericClause(name: "tnum", value: numericValue))
+        }
+
+        if !normalized.isEmpty {
+            clauses.append(fieldClause(name: "number", value: normalized))
+        }
+
+        return (Array(NSOrderedSet(array: clauses)) as? [String]) ?? clauses
     }
 }
 
@@ -1592,6 +1804,109 @@ private extension MusicBrainzTerm {
     init?(_ dto: MusicBrainzTermDTO) {
         guard !dto.name.isEmpty else { return nil }
         self.init(name: dto.name, count: dto.count)
+    }
+}
+
+private enum MusicBrainzResultRanker {
+    static func rerankRecordings(_ results: [MusicBrainzRecordingResult], query: MusicBrainzSearchQuery) -> [MusicBrainzRecordingResult] {
+        results.sorted { lhs, rhs in
+            let lhsScore = recordingScore(lhs, query: query)
+            let rhsScore = recordingScore(rhs, query: query)
+            if lhsScore == rhsScore {
+                return lhs.score > rhs.score
+            }
+            return lhsScore > rhsScore
+        }
+    }
+
+    static func rerankReleases(_ results: [MusicBrainzReleaseSearchResult], query: MusicBrainzSearchQuery) -> [MusicBrainzReleaseSearchResult] {
+        results.sorted { lhs, rhs in
+            let lhsScore = releaseScore(lhs, query: query)
+            let rhsScore = releaseScore(rhs, query: query)
+            if lhsScore == rhsScore {
+                return lhs.score > rhs.score
+            }
+            return lhsScore > rhsScore
+        }
+    }
+
+    private static func recordingScore(_ result: MusicBrainzRecordingResult, query: MusicBrainzSearchQuery) -> Int {
+        var score = result.score
+        score += stringMatchScore(query.title, candidate: result.title, exact: 220, partial: 110)
+        score += bestStringMatchScore(query.artistCandidates, candidates: [result.artistCredit], exact: 180, partial: 85)
+        score += bestStringMatchScore(
+            query.album.isEmpty ? [] : [query.album],
+            candidates: result.releases.map(\.title),
+            exact: 150,
+            partial: 70
+        )
+        return score
+    }
+
+    private static func releaseScore(_ result: MusicBrainzReleaseSearchResult, query: MusicBrainzSearchQuery) -> Int {
+        var score = result.score
+        score += stringMatchScore(query.album.isEmpty ? query.title : query.album, candidate: result.title, exact: 220, partial: 110)
+        score += bestStringMatchScore(query.artistCandidates, candidates: [result.artistCredit], exact: 180, partial: 85)
+        return score
+    }
+
+    private static func bestStringMatchScore(
+        _ queries: [String],
+        candidates: [String],
+        exact: Int,
+        partial: Int
+    ) -> Int {
+        var best = 0
+
+        for query in queries {
+            for candidate in candidates {
+                best = max(best, stringMatchScore(query, candidate: candidate, exact: exact, partial: partial))
+            }
+        }
+
+        return best
+    }
+
+    private static func stringMatchScore(_ query: String, candidate: String, exact: Int, partial: Int) -> Int {
+        let normalizedQuery = normalize(query)
+        let normalizedCandidate = normalize(candidate)
+        guard !normalizedQuery.isEmpty, !normalizedCandidate.isEmpty else { return 0 }
+
+        if normalizedQuery == normalizedCandidate {
+            return exact
+        }
+
+        if normalizedCandidate.contains(normalizedQuery) || normalizedQuery.contains(normalizedCandidate) {
+            return Int(Double(exact) * 0.7)
+        }
+
+        let queryTokens = Set(normalizedTokens(query))
+        let candidateTokens = Set(normalizedTokens(candidate))
+        guard !queryTokens.isEmpty, !candidateTokens.isEmpty else { return 0 }
+
+        let overlap = queryTokens.intersection(candidateTokens).count
+        guard overlap > 0 else { return 0 }
+
+        let denominator = max(queryTokens.count, candidateTokens.count)
+        let ratio = Double(overlap) / Double(denominator)
+        return Int(Double(partial) * ratio)
+    }
+
+    private static func normalizedTokens(_ value: String) -> [String] {
+        normalize(value)
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count >= 2 }
+    }
+
+    private static func normalize(_ value: String) -> String {
+        let lowered = value.lowercased()
+        let mappedScalars = lowered.unicodeScalars.map { scalar -> Character in
+            CharacterSet.alphanumerics.contains(scalar) ? Character(scalar) : " "
+        }
+        return String(mappedScalars)
+            .split(separator: " ")
+            .joined(separator: " ")
     }
 }
 

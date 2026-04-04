@@ -255,6 +255,7 @@ struct ContentView: View {
                 title: edit.title,
                 artist: edit.artist,
                 album: edit.album,
+                link: "",
                 sourceDescription: "Seeded from the current inspector fields for \(selectedFile.url.lastPathComponent)."
             )
         }
@@ -271,6 +272,7 @@ struct ContentView: View {
             title: selectedFile.title,
             artist: selectedFile.artist,
             album: selectedFile.album,
+            link: "",
             sourceDescription: sourceDescription
         )
     }

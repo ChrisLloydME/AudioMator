@@ -26,7 +26,7 @@ struct MusicBrainzMetadataDetailView: View {
                 )
 
             case .loaded(let detail):
-                metadataList(detail)
+                detailContent(detail)
             }
         }
         .navigationTitle(navigationTitle)
@@ -35,76 +35,90 @@ struct MusicBrainzMetadataDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func metadataList(_ detail: MusicBrainzMetadataDetail) -> some View {
-        List {
-            switch detail {
-            case .recording(let detail):
-                recordingSections(detail)
-            case .release(let detail):
-                releaseSections(detail)
-            case .track(let detail):
-                trackSections(detail)
+    private func detailContent(_ detail: MusicBrainzMetadataDetail) -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 24) {
+                switch detail {
+                case .recording(let recording):
+                    recordingSections(recording, overviewTitle: "Overview")
+                case .release(let release):
+                    releaseSections(release)
+                case .track(let track):
+                    trackSections(track)
+                }
             }
+            .frame(maxWidth: 880, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
         }
-        .listStyle(.inset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     @ViewBuilder
-    private func recordingSections(_ detail: MusicBrainzRecordingDetail) -> some View {
-        recordingMetadataSections(detail, overviewTitle: "Overview")
-    }
+    private func recordingSections(_ detail: MusicBrainzRecordingDetail, overviewTitle: String) -> some View {
+        let overviewItems = [
+            infoItem("title", "Title", detail.title),
+            infoItem("artist", "Artist", detail.artistCredit),
+            infoItem("disambiguation", "Disambiguation", detail.disambiguation),
+            infoItem("first-release", "First Release", detail.firstReleaseDate),
+            infoItem("length", "Length", formattedDuration(detail.durationMilliseconds)),
+            infoItem("genres", "Genres", formattedTerms(detail.genres)),
+            infoItem("tags", "Tags", formattedTerms(detail.tags)),
+            infoItem("rating", "Rating", formattedRating(detail.rating)),
+            infoItem("isrc", "ISRC", detail.isrcs.joined(separator: ", "), monospaced: true),
+            infoItem("mbid", "MBID", detail.id, monospaced: true)
+        ].compactMap { $0 }
 
-    @ViewBuilder
-    private func recordingMetadataSections(_ detail: MusicBrainzRecordingDetail, overviewTitle: String) -> some View {
-        Section(overviewTitle) {
-            MetadataValueRow(title: "Title", value: detail.title)
-            MetadataValueRow(title: "Artist", value: detail.artistCredit)
-            MetadataValueRow(title: "Disambiguation", value: detail.disambiguation)
-            MetadataValueRow(title: "First Release", value: detail.firstReleaseDate)
-            MetadataValueRow(title: "Length", value: formattedDuration(detail.durationMilliseconds))
-            MetadataValueRow(title: "Genres", value: formattedTerms(detail.genres))
-            MetadataValueRow(title: "Tags", value: formattedTerms(detail.tags))
-            MetadataValueRow(title: "Rating", value: formattedRating(detail.rating))
-            MetadataValueRow(title: "ISRC", value: detail.isrcs.joined(separator: ", "))
-            MetadataValueRow(title: "MBID", value: detail.id)
-            ExternalLinkRow(title: "MusicBrainz", url: detail.musicBrainzURL)
+        MetadataSectionCard(title: overviewTitle, symbolName: "info.circle") {
+            MetadataInfoRows(items: overviewItems)
+
+            if let url = detail.musicBrainzURL {
+                if !overviewItems.isEmpty {
+                    MetadataCardDivider()
+                }
+
+                MetadataActionRow(
+                    title: "MusicBrainz",
+                    buttonTitle: "Open",
+                    destination: url
+                )
+            }
         }
 
         if !detail.relationshipGroups.isEmpty {
-            Section("Relationships") {
-                ForEach(detail.relationshipGroups) { group in
-                    MetadataValueRow(title: group.title, value: joinedValues(group.values))
-                }
+            MetadataSectionCard(title: "Relationships", symbolName: "link") {
+                MetadataInfoRows(
+                    items: detail.relationshipGroups.compactMap { group in
+                        infoItem(
+                            group.title,
+                            prettifiedRelationshipTitle(group.title),
+                            joinedValues(group.values)
+                        )
+                    }
+                )
             }
         }
 
         if !detail.annotation.isEmpty {
-            Section("Annotation") {
-                Text(detail.annotation)
-                    .textSelection(.enabled)
+            MetadataSectionCard(title: "Annotation", symbolName: "text.alignleft") {
+                MetadataBodyRow(text: detail.annotation)
             }
         }
 
         if !detail.releases.isEmpty {
-            Section("Releases") {
-                ForEach(detail.releases) { release in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(release.title)
-                            .font(.system(size: 13, weight: .semibold))
+            MetadataSectionCard(title: "Releases", symbolName: "opticaldisc") {
+                ForEach(Array(detail.releases.enumerated()), id: \.element.id) { index, release in
+                    MetadataSummaryRow(
+                        title: release.title,
+                        subtitle: releaseMetadataLine(release),
+                        buttonTitle: release.musicBrainzURL == nil ? nil : "Open",
+                        destination: release.musicBrainzURL
+                    )
 
-                        Text(releaseMetadataLine(release))
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-
-                        if let url = release.musicBrainzURL {
-                            Link(destination: url) {
-                                Label("Open Release", systemImage: "arrow.up.right.square")
-                            }
-                            .buttonStyle(.link)
-                        }
+                    if index < detail.releases.count - 1 {
+                        MetadataCardDivider()
                     }
-                    .padding(.vertical, 2)
                 }
             }
         }
@@ -112,113 +126,123 @@ struct MusicBrainzMetadataDetailView: View {
 
     @ViewBuilder
     private func trackSections(_ detail: MusicBrainzTrackDetail) -> some View {
-        Section("Track") {
-            MetadataValueRow(title: "Title", value: detail.track.title)
-            MetadataValueRow(title: "Number", value: detail.track.number)
-            MetadataValueRow(title: "Length", value: formattedDuration(detail.track.durationMilliseconds))
-            MetadataValueRow(title: "Recording MBID", value: detail.track.recordingID)
-            MetadataValueRow(title: "ISRC", value: detail.track.isrcs.joined(separator: ", "))
+        let trackItems = [
+            infoItem("title", "Title", detail.track.title),
+            infoItem("number", "Number", detail.track.number, monospaced: true),
+            infoItem("length", "Length", formattedDuration(detail.track.durationMilliseconds), monospaced: true),
+            infoItem("recording-id", "Recording MBID", detail.track.recordingID, monospaced: true),
+            infoItem("isrc", "ISRC", detail.track.isrcs.joined(separator: ", "), monospaced: true)
+        ].compactMap { $0 }
+
+        MetadataSectionCard(title: "Track", symbolName: "music.note") {
+            MetadataInfoRows(items: trackItems)
         }
 
         if let recordingDetail = detail.recordingDetail {
-            recordingMetadataSections(recordingDetail, overviewTitle: "Recording")
+            recordingSections(recordingDetail, overviewTitle: "Recording")
         }
     }
 
     @ViewBuilder
     private func releaseSections(_ detail: MusicBrainzReleaseDetail) -> some View {
-        Section("Overview") {
-            MetadataValueRow(title: "Title", value: detail.title)
-            MetadataValueRow(title: "Artist", value: detail.artistCredit)
-            MetadataValueRow(title: "Release Date", value: detail.date)
-            MetadataValueRow(title: "Country", value: detail.country)
-            MetadataValueRow(title: "Status", value: detail.status)
-            MetadataValueRow(title: "Barcode", value: detail.barcode)
-            MetadataValueRow(title: "Packaging", value: detail.packaging)
-            MetadataValueRow(title: "ASIN", value: detail.asin)
-            MetadataValueRow(title: "Quality", value: detail.quality)
-            MetadataValueRow(title: "Language", value: detail.language)
-            MetadataValueRow(title: "Script", value: detail.script)
-            MetadataValueRow(title: "Genres", value: formattedTerms(detail.genres))
-            MetadataValueRow(title: "Tags", value: formattedTerms(detail.tags))
-            MetadataValueRow(title: "MBID", value: detail.id)
-            ExternalLinkRow(title: "MusicBrainz", url: detail.musicBrainzURL)
-        }
+        let overviewItems = [
+            infoItem("title", "Title", detail.title),
+            infoItem("artist", "Artist", detail.artistCredit),
+            infoItem("release-date", "Release Date", detail.date),
+            infoItem("country", "Country", detail.country),
+            infoItem("status", "Status", detail.status),
+            infoItem("barcode", "Barcode", detail.barcode, monospaced: true),
+            infoItem("packaging", "Packaging", detail.packaging),
+            infoItem("asin", "ASIN", detail.asin, monospaced: true),
+            infoItem("quality", "Quality", detail.quality),
+            infoItem("language", "Language", detail.language),
+            infoItem("script", "Script", detail.script),
+            infoItem("genres", "Genres", formattedTerms(detail.genres)),
+            infoItem("tags", "Tags", formattedTerms(detail.tags)),
+            infoItem("mbid", "MBID", detail.id, monospaced: true)
+        ].compactMap { $0 }
 
-        if !detail.annotation.isEmpty {
-            Section("Annotation") {
-                Text(detail.annotation)
-                    .textSelection(.enabled)
+        MetadataSectionCard(title: "Overview", symbolName: "info.circle") {
+            MetadataInfoRows(items: overviewItems)
+
+            if let url = detail.musicBrainzURL {
+                if !overviewItems.isEmpty {
+                    MetadataCardDivider()
+                }
+
+                MetadataActionRow(
+                    title: "MusicBrainz",
+                    buttonTitle: "Open",
+                    destination: url
+                )
             }
         }
 
-        if !detail.releaseGroupTitle.isEmpty || !detail.releaseGroupPrimaryType.isEmpty || !detail.releaseGroupSecondaryTypes.isEmpty || !detail.releaseGroupID.isEmpty {
-            Section("Release Group") {
-                MetadataValueRow(title: "Title", value: detail.releaseGroupTitle)
-                MetadataValueRow(title: "MBID", value: detail.releaseGroupID)
-                MetadataValueRow(title: "Primary Type", value: detail.releaseGroupPrimaryType)
-                MetadataValueRow(title: "Secondary Types", value: detail.releaseGroupSecondaryTypes.joined(separator: ", "))
+        if !detail.annotation.isEmpty {
+            MetadataSectionCard(title: "Annotation", symbolName: "text.alignleft") {
+                MetadataBodyRow(text: detail.annotation)
+            }
+        }
+
+        let releaseGroupItems = [
+            infoItem("title", "Title", detail.releaseGroupTitle),
+            infoItem("mbid", "MBID", detail.releaseGroupID, monospaced: true),
+            infoItem("primary-type", "Primary Type", detail.releaseGroupPrimaryType),
+            infoItem("secondary-types", "Secondary Types", detail.releaseGroupSecondaryTypes.joined(separator: ", "))
+        ].compactMap { $0 }
+
+        if !releaseGroupItems.isEmpty {
+            MetadataSectionCard(title: "Release Group", symbolName: "square.stack") {
+                MetadataInfoRows(items: releaseGroupItems)
             }
         }
 
         if !detail.labels.isEmpty {
-            Section("Labels") {
-                ForEach(detail.labels) { label in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(label.labelName.isEmpty ? "Unknown Label" : label.labelName)
-                            .font(.system(size: 13, weight: .semibold))
+            MetadataSectionCard(title: "Labels", symbolName: "building.2") {
+                ForEach(Array(detail.labels.enumerated()), id: \.element.id) { index, label in
+                    MetadataSummaryRow(
+                        title: label.labelName.isEmpty ? "Unknown Label" : label.labelName,
+                        subtitle: label.catalogNumber.isEmpty ? "" : "Catalog No. \(label.catalogNumber)",
+                        trailingText: label.id
+                    )
 
-                        if !label.catalogNumber.isEmpty {
-                            Text("Catalog No. \(label.catalogNumber)")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if !label.id.isEmpty {
-                            Text(label.id)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.tertiary)
-                                .textSelection(.enabled)
-                        }
+                    if index < detail.labels.count - 1 {
+                        MetadataCardDivider()
                     }
-                    .padding(.vertical, 2)
                 }
             }
         }
 
         ForEach(detail.media) { medium in
-            Section(mediumSectionTitle(medium)) {
-                if !medium.title.isEmpty {
-                    MetadataValueRow(title: "Title", value: medium.title)
+            let mediumItems = [
+                infoItem("title", "Title", medium.title),
+                infoItem("format", "Format", medium.format),
+                infoItem("track-count", "Track Count", medium.trackCount > 0 ? String(medium.trackCount) : "", monospaced: true),
+                infoItem("disc-ids", "Disc IDs", medium.discIDs.joined(separator: ", "), monospaced: true)
+            ].compactMap { $0 }
+
+            MetadataSectionCard(title: mediumSectionTitle(medium), symbolName: "opticaldiscdrive") {
+                if !mediumItems.isEmpty {
+                    MetadataInfoRows(items: mediumItems)
+
+                    if !medium.tracks.isEmpty {
+                        MetadataCardDivider()
+                    }
                 }
 
-                MetadataValueRow(title: "Format", value: medium.format)
-                MetadataValueRow(title: "Track Count", value: medium.trackCount > 0 ? String(medium.trackCount) : "")
-                MetadataValueRow(title: "Disc IDs", value: medium.discIDs.joined(separator: ", "))
-
                 if !medium.tracks.isEmpty {
-                    ForEach(medium.tracks) { track in
+                    ForEach(Array(medium.tracks.enumerated()), id: \.element.id) { index, track in
                         NavigationLink(value: MusicBrainzBrowserDestination.track(track)) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                    Text(track.number.isEmpty ? "•" : track.number)
-                                        .font(.system(.body, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 32, alignment: .leading)
+                            MetadataTrackRow(
+                                number: track.number,
+                                title: track.title,
+                                duration: formattedDuration(track.durationMilliseconds)
+                            )
+                        }
+                        .buttonStyle(.plain)
 
-                                    Text(track.title)
-
-                                    Spacer()
-
-                                    let duration = formattedDuration(track.durationMilliseconds)
-                                    if !duration.isEmpty {
-                                        Text(duration)
-                                            .font(.system(.body, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 1)
+                        if index < medium.tracks.count - 1 {
+                            MetadataCardDivider()
                         }
                     }
                 }
@@ -250,6 +274,11 @@ struct MusicBrainzMetadataDetailView: View {
         }
     }
 
+    private func infoItem(_ id: String, _ title: String, _ value: String, monospaced: Bool = false) -> MetadataInfoItem? {
+        guard !value.isEmpty else { return nil }
+        return MetadataInfoItem(id: id, title: title, value: value, monospaced: monospaced)
+    }
+
     private func formattedDuration(_ milliseconds: Int?) -> String {
         guard let milliseconds, milliseconds > 0 else { return "" }
 
@@ -262,7 +291,7 @@ struct MusicBrainzMetadataDetailView: View {
     private func mediumSectionTitle(_ medium: MusicBrainzReleaseDetail.Medium) -> String {
         let base = medium.format.isEmpty ? "Medium" : medium.format
         if medium.trackCount > 0 {
-            return "\(base) • \(medium.trackCount) tracks"
+            return "\(base) • \(medium.trackCount) Tracks"
         }
         return base
     }
@@ -312,6 +341,19 @@ struct MusicBrainzMetadataDetailView: View {
             return "\(prefix) and \(values.last ?? "")"
         }
     }
+
+    private func prettifiedRelationshipTitle(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "-", with: " ")
+            .split(separator: " ")
+            .map { word in
+                if word == "℗" {
+                    return String(word)
+                }
+                return word.prefix(1).uppercased() + word.dropFirst()
+            }
+            .joined(separator: " ")
+    }
 }
 
 private extension MusicBrainzMetadataDetailView {
@@ -322,49 +364,219 @@ private extension MusicBrainzMetadataDetailView {
     }
 }
 
-private struct MetadataValueRow: View {
+private struct MetadataInfoItem: Identifiable {
+    let id: String
     let title: String
     let value: String
+    let monospaced: Bool
+}
+
+private struct MetadataSectionCard<Content: View>: View {
+    let title: String
+    let symbolName: String?
+    @ViewBuilder let content: Content
+
+    init(title: String, symbolName: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.symbolName = symbolName
+        self.content = content()
+    }
 
     var body: some View {
-        if !value.isEmpty {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 96, alignment: .leading)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                if let symbolName {
+                    Image(systemName: symbolName)
+                        .font(.system(size: 10, weight: .semibold))
+                }
 
-                Text(value)
-                    .textSelection(.enabled)
-
-                Spacer(minLength: 0)
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .kerning(0.5)
             }
-            .padding(.vertical, 1)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+
+            VStack(spacing: 0) {
+                content
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 1)
+            )
         }
     }
 }
 
-private struct ExternalLinkRow: View {
-    let title: String
-    let url: URL?
+private struct MetadataInfoRows: View {
+    let items: [MetadataInfoItem]
 
     var body: some View {
-        if let url {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 96, alignment: .leading)
+        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            MetadataInfoRow(item: item)
 
-                Link(destination: url) {
-                    Label(url.absoluteString, systemImage: "arrow.up.right.square")
-                        .lineLimit(1)
-                }
-                .buttonStyle(.link)
-
-                Spacer(minLength: 0)
+            if index < items.count - 1 {
+                MetadataCardDivider()
             }
-            .padding(.vertical, 1)
         }
+    }
+}
+
+private struct MetadataInfoRow: View {
+    let item: MetadataInfoItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            Text(item.title)
+                .font(.system(size: 13))
+                .frame(width: 140, alignment: .leading)
+
+            Spacer(minLength: 12)
+
+            Text(item.value)
+                .font(item.monospaced ? .system(size: 13, design: .monospaced) : .system(size: 13))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+                .frame(maxWidth: 520, alignment: .trailing)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+    }
+}
+
+private struct MetadataBodyRow: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 13))
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+    }
+}
+
+private struct MetadataActionRow: View {
+    let title: String
+    let buttonTitle: String
+    let destination: URL
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            Text(title)
+                .font(.system(size: 13))
+                .frame(width: 140, alignment: .leading)
+
+            Spacer(minLength: 12)
+
+            Link(buttonTitle, destination: destination)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct MetadataSummaryRow: View {
+    let title: String
+    let subtitle: String
+    let trailingText: String
+    let buttonTitle: String?
+    let destination: URL?
+
+    init(
+        title: String,
+        subtitle: String = "",
+        trailingText: String = "",
+        buttonTitle: String? = nil,
+        destination: URL? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.trailingText = trailingText
+        self.buttonTitle = buttonTitle
+        self.destination = destination
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13))
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            if !trailingText.isEmpty {
+                Text(trailingText)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: 280, alignment: .trailing)
+            }
+
+            if let buttonTitle, let destination {
+                Link(buttonTitle, destination: destination)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+    }
+}
+
+private struct MetadataTrackRow: View {
+    let number: String
+    let title: String
+    let duration: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text(number.isEmpty ? "•" : number)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 32, alignment: .leading)
+
+            Text(title)
+                .font(.system(size: 13))
+
+            Spacer(minLength: 12)
+
+            if !duration.isEmpty {
+                Text(duration)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
+    }
+}
+
+private struct MetadataCardDivider: View {
+    var body: some View {
+        Divider()
+            .padding(.leading, 18)
     }
 }

@@ -33,8 +33,12 @@ final class MusicBrainzBrowserStore: ObservableObject {
     private let client: MusicBrainzClient
     private var searchTask: Task<Void, Never>?
 
-    init(client: MusicBrainzClient = MusicBrainzClient()) {
+    init(client: MusicBrainzClient) {
         self.client = client
+    }
+
+    convenience init() {
+        self.init(client: MusicBrainzClient())
     }
 
     deinit {

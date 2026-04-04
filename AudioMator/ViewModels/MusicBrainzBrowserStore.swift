@@ -32,6 +32,7 @@ struct MusicBrainzSearchSeed {
     var barcode: String
     var musicBrainzAlbumID: String
     var musicBrainzTrackID: String
+    var fileInputs: [MusicBrainzFileSearchInput]
     var link: String
     var sourceDescription: String
 
@@ -50,6 +51,7 @@ struct MusicBrainzSearchSeed {
             barcode: barcode,
             musicBrainzAlbumID: musicBrainzAlbumID,
             musicBrainzTrackID: musicBrainzTrackID,
+            fileInputs: fileInputs,
             link: link
         )
     }
@@ -80,6 +82,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     private var fileBarcode: String = ""
     private var fileMusicBrainzAlbumID: String = ""
     private var fileMusicBrainzTrackID: String = ""
+    private var fileInputs: [MusicBrainzFileSearchInput] = []
 
     init(client: MusicBrainzClient) {
         self.client = client
@@ -116,6 +119,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
             barcode: resolvedBarcode,
             musicBrainzAlbumID: resolvedMusicBrainzAlbumID,
             musicBrainzTrackID: resolvedMusicBrainzTrackID,
+            fileInputs: fileInputs,
             link: linkQuery
         )
     }
@@ -126,6 +130,18 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     var visibleResultMode: MusicBrainzSearchMode {
         lastSubmittedQuery?.mode ?? mode
+    }
+
+    var fileSelectionSummary: MusicBrainzFileSelectionSummary? {
+        currentQuery.fileSelectionSummary
+    }
+
+    var hasFileSelection: Bool {
+        !(fileSelectionSummary?.files.isEmpty ?? true)
+    }
+
+    var isMultiFileSelection: Bool {
+        fileSelectionSummary?.isMultiFile ?? false
     }
 
     func apply(seed: MusicBrainzSearchSeed?) {
@@ -145,6 +161,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
         fileBarcode = seed.barcode
         fileMusicBrainzAlbumID = seed.musicBrainzAlbumID
         fileMusicBrainzTrackID = seed.musicBrainzTrackID
+        fileInputs = seed.fileInputs
         linkQuery = seed.link
         sourceDescription = seed.sourceDescription
         errorMessage = nil
@@ -166,12 +183,14 @@ final class MusicBrainzBrowserStore: ObservableObject {
         fileMusicBrainzAlbumID = ""
         fileMusicBrainzTrackID = ""
         linkQuery = ""
-        mode = .track
-        results = .recordings([])
+        mode = fileInputs.isEmpty ? .track : .file
+        results = Self.emptyResults(for: currentQuery)
         errorMessage = nil
         lastSubmittedQuery = nil
         isSearching = false
-        sourceDescription = "Edit the fields below or seed them from the current AudioMator selection."
+        sourceDescription = fileInputs.isEmpty
+            ? "Edit the fields below or seed them from the current AudioMator selection."
+            : "Seeded from the current AudioMator selection."
     }
 
     func handleModeChange(from oldMode: MusicBrainzSearchMode, to newMode: MusicBrainzSearchMode) {
@@ -184,17 +203,17 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         switch newMode {
         case .track:
-            results = Self.emptyResults(for: newMode)
+            results = Self.emptyResults(for: currentQuery)
         case .album:
             if albumQuery.isEmpty, !titleQuery.isEmpty {
                 albumQuery = titleQuery
             }
             titleQuery = ""
-            results = Self.emptyResults(for: newMode)
+            results = Self.emptyResults(for: currentQuery)
         case .file:
-            results = Self.emptyResults(for: newMode)
+            results = Self.emptyResults(for: currentQuery)
         case .link:
-            results = Self.emptyResults(for: newMode)
+            results = Self.emptyResults(for: currentQuery)
         }
     }
 
@@ -203,7 +222,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         guard !query.isEmpty else {
             resetNavigation()
-            results = Self.emptyResults(for: query.mode)
+            results = Self.emptyResults(for: query)
             errorMessage = MusicBrainzClientError.emptyQuery.localizedDescription
             lastSubmittedQuery = nil
             isSearching = false
@@ -234,7 +253,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
-                    self.results = Self.emptyResults(for: query.mode)
+                    self.results = Self.emptyResults(for: query)
                     self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     self.isSearching = false
                 }
@@ -252,7 +271,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
                 )
             )
         case .release(let result):
-            return .release(try await client.releaseDetail(id: result.id))
+            var detail = try await client.releaseDetail(id: result.id)
+            detail.selectionMatchPreview = result.selectionMatchPreview
+            return .release(detail)
         case .track(let track):
             if track.recordingID.isEmpty {
                 return .track(MusicBrainzTrackDetail(track: track, recordingDetail: nil))
@@ -274,11 +295,13 @@ final class MusicBrainzBrowserStore: ObservableObject {
         navigationResetToken = UUID()
     }
 
-    private static func emptyResults(for mode: MusicBrainzSearchMode) -> MusicBrainzSearchResults {
-        switch mode {
+    private static func emptyResults(for query: MusicBrainzSearchQuery) -> MusicBrainzSearchResults {
+        switch query.mode {
         case .album:
             return .releases([])
-        case .track, .file, .link:
+        case .file:
+            return query.isMultiFileSelection ? .releases([]) : .recordings([])
+        case .track, .link:
             return .recordings([])
         }
     }

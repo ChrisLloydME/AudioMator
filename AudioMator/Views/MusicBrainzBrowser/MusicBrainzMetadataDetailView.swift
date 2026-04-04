@@ -145,6 +145,56 @@ struct MusicBrainzMetadataDetailView: View {
 
     @ViewBuilder
     private func releaseSections(_ detail: MusicBrainzReleaseDetail) -> some View {
+        if let preview = detail.selectionMatchPreview {
+            let overviewItems = [
+                infoItem("matched", "Matched Files", "\(preview.matchedFileCount)/\(preview.totalSelectedFiles)", monospaced: true),
+                infoItem("unmatched", "Unmatched Files", preview.unmatchedFiles.isEmpty ? "" : "\(preview.unmatchedFiles.count)", monospaced: true),
+                infoItem("missing", "Unassigned Tracks", preview.unassignedTracks.isEmpty ? "" : "\(preview.unassignedTracks.count)", monospaced: true),
+                infoItem("avg-score", "Average Track Score", String(format: "%.0f%%", preview.averageTrackScore * 100), monospaced: true),
+                infoItem("mixed", "Selection", preview.selectionLooksMixed ? "Mixed" : "Coherent")
+            ].compactMap { $0 }
+
+            MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
+                MetadataInfoRows(items: overviewItems)
+            }
+
+            if !preview.matchedAssignments.isEmpty {
+                MetadataSectionCard(title: "Matched Files", symbolName: "link") {
+                    ForEach(Array(preview.matchedAssignments.enumerated()), id: \.element.id) { index, assignment in
+                        MetadataMatchAssignmentRow(assignment: assignment)
+
+                        if index < preview.matchedAssignments.count - 1 {
+                            MetadataCardDivider()
+                        }
+                    }
+                }
+            }
+
+            if !preview.unmatchedFiles.isEmpty {
+                MetadataSectionCard(title: "Unmatched Files", symbolName: "questionmark.circle") {
+                    ForEach(Array(preview.unmatchedFiles.enumerated()), id: \.element.id) { index, file in
+                        MetadataFileSummaryRow(file: file)
+
+                        if index < preview.unmatchedFiles.count - 1 {
+                            MetadataCardDivider()
+                        }
+                    }
+                }
+            }
+
+            if !preview.unassignedTracks.isEmpty {
+                MetadataSectionCard(title: "Unassigned Release Tracks", symbolName: "music.note.list") {
+                    ForEach(Array(preview.unassignedTracks.enumerated()), id: \.element.id) { index, track in
+                        MetadataReleaseTrackSummaryRow(track: track)
+
+                        if index < preview.unassignedTracks.count - 1 {
+                            MetadataCardDivider()
+                        }
+                    }
+                }
+            }
+        }
+
         let overviewItems = [
             infoItem("title", "Title", detail.title),
             infoItem("artist", "Artist", detail.artistCredit),
@@ -538,6 +588,116 @@ private struct MetadataSummaryRow: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 11)
+    }
+}
+
+private struct MetadataMatchAssignmentRow: View {
+    let assignment: MusicBrainzReleaseMatchAssignment
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(assignment.file.preferredDisplayTitle)
+                    .font(.system(size: 13))
+
+                let subtitle = fileSubtitle
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(trackTitle)
+                    .font(.system(size: 13))
+                    .multilineTextAlignment(.trailing)
+
+                Text(assignment.reason)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: 280, alignment: .trailing)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+    }
+
+    private var fileSubtitle: String {
+        [assignment.file.artist, assignment.file.album]
+            .filter { !$0.isEmpty }
+            .joined(separator: " • ")
+    }
+
+    private var trackTitle: String {
+        let number = assignment.track.number.isEmpty ? "" : "\(assignment.track.number) "
+        return number + assignment.track.title
+    }
+}
+
+private struct MetadataFileSummaryRow: View {
+    let file: MusicBrainzFileSearchInput
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(file.preferredDisplayTitle)
+                    .font(.system(size: 13))
+
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+    }
+
+    private var subtitle: String {
+        [file.artist, file.album]
+            .filter { !$0.isEmpty }
+            .joined(separator: " • ")
+    }
+}
+
+private struct MetadataReleaseTrackSummaryRow: View {
+    let track: MusicBrainzReleaseMatchTrack
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(trackTitle)
+                    .font(.system(size: 13))
+
+                let subtitle = trackSubtitle
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 12)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+    }
+
+    private var trackTitle: String {
+        let number = track.number.isEmpty ? "" : "\(track.number) "
+        return number + track.title
+    }
+
+    private var trackSubtitle: String {
+        [track.artistCredit, track.mediumFormat.isEmpty ? track.mediumTitle : track.mediumFormat]
+            .filter { !$0.isEmpty }
+            .joined(separator: " • ")
     }
 }
 

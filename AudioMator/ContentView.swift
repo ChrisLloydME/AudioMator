@@ -257,6 +257,7 @@ struct ContentView: View {
     private func currentMusicBrainzSearchSeed() -> MusicBrainzSearchSeed? {
         let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
         guard let selectedFile = selectedFiles.first else { return nil }
+        let fileInputs = musicBrainzFileInputs(from: selectedFiles)
 
         if selectedFiles.count == 1, let edit = viewModel.edit {
             return MusicBrainzSearchSeed(
@@ -273,6 +274,7 @@ struct ContentView: View {
                 barcode: "",
                 musicBrainzAlbumID: "",
                 musicBrainzTrackID: "",
+                fileInputs: fileInputs,
                 link: "",
                 sourceDescription: "Seeded from the current inspector fields."
             )
@@ -299,6 +301,7 @@ struct ContentView: View {
             barcode: "",
             musicBrainzAlbumID: "",
             musicBrainzTrackID: "",
+            fileInputs: fileInputs,
             link: "",
             sourceDescription: sourceDescription
         )
@@ -306,7 +309,8 @@ struct ContentView: View {
 
     private func currentMusicBrainzMatchSeed() -> MusicBrainzSearchSeed? {
         let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-        guard selectedFiles.count == 1, let selectedFile = selectedFiles.first else { return nil }
+        guard let selectedFile = selectedFiles.first else { return nil }
+        let fileInputs = musicBrainzFileInputs(from: selectedFiles)
 
         return MusicBrainzSearchSeed(
             mode: .file,
@@ -324,9 +328,36 @@ struct ContentView: View {
             barcode: selectedFile.barcode,
             musicBrainzAlbumID: selectedFile.musicBrainzAlbumID,
             musicBrainzTrackID: selectedFile.musicBrainzTrackID,
+            fileInputs: fileInputs,
             link: "",
-            sourceDescription: "Matched from the selected file metadata."
+            sourceDescription: selectedFiles.count == 1
+                ? "Matched from the selected file metadata."
+                : "Matched from \(selectedFiles.count) selected files."
         )
+    }
+
+    private func musicBrainzFileInputs(from files: [AudioFile]) -> [MusicBrainzFileSearchInput] {
+        files.map { file in
+            MusicBrainzFileSearchInput(
+                id: file.id.uuidString,
+                displayTitle: file.title.isEmpty ? file.url.lastPathComponent : file.title,
+                title: file.title,
+                artist: file.artist,
+                albumArtist: file.albumArtist,
+                album: file.album,
+                trackNumber: file.trackNumberText,
+                discNumber: file.discNumberText,
+                trackTotal: file.trackTotal,
+                durationMilliseconds: file.duration.isFinite && file.duration > 0
+                    ? Int((file.duration * 1000).rounded())
+                    : nil,
+                releaseDate: file.releaseDate.isEmpty ? file.year : file.releaseDate,
+                isrc: file.isrc,
+                barcode: file.barcode,
+                musicBrainzAlbumID: file.musicBrainzAlbumID,
+                musicBrainzTrackID: file.musicBrainzTrackID
+            )
+        }
     }
 
     private func toggleInspector() {

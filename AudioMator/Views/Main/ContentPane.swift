@@ -34,8 +34,8 @@ struct ContentPane: View {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
     }
 
-    private var isSingleFileSelected: Bool {
-        selectedFiles.count == 1
+    private var hasSelectedFiles: Bool {
+        !selectedFiles.isEmpty
     }
 
     private var visibleColumns: Set<MiddleListColumn> {
@@ -93,8 +93,8 @@ struct ContentPane: View {
                     Button(action: onFindSelectedFileInMusicBrainz) {
                         Label("Find in MusicBrainz", systemImage: "network")
                     }
-                    .help("Search MusicBrainz using the selected file's metadata")
-                    .disabled(!isSingleFileSelected)
+                    .help("Search MusicBrainz using the selected file metadata")
+                    .disabled(!hasSelectedFiles)
 
                     Button(action: openMetadataFilenameRenameSheet) {
                         Label("Rename Files…", systemImage: "pencil.line")
@@ -225,7 +225,7 @@ struct ContentPane: View {
                     Button("Find in MusicBrainz") {
                         onFindSelectedFileInMusicBrainz()
                     }
-                    .disabled(!isSingleFileSelected)
+                    .disabled(!hasSelectedFiles)
 
                     Divider()
 

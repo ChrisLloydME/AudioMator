@@ -86,7 +86,7 @@ struct ContentPane: View {
                     .disabled(viewModel.files.isEmpty)
 
                     Button(action: onOpenMusicBrainzBrowser) {
-                        Label("MusicBrainz Browser", systemImage: "magnifyingglass.circle")
+                        Label("MusicBrainz Browser", systemImage: "network")
                     }
                     .help("Open a MusicBrainz search window seeded from the current track fields")
 

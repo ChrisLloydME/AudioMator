@@ -130,7 +130,7 @@ struct ToolbarEditCommands: Commands {
             Button {
                 NotificationCenter.default.post(name: .requestMusicBrainzBrowser, object: nil)
             } label: {
-                Label("MusicBrainz Browser", systemImage: "magnifyingglass.circle")
+                Label("MusicBrainz Browser", systemImage: "network")
             }
 
             Button(role: .destructive) {

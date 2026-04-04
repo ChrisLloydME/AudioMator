@@ -323,6 +323,10 @@ private struct MusicBrainzReleaseRow: View {
             }
 
             HStack(spacing: 12) {
+                if !result.mediaFormatSummary.isEmpty {
+                    MusicBrainzMetaPill(title: "Medium", value: result.mediaFormatSummary)
+                }
+
                 if !result.date.isEmpty {
                     MusicBrainzMetaPill(title: "Release Date", value: result.date)
                 }

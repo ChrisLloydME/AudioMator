@@ -52,6 +52,7 @@ struct MusicBrainzBrowserView: View {
                     store.titleQuery.isEmpty &&
                     store.artistQuery.isEmpty &&
                     store.albumQuery.isEmpty &&
+                    store.linkQuery.isEmpty &&
                     store.results.isEmpty &&
                     store.errorMessage == nil
                 )
@@ -61,27 +62,7 @@ struct MusicBrainzBrowserView: View {
 
     private var searchHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                MusicBrainzQueryField(
-                    title: store.mode == .track ? "Track" : "Release",
-                    symbolName: store.mode == .track ? "music.note" : "square.stack",
-                    text: primaryQueryBinding
-                )
-
-                MusicBrainzQueryField(
-                    title: "Artist",
-                    symbolName: "person",
-                    text: $store.artistQuery
-                )
-
-                if store.mode == .track {
-                    MusicBrainzQueryField(
-                        title: "Album",
-                        symbolName: "opticaldisc",
-                        text: $store.albumQuery
-                    )
-                }
-            }
+            searchFields
 
             HStack(spacing: 8) {
                 Spacer()
@@ -90,7 +71,7 @@ struct MusicBrainzBrowserView: View {
                     ProgressView()
                         .controlSize(.small)
                 } else if store.lastSubmittedQuery != nil {
-                    Text("\(store.results.count) \(store.visibleResultMode == .track ? "track" : "album") result\(store.results.count == 1 ? "" : "s")")
+                    Text("\(store.results.count) \(resultUnitLabel) result\(store.results.count == 1 ? "" : "s")")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -132,8 +113,8 @@ struct MusicBrainzBrowserView: View {
                     systemImage: "magnifyingglass",
                     description: Text(
                             store.lastSubmittedQuery == nil
-                                ? "Choose Track or Album search, then fill in the fields above."
-                            : "MusicBrainz did not return any \(store.visibleResultMode == .track ? "tracks" : "albums") for the current query."
+                                ? "Choose Track, Album, or MusicBrainz Link search, then fill in the fields above."
+                                : noResultsDescription
                     )
                 )
                 .padding(.top, 36)
@@ -164,12 +145,76 @@ struct MusicBrainzBrowserView: View {
         }
     }
 
-    private var primaryQueryBinding: Binding<String> {
+    @ViewBuilder
+    private var searchFields: some View {
         switch store.mode {
         case .track:
-            return $store.titleQuery
+            HStack(alignment: .top, spacing: 12) {
+                MusicBrainzQueryField(
+                    title: "Track",
+                    symbolName: "music.note",
+                    text: $store.titleQuery
+                )
+
+                MusicBrainzQueryField(
+                    title: "Artist",
+                    symbolName: "person",
+                    text: $store.artistQuery
+                )
+
+                MusicBrainzQueryField(
+                    title: "Album",
+                    symbolName: "opticaldisc",
+                    text: $store.albumQuery
+                )
+            }
         case .album:
-            return $store.albumQuery
+            HStack(alignment: .top, spacing: 12) {
+                MusicBrainzQueryField(
+                    title: "Release",
+                    symbolName: "square.stack",
+                    text: $store.albumQuery
+                )
+
+                MusicBrainzQueryField(
+                    title: "Artist",
+                    symbolName: "person",
+                    text: $store.artistQuery
+                )
+            }
+        case .link:
+            MusicBrainzQueryField(
+                title: "MusicBrainz Link",
+                symbolName: "network",
+                text: $store.linkQuery
+            )
+        }
+    }
+
+    private var resultUnitLabel: String {
+        switch store.mode {
+        case .track:
+            return "track"
+        case .album:
+            return "album"
+        case .link:
+            switch store.results {
+            case .recordings:
+                return "track"
+            case .releases:
+                return "album"
+            }
+        }
+    }
+
+    private var noResultsDescription: String {
+        switch store.mode {
+        case .track:
+            return "MusicBrainz did not return any tracks for the current query."
+        case .album:
+            return "MusicBrainz did not return any albums for the current query."
+        case .link:
+            return "MusicBrainz did not resolve the supplied link to a supported result."
         }
     }
 }

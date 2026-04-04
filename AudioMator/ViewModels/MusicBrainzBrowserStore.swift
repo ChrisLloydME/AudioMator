@@ -23,6 +23,7 @@ struct MusicBrainzSearchSeed {
     var title: String
     var artist: String
     var album: String
+    var link: String
     var sourceDescription: String
 
     var query: MusicBrainzSearchQuery {
@@ -30,7 +31,8 @@ struct MusicBrainzSearchSeed {
             mode: mode,
             title: title,
             artist: artist,
-            album: album
+            album: album,
+            link: link
         )
     }
 }
@@ -41,6 +43,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     @Published var titleQuery: String = ""
     @Published var artistQuery: String = ""
     @Published var albumQuery: String = ""
+    @Published var linkQuery: String = ""
     @Published private(set) var isSearching: Bool = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var results: MusicBrainzSearchResults = .recordings([])
@@ -68,7 +71,8 @@ final class MusicBrainzBrowserStore: ObservableObject {
             mode: mode,
             title: titleQuery,
             artist: artistQuery,
-            album: albumQuery
+            album: albumQuery,
+            link: linkQuery
         )
     }
 
@@ -88,6 +92,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
         titleQuery = seed.title
         artistQuery = seed.artist
         albumQuery = seed.album
+        linkQuery = seed.link
         sourceDescription = seed.sourceDescription
         errorMessage = nil
     }
@@ -98,6 +103,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
         titleQuery = ""
         artistQuery = ""
         albumQuery = ""
+        linkQuery = ""
         mode = .track
         results = .recordings([])
         errorMessage = nil
@@ -123,6 +129,8 @@ final class MusicBrainzBrowserStore: ObservableObject {
             }
             titleQuery = ""
             results = .releases([])
+        case .link:
+            results = .recordings([])
         }
     }
 

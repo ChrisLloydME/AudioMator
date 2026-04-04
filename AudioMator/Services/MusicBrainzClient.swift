@@ -3,6 +3,7 @@ import Foundation
 enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
     case track
     case album
+    case link
 
     var id: String { rawValue }
 
@@ -10,6 +11,7 @@ enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
         switch self {
         case .track: return "Track"
         case .album: return "Album"
+        case .link: return "Link"
         }
     }
 }
@@ -19,21 +21,29 @@ struct MusicBrainzSearchQuery: Equatable {
     var title: String
     var artist: String
     var album: String
+    var link: String
 
     init(
         mode: MusicBrainzSearchMode = .track,
         title: String = "",
         artist: String = "",
-        album: String = ""
+        album: String = "",
+        link: String = ""
     ) {
         self.mode = mode
         self.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         self.artist = artist.trimmingCharacters(in: .whitespacesAndNewlines)
         self.album = album.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.link = link.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var isEmpty: Bool {
-        title.isEmpty && artist.isEmpty && album.isEmpty
+        switch mode {
+        case .track, .album:
+            title.isEmpty && artist.isEmpty && album.isEmpty
+        case .link:
+            link.isEmpty
+        }
     }
 
     var summaryText: String {
@@ -49,6 +59,10 @@ struct MusicBrainzSearchQuery: Equatable {
 
         if !album.isEmpty {
             parts.append("album: \(album)")
+        }
+
+        if !link.isEmpty {
+            parts.append("link: \(link)")
         }
 
         return parts.joined(separator: " • ")
@@ -228,6 +242,8 @@ enum MusicBrainzMetadataDetail: Equatable {
 
 enum MusicBrainzClientError: LocalizedError {
     case emptyQuery
+    case invalidLink
+    case unsupportedLink
     case invalidRequest
     case requestFailed(statusCode: Int)
     case invalidResponse
@@ -237,6 +253,10 @@ enum MusicBrainzClientError: LocalizedError {
         switch self {
         case .emptyQuery:
             return "Enter at least one field before searching MusicBrainz."
+        case .invalidLink:
+            return "Paste a valid MusicBrainz link."
+        case .unsupportedLink:
+            return "Only MusicBrainz release and recording links are supported."
         case .invalidRequest:
             return "The MusicBrainz request could not be created."
         case .requestFailed(let statusCode):
@@ -301,6 +321,23 @@ struct MusicBrainzClient {
             return .recordings(try await searchRecordings(matching: query, limit: limit))
         case .album:
             return .releases(try await searchReleases(matching: query, limit: limit))
+        case .link:
+            return try await searchByLink(matching: query)
+        }
+    }
+
+    func searchByLink(matching query: MusicBrainzSearchQuery) async throws -> MusicBrainzSearchResults {
+        guard !query.link.isEmpty else {
+            throw MusicBrainzClientError.emptyQuery
+        }
+
+        let parsedLink = try MusicBrainzLinkParser.parse(query.link)
+
+        switch parsedLink {
+        case .recording(let id):
+            return .recordings([try await recordingSummary(id: id)])
+        case .release(let id):
+            return .releases([try await releaseSummary(id: id)])
         }
     }
 
@@ -440,6 +477,48 @@ struct MusicBrainzClient {
         return MusicBrainzReleaseDetail(dto: payload)
     }
 
+    private func recordingSummary(id: String) async throws -> MusicBrainzRecordingResult {
+        let detail = try await recordingDetail(id: id, fallbackReleases: [])
+        return MusicBrainzRecordingResult(
+            id: detail.id,
+            title: detail.title,
+            artistCredit: detail.artistCredit,
+            score: 100,
+            disambiguation: detail.disambiguation,
+            firstReleaseDate: detail.firstReleaseDate,
+            durationMilliseconds: detail.durationMilliseconds,
+            releases: detail.releases
+        )
+    }
+
+    private func releaseSummary(id: String) async throws -> MusicBrainzReleaseSearchResult {
+        let detail = try await releaseDetail(id: id)
+        let mediaFormats = Array(NSOrderedSet(array: detail.media.map(\.format).filter { !$0.isEmpty })) as? [String] ?? []
+
+        let releaseGroup: MusicBrainzReleaseSearchResult.ReleaseGroup?
+        if !detail.releaseGroupID.isEmpty {
+            releaseGroup = .init(
+                id: detail.releaseGroupID,
+                primaryType: detail.releaseGroupPrimaryType,
+                secondaryTypes: detail.releaseGroupSecondaryTypes
+            )
+        } else {
+            releaseGroup = nil
+        }
+
+        return MusicBrainzReleaseSearchResult(
+            id: detail.id,
+            title: detail.title,
+            artistCredit: detail.artistCredit,
+            score: 100,
+            date: detail.date,
+            country: detail.country,
+            status: detail.status,
+            mediaFormats: mediaFormats,
+            releaseGroup: releaseGroup
+        )
+    }
+
     private func performRequest(
         resource: String,
         id: String? = nil,
@@ -554,6 +633,57 @@ private enum MusicBrainzLuceneQueryBuilder {
         }
 
         return escaped
+    }
+}
+
+private enum MusicBrainzLinkTarget {
+    case recording(String)
+    case release(String)
+}
+
+private enum MusicBrainzLinkParser {
+    private static let supportedHosts: Set<String> = [
+        "musicbrainz.org",
+        "www.musicbrainz.org"
+    ]
+
+    static func parse(_ rawValue: String) throws -> MusicBrainzLinkTarget {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw MusicBrainzClientError.invalidLink
+        }
+
+        let normalized = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+        guard let components = URLComponents(string: normalized),
+              let host = components.host?.lowercased(),
+              supportedHosts.contains(host) else {
+            throw MusicBrainzClientError.invalidLink
+        }
+
+        let pathComponents = components.path
+            .split(separator: "/")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        guard pathComponents.count >= 2 else {
+            throw MusicBrainzClientError.invalidLink
+        }
+
+        let entity = pathComponents[0].lowercased()
+        let id = pathComponents[1]
+
+        guard UUID(uuidString: id) != nil else {
+            throw MusicBrainzClientError.invalidLink
+        }
+
+        switch entity {
+        case "recording":
+            return .recording(id)
+        case "release":
+            return .release(id)
+        default:
+            throw MusicBrainzClientError.unsupportedLink
+        }
     }
 }
 

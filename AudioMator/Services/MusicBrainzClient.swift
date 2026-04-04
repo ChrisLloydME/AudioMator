@@ -55,8 +55,8 @@ struct MusicBrainzSearchQuery: Equatable {
     }
 }
 
-struct MusicBrainzReleaseSearchResult: Identifiable, Equatable {
-    struct ReleaseGroup: Equatable {
+struct MusicBrainzReleaseSearchResult: Identifiable, Equatable, Hashable {
+    struct ReleaseGroup: Equatable, Hashable {
         let id: String
         let primaryType: String
         let secondaryTypes: [String]
@@ -90,8 +90,8 @@ enum MusicBrainzSearchResults: Equatable {
     var isEmpty: Bool { count == 0 }
 }
 
-struct MusicBrainzRecordingResult: Identifiable, Equatable {
-    struct Release: Identifiable, Equatable {
+struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable {
+    struct Release: Identifiable, Equatable, Hashable {
         let id: String
         let title: String
         let date: String
@@ -119,6 +119,69 @@ struct MusicBrainzRecordingResult: Identifiable, Equatable {
     var primaryRelease: Release? {
         releases.first
     }
+}
+
+struct MusicBrainzRecordingDetail: Equatable {
+    let id: String
+    let title: String
+    let artistCredit: String
+    let disambiguation: String
+    let firstReleaseDate: String
+    let durationMilliseconds: Int?
+    let isrcs: [String]
+    let genres: [String]
+    let releases: [MusicBrainzRecordingResult.Release]
+
+    var musicBrainzURL: URL? {
+        URL(string: "https://musicbrainz.org/recording/\(id)")
+    }
+}
+
+struct MusicBrainzReleaseDetail: Equatable {
+    struct LabelInfo: Identifiable, Equatable {
+        let id: String
+        let labelName: String
+        let catalogNumber: String
+    }
+
+    struct Medium: Identifiable, Equatable {
+        struct Track: Identifiable, Equatable {
+            let id: String
+            let number: String
+            let title: String
+            let durationMilliseconds: Int?
+        }
+
+        let id: String
+        let title: String
+        let format: String
+        let trackCount: Int
+        let tracks: [Track]
+    }
+
+    let id: String
+    let title: String
+    let artistCredit: String
+    let date: String
+    let country: String
+    let status: String
+    let barcode: String
+    let packaging: String
+    let genres: [String]
+    let releaseGroupTitle: String
+    let releaseGroupPrimaryType: String
+    let releaseGroupSecondaryTypes: [String]
+    let labels: [LabelInfo]
+    let media: [Medium]
+
+    var musicBrainzURL: URL? {
+        URL(string: "https://musicbrainz.org/release/\(id)")
+    }
+}
+
+enum MusicBrainzMetadataDetail: Equatable {
+    case recording(MusicBrainzRecordingDetail)
+    case release(MusicBrainzReleaseDetail)
 }
 
 enum MusicBrainzClientError: LocalizedError {
@@ -287,6 +350,88 @@ struct MusicBrainzClient {
         }
 
         return payload.releases.map(MusicBrainzReleaseSearchResult.init)
+    }
+
+    func recordingDetail(
+        id: String,
+        fallbackReleases: [MusicBrainzRecordingResult.Release] = []
+    ) async throws -> MusicBrainzRecordingDetail {
+        let data = try await performRequest(
+            resource: "recording",
+            id: id,
+            queryItems: [
+                URLQueryItem(name: "fmt", value: "json"),
+                URLQueryItem(name: "inc", value: "artist-credits+isrcs+genres")
+            ]
+        )
+
+        let payload: MusicBrainzRecordingLookupDTO
+        do {
+            payload = try decoder.decode(MusicBrainzRecordingLookupDTO.self, from: data)
+        } catch let error as DecodingError {
+            throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
+        }
+
+        return MusicBrainzRecordingDetail(dto: payload, releases: fallbackReleases)
+    }
+
+    func releaseDetail(id: String) async throws -> MusicBrainzReleaseDetail {
+        let data = try await performRequest(
+            resource: "release",
+            id: id,
+            queryItems: [
+                URLQueryItem(name: "fmt", value: "json"),
+                URLQueryItem(name: "inc", value: "artist-credits+genres+labels+recordings+release-groups")
+            ]
+        )
+
+        let payload: MusicBrainzReleaseLookupDTO
+        do {
+            payload = try decoder.decode(MusicBrainzReleaseLookupDTO.self, from: data)
+        } catch let error as DecodingError {
+            throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
+        }
+
+        return MusicBrainzReleaseDetail(dto: payload)
+    }
+
+    private func performRequest(
+        resource: String,
+        id: String? = nil,
+        queryItems: [URLQueryItem]
+    ) async throws -> Data {
+        let baseURL: URL
+        if let id {
+            baseURL = Self.baseURL
+                .appending(path: resource)
+                .appending(path: id)
+        } else {
+            baseURL = Self.baseURL.appending(path: resource)
+        }
+
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = queryItems
+
+        guard let url = components?.url else {
+            throw MusicBrainzClientError.invalidRequest
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        try await rateLimiter.waitIfNeeded()
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw MusicBrainzClientError.invalidResponse
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+
+        return data
     }
 
     private static func describeDecodingError(_ error: DecodingError) -> String {
@@ -525,6 +670,206 @@ private struct MusicBrainzReleaseGroupDTO: Decodable {
     }
 }
 
+private struct MusicBrainzGenreDTO: Decodable {
+    let name: String
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let value = try? container.decode(String.self) {
+            name = value
+            return
+        }
+
+        let keyed = try decoder.container(keyedBy: CodingKeys.self)
+        name = try keyed.decodeIfPresent(String.self, forKey: .name) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+    }
+}
+
+private struct MusicBrainzRecordingLookupDTO: Decodable {
+    let id: String
+    let title: String
+    let disambiguation: String
+    let firstReleaseDate: String
+    let length: Int?
+    let artistCredit: [MusicBrainzArtistCreditDTO]
+    let isrcs: [String]
+    let genres: [MusicBrainzGenreDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case disambiguation
+        case length
+        case isrcs
+        case genres
+        case firstReleaseDate = "first-release-date"
+        case artistCredit = "artist-credit"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        disambiguation = try container.decodeIfPresent(String.self, forKey: .disambiguation) ?? ""
+        firstReleaseDate = try container.decodeIfPresent(String.self, forKey: .firstReleaseDate) ?? ""
+        length = try container.decodeIfPresent(Int.self, forKey: .length)
+        artistCredit = try container.decodeIfPresent([MusicBrainzArtistCreditDTO].self, forKey: .artistCredit) ?? []
+        isrcs = try container.decodeIfPresent([String].self, forKey: .isrcs) ?? []
+        genres = try container.decodeIfPresent([MusicBrainzGenreDTO].self, forKey: .genres) ?? []
+    }
+}
+
+private struct MusicBrainzReleaseLookupDTO: Decodable {
+    let id: String
+    let title: String
+    let date: String
+    let country: String
+    let status: String
+    let barcode: String
+    let packaging: String
+    let artistCredit: [MusicBrainzArtistCreditDTO]
+    let genres: [MusicBrainzGenreDTO]
+    let releaseGroup: MusicBrainzReleaseGroupLookupDTO?
+    let labelInfo: [MusicBrainzLabelInfoDTO]
+    let media: [MusicBrainzMediumDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case date
+        case country
+        case status
+        case barcode
+        case packaging
+        case genres
+        case media
+        case artistCredit = "artist-credit"
+        case releaseGroup = "release-group"
+        case labelInfo = "label-info"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
+        country = try container.decodeIfPresent(String.self, forKey: .country) ?? ""
+        status = try container.decodeIfPresent(String.self, forKey: .status) ?? ""
+        barcode = try container.decodeIfPresent(String.self, forKey: .barcode) ?? ""
+        packaging = try container.decodeIfPresent(String.self, forKey: .packaging) ?? ""
+        artistCredit = try container.decodeIfPresent([MusicBrainzArtistCreditDTO].self, forKey: .artistCredit) ?? []
+        genres = try container.decodeIfPresent([MusicBrainzGenreDTO].self, forKey: .genres) ?? []
+        releaseGroup = try container.decodeIfPresent(MusicBrainzReleaseGroupLookupDTO.self, forKey: .releaseGroup)
+        labelInfo = try container.decodeIfPresent([MusicBrainzLabelInfoDTO].self, forKey: .labelInfo) ?? []
+        media = try container.decodeIfPresent([MusicBrainzMediumDTO].self, forKey: .media) ?? []
+    }
+}
+
+private struct MusicBrainzReleaseGroupLookupDTO: Decodable {
+    let id: String
+    let title: String
+    let primaryType: String
+    let secondaryTypes: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case primaryType = "primary-type"
+        case secondaryTypes = "secondary-types"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        primaryType = try container.decodeIfPresent(String.self, forKey: .primaryType) ?? ""
+        secondaryTypes = try container.decodeIfPresent([String].self, forKey: .secondaryTypes) ?? []
+    }
+}
+
+private struct MusicBrainzLabelInfoDTO: Decodable {
+    let catalogNumber: String
+    let label: MusicBrainzLabelDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case catalogNumber = "catalog-number"
+        case label
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        catalogNumber = try container.decodeIfPresent(String.self, forKey: .catalogNumber) ?? ""
+        label = try container.decodeIfPresent(MusicBrainzLabelDTO.self, forKey: .label)
+    }
+}
+
+private struct MusicBrainzLabelDTO: Decodable {
+    let id: String
+    let name: String
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+    }
+}
+
+private struct MusicBrainzMediumDTO: Decodable {
+    let id: String
+    let title: String
+    let format: String
+    let trackCount: Int
+    let tracks: [MusicBrainzTrackDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case format
+        case tracks
+        case trackCount = "track-count"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        format = try container.decodeIfPresent(String.self, forKey: .format) ?? ""
+        trackCount = try container.decodeIfPresent(Int.self, forKey: .trackCount) ?? 0
+        tracks = try container.decodeIfPresent([MusicBrainzTrackDTO].self, forKey: .tracks) ?? []
+    }
+}
+
+private struct MusicBrainzTrackDTO: Decodable {
+    let id: String
+    let number: String
+    let title: String
+    let length: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case number
+        case title
+        case length
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        number = try container.decodeIfPresent(String.self, forKey: .number) ?? ""
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
+        length = try container.decodeIfPresent(Int.self, forKey: .length)
+    }
+}
+
 private extension MusicBrainzRecordingResult {
     init(dto: MusicBrainzRecordingDTO) {
         id = dto.id
@@ -579,5 +924,74 @@ private extension MusicBrainzReleaseSearchResult {
         } else {
             releaseGroup = nil
         }
+    }
+}
+
+private extension MusicBrainzRecordingDetail {
+    init(dto: MusicBrainzRecordingLookupDTO, releases: [MusicBrainzRecordingResult.Release]) {
+        id = dto.id
+        title = dto.title
+        disambiguation = dto.disambiguation
+        firstReleaseDate = dto.firstReleaseDate
+        durationMilliseconds = dto.length
+        isrcs = dto.isrcs.filter { !$0.isEmpty }
+        genres = dto.genres.map(\.name).filter { !$0.isEmpty }
+        self.releases = releases
+        artistCredit = dto.artistCredit
+            .map { credit in
+                let baseName = credit.name ?? credit.artist?.name ?? ""
+                return baseName + credit.joinPhrase
+            }
+            .joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private extension MusicBrainzReleaseDetail {
+    init(dto: MusicBrainzReleaseLookupDTO) {
+        id = dto.id
+        title = dto.title
+        date = dto.date
+        country = dto.country
+        status = dto.status
+        barcode = dto.barcode
+        packaging = dto.packaging
+        genres = dto.genres.map(\.name).filter { !$0.isEmpty }
+        releaseGroupTitle = dto.releaseGroup?.title ?? ""
+        releaseGroupPrimaryType = dto.releaseGroup?.primaryType ?? ""
+        releaseGroupSecondaryTypes = dto.releaseGroup?.secondaryTypes ?? []
+        labels = dto.labelInfo.compactMap { info in
+            let labelName = info.label?.name ?? ""
+            guard !labelName.isEmpty || !info.catalogNumber.isEmpty else { return nil }
+            let id = info.label?.id ?? "\(labelName)-\(info.catalogNumber)"
+            return LabelInfo(
+                id: id,
+                labelName: labelName,
+                catalogNumber: info.catalogNumber
+            )
+        }
+        media = dto.media.map { medium in
+            Medium(
+                id: medium.id,
+                title: medium.title,
+                format: medium.format,
+                trackCount: medium.trackCount,
+                tracks: medium.tracks.map { track in
+                    Medium.Track(
+                        id: track.id,
+                        number: track.number,
+                        title: track.title,
+                        durationMilliseconds: track.length
+                    )
+                }
+            )
+        }
+        artistCredit = dto.artistCredit
+            .map { credit in
+                let baseName = credit.name ?? credit.artist?.name ?? ""
+                return baseName + credit.joinPhrase
+            }
+            .joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

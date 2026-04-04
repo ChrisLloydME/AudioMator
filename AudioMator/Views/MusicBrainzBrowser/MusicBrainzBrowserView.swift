@@ -4,20 +4,29 @@ struct MusicBrainzBrowserView: View {
     static let windowID = "musicbrainz-browser"
 
     @ObservedObject var store: MusicBrainzBrowserStore
+    @State private var navigationPath: [MusicBrainzBrowserDestination] = []
 
     var body: some View {
-        VStack(spacing: 0) {
-            searchHeader
+        NavigationStack(path: $navigationPath) {
+            VStack(spacing: 0) {
+                searchHeader
 
-            Divider()
+                Divider()
 
-            content
+                content
+            }
+            .navigationDestination(for: MusicBrainzBrowserDestination.self) { destination in
+                MusicBrainzMetadataDetailView(store: store, destination: destination)
+            }
         }
         .frame(minWidth: 920, minHeight: 620)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(nsColor: .windowBackgroundColor))
         .onChange(of: store.mode) { oldMode, newMode in
             store.handleModeChange(from: oldMode, to: newMode)
+        }
+        .onChange(of: store.navigationResetToken) { _, _ in
+            navigationPath.removeAll()
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -137,13 +146,17 @@ struct MusicBrainzBrowserView: View {
                 switch store.results {
                 case .recordings(let results):
                     ForEach(results) { result in
-                        MusicBrainzRecordingRow(result: result)
-                            .padding(.vertical, 6)
+                        NavigationLink(value: MusicBrainzBrowserDestination.recording(result)) {
+                            MusicBrainzRecordingRow(result: result)
+                                .padding(.vertical, 6)
+                        }
                     }
                 case .releases(let results):
                     ForEach(results) { result in
-                        MusicBrainzReleaseRow(result: result)
-                            .padding(.vertical, 6)
+                        NavigationLink(value: MusicBrainzBrowserDestination.release(result)) {
+                            MusicBrainzReleaseRow(result: result)
+                                .padding(.vertical, 6)
+                        }
                     }
                 }
             }
@@ -208,20 +221,6 @@ private struct MusicBrainzRecordingRow: View {
                     .foregroundStyle(Color.accentColor)
 
                 Spacer()
-
-                if let url = result.musicBrainzURL {
-                    Link(destination: url) {
-                        Label("Recording", systemImage: "arrow.up.right.square")
-                    }
-                    .buttonStyle(.link)
-                }
-
-                if let releaseURL = result.primaryRelease?.musicBrainzURL {
-                    Link(destination: releaseURL) {
-                        Label("Release", systemImage: "music.note.list")
-                    }
-                    .buttonStyle(.link)
-                }
             }
 
             if !result.artistCredit.isEmpty {
@@ -316,13 +315,6 @@ private struct MusicBrainzReleaseRow: View {
                     .foregroundStyle(Color.accentColor)
 
                 Spacer()
-
-                if let url = result.musicBrainzURL {
-                    Link(destination: url) {
-                        Label("Release", systemImage: "arrow.up.right.square")
-                    }
-                    .buttonStyle(.link)
-                }
             }
 
             if !result.artistCredit.isEmpty {

@@ -185,42 +185,7 @@ struct MusicBrainzBrowserView: View {
                 )
             }
         case .file:
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    MusicBrainzQueryField(
-                        title: "Track",
-                        symbolName: "music.note",
-                        text: $store.titleQuery
-                    )
-
-                    MusicBrainzQueryField(
-                        title: "Artist",
-                        symbolName: "person",
-                        text: $store.artistQuery
-                    )
-
-                    MusicBrainzQueryField(
-                        title: "Album Artist",
-                        symbolName: "person.2",
-                        text: $store.albumArtistQuery
-                    )
-                }
-
-                HStack(alignment: .top, spacing: 12) {
-                    MusicBrainzQueryField(
-                        title: "Album",
-                        symbolName: "opticaldisc",
-                        text: $store.albumQuery
-                    )
-
-                    MusicBrainzQueryField(
-                        title: "Track No.",
-                        symbolName: "number",
-                        text: $store.trackNumberQuery,
-                        minimumWidth: 140
-                    )
-                }
-            }
+            MusicBrainzFileSelectionSummaryView(summary: store.fileSelectionSummary)
         case .link:
             MusicBrainzQueryField(
                 title: "MusicBrainz Link",
@@ -237,7 +202,12 @@ struct MusicBrainzBrowserView: View {
         case .album:
             return "album"
         case .file:
-            return "track"
+            switch store.results {
+            case .recordings:
+                return "track"
+            case .releases:
+                return "album"
+            }
         case .link:
             switch store.results {
             case .recordings:
@@ -255,7 +225,9 @@ struct MusicBrainzBrowserView: View {
         case .album:
             return "MusicBrainz did not return any albums for the current query."
         case .file:
-            return "MusicBrainz did not return any good track matches for the current file metadata."
+            return store.isMultiFileSelection
+                ? "MusicBrainz did not return any convincing album matches for the current file selection."
+                : "MusicBrainz did not return any good track matches for the current file metadata."
         case .link:
             return "MusicBrainz did not resolve the supplied link to a supported result."
         }
@@ -288,6 +260,94 @@ private struct MusicBrainzQueryField: View {
                 .frame(minWidth: minimumWidth)
         }
     }
+}
+
+private struct MusicBrainzFileSelectionSummaryView: View {
+    let summary: MusicBrainzFileSelectionSummary?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: summary?.isMultiFile == true ? "square.stack.3d.up" : "waveform.path")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(selectionTitle)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+
+            Text(selectionDescription)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            if let summary {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(summaryPills(for: summary)) { pill in
+                        MusicBrainzMetaPill(title: pill.title, value: pill.value)
+                    }
+                }
+
+                if summary.selectionLooksMixed {
+                    Label("The current selection looks mixed. Results may include weaker album candidates.", systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var selectionTitle: String {
+        guard let summary else { return "No File Selection" }
+        return summary.isMultiFile ? "Selected Files" : "Selected File"
+    }
+
+    private var selectionDescription: String {
+        guard let summary else {
+            return "Select one or more files in AudioMator, then use Find in MusicBrainz."
+        }
+
+        if summary.isMultiFile {
+            return "AudioMator will search for release candidates and then try to assign the selected files onto album tracks."
+        }
+
+        return "AudioMator will search for the best recording match using the selected file metadata."
+    }
+
+    private func summaryPills(for summary: MusicBrainzFileSelectionSummary) -> [SummaryPill] {
+        var pills: [SummaryPill] = [
+            SummaryPill(id: "files", title: "Files", value: "\(summary.totalSelectedFiles)")
+        ]
+
+        if !summary.albumCandidate.isEmpty {
+            pills.append(SummaryPill(id: "album", title: "Album", value: summary.albumCandidate))
+        }
+
+        if !summary.albumArtistCandidate.isEmpty {
+            pills.append(SummaryPill(id: "album-artist", title: "Album Artist", value: summary.albumArtistCandidate))
+        } else if !summary.primaryArtistCandidate.isEmpty {
+            pills.append(SummaryPill(id: "artist", title: "Artist", value: summary.primaryArtistCandidate))
+        }
+
+        if summary.releaseTrackCountCandidate > 0 {
+            pills.append(SummaryPill(id: "track-count", title: "Track Count", value: "\(summary.releaseTrackCountCandidate)"))
+        }
+
+        if !summary.releaseYearCandidate.isEmpty {
+            pills.append(SummaryPill(id: "year", title: "Year", value: summary.releaseYearCandidate))
+        }
+
+        return pills
+    }
+}
+
+private struct SummaryPill: Identifiable {
+    let id: String
+    let title: String
+    let value: String
 }
 
 private struct MusicBrainzRecordingRow: View {
@@ -393,15 +453,37 @@ private struct MusicBrainzReleaseRow: View {
                 Text(result.title)
                     .font(.system(size: 15, weight: .semibold))
 
-                Text("Score \(result.score)")
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color.accentColor.opacity(0.12))
-                    )
-                    .foregroundStyle(Color.accentColor)
+                if let preview = result.selectionMatchPreview {
+                    Text("Matched \(preview.matchedFileCount)/\(preview.totalSelectedFiles)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.green.opacity(0.12))
+                        )
+                        .foregroundStyle(Color.green)
+
+                    Text("MB \(result.score)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
+                        .foregroundStyle(Color.accentColor)
+                } else {
+                    Text("Score \(result.score)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
+                        .foregroundStyle(Color.accentColor)
+                }
 
                 Spacer()
             }
@@ -412,6 +494,16 @@ private struct MusicBrainzReleaseRow: View {
             }
 
             HStack(spacing: 12) {
+                if let preview = result.selectionMatchPreview {
+                    if !preview.unmatchedFiles.isEmpty {
+                        MusicBrainzMetaPill(title: "Unmatched", value: "\(preview.unmatchedFiles.count)")
+                    }
+
+                    if !preview.unassignedTracks.isEmpty {
+                        MusicBrainzMetaPill(title: "Missing Tracks", value: "\(preview.unassignedTracks.count)")
+                    }
+                }
+
                 if !result.mediaFormatSummary.isEmpty {
                     MusicBrainzMetaPill(title: "Medium", value: result.mediaFormatSummary)
                 }
@@ -440,6 +532,12 @@ private struct MusicBrainzReleaseRow: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            if let preview = result.selectionMatchPreview, preview.selectionLooksMixed {
+                Text("Selection looks mixed; verify the file-to-track assignments in the detail view.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
         }
     }

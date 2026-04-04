@@ -22,7 +22,9 @@ struct MusicBrainzSearchSeed {
     var mode: MusicBrainzSearchMode
     var title: String
     var artist: String
+    var albumArtist: String
     var album: String
+    var trackNumber: String
     var link: String
     var sourceDescription: String
 
@@ -31,7 +33,9 @@ struct MusicBrainzSearchSeed {
             mode: mode,
             title: title,
             artist: artist,
+            albumArtist: albumArtist,
             album: album,
+            trackNumber: trackNumber,
             link: link
         )
     }
@@ -42,7 +46,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
     @Published var mode: MusicBrainzSearchMode = .track
     @Published var titleQuery: String = ""
     @Published var artistQuery: String = ""
+    @Published var albumArtistQuery: String = ""
     @Published var albumQuery: String = ""
+    @Published var trackNumberQuery: String = ""
     @Published var linkQuery: String = ""
     @Published private(set) var isSearching: Bool = false
     @Published private(set) var errorMessage: String?
@@ -71,7 +77,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
             mode: mode,
             title: titleQuery,
             artist: artistQuery,
+            albumArtist: albumArtistQuery,
             album: albumQuery,
+            trackNumber: trackNumberQuery,
             link: linkQuery
         )
     }
@@ -91,7 +99,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
         mode = seed.mode
         titleQuery = seed.title
         artistQuery = seed.artist
+        albumArtistQuery = seed.albumArtist
         albumQuery = seed.album
+        trackNumberQuery = seed.trackNumber
         linkQuery = seed.link
         sourceDescription = seed.sourceDescription
         errorMessage = nil
@@ -102,7 +112,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
+        albumArtistQuery = ""
         albumQuery = ""
+        trackNumberQuery = ""
         linkQuery = ""
         mode = .track
         results = .recordings([])
@@ -122,15 +134,17 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         switch newMode {
         case .track:
-            results = .recordings([])
+            results = Self.emptyResults(for: newMode)
         case .album:
             if albumQuery.isEmpty, !titleQuery.isEmpty {
                 albumQuery = titleQuery
             }
             titleQuery = ""
-            results = .releases([])
+            results = Self.emptyResults(for: newMode)
+        case .file:
+            results = Self.emptyResults(for: newMode)
         case .link:
-            results = .recordings([])
+            results = Self.emptyResults(for: newMode)
         }
     }
 
@@ -139,7 +153,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         guard !query.isEmpty else {
             resetNavigation()
-            results = query.mode == .track ? .recordings([]) : .releases([])
+            results = Self.emptyResults(for: query.mode)
             errorMessage = MusicBrainzClientError.emptyQuery.localizedDescription
             lastSubmittedQuery = nil
             isSearching = false
@@ -170,7 +184,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {
-                    self.results = query.mode == .track ? .recordings([]) : .releases([])
+                    self.results = Self.emptyResults(for: query.mode)
                     self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     self.isSearching = false
                 }
@@ -208,5 +222,14 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     private func resetNavigation() {
         navigationResetToken = UUID()
+    }
+
+    private static func emptyResults(for mode: MusicBrainzSearchMode) -> MusicBrainzSearchResults {
+        switch mode {
+        case .album:
+            return .releases([])
+        case .track, .file, .link:
+            return .recordings([])
+        }
     }
 }

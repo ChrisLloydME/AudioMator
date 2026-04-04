@@ -50,6 +50,7 @@ struct ContentView: View {
                 onAddFiles: viewModel.addFiles,
                 onShowMetadataDump: presentMetadataDump,
                 onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
+                onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
                 onOpenTrackRenumber: openTrackRenumberSheet,
                 onCancelEdits: viewModel.cancelEditing,
                 onSaveEdits: viewModel.saveInspectorEdits
@@ -165,6 +166,14 @@ struct ContentView: View {
         }
     }
 
+    private func findSelectedFileInMusicBrainz() {
+        guard let seed = currentMusicBrainzMatchSeed() else { return }
+
+        musicBrainzBrowserStore.apply(seed: seed)
+        openWindow(id: MusicBrainzBrowserView.windowID)
+        musicBrainzBrowserStore.search()
+    }
+
     private func dismissWelcomeSplash() {
         hasCompletedWelcomeSplash = true
         isWelcomeSplashPresented = false
@@ -254,26 +263,46 @@ struct ContentView: View {
                 mode: .track,
                 title: edit.title,
                 artist: edit.artist,
+                albumArtist: edit.albumArtist,
                 album: edit.album,
+                trackNumber: edit.trackNumberText,
                 link: "",
-                sourceDescription: "Seeded from the current inspector fields for \(selectedFile.url.lastPathComponent)."
+                sourceDescription: "Seeded from the current inspector fields."
             )
         }
 
         let sourceDescription: String
         if selectedFiles.count == 1 {
-            sourceDescription = "Seeded from the selected file \(selectedFile.url.lastPathComponent)."
+            sourceDescription = "Seeded from the selected file metadata."
         } else {
-            sourceDescription = "Seeded from the first of \(selectedFiles.count) selected files: \(selectedFile.url.lastPathComponent)."
+            sourceDescription = "Seeded from the first of \(selectedFiles.count) selected files."
         }
 
         return MusicBrainzSearchSeed(
             mode: .track,
             title: selectedFile.title,
             artist: selectedFile.artist,
+            albumArtist: selectedFile.albumArtist,
             album: selectedFile.album,
+            trackNumber: selectedFile.trackNumberText,
             link: "",
             sourceDescription: sourceDescription
+        )
+    }
+
+    private func currentMusicBrainzMatchSeed() -> MusicBrainzSearchSeed? {
+        let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        guard selectedFiles.count == 1, let selectedFile = selectedFiles.first else { return nil }
+
+        return MusicBrainzSearchSeed(
+            mode: .file,
+            title: selectedFile.title,
+            artist: selectedFile.artist,
+            albumArtist: selectedFile.albumArtist,
+            album: selectedFile.album,
+            trackNumber: selectedFile.trackNumberText,
+            link: "",
+            sourceDescription: "Matched from the selected file metadata."
         )
     }
 

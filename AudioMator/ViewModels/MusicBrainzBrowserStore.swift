@@ -1,6 +1,20 @@
 import Foundation
 import Combine
 
+enum MusicBrainzBrowserDestination: Hashable, Identifiable {
+    case recording(MusicBrainzRecordingResult)
+    case release(MusicBrainzReleaseSearchResult)
+
+    var id: String {
+        switch self {
+        case .recording(let result):
+            return "recording:\(result.id)"
+        case .release(let result):
+            return "release:\(result.id)"
+        }
+    }
+}
+
 struct MusicBrainzSearchSeed {
     var mode: MusicBrainzSearchMode
     var title: String
@@ -29,6 +43,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     @Published private(set) var results: MusicBrainzSearchResults = .recordings([])
     @Published private(set) var lastSubmittedQuery: MusicBrainzSearchQuery?
     @Published private(set) var sourceDescription: String = "Edit the fields below or seed them from the current AudioMator selection."
+    @Published private(set) var navigationResetToken: UUID = UUID()
 
     private let client: MusicBrainzClient
     private var searchTask: Task<Void, Never>?
@@ -65,6 +80,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     func apply(seed: MusicBrainzSearchSeed?) {
         guard let seed else { return }
 
+        resetNavigation()
         mode = seed.mode
         titleQuery = seed.title
         artistQuery = seed.artist
@@ -75,6 +91,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     func clearSearch() {
         searchTask?.cancel()
+        resetNavigation()
         titleQuery = ""
         artistQuery = ""
         albumQuery = ""
@@ -89,6 +106,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     func handleModeChange(from oldMode: MusicBrainzSearchMode, to newMode: MusicBrainzSearchMode) {
         guard oldMode != newMode else { return }
         searchTask?.cancel()
+        resetNavigation()
         isSearching = false
         errorMessage = nil
         lastSubmittedQuery = nil
@@ -109,6 +127,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
         let query = currentQuery
 
         guard !query.isEmpty else {
+            resetNavigation()
             results = query.mode == .track ? .recordings([]) : .releases([])
             errorMessage = MusicBrainzClientError.emptyQuery.localizedDescription
             lastSubmittedQuery = nil
@@ -116,6 +135,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
             return
         }
 
+        resetNavigation()
         errorMessage = nil
         isSearching = true
         lastSubmittedQuery = query
@@ -145,5 +165,23 @@ final class MusicBrainzBrowserStore: ObservableObject {
                 }
             }
         }
+    }
+
+    func metadataDetail(for destination: MusicBrainzBrowserDestination) async throws -> MusicBrainzMetadataDetail {
+        switch destination {
+        case .recording(let result):
+            return .recording(
+                try await client.recordingDetail(
+                    id: result.id,
+                    fallbackReleases: result.releases
+                )
+            )
+        case .release(let result):
+            return .release(try await client.releaseDetail(id: result.id))
+        }
+    }
+
+    private func resetNavigation() {
+        navigationResetToken = UUID()
     }
 }

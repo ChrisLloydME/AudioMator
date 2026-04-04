@@ -54,7 +54,7 @@ struct MusicBrainzBrowserView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
                 MusicBrainzQueryField(
-                    title: store.mode == .track ? "Track Title" : "Album Title",
+                    title: store.mode == .track ? "Track" : "Release",
                     symbolName: store.mode == .track ? "music.note" : "square.stack",
                     text: primaryQueryBinding
                 )
@@ -167,14 +167,19 @@ private struct MusicBrainzQueryField: View {
     @Binding var text: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label {
-                Text(title)
-            } icon: {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
                 Image(systemName: symbolName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 0)
             }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .padding(.leading, 2)
 
             TextField("", text: $text)
                 .textFieldStyle(.roundedBorder)

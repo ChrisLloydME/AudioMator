@@ -43,6 +43,8 @@ struct MusicBrainzMetadataDetailView: View {
                 recordingSections(detail)
             case .release(let detail):
                 releaseSections(detail)
+            case .track(let detail):
+                trackSections(detail)
             }
         }
         .listStyle(.inset)
@@ -50,16 +52,38 @@ struct MusicBrainzMetadataDetailView: View {
 
     @ViewBuilder
     private func recordingSections(_ detail: MusicBrainzRecordingDetail) -> some View {
-        Section("Overview") {
+        recordingMetadataSections(detail, overviewTitle: "Overview")
+    }
+
+    @ViewBuilder
+    private func recordingMetadataSections(_ detail: MusicBrainzRecordingDetail, overviewTitle: String) -> some View {
+        Section(overviewTitle) {
             MetadataValueRow(title: "Title", value: detail.title)
             MetadataValueRow(title: "Artist", value: detail.artistCredit)
             MetadataValueRow(title: "Disambiguation", value: detail.disambiguation)
             MetadataValueRow(title: "First Release", value: detail.firstReleaseDate)
             MetadataValueRow(title: "Length", value: formattedDuration(detail.durationMilliseconds))
-            MetadataValueRow(title: "Genres", value: detail.genres.joined(separator: ", "))
+            MetadataValueRow(title: "Genres", value: formattedTerms(detail.genres))
+            MetadataValueRow(title: "Tags", value: formattedTerms(detail.tags))
+            MetadataValueRow(title: "Rating", value: formattedRating(detail.rating))
             MetadataValueRow(title: "ISRC", value: detail.isrcs.joined(separator: ", "))
             MetadataValueRow(title: "MBID", value: detail.id)
             ExternalLinkRow(title: "MusicBrainz", url: detail.musicBrainzURL)
+        }
+
+        if !detail.relationshipGroups.isEmpty {
+            Section("Relationships") {
+                ForEach(detail.relationshipGroups) { group in
+                    MetadataValueRow(title: group.title, value: joinedValues(group.values))
+                }
+            }
+        }
+
+        if !detail.annotation.isEmpty {
+            Section("Annotation") {
+                Text(detail.annotation)
+                    .textSelection(.enabled)
+            }
         }
 
         if !detail.releases.isEmpty {
@@ -87,6 +111,21 @@ struct MusicBrainzMetadataDetailView: View {
     }
 
     @ViewBuilder
+    private func trackSections(_ detail: MusicBrainzTrackDetail) -> some View {
+        Section("Track") {
+            MetadataValueRow(title: "Title", value: detail.track.title)
+            MetadataValueRow(title: "Number", value: detail.track.number)
+            MetadataValueRow(title: "Length", value: formattedDuration(detail.track.durationMilliseconds))
+            MetadataValueRow(title: "Recording MBID", value: detail.track.recordingID)
+            MetadataValueRow(title: "ISRC", value: detail.track.isrcs.joined(separator: ", "))
+        }
+
+        if let recordingDetail = detail.recordingDetail {
+            recordingMetadataSections(recordingDetail, overviewTitle: "Recording")
+        }
+    }
+
+    @ViewBuilder
     private func releaseSections(_ detail: MusicBrainzReleaseDetail) -> some View {
         Section("Overview") {
             MetadataValueRow(title: "Title", value: detail.title)
@@ -96,14 +135,27 @@ struct MusicBrainzMetadataDetailView: View {
             MetadataValueRow(title: "Status", value: detail.status)
             MetadataValueRow(title: "Barcode", value: detail.barcode)
             MetadataValueRow(title: "Packaging", value: detail.packaging)
-            MetadataValueRow(title: "Genres", value: detail.genres.joined(separator: ", "))
+            MetadataValueRow(title: "ASIN", value: detail.asin)
+            MetadataValueRow(title: "Quality", value: detail.quality)
+            MetadataValueRow(title: "Language", value: detail.language)
+            MetadataValueRow(title: "Script", value: detail.script)
+            MetadataValueRow(title: "Genres", value: formattedTerms(detail.genres))
+            MetadataValueRow(title: "Tags", value: formattedTerms(detail.tags))
             MetadataValueRow(title: "MBID", value: detail.id)
             ExternalLinkRow(title: "MusicBrainz", url: detail.musicBrainzURL)
         }
 
-        if !detail.releaseGroupTitle.isEmpty || !detail.releaseGroupPrimaryType.isEmpty || !detail.releaseGroupSecondaryTypes.isEmpty {
+        if !detail.annotation.isEmpty {
+            Section("Annotation") {
+                Text(detail.annotation)
+                    .textSelection(.enabled)
+            }
+        }
+
+        if !detail.releaseGroupTitle.isEmpty || !detail.releaseGroupPrimaryType.isEmpty || !detail.releaseGroupSecondaryTypes.isEmpty || !detail.releaseGroupID.isEmpty {
             Section("Release Group") {
                 MetadataValueRow(title: "Title", value: detail.releaseGroupTitle)
+                MetadataValueRow(title: "MBID", value: detail.releaseGroupID)
                 MetadataValueRow(title: "Primary Type", value: detail.releaseGroupPrimaryType)
                 MetadataValueRow(title: "Secondary Types", value: detail.releaseGroupSecondaryTypes.joined(separator: ", "))
             }
@@ -121,6 +173,13 @@ struct MusicBrainzMetadataDetailView: View {
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
                         }
+
+                        if !label.id.isEmpty {
+                            Text(label.id)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.tertiary)
+                                .textSelection(.enabled)
+                        }
                     }
                     .padding(.vertical, 2)
                 }
@@ -135,25 +194,31 @@ struct MusicBrainzMetadataDetailView: View {
 
                 MetadataValueRow(title: "Format", value: medium.format)
                 MetadataValueRow(title: "Track Count", value: medium.trackCount > 0 ? String(medium.trackCount) : "")
+                MetadataValueRow(title: "Disc IDs", value: medium.discIDs.joined(separator: ", "))
 
                 if !medium.tracks.isEmpty {
                     ForEach(medium.tracks) { track in
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text(track.number.isEmpty ? "•" : track.number)
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 32, alignment: .leading)
+                        NavigationLink(value: MusicBrainzBrowserDestination.track(track)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                    Text(track.number.isEmpty ? "•" : track.number)
+                                        .font(.system(.body, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 32, alignment: .leading)
 
-                            Text(track.title)
+                                    Text(track.title)
 
-                            Spacer()
+                                    Spacer()
 
-                            let duration = formattedDuration(track.durationMilliseconds)
-                            if !duration.isEmpty {
-                                Text(duration)
-                                    .font(.system(.body, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                                    let duration = formattedDuration(track.durationMilliseconds)
+                                    if !duration.isEmpty {
+                                        Text(duration)
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
+                            .padding(.vertical, 1)
                         }
                     }
                 }
@@ -167,6 +232,8 @@ struct MusicBrainzMetadataDetailView: View {
             return result.title
         case .release(let result):
             return result.title
+        case .track(let track):
+            return track.title
         }
     }
 
@@ -204,6 +271,46 @@ struct MusicBrainzMetadataDetailView: View {
         [release.date, release.country, release.status]
             .filter { !$0.isEmpty }
             .joined(separator: " • ")
+    }
+
+    private func formattedTerms(_ terms: [MusicBrainzTerm]) -> String {
+        terms
+            .map { term in
+                if let count = term.count {
+                    return "\(term.name) (\(count))"
+                }
+                return term.name
+            }
+            .joined(separator: ", ")
+    }
+
+    private func formattedRating(_ rating: MusicBrainzRating?) -> String {
+        guard let rating else { return "" }
+        var parts: [String] = []
+
+        if let value = rating.value {
+            parts.append(String(format: "%.1f", value))
+        }
+
+        if rating.voteCount > 0 {
+            parts.append("\(rating.voteCount) vote\(rating.voteCount == 1 ? "" : "s")")
+        }
+
+        return parts.joined(separator: " • ")
+    }
+
+    private func joinedValues(_ values: [String]) -> String {
+        switch values.count {
+        case 0:
+            return ""
+        case 1:
+            return values[0]
+        case 2:
+            return "\(values[0]) and \(values[1])"
+        default:
+            let prefix = values.dropLast().joined(separator: ", ")
+            return "\(prefix) and \(values.last ?? "")"
+        }
     }
 }
 

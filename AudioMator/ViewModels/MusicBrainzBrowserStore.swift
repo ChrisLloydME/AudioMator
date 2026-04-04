@@ -4,6 +4,7 @@ import Combine
 enum MusicBrainzBrowserDestination: Hashable, Identifiable {
     case recording(MusicBrainzRecordingResult)
     case release(MusicBrainzReleaseSearchResult)
+    case track(MusicBrainzReleaseDetail.Medium.Track)
 
     var id: String {
         switch self {
@@ -11,6 +12,8 @@ enum MusicBrainzBrowserDestination: Hashable, Identifiable {
             return "recording:\(result.id)"
         case .release(let result):
             return "release:\(result.id)"
+        case .track(let track):
+            return "track:\(track.id)"
         }
     }
 }
@@ -178,6 +181,20 @@ final class MusicBrainzBrowserStore: ObservableObject {
             )
         case .release(let result):
             return .release(try await client.releaseDetail(id: result.id))
+        case .track(let track):
+            if track.recordingID.isEmpty {
+                return .track(MusicBrainzTrackDetail(track: track, recordingDetail: nil))
+            }
+
+            return .track(
+                MusicBrainzTrackDetail(
+                    track: track,
+                    recordingDetail: try await client.recordingDetail(
+                        id: track.recordingID,
+                        fallbackReleases: []
+                    )
+                )
+            )
         }
     }
 

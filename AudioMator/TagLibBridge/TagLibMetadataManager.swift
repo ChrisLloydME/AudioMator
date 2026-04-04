@@ -22,6 +22,12 @@ struct BasicMetadata {
     var year: String
     var albumArtist: String
     var releaseDate: String
+    var isrc: String
+    var barcode: String
+    var musicBrainzArtistID: String
+    var musicBrainzAlbumID: String
+    var musicBrainzTrackID: String
+    var musicBrainzReleaseGroupID: String
     var publisher: String
     var copyright: String
     var isExplicit: Bool
@@ -48,6 +54,12 @@ struct BasicMetadata {
         year: "",
         albumArtist: "",
         releaseDate: "",
+        isrc: "",
+        barcode: "",
+        musicBrainzArtistID: "",
+        musicBrainzAlbumID: "",
+        musicBrainzTrackID: "",
+        musicBrainzReleaseGroupID: "",
         publisher: "",
         copyright: "",
         isExplicit: false,
@@ -265,6 +277,12 @@ struct TagLibMetadataManager {
                 year: meta.year ?? "",
                 albumArtist: meta.albumArtist ?? "",
                 releaseDate: meta.releaseDate ?? meta.originalReleaseDate ?? "",
+                isrc: meta.isrc ?? "",
+                barcode: meta.barcode ?? "",
+                musicBrainzArtistID: meta.musicBrainzArtistId ?? "",
+                musicBrainzAlbumID: meta.musicBrainzAlbumId ?? "",
+                musicBrainzTrackID: meta.musicBrainzTrackId ?? "",
+                musicBrainzReleaseGroupID: meta.musicBrainzReleaseGroupId ?? "",
                 publisher: meta.label ?? "",
                 copyright: meta.copyright ?? "",
                 isExplicit: meta.explicitContent,

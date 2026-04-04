@@ -266,6 +266,13 @@ struct ContentView: View {
                 albumArtist: edit.albumArtist,
                 album: edit.album,
                 trackNumber: edit.trackNumberText,
+                trackTotal: 0,
+                durationMilliseconds: nil,
+                releaseDate: "",
+                isrc: "",
+                barcode: "",
+                musicBrainzAlbumID: "",
+                musicBrainzTrackID: "",
                 link: "",
                 sourceDescription: "Seeded from the current inspector fields."
             )
@@ -285,6 +292,13 @@ struct ContentView: View {
             albumArtist: selectedFile.albumArtist,
             album: selectedFile.album,
             trackNumber: selectedFile.trackNumberText,
+            trackTotal: 0,
+            durationMilliseconds: nil,
+            releaseDate: "",
+            isrc: "",
+            barcode: "",
+            musicBrainzAlbumID: "",
+            musicBrainzTrackID: "",
             link: "",
             sourceDescription: sourceDescription
         )
@@ -301,6 +315,15 @@ struct ContentView: View {
             albumArtist: selectedFile.albumArtist,
             album: selectedFile.album,
             trackNumber: selectedFile.trackNumberText,
+            trackTotal: selectedFile.trackTotal,
+            durationMilliseconds: selectedFile.duration.isFinite && selectedFile.duration > 0
+                ? Int((selectedFile.duration * 1000).rounded())
+                : nil,
+            releaseDate: selectedFile.releaseDate.isEmpty ? selectedFile.year : selectedFile.releaseDate,
+            isrc: selectedFile.isrc,
+            barcode: selectedFile.barcode,
+            musicBrainzAlbumID: selectedFile.musicBrainzAlbumID,
+            musicBrainzTrackID: selectedFile.musicBrainzTrackID,
             link: "",
             sourceDescription: "Matched from the selected file metadata."
         )

@@ -25,6 +25,13 @@ struct MusicBrainzSearchQuery: Equatable {
     var albumArtist: String
     var album: String
     var trackNumber: String
+    var trackTotal: Int
+    var durationMilliseconds: Int?
+    var releaseDate: String
+    var isrc: String
+    var barcode: String
+    var musicBrainzAlbumID: String
+    var musicBrainzTrackID: String
     var link: String
 
     init(
@@ -34,6 +41,13 @@ struct MusicBrainzSearchQuery: Equatable {
         albumArtist: String = "",
         album: String = "",
         trackNumber: String = "",
+        trackTotal: Int = 0,
+        durationMilliseconds: Int? = nil,
+        releaseDate: String = "",
+        isrc: String = "",
+        barcode: String = "",
+        musicBrainzAlbumID: String = "",
+        musicBrainzTrackID: String = "",
         link: String = ""
     ) {
         self.mode = mode
@@ -42,6 +56,13 @@ struct MusicBrainzSearchQuery: Equatable {
         self.albumArtist = albumArtist.trimmingCharacters(in: .whitespacesAndNewlines)
         self.album = album.trimmingCharacters(in: .whitespacesAndNewlines)
         self.trackNumber = trackNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.trackTotal = max(0, trackTotal)
+        self.durationMilliseconds = durationMilliseconds.flatMap { $0 > 0 ? $0 : nil }
+        self.releaseDate = releaseDate.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.isrc = isrc.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.barcode = barcode.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.musicBrainzAlbumID = musicBrainzAlbumID.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.musicBrainzTrackID = musicBrainzTrackID.trimmingCharacters(in: .whitespacesAndNewlines)
         self.link = link.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -52,7 +73,17 @@ struct MusicBrainzSearchQuery: Equatable {
         case .album:
             title.isEmpty && artist.isEmpty && album.isEmpty
         case .file:
-            title.isEmpty && artist.isEmpty && albumArtist.isEmpty && album.isEmpty && trackNumber.isEmpty
+            title.isEmpty &&
+            artist.isEmpty &&
+            albumArtist.isEmpty &&
+            album.isEmpty &&
+            trackNumber.isEmpty &&
+            trackTotal == 0 &&
+            durationMilliseconds == nil &&
+            releaseDate.isEmpty &&
+            isrc.isEmpty &&
+            musicBrainzAlbumID.isEmpty &&
+            musicBrainzTrackID.isEmpty
         case .link:
             link.isEmpty
         }
@@ -92,11 +123,63 @@ struct MusicBrainzSearchQuery: Equatable {
             parts.append("track: \(trackNumber)")
         }
 
+        if trackTotal > 0 {
+            parts.append("track total: \(trackTotal)")
+        }
+
+        if !releaseDate.isEmpty {
+            parts.append("release date: \(releaseDate)")
+        }
+
+        if !isrc.isEmpty {
+            parts.append("isrc: \(isrc)")
+        }
+
+        if !musicBrainzAlbumID.isEmpty {
+            parts.append("release id: \(musicBrainzAlbumID)")
+        }
+
+        if !musicBrainzTrackID.isEmpty {
+            parts.append("track id: \(musicBrainzTrackID)")
+        }
+
         if !link.isEmpty {
             parts.append("link: \(link)")
         }
 
         return parts.joined(separator: " • ")
+    }
+
+    var normalizedTrackNumber: Int? {
+        let normalized = trackNumber
+            .split(separator: "/")
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? trackNumber
+
+        guard !normalized.isEmpty else { return nil }
+
+        let stripped = String(normalized.drop(while: { $0 == "0" }))
+        if let value = Int(stripped), value > 0 {
+            return value
+        }
+
+        if let value = Int(normalized), value > 0 {
+            return value
+        }
+
+        return nil
+    }
+
+    var quantizedDuration: Int? {
+        guard let durationMilliseconds, durationMilliseconds > 0 else { return nil }
+        return max(1, durationMilliseconds / 2_000)
+    }
+
+    var normalizedReleaseYear: String {
+        let digits = releaseDate.filter(\.isNumber)
+        guard digits.count >= 4 else { return "" }
+        return String(digits.prefix(4))
     }
 
     private func deduplicatedValues(_ values: [String]) -> [String] {
@@ -388,46 +471,8 @@ struct MusicBrainzClient {
         }
 
         let luceneQuery = MusicBrainzLuceneQueryBuilder.recordingSearchQuery(from: query)
-
-        var components = URLComponents(
-            url: Self.baseURL.appending(path: "recording"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [
-            URLQueryItem(name: "query", value: luceneQuery),
-            URLQueryItem(name: "fmt", value: "json"),
-            URLQueryItem(name: "limit", value: String(max(1, min(limit, 100))))
-        ]
-
-        guard let url = components?.url else {
-            throw MusicBrainzClientError.invalidRequest
-        }
-
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        try await rateLimiter.waitIfNeeded()
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MusicBrainzClientError.invalidResponse
-        }
-
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
-        }
-
-        let payload: MusicBrainzRecordingSearchResponse
-        do {
-            payload = try decoder.decode(MusicBrainzRecordingSearchResponse.self, from: data)
-        } catch let error as DecodingError {
-            throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
-        }
-        return MusicBrainzResultRanker.rerankRecordings(
-            payload.recordings.map(MusicBrainzRecordingResult.init),
-            query: query
-        )
+        let results = try await searchRecordings(luceneQuery: luceneQuery, limit: limit)
+        return MusicBrainzResultRanker.rerankRecordings(results, query: query)
     }
 
     func searchReleases(matching query: MusicBrainzSearchQuery, limit: Int = 25) async throws -> [MusicBrainzReleaseSearchResult] {
@@ -483,47 +528,26 @@ struct MusicBrainzClient {
             throw MusicBrainzClientError.emptyQuery
         }
 
-        let luceneQuery = MusicBrainzLuceneQueryBuilder.fileSearchQuery(from: query)
+        var candidates: [MusicBrainzRecordingResult] = []
+        var preferredRecordingIDs: Set<String> = []
 
-        var components = URLComponents(
-            url: Self.baseURL.appending(path: "recording"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [
-            URLQueryItem(name: "query", value: luceneQuery),
-            URLQueryItem(name: "fmt", value: "json"),
-            URLQueryItem(name: "limit", value: String(max(1, min(limit, 100))))
-        ]
-
-        guard let url = components?.url else {
-            throw MusicBrainzClientError.invalidRequest
+        let strongQuery = MusicBrainzLuceneQueryBuilder.fileStrongSearchQuery(from: query)
+        if !strongQuery.isEmpty {
+            let exactMatches = try await searchRecordings(luceneQuery: strongQuery, limit: 15)
+            candidates.append(contentsOf: exactMatches)
+            preferredRecordingIDs.formUnion(exactMatches.map(\.id))
         }
 
-        var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        try await rateLimiter.waitIfNeeded()
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MusicBrainzClientError.invalidResponse
+        let broadQuery = MusicBrainzLuceneQueryBuilder.fileSearchQuery(from: query)
+        if !broadQuery.isEmpty {
+            candidates.append(contentsOf: try await searchRecordings(luceneQuery: broadQuery, limit: limit))
         }
 
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
-        }
-
-        let payload: MusicBrainzRecordingSearchResponse
-        do {
-            payload = try decoder.decode(MusicBrainzRecordingSearchResponse.self, from: data)
-        } catch let error as DecodingError {
-            throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
-        }
-
+        let deduplicatedCandidates = Self.deduplicatedRecordings(candidates)
         return MusicBrainzResultRanker.rerankRecordings(
-            payload.recordings.map(MusicBrainzRecordingResult.init),
-            query: query
+            deduplicatedCandidates,
+            query: query,
+            preferredRecordingIDs: preferredRecordingIDs
         )
     }
 
@@ -613,6 +637,41 @@ struct MusicBrainzClient {
             mediaFormats: mediaFormats,
             releaseGroup: releaseGroup
         )
+    }
+
+    private func searchRecordings(luceneQuery: String, limit: Int) async throws -> [MusicBrainzRecordingResult] {
+        guard !luceneQuery.isEmpty else {
+            return []
+        }
+
+        let data = try await performRequest(
+            resource: "recording",
+            queryItems: [
+                URLQueryItem(name: "query", value: luceneQuery),
+                URLQueryItem(name: "fmt", value: "json"),
+                URLQueryItem(name: "limit", value: String(max(1, min(limit, 100))))
+            ]
+        )
+
+        let payload: MusicBrainzRecordingSearchResponse
+        do {
+            payload = try decoder.decode(MusicBrainzRecordingSearchResponse.self, from: data)
+        } catch let error as DecodingError {
+            throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
+        }
+
+        return payload.recordings.map(MusicBrainzRecordingResult.init)
+    }
+
+    private static func deduplicatedRecordings(_ recordings: [MusicBrainzRecordingResult]) -> [MusicBrainzRecordingResult] {
+        var seenIDs: Set<String> = []
+        var orderedResults: [MusicBrainzRecordingResult] = []
+
+        for recording in recordings where seenIDs.insert(recording.id).inserted {
+            orderedResults.append(recording)
+        }
+
+        return orderedResults
     }
 
     private func performRequest(
@@ -712,6 +771,68 @@ private enum MusicBrainzLuceneQueryBuilder {
         joinPreferredClauses(recordingSearchClauses(from: query))
     }
 
+    static func fileStrongSearchQuery(from query: MusicBrainzSearchQuery) -> String {
+        var queries: [String] = []
+        let titleClause = query.title.isEmpty ? "" : fieldClause(name: "recording", value: query.title)
+        let releaseIDClause = validMBIDClause(name: "reid", value: query.musicBrainzAlbumID)
+        let artistClauses = query.artistCandidates.map { fieldClause(name: "artist", value: $0) }
+        let trackClauses = trackNumberClauses(query.trackNumber)
+        let trackTotalClauses = trackTotalClauses(query.trackTotal)
+        let durationClauses = durationClauses(query.quantizedDuration)
+
+        if let trackIDClause = validMBIDClause(name: "tid", value: query.musicBrainzTrackID) {
+            queries.append(trackIDClause)
+        }
+
+        if !query.isrc.isEmpty {
+            queries.append(fieldClause(name: "isrc", value: query.isrc))
+        }
+
+        if let releaseIDClause {
+            var releaseScopedQueries: [String] = []
+
+            if !titleClause.isEmpty && !artistClauses.isEmpty && !trackClauses.isEmpty {
+                for artistClause in artistClauses {
+                    for trackClause in trackClauses {
+                        releaseScopedQueries.append(allOf([releaseIDClause, titleClause, artistClause, trackClause]))
+                    }
+                }
+            }
+
+            for trackClause in trackClauses {
+                releaseScopedQueries.append(allOf([releaseIDClause, trackClause]))
+            }
+
+            if !titleClause.isEmpty {
+                releaseScopedQueries.append(allOf([releaseIDClause, titleClause]))
+            }
+
+            for artistClause in artistClauses {
+                releaseScopedQueries.append(allOf([releaseIDClause, artistClause]))
+
+                if !titleClause.isEmpty {
+                    releaseScopedQueries.append(allOf([releaseIDClause, titleClause, artistClause]))
+                }
+            }
+
+            for durationClause in durationClauses {
+                releaseScopedQueries.append(allOf([releaseIDClause, durationClause]))
+            }
+
+            for trackTotalClause in trackTotalClauses {
+                releaseScopedQueries.append(allOf([releaseIDClause, trackTotalClause]))
+            }
+
+            if releaseScopedQueries.isEmpty {
+                releaseScopedQueries.append(releaseIDClause)
+            }
+
+            queries.append(contentsOf: releaseScopedQueries)
+        }
+
+        return joinPreferredClauses(queries)
+    }
+
     private static func fieldClause(name: String, value: String) -> String {
         let escaped = escapeLucene(value)
         return "\(name):\"\(escaped)\""
@@ -736,9 +857,19 @@ private enum MusicBrainzLuceneQueryBuilder {
         "\(name):\(value)"
     }
 
+    private static func validMBIDClause(name: String, value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard UUID(uuidString: trimmed) != nil else { return nil }
+        return fieldClause(name: name, value: trimmed)
+    }
+
     private static func joinPreferredClauses(_ clauses: [String]) -> String {
-        let deduplicated = (Array(NSOrderedSet(array: clauses.filter { !$0.isEmpty })) as? [String]) ?? []
+        let deduplicated = deduplicatedClauses(clauses)
         return deduplicated.joined(separator: " OR ")
+    }
+
+    private static func deduplicatedClauses(_ clauses: [String]) -> [String] {
+        (Array(NSOrderedSet(array: clauses.filter { !$0.isEmpty })) as? [String]) ?? []
     }
 
     private static func escapeLucene(_ raw: String) -> String {
@@ -767,6 +898,8 @@ private enum MusicBrainzLuceneQueryBuilder {
         let releaseClause = query.album.isEmpty ? "" : fieldClause(name: "release", value: query.album)
         let artistClauses = query.artistCandidates.map { fieldClause(name: "artist", value: $0) }
         let trackClauses = trackNumberClauses(query.trackNumber)
+        let trackTotalClauses = trackTotalClauses(query.trackTotal)
+        let durationClauses = durationClauses(query.quantizedDuration)
 
         var clauses: [String] = []
 
@@ -805,6 +938,36 @@ private enum MusicBrainzLuceneQueryBuilder {
         }
 
         if !titleClause.isEmpty {
+            for durationClause in durationClauses {
+                clauses.append(allOf([titleClause, durationClause]))
+            }
+        }
+
+        if !releaseClause.isEmpty {
+            for totalTrackClause in trackTotalClauses {
+                clauses.append(allOf([releaseClause, totalTrackClause]))
+            }
+        }
+
+        if !titleClause.isEmpty && !releaseClause.isEmpty {
+            for durationClause in durationClauses {
+                clauses.append(allOf([titleClause, releaseClause, durationClause]))
+            }
+
+            for totalTrackClause in trackTotalClauses {
+                clauses.append(allOf([titleClause, releaseClause, totalTrackClause]))
+            }
+        }
+
+        if !trackClauses.isEmpty {
+            for trackClause in trackClauses {
+                for durationClause in durationClauses {
+                    clauses.append(allOf([trackClause, durationClause]))
+                }
+            }
+        }
+
+        if !titleClause.isEmpty {
             clauses.append(titleClause)
             clauses.append(generalClause(query.title))
         }
@@ -816,6 +979,8 @@ private enum MusicBrainzLuceneQueryBuilder {
 
         clauses.append(contentsOf: artistClauses)
         clauses.append(contentsOf: trackClauses)
+        clauses.append(contentsOf: trackTotalClauses)
+        clauses.append(contentsOf: durationClauses)
 
         return clauses
     }
@@ -845,6 +1010,16 @@ private enum MusicBrainzLuceneQueryBuilder {
         }
 
         return (Array(NSOrderedSet(array: clauses)) as? [String]) ?? clauses
+    }
+
+    private static func trackTotalClauses(_ trackTotal: Int) -> [String] {
+        guard trackTotal > 0 else { return [] }
+        return [numericClause(name: "tracks", value: trackTotal)]
+    }
+
+    private static func durationClauses(_ quantizedDuration: Int?) -> [String] {
+        guard let quantizedDuration, quantizedDuration > 0 else { return [] }
+        return [numericClause(name: "qdur", value: quantizedDuration)]
     }
 }
 
@@ -1808,10 +1983,14 @@ private extension MusicBrainzTerm {
 }
 
 private enum MusicBrainzResultRanker {
-    static func rerankRecordings(_ results: [MusicBrainzRecordingResult], query: MusicBrainzSearchQuery) -> [MusicBrainzRecordingResult] {
+    static func rerankRecordings(
+        _ results: [MusicBrainzRecordingResult],
+        query: MusicBrainzSearchQuery,
+        preferredRecordingIDs: Set<String> = []
+    ) -> [MusicBrainzRecordingResult] {
         results.sorted { lhs, rhs in
-            let lhsScore = recordingScore(lhs, query: query)
-            let rhsScore = recordingScore(rhs, query: query)
+            let lhsScore = recordingScore(lhs, query: query, preferredRecordingIDs: preferredRecordingIDs)
+            let rhsScore = recordingScore(rhs, query: query, preferredRecordingIDs: preferredRecordingIDs)
             if lhsScore == rhsScore {
                 return lhs.score > rhs.score
             }
@@ -1830,83 +2009,220 @@ private enum MusicBrainzResultRanker {
         }
     }
 
-    private static func recordingScore(_ result: MusicBrainzRecordingResult, query: MusicBrainzSearchQuery) -> Int {
-        var score = result.score
-        score += stringMatchScore(query.title, candidate: result.title, exact: 220, partial: 110)
-        score += bestStringMatchScore(query.artistCandidates, candidates: [result.artistCredit], exact: 180, partial: 85)
-        score += bestStringMatchScore(
-            query.album.isEmpty ? [] : [query.album],
-            candidates: result.releases.map(\.title),
-            exact: 150,
-            partial: 70
+    private static func recordingScore(
+        _ result: MusicBrainzRecordingResult,
+        query: MusicBrainzSearchQuery,
+        preferredRecordingIDs: Set<String>
+    ) -> Double {
+        var score = Double(result.score) * 1.8
+
+        if preferredRecordingIDs.contains(result.id) {
+            score += 700
+        }
+
+        if !query.musicBrainzAlbumID.isEmpty,
+           result.releases.contains(where: { $0.id == query.musicBrainzAlbumID }) {
+            score += 280
+        }
+
+        score += weightedSimilarityScore(
+            query: query.title,
+            candidates: [result.title],
+            weight: 360
         )
+        score += weightedSimilarityScore(
+            queries: query.artistCandidates,
+            candidates: [result.artistCredit],
+            weight: 230
+        )
+        score += weightedSimilarityScore(
+            queries: query.album.isEmpty ? [] : [query.album],
+            candidates: result.releases.map(\.title),
+            weight: 180
+        )
+
+        if let queryDuration = query.durationMilliseconds,
+           let candidateDuration = result.durationMilliseconds {
+            score += durationScore(queryDuration, candidateDuration) * 150
+        }
+
+        if !query.normalizedReleaseYear.isEmpty {
+            score += yearScore(query.normalizedReleaseYear, candidateDate: result.firstReleaseDate) * 70
+        }
+
         return score
     }
 
-    private static func releaseScore(_ result: MusicBrainzReleaseSearchResult, query: MusicBrainzSearchQuery) -> Int {
-        var score = result.score
-        score += stringMatchScore(query.album.isEmpty ? query.title : query.album, candidate: result.title, exact: 220, partial: 110)
-        score += bestStringMatchScore(query.artistCandidates, candidates: [result.artistCredit], exact: 180, partial: 85)
+    private static func releaseScore(_ result: MusicBrainzReleaseSearchResult, query: MusicBrainzSearchQuery) -> Double {
+        var score = Double(result.score) * 1.8
+
+        score += weightedSimilarityScore(
+            query: query.album.isEmpty ? query.title : query.album,
+            candidates: [result.title],
+            weight: 360
+        )
+        score += weightedSimilarityScore(
+            queries: query.artistCandidates,
+            candidates: [result.artistCredit],
+            weight: 230
+        )
+
+        if !query.normalizedReleaseYear.isEmpty {
+            score += yearScore(query.normalizedReleaseYear, candidateDate: result.date) * 90
+        }
+
         return score
     }
 
-    private static func bestStringMatchScore(
-        _ queries: [String],
+    private static func weightedSimilarityScore(
+        query: String,
         candidates: [String],
-        exact: Int,
-        partial: Int
-    ) -> Int {
-        var best = 0
+        weight: Double
+    ) -> Double {
+        weightedSimilarityScore(queries: query.isEmpty ? [] : [query], candidates: candidates, weight: weight)
+    }
+
+    private static func weightedSimilarityScore(
+        queries: [String],
+        candidates: [String],
+        weight: Double
+    ) -> Double {
+        guard weight > 0 else { return 0 }
+
+        var bestSimilarity = 0.0
 
         for query in queries {
             for candidate in candidates {
-                best = max(best, stringMatchScore(query, candidate: candidate, exact: exact, partial: partial))
+                bestSimilarity = max(bestSimilarity, fuzzySimilarity(query, candidate))
             }
         }
 
-        return best
+        return bestSimilarity * weight
     }
 
-    private static func stringMatchScore(_ query: String, candidate: String, exact: Int, partial: Int) -> Int {
-        let normalizedQuery = normalize(query)
-        let normalizedCandidate = normalize(candidate)
-        guard !normalizedQuery.isEmpty, !normalizedCandidate.isEmpty else { return 0 }
-
-        if normalizedQuery == normalizedCandidate {
-            return exact
-        }
-
-        if normalizedCandidate.contains(normalizedQuery) || normalizedQuery.contains(normalizedCandidate) {
-            return Int(Double(exact) * 0.7)
-        }
-
-        let queryTokens = Set(normalizedTokens(query))
-        let candidateTokens = Set(normalizedTokens(candidate))
-        guard !queryTokens.isEmpty, !candidateTokens.isEmpty else { return 0 }
-
-        let overlap = queryTokens.intersection(candidateTokens).count
-        guard overlap > 0 else { return 0 }
-
-        let denominator = max(queryTokens.count, candidateTokens.count)
-        let ratio = Double(overlap) / Double(denominator)
-        return Int(Double(partial) * ratio)
+    private static func durationScore(_ lhs: Int, _ rhs: Int) -> Double {
+        let difference = abs(lhs - rhs)
+        guard difference < 30_000 else { return 0 }
+        return 1 - (Double(difference) / 30_000)
     }
 
-    private static func normalizedTokens(_ value: String) -> [String] {
-        normalize(value)
+    private static func yearScore(_ queryYear: String, candidateDate: String) -> Double {
+        let candidateYearDigits = candidateDate.filter(\.isNumber)
+        guard candidateYearDigits.count >= 4 else { return 0 }
+        let candidateYear = String(candidateYearDigits.prefix(4))
+        guard let queryValue = Int(queryYear), let candidateValue = Int(candidateYear) else { return 0 }
+
+        let difference = abs(queryValue - candidateValue)
+        switch difference {
+        case 0:
+            return 1
+        case 1:
+            return 0.65
+        case 2:
+            return 0.3
+        default:
+            return 0
+        }
+    }
+
+    private static func fuzzySimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let normalizedLHS = normalize(lhs)
+        let normalizedRHS = normalize(rhs)
+        guard !normalizedLHS.isEmpty, !normalizedRHS.isEmpty else { return 0 }
+
+        if normalizedLHS == normalizedRHS {
+            return 1
+        }
+
+        if normalizedRHS.contains(normalizedLHS) || normalizedLHS.contains(normalizedRHS) {
+            return 0.92
+        }
+
+        let tokenScore = jaccardSimilarity(
+            Set(normalizedTokens(normalizedLHS)),
+            Set(normalizedTokens(normalizedRHS))
+        )
+        let editScore = normalizedEditSimilarity(normalizedLHS, normalizedRHS)
+        let prefixScore = commonPrefixSimilarity(normalizedLHS, normalizedRHS)
+
+        return min(1, (editScore * 0.6) + (tokenScore * 0.3) + (prefixScore * 0.1))
+    }
+
+    private static func normalizedTokens(_ normalizedValue: String) -> [String] {
+        normalizedValue
             .split(separator: " ")
             .map(String.init)
             .filter { $0.count >= 2 }
     }
 
     private static func normalize(_ value: String) -> String {
-        let lowered = value.lowercased()
-        let mappedScalars = lowered.unicodeScalars.map { scalar -> Character in
+        let folded = value.folding(
+            options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive],
+            locale: .current
+        )
+        let mappedScalars = folded.unicodeScalars.map { scalar -> Character in
             CharacterSet.alphanumerics.contains(scalar) ? Character(scalar) : " "
         }
         return String(mappedScalars)
             .split(separator: " ")
             .joined(separator: " ")
+    }
+
+    private static func jaccardSimilarity(_ lhs: Set<String>, _ rhs: Set<String>) -> Double {
+        guard !lhs.isEmpty, !rhs.isEmpty else { return 0 }
+        let unionCount = lhs.union(rhs).count
+        guard unionCount > 0 else { return 0 }
+        return Double(lhs.intersection(rhs).count) / Double(unionCount)
+    }
+
+    private static func commonPrefixSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let lhsCharacters = Array(lhs)
+        let rhsCharacters = Array(rhs)
+        let maxLength = max(lhsCharacters.count, rhsCharacters.count)
+        guard maxLength > 0 else { return 0 }
+
+        var prefixLength = 0
+        for (lhsCharacter, rhsCharacter) in zip(lhsCharacters, rhsCharacters) {
+            guard lhsCharacter == rhsCharacter else { break }
+            prefixLength += 1
+        }
+
+        return Double(prefixLength) / Double(maxLength)
+    }
+
+    private static func normalizedEditSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let lhsCharacters = Array(lhs)
+        let rhsCharacters = Array(rhs)
+        let maxLength = max(lhsCharacters.count, rhsCharacters.count)
+        guard maxLength > 0 else { return 0 }
+
+        let distance = levenshteinDistance(lhsCharacters, rhsCharacters)
+        return max(0, 1 - (Double(distance) / Double(maxLength)))
+    }
+
+    private static func levenshteinDistance(_ lhs: [Character], _ rhs: [Character]) -> Int {
+        if lhs.isEmpty { return rhs.count }
+        if rhs.isEmpty { return lhs.count }
+
+        var previousRow = Array(0...rhs.count)
+        var currentRow = Array(repeating: 0, count: rhs.count + 1)
+
+        for (lhsIndex, lhsCharacter) in lhs.enumerated() {
+            currentRow[0] = lhsIndex + 1
+
+            for (rhsIndex, rhsCharacter) in rhs.enumerated() {
+                let substitutionCost = lhsCharacter == rhsCharacter ? 0 : 1
+                currentRow[rhsIndex + 1] = min(
+                    previousRow[rhsIndex + 1] + 1,
+                    currentRow[rhsIndex] + 1,
+                    previousRow[rhsIndex] + substitutionCost
+                )
+            }
+
+            swap(&previousRow, &currentRow)
+        }
+
+        return previousRow[rhs.count]
     }
 }
 

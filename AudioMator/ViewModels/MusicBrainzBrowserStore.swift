@@ -25,6 +25,13 @@ struct MusicBrainzSearchSeed {
     var albumArtist: String
     var album: String
     var trackNumber: String
+    var trackTotal: Int
+    var durationMilliseconds: Int?
+    var releaseDate: String
+    var isrc: String
+    var barcode: String
+    var musicBrainzAlbumID: String
+    var musicBrainzTrackID: String
     var link: String
     var sourceDescription: String
 
@@ -36,6 +43,13 @@ struct MusicBrainzSearchSeed {
             albumArtist: albumArtist,
             album: album,
             trackNumber: trackNumber,
+            trackTotal: trackTotal,
+            durationMilliseconds: durationMilliseconds,
+            releaseDate: releaseDate,
+            isrc: isrc,
+            barcode: barcode,
+            musicBrainzAlbumID: musicBrainzAlbumID,
+            musicBrainzTrackID: musicBrainzTrackID,
             link: link
         )
     }
@@ -59,6 +73,13 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     private let client: MusicBrainzClient
     private var searchTask: Task<Void, Never>?
+    private var fileTrackTotal: Int = 0
+    private var fileDurationMilliseconds: Int?
+    private var fileReleaseDate: String = ""
+    private var fileISRC: String = ""
+    private var fileBarcode: String = ""
+    private var fileMusicBrainzAlbumID: String = ""
+    private var fileMusicBrainzTrackID: String = ""
 
     init(client: MusicBrainzClient) {
         self.client = client
@@ -73,13 +94,28 @@ final class MusicBrainzBrowserStore: ObservableObject {
     }
 
     var currentQuery: MusicBrainzSearchQuery {
-        MusicBrainzSearchQuery(
+        let resolvedTrackTotal = mode == .file ? fileTrackTotal : 0
+        let resolvedDurationMilliseconds = mode == .file ? fileDurationMilliseconds : nil
+        let resolvedReleaseDate = mode == .file ? fileReleaseDate : ""
+        let resolvedISRC = mode == .file ? fileISRC : ""
+        let resolvedBarcode = mode == .file ? fileBarcode : ""
+        let resolvedMusicBrainzAlbumID = mode == .file ? fileMusicBrainzAlbumID : ""
+        let resolvedMusicBrainzTrackID = mode == .file ? fileMusicBrainzTrackID : ""
+
+        return MusicBrainzSearchQuery(
             mode: mode,
             title: titleQuery,
             artist: artistQuery,
             albumArtist: albumArtistQuery,
             album: albumQuery,
             trackNumber: trackNumberQuery,
+            trackTotal: resolvedTrackTotal,
+            durationMilliseconds: resolvedDurationMilliseconds,
+            releaseDate: resolvedReleaseDate,
+            isrc: resolvedISRC,
+            barcode: resolvedBarcode,
+            musicBrainzAlbumID: resolvedMusicBrainzAlbumID,
+            musicBrainzTrackID: resolvedMusicBrainzTrackID,
             link: linkQuery
         )
     }
@@ -102,6 +138,13 @@ final class MusicBrainzBrowserStore: ObservableObject {
         albumArtistQuery = seed.albumArtist
         albumQuery = seed.album
         trackNumberQuery = seed.trackNumber
+        fileTrackTotal = seed.trackTotal
+        fileDurationMilliseconds = seed.durationMilliseconds
+        fileReleaseDate = seed.releaseDate
+        fileISRC = seed.isrc
+        fileBarcode = seed.barcode
+        fileMusicBrainzAlbumID = seed.musicBrainzAlbumID
+        fileMusicBrainzTrackID = seed.musicBrainzTrackID
         linkQuery = seed.link
         sourceDescription = seed.sourceDescription
         errorMessage = nil
@@ -115,6 +158,13 @@ final class MusicBrainzBrowserStore: ObservableObject {
         albumArtistQuery = ""
         albumQuery = ""
         trackNumberQuery = ""
+        fileTrackTotal = 0
+        fileDurationMilliseconds = nil
+        fileReleaseDate = ""
+        fileISRC = ""
+        fileBarcode = ""
+        fileMusicBrainzAlbumID = ""
+        fileMusicBrainzTrackID = ""
         linkQuery = ""
         mode = .track
         results = .recordings([])

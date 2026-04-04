@@ -31,6 +31,12 @@ struct AudioFile: Identifiable {
     let year: String
     let albumArtist: String
     let releaseDate: String
+    let isrc: String
+    let barcode: String
+    let musicBrainzArtistID: String
+    let musicBrainzAlbumID: String
+    let musicBrainzTrackID: String
+    let musicBrainzReleaseGroupID: String
     let publisher: String
     let copyright: String
     let credits: String
@@ -64,6 +70,12 @@ struct AudioFile: Identifiable {
         year: String,
         albumArtist: String,
         releaseDate: String,
+        isrc: String,
+        barcode: String,
+        musicBrainzArtistID: String,
+        musicBrainzAlbumID: String,
+        musicBrainzTrackID: String,
+        musicBrainzReleaseGroupID: String,
         publisher: String,
         copyright: String,
         credits: String,
@@ -92,6 +104,12 @@ struct AudioFile: Identifiable {
         self.year = year
         self.albumArtist = albumArtist
         self.releaseDate = releaseDate
+        self.isrc = isrc
+        self.barcode = barcode
+        self.musicBrainzArtistID = musicBrainzArtistID
+        self.musicBrainzAlbumID = musicBrainzAlbumID
+        self.musicBrainzTrackID = musicBrainzTrackID
+        self.musicBrainzReleaseGroupID = musicBrainzReleaseGroupID
         self.publisher = publisher
         self.copyright = copyright
         self.credits = credits
@@ -123,6 +141,12 @@ struct AudioFile: Identifiable {
             year: year,
             albumArtist: albumArtist,
             releaseDate: releaseDate,
+            isrc: isrc,
+            barcode: barcode,
+            musicBrainzArtistID: musicBrainzArtistID,
+            musicBrainzAlbumID: musicBrainzAlbumID,
+            musicBrainzTrackID: musicBrainzTrackID,
+            musicBrainzReleaseGroupID: musicBrainzReleaseGroupID,
             publisher: publisher,
             copyright: copyright,
             credits: credits,
@@ -241,6 +265,12 @@ struct AudioFile: Identifiable {
         self.year        = tag.year
         self.albumArtist = tag.albumArtist
         self.releaseDate = tag.releaseDate
+        self.isrc        = tag.isrc
+        self.barcode     = tag.barcode
+        self.musicBrainzArtistID = tag.musicBrainzArtistID
+        self.musicBrainzAlbumID = tag.musicBrainzAlbumID
+        self.musicBrainzTrackID = tag.musicBrainzTrackID
+        self.musicBrainzReleaseGroupID = tag.musicBrainzReleaseGroupID
         self.isExplicit  = tag.isExplicit
 
         let asset = AVURLAsset(url: url)

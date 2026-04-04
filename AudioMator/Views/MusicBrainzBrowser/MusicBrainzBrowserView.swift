@@ -281,15 +281,7 @@ private struct MusicBrainzFileSelectionSummaryView: View {
                 .foregroundStyle(.secondary)
 
             if let summary {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)],
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(summaryPills(for: summary)) { pill in
-                        MusicBrainzMetaPill(title: pill.title, value: pill.value)
-                    }
-                }
+                MusicBrainzFileSelectionSummaryList(rows: summaryRows(for: summary))
 
                 if summary.selectionLooksMixed {
                     Label("The current selection looks mixed. Results may include weaker album candidates.", systemImage: "exclamationmark.triangle")
@@ -317,37 +309,122 @@ private struct MusicBrainzFileSelectionSummaryView: View {
         return "AudioMator will search for the best recording match using the selected file metadata."
     }
 
-    private func summaryPills(for summary: MusicBrainzFileSelectionSummary) -> [SummaryPill] {
-        var pills: [SummaryPill] = [
-            SummaryPill(id: "files", title: "Files", value: "\(summary.totalSelectedFiles)")
+    private func summaryRows(for summary: MusicBrainzFileSelectionSummary) -> [SelectionSummaryRow] {
+        var rows: [SelectionSummaryRow] = [
+            SelectionSummaryRow(id: "files", title: "Files", value: "\(summary.totalSelectedFiles)", symbolName: "music.note.list")
         ]
 
         if !summary.albumCandidate.isEmpty {
-            pills.append(SummaryPill(id: "album", title: "Album", value: summary.albumCandidate))
+            rows.append(SelectionSummaryRow(id: "album", title: "Album", value: summary.albumCandidate, symbolName: "opticaldisc"))
         }
 
         if !summary.albumArtistCandidate.isEmpty {
-            pills.append(SummaryPill(id: "album-artist", title: "Album Artist", value: summary.albumArtistCandidate))
+            rows.append(
+                SelectionSummaryRow(
+                    id: "album-artist",
+                    title: "Album Artist",
+                    value: summary.albumArtistCandidate,
+                    symbolName: "person.2"
+                )
+            )
         } else if !summary.primaryArtistCandidate.isEmpty {
-            pills.append(SummaryPill(id: "artist", title: "Artist", value: summary.primaryArtistCandidate))
+            rows.append(
+                SelectionSummaryRow(
+                    id: "artist",
+                    title: "Artist",
+                    value: summary.primaryArtistCandidate,
+                    symbolName: "person"
+                )
+            )
         }
 
         if summary.releaseTrackCountCandidate > 0 {
-            pills.append(SummaryPill(id: "track-count", title: "Track Count", value: "\(summary.releaseTrackCountCandidate)"))
+            rows.append(
+                SelectionSummaryRow(
+                    id: "track-count",
+                    title: "Track Count",
+                    value: "\(summary.releaseTrackCountCandidate)",
+                    symbolName: "number"
+                )
+            )
         }
 
         if !summary.releaseYearCandidate.isEmpty {
-            pills.append(SummaryPill(id: "year", title: "Year", value: summary.releaseYearCandidate))
+            rows.append(
+                SelectionSummaryRow(
+                    id: "year",
+                    title: "Year",
+                    value: summary.releaseYearCandidate,
+                    symbolName: "calendar"
+                )
+            )
         }
 
-        return pills
+        return rows
     }
 }
 
-private struct SummaryPill: Identifiable {
+private struct SelectionSummaryRow: Identifiable {
     let id: String
     let title: String
     let value: String
+    let symbolName: String
+}
+
+private struct MusicBrainzFileSelectionSummaryList: View {
+    let rows: [SelectionSummaryRow]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                MusicBrainzFileSelectionRow(row: row)
+
+                if index < rows.count - 1 {
+                    Divider()
+                        .padding(.leading, 40)
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+private struct MusicBrainzFileSelectionRow: View {
+    let row: SelectionSummaryRow
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Label {
+                Text(row.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: row.symbolName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+            }
+            .frame(width: 132, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            Text(row.value)
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .textSelection(.enabled)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
 }
 
 private struct MusicBrainzRecordingRow: View {

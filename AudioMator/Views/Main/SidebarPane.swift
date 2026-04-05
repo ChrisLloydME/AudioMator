@@ -61,7 +61,7 @@ struct SidebarPane: View {
         Binding(
             get: { state.selectedSidebarItem },
             set: { newSelection in
-                state.selectedSidebarItem = newSelection ?? .quickImport
+                state.selectedSidebarItem = newSelection
             }
         )
     }

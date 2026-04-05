@@ -15,7 +15,7 @@ struct SidebarPane: View {
             } header: {
                 Text("Current Session")
             } footer: {
-                Text("Session only. Files loaded here are cleared when AudioMator closes.")
+                Text("Files here are cleared when AudioMator closes.")
             }
 
             Section {
@@ -26,7 +26,7 @@ struct SidebarPane: View {
                 )
 
                 if viewModel.watchedFolders.isEmpty {
-                    Text("No folders added yet")
+                    Text("No watched folders yet")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(viewModel.watchedFolders) { folder in
@@ -51,7 +51,7 @@ struct SidebarPane: View {
             } header: {
                 Text("Watched Folders")
             } footer: {
-                Text("Folders stay in the sidebar across launches. Manual file import is disabled while a watched source is selected.")
+                Text("Watched folders stay in the sidebar across launches. To add files manually, select Current Session.")
             }
         }
         .listStyle(.sidebar)
@@ -110,7 +110,7 @@ struct SidebarPane: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
-            .help("Remove Folder")
+            .help("Remove watched folder")
         }
     }
 

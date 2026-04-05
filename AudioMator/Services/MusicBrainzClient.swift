@@ -707,19 +707,19 @@ enum MusicBrainzClientError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyQuery:
-            return "Enter at least one field before searching MusicBrainz."
+            return "Enter at least one search field."
         case .invalidLink:
             return "Paste a valid MusicBrainz link."
         case .unsupportedLink:
             return "Only MusicBrainz release and recording links are supported."
         case .invalidRequest:
-            return "The MusicBrainz request could not be created."
+            return "Couldn't create the MusicBrainz request."
         case .requestFailed(let statusCode):
             return "MusicBrainz returned HTTP \(statusCode)."
         case .invalidResponse:
             return "MusicBrainz returned an unexpected response."
         case .decodingFailed(let detail):
-            return "MusicBrainz returned data, but AudioMator could not decode it. \(detail)"
+            return "MusicBrainz returned data AudioMator couldn't read. \(detail)"
         }
     }
 }

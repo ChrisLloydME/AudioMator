@@ -114,24 +114,24 @@ private struct WelcomePage: View {
         VStack(alignment: .leading, spacing: 30) {
             PageHeader(
                 title: "Welcome to AudioMator",
-                subtitle: "A focused macOS utility for inspecting, cleaning up, and rewriting audio metadata in the files you choose."
+                subtitle: "Inspect, clean up, and rewrite audio metadata on your Mac."
             )
 
             VStack(alignment: .leading, spacing: 24) {
                 WelcomeIntroRow(
                     symbol: "music.note",
-                    title: "Local-first metadata editing",
-                    description: "Open the tracks you want to work on and keep the editing workflow anchored to your Mac."
+                    title: "Edit metadata on your Mac",
+                    description: "Open the tracks you want and work locally."
                 )
                 WelcomeIntroRow(
                     symbol: "wand.and.stars",
-                    title: "Built for quick inspection and cleanup",
-                    description: "Review important tag fields quickly and make deliberate fixes without extra clutter."
+                    title: "Review tags quickly",
+                    description: "Spot important fields fast and make precise fixes."
                 )
                 WelcomeIntroRow(
                     symbol: "macwindow",
-                    title: "Designed to feel at home on macOS",
-                    description: "Uses familiar windowing, sheet, and inspector patterns so the app behaves like a native utility."
+                    title: "Feels native on macOS",
+                    description: "Uses familiar windows, sheets, and inspectors."
                 )
             }
             .padding(.top, 8)
@@ -173,27 +173,27 @@ private struct FeaturesPage: View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeader(
                 title: "What You Can Do",
-                subtitle: "AudioMator is built around a simple desktop workflow: bring in local tracks, inspect their metadata carefully, make targeted corrections, and save only when you are satisfied with the result."
+                subtitle: "Bring in tracks, inspect tags, make precise changes, and save when you're ready."
             )
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 22) {
                     WelcomeFeatureRow(
                         symbol: "music.note.list",
-                        title: "Choose temporary or persistent sources",
-                        description: "Use Current Session for one-off editing work, or pin watched folders in the sidebar so AudioMator can keep their audio files available every time you reopen the app."
+                        title: "Choose one-time or watched sources",
+                        description: "Use Current Session for one-off work, or add watched folders to keep files available across launches."
                     )
 
                     WelcomeFeatureRow(
                         symbol: "slider.horizontal.3",
-                        title: "Inspect and edit tags",
-                        description: "Use the Inspector to review track-level metadata, compare multiple selections, and inspect raw metadata output before you write anything back to disk."
+                        title: "Inspect and edit metadata",
+                        description: "Review track tags, compare selections, and check raw metadata before saving."
                     )
 
                     WelcomeFeatureRow(
                         symbol: "square.stack.3d.down.right",
                         title: "Use batch utilities",
-                        description: "Reorder the working list, renumber track numbers by list order, reveal files in Finder, copy paths, or erase tags when you need a clean metadata baseline."
+                        description: "Reorder files, renumber tracks, reveal files in Finder, copy paths, or clear tags."
                     )
                 }
                 .padding(.vertical, 18)
@@ -208,27 +208,27 @@ private struct PrivacyPage: View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeader(
                 title: "Privacy",
-                subtitle: "AudioMator keeps the metadata workflow local to your Mac. The app is intentionally explicit about file access, and any background refresh is limited to the watched folders you add yourself."
+                subtitle: "Your files stay on your Mac. AudioMator only accesses files and folders you choose."
             )
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 22) {
                     PrivacyRow(
                         symbol: "folder.badge.questionmark",
-                        title: "You choose the files and folders",
-                        description: "AudioMator only reads locations that you explicitly pick. Current Session stays session-only, and watched folders are limited to the sidebar sources you add and can remove at any time."
+                        title: "You choose the files",
+                        description: "AudioMator reads only the files and folders you add. Remove watched folders anytime."
                     )
 
                     PrivacyRow(
                         symbol: "internaldrive",
-                        title: "Processing stays local",
-                        description: "Metadata inspection and writing happen on your Mac using local frameworks and the bundled tag library bridge. Your files and tags are not uploaded to a remote service."
+                        title: "Metadata stays local",
+                        description: "Reading and writing happen on your Mac. Your files and tags aren't uploaded."
                     )
 
                     PrivacyRow(
                         symbol: "person.crop.circle.badge.xmark",
-                        title: "No account required",
-                        description: "There is no sign-in, no remote profile, and no cloud workspace attached to your library. You remain in control of when files are opened, reviewed, and updated."
+                        title: "No account needed",
+                        description: "No sign-in, cloud profile, or remote library."
                     )
                 }
                 .padding(.vertical, 18)

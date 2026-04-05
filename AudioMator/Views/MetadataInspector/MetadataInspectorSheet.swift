@@ -38,7 +38,7 @@ struct MetadataInspectorSheet: View {
                     copyToPasteboard(dumpText)
                 }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
-                .help("Copy the raw metadata text")
+                .help("Copy raw metadata")
 
                 Spacer()
 
@@ -84,7 +84,7 @@ struct MetadataInspectorSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("No raw metadata was returned.")
                     .font(.headline)
-                Text("If this is unexpected, verify the file is an MP3 and that TagLib can open it.")
+                Text("If that's unexpected, make sure the file is an MP3 and TagLib can read it.")
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

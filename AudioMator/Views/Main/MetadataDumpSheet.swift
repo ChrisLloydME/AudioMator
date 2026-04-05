@@ -7,14 +7,14 @@ struct MetadataDumpSheet: View {
 
     private var displayText: String {
         metadataDumpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "(No metadata details available)"
+            ? "(No metadata details)"
             : metadataDumpText
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Tag Inspector")
+                Text("Metadata Details")
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -26,7 +26,7 @@ struct MetadataDumpSheet: View {
                 }
             }
 
-            Text("Shows detailed metadata for the selected file(s), including file properties and tag entries.")
+            Text("Review raw tags and file properties for the selected files.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -39,7 +39,7 @@ struct MetadataDumpSheet: View {
 
             HStack {
                 Spacer()
-                Button("Close") {
+                Button("Done") {
                     onClose()
                 }
                 .keyboardShortcut(.cancelAction)

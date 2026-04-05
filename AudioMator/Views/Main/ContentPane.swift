@@ -75,37 +75,37 @@ struct ContentPane: View {
                     Button(action: onAddFiles) {
                         Image(systemName: "plus")
                     }
-                    .help(isQuickImportMode ? "Add audio files to the current session" : "Switch to Current Session in the sidebar to add files")
+                    .help(isQuickImportMode ? "Add files to this session" : "Select Current Session in the sidebar to add files")
                     .disabled(!isQuickImportMode)
 
                     Button(action: onShowMetadataDump) {
                         Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
                     }
-                    .help("Show all metadata as text")
+                    .help("View raw metadata")
                     .disabled(state.selectedAudioIDs.isEmpty)
 
                     Button(action: onOpenTrackRenumber) {
                         Label("Renumber Tracks…", systemImage: "number")
                     }
-                    .help("Rewrite Track Number (TRCK) by the middle list order")
+                    .help("Renumber tracks in list order")
                     .disabled(viewModel.files.isEmpty)
 
                     Button(action: onFindSelectedFileInMusicBrainz) {
                         Label("Find in MusicBrainz", systemImage: "network")
                     }
-                    .help("Search MusicBrainz using the selected file metadata")
+                    .help("Search MusicBrainz from the selected file metadata")
                     .disabled(!hasSelectedFiles)
 
                     Button(action: openMetadataFilenameRenameSheet) {
                         Label("Rename Files…", systemImage: "pencil.line")
                     }
-                    .help("Rename the selected files from metadata tokens and static text")
+                    .help("Rename selected files from metadata")
                     .disabled(state.selectedAudioIDs.isEmpty)
 
                     Button(action: openTextMetadataImportSheet) {
                         Label("Import Field…", systemImage: "square.and.arrow.down")
                     }
-                    .help("Import one metadata field from a text file into the selected rows")
+                    .help("Import one field from a text file")
                     .disabled(state.selectedAudioIDs.isEmpty)
 
                     Button(role: .destructive) {
@@ -113,7 +113,7 @@ struct ContentPane: View {
                     } label: {
                         Label("Clear List", systemImage: "trash")
                     }
-                    .help(isQuickImportMode ? "Remove all files from the current session list" : "Watched folder lists are managed from the sidebar")
+                    .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
                     .disabled(!isQuickImportMode || viewModel.files.isEmpty)
 
                     Button("Cancel", action: onCancelEdits)
@@ -124,7 +124,7 @@ struct ContentPane: View {
                 }
             }
             .confirmationDialog(
-                "Clear the current list?",
+                "Clear this list?",
                 isPresented: $isClearListConfirmPresented,
                 titleVisibility: .visible
             ) {
@@ -133,7 +133,7 @@ struct ContentPane: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This only removes the loaded tracks from AudioMator. The original files on disk will not be deleted.")
+                Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
             }
             .sheet(isPresented: $isTextMetadataImportPresented) {
                 TextMetadataImportSheet(
@@ -235,7 +235,7 @@ struct ContentPane: View {
                     .disabled(selectedFiles.isEmpty)
                 }
                 .confirmationDialog(
-                    "Erase all tags?",
+                    "Erase all metadata tags?",
                     isPresented: $isEraseAllTagsConfirmPresented,
                     titleVisibility: .visible
                 ) {
@@ -244,7 +244,7 @@ struct ContentPane: View {
                     }
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("This will remove metadata tags from the selected file(s). This action cannot be undone.")
+                    Text("Removes metadata from the selected files. This can't be undone.")
                 }
             }
         }
@@ -374,7 +374,7 @@ struct ContentPane: View {
     private var emptyStateTitle: String {
         switch currentSidebarSelection {
         case .quickImport:
-            return "No Session Files"
+            return "No Files in Session"
         case .watchedLibrary:
             return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : "No Audio Files Found"
         case .watchedFolder:
@@ -398,15 +398,15 @@ struct ContentPane: View {
     private var emptyStateDescription: String {
         switch currentSidebarSelection {
         case .quickImport:
-            return "Add audio files for one-off edits. This list is cleared when AudioMator closes."
+            return "Add audio files for one-off edits. This list clears when AudioMator closes."
         case .watchedLibrary:
             if viewModel.watchedFolders.isEmpty {
-                return "Add a folder from the sidebar to keep it available across launches and use it as a persistent file source."
+                return "Add a watched folder from the sidebar to keep it available across launches."
             }
-            return "AudioMator is watching the folders in the sidebar, but no supported audio files were found yet."
+            return "AudioMator is watching these folders, but no supported audio files have appeared yet."
         case .watchedFolder(let folderID):
             if let folder = viewModel.watchedFolders.first(where: { $0.id == folderID }) {
-                return "\(folder.displayName) does not contain any supported audio files yet."
+                return "\(folder.displayName) doesn't contain any supported audio files yet."
             }
             return "Select a watched folder from the sidebar or add a new one."
         }

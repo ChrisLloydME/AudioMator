@@ -31,11 +31,11 @@ struct MetadataFilenameRenameSheet: View {
 
     private var previewStatusMessage: String {
         if targetFiles.isEmpty {
-            return "Select files in the center list before opening this sheet."
+            return "Select files in the center list first."
         }
 
         if renameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Enter a rename template or drag metadata chips into the field."
+            return "Enter a template or drag metadata chips into the field."
         }
 
         if renamePlan.hasIssues {
@@ -43,10 +43,10 @@ struct MetadataFilenameRenameSheet: View {
         }
 
         if renamePlan.readyCount == 0 {
-            return "The template already matches the current filenames."
+            return "The filenames already match."
         }
 
-        return "\(renamePlan.readyCount) file(s) will be renamed. Original extensions stay unchanged."
+        return "\(renamePlan.readyCount) file(s) will be renamed. File extensions stay the same."
     }
 
     private var renameIssueSummaryText: String {
@@ -128,7 +128,7 @@ struct MetadataFilenameRenameSheet: View {
                 }
             }
 
-            Text("Build a filename template with static text and metadata tokens. Drag a token into the template box or click a chip to insert it.")
+            Text("Build a filename pattern with text and metadata tokens. Click or drag a token to insert it.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -150,7 +150,7 @@ struct MetadataFilenameRenameSheet: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("AudioMator keeps each file's original extension. The template only controls the filename before the extension.")
+                Text("AudioMator keeps each file's current extension. The template changes only the filename.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -220,9 +220,9 @@ struct MetadataFilenameRenameSheet: View {
 
                 if renameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ContentUnavailableView(
-                        "No Preview Yet",
+                        "Add a Template",
                         systemImage: "text.cursor",
-                        description: Text("Add fixed text, insert metadata tokens, or drag a token into the template field to generate the rename preview.")
+                        description: Text("Add text or metadata tokens to preview the new filenames.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
@@ -304,7 +304,7 @@ struct MetadataFilenameRenameSheet: View {
         }
         .buttonStyle(.plain)
         .contentShape(Capsule())
-        .help("Click or drag to insert \(field.token)")
+        .help("Click or drag \(field.token) into the template")
         .onDrag {
             NSItemProvider(object: field.token as NSString)
         }

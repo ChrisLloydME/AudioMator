@@ -223,12 +223,12 @@ struct ContentView: View {
     private func presentUnsavedInspectorDiscardAlert(onContinue: @escaping () -> Void) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "You Have Unsaved Inspector Changes"
-        alert.informativeText = "The edits in the inspector haven't been saved yet. If you continue, those changes will be discarded."
-        alert.addButton(withTitle: "Continue")
+        alert.messageText = "Discard Inspector Edits?"
+        alert.informativeText = "To switch files, discard your unsaved inspector edits."
+        alert.addButton(withTitle: "Discard Edits")
         alert.addButton(withTitle: "Cancel")
         alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = "Don't remind me again"
+        alert.suppressionButton?.title = "Don't ask again"
 
         let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .alertFirstButtonReturn else { return }
@@ -276,15 +276,15 @@ struct ContentView: View {
                 musicBrainzTrackID: "",
                 fileInputs: fileInputs,
                 link: "",
-                sourceDescription: "Seeded from the current inspector fields."
+                sourceDescription: "From the current inspector fields."
             )
         }
 
         let sourceDescription: String
         if selectedFiles.count == 1 {
-            sourceDescription = "Seeded from the selected file metadata."
+            sourceDescription = "From the selected file metadata."
         } else {
-            sourceDescription = "Seeded from the first of \(selectedFiles.count) selected files."
+            sourceDescription = "From the first of \(selectedFiles.count) selected files."
         }
 
         return MusicBrainzSearchSeed(
@@ -331,8 +331,8 @@ struct ContentView: View {
             fileInputs: fileInputs,
             link: "",
             sourceDescription: selectedFiles.count == 1
-                ? "Matched from the selected file metadata."
-                : "Matched from \(selectedFiles.count) selected files."
+                ? "From the selected file metadata."
+                : "From \(selectedFiles.count) selected files."
         )
     }
 
@@ -526,7 +526,7 @@ struct ContentView_Previews: PreviewProvider {
 extension ContentView {
     private func presentMetadataDump() {
         let selected = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-        metadataDumpText = "Loading metadata..."
+        metadataDumpText = "Loading metadata…"
         isMetadataDumpPresented = true
 
         Task {

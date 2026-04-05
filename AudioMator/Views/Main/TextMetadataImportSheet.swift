@@ -32,15 +32,15 @@ private enum TextMetadataImportDelimiter: String, CaseIterable, Identifiable {
     var caption: String {
         switch self {
         case .newline:
-            return "One line maps to one selected file."
+            return "Use one line per selected file."
         case .englishComma:
-            return "Split on the standard ASCII comma."
+            return "Split on the ASCII comma."
         case .chineseComma:
-            return "Split on the full-width Chinese comma."
+            return "Split on the full-width comma."
         case .englishSemicolon:
-            return "Split on the standard ASCII semicolon."
+            return "Split on the ASCII semicolon."
         case .chineseSemicolon:
-            return "Split on the full-width Chinese semicolon."
+            return "Split on the full-width semicolon."
         }
     }
 
@@ -182,18 +182,18 @@ struct TextMetadataImportSheet: View {
 
     private var previewStatusMessage: String {
         guard hasLoadedSourceFile else {
-            return "Choose a text file to preview how the imported values map to the selected rows."
+            return "Choose a text file to preview how values map to the selected rows."
         }
 
         if importedValues.count == targetFiles.count {
-            return "Counts match. Applying will overwrite only the selected field and keep other metadata unchanged."
+            return "Counts match. Applying will overwrite only the selected field."
         }
 
         if importedValues.count < targetFiles.count {
-            return "The text file does not provide enough values for all selected files. Adjust the delimiter or source file before applying."
+            return "The text file doesn't provide enough values for all selected files."
         }
 
-        return "The text file contains more values than the current selection. Adjust the delimiter or source file before applying."
+        return "The text file contains more values than the current selection."
     }
 
     private var canApply: Bool {
@@ -237,7 +237,7 @@ struct TextMetadataImportSheet: View {
                 }
             }
 
-            Text("Choose a text file, split it into one value per row, then write the selected metadata field back to disk using the visible order of the center list.")
+            Text("Choose a text file, split it into one value per row, then write the selected field in center-list order.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -251,7 +251,7 @@ struct TextMetadataImportSheet: View {
                             .fill(Color.secondary.opacity(0.12))
                     )
 
-                Text("Unsaved inspector edits are not included in this import.")
+                Text("Unsaved inspector edits aren't included.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -267,7 +267,7 @@ struct TextMetadataImportSheet: View {
             VStack(alignment: .leading, spacing: 14) {
                 configurationRow(
                     title: "Text file",
-                    caption: selectedTextFileURL?.path ?? "Choose a plain text source file."
+                    caption: selectedTextFileURL?.path ?? "Choose a plain-text file."
                 ) {
                     VStack(alignment: .trailing, spacing: 6) {
                         Button(selectedTextFileURL == nil ? "Choose File…" : "Change File…") {
@@ -305,7 +305,7 @@ struct TextMetadataImportSheet: View {
 
                 configurationRow(
                     title: "Target field",
-                    caption: "Only this metadata field will be rewritten for each selected row."
+                    caption: "Only this field will be rewritten for each selected row."
                 ) {
                     Picker("", selection: $selectedField) {
                         ForEach(MultiFileEditableTextField.allCases, id: \.self) { field in
@@ -389,9 +389,9 @@ struct TextMetadataImportSheet: View {
                     .frame(minHeight: 280)
                 } else {
                     ContentUnavailableView(
-                        "No Preview Yet",
+                        "Choose a File",
                         systemImage: "doc.text.magnifyingglass",
-                        description: Text("Choose a text file to generate the row-by-row import preview.")
+                        description: Text("Choose a text file to preview each imported value.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 280)
                 }
@@ -455,7 +455,7 @@ struct TextMetadataImportSheet: View {
         panel.canCreateDirectories = false
         panel.title = "Choose a Text File"
         panel.prompt = "Choose"
-        panel.message = "AudioMator will read this file and split it into one value per selected row."
+        panel.message = "AudioMator will split this file into one value per selected row."
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
@@ -507,7 +507,7 @@ struct TextMetadataImportSheet: View {
             domain: "TextMetadataImportSheet",
             code: 1,
             userInfo: [
-                NSLocalizedDescriptionKey: "AudioMator could not decode that file as plain text."
+                NSLocalizedDescriptionKey: "AudioMator couldn't read that file as plain text."
             ]
         )
     }

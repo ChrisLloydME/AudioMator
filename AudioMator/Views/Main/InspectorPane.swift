@@ -148,7 +148,7 @@ struct InspectorPane: View {
     }
 
     private var multiArtworkSummary: String {
-        viewModel.multiEdit?.artworkSummary ?? "Artwork differs across selected files"
+        viewModel.multiEdit?.artworkSummary ?? "Selected files use different artwork"
     }
 
     private var multiArtworkPlaceholderSymbolName: String {
@@ -186,7 +186,7 @@ struct InspectorPane: View {
                 }
             } else {
                 ContentUnavailableView(
-                    "Select an Audio File",
+                    "Select a File",
                     systemImage: "music.quarternote.3"
                 )
             }
@@ -198,7 +198,7 @@ struct InspectorPane: View {
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text("The left side keeps the original input unchanged, while the right side shows a real-time preview using a clearer monospaced font and highlights hidden characters.")
+                    Text("Edit the original text on the left. Preview hidden characters on the right.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -227,7 +227,7 @@ struct InspectorPane: View {
                                 .padding(10)
 
                             if inspectorQuickText.isEmpty {
-                                Text("Enter text…")
+                                Text("Type or paste text")
                                     .foregroundStyle(.secondary)
                                     .font(.system(size: 14, weight: .regular, design: .monospaced))
                                     .padding(.horizontal, 16)
@@ -332,7 +332,7 @@ struct InspectorPane: View {
                 Text("\(files.count) files selected")
                     .font(.headline)
 
-                Text("Edited fields apply to all selected files. Untouched fields remain unchanged, even when they currently show multiple values.")
+                Text("Edits apply to all selected files. Fields you leave untouched stay as they are.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -363,7 +363,7 @@ struct InspectorPane: View {
                     }
                 }
 
-                Text("Double-click to replace or add artwork")
+                Text("Double-click to add or replace artwork")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -441,7 +441,7 @@ struct InspectorPane: View {
                     }
                     .disabled(!canClearMultiArtwork)
 
-                    Button("Keep Existing") {
+                    Button("Keep Current") {
                         viewModel.keepArtwork(for: files)
                     }
                     .disabled(!hasPendingMultiArtworkChange)
@@ -468,7 +468,7 @@ struct InspectorPane: View {
                 }
                 .disabled(!canClearMultiArtwork)
 
-                Button("Keep Existing Artwork") {
+                Button("Keep Current Artwork") {
                     viewModel.keepArtwork(for: files)
                 }
                 .disabled(!hasPendingMultiArtworkChange)
@@ -606,7 +606,7 @@ struct InspectorPane: View {
                     multiExplicitRow(
                         label: "Explicit",
                         selection: multiExplicitBinding,
-                        currentValueDescription: viewModel.multiEdit?.explicitCurrentValueDescription ?? "Current values differ"
+                        currentValueDescription: viewModel.multiEdit?.explicitCurrentValueDescription ?? "Values differ"
                     )
                     Divider()
                     metadataRow(label: "Credits", value: merged.credits)
@@ -702,9 +702,9 @@ struct InspectorPane: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Picker("", selection: selection) {
-                    Text("Keep Existing").tag(MultiFileExplicitEditState.keepExisting)
-                    Text("Set Explicit").tag(MultiFileExplicitEditState.markExplicit)
-                    Text("Set Clean").tag(MultiFileExplicitEditState.markClean)
+                    Text("Leave As Is").tag(MultiFileExplicitEditState.keepExisting)
+                    Text("Mark Explicit").tag(MultiFileExplicitEditState.markExplicit)
+                    Text("Mark Clean").tag(MultiFileExplicitEditState.markClean)
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)

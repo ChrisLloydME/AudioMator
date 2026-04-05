@@ -3415,7 +3415,7 @@ static void ParseNumberPairFromNSString(NSString *text,
 
     NSString *ext = fileURL.pathExtension.lowercaseString;
 
-    // For now, implement a robust wipe for MP3 by stripping all supported tag types.
+    // Metadata wipe has a full implementation for MP3, where we can strip all supported tag types.
     if (![ext isEqualToString:@"mp3"]) {
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"

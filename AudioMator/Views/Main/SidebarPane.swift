@@ -5,25 +5,25 @@ struct SidebarPane: View {
     @ObservedObject var state: SharedState
 
     var body: some View {
-        List {
+        List(selection: sidebarSelection) {
             Section {
-                sourceRow(
+                sidebarRow(
                     title: "Session Files",
-                    systemImage: "bolt.horizontal.circle",
-                    selection: .quickImport
+                    systemImage: "bolt.horizontal.circle"
                 )
+                .tag(SidebarSelection.quickImport)
+                .help("Files here are cleared when AudioMator closes.")
             } header: {
                 Text("Current Session")
-            } footer: {
-                Text("Files here are cleared when AudioMator closes.")
             }
 
             Section {
-                sourceRow(
+                sidebarRow(
                     title: "All Watched Files",
-                    systemImage: "folder.badge.gearshape",
-                    selection: .watchedLibrary
+                    systemImage: "folder.badge.gearshape"
                 )
+                .tag(SidebarSelection.watchedLibrary)
+                .help("Watched folders stay in the sidebar across launches.")
 
                 if viewModel.watchedFolders.isEmpty {
                     Text("No watched folders yet")
@@ -31,12 +31,12 @@ struct SidebarPane: View {
                 } else {
                     ForEach(viewModel.watchedFolders) { folder in
                         watchedFolderRow(folder)
-                            .tag(Optional(SidebarSelection.watchedFolder(folder.id)))
                             .contextMenu {
                                 Button("Remove Folder", role: .destructive) {
                                     removeWatchedFolder(folder)
                                 }
                             }
+                            .tag(SidebarSelection.watchedFolder(folder.id))
                     }
                 }
 
@@ -46,72 +46,54 @@ struct SidebarPane: View {
                     }
                 } label: {
                     Label("Add Folder…", systemImage: "plus.circle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             } header: {
                 Text("Watched Folders")
-            } footer: {
-                Text("Watched folders stay in the sidebar across launches. To add files manually, select Current Session.")
             }
         }
         .listStyle(.sidebar)
     }
 
-    private func sourceRow(
-        title: String,
-        systemImage: String,
-        selection: SidebarSelection
-    ) -> some View {
-        Button {
-            state.selectedSidebarItem = selection
-        } label: {
-            HStack(spacing: 10) {
-                Label(title, systemImage: systemImage)
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
+    private var sidebarSelection: Binding<SidebarSelection?> {
+        Binding(
+            get: { state.selectedSidebarItem },
+            set: { newSelection in
+                state.selectedSidebarItem = newSelection ?? .quickImport
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selectionBackground(for: selection))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        )
+    }
+
+    private func sidebarRow(
+        title: String,
+        systemImage: String
+    ) -> some View {
+        Label(title, systemImage: systemImage)
+            .lineLimit(1)
     }
 
     private func watchedFolderRow(_ folder: WatchedFolder) -> some View {
-        let selection = SidebarSelection.watchedFolder(folder.id)
-
         return HStack(spacing: 8) {
-            Button {
-                state.selectedSidebarItem = selection
-            } label: {
-                HStack(spacing: 10) {
-                    Label(folder.displayName, systemImage: "folder")
-                        .lineLimit(1)
+            Label(folder.displayName, systemImage: "folder")
+                .lineLimit(1)
 
-                    Spacer(minLength: 0)
+            Spacer(minLength: 0)
+
+            if state.selectedSidebarItem == .watchedFolder(folder.id) {
+                Button {
+                    removeWatchedFolder(folder)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .imageScale(.medium)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(selectionBackground(for: selection))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help("Remove watched folder")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.primary)
-
-            Button {
-                removeWatchedFolder(folder)
-            } label: {
-                Image(systemName: "minus.circle")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.borderless)
-            .help("Remove watched folder")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func removeWatchedFolder(_ folder: WatchedFolder) {
@@ -120,13 +102,5 @@ struct SidebarPane: View {
         if state.selectedSidebarItem == .watchedFolder(folder.id) {
             state.selectedSidebarItem = viewModel.watchedFolders.isEmpty ? .quickImport : .watchedLibrary
         }
-    }
-
-    private func selectionBackground(for selection: SidebarSelection) -> some ShapeStyle {
-        if state.selectedSidebarItem == selection {
-            return AnyShapeStyle(Color.accentColor.opacity(0.18))
-        }
-
-        return AnyShapeStyle(Color.clear)
     }
 }

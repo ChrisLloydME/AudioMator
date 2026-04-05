@@ -111,11 +111,11 @@ struct MusicBrainzBrowserView: View {
         } else if store.results.isEmpty {
             VStack(spacing: 0) {
                 ContentUnavailableView(
-                    store.lastSubmittedQuery == nil ? "No Search Yet" : "No Results",
+                    store.lastSubmittedQuery == nil ? "Search MusicBrainz" : "No Results",
                     systemImage: "magnifyingglass",
                     description: Text(
                             store.lastSubmittedQuery == nil
-                                ? "Choose Track, Album, File, or MusicBrainz Link search, then fill in the fields above."
+                                ? "Choose a search mode, then enter what you know."
                                 : noResultsDescription
                     )
                 )
@@ -221,15 +221,15 @@ struct MusicBrainzBrowserView: View {
     private var noResultsDescription: String {
         switch store.mode {
         case .track:
-            return "MusicBrainz did not return any tracks for the current query."
+            return "No tracks matched this search."
         case .album:
-            return "MusicBrainz did not return any albums for the current query."
+            return "No albums matched this search."
         case .file:
             return store.isMultiFileSelection
-                ? "MusicBrainz did not return any convincing album matches for the current file selection."
-                : "MusicBrainz did not return any good track matches for the current file metadata."
+                ? "No strong album matches for the selected files."
+                : "No strong track matches for the selected file."
         case .link:
-            return "MusicBrainz did not resolve the supplied link to a supported result."
+            return "That link didn't resolve to a supported MusicBrainz result."
         }
     }
 }
@@ -284,7 +284,7 @@ private struct MusicBrainzFileSelectionSummaryView: View {
                 MusicBrainzFileSelectionSummaryList(rows: summaryRows(for: summary))
 
                 if summary.selectionLooksMixed {
-                    Label("The current selection looks mixed. Results may include weaker album candidates.", systemImage: "exclamationmark.triangle")
+                    Label("Selection looks mixed. Album matches may be less accurate.", systemImage: "exclamationmark.triangle")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -293,20 +293,20 @@ private struct MusicBrainzFileSelectionSummaryView: View {
     }
 
     private var selectionTitle: String {
-        guard let summary else { return "No File Selection" }
+        guard let summary else { return "No Files Selected" }
         return summary.isMultiFile ? "Selected Files" : "Selected File"
     }
 
     private var selectionDescription: String {
         guard let summary else {
-            return "Select one or more files in AudioMator, then use Find in MusicBrainz."
+            return "Select files in AudioMator, then choose Find in MusicBrainz."
         }
 
         if summary.isMultiFile {
-            return "AudioMator will search for release candidates and then try to assign the selected files onto album tracks."
+            return "Find matching releases, then map the selected files to album tracks."
         }
 
-        return "AudioMator will search for the best recording match using the selected file metadata."
+        return "Find the best recording match from the selected file's metadata."
     }
 
     private func summaryRows(for summary: MusicBrainzFileSelectionSummary) -> [SelectionSummaryRow] {
@@ -612,7 +612,7 @@ private struct MusicBrainzReleaseRow: View {
             }
 
             if let preview = result.selectionMatchPreview, preview.selectionLooksMixed {
-                Text("Selection looks mixed; verify the file-to-track assignments in the detail view.")
+                Text("Selection looks mixed. Check the file-to-track matches in the detail view.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }

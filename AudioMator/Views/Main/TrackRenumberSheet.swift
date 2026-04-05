@@ -70,7 +70,7 @@ struct TrackRenumberSheet: View {
     }
 
     private var previewSequenceText: String {
-        guard !previewNumbers.isEmpty else { return "No tracks available" }
+        guard !previewNumbers.isEmpty else { return "No tracks selected" }
 
         let visibleNumbers = previewNumbers.prefix(3).map(formattedNumber)
         if previewNumbers.count <= 3 {
@@ -82,16 +82,16 @@ struct TrackRenumberSheet: View {
 
     private var previewRangeText: String {
         guard let first = previewNumbers.first, let last = previewNumbers.last else {
-            return "Import audio files to create a numbering preview."
+            return "Add files to preview the new numbers."
         }
 
         let scope = state.selectedAudioIDs.isEmpty ? "current list" : "selection"
-        return "\(targetCount) tracks in the \(scope) will be rewritten from \(formattedNumber(first)) to \(formattedNumber(last))."
+        return "\(targetCount) tracks in the \(scope) will be renumbered from \(formattedNumber(first)) to \(formattedNumber(last))."
     }
 
     private var selectionSummaryText: String {
         if state.selectedAudioIDs.isEmpty {
-            return "All tracks in the current list"
+            return "Current list"
         }
 
         return "\(targetCount) selected tracks"
@@ -99,8 +99,8 @@ struct TrackRenumberSheet: View {
 
     private var selectionDetailText: String {
         state.selectedAudioIDs.isEmpty
-            ? "Uses the visible list order in the center table."
-            : "Uses the selected rows, preserving their order in the center table."
+            ? "Uses the order shown in the center list."
+            : "Uses the selected rows in center-list order."
     }
 
     private var hasResult: Bool {
@@ -146,7 +146,7 @@ struct TrackRenumberSheet: View {
                 }
             }
 
-            Text("Rewrite the track number tag using the order shown in the center list. If you select specific rows first, only those tracks will be updated.")
+            Text("Renumber tracks using the order shown in the center list. Select rows first to renumber only those tracks.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -182,7 +182,7 @@ struct TrackRenumberSheet: View {
 
                     configurationRow(
                         title: "Direction",
-                        caption: "Choose whether the first visible track receives the lowest or highest number."
+                        caption: "Choose whether the first row gets the lowest or highest number."
                     ) {
                         Picker("", selection: $trackRenumberOptions.direction) {
                             Text("Ascending").tag(TrackRenumberDirection.ascending)
@@ -198,7 +198,7 @@ struct TrackRenumberSheet: View {
 
                     configurationRow(
                         title: "Start number",
-                        caption: "Set the first value used to build the sequence."
+                        caption: "Set the first number in the sequence."
                     ) {
                         HStack(spacing: 8) {
                             TextField("1", text: $trackRenumberStartText)
@@ -218,7 +218,7 @@ struct TrackRenumberSheet: View {
                     Toggle(isOn: $trackRenumberOptions.padWithZeros) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Pad with leading zeros")
-                            Text("Keeps the sequence width consistent when larger values require extra digits.")
+                            Text("Keeps the same width as numbers grow.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -262,7 +262,7 @@ struct TrackRenumberSheet: View {
 
             Spacer(minLength: 0)
 
-            Text(trackRenumberOptions.direction == .ascending ? "First row receives the smallest number." : "First row receives the largest number.")
+            Text(trackRenumberOptions.direction == .ascending ? "First row gets the lowest number." : "First row gets the highest number.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -344,7 +344,7 @@ struct TrackRenumberSheet: View {
             .keyboardShortcut(.cancelAction)
             .disabled(isTrackRenumberRunning)
 
-            Button("Apply") {
+            Button("Renumber") {
                 applyTrackRenumber()
             }
             .keyboardShortcut(.defaultAction)

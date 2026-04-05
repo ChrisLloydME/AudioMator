@@ -304,7 +304,7 @@ struct TagLibMetadataManager {
     /// Write `BasicMetadata` back to the file using TagLib.
     ///
     /// Notes:
-    /// - This is intended for formats supported by our TagLib bridge (currently MP3-first).
+    /// - This is intended for formats supported by our TagLib bridge's write paths.
     /// - Fields that are empty strings are written as `nil` (i.e. removed/cleared).
     /// - `publisher` is mapped to TagLib's `label` field.
     @discardableResult

@@ -765,8 +765,8 @@ struct MusicBrainzClient {
         self.decoder = decoder
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
-        // MusicBrainz asks clients to identify themselves clearly. Replace this with a contact
-        // URL or email before distributing the app more broadly.
+        // MusicBrainz asks clients to identify themselves clearly in the User-Agent.
+        // Keep this value specific to the app, and include a contact URL or email for wider distribution.
         self.userAgent = "AudioMator/\(version) (local macOS project)"
     }
 

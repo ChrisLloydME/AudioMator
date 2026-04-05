@@ -390,20 +390,22 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func multiArtworkSection(_ files: [AudioFile]) -> some View {
+        let artworkControlWidth: CGFloat = 220
+
         GroupBox {
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 Group {
                     if let image = multiDisplayedArtwork {
                         Image(nsImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxWidth: 220, maxHeight: 220)
+                            .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
                             .cornerRadius(8)
                     } else {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(Color.secondary.opacity(0.1))
-                                .frame(width: 220, height: 220)
+                                .frame(width: artworkControlWidth, height: artworkControlWidth)
 
                             VStack(spacing: 10) {
                                 Image(systemName: multiArtworkPlaceholderSymbolName)
@@ -420,33 +422,30 @@ struct InspectorPane: View {
                     }
                 }
 
-                if multiDisplayedArtwork != nil {
-                    Text(multiArtworkSummary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                Text("Double-click to replace artwork for all selected files")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                HStack(spacing: 10) {
-                    Button("Choose Artwork…") {
+                VStack(spacing: 10) {
+                    Button {
                         viewModel.pickArtwork(for: files)
+                    } label: {
+                        Text("Choose Artwork…")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .frame(width: artworkControlWidth)
 
-                    Button("Clear All") {
+                    Button(role: .destructive) {
                         viewModel.clearArtwork(for: files)
+                    } label: {
+                        Text("Clear All")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .tint(.red)
                     .disabled(!canClearMultiArtwork)
-
-                    Button("Keep Current") {
-                        viewModel.keepArtwork(for: files)
-                    }
-                    .disabled(!hasPendingMultiArtworkChange)
+                    .frame(width: artworkControlWidth)
                 }
-                .buttonStyle(.borderless)
+                .frame(width: artworkControlWidth)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 8)

@@ -174,6 +174,51 @@ static void ApplyBasicTagMetadata(TagLib::Tag * _Nullable tag,
     }
 }
 
+static void ApplyPreferredBasicTagMetadata(TagLib::Tag * _Nullable tag,
+                                           TagLibAudioMetadata *metadata)
+{
+    if (!tag || !metadata) {
+        return;
+    }
+
+    NSString *title = TagStringToNSString(tag->title());
+    if (title.length > 0) {
+        metadata.title = title;
+    }
+
+    NSString *artist = TagStringToNSString(tag->artist());
+    if (artist.length > 0) {
+        metadata.artist = artist;
+    }
+
+    NSString *album = TagStringToNSString(tag->album());
+    if (album.length > 0) {
+        metadata.album = album;
+    }
+
+    NSString *genre = TagStringToNSString(tag->genre());
+    if (genre.length > 0) {
+        metadata.genre = genre;
+    }
+
+    NSString *comment = TagStringToNSString(tag->comment());
+    if (comment.length > 0) {
+        metadata.comment = comment;
+    }
+
+    if (tag->year() > 0) {
+        metadata.year = [NSString stringWithFormat:@"%u", tag->year()];
+    }
+
+    if (tag->track() > 0) {
+        metadata.trackNumber = tag->track();
+        metadata.trackNumberText = PreferredNumberText(
+            metadata.trackNumberText,
+            [NSString stringWithFormat:@"%u", tag->track()]
+        );
+    }
+}
+
 static void ApplyAudioPropertiesMetadata(TagLib::AudioProperties * _Nullable properties,
                                          TagLibAudioMetadata *metadata)
 {
@@ -860,7 +905,9 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
 static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* metadata) {
     if (!tag) return;
 
-    ApplyBasicTagMetadata(tag, metadata);
+    // Prefer ID3v2's basic fields over any generic/ID3v1 fallback values that may
+    // have been populated earlier through FileRef.tag() or the file property map.
+    ApplyPreferredBasicTagMetadata(tag, metadata);
     
     const TagLib::ID3v2::FrameList& frames = tag->frameList();
     
@@ -869,15 +916,60 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
         TagLib::ByteVector frameID = frame->frameID();
         std::string frameIDStr(frameID.data(), frameID.size());
         
+        // User-defined text frames (TXXX) - handle these before generic text frames
+        // because UserTextIdentificationFrame is also a TextIdentificationFrame.
+        if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame*>(frame)) {
+            TagLib::String description = userFrame->description();
+            TagLib::StringList userFields = userFrame->fieldList();
+            if (userFields.isEmpty()) {
+                continue;
+            }
+            TagLib::String userValue = userFields.back();
+            std::string descStr = description.upper().to8Bit(true);
+
+            if (descStr == "RELEASETYPE" || descStr == "MUSICBRAINZ ALBUM TYPE") {
+                metadata.releaseType = TagStringToNSString(userValue);
+            }
+            else if (descStr == "BARCODE" || descStr == "UPC" || descStr == "EAN") {
+                metadata.barcode = TagStringToNSString(userValue);
+            }
+            else if (descStr == "CATALOGNUMBER" || descStr == "CATALOG NUMBER") {
+                metadata.catalogNumber = TagStringToNSString(userValue);
+            }
+            else if (descStr == "RELEASECOUNTRY" || descStr == "MUSICBRAINZ ALBUM RELEASE COUNTRY") {
+                metadata.releaseCountry = TagStringToNSString(userValue);
+            }
+            else if (descStr == "ARTISTTYPE" || descStr == "MUSICBRAINZ ARTIST TYPE") {
+                metadata.artistType = TagStringToNSString(userValue);
+            }
+            else if (descStr == "ITUNESADVISORY") {
+                BOOL explicitValue = metadata.explicitContent;
+                if (ParseExplicitTagValue(userValue, explicitValue)) {
+                    metadata.explicitContent = explicitValue;
+                }
+            }
+        }
         // Text identification frames
-        if (auto textFrame = dynamic_cast<TagLib::ID3v2::TextIdentificationFrame*>(frame)) {
+        else if (auto textFrame = dynamic_cast<TagLib::ID3v2::TextIdentificationFrame*>(frame)) {
             TagLib::StringList fieldList = textFrame->fieldList();
             if (fieldList.isEmpty()) continue;
             
             TagLib::String value = fieldList.toString(", ");
-            
+
+            if (frameIDStr == "TIT2") {
+                metadata.title = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "TPE1") {
+                metadata.artist = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "TALB") {
+                metadata.album = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "TCON") {
+                metadata.genre = TagStringToNSString(value);
+            }
             // Track number
-            if (frameIDStr == "TRCK") {
+            else if (frameIDStr == "TRCK") {
                 NSInteger trackNum = 0, trackTotal = 0;
                 ParseNumberPair(value, trackNum, trackTotal);
                 metadata.trackNumberText = PreferredNumberText(
@@ -983,38 +1075,6 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             // Compilation flag
             else if (frameIDStr == "TCMP") {
                 metadata.compilation = (value == "1");
-            }
-        }
-        // User-defined text frames (TXXX) - for extended metadata
-        else if (auto userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame*>(frame)) {
-            TagLib::String description = userFrame->description();
-            TagLib::StringList userFields = userFrame->fieldList();
-            if (userFields.isEmpty()) {
-                continue;
-            }
-            TagLib::String userValue = userFields.back();
-            std::string descStr = description.upper().to8Bit(true);
-            
-            if (descStr == "RELEASETYPE" || descStr == "MUSICBRAINZ ALBUM TYPE") {
-                metadata.releaseType = TagStringToNSString(userValue);
-            }
-            else if (descStr == "BARCODE" || descStr == "UPC" || descStr == "EAN") {
-                metadata.barcode = TagStringToNSString(userValue);
-            }
-            else if (descStr == "CATALOGNUMBER" || descStr == "CATALOG NUMBER") {
-                metadata.catalogNumber = TagStringToNSString(userValue);
-            }
-            else if (descStr == "RELEASECOUNTRY" || descStr == "MUSICBRAINZ ALBUM RELEASE COUNTRY") {
-                metadata.releaseCountry = TagStringToNSString(userValue);
-            }
-            else if (descStr == "ARTISTTYPE" || descStr == "MUSICBRAINZ ARTIST TYPE") {
-                metadata.artistType = TagStringToNSString(userValue);
-            }
-            else if (descStr == "ITUNESADVISORY") {
-                BOOL explicitValue = metadata.explicitContent;
-                if (ParseExplicitTagValue(userValue, explicitValue)) {
-                    metadata.explicitContent = explicitValue;
-                }
             }
         }
         // Comments
@@ -1593,7 +1653,9 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             }
 
             if (mpegFile.ID3v1Tag()) {
-                ApplyGenericPropertyMapMetadata(mpegFile.ID3v1Tag()->properties(), metadata);
+                // ID3v1 is a low-fidelity fallback. It must not overwrite richer
+                // values already gathered from PropertyMap / ID3v2.
+                ApplyBasicTagMetadata(mpegFile.ID3v1Tag(), metadata);
             }
         }
     }
@@ -1751,7 +1813,8 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             }
 
             if (ttaFile.ID3v1Tag()) {
-                ApplyGenericPropertyMapMetadata(ttaFile.ID3v1Tag()->properties(), metadata);
+                // ID3v1 is only used to fill gaps for legacy files.
+                ApplyBasicTagMetadata(ttaFile.ID3v1Tag(), metadata);
             }
 
             ApplyAudioPropertiesMetadata(ttaFile.audioProperties(), metadata);

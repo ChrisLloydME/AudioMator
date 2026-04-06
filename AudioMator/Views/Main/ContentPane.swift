@@ -42,6 +42,10 @@ struct ContentPane: View {
         state.visibleMiddleListColumns
     }
 
+    private var visibleToolbarButtons: Set<ToolbarButtonOption> {
+        state.visibleToolbarButtons
+    }
+
     private var orderedFiles: [AudioFile] {
         // If no custom order yet, fall back to the raw array order
         if state.customOrder.isEmpty {
@@ -72,54 +76,72 @@ struct ContentPane: View {
         mainContent
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Button(action: onAddFiles) {
-                        Image(systemName: "plus")
+                    if visibleToolbarButtons.contains(.addFiles) {
+                        Button(action: onAddFiles) {
+                            Image(systemName: "plus")
+                        }
+                        .help(isQuickImportMode ? "Add files to this session" : "Select Current Session in the sidebar to add files")
+                        .disabled(!isQuickImportMode)
                     }
-                    .help(isQuickImportMode ? "Add files to this session" : "Select Current Session in the sidebar to add files")
-                    .disabled(!isQuickImportMode)
 
-                    Button(action: onShowMetadataDump) {
-                        Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
-                    }
-                    .help("View raw metadata")
-                    .disabled(state.selectedAudioIDs.isEmpty)
-
-                    Button(action: onOpenTrackRenumber) {
-                        Label("Renumber Tracks…", systemImage: "number")
-                    }
-                    .help("Renumber tracks in list order")
-                    .disabled(viewModel.files.isEmpty)
-
-                    Button(action: onOpenMusicBrainzBrowser) {
-                        Label("MusicBrainz Browser", systemImage: "network")
-                    }
-                    .help("Open MusicBrainz Browser")
-
-                    Button(action: openMetadataFilenameRenameSheet) {
-                        Label("Rename Files…", systemImage: "pencil.line")
-                    }
-                    .help("Rename selected files from metadata")
-                    .disabled(state.selectedAudioIDs.isEmpty)
-
-                    Button(action: openTextMetadataImportSheet) {
-                        Label("Import Field…", systemImage: "square.and.arrow.down")
-                    }
-                    .help("Import one field from a text file")
-                    .disabled(state.selectedAudioIDs.isEmpty)
-
-                    Button(role: .destructive) {
-                        isClearListConfirmPresented = true
-                    } label: {
-                        Label("Clear List", systemImage: "trash")
-                    }
-                    .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
-                    .disabled(!isQuickImportMode || viewModel.files.isEmpty)
-
-                    Button("Cancel", action: onCancelEdits)
+                    if visibleToolbarButtons.contains(.tagInspector) {
+                        Button(action: onShowMetadataDump) {
+                            Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+                        }
+                        .help("View raw metadata")
                         .disabled(state.selectedAudioIDs.isEmpty)
+                    }
 
-                    Button("Save", action: onSaveEdits)
+                    if visibleToolbarButtons.contains(.renumberTracks) {
+                        Button(action: onOpenTrackRenumber) {
+                            Label("Renumber Tracks…", systemImage: "number")
+                        }
+                        .help("Renumber tracks in list order")
+                        .disabled(viewModel.files.isEmpty)
+                    }
+
+                    if visibleToolbarButtons.contains(.musicBrainzBrowser) {
+                        Button(action: onOpenMusicBrainzBrowser) {
+                            Label("MusicBrainz Browser", systemImage: "network")
+                        }
+                        .help("Open MusicBrainz Browser")
+                    }
+
+                    if visibleToolbarButtons.contains(.renameFiles) {
+                        Button(action: openMetadataFilenameRenameSheet) {
+                            Label("Rename Files…", systemImage: "pencil.line")
+                        }
+                        .help("Rename selected files from metadata")
                         .disabled(state.selectedAudioIDs.isEmpty)
+                    }
+
+                    if visibleToolbarButtons.contains(.importField) {
+                        Button(action: openTextMetadataImportSheet) {
+                            Label("Import Field…", systemImage: "square.and.arrow.down")
+                        }
+                        .help("Import one field from a text file")
+                        .disabled(state.selectedAudioIDs.isEmpty)
+                    }
+
+                    if visibleToolbarButtons.contains(.clearList) {
+                        Button(role: .destructive) {
+                            isClearListConfirmPresented = true
+                        } label: {
+                            Label("Clear List", systemImage: "trash")
+                        }
+                        .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
+                        .disabled(!isQuickImportMode || viewModel.files.isEmpty)
+                    }
+
+                    if visibleToolbarButtons.contains(.cancelEdits) {
+                        Button("Cancel", action: onCancelEdits)
+                            .disabled(state.selectedAudioIDs.isEmpty)
+                    }
+
+                    if visibleToolbarButtons.contains(.saveEdits) {
+                        Button("Save", action: onSaveEdits)
+                            .disabled(state.selectedAudioIDs.isEmpty)
+                    }
                 }
             }
             .confirmationDialog(

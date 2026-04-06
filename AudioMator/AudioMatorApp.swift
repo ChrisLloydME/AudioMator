@@ -56,6 +56,7 @@ struct AudioMatorApp: App {
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
+            AppInfoCommands()
             SidebarCommands()
             ToolbarEditCommands(viewModel: viewModel, sharedState: sharedState)
             ViewLayoutCommands()
@@ -70,10 +71,30 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 900, height: 600)
 
+        Settings {
+            SettingsView(sharedState: sharedState)
+        }
+        .defaultSize(width: 700, height: 480)
+
         Window("MusicBrainz Browser", id: MusicBrainzBrowserView.windowID) {
             MusicBrainzBrowserView(store: musicBrainzBrowserStore)
         }
         .defaultSize(width: 980, height: 700)
+    }
+}
+
+struct AppInfoCommands: Commands {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button {
+                UserDefaults.standard.set(AppSettingsTab.about.rawValue, forKey: settingsSelectedTabDefaultsKey)
+                openSettings()
+            } label: {
+                Label("About AudioMator", systemImage: "info.circle")
+            }
+        }
     }
 }
 

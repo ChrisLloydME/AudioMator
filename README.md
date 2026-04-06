@@ -5,64 +5,48 @@
 </p>
 
 <p align="center">
-  A local-first macOS audio metadata editor for inspecting, cleaning, and rewriting tags in files you choose.
+  A local-first macOS audio metadata editor for inspecting, cleaning, renaming, and rewriting tags in files you choose.
 </p>
 
 <p align="center">
-  <strong>SwiftUI</strong> · <strong>TagLib Bridge</strong> · <strong>AVFoundation</strong> · <strong>macOS</strong>
+  <strong>SwiftUI</strong> · <strong>TagLib Bridge</strong> · <strong>AVFoundation</strong> · <strong>MusicBrainz</strong> · <strong>macOS</strong>
 </p>
 
 ## Overview
 
-AudioMator is currently a native three-pane macOS app with:
+AudioMator is a native macOS app built around a three-pane workflow:
 
-- a sidebar for session files and watched folders
-- a center table for browsing and reordering tracks
+- a sidebar for `Current Session`, `All Watched Files`, and individual watched folders
+- a center table for browsing, selecting, and reordering tracks
 - a right-side inspector for single-file edits, multi-file edits, artwork, and technical details
 
-The app is local-first. It works on files and folders you explicitly choose, keeps watched folders on your machine, and writes metadata back to disk through the bundled TagLib bridge.
+The app is local-first by default. Audio files stay on your Mac, watched folders are stored locally, and metadata writes happen through the bundled TagLib bridge. The only network-backed feature in the current app is the optional `MusicBrainz Browser`.
 
 ## Current Capabilities
 
-### Library Workflow
+### Library and File Workflow
 
-- Import audio files into a temporary `Session Files` list
-- Add persistent watched folders to the sidebar
+- Import local audio files into a temporary `Current Session`
+- Add persistent watched folders that stay available across launches
 - Automatically rescan watched folders when their contents change
-- Switch between `Session Files`, `All Watched Files`, and individual watched folders
+- Switch between quick-import work and watched-folder browsing
+- View either `All Watched Files` or a specific watched folder
 - Reorder the visible list with drag and drop
-- Customize visible table columns from the middle-list header context menu
-- Clear the session list without touching files on disk
+- Customize visible middle-list columns from the table header context menu
+- Clear the current session list without touching files on disk
 
-### Metadata Inspection and Editing
+### Metadata Inspection
 
-- Single-file inspector editing
-- Multi-file editing for shared text fields
-- Raw metadata inspection through `Tag Inspector`
-- Technical read-only fields such as duration, bitrate, sample rate, channels, and format
-- Embedded artwork preview in the inspector
-- Replace artwork from an image file or the clipboard
-- Remove artwork for one file or many selected files
-- Unsaved-change detection with discard confirmation
-- Save feedback HUDs for success, warning, partial-save, and failure states
+- Inspect a single file in the right-side inspector
+- Compare shared values across multiple selected files
+- Open `Tag Inspector` to review raw TagLib properties, ID3v2 frames, and AVFoundation metadata output
+- Review technical fields such as duration, bitrate, sample rate, channels, and format
+- Preview embedded artwork
+- Review additional metadata such as `ISRC`, `Barcode`, MusicBrainz IDs, and `Credits` when present
 
-### Batch and Utility Tools
+### Metadata Editing
 
-- Renumber track numbers by the current visible list order
-- Renumber either the full list or only the current selection
-- Choose ascending or descending numbering
-- Set a custom starting number
-- Optionally pad track numbers with leading zeros
-- Import one metadata field from a text file into the selected rows
-- Open selected files
-- Reveal selected files in Finder
-- Copy selected paths
-- Copy selected filenames
-- Erase supported metadata fields from selected files
-
-## Editable Fields
-
-AudioMator currently exposes these user-facing editable fields:
+AudioMator currently supports editing these user-facing fields:
 
 - `Title`
 - `Artist`
@@ -80,11 +64,56 @@ AudioMator currently exposes these user-facing editable fields:
 - `Explicit`
 - `Artwork`
 
-`Credits` are currently displayed as read-only data when available.
+Editing behavior currently includes:
+
+- single-file editing in the inspector
+- multi-file editing for shared text fields
+- keep-unchanged behavior for untouched fields during multi-file edits
+- mixed-value placeholders when the current selection differs
+- unsaved-change detection with discard confirmation
+- success, warning, partial-save, and failure HUD feedback after writes
+
+### Artwork Support
+
+- Preview existing embedded artwork
+- Replace artwork from an image file
+- Import artwork from the clipboard
+- Remove artwork from one file or many selected files
+- Apply artwork changes across multi-file selections
+
+### Batch and Utility Tools
+
+- Renumber tracks from the current visible list order
+- Apply renumbering to the full list or only the current selection
+- Choose ascending or descending numbering
+- Set a custom starting number
+- Optionally pad numbers with leading zeros
+- Import one metadata field from a plain-text file in row order
+- Rename selected files from metadata tokens while preserving file extensions
+- Open selected files
+- Reveal selected files in Finder
+- Copy selected file paths
+- Copy selected filenames
+- Erase supported metadata fields from selected files
+
+### MusicBrainz Browser
+
+- Open a dedicated `MusicBrainz Browser` window from the toolbar or menu commands
+- Search by track, album, selected file metadata, or direct MusicBrainz link
+- Seed searches from the current AudioMator selection
+- Review result details for recordings, releases, and tracks
+- Use MusicBrainz as an optional reference workflow while keeping local editing in AudioMator
+
+### Welcome and App Experience
+
+- Show a multi-page welcome screen on first launch
+- Reopen the welcome screen later from the Help menu
+- Toggle the inspector from the toolbar or menu commands
+- Use quick-edit sheets for longer text fields with hidden-character preview
 
 ## Supported Formats
 
-The current implementation advertises the same extension set for file import, metadata writing, and artwork writing through the TagLib bridge:
+The current implementation exposes the same extension set for file import, metadata writing, and artwork writing:
 
 - `mp3`
 - `mp2`
@@ -139,10 +168,11 @@ xcodebuild \
 
 ## Build Notes
 
-- Project version: `1.1`
+- Marketing version: `1.3`
+- Current project version: `26451`
 - Swift version: `5.0`
-- Current deployment target: macOS `26.1`
-- The checked-in project is configured with Apple code signing, so you may need to replace the signing team or certificate before local builds succeed
+- Deployment target: macOS `26.1`
+- The checked-in project uses Apple code signing settings, so you may need to replace the signing team or certificate before local builds succeed
 
 ## Project Structure
 
@@ -154,11 +184,13 @@ xcodebuild \
 ## Current Limitations
 
 - Session file lists are temporary and are cleared when the app closes
-- Manual file import is disabled while a watched-folder source is selected
+- Manual file import is only available while `Current Session` is selected
 - Multi-file editing only applies fields you explicitly change
 - Raw metadata inspection is read-only
+- `Credits` are currently read-only when available
+- MusicBrainz lookup depends on network access and the external MusicBrainz service
 - No separate test target is currently checked into the repository
 
 ## Disclaimer
 
-> This is still a small, evolving project. Review the code critically before relying on it for destructive metadata workflows or large-library cleanup.
+> Review the code critically before relying on it for destructive metadata workflows or large-library cleanup.

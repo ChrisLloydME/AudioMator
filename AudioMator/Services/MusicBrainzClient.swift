@@ -623,11 +623,21 @@ struct MusicBrainzRelationshipGroup: Equatable, Identifiable {
 struct MusicBrainzTerm: Equatable {
     let name: String
     let count: Int?
+
+    nonisolated init(name: String, count: Int?) {
+        self.name = name
+        self.count = count
+    }
 }
 
 struct MusicBrainzRating: Equatable {
     let value: Double?
     let voteCount: Int
+
+    nonisolated init(value: Double?, voteCount: Int) {
+        self.value = value
+        self.voteCount = voteCount
+    }
 }
 
 struct MusicBrainzReleaseDetail: Equatable {
@@ -1134,7 +1144,7 @@ struct MusicBrainzClient {
 }
 
 private enum MusicBrainzLuceneQueryBuilder {
-    private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
+    nonisolated private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
 
     static func recordingSearchQuery(from query: MusicBrainzSearchQuery) -> String {
         joinPreferredClauses(recordingSearchClauses(from: query))
@@ -1308,12 +1318,12 @@ private enum MusicBrainzLuceneQueryBuilder {
         return joinPreferredClauses(queries)
     }
 
-    private static func fieldClause(name: String, value: String) -> String {
+    nonisolated private static func fieldClause(name: String, value: String) -> String {
         let escaped = escapeLucene(value)
         return "\(name):\"\(escaped)\""
     }
 
-    private static func generalClause(_ value: String) -> String {
+    nonisolated private static func generalClause(_ value: String) -> String {
         let tokens = searchTokens(in: value)
         guard !tokens.isEmpty else { return "" }
 
@@ -1324,30 +1334,30 @@ private enum MusicBrainzLuceneQueryBuilder {
         return allOf(tokens.map(escapeLucene))
     }
 
-    private static func allOf(_ clauses: [String]) -> String {
+    nonisolated private static func allOf(_ clauses: [String]) -> String {
         "(" + clauses.joined(separator: " AND ") + ")"
     }
 
-    private static func numericClause(name: String, value: Int) -> String {
+    nonisolated private static func numericClause(name: String, value: Int) -> String {
         "\(name):\(value)"
     }
 
-    private static func validMBIDClause(name: String, value: String) -> String? {
+    nonisolated private static func validMBIDClause(name: String, value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard UUID(uuidString: trimmed) != nil else { return nil }
         return fieldClause(name: name, value: trimmed)
     }
 
-    private static func joinPreferredClauses(_ clauses: [String]) -> String {
+    nonisolated private static func joinPreferredClauses(_ clauses: [String]) -> String {
         let deduplicated = deduplicatedClauses(clauses)
         return deduplicated.joined(separator: " OR ")
     }
 
-    private static func deduplicatedClauses(_ clauses: [String]) -> [String] {
+    nonisolated private static func deduplicatedClauses(_ clauses: [String]) -> [String] {
         (Array(NSOrderedSet(array: clauses.filter { !$0.isEmpty })) as? [String]) ?? []
     }
 
-    private static func escapeLucene(_ raw: String) -> String {
+    nonisolated private static func escapeLucene(_ raw: String) -> String {
         var escaped = ""
         escaped.reserveCapacity(raw.count)
 
@@ -1361,7 +1371,7 @@ private enum MusicBrainzLuceneQueryBuilder {
         return escaped
     }
 
-    private static func searchTokens(in raw: String) -> [String] {
+    nonisolated private static func searchTokens(in raw: String) -> [String] {
         raw
             .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             .map(String.init)
@@ -1460,7 +1470,7 @@ private enum MusicBrainzLuceneQueryBuilder {
         return clauses
     }
 
-    private static func trackNumberClauses(_ rawValue: String) -> [String] {
+    nonisolated private static func trackNumberClauses(_ rawValue: String) -> [String] {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
@@ -1487,12 +1497,12 @@ private enum MusicBrainzLuceneQueryBuilder {
         return (Array(NSOrderedSet(array: clauses)) as? [String]) ?? clauses
     }
 
-    private static func trackTotalClauses(_ trackTotal: Int) -> [String] {
+    nonisolated private static func trackTotalClauses(_ trackTotal: Int) -> [String] {
         guard trackTotal > 0 else { return [] }
         return [numericClause(name: "tracks", value: trackTotal)]
     }
 
-    private static func durationClauses(_ quantizedDuration: Int?) -> [String] {
+    nonisolated private static func durationClauses(_ quantizedDuration: Int?) -> [String] {
         guard let quantizedDuration, quantizedDuration > 0 else { return [] }
         return [numericClause(name: "qdur", value: quantizedDuration)]
     }
@@ -2383,8 +2393,8 @@ private extension MusicBrainzRecordingDetail {
         durationMilliseconds = dto.length
         annotation = dto.annotation
         isrcs = dto.isrcs.filter { !$0.isEmpty }
-        genres = dto.genres.compactMap(MusicBrainzTerm.init)
-        tags = dto.tags.compactMap(MusicBrainzTerm.init)
+        genres = dto.genres.compactMap { MusicBrainzTerm($0) }
+        tags = dto.tags.compactMap { MusicBrainzTerm($0) }
         rating = dto.rating.map { MusicBrainzRating(value: $0.value, voteCount: $0.voteCount) }
         relationshipGroups = MusicBrainzRelationshipBuilder.makeGroups(from: dto.relations)
         let lookupReleases = dto.releases.compactMap { dtoRelease -> MusicBrainzRecordingResult.Release? in
@@ -2422,8 +2432,8 @@ private extension MusicBrainzReleaseDetail {
         language = dto.textRepresentation?.language ?? ""
         script = dto.textRepresentation?.script ?? ""
         annotation = dto.annotation
-        genres = dto.genres.compactMap(MusicBrainzTerm.init)
-        tags = dto.tags.compactMap(MusicBrainzTerm.init)
+        genres = dto.genres.compactMap { MusicBrainzTerm($0) }
+        tags = dto.tags.compactMap { MusicBrainzTerm($0) }
         releaseGroupTitle = dto.releaseGroup?.title ?? ""
         releaseGroupID = dto.releaseGroup?.id ?? ""
         releaseGroupPrimaryType = dto.releaseGroup?.primaryType ?? ""
@@ -2493,7 +2503,7 @@ private extension MusicBrainzReleaseSearchResult {
 }
 
 private extension MusicBrainzTerm {
-    init?(_ dto: MusicBrainzTermDTO) {
+    nonisolated init?(_ dto: MusicBrainzTermDTO) {
         guard !dto.name.isEmpty else { return nil }
         self.init(name: dto.name, count: dto.count)
     }

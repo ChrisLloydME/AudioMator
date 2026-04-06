@@ -298,6 +298,21 @@ struct MusicBrainzMetadataDetailView: View {
                 }
             }
         }
+
+        if let preview = detail.selectionMatchPreview, !preview.matchedAssignments.isEmpty {
+            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+                ForEach(Array(preview.matchedAssignments.enumerated()), id: \.element.id) { index, assignment in
+                    MetadataComparisonGroupView(
+                        assignment: assignment,
+                        rows: comparisonRows(for: assignment, release: detail)
+                    )
+
+                    if index < preview.matchedAssignments.count - 1 {
+                        MetadataCardDivider()
+                    }
+                }
+            }
+        }
     }
 
     private var navigationTitle: String {
@@ -404,6 +419,80 @@ struct MusicBrainzMetadataDetailView: View {
             }
             .joined(separator: " ")
     }
+
+    private func comparisonRows(
+        for assignment: MusicBrainzReleaseMatchAssignment,
+        release: MusicBrainzReleaseDetail
+    ) -> [MetadataComparisonRow] {
+        [
+            comparisonRow("title", "Title", local: assignment.file.title, remote: assignment.track.title),
+            comparisonRow(
+                "artist",
+                "Artist",
+                local: assignment.file.artist,
+                remote: assignment.track.artistCredit.isEmpty ? release.artistCredit : assignment.track.artistCredit
+            ),
+            comparisonRow("album-artist", "Album Artist", local: assignment.file.albumArtist, remote: release.artistCredit),
+            comparisonRow("album", "Album", local: assignment.file.album, remote: release.title),
+            comparisonRow("track-number", "Track Number", local: assignment.file.trackNumber, remote: assignment.track.number, monospaced: true),
+            comparisonRow(
+                "disc-number",
+                "Disc Number",
+                local: assignment.file.discNumber,
+                remote: assignment.track.mediumPosition > 0 ? String(assignment.track.mediumPosition) : "",
+                monospaced: true
+            ),
+            comparisonRow("release-date", "Release Date", local: assignment.file.releaseDate, remote: release.date),
+            comparisonRow(
+                "isrc",
+                "ISRC",
+                local: assignment.file.isrc,
+                remote: assignment.track.isrcs.joined(separator: ", "),
+                monospaced: true
+            ),
+            comparisonRow("barcode", "Barcode", local: assignment.file.barcode, remote: release.barcode, monospaced: true)
+        ].compactMap { $0 }
+    }
+
+    private func comparisonRow(
+        _ id: String,
+        _ title: String,
+        local: String,
+        remote: String,
+        monospaced: Bool = false
+    ) -> MetadataComparisonRow? {
+        let localValue = local.trimmingCharacters(in: .whitespacesAndNewlines)
+        let remoteValue = remote.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !localValue.isEmpty || !remoteValue.isEmpty else { return nil }
+
+        let status: MetadataComparisonStatus
+        if localValue.isEmpty {
+            status = .missingLocal
+        } else if remoteValue.isEmpty {
+            status = .missingRemote
+        } else if normalizedComparisonValue(localValue) == normalizedComparisonValue(remoteValue) {
+            status = .same
+        } else {
+            status = .different
+        }
+
+        return MetadataComparisonRow(
+            id: id,
+            title: title,
+            localValue: localValue,
+            remoteValue: remoteValue,
+            status: status,
+            monospaced: monospaced
+        )
+    }
+
+    private func normalizedComparisonValue(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+    }
 }
 
 private extension MusicBrainzMetadataDetailView {
@@ -419,6 +508,61 @@ private struct MetadataInfoItem: Identifiable {
     let title: String
     let value: String
     let monospaced: Bool
+}
+
+private struct MetadataComparisonRow: Identifiable {
+    let id: String
+    let title: String
+    let localValue: String
+    let remoteValue: String
+    let status: MetadataComparisonStatus
+    let monospaced: Bool
+}
+
+private enum MetadataComparisonStatus {
+    case same
+    case different
+    case missingLocal
+    case missingRemote
+
+    var symbolName: String {
+        switch self {
+        case .same:
+            return "checkmark.circle.fill"
+        case .different:
+            return "arrow.left.arrow.right.circle.fill"
+        case .missingLocal:
+            return "square.and.arrow.down.fill"
+        case .missingRemote:
+            return "questionmark.circle.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .same:
+            return .green
+        case .different:
+            return .orange
+        case .missingLocal:
+            return .accentColor
+        case .missingRemote:
+            return .secondary
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .same:
+            return "Same"
+        case .different:
+            return "Different"
+        case .missingLocal:
+            return "Missing Locally"
+        case .missingRemote:
+            return "Missing on MusicBrainz"
+        }
+    }
 }
 
 private struct MetadataSectionCard<Content: View>: View {
@@ -731,6 +875,135 @@ private struct MetadataTrackRow: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 11)
         .contentShape(Rectangle())
+    }
+}
+
+private struct MetadataComparisonGroupView: View {
+    let assignment: MusicBrainzReleaseMatchAssignment
+    let rows: [MetadataComparisonRow]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(assignment.file.preferredDisplayTitle)
+                        .font(.system(size: 13, weight: .semibold))
+
+                    if !fileSubtitle.isEmpty {
+                        Text(fileSubtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(trackTitle)
+                        .font(.system(size: 13))
+                        .multilineTextAlignment(.trailing)
+
+                    Text(assignment.reason)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 260, alignment: .trailing)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+
+            if !rows.isEmpty {
+                Divider()
+                    .padding(.leading, 18)
+
+                MetadataComparisonTableHeader()
+
+                ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                    MetadataComparisonRowView(row: row)
+
+                    if index < rows.count - 1 {
+                        Divider()
+                            .padding(.leading, 18)
+                    }
+                }
+            }
+        }
+    }
+
+    private var fileSubtitle: String {
+        [assignment.file.artist, assignment.file.album]
+            .filter { !$0.isEmpty }
+            .joined(separator: " • ")
+    }
+
+    private var trackTitle: String {
+        let number = assignment.track.number.isEmpty ? "" : "\(assignment.track.number) "
+        return number + assignment.track.title
+    }
+}
+
+private struct MetadataComparisonTableHeader: View {
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text("Field")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 118, alignment: .leading)
+
+            Text("File")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 18)
+
+            Text("MusicBrainz")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 9)
+    }
+}
+
+private struct MetadataComparisonRowView: View {
+    let row: MetadataComparisonRow
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(row.title)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(width: 118, alignment: .leading)
+
+            comparisonValue(row.localValue)
+
+            Image(systemName: row.status.symbolName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(row.status.color)
+                .help(row.status.label)
+                .frame(width: 18)
+                .padding(.top, 1)
+
+            comparisonValue(row.remoteValue)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func comparisonValue(_ value: String) -> some View {
+        Text(value.isEmpty ? "—" : value)
+            .font(row.monospaced ? .system(size: 12, design: .monospaced) : .system(size: 12))
+            .foregroundStyle(value.isEmpty ? .tertiary : .primary)
+            .multilineTextAlignment(.leading)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

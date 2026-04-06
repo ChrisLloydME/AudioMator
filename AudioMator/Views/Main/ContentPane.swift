@@ -90,11 +90,10 @@ struct ContentPane: View {
                     .help("Renumber tracks in list order")
                     .disabled(viewModel.files.isEmpty)
 
-                    Button(action: onFindSelectedFileInMusicBrainz) {
-                        Label("Find in MusicBrainz", systemImage: "network")
+                    Button(action: onOpenMusicBrainzBrowser) {
+                        Label("MusicBrainz Browser", systemImage: "network")
                     }
-                    .help("Search MusicBrainz from the selected file metadata")
-                    .disabled(!hasSelectedFiles)
+                    .help("Open MusicBrainz Browser")
 
                     Button(action: openMetadataFilenameRenameSheet) {
                         Label("Rename Files…", systemImage: "pencil.line")

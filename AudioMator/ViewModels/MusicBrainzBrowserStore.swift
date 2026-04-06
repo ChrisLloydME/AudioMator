@@ -145,7 +145,10 @@ final class MusicBrainzBrowserStore: ObservableObject {
     }
 
     func apply(seed: MusicBrainzSearchSeed?) {
-        guard let seed else { return }
+        guard let seed else {
+            resetToDefault()
+            return
+        }
 
         resetNavigation()
         mode = seed.mode
@@ -165,6 +168,31 @@ final class MusicBrainzBrowserStore: ObservableObject {
         linkQuery = seed.link
         sourceDescription = seed.sourceDescription
         errorMessage = nil
+    }
+
+    func resetToDefault() {
+        searchTask?.cancel()
+        resetNavigation()
+        titleQuery = ""
+        artistQuery = ""
+        albumArtistQuery = ""
+        albumQuery = ""
+        trackNumberQuery = ""
+        fileTrackTotal = 0
+        fileDurationMilliseconds = nil
+        fileReleaseDate = ""
+        fileISRC = ""
+        fileBarcode = ""
+        fileMusicBrainzAlbumID = ""
+        fileMusicBrainzTrackID = ""
+        fileInputs = []
+        linkQuery = ""
+        mode = .track
+        results = .recordings([])
+        errorMessage = nil
+        lastSubmittedQuery = nil
+        isSearching = false
+        sourceDescription = "Edit the fields below or seed them from the current AudioMator selection."
     }
 
     func clearSearch() {

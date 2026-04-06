@@ -146,6 +146,13 @@ struct MusicBrainzMetadataDetailView: View {
     @ViewBuilder
     private func releaseSections(_ detail: MusicBrainzReleaseDetail) -> some View {
         if let preview = detail.selectionMatchPreview {
+            let comparisonGroups = preview.matchedAssignments.map { assignment in
+                MetadataComparisonGroup(
+                    id: assignment.id,
+                    assignment: assignment,
+                    rows: comparisonRows(for: assignment, release: detail)
+                )
+            }
             let overviewItems = [
                 infoItem("matched", "Matched Files", "\(preview.matchedFileCount)/\(preview.totalSelectedFiles)", monospaced: true),
                 infoItem("unmatched", "Unmatched Files", preview.unmatchedFiles.isEmpty ? "" : "\(preview.unmatchedFiles.count)", monospaced: true),
@@ -156,17 +163,33 @@ struct MusicBrainzMetadataDetailView: View {
 
             MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
                 MetadataInfoRows(items: overviewItems)
-            }
 
-            if !preview.matchedAssignments.isEmpty {
-                MetadataSectionCard(title: "Matched Files", symbolName: "link") {
-                    ForEach(Array(preview.matchedAssignments.enumerated()), id: \.element.id) { index, assignment in
-                        MetadataMatchAssignmentRow(assignment: assignment)
+                if !preview.matchedAssignments.isEmpty {
+                    MetadataCardDivider()
 
-                        if index < preview.matchedAssignments.count - 1 {
-                            MetadataCardDivider()
-                        }
+                    NavigationLink {
+                        MatchedFilesDetailView(assignments: preview.matchedAssignments)
+                    } label: {
+                        MetadataDetailNavigationRow(
+                            title: "Matched Files",
+                            subtitle: "\(preview.matchedFileCount) file-to-track assignment\(preview.matchedFileCount == 1 ? "" : "s")",
+                            symbolName: "link"
+                        )
                     }
+                    .buttonStyle(.plain)
+
+                    MetadataCardDivider()
+
+                    NavigationLink {
+                        MetadataComparisonDetailView(groups: comparisonGroups)
+                    } label: {
+                        MetadataDetailNavigationRow(
+                            title: "Metadata Comparison",
+                            subtitle: "Compare local file tags with MusicBrainz metadata",
+                            symbolName: "arrow.left.arrow.right"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -294,21 +317,6 @@ struct MusicBrainzMetadataDetailView: View {
                         if index < medium.tracks.count - 1 {
                             MetadataCardDivider()
                         }
-                    }
-                }
-            }
-        }
-
-        if let preview = detail.selectionMatchPreview, !preview.matchedAssignments.isEmpty {
-            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
-                ForEach(Array(preview.matchedAssignments.enumerated()), id: \.element.id) { index, assignment in
-                    MetadataComparisonGroupView(
-                        assignment: assignment,
-                        rows: comparisonRows(for: assignment, release: detail)
-                    )
-
-                    if index < preview.matchedAssignments.count - 1 {
-                        MetadataCardDivider()
                     }
                 }
             }
@@ -517,6 +525,12 @@ private struct MetadataComparisonRow: Identifiable {
     let remoteValue: String
     let status: MetadataComparisonStatus
     let monospaced: Bool
+}
+
+private struct MetadataComparisonGroup: Identifiable {
+    let id: String
+    let assignment: MusicBrainzReleaseMatchAssignment
+    let rows: [MetadataComparisonRow]
 }
 
 private enum MetadataComparisonStatus {
@@ -735,6 +749,43 @@ private struct MetadataSummaryRow: View {
     }
 }
 
+private struct MetadataDetailNavigationRow: View {
+    let title: String
+    let subtitle: String
+    let symbolName: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            Label {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 13))
+
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } icon: {
+                Image(systemName: symbolName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18)
+            }
+
+            Spacer(minLength: 12)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+}
+
 private struct MetadataMatchAssignmentRow: View {
     let assignment: MusicBrainzReleaseMatchAssignment
 
@@ -875,6 +926,61 @@ private struct MetadataTrackRow: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 11)
         .contentShape(Rectangle())
+    }
+}
+
+private struct MatchedFilesDetailView: View {
+    let assignments: [MusicBrainzReleaseMatchAssignment]
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 24) {
+                MetadataSectionCard(title: "Matched Files", symbolName: "link") {
+                    ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
+                        MetadataMatchAssignmentRow(assignment: assignment)
+
+                        if index < assignments.count - 1 {
+                            MetadataCardDivider()
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: 880, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .navigationTitle("Matched Files")
+    }
+}
+
+private struct MetadataComparisonDetailView: View {
+    let groups: [MetadataComparisonGroup]
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 24) {
+                MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+                    ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                        MetadataComparisonGroupView(
+                            assignment: group.assignment,
+                            rows: group.rows
+                        )
+
+                        if index < groups.count - 1 {
+                            MetadataCardDivider()
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: 880, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .navigationTitle("Metadata Comparison")
     }
 }
 

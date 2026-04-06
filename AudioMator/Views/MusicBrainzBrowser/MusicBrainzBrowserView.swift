@@ -38,26 +38,28 @@ struct MusicBrainzBrowserView: View {
                 .pickerStyle(.segmented)
             }
 
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button("Search") {
-                    store.search()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!store.hasSearchText || store.isSearching)
+            if navigationPath.isEmpty {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button("Search") {
+                        store.search()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!store.hasSearchText || store.isSearching)
 
-                Button("Clear") {
-                    store.clearSearch()
+                    Button("Clear") {
+                        store.clearSearch()
+                    }
+                    .disabled(
+                        store.titleQuery.isEmpty &&
+                        store.artistQuery.isEmpty &&
+                        store.albumArtistQuery.isEmpty &&
+                        store.albumQuery.isEmpty &&
+                        store.trackNumberQuery.isEmpty &&
+                        store.linkQuery.isEmpty &&
+                        store.results.isEmpty &&
+                        store.errorMessage == nil
+                    )
                 }
-                .disabled(
-                    store.titleQuery.isEmpty &&
-                    store.artistQuery.isEmpty &&
-                    store.albumArtistQuery.isEmpty &&
-                    store.albumQuery.isEmpty &&
-                    store.trackNumberQuery.isEmpty &&
-                    store.linkQuery.isEmpty &&
-                    store.results.isEmpty &&
-                    store.errorMessage == nil
-                )
             }
         }
     }

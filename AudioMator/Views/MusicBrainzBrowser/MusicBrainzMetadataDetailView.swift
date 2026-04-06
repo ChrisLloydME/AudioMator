@@ -1,5 +1,7 @@
+import AppKit
 import Foundation
 import SwiftUI
+import WebKit
 
 struct MusicBrainzMetadataDetailView: View {
     let store: MusicBrainzBrowserStore
@@ -80,7 +82,6 @@ struct MusicBrainzMetadataDetailView: View {
 
                 MetadataActionRow(
                     title: "MusicBrainz",
-                    buttonTitle: "Open",
                     destination: url
                 )
             }
@@ -245,7 +246,6 @@ struct MusicBrainzMetadataDetailView: View {
 
                 MetadataActionRow(
                     title: "MusicBrainz",
-                    buttonTitle: "Open",
                     destination: url
                 )
             }
@@ -673,23 +673,31 @@ private struct MetadataBodyRow: View {
 
 private struct MetadataActionRow: View {
     let title: String
-    let buttonTitle: String
     let destination: URL
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
-            Text(title)
-                .font(.system(size: 13))
-                .frame(width: 140, alignment: .leading)
+        NavigationLink {
+            MusicBrainzEmbeddedWebPageView(
+                title: title,
+                url: destination
+            )
+        } label: {
+            HStack(alignment: .center, spacing: 18) {
+                Text(title)
+                    .font(.system(size: 13))
+                    .frame(width: 140, alignment: .leading)
 
-            Spacer(minLength: 12)
+                Spacer(minLength: 12)
 
-            Link(buttonTitle, destination: destination)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
+        .buttonStyle(.plain)
     }
 }
 
@@ -1117,5 +1125,39 @@ private struct MetadataCardDivider: View {
     var body: some View {
         Divider()
             .padding(.leading, 18)
+    }
+}
+
+private struct MusicBrainzEmbeddedWebPageView: View {
+    let title: String
+    let url: URL
+
+    @State private var page = WebPage()
+
+    var body: some View {
+        WebView(page)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .navigationTitle(title)
+            .navigationSubtitle(url.host() ?? "MusicBrainz")
+            .task(id: url) {
+                page.load(URLRequest(url: url))
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        page.load(URLRequest(url: url))
+                    } label: {
+                        Label("Reload", systemImage: "arrow.clockwise")
+                    }
+
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                    } label: {
+                        Label("Copy Link", systemImage: "doc.on.doc")
+                    }
+                }
+            }
     }
 }

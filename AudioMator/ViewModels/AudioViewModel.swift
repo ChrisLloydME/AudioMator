@@ -355,6 +355,21 @@ final class AudioViewModel: ObservableObject {
         rebuildVisibleFiles()
     }
 
+    func replaceLoadedFiles(_ reloadedFiles: [AudioFile]) {
+        guard !reloadedFiles.isEmpty else { return }
+
+        let reloadedByID = Dictionary(uniqueKeysWithValues: reloadedFiles.map { ($0.id, $0) })
+
+        quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }
+
+        for folderID in watchedFolderFiles.keys {
+            guard let folderFiles = watchedFolderFiles[folderID] else { continue }
+            watchedFolderFiles[folderID] = folderFiles.map { reloadedByID[$0.id] ?? $0 }
+        }
+
+        rebuildVisibleFiles()
+    }
+
     func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) {
         guard !changes.isEmpty else { return }
 

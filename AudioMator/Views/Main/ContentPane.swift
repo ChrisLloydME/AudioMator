@@ -14,7 +14,6 @@ struct ContentPane: View {
     let onCancelEdits: () -> Void
     let onSaveEdits: () -> Void
 
-    @FocusState private var tableFocused: Bool
     @State private var isEraseAllTagsConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isTextMetadataImportPresented: Bool = false
@@ -32,14 +31,6 @@ struct ContentPane: View {
 
     private var selectedFiles: [AudioFile] {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-    }
-
-    private var hasSelectedFiles: Bool {
-        !selectedFiles.isEmpty
-    }
-
-    private var visibleColumns: Set<MiddleListColumn> {
-        state.visibleMiddleListColumns
     }
 
     private var visibleToolbarButtons: Set<ToolbarButtonOption> {
@@ -190,18 +181,18 @@ struct ContentPane: View {
                     description: Text(emptyStateDescription)
                 )
             } else {
-                Table(orderedFiles, selection: selection) {
-                    primaryMetadataColumns
-                    secondaryMetadataColumns
-                    auxiliaryMetadataColumns
-                    technicalMetadataColumns
-                }
-                .background(
-                    MiddleListHeaderContextMenuInstaller(
-                        visibleColumns: $state.visibleMiddleListColumns
-                    )
+                MiddleListTable(
+                    files: orderedFiles,
+                    selection: selection,
+                    visibleColumns: $state.visibleMiddleListColumns,
+                    customOrder: $state.customOrder,
+                    onOpenSelectedFiles: openSelectedFiles,
+                    onRevealSelectedFilesInFinder: revealSelectedFilesInFinder,
+                    onCopySelectedFilePaths: copySelectedFilePaths,
+                    onCopySelectedFileNames: copySelectedFileNames,
+                    onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
+                    onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
                 )
-                .focused($tableFocused)
                 .onChange(of: state.selectedAudioIDs) { _, newSelection in
                     viewModel.selectedAudioIDs = newSelection
                     viewModel.updateEditForSelection()
@@ -218,43 +209,6 @@ struct ContentPane: View {
                     viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
                 }
-                .contextMenu {
-                    Button("Open") {
-                        openSelectedFiles()
-                    }
-                    .disabled(selectedFiles.isEmpty)
-
-                    Button("Reveal in Finder") {
-                        revealSelectedFilesInFinder()
-                    }
-                    .disabled(selectedFiles.isEmpty)
-
-                    Divider()
-
-                    Button("Copy Path") {
-                        copySelectedFilePaths()
-                    }
-                    .disabled(selectedFiles.isEmpty)
-
-                    Button("Copy Filename") {
-                        copySelectedFileNames()
-                    }
-                    .disabled(selectedFiles.isEmpty)
-
-                    Divider()
-
-                    Button("Find in MusicBrainz") {
-                        onFindSelectedFileInMusicBrainz()
-                    }
-                    .disabled(!hasSelectedFiles)
-
-                    Divider()
-
-                    Button("Erase All Tags…", role: .destructive) {
-                        isEraseAllTagsConfirmPresented = true
-                    }
-                    .disabled(selectedFiles.isEmpty)
-                }
                 .confirmationDialog(
                     "Erase all metadata tags?",
                     isPresented: $isEraseAllTagsConfirmPresented,
@@ -267,127 +221,6 @@ struct ContentPane: View {
                 } message: {
                     Text("Removes metadata from the selected files. This can't be undone.")
                 }
-            }
-        }
-    }
-
-    @TableColumnBuilder<AudioFile, Never>
-    private var primaryMetadataColumns: some TableColumnContent<AudioFile, Never> {
-        if visibleColumns.contains(.filename) {
-            TableColumn(MiddleListColumn.filename.displayName) { file in
-                middleListCell(for: file, column: .filename)
-            }
-        }
-        if visibleColumns.contains(.title) {
-            TableColumn(MiddleListColumn.title.displayName) { file in
-                middleListCell(for: file, column: .title)
-            }
-        }
-        if visibleColumns.contains(.artist) {
-            TableColumn(MiddleListColumn.artist.displayName) { file in
-                middleListCell(for: file, column: .artist)
-            }
-        }
-        if visibleColumns.contains(.album) {
-            TableColumn(MiddleListColumn.album.displayName) { file in
-                middleListCell(for: file, column: .album)
-            }
-        }
-        if visibleColumns.contains(.albumArtist) {
-            TableColumn(MiddleListColumn.albumArtist.displayName) { file in
-                middleListCell(for: file, column: .albumArtist)
-            }
-        }
-        if visibleColumns.contains(.composer) {
-            TableColumn(MiddleListColumn.composer.displayName) { file in
-                middleListCell(for: file, column: .composer)
-            }
-        }
-    }
-
-    @TableColumnBuilder<AudioFile, Never>
-    private var secondaryMetadataColumns: some TableColumnContent<AudioFile, Never> {
-        if visibleColumns.contains(.genre) {
-            TableColumn(MiddleListColumn.genre.displayName) { file in
-                middleListCell(for: file, column: .genre)
-            }
-        }
-        if visibleColumns.contains(.year) {
-            TableColumn(MiddleListColumn.year.displayName) { file in
-                middleListCell(for: file, column: .year)
-            }
-        }
-        if visibleColumns.contains(.track) {
-            TableColumn(MiddleListColumn.track.displayName) { file in
-                middleListCell(for: file, column: .track)
-            }
-        }
-        if visibleColumns.contains(.disc) {
-            TableColumn(MiddleListColumn.disc.displayName) { file in
-                middleListCell(for: file, column: .disc)
-            }
-        }
-        if visibleColumns.contains(.comment) {
-            TableColumn(MiddleListColumn.comment.displayName) { file in
-                middleListCell(for: file, column: .comment)
-            }
-        }
-    }
-
-    @TableColumnBuilder<AudioFile, Never>
-    private var auxiliaryMetadataColumns: some TableColumnContent<AudioFile, Never> {
-        if visibleColumns.contains(.releaseDate) {
-            TableColumn(MiddleListColumn.releaseDate.displayName) { file in
-                middleListCell(for: file, column: .releaseDate)
-            }
-        }
-        if visibleColumns.contains(.publisher) {
-            TableColumn(MiddleListColumn.publisher.displayName) { file in
-                middleListCell(for: file, column: .publisher)
-            }
-        }
-        if visibleColumns.contains(.copyright) {
-            TableColumn(MiddleListColumn.copyright.displayName) { file in
-                middleListCell(for: file, column: .copyright)
-            }
-        }
-        if visibleColumns.contains(.credits) {
-            TableColumn(MiddleListColumn.credits.displayName) { file in
-                middleListCell(for: file, column: .credits)
-            }
-        }
-        if visibleColumns.contains(.explicit) {
-            TableColumn(MiddleListColumn.explicit.displayName) { file in
-                middleListCell(for: file, column: .explicit)
-            }
-        }
-    }
-
-    @TableColumnBuilder<AudioFile, Never>
-    private var technicalMetadataColumns: some TableColumnContent<AudioFile, Never> {
-        if visibleColumns.contains(.duration) {
-            TableColumn(MiddleListColumn.duration.displayName) { file in
-                middleListCell(for: file, column: .duration)
-            }
-        }
-        if visibleColumns.contains(.bitrate) {
-            TableColumn(MiddleListColumn.bitrate.displayName) { file in
-                middleListCell(for: file, column: .bitrate)
-            }
-        }
-        if visibleColumns.contains(.sampleRate) {
-            TableColumn(MiddleListColumn.sampleRate.displayName) { file in
-                middleListCell(for: file, column: .sampleRate)
-            }
-        }
-        if visibleColumns.contains(.channels) {
-            TableColumn(MiddleListColumn.channels.displayName) { file in
-                middleListCell(for: file, column: .channels)
-            }
-        }
-        if visibleColumns.contains(.format) {
-            TableColumn(MiddleListColumn.format.displayName) { file in
-                middleListCell(for: file, column: .format)
             }
         }
     }
@@ -431,28 +264,6 @@ struct ContentPane: View {
             }
             return "Select a watched folder from the sidebar or add a new one."
         }
-    }
-
-    @ViewBuilder
-    private func middleListCell(for file: AudioFile, column: MiddleListColumn) -> some View {
-        Text(column.text(for: file))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .onDrag {
-                if state.customOrder.isEmpty {
-                    state.customOrder = viewModel.files.map { $0.id }
-                }
-                state.draggingAudioID = file.id
-                return NSItemProvider(object: file.id.uuidString as NSString)
-            }
-            .onDrop(
-                of: [.text],
-                delegate: FileReorderDropDelegate(
-                    targetID: file.id,
-                    customOrder: $state.customOrder,
-                    draggingID: $state.draggingAudioID
-                )
-            )
     }
 
     private func syncSelectionWithFiles() {
@@ -543,39 +354,5 @@ struct ContentPane: View {
         viewModel.clearList()
         state.selectedAudioIDs.removeAll()
         state.customOrder.removeAll()
-        state.draggingAudioID = nil
-    }
-}
-
-private struct FileReorderDropDelegate: DropDelegate {
-    let targetID: AudioFile.ID
-    @Binding var customOrder: [AudioFile.ID]
-    @Binding var draggingID: AudioFile.ID?
-
-    func dropEntered(info: DropInfo) {
-        guard let draggingID, draggingID != targetID else { return }
-        guard let fromIndex = customOrder.firstIndex(of: draggingID),
-              let toIndex = customOrder.firstIndex(of: targetID) else { return }
-
-        // Reorder immediately on hover for a responsive UX
-        if fromIndex != toIndex {
-            withAnimation(.default) {
-                let from = IndexSet(integer: fromIndex)
-                customOrder.move(fromOffsets: from, toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
-            }
-        }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingID = nil
-        return true
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func dropExited(info: DropInfo) {
-        // no-op
     }
 }

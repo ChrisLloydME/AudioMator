@@ -11,9 +11,6 @@ final class SharedState: ObservableObject {
     // Custom ordering for the middle list (session-only)
     @Published var customOrder: [AudioFile.ID] = []
 
-    // Drag source tracking for row reordering
-    @Published var draggingAudioID: AudioFile.ID? = nil
-
     @Published var visibleMiddleListColumns: Set<MiddleListColumn> {
         didSet {
             let fallbackColumns = Set(MiddleListColumn.defaultVisibleColumns)

@@ -114,19 +114,29 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
-        let selectedFiles = files.filter { selectedAudioIDs.contains($0.id) }
-
-        switch selectedFiles.count {
-        case 0:
+        guard !selectedAudioIDs.isEmpty else {
             edit = nil
             multiEdit = nil
-        case 1:
-            edit = SingleFileEditModel(from: selectedFiles[0])
-            multiEdit = nil
-        default:
-            edit = nil
-            multiEdit = MultiFileEditModel(files: selectedFiles)
+            return
         }
+
+        if selectedAudioIDs.count == 1,
+           let selectedID = selectedAudioIDs.first,
+           let selectedFile = files.first(where: { $0.id == selectedID }) {
+            edit = SingleFileEditModel(from: selectedFile)
+            multiEdit = nil
+            return
+        }
+
+        let selectedFiles = files.filter { selectedAudioIDs.contains($0.id) }
+        guard !selectedFiles.isEmpty else {
+            edit = nil
+            multiEdit = nil
+            return
+        }
+
+        edit = nil
+        multiEdit = MultiFileEditModel(files: selectedFiles)
     }
 
     /// Discard the current edits and restore the latest tags from disk.
@@ -304,11 +314,16 @@ final class AudioViewModel: ObservableObject {
                 self.prepareStableIDs(for: candidateURLs)
             }
 
-            let loadedFiles = await Self.loadAudioFiles(from: candidateURLs, fileIDsByKey: fileIDsByKey)
-
-            await MainActor.run {
-                self.mergeQuickImportFiles(loadedFiles)
-            }
+            _ = await Self.loadAudioFiles(
+                from: candidateURLs,
+                fileIDsByKey: fileIDsByKey,
+                onBatchLoaded: { batch in
+                    guard !batch.isEmpty else { return }
+                    await MainActor.run {
+                        self.mergeQuickImportFiles(batch)
+                    }
+                }
+            )
         }
     }
 
@@ -682,8 +697,12 @@ final class AudioViewModel: ObservableObject {
         watchedFolderStore.saveFolders(watchedFolders)
     }
 
-    nonisolated private static func loadAudioFiles(from urls: [URL], fileIDsByKey: [String: UUID]) async -> [AudioFile] {
-        let inputs: [(offset: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
+    nonisolated private static func loadAudioFiles(
+        from urls: [URL],
+        fileIDsByKey: [String: UUID],
+        onBatchLoaded: (@Sendable ([AudioFile]) async -> Void)? = nil
+    ) async -> [AudioFile] {
+        let inputs: [(index: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
             let key = urlKey(for: url)
             guard let id = fileIDsByKey[key] else { return nil }
             return (offset, url, id)
@@ -691,25 +710,58 @@ final class AudioViewModel: ObservableObject {
 
         guard !inputs.isEmpty else { return [] }
 
-        // Keep a small amount of parallelism so imports/rescans do not block on fully serial I/O.
-        let maxConcurrentLoads = min(4, inputs.count)
+        // Audio metadata reads are mostly I/O-bound. Allow higher parallelism than the
+        // earlier fixed value so first import becomes interactive faster on larger drops.
+        let maxConcurrentLoads = min(
+            max(ProcessInfo.processInfo.activeProcessorCount * 2, 6),
+            min(12, inputs.count)
+        )
+        let partialBatchSize = 24
+        let forceFlushBatchSize = 48
+        let minimumFlushInterval: TimeInterval = 0.2
         var nextInputIndex = maxConcurrentLoads
-        var loadedByOffset: [(Int, AudioFile)] = []
-        loadedByOffset.reserveCapacity(inputs.count)
+        var completedByIndex: [Int: AudioFile] = [:]
+        completedByIndex.reserveCapacity(inputs.count)
+        var loadedByIndex: [(Int, AudioFile)] = []
+        loadedByIndex.reserveCapacity(inputs.count)
+        var nextContiguousIndex = 0
+        var pendingBatch: [AudioFile] = []
+        pendingBatch.reserveCapacity(partialBatchSize)
+        var lastFlushTime = Date.timeIntervalSinceReferenceDate
 
         await withTaskGroup(of: (Int, AudioFile?).self) { group in
             for input in inputs.prefix(maxConcurrentLoads) {
                 group.addTask {
                     (
-                        input.offset,
+                        input.index,
                         try? await AudioFile(url: input.url, id: input.id)
                     )
                 }
             }
 
-            while let (offset, file) = await group.next() {
+            while let (index, file) = await group.next() {
                 if let file {
-                    loadedByOffset.append((offset, file))
+                    completedByIndex[index] = file
+                    loadedByIndex.append((index, file))
+
+                    while let nextFile = completedByIndex.removeValue(forKey: nextContiguousIndex) {
+                        pendingBatch.append(nextFile)
+                        nextContiguousIndex += 1
+
+                        let now = Date.timeIntervalSinceReferenceDate
+                        let shouldFlush =
+                            pendingBatch.count >= forceFlushBatchSize ||
+                            (
+                                pendingBatch.count >= partialBatchSize &&
+                                now - lastFlushTime >= minimumFlushInterval
+                            )
+
+                        if shouldFlush, let onBatchLoaded {
+                            await onBatchLoaded(pendingBatch)
+                            pendingBatch.removeAll(keepingCapacity: true)
+                            lastFlushTime = now
+                        }
+                    }
                 }
 
                 guard nextInputIndex < inputs.count else { continue }
@@ -718,15 +770,19 @@ final class AudioViewModel: ObservableObject {
 
                 group.addTask {
                     (
-                        input.offset,
+                        input.index,
                         try? await AudioFile(url: input.url, id: input.id)
                     )
                 }
             }
         }
 
-        loadedByOffset.sort { $0.0 < $1.0 }
-        return loadedByOffset.map(\.1)
+        if !pendingBatch.isEmpty, let onBatchLoaded {
+            await onBatchLoaded(pendingBatch)
+        }
+
+        loadedByIndex.sort { $0.0 < $1.0 }
+        return loadedByIndex.map(\.1)
     }
 
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {

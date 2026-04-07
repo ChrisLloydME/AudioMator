@@ -6,35 +6,6 @@ struct PendingArtwork {
     var mimeType: String
 }
 
-private func normalizedArtworkComparisonData(for image: NSImage) -> Data? {
-    guard
-        let tiffData = image.tiffRepresentation,
-        let bitmap = NSBitmapImageRep(data: tiffData)
-    else {
-        return nil
-    }
-
-    return bitmap.representation(using: .png, properties: [:]) ?? tiffData
-}
-
-private func artworkImagesMatch(_ lhs: NSImage?, _ rhs: NSImage?) -> Bool {
-    switch (lhs, rhs) {
-    case (nil, nil):
-        return true
-    case let (left?, right?):
-        guard
-            let leftData = normalizedArtworkComparisonData(for: left),
-            let rightData = normalizedArtworkComparisonData(for: right)
-        else {
-            return false
-        }
-
-        return leftData == rightData
-    default:
-        return false
-    }
-}
-
 enum ArtworkEditAction {
     case unchanged
     case replace(PendingArtwork)
@@ -298,17 +269,14 @@ struct MultiFileEditModel {
         var mixedTextFields = Set<MultiFileEditableTextField>()
 
         for field in MultiFileEditableTextField.allCases {
-            let fieldValues = files.map { field.value(from: $0) }
-            let mergedValue: String
-            let isMixed: Bool
-
-            if let first = fieldValues.first {
-                isMixed = fieldValues.dropFirst().contains { $0 != first }
-                mergedValue = isMixed ? "" : first
-            } else {
-                isMixed = false
-                mergedValue = ""
+            guard let firstFile = files.first else {
+                values[keyPath: field.keyPath] = ""
+                continue
             }
+
+            let firstValue = field.value(from: firstFile)
+            let isMixed = files.dropFirst().contains { field.value(from: $0) != firstValue }
+            let mergedValue = isMixed ? "" : firstValue
 
             values[keyPath: field.keyPath] = mergedValue
             if isMixed {
@@ -316,31 +284,18 @@ struct MultiFileEditModel {
             }
         }
 
-        let explicitValues = files.map(\.isExplicit)
         let initialExplicitValue: Bool?
-        if let first = explicitValues.first, explicitValues.dropFirst().allSatisfy({ $0 == first }) {
+        if let first = files.first?.isExplicit, files.dropFirst().allSatisfy({ $0.isExplicit == first }) {
             initialExplicitValue = first
         } else {
             initialExplicitValue = nil
-        }
-
-        let initialArtworkState: MultiFileArtworkState
-        if files.allSatisfy({ $0.artwork == nil }) {
-            initialArtworkState = .none
-        } else if
-            let firstArtwork = files.first?.artwork,
-            files.dropFirst().allSatisfy({ artworkImagesMatch($0.artwork, firstArtwork) })
-        {
-            initialArtworkState = .shared(firstArtwork)
-        } else {
-            initialArtworkState = .mixed
         }
 
         self.values = values
         self.modifiedTextFields = []
         self.mixedTextFields = mixedTextFields
         self.initialExplicitValue = initialExplicitValue
-        self.initialArtworkState = initialArtworkState
+        self.initialArtworkState = MultiFileEditModel.resolveArtworkState(for: files)
         self.explicitEditState = .keepExisting
         self.artworkEditAction = .unchanged
     }
@@ -473,5 +428,20 @@ struct MultiFileEditModel {
 
         result.artworkEditAction = artworkEditAction
         return result
+    }
+
+    private static func resolveArtworkState(for files: [AudioFile]) -> MultiFileArtworkState {
+        guard let firstFile = files.first else { return .none }
+        guard let firstFingerprint = firstFile.artworkFingerprint else {
+            return files.allSatisfy({ $0.artworkFingerprint == nil }) ? .none : .mixed
+        }
+
+        guard let firstArtwork = firstFile.artwork else {
+            return .mixed
+        }
+
+        return files.dropFirst().allSatisfy({ $0.artworkFingerprint == firstFingerprint })
+            ? .shared(firstArtwork)
+            : .mixed
     }
 }

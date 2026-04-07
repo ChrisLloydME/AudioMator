@@ -52,6 +52,38 @@ struct AudioFile: Identifiable, @unchecked Sendable {
 
     // MARK: – Artwork
     let artwork: NSImage?
+    let artworkFingerprint: Int?
+
+    // Stable content fingerprint for middle-list row refresh decisions.
+    var middleListContentFingerprint: Int {
+        var hasher = Hasher()
+        hasher.combine(url.lastPathComponent)
+        hasher.combine(title)
+        hasher.combine(artist)
+        hasher.combine(album)
+        hasher.combine(albumArtist)
+        hasher.combine(composer)
+        hasher.combine(genre)
+        hasher.combine(year)
+        hasher.combine(track)
+        hasher.combine(trackTotal)
+        hasher.combine(disc)
+        hasher.combine(discTotal)
+        hasher.combine(trackNumberText)
+        hasher.combine(discNumberText)
+        hasher.combine(comment)
+        hasher.combine(releaseDate)
+        hasher.combine(publisher)
+        hasher.combine(copyright)
+        hasher.combine(credits)
+        hasher.combine(isExplicit)
+        hasher.combine(duration)
+        hasher.combine(bitrate)
+        hasher.combine(sampleRate)
+        hasher.combine(channels)
+        hasher.combine(format)
+        return hasher.finalize()
+    }
 
     init(
         id: UUID,
@@ -86,7 +118,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         sampleRate: Double,
         channels: Int,
         format: String,
-        artwork: NSImage?
+        artwork: NSImage?,
+        artworkFingerprint: Int?
     ) {
         self.id = id
         self.url = url
@@ -121,6 +154,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.channels = channels
         self.format = format
         self.artwork = artwork
+        self.artworkFingerprint = artworkFingerprint
     }
 
     func withUpdatedURL(_ url: URL) -> AudioFile {
@@ -157,8 +191,82 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             sampleRate: sampleRate,
             channels: channels,
             format: format,
-            artwork: artwork
+            artwork: artwork,
+            artworkFingerprint: artworkFingerprint
         )
+    }
+
+    func withUpdatedTrackNumberText(_ rawText: String) -> AudioFile {
+        let normalizedRawText = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsed = AudioFile.parseNumberText(normalizedRawText)
+
+        return AudioFile(
+            id: id,
+            url: url,
+            title: title,
+            artist: artist,
+            album: album,
+            composer: composer,
+            genre: genre,
+            comment: comment,
+            track: parsed.number,
+            trackTotal: parsed.total,
+            disc: disc,
+            discTotal: discTotal,
+            trackNumberText: AudioFile.normalizedNumberText(
+                rawText: normalizedRawText,
+                number: parsed.number,
+                total: parsed.total
+            ),
+            discNumberText: discNumberText,
+            year: year,
+            albumArtist: albumArtist,
+            releaseDate: releaseDate,
+            isrc: isrc,
+            barcode: barcode,
+            musicBrainzArtistID: musicBrainzArtistID,
+            musicBrainzAlbumID: musicBrainzAlbumID,
+            musicBrainzTrackID: musicBrainzTrackID,
+            musicBrainzReleaseGroupID: musicBrainzReleaseGroupID,
+            publisher: publisher,
+            copyright: copyright,
+            credits: credits,
+            isExplicit: isExplicit,
+            duration: duration,
+            bitrate: bitrate,
+            sampleRate: sampleRate,
+            channels: channels,
+            format: format,
+            artwork: artwork,
+            artworkFingerprint: artworkFingerprint
+        )
+    }
+
+    private static func artworkFingerprint(for data: Data) -> Int {
+        var hasher = Hasher()
+        hasher.combine(data.count)
+
+        if data.count <= 128 {
+            hasher.combine(data)
+        } else {
+            hasher.combine(data.prefix(64))
+            hasher.combine(data.suffix(64))
+        }
+
+        return hasher.finalize()
+    }
+
+    private static func parseNumberText(_ rawText: String) -> (number: Int, total: Int) {
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return (0, 0) }
+
+        let parts = trimmed.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        let number = parts.first.flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
+        let total = parts.count > 1
+            ? Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            : 0
+
+        return (max(0, number), max(0, total))
     }
 
     // Shared helper for reading metadata values.
@@ -383,12 +491,13 @@ struct AudioFile: Identifiable, @unchecked Sendable {
 
         // MARK: – Artwork with TagLib fallback
 
-        if let data = await AudioFile.readArtworkData(from: allMetadataItems) {
-            self.artwork = NSImage(data: data)
-        } else if let data = tag.artworkData {
-            self.artwork = NSImage(data: data)
+        let artworkData = await AudioFile.readArtworkData(from: allMetadataItems) ?? tag.artworkData
+        if let artworkData {
+            self.artwork = NSImage(data: artworkData)
+            self.artworkFingerprint = AudioFile.artworkFingerprint(for: artworkData)
         } else {
             self.artwork = nil
+            self.artworkFingerprint = nil
         }
     }
 }

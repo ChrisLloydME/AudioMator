@@ -530,7 +530,7 @@ extension AudioViewModel {
                 failed: 0,
                 failures: []
             )
-            var successfulTargets: [(id: UUID, url: URL)] = []
+            var successfulTargets: [(id: UUID, url: URL, trackNumberText: String)] = []
 
             for (idx, target) in writeTargets.enumerated() {
                 let newNumber = numbers[idx]
@@ -553,7 +553,7 @@ extension AudioViewModel {
                         to: target.url
                     )
                     result.succeeded += 1
-                    successfulTargets.append(target)
+                    successfulTargets.append((id: target.id, url: target.url, trackNumberText: formattedTrackNumber))
                 } catch {
                     result.failed += 1
                     let reason = (error as NSError).localizedDescription
@@ -564,17 +564,12 @@ extension AudioViewModel {
             return (result, successfulTargets)
         }.value
 
-        for target in writeOutcome.1 {
-            if let refreshWarning = await reloadEditedFile(
-                at: target.url,
-                id: target.id,
-                syncInspectorAfterReload: false
-            ) {
-                print("[AudioMator] Track renumber saved but refresh failed for \(target.url.lastPathComponent): \(refreshWarning)")
-            }
+        let updatedFiles = writeOutcome.1.compactMap { target in
+            filesByID[target.id]?.withUpdatedTrackNumberText(target.trackNumberText)
         }
 
-        if !writeOutcome.1.isEmpty {
+        if !updatedFiles.isEmpty {
+            replaceLoadedFiles(updatedFiles)
             updateEditForSelection()
         }
 

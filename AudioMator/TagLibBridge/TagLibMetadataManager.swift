@@ -95,77 +95,41 @@ private func preferredRawNumberText(_ currentValue: String, _ candidateValue: St
     return score(trimmedCandidate) > score(trimmedCurrent) ? trimmedCandidate : trimmedCurrent
 }
 
-private func rawNumberTexts(fromRawMetadata rawMetadata: Any) -> (track: String, disc: String) {
-    let payload: [String: Any]
-    if let dict = rawMetadata as? [String: Any] {
-        payload = dict
-    } else if let dict = rawMetadata as? NSDictionary {
-        payload = dict as? [String: Any] ?? [:]
-    } else {
-        return (track: "", disc: "")
-    }
-
-    func firstFrameValue(in frames: [Any], ids: Set<String>) -> String {
-        var bestValue = ""
-        for frame in frames {
-            let item: [String: Any]
-            if let dict = frame as? [String: Any] {
-                item = dict
-            } else if let dict = frame as? NSDictionary {
-                item = dict as? [String: Any] ?? [:]
-            } else {
-                continue
+private func rawNumberTexts(from dump: RawMetadataDump) -> (track: String, disc: String) {
+    let trackFromProperties = dump.properties
+        .filter { ["TRACKNUMBER", "TRACK"].contains($0.key.uppercased()) }
+        .reduce(into: "") { bestValue, entry in
+            for value in entry.values {
+                bestValue = preferredRawNumberText(bestValue, value)
             }
-
-            let id = (item["id"] as? String ?? "").uppercased()
-            guard ids.contains(id) else { continue }
-            let value = (item["value"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            bestValue = preferredRawNumberText(bestValue, value)
+            bestValue = preferredRawNumberText(bestValue, entry.value)
         }
-        return bestValue
-    }
 
-    func firstPropertyValue(in properties: [Any], keys: Set<String>) -> String {
-        var bestValue = ""
-        for property in properties {
-            let item: [String: Any]
-            if let dict = property as? [String: Any] {
-                item = dict
-            } else if let dict = property as? NSDictionary {
-                item = dict as? [String: Any] ?? [:]
-            } else {
-                continue
+    let discFromProperties = dump.properties
+        .filter { ["DISCNUMBER", "DISC"].contains($0.key.uppercased()) }
+        .reduce(into: "") { bestValue, entry in
+            for value in entry.values {
+                bestValue = preferredRawNumberText(bestValue, value)
             }
-
-            let key = (item["key"] as? String ?? "").uppercased()
-            guard keys.contains(key) else { continue }
-
-            if let values = item["values"] as? [String] {
-                for value in values {
-                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                    bestValue = preferredRawNumberText(bestValue, trimmed)
-                }
-            }
-
-            let value = (item["value"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            bestValue = preferredRawNumberText(bestValue, value)
+            bestValue = preferredRawNumberText(bestValue, entry.value)
         }
-        return bestValue
-    }
 
-    let id3v2Frames = payload["id3v2Frames"] as? [Any] ?? []
-    let properties = payload["properties"] as? [Any] ?? []
+    let trackFromFrames = dump.id3v2Frames
+        .filter { $0.frameID.uppercased() == "TRCK" }
+        .reduce(into: "") { bestValue, entry in
+            bestValue = preferredRawNumberText(bestValue, entry.value)
+        }
 
-    let track = preferredRawNumberText(
-        firstPropertyValue(in: properties, keys: ["TRACKNUMBER", "TRACK"]),
-        firstFrameValue(in: id3v2Frames, ids: ["TRCK"])
+    let discFromFrames = dump.id3v2Frames
+        .filter { $0.frameID.uppercased() == "TPOS" }
+        .reduce(into: "") { bestValue, entry in
+            bestValue = preferredRawNumberText(bestValue, entry.value)
+        }
+
+    return (
+        track: preferredRawNumberText(trackFromProperties, trackFromFrames),
+        disc: preferredRawNumberText(discFromProperties, discFromFrames)
     )
-    let disc = preferredRawNumberText(
-        firstPropertyValue(in: properties, keys: ["DISCNUMBER", "DISC"]),
-        firstFrameValue(in: id3v2Frames, ids: ["TPOS"])
-    )
-
-    return (track: track, disc: disc)
 }
 
 // MARK: - Raw Metadata Dump Models (for GUI display)
@@ -258,8 +222,21 @@ struct TagLibMetadataManager {
         do {
             // ObjC++ bridge API imported into Swift as `throws`.
             let meta = try TagLibMetadataExtractor.extractMetadata(from: url)
-            let rawMetadata = try? TagLibMetadataExtractor.rawMetadata(for: url)
-            let rawNumberText = rawMetadata.map(rawNumberTexts(fromRawMetadata:)) ?? (track: "", disc: "")
+            let trackNumberText = meta.trackNumberText ?? ""
+            let discNumberText = meta.discNumberText ?? ""
+            let needsTrackTextFallback =
+                trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                meta.trackNumber > 0
+            let needsDiscTextFallback =
+                discNumberText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                meta.discNumber > 0
+
+            let rawNumberText: (track: String, disc: String)
+            if needsTrackTextFallback || needsDiscTextFallback {
+                rawNumberText = rawMetadata(from: url).map(rawNumberTexts(from:)) ?? (track: "", disc: "")
+            } else {
+                rawNumberText = (track: "", disc: "")
+            }
 
             return BasicMetadata(
                 title: meta.title ?? "",
@@ -272,8 +249,12 @@ struct TagLibMetadataManager {
                 trackTotal: Int(meta.totalTracks),
                 disc: Int(meta.discNumber),
                 discTotal: Int(meta.totalDiscs),
-                trackNumberText: preferredRawNumberText(meta.trackNumberText ?? "", rawNumberText.track),
-                discNumberText: preferredRawNumberText(meta.discNumberText ?? "", rawNumberText.disc),
+                trackNumberText: needsTrackTextFallback
+                    ? preferredRawNumberText(trackNumberText, rawNumberText.track)
+                    : trackNumberText,
+                discNumberText: needsDiscTextFallback
+                    ? preferredRawNumberText(discNumberText, rawNumberText.disc)
+                    : discNumberText,
                 year: meta.year ?? "",
                 albumArtist: meta.albumArtist ?? "",
                 releaseDate: meta.releaseDate ?? meta.originalReleaseDate ?? "",

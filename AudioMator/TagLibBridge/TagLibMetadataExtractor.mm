@@ -80,7 +80,23 @@
 @end
 
 // Simple logging helper for TagLib debugging
+static bool TagLibDebugLoggingEnabled() {
+    static bool enabled = [] {
+        NSString *value = [NSProcessInfo processInfo].environment[@"AUDIOMATOR_TAGLIB_DEBUG"] ?: @"";
+        NSString *normalized = value.lowercaseString;
+        return [normalized isEqualToString:@"1"] ||
+               [normalized isEqualToString:@"true"] ||
+               [normalized isEqualToString:@"yes"] ||
+               [normalized isEqualToString:@"on"];
+    }();
+    return enabled;
+}
+
 static inline void TLog(NSString *format, ...) {
+    if (!TagLibDebugLoggingEnabled()) {
+        return;
+    }
+
     va_list args;
     va_start(args, format);
     NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
@@ -1608,34 +1624,21 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     const char* filePath = [fileURL.path UTF8String];
     std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
 
-    // Create FileRef for best-effort basic metadata. Some MP4/M4A files expose
-    // richer metadata only through the format-specific API, so do not fail early
-    // when FileRef or its generic tag view is unavailable.
-    TagLib::FileRef fileRef(filePath);
-    
     TagLibAudioMetadata* metadata = [[TagLibAudioMetadata alloc] init];
     TLog(@"Created TagLibAudioMetadata object for '%@'", fileURL.lastPathComponent);
-    
-    // Extract basic tag information
-    TagLib::Tag* tag = fileRef.isNull() ? nullptr : fileRef.tag();
-    ApplyBasicTagMetadata(tag, metadata);
-
-    // FileRef's PropertyMap is broader than the legacy Tag view for several containers
-    // (for example APE-on-MPEG and many non-core fields), so use it as the first
-    // normalization pass before format-specific extraction.
-    if (!fileRef.isNull() && fileRef.file()) {
-        ApplyGenericPropertyMapMetadata(fileRef.file()->properties(), metadata);
-    }
-    
-    // Extract audio properties
-    TagLib::AudioProperties* properties = fileRef.isNull() ? nullptr : fileRef.audioProperties();
-    ApplyAudioPropertiesMetadata(properties, metadata);
+    bool openedSpecificFile = false;
     
     // Extract format-specific metadata
     // MP3
     if (ext == "mp3" || ext == "mp2" || ext == "aac") {
         TagLib::MPEG::File mpegFile(filePath);
         if (mpegFile.isValid()) {
+            openedSpecificFile = true;
+
+            ApplyBasicTagMetadata(mpegFile.tag(), metadata);
+            ApplyGenericPropertyMapMetadata(mpegFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(mpegFile.audioProperties(), metadata);
+
             if (ext == "aac") {
                 metadata.codec = @"AAC";
             } else if (ext == "mp2") {
@@ -1663,27 +1666,31 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     else if (ext == "m4a" || ext == "m4b" || ext == "m4p" || ext == "mp4") {
         TagLib::MP4::File mp4File(filePath);
         if (mp4File.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = ext == "mp4" ? @"MP4" : @"AAC";
-            
+
+            ApplyGenericPropertyMapMetadata(mp4File.properties(), metadata);
+            ApplyAudioPropertiesMetadata(mp4File.audioProperties(), metadata);
+
             if (mp4File.tag()) {
                 ApplyBasicTagMetadata(mp4File.tag(), metadata);
                 ExtractMP4Metadata(mp4File.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(mp4File.audioProperties(), metadata);
         }
     }
     // FLAC
     else if (ext == "flac") {
         TagLib::FLAC::File flacFile(filePath);
         if (flacFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"FLAC";
-            
+
+            ApplyGenericPropertyMapMetadata(flacFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(flacFile.audioProperties(), metadata);
+
             if (flacFile.xiphComment()) {
                 ExtractXiphCommentMetadata(flacFile.xiphComment(), metadata);
             }
-            
-            ApplyAudioPropertiesMetadata(flacFile.audioProperties(), metadata);
 
             // Extract bit depth
             if (flacFile.audioProperties()) {
@@ -1698,85 +1705,93 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     else if (ext == "ogg") {
         TagLib::Ogg::Vorbis::File vorbisFile(filePath);
         if (vorbisFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"Vorbis";
-            
+
+            ApplyGenericPropertyMapMetadata(vorbisFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(vorbisFile.audioProperties(), metadata);
+
             if (vorbisFile.tag()) {
                 ExtractXiphCommentMetadata(vorbisFile.tag(), metadata);
                 ExtractArtworkFromComplexProperties(vorbisFile.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(vorbisFile.audioProperties(), metadata);
         }
     }
     // Opus
     else if (ext == "opus") {
         TagLib::Ogg::Opus::File opusFile(filePath);
         if (opusFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"Opus";
-            
+
+            ApplyGenericPropertyMapMetadata(opusFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(opusFile.audioProperties(), metadata);
+
             if (opusFile.tag()) {
                 ExtractXiphCommentMetadata(opusFile.tag(), metadata);
                 ExtractArtworkFromComplexProperties(opusFile.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(opusFile.audioProperties(), metadata);
         }
     }
     // OGG FLAC
     else if (ext == "oga") {
         TagLib::Ogg::FLAC::File oggFlacFile(filePath);
         if (oggFlacFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"OGG FLAC";
-            
+
+            ApplyGenericPropertyMapMetadata(oggFlacFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(oggFlacFile.audioProperties(), metadata);
+
             if (oggFlacFile.tag()) {
                 ExtractXiphCommentMetadata(oggFlacFile.tag(), metadata);
                 ExtractArtworkFromComplexProperties(oggFlacFile.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(oggFlacFile.audioProperties(), metadata);
         }
     }
     // APE (Monkey's Audio)
     else if (ext == "ape") {
         TagLib::APE::File apeFile(filePath);
         if (apeFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"APE";
-            
+
+            ApplyGenericPropertyMapMetadata(apeFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(apeFile.audioProperties(), metadata);
+
             if (apeFile.APETag()) {
                 ExtractAPEMetadata(apeFile.APETag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(apeFile.audioProperties(), metadata);
         }
     }
     // WavPack
     else if (ext == "wv") {
         TagLib::WavPack::File wvFile(filePath);
         if (wvFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"WavPack";
-            
+
+            ApplyGenericPropertyMapMetadata(wvFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(wvFile.audioProperties(), metadata);
+
             if (wvFile.APETag()) {
                 ExtractAPEMetadata(wvFile.APETag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(wvFile.audioProperties(), metadata);
         }
     }
     // WAV
     else if (ext == "wav") {
         TagLib::RIFF::WAV::File wavFile(filePath);
         if (wavFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"WAV";
 
-            if (wavFile.InfoTag()) {
-                ApplyGenericPropertyMapMetadata(wavFile.InfoTag()->properties(), metadata);
-            }
-            
+            ApplyGenericPropertyMapMetadata(wavFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(wavFile.audioProperties(), metadata);
+
             if (wavFile.ID3v2Tag()) {
                 ExtractID3v2Metadata(wavFile.ID3v2Tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(wavFile.audioProperties(), metadata);
             
             // Extract bit depth
             if (wavFile.audioProperties()) {
@@ -1788,13 +1803,15 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     else if (ext == "aiff" || ext == "aif") {
         TagLib::RIFF::AIFF::File aiffFile(filePath);
         if (aiffFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"AIFF";
-            
+
+            ApplyGenericPropertyMapMetadata(aiffFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(aiffFile.audioProperties(), metadata);
+
             if (aiffFile.tag()) {
                 ExtractID3v2Metadata(aiffFile.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(aiffFile.audioProperties(), metadata);
             
             // Extract bit depth
             if (aiffFile.audioProperties()) {
@@ -1806,8 +1823,12 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     else if (ext == "tta") {
         TagLib::TrueAudio::File ttaFile(filePath);
         if (ttaFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"TrueAudio";
-            
+
+            ApplyGenericPropertyMapMetadata(ttaFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(ttaFile.audioProperties(), metadata);
+
             if (ttaFile.ID3v2Tag()) {
                 ExtractID3v2Metadata(ttaFile.ID3v2Tag(), metadata);
             }
@@ -1816,9 +1837,6 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
                 // ID3v1 is only used to fill gaps for legacy files.
                 ApplyBasicTagMetadata(ttaFile.ID3v1Tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(ttaFile.audioProperties(), metadata);
-            
             // Extract bit depth
             if (ttaFile.audioProperties()) {
                 metadata.bitDepth = ttaFile.audioProperties()->bitsPerSample();
@@ -1829,49 +1847,57 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     else if (ext == "mpc") {
         TagLib::MPC::File mpcFile(filePath);
         if (mpcFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"Musepack";
-            
+
+            ApplyGenericPropertyMapMetadata(mpcFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(mpcFile.audioProperties(), metadata);
+
             if (mpcFile.APETag()) {
                 ExtractAPEMetadata(mpcFile.APETag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(mpcFile.audioProperties(), metadata);
         }
     }
     // Speex
     else if (ext == "spx") {
         TagLib::Ogg::Speex::File speexFile(filePath);
         if (speexFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"Speex";
-            
+
+            ApplyGenericPropertyMapMetadata(speexFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(speexFile.audioProperties(), metadata);
+
             if (speexFile.tag()) {
                 ExtractXiphCommentMetadata(speexFile.tag(), metadata);
                 ExtractArtworkFromComplexProperties(speexFile.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(speexFile.audioProperties(), metadata);
         }
     }
     // ASF/WMA
     else if (ext == "wma" || ext == "asf") {
         TagLib::ASF::File asfFile(filePath);
         if (asfFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"WMA";
             ApplyBasicTagMetadata(asfFile.tag(), metadata);
             ApplyGenericPropertyMapMetadata(asfFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(asfFile.audioProperties(), metadata);
             if (asfFile.tag()) {
                 ExtractArtworkFromComplexProperties(asfFile.tag(), metadata);
             }
-
-            ApplyAudioPropertiesMetadata(asfFile.audioProperties(), metadata);
         }
     }
     // DSF
     else if (ext == "dsf") {
         TagLib::DSF::File dsfFile(filePath);
         if (dsfFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"DSF";
-            
+
+            ApplyGenericPropertyMapMetadata(dsfFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(dsfFile.audioProperties(), metadata);
+
             // DSF files use ID3v2 tags, but accessed via tag() method
             if (dsfFile.tag()) {
                 // The tag() method returns an ID3v2::Tag*
@@ -1879,21 +1905,34 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
                     ExtractID3v2Metadata(id3tag, metadata);
                 }
             }
-
-            ApplyAudioPropertiesMetadata(dsfFile.audioProperties(), metadata);
         }
     }
     // DSDIFF
     else if (ext == "dff") {
         TagLib::DSDIFF::File dsdiffFile(filePath);
         if (dsdiffFile.isValid()) {
+            openedSpecificFile = true;
             metadata.codec = @"DSDIFF";
+
+            ApplyGenericPropertyMapMetadata(dsdiffFile.properties(), metadata);
+            ApplyAudioPropertiesMetadata(dsdiffFile.audioProperties(), metadata);
 
             if (dsdiffFile.hasID3v2Tag()) {
                 ExtractID3v2Metadata(dsdiffFile.ID3v2Tag(), metadata);
             }
+        }
+    }
 
-            ApplyAudioPropertiesMetadata(dsdiffFile.audioProperties(), metadata);
+    // Fallback path: only pay the generic FileRef cost if the format-specific
+    // opener could not read the file at all.
+    if (!openedSpecificFile) {
+        TagLib::FileRef fileRef(filePath);
+        if (!fileRef.isNull()) {
+            ApplyBasicTagMetadata(fileRef.tag(), metadata);
+            if (fileRef.file()) {
+                ApplyGenericPropertyMapMetadata(fileRef.file()->properties(), metadata);
+            }
+            ApplyAudioPropertiesMetadata(fileRef.audioProperties(), metadata);
         }
     }
     
@@ -1932,7 +1971,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
         metadata.discNumber > 0 ||
         metadata.artworkData.length > 0;
 
-    if (fileRef.isNull() && !hasReadableMetadata && metadata.duration <= 0.0 && metadata.bitrate <= 0) {
+    if (!openedSpecificFile && !hasReadableMetadata && metadata.duration <= 0.0 && metadata.bitrate <= 0) {
         if (error) {
             *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
                                          code:2

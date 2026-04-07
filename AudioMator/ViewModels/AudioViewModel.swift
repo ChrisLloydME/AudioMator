@@ -683,19 +683,50 @@ final class AudioViewModel: ObservableObject {
     }
 
     nonisolated private static func loadAudioFiles(from urls: [URL], fileIDsByKey: [String: UUID]) async -> [AudioFile] {
-        var loaded: [AudioFile] = []
-        loaded.reserveCapacity(urls.count)
-
-        for url in urls {
+        let inputs: [(offset: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
             let key = urlKey(for: url)
-            guard let id = fileIDsByKey[key] else { continue }
+            guard let id = fileIDsByKey[key] else { return nil }
+            return (offset, url, id)
+        }
 
-            if let file = try? await AudioFile(url: url, id: id) {
-                loaded.append(file)
+        guard !inputs.isEmpty else { return [] }
+
+        // Keep a small amount of parallelism so imports/rescans do not block on fully serial I/O.
+        let maxConcurrentLoads = min(4, inputs.count)
+        var nextInputIndex = maxConcurrentLoads
+        var loadedByOffset: [(Int, AudioFile)] = []
+        loadedByOffset.reserveCapacity(inputs.count)
+
+        await withTaskGroup(of: (Int, AudioFile?).self) { group in
+            for input in inputs.prefix(maxConcurrentLoads) {
+                group.addTask {
+                    (
+                        input.offset,
+                        try? await AudioFile(url: input.url, id: input.id)
+                    )
+                }
+            }
+
+            while let (offset, file) = await group.next() {
+                if let file {
+                    loadedByOffset.append((offset, file))
+                }
+
+                guard nextInputIndex < inputs.count else { continue }
+                let input = inputs[nextInputIndex]
+                nextInputIndex += 1
+
+                group.addTask {
+                    (
+                        input.offset,
+                        try? await AudioFile(url: input.url, id: input.id)
+                    )
+                }
             }
         }
 
-        return loaded
+        loadedByOffset.sort { $0.0 < $1.0 }
+        return loadedByOffset.map(\.1)
     }
 
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {

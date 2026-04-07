@@ -10,3 +10,6 @@ DerivedData/
 *.xcresult
 *.xcresult/
 TestResults/
+
+# Local scratch data and audio test fixtures
+.tmp/

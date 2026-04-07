@@ -11,7 +11,8 @@ import AVFoundation
 import CoreMedia
 import AppKit
 
-struct AudioFile: Identifiable {
+// Loaded off the main actor and then treated as an immutable snapshot in the UI.
+struct AudioFile: Identifiable, @unchecked Sendable {
     let id: UUID
 
     // MARK: – Basic Tags
@@ -229,6 +230,27 @@ struct AudioFile: Identifiable {
         return ""
     }
 
+    private static func readArtworkData(from metadata: [AVMetadataItem]) async -> Data? {
+        let commonArtwork = AVMetadataItem.metadataItems(
+            from: metadata,
+            withKey: AVMetadataKey.commonKeyArtwork,
+            keySpace: .common
+        )
+
+        guard let item = commonArtwork.first else { return nil }
+
+        if let data = try? await item.load(.dataValue) {
+            return data
+        }
+
+        if let value = try? await item.load(.value),
+           let data = value as? Data {
+            return data
+        }
+
+        return nil
+    }
+
     init(url: URL, id: UUID = UUID()) async throws {
         self.id = id
         self.url = url
@@ -302,7 +324,8 @@ struct AudioFile: Identifiable {
         // MARK: – Technical info with TagLib fallback
 
         var durationSeconds = tag.duration
-        if let durationTime = try? await asset.load(.duration) {
+        if durationSeconds <= 0,
+           let durationTime = try? await asset.load(.duration) {
             let seconds = CMTimeGetSeconds(durationTime)
             if seconds.isFinite && seconds >= 0 {
                 durationSeconds = seconds
@@ -315,7 +338,13 @@ struct AudioFile: Identifiable {
         var channelsCount = tag.channels
         var formatName = tag.format
 
-        if let audioTracks = try? await asset.loadTracks(withMediaType: .audio),
+        let needsAudioTrackFallback =
+            bitrateKbps <= 0 ||
+            sampleRateHz <= 0 ||
+            channelsCount <= 0
+
+        if needsAudioTrackFallback,
+           let audioTracks = try? await asset.loadTracks(withMediaType: .audio),
            let track = audioTracks.first {
             if let estimatedRate = try? await track.load(.estimatedDataRate) {
                 let avBitrate = Int(estimatedRate / 1000)
@@ -354,24 +383,8 @@ struct AudioFile: Identifiable {
 
         // MARK: – Artwork with TagLib fallback
 
-        let metadataItems = (try? await asset.load(.commonMetadata)) ?? []
-        let commonArtwork = AVMetadataItem.metadataItems(
-            from: metadataItems,
-            withKey: AVMetadataKey.commonKeyArtwork,
-            keySpace: .common
-        )
-
-        if let item = commonArtwork.first {
-            if let data = try? await item.load(.dataValue) {
-                self.artwork = NSImage(data: data)
-            } else if let value = try? await item.load(.value),
-                      let data = value as? Data {
-                self.artwork = NSImage(data: data)
-            } else if let data = tag.artworkData {
-                self.artwork = NSImage(data: data)
-            } else {
-                self.artwork = nil
-            }
+        if let data = await AudioFile.readArtworkData(from: allMetadataItems) {
+            self.artwork = NSImage(data: data)
         } else if let data = tag.artworkData {
             self.artwork = NSImage(data: data)
         } else {

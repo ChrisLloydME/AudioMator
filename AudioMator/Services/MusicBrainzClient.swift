@@ -231,6 +231,8 @@ struct MusicBrainzReleaseMatchTrack: Identifiable, Equatable, Hashable {
     let mediumTitle: String
     let mediumFormat: String
     let mediumPosition: Int
+    let mediumTrackCount: Int
+    let releaseMediumCount: Int
     let number: String
     let title: String
     let artistCredit: String
@@ -2596,6 +2598,8 @@ private enum MusicBrainzFileSelectionMatcher {
                     mediumTitle: medium.title,
                     mediumFormat: medium.format,
                     mediumPosition: mediumIndex + 1,
+                    mediumTrackCount: max(medium.trackCount, medium.tracks.count),
+                    releaseMediumCount: max(release.media.count, 1),
                     number: track.number,
                     title: track.title,
                     artistCredit: track.artistCredit,

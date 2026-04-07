@@ -158,12 +158,7 @@ open AudioMator.xcodeproj
 ### Command-Line Build
 
 ```bash
-xcodebuild \
-  -project AudioMator.xcodeproj \
-  -scheme AudioMator \
-  -configuration Debug \
-  -derivedDataPath .deriveddata \
-  build
+./scripts/codex-build.sh
 ```
 
 ## Build Notes
@@ -173,6 +168,9 @@ xcodebuild \
 - Swift version: `5.0`
 - Deployment target: macOS `26.1`
 - The checked-in project uses Apple code signing settings, so you may need to replace the signing team or certificate before local builds succeed
+- `AudioMator/AppIcon.icon` uses Apple's newer `.icon` format. In the Codex CLI sandbox, `actool` can crash while compiling it even when the same project builds correctly in the full Xcode app.
+- `./scripts/codex-build.sh` keeps code signing disabled for CLI checks and treats that specific `.icon` `actool` crash as an environment limitation instead of a project configuration error.
+- For final release validation of the app icon itself, build from Xcode on the local desktop.
 
 ## Project Structure
 

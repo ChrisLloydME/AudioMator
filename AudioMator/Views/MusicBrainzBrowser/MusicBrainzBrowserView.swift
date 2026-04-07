@@ -4,6 +4,7 @@ struct MusicBrainzBrowserView: View {
     static let windowID = "musicbrainz-browser"
 
     @ObservedObject var store: MusicBrainzBrowserStore
+    @ObservedObject var viewModel: AudioViewModel
     @State private var navigationPath: [MusicBrainzBrowserDestination] = []
 
     var body: some View {
@@ -16,7 +17,11 @@ struct MusicBrainzBrowserView: View {
                 content
             }
             .navigationDestination(for: MusicBrainzBrowserDestination.self) { destination in
-                MusicBrainzMetadataDetailView(store: store, destination: destination)
+                MusicBrainzMetadataDetailView(
+                    store: store,
+                    viewModel: viewModel,
+                    destination: destination
+                )
             }
         }
         .frame(minWidth: 920, minHeight: 620)

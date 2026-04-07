@@ -319,6 +319,10 @@ final class MusicBrainzBrowserStore: ObservableObject {
         }
     }
 
+    func recordingDetail(id: String) async throws -> MusicBrainzRecordingDetail {
+        try await client.recordingDetail(id: id, fallbackReleases: [])
+    }
+
     private func resetNavigation() {
         navigationResetToken = UUID()
     }

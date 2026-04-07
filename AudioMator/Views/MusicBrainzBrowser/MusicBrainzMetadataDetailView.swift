@@ -5,9 +5,11 @@ import WebKit
 
 struct MusicBrainzMetadataDetailView: View {
     let store: MusicBrainzBrowserStore
+    let viewModel: AudioViewModel
     let destination: MusicBrainzBrowserDestination
 
     @State private var loadState: LoadState = .loading
+    @State private var workbenchStore: MusicBrainzTaggingWorkbenchStore?
 
     var body: some View {
         Group {
@@ -34,6 +36,14 @@ struct MusicBrainzMetadataDetailView: View {
         .navigationTitle(navigationTitle)
         .task(id: destination.id) {
             await loadMetadata()
+        }
+        .sheet(item: $workbenchStore) { workbenchStore in
+            NavigationStack {
+                MusicBrainzTaggingWorkbenchView(
+                    store: workbenchStore,
+                    viewModel: viewModel
+                )
+            }
         }
     }
 
@@ -164,6 +174,23 @@ struct MusicBrainzMetadataDetailView: View {
 
             MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
                 MetadataInfoRows(items: overviewItems)
+
+                if preview.totalSelectedFiles > 0 {
+                    MetadataCardDivider()
+
+                    MetadataButtonRow(
+                        title: "Review & Apply Tags",
+                        subtitle: "Adjust assignments and choose exactly which fields to write",
+                        symbolName: "square.and.pencil"
+                    ) {
+                        workbenchStore = MusicBrainzTaggingWorkbenchStore(
+                            release: detail,
+                            preview: preview,
+                            loadedFiles: viewModel.files,
+                            browserStore: store
+                        )
+                    }
+                }
 
                 if !preview.matchedAssignments.isEmpty {
                     MetadataCardDivider()
@@ -579,7 +606,7 @@ private enum MetadataComparisonStatus {
     }
 }
 
-private struct MetadataSectionCard<Content: View>: View {
+struct MetadataSectionCard<Content: View>: View {
     let title: String
     let symbolName: String?
     @ViewBuilder let content: Content
@@ -695,6 +722,47 @@ private struct MetadataActionRow: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct MetadataButtonRow: View {
+    let title: String
+    let subtitle: String
+    let symbolName: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 18) {
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.system(size: 13))
+
+                        if !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } icon: {
+                    Image(systemName: symbolName)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18)
+                }
+
+                Spacer(minLength: 12)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1121,7 +1189,7 @@ private struct MetadataComparisonRowView: View {
     }
 }
 
-private struct MetadataCardDivider: View {
+struct MetadataCardDivider: View {
     var body: some View {
         Divider()
             .padding(.leading, 18)

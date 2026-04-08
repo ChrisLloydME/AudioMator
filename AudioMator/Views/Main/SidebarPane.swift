@@ -61,7 +61,11 @@ struct SidebarPane: View {
         Binding(
             get: { state.selectedSidebarItem },
             set: { newSelection in
-                state.selectedSidebarItem = newSelection
+                guard state.selectedSidebarItem != newSelection else { return }
+
+                DispatchQueue.main.async {
+                    state.selectedSidebarItem = newSelection
+                }
             }
         )
     }

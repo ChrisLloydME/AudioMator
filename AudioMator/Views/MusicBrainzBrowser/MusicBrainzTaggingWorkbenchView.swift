@@ -25,7 +25,14 @@ struct MusicBrainzTaggingWorkbenchView: View {
 
             actionBar
         }
-        .frame(minWidth: 1040, minHeight: 760)
+        .frame(
+            minWidth: 920,
+            idealWidth: 960,
+            maxWidth: 1100,
+            minHeight: 600,
+            idealHeight: 640,
+            maxHeight: 820
+        )
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle("Review & Apply Tags")
         .task {

@@ -53,7 +53,9 @@ struct ContentView: View {
                 onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
                 onOpenTrackRenumber: openTrackRenumberSheet,
                 onCancelEdits: viewModel.cancelEditing,
-                onSaveEdits: viewModel.saveInspectorEdits
+                onSaveEdits: viewModel.saveInspectorEdits,
+                isInspectorVisible: isInspectorVisible,
+                onToggleInspector: toggleInspector
             )
         } detail: {
             Group {
@@ -77,16 +79,6 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    toggleInspector()
-                } label: {
-                    Image(systemName: "sidebar.right")
-                }
-                .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
-            }
-        }
         .sheet(isPresented: $isMetadataDumpPresented) {
             MetadataDumpSheet(
                 metadataDumpText: metadataDumpText,

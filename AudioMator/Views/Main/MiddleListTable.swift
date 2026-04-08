@@ -6,6 +6,7 @@ struct MiddleListTable: NSViewRepresentable {
     @Binding var selection: Set<AudioFile.ID>
     @Binding var visibleColumns: Set<MiddleListColumn>
     @Binding var customOrder: [AudioFile.ID]
+    @Binding var middleListSort: MiddleListSort?
     let onOpenSelectedFiles: () -> Void
     let onRevealSelectedFilesInFinder: () -> Void
     let onCopySelectedFilePaths: () -> Void
@@ -48,6 +49,7 @@ extension MiddleListTable {
 
         private weak var tableView: MiddleListNSTableView?
         private var isApplyingSelection = false
+        private var isApplyingSortDescriptors = false
         private var currentColumnLayout: [MiddleListColumn] = []
         private var currentRowSnapshots: [RowSnapshot] = []
         private var draggedIDs: [AudioFile.ID] = []
@@ -110,6 +112,7 @@ extension MiddleListTable {
                 )
             }
 
+            syncSortDescriptors(on: tableView)
             updateMenus(on: tableView)
             syncSelection(on: tableView)
         }
@@ -165,7 +168,7 @@ extension MiddleListTable {
             willBeginAt screenPoint: NSPoint,
             forRowIndexes rowIndexes: IndexSet
         ) {
-            if parent.customOrder.isEmpty {
+            if parent.middleListSort == nil, parent.customOrder.isEmpty {
                 parent.customOrder = parent.files.map(\.id)
             }
 
@@ -222,7 +225,25 @@ extension MiddleListTable {
             guard reorderedIDs != currentIDs else { return false }
 
             parent.customOrder = reorderedIDs
+            parent.middleListSort = nil
             return true
+        }
+
+        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            guard !isApplyingSortDescriptors else { return }
+
+            guard
+                let descriptor = tableView.sortDescriptors.first,
+                let key = descriptor.key,
+                let column = MiddleListColumn(rawValue: key)
+            else {
+                parent.middleListSort = nil
+                return
+            }
+
+            let newSort = MiddleListSort(column: column, ascending: descriptor.ascending)
+            guard parent.middleListSort != newSort else { return }
+            parent.middleListSort = newSort
         }
 
         func menuNeedsUpdate(_ menu: NSMenu) {
@@ -295,9 +316,17 @@ extension MiddleListTable {
             }
 
             parent.visibleColumns = updated
+            if !updated.contains(column), parent.middleListSort?.column == column {
+                parent.middleListSort = nil
+            }
             if let tableView {
                 updateMenus(on: tableView)
             }
+        }
+
+        @objc
+        private func useManualOrderAction() {
+            parent.middleListSort = nil
         }
 
         fileprivate func prepareContextMenu(forRow row: Int) {
@@ -350,6 +379,7 @@ extension MiddleListTable {
                 tableColumn.title = column.displayName
                 tableColumn.minWidth = 48
                 tableColumn.width = defaultWidth(for: column)
+                tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: column.rawValue, ascending: true)
                 tableView.addTableColumn(tableColumn)
             }
 
@@ -381,6 +411,34 @@ extension MiddleListTable {
             return strings.compactMap(UUID.init(uuidString:)).filter { id in
                 parent.files.contains { $0.id == id }
             }
+        }
+
+        private func syncSortDescriptors(on tableView: NSTableView) {
+            let desiredDescriptors: [NSSortDescriptor]
+            if let middleListSort = parent.middleListSort,
+               currentColumnLayout.contains(middleListSort.column) {
+                desiredDescriptors = [NSSortDescriptor(key: middleListSort.column.rawValue, ascending: middleListSort.ascending)]
+            } else {
+                desiredDescriptors = []
+            }
+
+            guard !sortDescriptorsMatch(tableView.sortDescriptors, desiredDescriptors) else { return }
+
+            isApplyingSortDescriptors = true
+            tableView.sortDescriptors = desiredDescriptors
+            isApplyingSortDescriptors = false
+        }
+
+        private func sortDescriptorsMatch(_ lhs: [NSSortDescriptor], _ rhs: [NSSortDescriptor]) -> Bool {
+            guard lhs.count == rhs.count else { return false }
+
+            for (left, right) in zip(lhs, rhs) {
+                if left.key != right.key || left.ascending != right.ascending {
+                    return false
+                }
+            }
+
+            return true
         }
 
         private func makeRowSnapshots(for files: [AudioFile]) -> [RowSnapshot] {
@@ -423,6 +481,12 @@ extension MiddleListTable {
         private func makeHeaderMenu() -> NSMenu {
             let menu = NSMenu(title: "Columns")
             menu.autoenablesItems = false
+
+            let manualOrderItem = makeMenuItem(title: "Manual Order", action: #selector(useManualOrderAction))
+            manualOrderItem.state = parent.middleListSort == nil ? .on : .off
+            manualOrderItem.isEnabled = parent.middleListSort != nil
+            menu.addItem(manualOrderItem)
+            menu.addItem(.separator())
 
             for column in MiddleListColumn.allCases {
                 let item = NSMenuItem(

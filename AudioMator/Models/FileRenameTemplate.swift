@@ -196,12 +196,12 @@ func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenam
     return builder.makePlan(document: document, targetFiles: targetFiles)
 }
 
-private enum FileRenameTemplateSegment: Equatable {
+enum FileRenameTemplateSegment: Equatable {
     case literal(String)
     case field(FileRenameMetadataField)
 }
 
-private struct FileRenameTemplateDocument: Equatable {
+struct FileRenameTemplateDocument: Equatable {
     let rawValue: String
     let segments: [FileRenameTemplateSegment]
 
@@ -212,6 +212,16 @@ private struct FileRenameTemplateDocument: Equatable {
 
     var isVisuallyEmpty: Bool {
         rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var containsFieldSegments: Bool {
+        segments.contains { segment in
+            if case .field = segment {
+                return true
+            }
+
+            return false
+        }
     }
 }
 

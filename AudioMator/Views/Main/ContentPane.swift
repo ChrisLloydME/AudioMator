@@ -13,6 +13,8 @@ struct ContentPane: View {
     let onOpenTrackRenumber: () -> Void
     let onCancelEdits: () -> Void
     let onSaveEdits: () -> Void
+    let isInspectorVisible: Bool
+    let onToggleInspector: () -> Void
 
     @State private var isEraseAllTagsConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
@@ -53,12 +55,14 @@ struct ContentPane: View {
                         .disabled(!isQuickImportMode)
                     }
 
-                    if visibleToolbarButtons.contains(.tagInspector) {
-                        Button(action: onShowMetadataDump) {
-                            Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
+                    if visibleToolbarButtons.contains(.clearList) {
+                        Button(role: .destructive) {
+                            isClearListConfirmPresented = true
+                        } label: {
+                            Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
                         }
-                        .help("View raw metadata")
-                        .disabled(state.selectedAudioIDs.isEmpty)
+                        .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
+                        .disabled(!isQuickImportMode || viewModel.files.isEmpty)
                     }
 
                     if visibleToolbarButtons.contains(.renumberTracks) {
@@ -67,13 +71,6 @@ struct ContentPane: View {
                         }
                         .help("Renumber tracks in list order")
                         .disabled(viewModel.files.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.musicBrainzBrowser) {
-                        Button(action: onOpenMusicBrainzBrowser) {
-                            Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
-                        }
-                        .help("Open MusicBrainz Browser")
                     }
 
                     if visibleToolbarButtons.contains(.renameFiles) {
@@ -92,14 +89,19 @@ struct ContentPane: View {
                         .disabled(state.selectedAudioIDs.isEmpty)
                     }
 
-                    if visibleToolbarButtons.contains(.clearList) {
-                        Button(role: .destructive) {
-                            isClearListConfirmPresented = true
-                        } label: {
-                            Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
+                    if visibleToolbarButtons.contains(.tagInspector) {
+                        Button(action: onShowMetadataDump) {
+                            Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
                         }
-                        .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
-                        .disabled(!isQuickImportMode || viewModel.files.isEmpty)
+                        .help("View raw metadata")
+                        .disabled(state.selectedAudioIDs.isEmpty)
+                    }
+
+                    if visibleToolbarButtons.contains(.musicBrainzBrowser) {
+                        Button(action: onOpenMusicBrainzBrowser) {
+                            Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
+                        }
+                        .help("Open MusicBrainz Browser")
                     }
 
                     if visibleToolbarButtons.contains(.cancelEdits) {
@@ -111,6 +113,11 @@ struct ContentPane: View {
                         Button("Save", action: onSaveEdits)
                             .disabled(state.selectedAudioIDs.isEmpty)
                     }
+
+                    Button(action: onToggleInspector) {
+                        Image(systemName: "sidebar.right")
+                    }
+                    .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
                 }
             }
             .confirmationDialog(

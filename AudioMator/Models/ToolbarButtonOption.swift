@@ -51,7 +51,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         case .importField:
             return "arrow.down.doc"
         case .clearList:
-            return "trash"
+            return "text.badge.minus"
         case .cancelEdits:
             return "xmark.circle"
         case .saveEdits:

@@ -19,11 +19,7 @@ struct TrackRenumberSheet: View {
     }
 
     private var orderedIDs: [AudioFile.ID] {
-        let ids = state.customOrder.isEmpty
-            ? viewModel.files.map(\.id)
-            : state.customOrder
-        let existingIDs = Set(viewModel.files.map(\.id))
-        return ids.filter { existingIDs.contains($0) }
+        state.orderedMiddleListIDs(from: viewModel.files)
     }
 
     private var targetIDs: [AudioFile.ID] {
@@ -423,10 +419,6 @@ struct TrackRenumberSheet: View {
         trackRenumberOptions.startNumber = max(0, parsed)
         trackRenumberStartText = String(trackRenumberOptions.startNumber)
 
-        let orderedIDs: [AudioFile.ID] = state.customOrder.isEmpty
-            ? viewModel.files.map { $0.id }
-            : state.customOrder
-
         let selected = state.selectedAudioIDs
 
         isTrackRenumberRunning = true
@@ -434,7 +426,7 @@ struct TrackRenumberSheet: View {
 
         Task {
             let result = await viewModel.renumberTrackNumbers(
-                orderedIDs: orderedIDs,
+                orderedIDs: state.orderedMiddleListIDs(from: viewModel.files),
                 selectedIDs: selected,
                 options: trackRenumberOptions
             )

@@ -38,29 +38,7 @@ struct ContentPane: View {
     }
 
     private var orderedFiles: [AudioFile] {
-        // If no custom order yet, fall back to the raw array order
-        if state.customOrder.isEmpty {
-            return viewModel.files
-        }
-
-        // Map ids -> file and emit in custom order
-        let map = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
-        var result: [AudioFile] = []
-        result.reserveCapacity(viewModel.files.count)
-
-        for id in state.customOrder {
-            if let file = map[id] {
-                result.append(file)
-            }
-        }
-
-        // Append any new files that are not in the order array yet (e.g. newly imported)
-        let existing = Set(result.map { $0.id })
-        for file in viewModel.files where !existing.contains(file.id) {
-            result.append(file)
-        }
-
-        return result
+        state.orderedMiddleListFiles(from: viewModel.files)
     }
 
     var body: some View {
@@ -186,6 +164,7 @@ struct ContentPane: View {
                     selection: selection,
                     visibleColumns: $state.visibleMiddleListColumns,
                     customOrder: $state.customOrder,
+                    middleListSort: $state.middleListSort,
                     onOpenSelectedFiles: openSelectedFiles,
                     onRevealSelectedFilesInFinder: revealSelectedFilesInFinder,
                     onCopySelectedFilePaths: copySelectedFilePaths,

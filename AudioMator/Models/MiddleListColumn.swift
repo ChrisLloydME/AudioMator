@@ -130,4 +130,114 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
             return file.format
         }
     }
+
+    func compare(_ lhs: AudioFile, _ rhs: AudioFile) -> ComparisonResult {
+        switch self {
+        case .filename:
+            return compareText(lhs.url.lastPathComponent, rhs.url.lastPathComponent)
+        case .title:
+            return compareText(lhs.title, rhs.title)
+        case .artist:
+            return compareText(lhs.artist, rhs.artist)
+        case .album:
+            return compareText(lhs.album, rhs.album)
+        case .albumArtist:
+            return compareText(lhs.albumArtist, rhs.albumArtist)
+        case .composer:
+            return compareText(lhs.composer, rhs.composer)
+        case .genre:
+            return compareText(lhs.genre, rhs.genre)
+        case .year:
+            return compareText(lhs.year, rhs.year)
+        case .track:
+            return compareTrackIndex(
+                number: lhs.track,
+                total: lhs.trackTotal,
+                rawText: lhs.trackNumberText,
+                againstNumber: rhs.track,
+                againstTotal: rhs.trackTotal,
+                againstRawText: rhs.trackNumberText
+            )
+        case .disc:
+            return compareTrackIndex(
+                number: lhs.disc,
+                total: lhs.discTotal,
+                rawText: lhs.discNumberText,
+                againstNumber: rhs.disc,
+                againstTotal: rhs.discTotal,
+                againstRawText: rhs.discNumberText
+            )
+        case .comment:
+            return compareText(lhs.comment, rhs.comment)
+        case .releaseDate:
+            return compareText(lhs.releaseDate, rhs.releaseDate)
+        case .publisher:
+            return compareText(lhs.publisher, rhs.publisher)
+        case .copyright:
+            return compareText(lhs.copyright, rhs.copyright)
+        case .credits:
+            return compareText(lhs.credits, rhs.credits)
+        case .explicit:
+            return compareBool(lhs.isExplicit, rhs.isExplicit)
+        case .duration:
+            return compareDouble(lhs.duration, rhs.duration)
+        case .bitrate:
+            return compareInt(lhs.bitrate, rhs.bitrate)
+        case .sampleRate:
+            return compareDouble(lhs.sampleRate, rhs.sampleRate)
+        case .channels:
+            return compareInt(lhs.channels, rhs.channels)
+        case .format:
+            return compareText(lhs.format, rhs.format)
+        }
+    }
+
+    private func compareText(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        lhs.localizedStandardCompare(rhs)
+    }
+
+    private func compareInt(_ lhs: Int, _ rhs: Int) -> ComparisonResult {
+        if lhs < rhs {
+            return .orderedAscending
+        }
+        if lhs > rhs {
+            return .orderedDescending
+        }
+        return .orderedSame
+    }
+
+    private func compareDouble(_ lhs: Double, _ rhs: Double) -> ComparisonResult {
+        if lhs < rhs {
+            return .orderedAscending
+        }
+        if lhs > rhs {
+            return .orderedDescending
+        }
+        return .orderedSame
+    }
+
+    private func compareBool(_ lhs: Bool, _ rhs: Bool) -> ComparisonResult {
+        compareInt(lhs ? 1 : 0, rhs ? 1 : 0)
+    }
+
+    private func compareTrackIndex(
+        number lhsNumber: Int,
+        total lhsTotal: Int,
+        rawText lhsRawText: String,
+        againstNumber rhsNumber: Int,
+        againstTotal rhsTotal: Int,
+        againstRawText rhsRawText: String
+    ) -> ComparisonResult {
+        let numberResult = compareInt(lhsNumber, rhsNumber)
+        if numberResult != .orderedSame {
+            return numberResult
+        }
+
+        let totalResult = compareInt(lhsTotal, rhsTotal)
+        if totalResult != .orderedSame {
+            return totalResult
+        }
+
+        return compareText(lhsRawText, rhsRawText)
+    }
 }

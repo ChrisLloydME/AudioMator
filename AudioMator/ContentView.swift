@@ -158,7 +158,8 @@ struct ContentView: View {
     }
 
     private func openMusicBrainzBrowser() {
-        musicBrainzBrowserStore.apply(seed: currentMusicBrainzSearchSeed())
+        let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
+        musicBrainzBrowserStore.apply(seed: seed)
         openWindow(id: MusicBrainzBrowserView.windowID)
 
         if musicBrainzBrowserStore.hasSearchText {

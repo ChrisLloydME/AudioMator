@@ -249,17 +249,17 @@ struct ContentView: View {
 
     private func currentMusicBrainzSearchSeed() -> MusicBrainzSearchSeed? {
         let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-        guard let selectedFile = selectedFiles.first else { return nil }
         let fileInputs = musicBrainzFileInputs(from: selectedFiles)
+        guard let selectedInput = fileInputs.first else { return nil }
 
         if selectedFiles.count == 1, let edit = viewModel.edit {
             return MusicBrainzSearchSeed(
                 mode: .track,
-                title: edit.title,
-                artist: edit.artist,
-                albumArtist: edit.albumArtist,
-                album: edit.album,
-                trackNumber: edit.trackNumberText,
+                title: preferredMusicBrainzSeedValue(edit.title, fallback: selectedInput.title),
+                artist: preferredMusicBrainzSeedValue(edit.artist, fallback: selectedInput.artist),
+                albumArtist: preferredMusicBrainzSeedValue(edit.albumArtist, fallback: selectedInput.albumArtist),
+                album: preferredMusicBrainzSeedValue(edit.album, fallback: selectedInput.album),
+                trackNumber: preferredMusicBrainzSeedValue(edit.trackNumberText, fallback: selectedInput.trackNumber),
                 trackTotal: 0,
                 durationMilliseconds: nil,
                 releaseDate: "",
@@ -269,24 +269,24 @@ struct ContentView: View {
                 musicBrainzTrackID: "",
                 fileInputs: fileInputs,
                 link: "",
-                sourceDescription: "From the current inspector fields."
+                sourceDescription: "From the current inspector fields, with filename and path fallback for blanks."
             )
         }
 
         let sourceDescription: String
         if selectedFiles.count == 1 {
-            sourceDescription = "From the selected file metadata."
+            sourceDescription = "From the selected file metadata, filename, and path."
         } else {
-            sourceDescription = "From the first of \(selectedFiles.count) selected files."
+            sourceDescription = "From the first of \(selectedFiles.count) selected files, with filename and path fallback."
         }
 
         return MusicBrainzSearchSeed(
             mode: .track,
-            title: selectedFile.title,
-            artist: selectedFile.artist,
-            albumArtist: selectedFile.albumArtist,
-            album: selectedFile.album,
-            trackNumber: selectedFile.trackNumberText,
+            title: selectedInput.title,
+            artist: selectedInput.artist,
+            albumArtist: selectedInput.albumArtist,
+            album: selectedInput.album,
+            trackNumber: selectedInput.trackNumber,
             trackTotal: 0,
             durationMilliseconds: nil,
             releaseDate: "",
@@ -302,21 +302,21 @@ struct ContentView: View {
 
     private func currentMusicBrainzMatchSeed() -> MusicBrainzSearchSeed? {
         let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
-        guard let selectedFile = selectedFiles.first else { return nil }
         let fileInputs = musicBrainzFileInputs(from: selectedFiles)
+        guard let selectedFile = selectedFiles.first, let selectedInput = fileInputs.first else { return nil }
 
         return MusicBrainzSearchSeed(
             mode: .file,
-            title: selectedFile.title,
-            artist: selectedFile.artist,
-            albumArtist: selectedFile.albumArtist,
-            album: selectedFile.album,
-            trackNumber: selectedFile.trackNumberText,
+            title: selectedInput.title,
+            artist: selectedInput.artist,
+            albumArtist: selectedInput.albumArtist,
+            album: selectedInput.album,
+            trackNumber: selectedInput.trackNumber,
             trackTotal: selectedFile.trackTotal,
             durationMilliseconds: selectedFile.duration.isFinite && selectedFile.duration > 0
                 ? Int((selectedFile.duration * 1000).rounded())
                 : nil,
-            releaseDate: selectedFile.releaseDate.isEmpty ? selectedFile.year : selectedFile.releaseDate,
+            releaseDate: selectedInput.releaseDate,
             isrc: selectedFile.isrc,
             barcode: selectedFile.barcode,
             musicBrainzAlbumID: selectedFile.musicBrainzAlbumID,
@@ -324,33 +324,22 @@ struct ContentView: View {
             fileInputs: fileInputs,
             link: "",
             sourceDescription: selectedFiles.count == 1
-                ? "From the selected file metadata."
-                : "From \(selectedFiles.count) selected files."
+                ? "From the selected file metadata, filename, and path."
+                : "From \(selectedFiles.count) selected files, with filename and path fallback."
         )
     }
 
     private func musicBrainzFileInputs(from files: [AudioFile]) -> [MusicBrainzFileSearchInput] {
-        files.map { file in
-            MusicBrainzFileSearchInput(
-                id: file.id.uuidString,
-                displayTitle: file.title.isEmpty ? file.url.lastPathComponent : file.title,
-                title: file.title,
-                artist: file.artist,
-                albumArtist: file.albumArtist,
-                album: file.album,
-                trackNumber: file.trackNumberText,
-                discNumber: file.discNumberText,
-                trackTotal: file.trackTotal,
-                durationMilliseconds: file.duration.isFinite && file.duration > 0
-                    ? Int((file.duration * 1000).rounded())
-                    : nil,
-                releaseDate: file.releaseDate.isEmpty ? file.year : file.releaseDate,
-                isrc: file.isrc,
-                barcode: file.barcode,
-                musicBrainzAlbumID: file.musicBrainzAlbumID,
-                musicBrainzTrackID: file.musicBrainzTrackID
-            )
+        files.map { MusicBrainzFilenameFallbackResolver.makeSearchInput(for: $0) }
+    }
+
+    private func preferredMusicBrainzSeedValue(_ primary: String, fallback: String) -> String {
+        let trimmedPrimary = primary.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPrimary.isEmpty {
+            return trimmedPrimary
         }
+
+        return fallback.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func toggleInspector() {

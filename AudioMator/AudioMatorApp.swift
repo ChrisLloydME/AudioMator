@@ -133,34 +133,34 @@ struct ToolbarEditCommands: Commands {
             Button {
                 NotificationCenter.default.post(name: .requestMetadataDump, object: nil)
             } label: {
-                Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+                Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestTrackRenumber, object: nil)
             } label: {
-                Label("Renumber Tracks…", systemImage: "number")
+                Label("Renumber Tracks…", systemImage: ToolbarButtonOption.renumberTracks.systemImage)
             }
             .disabled(viewModel.files.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestMetadataFilenameRename, object: nil)
             } label: {
-                Label("Rename Files…", systemImage: "pencil.line")
+                Label("Rename Files…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestMusicBrainzBrowser, object: nil)
             } label: {
-                Label("MusicBrainz Browser", systemImage: "network")
+                Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
             }
 
             Button(role: .destructive) {
                 NotificationCenter.default.post(name: .requestClearListConfirmation, object: nil)
             } label: {
-                Label("Clear List", systemImage: "trash")
+                Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
             }
             .keyboardShortcut(.delete, modifiers: [])
             .disabled(sharedState.currentFileSourceMode != .quickImport || viewModel.files.isEmpty)
@@ -170,14 +170,14 @@ struct ToolbarEditCommands: Commands {
             Button {
                 viewModel.cancelEditing()
             } label: {
-                Label("Cancel Edits", systemImage: "xmark.circle")
+                Label("Cancel Edits", systemImage: ToolbarButtonOption.cancelEdits.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 
             Button {
                 viewModel.saveSingleEdits()
             } label: {
-                Label("Save Edits", systemImage: "square.and.arrow.down")
+                Label("Save Edits", systemImage: ToolbarButtonOption.saveEdits.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
         }

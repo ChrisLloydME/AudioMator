@@ -55,7 +55,7 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.tagInspector) {
                         Button(action: onShowMetadataDump) {
-                            Label("Tag Inspector", systemImage: "doc.text.magnifyingglass")
+                            Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
                         }
                         .help("View raw metadata")
                         .disabled(state.selectedAudioIDs.isEmpty)
@@ -63,7 +63,7 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.renumberTracks) {
                         Button(action: onOpenTrackRenumber) {
-                            Label("Renumber Tracks…", systemImage: "number")
+                            Label("Renumber Tracks…", systemImage: ToolbarButtonOption.renumberTracks.systemImage)
                         }
                         .help("Renumber tracks in list order")
                         .disabled(viewModel.files.isEmpty)
@@ -71,14 +71,14 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.musicBrainzBrowser) {
                         Button(action: onOpenMusicBrainzBrowser) {
-                            Label("MusicBrainz Browser", systemImage: "network")
+                            Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
                         }
                         .help("Open MusicBrainz Browser")
                     }
 
                     if visibleToolbarButtons.contains(.renameFiles) {
                         Button(action: openMetadataFilenameRenameSheet) {
-                            Label("Rename Files…", systemImage: "pencil.line")
+                            Label("Rename Files…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
                         }
                         .help("Rename selected files from metadata")
                         .disabled(state.selectedAudioIDs.isEmpty)
@@ -86,7 +86,7 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.importField) {
                         Button(action: openTextMetadataImportSheet) {
-                            Label("Import Field…", systemImage: "square.and.arrow.down")
+                            Label("Import Field…", systemImage: ToolbarButtonOption.importField.systemImage)
                         }
                         .help("Import one field from a text file")
                         .disabled(state.selectedAudioIDs.isEmpty)
@@ -96,7 +96,7 @@ struct ContentPane: View {
                         Button(role: .destructive) {
                             isClearListConfirmPresented = true
                         } label: {
-                            Label("Clear List", systemImage: "trash")
+                            Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
                         }
                         .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
                         .disabled(!isQuickImportMode || viewModel.files.isEmpty)

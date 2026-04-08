@@ -36,5 +36,28 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         }
     }
 
+    var systemImage: String {
+        switch self {
+        case .addFiles:
+            return "plus"
+        case .tagInspector:
+            return "doc.text.magnifyingglass"
+        case .renumberTracks:
+            return "list.number.badge.ellipsis"
+        case .musicBrainzBrowser:
+            return "icloud.and.arrow.down"
+        case .renameFiles:
+            return "character.textbox"
+        case .importField:
+            return "arrow.down.doc"
+        case .clearList:
+            return "trash"
+        case .cancelEdits:
+            return "xmark.circle"
+        case .saveEdits:
+            return "square.and.arrow.down"
+        }
+    }
+
     static let defaultVisibleButtons: [ToolbarButtonOption] = Self.allCases
 }

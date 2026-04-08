@@ -842,10 +842,12 @@ struct MusicBrainzClient {
         }
 
         var candidates: [MusicBrainzReleaseSearchResult] = []
+        var filenameEvidenceByReleaseID: [String: Double] = [:]
         let selectionQuery = query.selectionReleaseQuery
 
         if let releaseID = selectionSummary.musicBrainzAlbumIDCandidate.validMBID {
             candidates.append(try await releaseSummary(id: releaseID))
+            filenameEvidenceByReleaseID[releaseID, default: 0] += 1.0
         }
 
         let strongQuery = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQuery(from: query)
@@ -858,13 +860,38 @@ struct MusicBrainzClient {
             candidates.append(contentsOf: try await searchReleases(luceneQuery: broadQuery, limit: 20))
         }
 
+        for candidate in try await releaseCandidatesFromRepresentativeFiles(selectionSummary) {
+            candidates.append(candidate.release)
+            filenameEvidenceByReleaseID[candidate.release.id, default: 0] += candidate.evidence
+        }
+
+        let deduplicatedCandidates = Self.deduplicatedReleases(candidates)
         let rerankedCandidates = MusicBrainzResultRanker.rerankReleases(
-            Self.deduplicatedReleases(candidates),
+            deduplicatedCandidates,
             query: selectionQuery
         )
+        let rerankedPositions = Dictionary(
+            uniqueKeysWithValues: rerankedCandidates.enumerated().map { ($1.id, $0) }
+        )
+        let orderedCandidates = deduplicatedCandidates.sorted { lhs, rhs in
+            let lhsEvidence = filenameEvidenceByReleaseID[lhs.id] ?? 0
+            let rhsEvidence = filenameEvidenceByReleaseID[rhs.id] ?? 0
+
+            if lhsEvidence != rhsEvidence {
+                return lhsEvidence > rhsEvidence
+            }
+
+            let lhsPosition = rerankedPositions[lhs.id] ?? Int.max
+            let rhsPosition = rerankedPositions[rhs.id] ?? Int.max
+            if lhsPosition != rhsPosition {
+                return lhsPosition < rhsPosition
+            }
+
+            return lhs.score > rhs.score
+        }
 
         var matchedResults: [MusicBrainzReleaseSearchResult] = []
-        for candidate in rerankedCandidates.prefix(5) {
+        for candidate in orderedCandidates.prefix(6) {
             do {
                 let detail = try await releaseDetail(id: candidate.id)
                 let preview = MusicBrainzFileSelectionMatcher.match(
@@ -888,13 +915,79 @@ struct MusicBrainzClient {
                 let rhsScore = rhs.selectionMatchScore ?? Double(rhs.score)
 
                 if lhsScore == rhsScore {
-                    return lhs.score > rhs.score
+                    let lhsEvidence = filenameEvidenceByReleaseID[lhs.id] ?? 0
+                    let rhsEvidence = filenameEvidenceByReleaseID[rhs.id] ?? 0
+
+                    if lhsEvidence == rhsEvidence {
+                        return lhs.score > rhs.score
+                    }
+
+                    return lhsEvidence > rhsEvidence
                 }
 
                 return lhsScore > rhsScore
             }
             .prefix(limit)
             .map { $0 }
+    }
+
+    private func releaseCandidatesFromRepresentativeFiles(
+        _ summary: MusicBrainzFileSelectionSummary
+    ) async throws -> [(release: MusicBrainzReleaseSearchResult, evidence: Double)] {
+        let representativeFiles = Self.representativeFilesForReleaseLookup(from: summary.files)
+        guard !representativeFiles.isEmpty else { return [] }
+
+        var evidenceByReleaseID: [String: Double] = [:]
+
+        for (fileIndex, file) in representativeFiles.enumerated() {
+            let title = file.title.isEmpty ? file.preferredDisplayTitle : file.title
+            guard !title.isEmpty else { continue }
+
+            let query = MusicBrainzSearchQuery(
+                mode: .file,
+                title: title,
+                artist: file.artist,
+                albumArtist: file.albumArtist,
+                album: file.album,
+                trackNumber: file.trackNumber,
+                trackTotal: file.trackTotal,
+                durationMilliseconds: file.durationMilliseconds,
+                releaseDate: file.releaseDate,
+                isrc: file.isrc,
+                barcode: file.barcode,
+                musicBrainzAlbumID: file.musicBrainzAlbumID,
+                musicBrainzTrackID: file.musicBrainzTrackID,
+                fileInputs: [file],
+                link: ""
+            )
+
+            let recordings = try await searchFiles(matching: query, limit: 6)
+            let fileWeight = max(0.45, 1.0 - (Double(fileIndex) * 0.2))
+
+            for (recordingIndex, recording) in recordings.prefix(4).enumerated() {
+                let recordingWeight = fileWeight * max(0.25, Double(recording.score) / 100.0) * max(0.4, 1.0 - (Double(recordingIndex) * 0.18))
+
+                for release in recording.releases.prefix(3) {
+                    evidenceByReleaseID[release.id, default: 0] += recordingWeight
+                }
+            }
+        }
+
+        guard !evidenceByReleaseID.isEmpty else { return [] }
+
+        var candidates: [(release: MusicBrainzReleaseSearchResult, evidence: Double)] = []
+        for releaseID in evidenceByReleaseID.keys
+            .sorted(by: { (evidenceByReleaseID[$0] ?? 0) > (evidenceByReleaseID[$1] ?? 0) })
+            .prefix(6) {
+            candidates.append(
+                (
+                    release: try await releaseSummary(id: releaseID),
+                    evidence: evidenceByReleaseID[releaseID] ?? 0
+                )
+            )
+        }
+
+        return candidates
     }
 
     func searchFiles(matching query: MusicBrainzSearchQuery, limit: Int = 50) async throws -> [MusicBrainzRecordingResult] {
@@ -1083,6 +1176,25 @@ struct MusicBrainzClient {
         }
 
         return orderedResults
+    }
+
+    private static func representativeFilesForReleaseLookup(
+        from files: [MusicBrainzFileSearchInput]
+    ) -> [MusicBrainzFileSearchInput] {
+        let orderedFiles = files
+            .filter { !$0.preferredDisplayTitle.isEmpty }
+            .sorted {
+                ($0.normalizedDiscNumber ?? 0, $0.normalizedTrackNumber ?? 0, $0.preferredDisplayTitle)
+                    < ($1.normalizedDiscNumber ?? 0, $1.normalizedTrackNumber ?? 0, $1.preferredDisplayTitle)
+            }
+
+        guard orderedFiles.count > 3 else {
+            return orderedFiles
+        }
+
+        let positions = [0, orderedFiles.count / 2, orderedFiles.count - 1]
+        let uniquePositions = Array(NSOrderedSet(array: positions)) as? [Int] ?? positions
+        return uniquePositions.map { orderedFiles[$0] }
     }
 
     private func performRequest(

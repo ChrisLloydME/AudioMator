@@ -220,38 +220,12 @@ struct MetadataFilenameRenameSheet: View {
                     ContentUnavailableView(
                         "Add a Template",
                         systemImage: "text.cursor",
-                        description: Text("Add text or metadata tokens to preview the new filenames.")
+                        description: Text("Add text or metadata fields to preview the new filenames.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
-                    Table(renamePlan.rows) {
-                        TableColumn("Current Name") { row in
-                            Text(row.currentName)
-                                .lineLimit(1)
-                        }
-                        .width(min: 220, ideal: 250)
-
-                        TableColumn("Preview") { row in
-                            Text(row.previewName)
-                                .lineLimit(2)
-                                .foregroundStyle(row.status.isError ? Color.orange : Color.primary)
-                        }
-                        .width(min: 260, ideal: 320)
-
-                        TableColumn("Status") { row in
-                            HStack(spacing: 6) {
-                                Image(systemName: row.status.symbolName)
-                                    .foregroundStyle(row.status.tint)
-
-                                Text(row.status.title)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(row.status.tint)
-                            }
-                            .help(row.status.message)
-                        }
-                        .width(min: 120, ideal: 140)
-                    }
-                    .frame(minHeight: 300)
+                    MetadataFilenameRenamePreviewList(rows: renamePlan.rows)
+                        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -327,6 +301,113 @@ struct MetadataFilenameRenameSheet: View {
                 isPresented = false
             }
         }
+    }
+}
+
+private struct MetadataFilenameRenamePreviewList: View {
+    let rows: [FileRenamePreviewRow]
+
+    var body: some View {
+        MetadataSectionCard(title: "Filename Comparison", symbolName: "arrow.left.arrow.right") {
+            MetadataFilenameRenameComparisonHeader()
+
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                MetadataFilenameRenameComparisonRowView(row: row)
+
+                if index < rows.count - 1 {
+                    MetadataCardDivider()
+                }
+            }
+        }
+    }
+}
+
+private struct MetadataFilenameRenameComparisonHeader: View {
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text("Status")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 118, alignment: .leading)
+
+            Text("Current Name")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 18)
+
+            Text("Preview")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 9)
+    }
+}
+
+private struct MetadataFilenameRenameComparisonRowView: View {
+    let row: FileRenamePreviewRow
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.status.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(row.status.tint)
+                    .multilineTextAlignment(.leading)
+
+                if row.status != .ready {
+                    Text(row.status.message)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .frame(width: 118, alignment: .leading)
+
+            MetadataFilenameRenameComparisonValue(
+                row.currentName,
+                foregroundColor: .primary
+            )
+
+            Image(systemName: row.status.symbolName)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(row.status.tint)
+                .help(row.status.message)
+                .frame(width: 18)
+                .padding(.top, 1)
+
+            MetadataFilenameRenameComparisonValue(
+                row.previewName,
+                foregroundColor: row.status.isError ? .orange : .primary
+            )
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct MetadataFilenameRenameComparisonValue: View {
+    let value: String
+    let foregroundColor: Color
+
+    init(_ value: String, foregroundColor: Color) {
+        self.value = value
+        self.foregroundColor = foregroundColor
+    }
+
+    var body: some View {
+        Text(value.isEmpty ? "—" : value)
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(value.isEmpty ? Color(nsColor: .tertiaryLabelColor) : foregroundColor)
+            .multilineTextAlignment(.leading)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

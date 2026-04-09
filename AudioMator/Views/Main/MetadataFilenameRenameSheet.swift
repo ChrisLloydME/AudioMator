@@ -310,8 +310,12 @@ struct MetadataFilenameWindowView: View {
             .navigationTitle("Filename & Metadata")
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    MetadataFilenameModeToolbarSwitcher(selection: $mode)
-                    .frame(width: 420)
+                    Picker("Mode", selection: $mode) {
+                        ForEach(MetadataFilenameToolMode.allCases) { mode in
+                            Text(mode.pickerTitle).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                     .disabled(isApplying)
                 }
             }
@@ -555,61 +559,6 @@ struct MetadataFilenameWindowView: View {
                 dismiss()
             }
         }
-    }
-}
-
-private struct MetadataFilenameModeToolbarSwitcher: View {
-    @Binding var selection: MetadataFilenameToolMode
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(MetadataFilenameToolMode.allCases) { mode in
-                Button {
-                    selection = mode
-                } label: {
-                    Text(mode.pickerTitle)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(selection == mode ? .primary : .secondary)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(selection == mode ? selectedSegmentFill : Color.clear)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(6)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(toolbarBackgroundFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(toolbarBorderColor, lineWidth: 1)
-        )
-    }
-
-    private var toolbarBackgroundFill: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.03)
-            : Color.black.opacity(0.03)
-    }
-
-    private var toolbarBorderColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.12)
-            : Color.black.opacity(0.10)
-    }
-
-    private var selectedSegmentFill: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.18)
-            : Color.black.opacity(0.10)
     }
 }
 

@@ -45,13 +45,15 @@ struct AudioMatorApp: App {
     @StateObject private var viewModel = AudioViewModel()
     @StateObject private var sharedState = SharedState()
     @StateObject private var musicBrainzBrowserStore = MusicBrainzBrowserStore()
+    @StateObject private var metadataFilenameToolStore = MetadataFilenameToolStore()
 
     var body: some Scene {
         WindowGroup {
             ContentView(
                 viewModel: viewModel,
                 state: sharedState,
-                musicBrainzBrowserStore: musicBrainzBrowserStore
+                musicBrainzBrowserStore: musicBrainzBrowserStore,
+                metadataFilenameToolStore: metadataFilenameToolStore
             )
                 .frame(minWidth: 900, minHeight: 600)
         }
@@ -83,6 +85,14 @@ struct AudioMatorApp: App {
             )
         }
         .defaultSize(width: 980, height: 700)
+
+        Window("Filename & Metadata", id: MetadataFilenameWindowView.windowID) {
+            MetadataFilenameWindowView(
+                viewModel: viewModel,
+                store: metadataFilenameToolStore
+            )
+        }
+        .defaultSize(width: 860, height: 720)
     }
 }
 

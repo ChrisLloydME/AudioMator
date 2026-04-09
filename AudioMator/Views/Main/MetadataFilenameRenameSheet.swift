@@ -2,12 +2,76 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
+    case metadataToFilename
+    case filenameToMetadata
+
+    var id: String { rawValue }
+
+    var pickerTitle: String {
+        switch self {
+        case .metadataToFilename:
+            return "Metadata -> Filename"
+        case .filenameToMetadata:
+            return "Filename -> Metadata"
+        }
+    }
+
+    var actionTitle: String {
+        switch self {
+        case .metadataToFilename:
+            return "Rename"
+        case .filenameToMetadata:
+            return "Write Metadata"
+        }
+    }
+
+    var templateTitle: String {
+        switch self {
+        case .metadataToFilename:
+            return "Rename template"
+        case .filenameToMetadata:
+            return "Match template"
+        }
+    }
+
+    var placeholderText: String {
+        switch self {
+        case .metadataToFilename:
+            return "Type separators, then insert fields where you want them."
+        case .filenameToMetadata:
+            return "Type the literal filename separators, then insert the fields you want to extract."
+        }
+    }
+
+    var emptyPreviewDescription: String {
+        switch self {
+        case .metadataToFilename:
+            return "Add text or metadata fields to preview the new filenames."
+        case .filenameToMetadata:
+            return "Add literal filename parts and metadata fields to preview the extracted tags."
+        }
+    }
+
+    var headerDescription: String {
+        switch self {
+        case .metadataToFilename:
+            return "Type the punctuation and spacing you want. Click or drag a field to insert it at the caret."
+        case .filenameToMetadata:
+            return "Type the fixed filename separators you expect. Click or drag a field to mark where metadata should be extracted."
+        }
+    }
+}
+
 struct MetadataFilenameRenameSheet: View {
     @ObservedObject var viewModel: AudioViewModel
     let targetFileIDs: [AudioFile.ID]
     @Binding var isPresented: Bool
 
-    @State private var renameTemplate: String = ""
+    @State private var mode: MetadataFilenameToolMode = .metadataToFilename
+    @State private var metadataToFilenameTemplate: String = ""
+    @State private var filenameToMetadataTemplate: String = ""
+    @State private var replaceUnderscoresWithSpaces: Bool = false
     @State private var isApplying: Bool = false
     @State private var pendingFieldInsertion: FileRenameTemplateEditorInsertion?
 
@@ -20,7 +84,47 @@ struct MetadataFilenameRenameSheet: View {
     }
 
     private var renamePlan: FileRenamePlan {
-        makeFileRenamePlan(template: renameTemplate, targetFiles: targetFiles)
+        makeFileRenamePlan(template: metadataToFilenameTemplate, targetFiles: targetFiles)
+    }
+
+    private var filenameMetadataPlan: FilenameMetadataPlan {
+        makeFilenameMetadataPlan(
+            template: filenameToMetadataTemplate,
+            targetFiles: targetFiles,
+            replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces
+        )
+    }
+
+    private var activeTemplate: String {
+        switch mode {
+        case .metadataToFilename:
+            return metadataToFilenameTemplate
+        case .filenameToMetadata:
+            return filenameToMetadataTemplate
+        }
+    }
+
+    private var activeTemplateBinding: Binding<String> {
+        Binding(
+            get: { activeTemplate },
+            set: { newValue in
+                switch mode {
+                case .metadataToFilename:
+                    metadataToFilenameTemplate = newValue
+                case .filenameToMetadata:
+                    filenameToMetadataTemplate = newValue
+                }
+            }
+        )
+    }
+
+    private var activeFieldPalette: [FileRenameMetadataField] {
+        switch mode {
+        case .metadataToFilename:
+            return FileRenameMetadataField.metadataToFilenameFields
+        case .filenameToMetadata:
+            return FileRenameMetadataField.filenameToMetadataFields
+        }
     }
 
     private var selectionSummaryText: String {
@@ -30,11 +134,71 @@ struct MetadataFilenameRenameSheet: View {
     }
 
     private var previewStatusMessage: String {
+        switch mode {
+        case .metadataToFilename:
+            return metadataToFilenameStatusMessage
+        case .filenameToMetadata:
+            return filenameToMetadataStatusMessage
+        }
+    }
+
+    private var previewStatusSymbolName: String {
+        if previewHasIssues {
+            return "exclamationmark.triangle.fill"
+        }
+
+        if previewReadyCount > 0 {
+            return "checkmark.circle.fill"
+        }
+
+        return "info.circle.fill"
+    }
+
+    private var previewStatusTint: Color {
+        if previewHasIssues {
+            return .orange
+        }
+
+        if previewReadyCount > 0 {
+            return .green
+        }
+
+        return .secondary
+    }
+
+    private var previewHasIssues: Bool {
+        switch mode {
+        case .metadataToFilename:
+            return renamePlan.hasIssues
+        case .filenameToMetadata:
+            return filenameMetadataPlan.hasIssues
+        }
+    }
+
+    private var previewReadyCount: Int {
+        switch mode {
+        case .metadataToFilename:
+            return renamePlan.readyCount
+        case .filenameToMetadata:
+            return filenameMetadataPlan.readyCount
+        }
+    }
+
+    private var canApply: Bool {
+        switch mode {
+        case .metadataToFilename:
+            return renamePlan.canApply && !isApplying
+        case .filenameToMetadata:
+            return filenameMetadataPlan.canApply && !isApplying
+        }
+    }
+
+    private var metadataToFilenameStatusMessage: String {
         if targetFiles.isEmpty {
             return "Select files in the center list first."
         }
 
-        if renameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if metadataToFilenameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Enter a template or drag metadata chips into the field."
         }
 
@@ -66,32 +230,49 @@ struct MetadataFilenameRenameSheet: View {
         return "\(issueRows.count) file(s) will be skipped: \(summary)."
     }
 
-    private var previewStatusSymbolName: String {
-        if renamePlan.hasIssues {
-            return "exclamationmark.triangle.fill"
+    private var filenameToMetadataStatusMessage: String {
+        if targetFiles.isEmpty {
+            return "Select files in the center list first."
         }
 
-        if renamePlan.readyCount > 0 {
-            return "checkmark.circle.fill"
+        if filenameToMetadataTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Enter a matching template or drag metadata chips into the field."
         }
 
-        return "info.circle.fill"
+        if let validationMessage = filenameMetadataPlan.validationMessage {
+            return validationMessage
+        }
+
+        if filenameMetadataPlan.hasIssues {
+            return "\(filenameMetadataPlan.readyCount) file(s) are ready. \(filenameMetadataIssueSummaryText)"
+        }
+
+        if filenameMetadataPlan.readyCount > 0 {
+            return "\(filenameMetadataPlan.readyCount) file(s) will have metadata updated from their filenames."
+        }
+
+        if filenameMetadataPlan.noWritableCount > 0 {
+            return "The template matched, but it did not extract any writable metadata fields."
+        }
+
+        return "The extracted metadata already matches the current tags."
     }
 
-    private var previewStatusTint: Color {
-        if renamePlan.hasIssues {
-            return .orange
+    private var filenameMetadataIssueSummaryText: String {
+        let issueRows = filenameMetadataPlan.rows.filter { $0.status.isError }
+        guard !issueRows.isEmpty else { return "No filename matching issues." }
+
+        var countsByTitle: [String: Int] = [:]
+        for row in issueRows {
+            countsByTitle[row.status.title, default: 0] += 1
         }
 
-        if renamePlan.readyCount > 0 {
-            return .green
-        }
+        let summary = countsByTitle
+            .sorted { $0.key < $1.key }
+            .map { "\($0.value) \($0.key.lowercased())" }
+            .joined(separator: ", ")
 
-        return .secondary
-    }
-
-    private var canApply: Bool {
-        renamePlan.canApply && !isApplying
+        return "\(issueRows.count) file(s) could not be parsed: \(summary)."
     }
 
     var body: some View {
@@ -110,13 +291,16 @@ struct MetadataFilenameRenameSheet: View {
             footer
         }
         .padding(20)
-        .frame(width: 760, height: 620)
+        .frame(width: 760, height: 680)
+        .onChange(of: mode) { _, _ in
+            pendingFieldInsertion = nil
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Rename Files from Metadata")
+                Text("Filename and Metadata")
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -128,7 +312,14 @@ struct MetadataFilenameRenameSheet: View {
                 }
             }
 
-            Text("Type the punctuation and spacing you want. Click or drag a field to insert it at the caret.")
+            Picker("Direction", selection: $mode) {
+                ForEach(MetadataFilenameToolMode.allCases) { mode in
+                    Text(mode.pickerTitle).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(mode.headerDescription)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -150,40 +341,46 @@ struct MetadataFilenameRenameSheet: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("AudioMator keeps each file's current extension. The template changes only the filename.")
+                Text(setupDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if mode == .filenameToMetadata {
+                    Toggle("Replace underscores with spaces in extracted values", isOn: $replaceUnderscoresWithSpaces)
+                        .toggleStyle(.checkbox)
+                        .disabled(isApplying)
+                }
 
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 120), spacing: 8, alignment: .leading)],
                     alignment: .leading,
                     spacing: 8
                 ) {
-                    ForEach(FileRenameMetadataField.allCases, id: \.self) { field in
+                    ForEach(activeFieldPalette, id: \.self) { field in
                         metadataChip(for: field)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Rename template")
+                    Text(mode.templateTitle)
                         .font(.headline)
 
                     ZStack(alignment: .topLeading) {
-                        if renameTemplate.isEmpty {
-                            Text("Type separators, then insert fields where you want them.")
+                        if activeTemplate.isEmpty {
+                            Text(mode.placeholderText)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 14)
                         }
 
                         FileRenameTemplateEditor(
-                            template: $renameTemplate,
+                            template: activeTemplateBinding,
                             pendingInsertion: $pendingFieldInsertion,
                             isEnabled: !isApplying
                         )
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 8)
-                            .disabled(isApplying)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 8)
+                        .disabled(isApplying)
                     }
                     .frame(minHeight: 96)
                     .background(
@@ -205,6 +402,15 @@ struct MetadataFilenameRenameSheet: View {
         }
     }
 
+    private var setupDescription: String {
+        switch mode {
+        case .metadataToFilename:
+            return "AudioMator keeps each file's current extension. The template changes only the filename."
+        case .filenameToMetadata:
+            return "AudioMator matches the current filename without its extension. The template must match the whole filename, and only extracted metadata fields will be written."
+        }
+    }
+
     private var previewSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Preview", systemImage: "list.bullet.rectangle.portrait")
@@ -216,16 +422,22 @@ struct MetadataFilenameRenameSheet: View {
                     .font(.subheadline)
                     .foregroundStyle(previewStatusTint)
 
-                if renameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if activeTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ContentUnavailableView(
                         "Add a Template",
                         systemImage: "text.cursor",
-                        description: Text("Add text or metadata fields to preview the new filenames.")
+                        description: Text(mode.emptyPreviewDescription)
                     )
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
-                    MetadataFilenameRenamePreviewList(rows: renamePlan.rows)
-                        .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+                    switch mode {
+                    case .metadataToFilename:
+                        MetadataFilenameRenamePreviewList(rows: renamePlan.rows)
+                            .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+                    case .filenameToMetadata:
+                        FilenameMetadataPreviewList(plan: filenameMetadataPlan)
+                            .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -247,8 +459,8 @@ struct MetadataFilenameRenameSheet: View {
             .keyboardShortcut(.cancelAction)
             .disabled(isApplying)
 
-            Button("Rename") {
-                applyRename()
+            Button(mode.actionTitle) {
+                applyCurrentMode()
             }
             .keyboardShortcut(.defaultAction)
             .disabled(!canApply)
@@ -287,6 +499,15 @@ struct MetadataFilenameRenameSheet: View {
         pendingFieldInsertion = FileRenameTemplateEditorInsertion(field: field)
     }
 
+    private func applyCurrentMode() {
+        switch mode {
+        case .metadataToFilename:
+            applyRename()
+        case .filenameToMetadata:
+            applyFilenameMetadata()
+        }
+    }
+
     private func applyRename() {
         let plan = renamePlan
         guard plan.canApply else { return }
@@ -298,6 +519,22 @@ struct MetadataFilenameRenameSheet: View {
             isApplying = false
 
             if result.didSucceed && renamePlan.issueCount == 0 {
+                isPresented = false
+            }
+        }
+    }
+
+    private func applyFilenameMetadata() {
+        let plan = filenameMetadataPlan
+        guard plan.canApply else { return }
+
+        isApplying = true
+
+        Task { @MainActor in
+            await viewModel.applyFilenameMetadataPlan(plan.writeEntries)
+            isApplying = false
+
+            if !plan.hasIssues {
                 isPresented = false
             }
         }
@@ -408,6 +645,206 @@ private struct MetadataFilenameRenameComparisonValue: View {
             .multilineTextAlignment(.leading)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FilenameMetadataPreviewList: View {
+    let plan: FilenameMetadataPlan
+
+    var body: some View {
+        if let validationMessage = plan.validationMessage {
+            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+                ContentUnavailableView(
+                    "Template Needs More Structure",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(validationMessage)
+                )
+                .frame(maxWidth: .infinity, minHeight: 240)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 18)
+            }
+        } else if plan.rows.isEmpty {
+            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+                ContentUnavailableView(
+                    "No Files Selected",
+                    systemImage: "music.note.list",
+                    description: Text("Select one or more files to preview metadata extraction from filenames.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 240)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 18)
+            }
+        } else {
+            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+                ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
+                    FilenameMetadataComparisonGroupView(row: row)
+
+                    if index < plan.rows.count - 1 {
+                        MetadataCardDivider()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct FilenameMetadataComparisonGroupView: View {
+    let row: FilenameMetadataPreviewRow
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.currentName)
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text("Filename stem: \(row.sourceBaseName)")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                Spacer(minLength: 12)
+
+                FilenameMetadataStatusBadge(status: row.status)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 14)
+            .padding(.bottom, row.changes.isEmpty ? 8 : 12)
+
+            if let issueMessage = row.issueMessage {
+                Text(issueMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(row.status.tint)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, row.changes.isEmpty ? 14 : 12)
+            }
+
+            if !row.changes.isEmpty {
+                Divider()
+                    .padding(.leading, 18)
+
+                FilenameMetadataComparisonHeader()
+
+                ForEach(Array(row.changes.enumerated()), id: \.element.id) { index, change in
+                    FilenameMetadataComparisonRowView(change: change)
+
+                    if index < row.changes.count - 1 {
+                        Divider()
+                            .padding(.leading, 18)
+                    }
+                }
+            } else {
+                FilenameMetadataComparisonEmptyStateRow(message: row.status.message)
+            }
+        }
+    }
+}
+
+private struct FilenameMetadataStatusBadge: View {
+    let status: FilenameMetadataPreviewStatus
+
+    var body: some View {
+        Label(status.title, systemImage: status.symbolName)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(status.tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(status.tint.opacity(0.12))
+            )
+    }
+}
+
+private struct FilenameMetadataComparisonHeader: View {
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text("Field")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 118, alignment: .leading)
+
+            Text("Metadata")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 18)
+
+            Text("Filename")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 9)
+    }
+}
+
+private struct FilenameMetadataComparisonRowView: View {
+    let change: FilenameMetadataFieldChange
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(change.field.displayName)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(width: 118, alignment: .leading)
+
+            FilenameMetadataComparisonValue(
+                value: change.currentValue,
+                monospaced: change.field.usesMonospacedComparisonValue,
+                foregroundColor: .primary
+            )
+
+            Image(systemName: change.status.symbolName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(change.status.tint)
+                .help(change.willWrite ? "This value will be written to metadata." : "This field already matches.")
+                .frame(width: 18)
+                .padding(.top, 1)
+
+            FilenameMetadataComparisonValue(
+                value: change.extractedValue,
+                monospaced: change.field.usesMonospacedComparisonValue,
+                foregroundColor: change.willWrite ? change.status.tint : .primary
+            )
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+    }
+}
+
+private struct FilenameMetadataComparisonValue: View {
+    let value: String
+    let monospaced: Bool
+    let foregroundColor: Color
+
+    var body: some View {
+        Text(value.isEmpty ? "—" : value)
+            .font(monospaced ? .system(size: 12, design: .monospaced) : .system(size: 12))
+            .foregroundStyle(value.isEmpty ? Color(nsColor: .tertiaryLabelColor) : foregroundColor)
+            .multilineTextAlignment(.leading)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FilenameMetadataComparisonEmptyStateRow: View {
+    let message: String
+
+    var body: some View {
+        Text(message)
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
     }
 }
 
@@ -776,6 +1213,64 @@ private extension FileRenamePreviewStatus {
             return .secondary
         case .emptyName, .duplicateTarget, .existingFile:
             return .orange
+        }
+    }
+}
+
+private extension FilenameMetadataPreviewStatus {
+    var symbolName: String {
+        switch self {
+        case .ready:
+            return "checkmark.circle.fill"
+        case .unchanged:
+            return "minus.circle.fill"
+        case .noMatch:
+            return "exclamationmark.triangle.fill"
+        case .noWritableFields:
+            return "questionmark.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .ready:
+            return .green
+        case .unchanged, .noWritableFields:
+            return .secondary
+        case .noMatch:
+            return .orange
+        }
+    }
+}
+
+private extension FilenameMetadataFieldChangeStatus {
+    var symbolName: String {
+        switch self {
+        case .same:
+            return "checkmark.circle.fill"
+        case .different:
+            return "arrow.left.arrow.right.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .same:
+            return .green
+        case .different:
+            return .orange
+        }
+    }
+}
+
+private extension FileRenameMetadataField {
+    var usesMonospacedComparisonValue: Bool {
+        switch self {
+        case .year, .trackNumberText, .discNumberText, .releaseDate:
+            return true
+        case .title, .artist, .album, .albumArtist, .composer, .genre,
+                .comment, .publisher, .copyright, .credits, .ignore:
+            return false
         }
     }
 }

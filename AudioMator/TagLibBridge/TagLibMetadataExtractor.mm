@@ -264,6 +264,42 @@ static NSString * _Nullable TrimmedStringOrNil(NSString * _Nullable value) {
     return trimmed.length > 0 ? trimmed : nil;
 }
 
+static NSString * _Nullable UppercaseTrimmedString(NSString * _Nullable value) {
+    NSString *trimmed = TrimmedStringOrNil(value);
+    return trimmed ? trimmed.uppercaseString : nil;
+}
+
+static NSSet<NSString *> *KnownMetadataFieldKeys()
+{
+    static NSSet<NSString *> *keys = [NSSet setWithArray:@[
+        @"TITLE", @"ARTIST", @"ARTISTS", @"ALBUM", @"COMMENT", @"GENRE", @"COMPOSER", @"ALBUMARTIST",
+        @"DATE", @"RELEASEDATE", @"ORIGINALDATE", @"ORIGINAL YEAR",
+        @"TRACKNUMBER", @"TRACKTOTAL", @"TOTALTRACKS", @"DISCNUMBER", @"DISCTOTAL", @"TOTALDISCS",
+        @"AUDIOMATOR_TRACKNUMBER_TEXT", @"AUDIOMATOR_DISCNUMBER_TEXT",
+        @"COPYRIGHT", @"LYRICS", @"LABEL", @"ISRC", @"ENCODEDBY", @"ENCODING", @"ENCODERSETTINGS",
+        @"TITLESORT", @"ARTISTSORT", @"ALBUMSORT", @"ALBUMARTISTSORT", @"COMPOSERSORT",
+        @"GROUPING", @"SUBTITLE", @"LYRICIST", @"CONDUCTOR", @"REMIXER", @"PRODUCER", @"ENGINEER",
+        @"MOVEMENT", @"MOOD", @"LANGUAGE", @"INITIALKEY", @"KEY", @"MEDIATYPE", @"MEDIA", @"MEDIA TYPE",
+        @"RELEASETYPE", @"BARCODE", @"UPC", @"EAN", @"CATALOGNUMBER", @"CATALOG", @"RELEASECOUNTRY",
+        @"ARTISTTYPE", @"MUSICBRAINZ ARTIST TYPE", @"MUSICBRAINZ_ARTISTTYPE",
+        @"BPM", @"COMPILATION", @"ITUNESADVISORY", @"ADVISORY", @"EXPLICITCONTENT", @"EXPLICIT",
+        @"MUSICBRAINZ_ARTISTID", @"MUSICBRAINZ ARTISTID", @"MUSICBRAINZ ARTIST ID",
+        @"MUSICBRAINZ_ALBUMID", @"MUSICBRAINZ ALBUMID", @"MUSICBRAINZ ALBUM ID",
+        @"MUSICBRAINZ_TRACKID", @"MUSICBRAINZ TRACKID", @"MUSICBRAINZ TRACK ID",
+        @"MUSICBRAINZ_RELEASEGROUPID", @"MUSICBRAINZ RELEASEGROUPID", @"MUSICBRAINZ RELEASE GROUP ID",
+        @"MUSICBRAINZ_ALBUMTYPE", @"MUSICBRAINZ ALBUM TYPE",
+        @"MUSICBRAINZ_ALBUMRELEASECOUNTRY", @"MUSICBRAINZ ALBUM RELEASE COUNTRY",
+        @"REPLAYGAIN_TRACK_GAIN", @"REPLAYGAIN_ALBUM_GAIN"
+    ]];
+    return keys;
+}
+
+static bool IsKnownMetadataFieldKey(NSString * _Nullable key)
+{
+    NSString *normalizedKey = UppercaseTrimmedString(key);
+    return normalizedKey && [KnownMetadataFieldKeys() containsObject:normalizedKey];
+}
+
 static NSInteger NumberTextPreferenceScore(NSString * _Nullable value) {
     NSString *trimmed = TrimmedStringOrNil(value);
     if (!trimmed) {
@@ -415,6 +451,35 @@ static void SetMP4IntPairItem(TagLib::MP4::Tag *tag,
     tag->setItem(key, TagLib::MP4::Item(first, second));
 }
 
+static NSString * _Nullable MP4FreeformDescriptionForItemKey(const TagLib::String &itemKey)
+{
+    static const std::string prefix = "----:com.apple.iTunes:";
+    std::string rawKey = itemKey.to8Bit(true);
+    if (rawKey.rfind(prefix, 0) != 0) {
+        return nil;
+    }
+
+    return TrimmedStringOrNil([NSString stringWithUTF8String:rawKey.substr(prefix.size()).c_str()]);
+}
+
+static void SetMP4FreeformTextItem(TagLib::MP4::Tag *tag,
+                                   NSString * _Nullable description,
+                                   NSString * _Nullable value)
+{
+    NSString *trimmedDescription = TrimmedStringOrNil(description);
+    if (!trimmedDescription) {
+        return;
+    }
+
+    NSString *fullKey = [@"----:com.apple.iTunes:" stringByAppendingString:trimmedDescription];
+    std::string key = fullKey.UTF8String ? fullKey.UTF8String : "";
+    if (key.empty()) {
+        return;
+    }
+
+    SetMP4TextItem(tag, key.c_str(), value);
+}
+
 static void SetPropertyMapString(TagLib::PropertyMap &properties,
                                  const char *key,
                                  NSString * _Nullable value)
@@ -437,6 +502,85 @@ static void SetPropertyMapNumberText(TagLib::PropertyMap &properties,
                                      NSString * _Nullable value)
 {
     SetPropertyMapString(properties, key, value);
+}
+
+static void SetPropertyMapDynamicString(TagLib::PropertyMap &properties,
+                                        NSString * _Nullable key,
+                                        NSString * _Nullable value)
+{
+    NSString *trimmedKey = TrimmedStringOrNil(key);
+    if (!trimmedKey) {
+        return;
+    }
+
+    TagLib::String dynamicKey(trimmedKey.UTF8String, TagLib::String::UTF8);
+    NSString *trimmedValue = TrimmedStringOrNil(value);
+    if (!trimmedValue) {
+        properties.erase(dynamicKey);
+        return;
+    }
+
+    TagLib::StringList values;
+    values.append(NSStringToTagString(trimmedValue));
+    properties.replace(dynamicKey, values);
+}
+
+static void SetCustomMetadataField(TagLibAudioMetadata *metadata,
+                                   NSString * _Nullable key,
+                                   NSString * _Nullable value)
+{
+    if (!metadata) {
+        return;
+    }
+
+    NSString *trimmedKey = TrimmedStringOrNil(key);
+    NSString *trimmedValue = TrimmedStringOrNil(value);
+    if (!trimmedKey || !trimmedValue || IsKnownMetadataFieldKey(trimmedKey)) {
+        return;
+    }
+
+    NSMutableDictionary<NSString *, NSString *> *customFields =
+        metadata.customFields ? [metadata.customFields mutableCopy] : [NSMutableDictionary dictionary];
+    customFields[trimmedKey] = trimmedValue;
+    metadata.customFields = customFields.count > 0 ? [customFields copy] : nil;
+}
+
+static void MergeCustomPropertyMapFields(const TagLib::PropertyMap &properties,
+                                         TagLibAudioMetadata *metadata)
+{
+    if (!metadata || properties.isEmpty()) {
+        return;
+    }
+
+    for (const auto &[key, values] : properties) {
+        if (values.isEmpty()) {
+            continue;
+        }
+
+        NSString *fieldKey = TrimmedStringOrNil(TagStringToNSString(key));
+        if (!fieldKey || IsKnownMetadataFieldKey(fieldKey)) {
+            continue;
+        }
+
+        NSString *fieldValue = TrimmedStringOrNil(TagStringToNSString(values.toString("; ")));
+        SetCustomMetadataField(metadata, fieldKey, fieldValue);
+    }
+}
+
+static void ApplyCustomFieldsToPropertyMap(TagLib::PropertyMap &properties,
+                                           NSDictionary<NSString *, NSString *> * _Nullable customFields)
+{
+    if (!customFields || customFields.count == 0) {
+        return;
+    }
+
+    for (NSString *key in customFields) {
+        if (IsKnownMetadataFieldKey(key)) {
+            continue;
+        }
+
+        SetPropertyMapDynamicString(properties, key, customFields[key]);
+    }
 }
 
 static bool ParseExplicitTagValue(const TagLib::String &value, BOOL &explicitContent)
@@ -496,6 +640,197 @@ static void ApplyExplicitPropertyKeys(const TagLib::PropertyMap &properties,
     }
 }
 
+static bool ApplyKnownCustomMetadataField(NSString * _Nullable key,
+                                          NSString * _Nullable value,
+                                          TagLibAudioMetadata *metadata)
+{
+    if (!metadata) {
+        return false;
+    }
+
+    NSString *normalizedKey = UppercaseTrimmedString(key);
+    NSString *trimmedValue = TrimmedStringOrNil(value);
+    if (!normalizedKey) {
+        return false;
+    }
+
+    if ([normalizedKey isEqualToString:@"RELEASETYPE"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ ALBUM TYPE"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_ALBUMTYPE"]) {
+        metadata.releaseType = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"BARCODE"] ||
+        [normalizedKey isEqualToString:@"UPC"] ||
+        [normalizedKey isEqualToString:@"EAN"]) {
+        metadata.barcode = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"CATALOGNUMBER"] ||
+        [normalizedKey isEqualToString:@"CATALOG NUMBER"] ||
+        [normalizedKey isEqualToString:@"CATALOG"]) {
+        metadata.catalogNumber = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"RELEASECOUNTRY"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ ALBUM RELEASE COUNTRY"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_ALBUMRELEASECOUNTRY"]) {
+        metadata.releaseCountry = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ARTISTTYPE"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ ARTIST TYPE"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_ARTISTTYPE"]) {
+        metadata.artistType = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MUSICBRAINZ ARTIST ID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ ARTISTID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_ARTISTID"]) {
+        metadata.musicBrainzArtistId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MUSICBRAINZ ALBUM ID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ ALBUMID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_ALBUMID"]) {
+        metadata.musicBrainzAlbumId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MUSICBRAINZ TRACK ID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ TRACKID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_TRACKID"]) {
+        metadata.musicBrainzTrackId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MUSICBRAINZ RELEASE GROUP ID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ RELEASEGROUPID"] ||
+        [normalizedKey isEqualToString:@"MUSICBRAINZ_RELEASEGROUPID"]) {
+        metadata.musicBrainzReleaseGroupId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"LABEL"]) {
+        metadata.label = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ISRC"]) {
+        metadata.isrc = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ENCODEDBY"] ||
+        [normalizedKey isEqualToString:@"ENCODING"]) {
+        metadata.encodedBy = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ENCODERSETTINGS"]) {
+        metadata.encoderSettings = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"SUBTITLE"]) {
+        metadata.subtitle = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"GROUPING"]) {
+        metadata.grouping = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"LYRICIST"]) {
+        metadata.lyricist = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"CONDUCTOR"]) {
+        metadata.conductor = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"REMIXER"]) {
+        metadata.remixer = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"PRODUCER"]) {
+        metadata.producer = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ENGINEER"]) {
+        metadata.engineer = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MOVEMENT"]) {
+        metadata.movement = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MOOD"]) {
+        metadata.mood = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"LANGUAGE"]) {
+        metadata.language = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"INITIALKEY"] ||
+        [normalizedKey isEqualToString:@"KEY"]) {
+        metadata.musicalKey = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ORIGINAL YEAR"]) {
+        metadata.originalReleaseDate = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"MEDIATYPE"] ||
+        [normalizedKey isEqualToString:@"MEDIA TYPE"] ||
+        [normalizedKey isEqualToString:@"MEDIA"]) {
+        metadata.mediaType = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"REPLAYGAIN_TRACK_GAIN"]) {
+        metadata.replayGainTrack = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"REPLAYGAIN_ALBUM_GAIN"]) {
+        metadata.replayGainAlbum = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNESADVISORY"] ||
+        [normalizedKey isEqualToString:@"ADVISORY"] ||
+        [normalizedKey isEqualToString:@"EXPLICITCONTENT"] ||
+        [normalizedKey isEqualToString:@"EXPLICIT"]) {
+        BOOL explicitValue = metadata.explicitContent;
+        TagLib::String explicitString(trimmedValue.UTF8String, TagLib::String::UTF8);
+        if (ParseExplicitTagValue(explicitString, explicitValue)) {
+            metadata.explicitContent = explicitValue;
+        }
+        return true;
+    }
+
+    return false;
+}
+
 static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata)
 {
     TagLib::PropertyMap properties;
@@ -509,9 +844,48 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     SetPropertyMapString(properties, "COMMENT", metadata.comment);
     SetPropertyMapString(properties, "ALBUMARTIST", metadata.albumArtist);
     SetPropertyMapString(properties, "DATE", metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year);
+    SetPropertyMapString(properties, "ORIGINALDATE", metadata.originalReleaseDate);
     SetPropertyMapString(properties, "COPYRIGHT", metadata.copyright);
     SetPropertyMapString(properties, "LABEL", metadata.label);
-    SetPropertyMapString(properties, "ITUNESADVISORY", metadata.explicitContent ? @"1" : @"0");
+    SetPropertyMapString(properties, "LYRICS", metadata.lyrics);
+    SetPropertyMapString(properties, "ISRC", metadata.isrc);
+    SetPropertyMapString(properties, "ENCODEDBY", metadata.encodedBy);
+    SetPropertyMapString(properties, "ENCODERSETTINGS", metadata.encoderSettings);
+    SetPropertyMapString(properties, "TITLESORT", metadata.sortTitle);
+    SetPropertyMapString(properties, "ARTISTSORT", metadata.sortArtist);
+    SetPropertyMapString(properties, "ALBUMSORT", metadata.sortAlbum);
+    SetPropertyMapString(properties, "ALBUMARTISTSORT", metadata.sortAlbumArtist);
+    SetPropertyMapString(properties, "COMPOSERSORT", metadata.sortComposer);
+    SetPropertyMapString(properties, "CONDUCTOR", metadata.conductor);
+    SetPropertyMapString(properties, "REMIXER", metadata.remixer);
+    SetPropertyMapString(properties, "PRODUCER", metadata.producer);
+    SetPropertyMapString(properties, "ENGINEER", metadata.engineer);
+    SetPropertyMapString(properties, "LYRICIST", metadata.lyricist);
+    SetPropertyMapString(properties, "SUBTITLE", metadata.subtitle);
+    SetPropertyMapString(properties, "GROUPING", metadata.grouping);
+    SetPropertyMapString(properties, "MOVEMENT", metadata.movement);
+    SetPropertyMapString(properties, "MOOD", metadata.mood);
+    SetPropertyMapString(properties, "LANGUAGE", metadata.language);
+    SetPropertyMapString(properties, "INITIALKEY", metadata.musicalKey);
+    SetPropertyMapString(properties, "RELEASETYPE", metadata.releaseType);
+    SetPropertyMapString(properties, "BARCODE", metadata.barcode);
+    SetPropertyMapString(properties, "CATALOGNUMBER", metadata.catalogNumber);
+    SetPropertyMapString(properties, "RELEASECOUNTRY", metadata.releaseCountry);
+    SetPropertyMapString(properties, "MUSICBRAINZ_ARTISTTYPE", metadata.artistType);
+    SetPropertyMapString(properties, "MUSICBRAINZ_ARTISTID", metadata.musicBrainzArtistId);
+    SetPropertyMapString(properties, "MUSICBRAINZ_ALBUMID", metadata.musicBrainzAlbumId);
+    SetPropertyMapString(properties, "MUSICBRAINZ_TRACKID", metadata.musicBrainzTrackId);
+    SetPropertyMapString(properties, "MUSICBRAINZ_RELEASEGROUPID", metadata.musicBrainzReleaseGroupId);
+    SetPropertyMapString(properties, "REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
+    SetPropertyMapString(properties, "REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
+    SetPropertyMapString(properties, "MEDIATYPE", metadata.mediaType);
+    SetPropertyMapString(
+        properties,
+        "BPM",
+        metadata.bpm > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.bpm] : nil
+    );
+    SetPropertyMapString(properties, "COMPILATION", metadata.compilation ? @"1" : nil);
+    SetPropertyMapString(properties, "ITUNESADVISORY", metadata.explicitContent ? @"1" : nil);
 
     NSString *trackText = TrimmedStringOrNil(metadata.trackNumberText);
     if (!trackText && (metadata.trackNumber > 0 || metadata.totalTracks > 0)) {
@@ -524,6 +898,11 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
         }
     }
     SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
+    SetPropertyMapString(
+        properties,
+        "TRACKTOTAL",
+        metadata.totalTracks > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.totalTracks] : nil
+    );
 
     NSString *discText = TrimmedStringOrNil(metadata.discNumberText);
     if (!discText && (metadata.discNumber > 0 || metadata.totalDiscs > 0)) {
@@ -536,6 +915,12 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
         }
     }
     SetPropertyMapNumberText(properties, "DISCNUMBER", discText);
+    SetPropertyMapString(
+        properties,
+        "DISCTOTAL",
+        metadata.totalDiscs > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.totalDiscs] : nil
+    );
+    ApplyCustomFieldsToPropertyMap(properties, metadata.customFields);
 
     return properties;
 }
@@ -782,6 +1167,103 @@ static void SetID3v2UserTextFrame(TagLib::ID3v2::Tag *tag,
     userFrame->setText(textList);
 }
 
+static void SetID3v2LyricsFrame(TagLib::ID3v2::Tag *tag,
+                                NSString * _Nullable value)
+{
+    if (!tag) {
+        return;
+    }
+
+    NSString *trimmed = TrimmedStringOrNil(value);
+    TagLib::ID3v2::FrameList frames = tag->frameList("USLT");
+    for (auto it = frames.begin(); it != frames.end(); ++it) {
+        tag->removeFrame(*it);
+    }
+
+    if (!trimmed) {
+        return;
+    }
+
+    auto *lyricsFrame = new TagLib::ID3v2::UnsynchronizedLyricsFrame(TagLib::String::UTF8);
+    lyricsFrame->setDescription(TagLib::String());
+    lyricsFrame->setLanguage(TagLib::ByteVector("eng", 3));
+    lyricsFrame->setText(NSStringToTagString(trimmed));
+    tag->addFrame(lyricsFrame);
+}
+
+static void ApplyCustomFieldsToID3v2Tag(TagLib::ID3v2::Tag *tag,
+                                        NSDictionary<NSString *, NSString *> * _Nullable customFields)
+{
+    if (!tag) {
+        return;
+    }
+
+    TagLib::ID3v2::FrameList frames = tag->frameList("TXXX");
+    TagLib::ID3v2::FrameList framesToRemove;
+    for (auto it = frames.begin(); it != frames.end(); ++it) {
+        auto *userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(*it);
+        if (!userFrame) {
+            continue;
+        }
+
+        if (!IsKnownMetadataFieldKey(TagStringToNSString(userFrame->description()))) {
+            framesToRemove.append(userFrame);
+        }
+    }
+
+    for (auto it = framesToRemove.begin(); it != framesToRemove.end(); ++it) {
+        tag->removeFrame(*it);
+    }
+
+    if (!customFields || customFields.count == 0) {
+        return;
+    }
+
+    for (NSString *key in customFields) {
+        if (IsKnownMetadataFieldKey(key)) {
+            continue;
+        }
+
+        SetID3v2UserTextFrame(tag, key.UTF8String, customFields[key]);
+    }
+}
+
+static void ApplyCustomFieldsToMP4Tag(TagLib::MP4::Tag *tag,
+                                      NSDictionary<NSString *, NSString *> * _Nullable customFields)
+{
+    if (!tag) {
+        return;
+    }
+
+    TagLib::StringList keysToRemove;
+    const TagLib::MP4::ItemMap &items = tag->itemMap();
+    for (const auto &[itemKey, _] : items) {
+        NSString *description = MP4FreeformDescriptionForItemKey(itemKey);
+        if (!description || IsKnownMetadataFieldKey(description)) {
+            continue;
+        }
+
+        keysToRemove.append(itemKey);
+    }
+
+    for (const auto &itemKey : keysToRemove) {
+        std::string key = itemKey.to8Bit(true);
+        tag->removeItem(key.c_str());
+    }
+
+    if (!customFields || customFields.count == 0) {
+        return;
+    }
+
+    for (NSString *key in customFields) {
+        if (IsKnownMetadataFieldKey(key)) {
+            continue;
+        }
+
+        SetMP4FreeformTextItem(tag, key, customFields[key]);
+    }
+}
+
 static NSString * _Nullable FirstStringFromProperty(const TagLib::PropertyMap &properties,
                                                     std::initializer_list<const char *> keys)
 {
@@ -852,6 +1334,8 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
 
     NSString *encodedByValue = FirstStringFromProperty(properties, {"ENCODEDBY", "ENCODING"});
     if (encodedByValue.length > 0) metadata.encodedBy = encodedByValue;
+    NSString *encoderSettingsValue = FirstStringFromProperty(properties, {"ENCODERSETTINGS"});
+    if (encoderSettingsValue.length > 0) metadata.encoderSettings = encoderSettingsValue;
 
     NSString *sortTitle = FirstStringFromProperty(properties, {"TITLESORT"});
     if (sortTitle.length > 0) metadata.sortTitle = sortTitle;
@@ -884,12 +1368,16 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
 
     NSString *engineerValue = FirstStringFromProperty(properties, {"ENGINEER"});
     if (engineerValue.length > 0) metadata.engineer = engineerValue;
+    NSString *movementValue = FirstStringFromProperty(properties, {"MOVEMENT"});
+    if (movementValue.length > 0) metadata.movement = movementValue;
 
     NSString *moodValue = FirstStringFromProperty(properties, {"MOOD"});
     if (moodValue.length > 0) metadata.mood = moodValue;
 
     NSString *languageValue = FirstStringFromProperty(properties, {"LANGUAGE"});
     if (languageValue.length > 0) metadata.language = languageValue;
+    NSString *musicalKeyValue = FirstStringFromProperty(properties, {"INITIALKEY", "KEY"});
+    if (musicalKeyValue.length > 0) metadata.musicalKey = musicalKeyValue;
 
     NSString *releaseTypeValue = FirstStringFromProperty(properties, {"RELEASETYPE"});
     if (releaseTypeValue.length > 0) metadata.releaseType = releaseTypeValue;
@@ -902,6 +1390,25 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
 
     NSString *releaseCountryValue = FirstStringFromProperty(properties, {"RELEASECOUNTRY"});
     if (releaseCountryValue.length > 0) metadata.releaseCountry = releaseCountryValue;
+    NSString *artistTypeValue = FirstStringFromProperty(properties, {"MUSICBRAINZ_ARTISTTYPE", "ARTISTTYPE"});
+    if (artistTypeValue.length > 0) metadata.artistType = artistTypeValue;
+
+    NSString *mbArtistValue = FirstStringFromProperty(properties, {"MUSICBRAINZ_ARTISTID"});
+    if (mbArtistValue.length > 0) metadata.musicBrainzArtistId = mbArtistValue;
+    NSString *mbAlbumValue = FirstStringFromProperty(properties, {"MUSICBRAINZ_ALBUMID"});
+    if (mbAlbumValue.length > 0) metadata.musicBrainzAlbumId = mbAlbumValue;
+    NSString *mbTrackValue = FirstStringFromProperty(properties, {"MUSICBRAINZ_TRACKID"});
+    if (mbTrackValue.length > 0) metadata.musicBrainzTrackId = mbTrackValue;
+    NSString *mbReleaseGroupValue = FirstStringFromProperty(properties, {"MUSICBRAINZ_RELEASEGROUPID"});
+    if (mbReleaseGroupValue.length > 0) metadata.musicBrainzReleaseGroupId = mbReleaseGroupValue;
+
+    NSString *replayGainTrackValue = FirstStringFromProperty(properties, {"REPLAYGAIN_TRACK_GAIN"});
+    if (replayGainTrackValue.length > 0) metadata.replayGainTrack = replayGainTrackValue;
+    NSString *replayGainAlbumValue = FirstStringFromProperty(properties, {"REPLAYGAIN_ALBUM_GAIN"});
+    if (replayGainAlbumValue.length > 0) metadata.replayGainAlbum = replayGainAlbumValue;
+
+    NSString *mediaTypeValue = FirstStringFromProperty(properties, {"MEDIATYPE", "MEDIA", "MEDIA TYPE"});
+    if (mediaTypeValue.length > 0) metadata.mediaType = mediaTypeValue;
 
     if (properties.contains("BPM") && !properties["BPM"].isEmpty()) {
         metadata.bpm = ExtractNumber(properties["BPM"].front());
@@ -913,6 +1420,7 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
     }
 
     ApplyExplicitPropertyKeys(properties, metadata);
+    MergeCustomPropertyMapFields(properties, metadata);
 }
 
 #pragma mark - Format-Specific Extraction
@@ -941,28 +1449,11 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
                 continue;
             }
             TagLib::String userValue = userFields.back();
-            std::string descStr = description.upper().to8Bit(true);
+            NSString *descriptionString = TagStringToNSString(description);
+            NSString *userValueString = TagStringToNSString(userValue);
 
-            if (descStr == "RELEASETYPE" || descStr == "MUSICBRAINZ ALBUM TYPE") {
-                metadata.releaseType = TagStringToNSString(userValue);
-            }
-            else if (descStr == "BARCODE" || descStr == "UPC" || descStr == "EAN") {
-                metadata.barcode = TagStringToNSString(userValue);
-            }
-            else if (descStr == "CATALOGNUMBER" || descStr == "CATALOG NUMBER") {
-                metadata.catalogNumber = TagStringToNSString(userValue);
-            }
-            else if (descStr == "RELEASECOUNTRY" || descStr == "MUSICBRAINZ ALBUM RELEASE COUNTRY") {
-                metadata.releaseCountry = TagStringToNSString(userValue);
-            }
-            else if (descStr == "ARTISTTYPE" || descStr == "MUSICBRAINZ ARTIST TYPE") {
-                metadata.artistType = TagStringToNSString(userValue);
-            }
-            else if (descStr == "ITUNESADVISORY") {
-                BOOL explicitValue = metadata.explicitContent;
-                if (ParseExplicitTagValue(userValue, explicitValue)) {
-                    metadata.explicitContent = explicitValue;
-                }
+            if (!ApplyKnownCustomMetadataField(descriptionString, userValueString, metadata)) {
+                SetCustomMetadataField(metadata, descriptionString, userValueString);
             }
         }
         // Text identification frames
@@ -980,6 +1471,9 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             }
             else if (frameIDStr == "TALB") {
                 metadata.album = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "TCOM") {
+                metadata.composer = TagStringToNSString(value);
             }
             else if (frameIDStr == "TCON") {
                 metadata.genre = TagStringToNSString(value);
@@ -1087,6 +1581,12 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
             }
             else if (frameIDStr == "TMOO") {
                 metadata.mood = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "TMED") {
+                metadata.mediaType = TagStringToNSString(value);
+            }
+            else if (frameIDStr == "MVNM") {
+                metadata.movement = TagStringToNSString(value);
             }
             // Compilation flag
             else if (frameIDStr == "TCMP") {
@@ -1298,6 +1798,24 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
     
     if (items.contains("----:com.apple.iTunes:MusicBrainz Album Release Country")) {
         metadata.releaseCountry = TagStringToNSString(items["----:com.apple.iTunes:MusicBrainz Album Release Country"].toStringList().toString());
+    }
+
+    for (const auto &[itemKey, itemValue] : items) {
+        NSString *description = MP4FreeformDescriptionForItemKey(itemKey);
+        if (!description) {
+            continue;
+        }
+
+        NSString *itemValueString = TrimmedStringOrNil(
+            TagStringToNSString(itemValue.toStringList().toString(", "))
+        );
+        if (!itemValueString) {
+            continue;
+        }
+
+        if (!ApplyKnownCustomMetadataField(description, itemValueString, metadata)) {
+            SetCustomMetadataField(metadata, description, itemValueString);
+        }
     }
 }
 
@@ -2798,34 +3316,75 @@ static void ParseNumberPairFromNSString(NSString *text,
         if (id3v2Tag) {
             SetID3v2TextFrame(id3v2Tag, "TPE2", metadata.albumArtist);
             SetID3v2TextFrame(id3v2Tag, "TCOM", metadata.composer);
+            SetID3v2TextFrame(
+                id3v2Tag,
+                "TBPM",
+                metadata.bpm > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.bpm] : nil
+            );
+            SetID3v2TextFrame(id3v2Tag, "TSOT", metadata.sortTitle);
+            SetID3v2TextFrame(id3v2Tag, "TSOP", metadata.sortArtist);
+            SetID3v2TextFrame(id3v2Tag, "TSOA", metadata.sortAlbum);
+            SetID3v2TextFrame(id3v2Tag, "TSO2", metadata.sortAlbumArtist);
+            SetID3v2TextFrame(id3v2Tag, "TSOC", metadata.sortComposer);
+            SetID3v2TextFrame(id3v2Tag, "TPE3", metadata.conductor);
+            SetID3v2TextFrame(id3v2Tag, "TPE4", metadata.remixer);
+            SetID3v2TextFrame(id3v2Tag, "TEXT", metadata.lyricist);
+            SetID3v2TextFrame(id3v2Tag, "TENC", metadata.encodedBy);
+            SetID3v2TextFrame(id3v2Tag, "TSSE", metadata.encoderSettings);
+            SetID3v2TextFrame(id3v2Tag, "TSRC", metadata.isrc);
+            SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
+            SetID3v2TextFrame(id3v2Tag, "TIT3", metadata.subtitle);
+            SetID3v2TextFrame(id3v2Tag, "TIT1", metadata.grouping);
+            SetID3v2TextFrame(id3v2Tag, "TLAN", metadata.language);
+            SetID3v2TextFrame(id3v2Tag, "TKEY", metadata.musicalKey);
+            SetID3v2TextFrame(id3v2Tag, "TMOO", metadata.mood);
+            SetID3v2TextFrame(id3v2Tag, "TMED", metadata.mediaType);
+            SetID3v2TextFrame(id3v2Tag, "MVNM", metadata.movement);
+            SetID3v2TextFrame(id3v2Tag, "TCMP", metadata.compilation ? @"1" : nil);
+            SetID3v2LyricsFrame(id3v2Tag, metadata.lyrics);
 
-            NSString *trackString = nil;
-            if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
+            NSString *trackString = TrimmedStringOrNil(metadata.trackNumberText);
+            if (!trackString && metadata.trackNumber > 0 && metadata.totalTracks > 0) {
                 trackString = [NSString stringWithFormat:@"%ld/%ld",
                                (long)metadata.trackNumber,
                                (long)metadata.totalTracks];
-            } else if (metadata.trackNumber > 0) {
+            } else if (!trackString && metadata.trackNumber > 0) {
                 trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
             }
             SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
 
-            NSString *discString = nil;
-            if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
+            NSString *discString = TrimmedStringOrNil(metadata.discNumberText);
+            if (!discString && metadata.discNumber > 0 && metadata.totalDiscs > 0) {
                 discString = [NSString stringWithFormat:@"%ld/%ld",
                               (long)metadata.discNumber,
                               (long)metadata.totalDiscs];
-            } else if (metadata.discNumber > 0) {
+            } else if (!discString && metadata.discNumber > 0) {
                 discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
             }
             SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
 
+            NSString *releaseDate = metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year;
             SetID3v2TextFrame(
                 id3v2Tag,
                 "TDRL",
-                metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year
+                releaseDate
             );
-            SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
+            SetID3v2TextFrame(id3v2Tag, "TDRC", releaseDate);
+            SetID3v2TextFrame(id3v2Tag, "TDOR", metadata.originalReleaseDate);
             SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
+            SetID3v2UserTextFrame(id3v2Tag, "RELEASETYPE", metadata.releaseType);
+            SetID3v2UserTextFrame(id3v2Tag, "BARCODE", metadata.barcode);
+            SetID3v2UserTextFrame(id3v2Tag, "CATALOGNUMBER", metadata.catalogNumber);
+            SetID3v2UserTextFrame(id3v2Tag, "RELEASECOUNTRY", metadata.releaseCountry);
+            SetID3v2UserTextFrame(id3v2Tag, "ARTISTTYPE", metadata.artistType);
+            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Artist Id", metadata.musicBrainzArtistId);
+            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Album Id", metadata.musicBrainzAlbumId);
+            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Track Id", metadata.musicBrainzTrackId);
+            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Release Group Id", metadata.musicBrainzReleaseGroupId);
+            SetID3v2UserTextFrame(id3v2Tag, "PRODUCER", metadata.producer);
+            SetID3v2UserTextFrame(id3v2Tag, "ENGINEER", metadata.engineer);
+            SetID3v2UserTextFrame(id3v2Tag, "REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
+            SetID3v2UserTextFrame(id3v2Tag, "REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
 
             // Explicit advisory (TXXX:ITUNESADVISORY, 0 = none, 1 = explicit, 2 = clean)
             // Here we treat `explicitContent == YES` as advisory = 1, otherwise 0.
@@ -2836,6 +3395,7 @@ static void ParseNumberPairFromNSString(NSString *text,
                 // you can change @"0" to nil.
                 SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
             }
+            ApplyCustomFieldsToID3v2Tag(id3v2Tag, metadata.customFields);
 
             if (!ApplyPictureComplexProperties(id3v2Tag,
                                                metadata,
@@ -2907,15 +3467,58 @@ static void ParseNumberPairFromNSString(NSString *text,
         SetMP4TextItem(tag, "\xA9" "wrt", metadata.composer); // Composer
         SetMP4TextItem(tag, "\xA9" "day", metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year);
         SetMP4TextItem(tag, "cprt", metadata.copyright);     // Copyright
+        SetMP4TextItem(tag, "sonm", metadata.sortTitle);
+        SetMP4TextItem(tag, "soar", metadata.sortArtist);
+        SetMP4TextItem(tag, "soal", metadata.sortAlbum);
+        SetMP4TextItem(tag, "soaa", metadata.sortAlbumArtist);
+        SetMP4TextItem(tag, "soco", metadata.sortComposer);
+        SetMP4TextItem(tag, "\xA9" "grp", metadata.grouping);
+        SetMP4TextItem(tag, "\xA9" "lyr", metadata.lyrics);
+        SetMP4TextItem(tag, "\xA9" "too", metadata.encodedBy);
 
         // Publisher/label convention for MP4 freeform atoms.
         SetMP4TextItem(tag, "----:com.apple.iTunes:LABEL", metadata.label);
         SetMP4TextItem(tag, "----:com.apple.iTunes:ITUNESADVISORY", metadata.explicitContent ? @"1" : @"0");
         SetMP4TextItem(tag, kAudioMatorMP4TrackNumberTextKey, metadata.trackNumberText);
         SetMP4TextItem(tag, kAudioMatorMP4DiscNumberTextKey, metadata.discNumberText);
+        SetMP4FreeformTextItem(tag, @"ENCODERSETTINGS", metadata.encoderSettings);
+        SetMP4FreeformTextItem(tag, @"SUBTITLE", metadata.subtitle);
+        SetMP4FreeformTextItem(tag, @"MOVEMENT", metadata.movement);
+        SetMP4FreeformTextItem(tag, @"MOOD", metadata.mood);
+        SetMP4FreeformTextItem(tag, @"LANGUAGE", metadata.language);
+        SetMP4FreeformTextItem(tag, @"INITIALKEY", metadata.musicalKey);
+        SetMP4FreeformTextItem(tag, @"CONDUCTOR", metadata.conductor);
+        SetMP4FreeformTextItem(tag, @"REMIXER", metadata.remixer);
+        SetMP4FreeformTextItem(tag, @"PRODUCER", metadata.producer);
+        SetMP4FreeformTextItem(tag, @"ENGINEER", metadata.engineer);
+        SetMP4FreeformTextItem(tag, @"LYRICIST", metadata.lyricist);
+        SetMP4FreeformTextItem(tag, @"ISRC", metadata.isrc);
+        SetMP4FreeformTextItem(tag, @"ORIGINAL YEAR", metadata.originalReleaseDate);
+        SetMP4FreeformTextItem(tag, @"RELEASETYPE", metadata.releaseType);
+        SetMP4FreeformTextItem(tag, @"BARCODE", metadata.barcode);
+        SetMP4FreeformTextItem(tag, @"CATALOGNUMBER", metadata.catalogNumber);
+        SetMP4FreeformTextItem(tag, @"MusicBrainz Album Release Country", metadata.releaseCountry);
+        SetMP4FreeformTextItem(tag, @"ARTISTTYPE", metadata.artistType);
+        SetMP4FreeformTextItem(tag, @"MusicBrainz Artist Id", metadata.musicBrainzArtistId);
+        SetMP4FreeformTextItem(tag, @"MusicBrainz Album Id", metadata.musicBrainzAlbumId);
+        SetMP4FreeformTextItem(tag, @"MusicBrainz Track Id", metadata.musicBrainzTrackId);
+        SetMP4FreeformTextItem(tag, @"MusicBrainz Release Group Id", metadata.musicBrainzReleaseGroupId);
+        SetMP4FreeformTextItem(tag, @"REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
+        SetMP4FreeformTextItem(tag, @"REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
+        SetMP4FreeformTextItem(tag, @"MEDIATYPE", metadata.mediaType);
 
         SetMP4IntPairItem(tag, "trkn", metadata.trackNumber, metadata.totalTracks);
         SetMP4IntPairItem(tag, "disk", metadata.discNumber, metadata.totalDiscs);
+        if (metadata.bpm > 0) {
+            tag->setItem("tmpo", TagLib::MP4::Item((int)metadata.bpm));
+        } else {
+            tag->removeItem("tmpo");
+        }
+        if (metadata.compilation) {
+            tag->setItem("cpil", TagLib::MP4::Item(true));
+        } else {
+            tag->removeItem("cpil");
+        }
 
         // iTunes-style explicit rating: 4 = explicit. Remove atom when not explicit.
         if (metadata.explicitContent) {
@@ -2923,6 +3526,7 @@ static void ParseNumberPairFromNSString(NSString *text,
         } else {
             tag->removeItem("rtng");
         }
+        ApplyCustomFieldsToMP4Tag(tag, metadata.customFields);
 
         if (!ApplyPictureComplexProperties(tag,
                                            metadata,

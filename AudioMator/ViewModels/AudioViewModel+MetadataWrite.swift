@@ -387,7 +387,7 @@ extension AudioViewModel {
             return .failure("This format does not support metadata writing yet.")
         }
 
-        let meta = makeTagLibMetadata(from: edit)
+        let meta = makeTagLibMetadata(from: edit, preservingMetadataFrom: file)
         logMetadataWrite(meta, edit: edit, file: file)
 
         do {
@@ -427,8 +427,11 @@ extension AudioViewModel {
         }
     }
 
-    private func makeTagLibMetadata(from edit: SingleFileEditModel) -> TagLibAudioMetadata {
-        let meta = TagLibAudioMetadata()
+    private func makeTagLibMetadata(
+        from edit: SingleFileEditModel,
+        preservingMetadataFrom file: AudioFile
+    ) -> TagLibAudioMetadata {
+        let meta = (try? TagLibMetadataExtractor.extractMetadata(from: file.url)) ?? TagLibAudioMetadata()
 
         // Trim surrounding whitespace to avoid writing accidental padded tags.
         meta.title = edit.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -446,6 +449,8 @@ extension AudioViewModel {
 
         switch edit.artworkEditAction {
         case .unchanged:
+            meta.artworkData = nil
+            meta.artworkMimeType = nil
             meta.removeArtwork = false
         case .replace(let artwork):
             meta.artworkData = artwork.data

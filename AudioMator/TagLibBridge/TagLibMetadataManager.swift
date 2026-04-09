@@ -13,6 +13,7 @@ struct BasicMetadata {
     var composer: String
     var genre: String
     var comment: String
+    var lyrics: String
     var track: Int
     var trackTotal: Int
     var disc: Int
@@ -22,6 +23,7 @@ struct BasicMetadata {
     var year: String
     var albumArtist: String
     var releaseDate: String
+    var originalReleaseDate: String
     var isrc: String
     var barcode: String
     var musicBrainzArtistID: String
@@ -30,13 +32,42 @@ struct BasicMetadata {
     var musicBrainzReleaseGroupID: String
     var publisher: String
     var copyright: String
+    var encodedBy: String
+    var encoderSettings: String
+    var sortTitle: String
+    var sortArtist: String
+    var sortAlbum: String
+    var sortAlbumArtist: String
+    var sortComposer: String
+    var conductor: String
+    var remixer: String
+    var producer: String
+    var engineer: String
+    var lyricist: String
+    var subtitle: String
+    var grouping: String
+    var movement: String
+    var mood: String
+    var language: String
+    var musicalKey: String
+    var replayGainTrack: String
+    var replayGainAlbum: String
+    var mediaType: String
+    var releaseType: String
+    var catalogNumber: String
+    var releaseCountry: String
+    var artistType: String
+    var bpm: Int
+    var isCompilation: Bool
     var isExplicit: Bool
     var duration: Double
     var bitrate: Int
     var sampleRate: Double
     var channels: Int
+    var bitDepth: Int
     var format: String
     var artworkData: Data?
+    var customFields: [String: String]
 
     static let empty = BasicMetadata(
         title: "",
@@ -45,6 +76,7 @@ struct BasicMetadata {
         composer: "",
         genre: "",
         comment: "",
+        lyrics: "",
         track: 0,
         trackTotal: 0,
         disc: 0,
@@ -54,6 +86,7 @@ struct BasicMetadata {
         year: "",
         albumArtist: "",
         releaseDate: "",
+        originalReleaseDate: "",
         isrc: "",
         barcode: "",
         musicBrainzArtistID: "",
@@ -62,13 +95,42 @@ struct BasicMetadata {
         musicBrainzReleaseGroupID: "",
         publisher: "",
         copyright: "",
+        encodedBy: "",
+        encoderSettings: "",
+        sortTitle: "",
+        sortArtist: "",
+        sortAlbum: "",
+        sortAlbumArtist: "",
+        sortComposer: "",
+        conductor: "",
+        remixer: "",
+        producer: "",
+        engineer: "",
+        lyricist: "",
+        subtitle: "",
+        grouping: "",
+        movement: "",
+        mood: "",
+        language: "",
+        musicalKey: "",
+        replayGainTrack: "",
+        replayGainAlbum: "",
+        mediaType: "",
+        releaseType: "",
+        catalogNumber: "",
+        releaseCountry: "",
+        artistType: "",
+        bpm: 0,
+        isCompilation: false,
         isExplicit: false,
         duration: 0,
         bitrate: 0,
         sampleRate: 0,
         channels: 0,
+        bitDepth: 0,
         format: "",
-        artworkData: nil
+        artworkData: nil,
+        customFields: [:]
     )
 }
 
@@ -245,6 +307,7 @@ struct TagLibMetadataManager {
                 composer: meta.composer ?? "",
                 genre: meta.genre ?? "",
                 comment: meta.comment ?? "",
+                lyrics: meta.lyrics ?? "",
                 track: Int(meta.trackNumber),
                 trackTotal: Int(meta.totalTracks),
                 disc: Int(meta.discNumber),
@@ -258,6 +321,7 @@ struct TagLibMetadataManager {
                 year: meta.year ?? "",
                 albumArtist: meta.albumArtist ?? "",
                 releaseDate: meta.releaseDate ?? meta.originalReleaseDate ?? "",
+                originalReleaseDate: meta.originalReleaseDate ?? "",
                 isrc: meta.isrc ?? "",
                 barcode: meta.barcode ?? "",
                 musicBrainzArtistID: meta.musicBrainzArtistId ?? "",
@@ -266,13 +330,42 @@ struct TagLibMetadataManager {
                 musicBrainzReleaseGroupID: meta.musicBrainzReleaseGroupId ?? "",
                 publisher: meta.label ?? "",
                 copyright: meta.copyright ?? "",
+                encodedBy: meta.encodedBy ?? "",
+                encoderSettings: meta.encoderSettings ?? "",
+                sortTitle: meta.sortTitle ?? "",
+                sortArtist: meta.sortArtist ?? "",
+                sortAlbum: meta.sortAlbum ?? "",
+                sortAlbumArtist: meta.sortAlbumArtist ?? "",
+                sortComposer: meta.sortComposer ?? "",
+                conductor: meta.conductor ?? "",
+                remixer: meta.remixer ?? "",
+                producer: meta.producer ?? "",
+                engineer: meta.engineer ?? "",
+                lyricist: meta.lyricist ?? "",
+                subtitle: meta.subtitle ?? "",
+                grouping: meta.grouping ?? "",
+                movement: meta.movement ?? "",
+                mood: meta.mood ?? "",
+                language: meta.language ?? "",
+                musicalKey: meta.musicalKey ?? "",
+                replayGainTrack: meta.replayGainTrack ?? "",
+                replayGainAlbum: meta.replayGainAlbum ?? "",
+                mediaType: meta.mediaType ?? "",
+                releaseType: meta.releaseType ?? "",
+                catalogNumber: meta.catalogNumber ?? "",
+                releaseCountry: meta.releaseCountry ?? "",
+                artistType: meta.artistType ?? "",
+                bpm: Int(meta.bpm),
+                isCompilation: meta.compilation,
                 isExplicit: meta.explicitContent,
                 duration: meta.duration,
                 bitrate: Int(meta.bitrate),
                 sampleRate: Double(meta.sampleRate),
                 channels: Int(meta.channels),
+                bitDepth: Int(meta.bitDepth),
                 format: meta.codec ?? "",
-                artworkData: meta.artworkData as Data?
+                artworkData: meta.artworkData as Data?,
+                customFields: meta.customFields ?? [:]
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")
@@ -323,13 +416,49 @@ struct TagLibMetadataManager {
         // Dates
         m.year = nilIfEmpty(meta.year)
         m.releaseDate = nilIfEmpty(meta.releaseDate)
+        m.originalReleaseDate = nilIfEmpty(meta.originalReleaseDate)
 
         // Legal / publisher
         m.label = nilIfEmpty(meta.publisher)
         m.copyright = nilIfEmpty(meta.copyright)
+        m.lyrics = nilIfEmpty(meta.lyrics)
+        m.encodedBy = nilIfEmpty(meta.encodedBy)
+        m.encoderSettings = nilIfEmpty(meta.encoderSettings)
+        m.sortTitle = nilIfEmpty(meta.sortTitle)
+        m.sortArtist = nilIfEmpty(meta.sortArtist)
+        m.sortAlbum = nilIfEmpty(meta.sortAlbum)
+        m.sortAlbumArtist = nilIfEmpty(meta.sortAlbumArtist)
+        m.sortComposer = nilIfEmpty(meta.sortComposer)
+        m.conductor = nilIfEmpty(meta.conductor)
+        m.remixer = nilIfEmpty(meta.remixer)
+        m.producer = nilIfEmpty(meta.producer)
+        m.engineer = nilIfEmpty(meta.engineer)
+        m.lyricist = nilIfEmpty(meta.lyricist)
+        m.subtitle = nilIfEmpty(meta.subtitle)
+        m.grouping = nilIfEmpty(meta.grouping)
+        m.movement = nilIfEmpty(meta.movement)
+        m.mood = nilIfEmpty(meta.mood)
+        m.language = nilIfEmpty(meta.language)
+        m.musicalKey = nilIfEmpty(meta.musicalKey)
+        m.replayGainTrack = nilIfEmpty(meta.replayGainTrack)
+        m.replayGainAlbum = nilIfEmpty(meta.replayGainAlbum)
+        m.mediaType = nilIfEmpty(meta.mediaType)
+        m.releaseType = nilIfEmpty(meta.releaseType)
+        m.catalogNumber = nilIfEmpty(meta.catalogNumber)
+        m.releaseCountry = nilIfEmpty(meta.releaseCountry)
+        m.artistType = nilIfEmpty(meta.artistType)
 
         // Explicit
+        m.bpm = meta.bpm
+        m.compilation = meta.isCompilation
         m.explicitContent = meta.isExplicit
+        m.isrc = nilIfEmpty(meta.isrc)
+        m.barcode = nilIfEmpty(meta.barcode)
+        m.musicBrainzArtistId = nilIfEmpty(meta.musicBrainzArtistID)
+        m.musicBrainzAlbumId = nilIfEmpty(meta.musicBrainzAlbumID)
+        m.musicBrainzTrackId = nilIfEmpty(meta.musicBrainzTrackID)
+        m.musicBrainzReleaseGroupId = nilIfEmpty(meta.musicBrainzReleaseGroupID)
+        m.customFields = meta.customFields.isEmpty ? nil : meta.customFields
 
         // Persist
         try TagLibMetadataExtractor.writeMetadata(m, to: url)

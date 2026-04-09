@@ -440,6 +440,7 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 2, height: 4)
         textView.font = Self.editorFont
         textView.textColor = .labelColor
+        textView.insertionPointColor = .labelColor
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
@@ -473,6 +474,8 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             textView.isEditable = isEnabled
         }
 
+        context.coordinator.refreshLiteralStyling(in: textView)
+
         let serializedTemplate = context.coordinator.serialize(textStorage: textView.textStorage)
         if serializedTemplate != template {
             context.coordinator.applyTemplate(template, to: textView)
@@ -505,6 +508,8 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             guard !isApplyingProgrammaticUpdate else { return }
             guard let textView, notification.object as AnyObject? === textView else { return }
 
+            refreshLiteralStyling(in: textView)
+
             let serializedTemplate = serialize(textStorage: textView.textStorage)
             guard serializedTemplate != parent.template else { return }
 
@@ -514,6 +519,7 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let textView, notification.object as AnyObject? === textView else { return }
             selectedRange = textView.selectedRange()
+            textView.typingAttributes = literalAttributes()
         }
 
         func textView(
@@ -540,7 +546,7 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             textView.textStorage?.setAttributedString(attributed)
             textView.setSelectedRange(clampedRange)
             selectedRange = clampedRange
-            textView.typingAttributes = literalAttributes()
+            refreshLiteralStyling(in: textView)
             isApplyingProgrammaticUpdate = false
         }
 
@@ -599,7 +605,7 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             let newSelection = NSRange(location: insertionLocation, length: 0)
             textView.setSelectedRange(newSelection)
             selectedRange = newSelection
-            textView.typingAttributes = literalAttributes()
+            refreshLiteralStyling(in: textView)
             textView.didChangeText()
             isApplyingProgrammaticUpdate = false
 
@@ -630,6 +636,35 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
                 .font: FileRenameTemplateEditor.editorFont,
                 .foregroundColor: parent.isEnabled ? NSColor.labelColor : NSColor.secondaryLabelColor
             ]
+        }
+
+        func refreshLiteralStyling(in textView: NSTextView) {
+            let literalColor = parent.isEnabled ? NSColor.labelColor : NSColor.secondaryLabelColor
+            textView.textColor = literalColor
+            textView.insertionPointColor = literalColor
+            textView.typingAttributes = literalAttributes()
+
+            guard let textStorage = textView.textStorage, textStorage.length > 0 else { return }
+
+            let attributes = literalAttributes()
+            textStorage.beginEditing()
+
+            var index = 0
+            while index < textStorage.length {
+                var effectiveRange = NSRange(location: 0, length: 0)
+                let attachment = textStorage.attribute(.attachment, at: index, effectiveRange: &effectiveRange)
+                let range = effectiveRange.length > 0
+                    ? effectiveRange
+                    : NSRange(location: index, length: 1)
+
+                if !(attachment is FileRenameFieldAttachment) {
+                    textStorage.addAttributes(attributes, range: range)
+                }
+
+                index = range.location + range.length
+            }
+
+            textStorage.endEditing()
         }
 
         private func clampSelectedRange(_ range: NSRange, textLength: Int) -> NSRange {

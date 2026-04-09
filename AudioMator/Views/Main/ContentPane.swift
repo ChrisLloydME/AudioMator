@@ -9,6 +9,7 @@ struct ContentPane: View {
     let onAddFiles: () -> Void
     let onShowMetadataDump: () -> Void
     let onOpenMusicBrainzBrowser: () -> Void
+    let onOpenMetadataFilenameTool: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
     let onOpenTrackRenumber: () -> Void
     let onCancelEdits: () -> Void
@@ -20,8 +21,6 @@ struct ContentPane: View {
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isTextMetadataImportPresented: Bool = false
     @State private var textMetadataImportTargets: [AudioFile] = []
-    @State private var isMetadataFilenameRenamePresented: Bool = false
-    @State private var metadataFilenameRenameTargetIDs: [AudioFile.ID] = []
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -137,13 +136,6 @@ struct ContentPane: View {
                     viewModel: viewModel,
                     targetFiles: textMetadataImportTargets,
                     isPresented: $isTextMetadataImportPresented
-                )
-            }
-            .sheet(isPresented: $isMetadataFilenameRenamePresented) {
-                MetadataFilenameRenameSheet(
-                    viewModel: viewModel,
-                    targetFileIDs: metadataFilenameRenameTargetIDs,
-                    isPresented: $isMetadataFilenameRenamePresented
                 )
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
@@ -300,8 +292,7 @@ struct ContentPane: View {
             return
         }
 
-        metadataFilenameRenameTargetIDs = targets.map(\.id)
-        isMetadataFilenameRenamePresented = true
+        onOpenMetadataFilenameTool(targets.map(\.id))
     }
 
     private func openSelectedFiles() {

@@ -12,6 +12,7 @@ struct ContentView: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
     @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @Environment(\.openWindow) private var openWindow
 
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
@@ -50,6 +51,7 @@ struct ContentView: View {
                 onAddFiles: viewModel.addFiles,
                 onShowMetadataDump: presentMetadataDump,
                 onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
+                onOpenMetadataFilenameTool: openMetadataFilenameTool,
                 onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
                 onOpenTrackRenumber: openTrackRenumberSheet,
                 onCancelEdits: viewModel.cancelEditing,
@@ -165,6 +167,12 @@ struct ContentView: View {
         musicBrainzBrowserStore.apply(seed: seed)
         openWindow(id: MusicBrainzBrowserView.windowID)
         musicBrainzBrowserStore.search()
+    }
+
+    private func openMetadataFilenameTool(targetFileIDs: [AudioFile.ID]) {
+        guard !targetFileIDs.isEmpty else { return }
+        metadataFilenameToolStore.present(targetFileIDs: targetFileIDs)
+        openWindow(id: MetadataFilenameWindowView.windowID)
     }
 
     private func dismissWelcomeSplash() {
@@ -499,7 +507,8 @@ struct ContentView_Previews: PreviewProvider {
         ContentView(
             viewModel: AudioViewModel(),
             state: SharedState(),
-            musicBrainzBrowserStore: MusicBrainzBrowserStore()
+            musicBrainzBrowserStore: MusicBrainzBrowserStore(),
+            metadataFilenameToolStore: MetadataFilenameToolStore()
         )
     }
 }

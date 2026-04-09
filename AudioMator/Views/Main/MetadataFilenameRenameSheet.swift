@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 import UniformTypeIdentifiers
 
 private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
@@ -11,9 +12,9 @@ private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
     var pickerTitle: String {
         switch self {
         case .metadataToFilename:
-            return "Metadata -> Filename"
+            return "Metadata to Filename"
         case .filenameToMetadata:
-            return "Filename -> Metadata"
+            return "Filename to Metadata"
         }
     }
 
@@ -63,10 +64,22 @@ private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
     }
 }
 
-struct MetadataFilenameRenameSheet: View {
+@MainActor
+final class MetadataFilenameToolStore: ObservableObject {
+    @Published private(set) var targetFileIDs: [AudioFile.ID] = []
+
+    func present(targetFileIDs: [AudioFile.ID]) {
+        self.targetFileIDs = targetFileIDs
+    }
+}
+
+struct MetadataFilenameWindowView: View {
+    static let windowID = "metadata-filename-tool"
+
     @ObservedObject var viewModel: AudioViewModel
-    let targetFileIDs: [AudioFile.ID]
-    @Binding var isPresented: Bool
+    @ObservedObject var store: MetadataFilenameToolStore
+
+    @Environment(\.dismiss) private var dismiss
 
     @State private var mode: MetadataFilenameToolMode = .metadataToFilename
     @State private var metadataToFilenameTemplate: String = ""
@@ -80,7 +93,7 @@ struct MetadataFilenameRenameSheet: View {
 
     private var targetFiles: [AudioFile] {
         let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
-        return targetFileIDs.compactMap { filesByID[$0] }
+        return store.targetFileIDs.compactMap { filesByID[$0] }
     }
 
     private var renamePlan: FileRenamePlan {
@@ -276,22 +289,33 @@ struct MetadataFilenameRenameSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    setupSection
-                    previewSection
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        header
+                        setupSection
+                        previewSection
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 4)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
-            }
-            .scrollBounceBehavior(.basedOnSize)
+                .scrollBounceBehavior(.basedOnSize)
 
-            footer
+                footer
+            }
+            .padding(20)
+            .frame(minWidth: 820, idealWidth: 860, maxWidth: 980, minHeight: 620, idealHeight: 720)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .navigationTitle("Filename & Metadata")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    MetadataFilenameModeToolbarSwitcher(selection: $mode)
+                    .frame(width: 420)
+                    .disabled(isApplying)
+                }
+            }
         }
-        .padding(20)
-        .frame(width: 760, height: 680)
         .onChange(of: mode) { _, _ in
             pendingFieldInsertion = nil
         }
@@ -300,8 +324,8 @@ struct MetadataFilenameRenameSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Filename and Metadata")
-                    .font(.title2)
+                Text(mode.pickerTitle)
+                    .font(.title3)
                     .fontWeight(.semibold)
 
                 Spacer()
@@ -311,13 +335,6 @@ struct MetadataFilenameRenameSheet: View {
                         .controlSize(.small)
                 }
             }
-
-            Picker("Direction", selection: $mode) {
-                ForEach(MetadataFilenameToolMode.allCases) { mode in
-                    Text(mode.pickerTitle).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
 
             Text(mode.headerDescription)
                 .font(.subheadline)
@@ -454,7 +471,7 @@ struct MetadataFilenameRenameSheet: View {
             Spacer()
 
             Button("Close") {
-                isPresented = false
+                dismiss()
             }
             .keyboardShortcut(.cancelAction)
             .disabled(isApplying)
@@ -519,7 +536,7 @@ struct MetadataFilenameRenameSheet: View {
             isApplying = false
 
             if result.didSucceed && renamePlan.issueCount == 0 {
-                isPresented = false
+                dismiss()
             }
         }
     }
@@ -535,9 +552,64 @@ struct MetadataFilenameRenameSheet: View {
             isApplying = false
 
             if !plan.hasIssues {
-                isPresented = false
+                dismiss()
             }
         }
+    }
+}
+
+private struct MetadataFilenameModeToolbarSwitcher: View {
+    @Binding var selection: MetadataFilenameToolMode
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(MetadataFilenameToolMode.allCases) { mode in
+                Button {
+                    selection = mode
+                } label: {
+                    Text(mode.pickerTitle)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(selection == mode ? .primary : .secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(selection == mode ? selectedSegmentFill : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(toolbarBackgroundFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(toolbarBorderColor, lineWidth: 1)
+        )
+    }
+
+    private var toolbarBackgroundFill: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.03)
+            : Color.black.opacity(0.03)
+    }
+
+    private var toolbarBorderColor: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.12)
+            : Color.black.opacity(0.10)
+    }
+
+    private var selectedSegmentFill: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.18)
+            : Color.black.opacity(0.10)
     }
 }
 

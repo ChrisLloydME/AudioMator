@@ -558,7 +558,8 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             replaceCharacters(
                 in: insertionRange,
                 with: FileRenameTemplateDocument(rawValue: field.token),
-                in: textView
+                in: textView,
+                clearPendingInsertion: true
             )
             textView.window?.makeFirstResponder(textView)
         }
@@ -591,7 +592,8 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
         private func replaceCharacters(
             in affectedCharRange: NSRange,
             with document: FileRenameTemplateDocument,
-            in textView: NSTextView
+            in textView: NSTextView,
+            clearPendingInsertion: Bool = false
         ) {
             let replacement = attributedString(for: document)
             let clampedRange = clampSelectedRange(
@@ -609,7 +611,10 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             textView.didChangeText()
             isApplyingProgrammaticUpdate = false
 
-            parent.template = serialize(textStorage: textView.textStorage)
+            scheduleTemplateStateSync(
+                from: textView,
+                clearPendingInsertion: clearPendingInsertion
+            )
         }
 
         private func attributedString(for document: FileRenameTemplateDocument) -> NSAttributedString {
@@ -665,6 +670,25 @@ private struct FileRenameTemplateEditor: NSViewRepresentable {
             }
 
             textStorage.endEditing()
+        }
+
+        private func scheduleTemplateStateSync(
+            from textView: NSTextView,
+            clearPendingInsertion: Bool
+        ) {
+            let serializedTemplate = serialize(textStorage: textView.textStorage)
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+
+                if self.parent.template != serializedTemplate {
+                    self.parent.template = serializedTemplate
+                }
+
+                if clearPendingInsertion {
+                    self.parent.pendingInsertion = nil
+                }
+            }
         }
 
         private func clampSelectedRange(_ range: NSRange, textLength: Int) -> NSRange {

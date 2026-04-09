@@ -24,7 +24,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         case .musicBrainzBrowser:
             return "MusicBrainz Browser"
         case .renameFiles:
-            return "Rename Files"
+            return "Filename & Metadata"
         case .importField:
             return "Import Field"
         case .clearList:

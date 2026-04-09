@@ -75,9 +75,9 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.renameFiles) {
                         Button(action: openMetadataFilenameRenameSheet) {
-                            Label("Rename Files…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+                            Label("Filename & Metadata…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
                         }
-                        .help("Rename selected files from metadata")
+                        .help("Convert between filenames and metadata for the selected files")
                         .disabled(state.selectedAudioIDs.isEmpty)
                     }
 

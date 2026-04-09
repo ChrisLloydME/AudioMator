@@ -147,7 +147,7 @@ struct ToolbarEditCommands: Commands {
             Button {
                 NotificationCenter.default.post(name: .requestMetadataFilenameRename, object: nil)
             } label: {
-                Label("Rename Files…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+                Label("Filename & Metadata…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 

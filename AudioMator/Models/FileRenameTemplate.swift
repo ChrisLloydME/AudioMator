@@ -15,6 +15,7 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
     case publisher
     case copyright
     case credits
+    case ignore
 
     var id: String { placeholderName }
 
@@ -48,6 +49,8 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
             return "Copyright"
         case .credits:
             return "Credits"
+        case .ignore:
+            return "Ignore"
         }
     }
 
@@ -81,6 +84,8 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
             return "copyright"
         case .credits:
             return "credits"
+        case .ignore:
+            return "_ignore"
         }
     }
 
@@ -310,6 +315,8 @@ private struct FileRenameFieldValueResolver {
             return file.copyright
         case .credits:
             return file.credits
+        case .ignore:
+            return ""
         }
     }
 }

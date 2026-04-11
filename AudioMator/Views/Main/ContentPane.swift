@@ -244,7 +244,7 @@ struct ContentPane: View {
                         Text(file.title.isEmpty ? file.url.lastPathComponent : file.title)
                             .font(.body)
                             .lineLimit(1)
-                        Text(file.artist.isEmpty ? file.url.lastPathComponent : file.artist)
+                        Text(file.artist)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)

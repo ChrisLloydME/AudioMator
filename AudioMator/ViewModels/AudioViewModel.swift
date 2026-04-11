@@ -745,9 +745,6 @@ final class AudioViewModel: ObservableObject {
         }
 
         folderDirectoryMonitors[folderID] = monitors
-        #else
-        _ = folderID
-        _ = directories
         #endif
     }
 

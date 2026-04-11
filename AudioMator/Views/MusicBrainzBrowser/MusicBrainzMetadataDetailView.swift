@@ -2,9 +2,6 @@
 import Foundation
 import SwiftUI
 import WebKit
-#if !os(macOS)
-import UIKit
-#endif
 
 struct MusicBrainzMetadataDetailView: View {
     let store: MusicBrainzBrowserStore

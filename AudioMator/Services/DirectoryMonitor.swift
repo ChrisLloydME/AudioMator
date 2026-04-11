@@ -61,13 +61,10 @@ final class DirectoryMonitor {
 #else
 final class DirectoryMonitor {
     init?(
-        url: URL,
-        queue: DispatchQueue = DispatchQueue(label: "AudioMator.DirectoryMonitor", qos: .utility),
-        eventHandler: @escaping @Sendable () -> Void
+        _ url: URL,
+        queue _: DispatchQueue = DispatchQueue(label: "AudioMator.DirectoryMonitor", qos: .utility),
+        eventHandler _: @escaping @Sendable () -> Void
     ) {
-        _ = url
-        _ = queue
-        _ = eventHandler
         return nil
     }
 

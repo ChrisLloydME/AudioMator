@@ -246,7 +246,7 @@ private struct ArtworkLookupResultTile: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.16) : backgroundFillColor)
+                    .fill(isSelected ? Color.accentColor.opacity(0.16) : rowBackgroundFillColor())
             )
             .overlay(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)
@@ -257,11 +257,11 @@ private struct ArtworkLookupResultTile: View {
     }
 }
 
-private var backgroundFillColor: Color {
+private func rowBackgroundFillColor() -> Color {
     #if os(macOS)
-    Color(nsColor: .windowBackgroundColor)
+    return Color(nsColor: .windowBackgroundColor)
     #else
-    Color(uiColor: .secondarySystemBackground)
+    return Color(uiColor: .secondarySystemBackground)
     #endif
 }
 

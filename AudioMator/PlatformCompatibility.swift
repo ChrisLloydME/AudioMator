@@ -25,7 +25,8 @@ final class NSBitmapImageRep {
         self.imageData = data
     }
 
-    func representation(using: NSBitmapImageRepFileType, properties: [AnyHashable: Any]) -> Data? {
+    func representation(using storageType: NSBitmapImageRepFileType, properties: [AnyHashable: Any]) -> Data? {
+        _ = storageType
         imageData
     }
 }

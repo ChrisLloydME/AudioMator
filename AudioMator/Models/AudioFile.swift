@@ -13,7 +13,7 @@ import CoreMedia
 #if os(macOS)
 import AppKit
 #else
-internal import UIKit
+import UIKit
 #endif
 
 // Loaded off the main actor and then treated as an immutable snapshot in the UI.

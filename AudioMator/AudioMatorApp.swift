@@ -104,6 +104,7 @@ struct AudioMatorApp: App {
             )
         }
         .defaultSize(width: 920, height: 640)
+        .windowToolbarStyle(.expanded)
     }
 }
 

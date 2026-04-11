@@ -43,8 +43,15 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView else { return }
-        if textView.font != font { textView.font = font }
-        if textView.textColor != textColor { textView.textColor = textColor }
+
+        if textView.font != font {
+            textView.font = font
+        }
+
+        if textView.textColor != textColor {
+            textView.textColor = textColor
+        }
+
         if textView.string != text {
             textView.string = text
             textView.needsDisplay = true

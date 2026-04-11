@@ -338,8 +338,87 @@ static NSString * _Nullable PreferredNumberText(NSString * _Nullable currentValu
         : trimmedCurrent;
 }
 
+// Internal-only MP4 freeform atoms used to preserve the user's exact track/disc text
+// (for example "01/10") across formats that otherwise normalize numeric pairs.
 static constexpr const char *kAudioMatorMP4TrackNumberTextKey = "----:com.apple.iTunes:AUDIOMATOR_TRACKNUMBER_TEXT";
 static constexpr const char *kAudioMatorMP4DiscNumberTextKey = "----:com.apple.iTunes:AUDIOMATOR_DISCNUMBER_TEXT";
+
+static bool IsMP4LikeExtension(NSString * _Nullable ext);
+
+static NSSet<NSString *> *HiddenInternalMetadataFieldKeys()
+{
+    static NSSet<NSString *> *keys = [NSSet setWithArray:@[
+        @"AUDIOMATOR_TRACKNUMBER_TEXT",
+        @"AUDIOMATOR_DISCNUMBER_TEXT",
+        @"----:COM.APPLE.ITUNES:AUDIOMATOR_TRACKNUMBER_TEXT",
+        @"----:COM.APPLE.ITUNES:AUDIOMATOR_DISCNUMBER_TEXT",
+    ]];
+    return keys;
+}
+
+static bool IsHiddenInternalMetadataFieldKey(NSString * _Nullable key)
+{
+    NSString *normalizedKey = UppercaseTrimmedString(key);
+    return normalizedKey && [HiddenInternalMetadataFieldKeys() containsObject:normalizedKey];
+}
+
+static NSString * _Nullable RawPropertyValueForCandidateKeys(NSDictionary<NSString *, NSString *> *properties,
+                                                             NSArray<NSString *> *candidateKeys)
+{
+    if (!properties || properties.count == 0 || candidateKeys.count == 0) {
+        return nil;
+    }
+
+    NSSet<NSString *> *normalizedCandidates = [NSSet setWithArray:candidateKeys];
+    for (NSString *rawKey in properties) {
+        NSString *normalizedKey = UppercaseTrimmedString(rawKey);
+        if (!normalizedKey || ![normalizedCandidates containsObject:normalizedKey]) {
+            continue;
+        }
+
+        NSString *value = TrimmedStringOrNil(properties[rawKey]);
+        if (value) {
+            return value;
+        }
+    }
+
+    return nil;
+}
+
+static NSDictionary<NSString *, NSString *> *NormalizedRawPropertiesForWrite(NSDictionary<NSString *, NSString *> *properties,
+                                                                             NSString *ext)
+{
+    NSMutableDictionary<NSString *, NSString *> *normalizedProperties = [NSMutableDictionary dictionary];
+
+    for (NSString *rawKey in properties ?: @{}) {
+        NSString *trimmedKey = TrimmedStringOrNil(rawKey);
+        NSString *trimmedValue = TrimmedStringOrNil(properties[rawKey]);
+        if (!trimmedKey || !trimmedValue) {
+            continue;
+        }
+
+        if (IsHiddenInternalMetadataFieldKey(trimmedKey)) {
+            continue;
+        }
+
+        normalizedProperties[trimmedKey] = trimmedValue;
+    }
+
+    if (IsMP4LikeExtension(ext)) {
+        NSString *trackText = RawPropertyValueForCandidateKeys(normalizedProperties, @[ @"TRACKNUMBER", @"TRACK" ]);
+        NSString *discText = RawPropertyValueForCandidateKeys(normalizedProperties, @[ @"DISCNUMBER", @"DISC" ]);
+
+        if (trackText) {
+            normalizedProperties[@"AUDIOMATOR_TRACKNUMBER_TEXT"] = trackText;
+        }
+
+        if (discText) {
+            normalizedProperties[@"AUDIOMATOR_DISCNUMBER_TEXT"] = discText;
+        }
+    }
+
+    return [normalizedProperties copy];
+}
 
 static bool IsMP4LikeExtension(NSString * _Nullable ext) {
     if (!ext) return false;
@@ -1176,6 +1255,10 @@ static void AppendRawPropertyEntries(NSMutableArray<NSDictionary<NSString *, NSO
 
     for (auto pit = propertyMap.begin(); pit != propertyMap.end(); ++pit) {
         NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
+        if (IsHiddenInternalMetadataFieldKey(nsKey)) {
+            continue;
+        }
+
         NSMutableArray<NSString *> *values = [NSMutableArray array];
         for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
             [values addObject:(TagStringToNSString(*vit) ?: @"")];
@@ -3083,7 +3166,7 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
         return NO;
     }
 
-    NSDictionary<NSString *, NSString *> *normalizedProperties = properties ?: @{};
+    NSDictionary<NSString *, NSString *> *normalizedProperties = NormalizedRawPropertiesForWrite(properties ?: @{}, ext);
 
     if (IsMPEGLikeExtension(ext)) {
         TagLib::MPEG::File file(filePath);
@@ -4615,6 +4698,8 @@ static void AppendPropertyMap(NSMutableString *out, const TagLib::PropertyMap &p
         return;
     }
 
+    bool appendedAnyEntry = false;
+
     // Iterate PropertyMap directly (portable across TagLib versions).
     for (auto it = pm.begin(); it != pm.end(); ++it) {
         const TagLib::String &k = it->first;
@@ -4622,6 +4707,9 @@ static void AppendPropertyMap(NSMutableString *out, const TagLib::PropertyMap &p
 
         NSString *nsKey = TagStringToNSString(k);
         if (!nsKey) nsKey = @"";
+        if (IsHiddenInternalMetadataFieldKey(nsKey)) {
+            continue;
+        }
 
         NSMutableArray<NSString *> *valueStrings = [NSMutableArray array];
         for (auto vit = vals.begin(); vit != vals.end(); ++vit) {
@@ -4631,6 +4719,11 @@ static void AppendPropertyMap(NSMutableString *out, const TagLib::PropertyMap &p
 
         NSString *joined = valueStrings.count ? [valueStrings componentsJoinedByString:@"; "] : @"";
         AppendLine(out, [NSString stringWithFormat:@"%@ = %@", nsKey, joined]);
+        appendedAnyEntry = true;
+    }
+
+    if (!appendedAnyEntry) {
+        AppendLine(out, @"(none)");
     }
 }
 
@@ -5145,10 +5238,18 @@ static void AppendRIFFInfoSection(NSMutableString *out,
             if (items.isEmpty()) {
                 AppendLine(out, @"(none)");
             } else {
+                bool appendedAnyItem = false;
                 for (auto it = items.begin(); it != items.end(); ++it) {
                     NSString *k = TagStringToNSString(it->first) ?: @"";
+                    if (IsHiddenInternalMetadataFieldKey(k)) {
+                        continue;
+                    }
                     NSString *v = MP4ItemToDisplayString(it->second);
                     AppendLine(out, [NSString stringWithFormat:@"%@ = %@", k, v]);
+                    appendedAnyItem = true;
+                }
+                if (!appendedAnyItem) {
+                    AppendLine(out, @"(none)");
                 }
             }
         } else {

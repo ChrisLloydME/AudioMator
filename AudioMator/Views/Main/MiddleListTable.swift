@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import SwiftUI
 
@@ -534,3 +535,4 @@ extension MiddleListTable {
         }
     }
 }
+#endif

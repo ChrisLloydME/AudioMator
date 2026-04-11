@@ -17,6 +17,7 @@ struct SidebarPane: View {
                 Text("Current Session")
             }
 
+            #if os(macOS)
             Section {
                 sidebarRow(
                     title: "All Watched Files",
@@ -53,6 +54,7 @@ struct SidebarPane: View {
             } header: {
                 Text("Watched Folders")
             }
+            #endif
         }
         .listStyle(.sidebar)
     }

@@ -5,16 +5,16 @@
 </p>
 
 <p align="center">
-  A local-first macOS audio metadata editor for inspecting, cleaning, renaming, and rewriting tags in files you choose.
+  A local-first Apple-platform audio metadata editor for inspecting, cleaning, renaming, and rewriting tags in files you choose.
 </p>
 
 <p align="center">
-  <strong>SwiftUI</strong> · <strong>TagLib Bridge</strong> · <strong>AVFoundation</strong> · <strong>MusicBrainz</strong> · <strong>macOS</strong>
+  <strong>SwiftUI</strong> · <strong>TagLib Bridge</strong> · <strong>AVFoundation</strong> · <strong>MusicBrainz</strong> · <strong>macOS + iPadOS</strong>
 </p>
 
 ## Overview
 
-AudioMator is a native macOS app built around a three-pane workflow:
+AudioMator is a native macOS / iPadOS app built around a three-pane workflow:
 
 - a sidebar for `Current Session`, `All Watched Files`, and individual watched folders
 - a center table for browsing, selecting, and reordering tracks
@@ -27,8 +27,8 @@ The app is local-first by default. Audio files stay on your Mac, watched folders
 ### Library and File Workflow
 
 - Import local audio files into a temporary `Current Session`
-- Add persistent watched folders that stay available across launches
-- Automatically rescan watched folders when their contents change
+- Add persistent watched folders that stay available across launches (macOS only)
+- Automatically rescan watched folders when their contents change (macOS only)
 - Switch between quick-import work and watched-folder browsing
 - View either `All Watched Files` or a specific watched folder
 - Reorder the visible list with drag and drop
@@ -191,6 +191,7 @@ For commercial/proprietary usage compliance notes (usage notice, TagLib licensin
 ## Current Limitations
 
 - Session file lists are temporary and are cleared when the app closes
+- iPadOS currently supports one-time session import workflows; watched-folder monitoring is macOS-only
 - Manual file import is only available while `Current Session` is selected
 - Multi-file editing in the inspector only applies fields you explicitly change
 - Raw metadata inspection in the `Tag Inspector` is read-only

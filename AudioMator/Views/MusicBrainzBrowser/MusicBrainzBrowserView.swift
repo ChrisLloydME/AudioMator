@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 struct MusicBrainzBrowserView: View {
@@ -648,3 +649,4 @@ private struct MusicBrainzMetaPill: View {
         )
     }
 }
+#endif

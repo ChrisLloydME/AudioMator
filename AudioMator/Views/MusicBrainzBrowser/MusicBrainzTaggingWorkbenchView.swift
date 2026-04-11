@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 struct MusicBrainzTaggingWorkbenchView: View {
@@ -544,3 +545,4 @@ private struct PlanChangeRow: View {
         return .primary
     }
 }
+#endif

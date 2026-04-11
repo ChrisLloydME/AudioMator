@@ -1,4 +1,4 @@
-import AppKit
+#if os(macOS)
 import Foundation
 import SwiftUI
 import WebKit
@@ -1205,9 +1205,17 @@ private struct MusicBrainzEmbeddedWebPageView: View {
     var body: some View {
         WebView(page)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(
+                #if os(macOS)
+                Color(nsColor: .windowBackgroundColor)
+                #else
+                Color(uiColor: .systemBackground)
+                #endif
+            )
             .navigationTitle(title)
+            #if os(macOS)
             .navigationSubtitle(url.host() ?? "MusicBrainz")
+            #endif
             .task(id: url) {
                 page.load(URLRequest(url: url))
             }
@@ -1220,8 +1228,12 @@ private struct MusicBrainzEmbeddedWebPageView: View {
                     }
 
                     Button {
+                        #if os(macOS)
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                        #else
+                        UIPasteboard.general.string = url.absoluteString
+                        #endif
                     } label: {
                         Label("Copy Link", systemImage: "doc.on.doc")
                     }
@@ -1229,3 +1241,4 @@ private struct MusicBrainzEmbeddedWebPageView: View {
             }
     }
 }
+#endif

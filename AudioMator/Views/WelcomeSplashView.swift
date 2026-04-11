@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 struct WelcomeSplashView: View {
     let onQuit: () -> Void
@@ -101,7 +103,11 @@ private enum WelcomeSplashPage: Int {
 
 private struct AppIconHero: View {
     var body: some View {
+        #if os(macOS)
         Image(nsImage: NSApplication.shared.applicationIconImage)
+        #else
+        Image(systemName: "waveform.circle.fill")
+        #endif
             .resizable()
             .interpolation(.high)
             .scaledToFit()
@@ -114,7 +120,13 @@ private struct WelcomePage: View {
         VStack(alignment: .leading, spacing: 30) {
             PageHeader(
                 title: "Welcome to AudioMator",
-                subtitle: "Inspect, clean up, and rewrite audio metadata on your Mac."
+                subtitle: {
+                    #if os(macOS)
+                    "Inspect, clean up, and rewrite audio metadata on your Mac."
+                    #else
+                    "Inspect, clean up, and rewrite audio metadata on iPad."
+                    #endif
+                }()
             )
 
             VStack(alignment: .leading, spacing: 24) {
@@ -180,8 +192,20 @@ private struct FeaturesPage: View {
                 VStack(alignment: .leading, spacing: 22) {
                     WelcomeFeatureRow(
                         symbol: "music.note.list",
-                        title: "Choose one-time or watched sources",
-                        description: "Use Current Session for one-off work, or add watched folders to keep files available across launches."
+                        title: {
+                            #if os(macOS)
+                            "Choose one-time or watched sources"
+                            #else
+                            "Choose source files"
+                            #endif
+                        }(),
+                        description: {
+                            #if os(macOS)
+                            "Use Current Session for one-off work, or add watched folders to keep files available across launches."
+                            #else
+                            "Use Current Session for one-off work. Folder watching is available on macOS."
+                            #endif
+                        }()
                     )
 
                     WelcomeFeatureRow(
@@ -208,7 +232,13 @@ private struct PrivacyPage: View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeader(
                 title: "Privacy",
-                subtitle: "Your files stay on your Mac. AudioMator only accesses files and folders you choose."
+                subtitle: {
+                    #if os(macOS)
+                    "Your files stay on your Mac. AudioMator only accesses files and folders you choose."
+                    #else
+                    "Your files stay on your device. AudioMator only accesses files and folders you choose."
+                    #endif
+                }()
             )
 
             GroupBox {
@@ -216,13 +246,25 @@ private struct PrivacyPage: View {
                     PrivacyRow(
                         symbol: "folder.badge.questionmark",
                         title: "You choose the files",
-                        description: "AudioMator reads only the files and folders you add. Remove watched folders anytime."
+                        description: {
+                            #if os(macOS)
+                            "AudioMator reads only the files and folders you add. Remove watched folders anytime."
+                            #else
+                            "AudioMator reads only the files and folders you add."
+                            #endif
+                        }()
                     )
 
                     PrivacyRow(
                         symbol: "internaldrive",
                         title: "Metadata stays local",
-                        description: "Reading and writing happen on your Mac. Your files and tags aren't uploaded."
+                        description: {
+                            #if os(macOS)
+                            "Reading and writing happen on your Mac. Your files and tags aren't uploaded."
+                            #else
+                            "Reading and writing happen on your device. Your files and tags aren't uploaded."
+                            #endif
+                        }()
                     )
 
                     PrivacyRow(

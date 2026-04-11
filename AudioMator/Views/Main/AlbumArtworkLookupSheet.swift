@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct AlbumArtworkLookupSheet: View {
     @ObservedObject var viewModel: AudioViewModel
@@ -247,7 +246,7 @@ private struct ArtworkLookupResultTile: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.16) : Color(nsColor: .windowBackgroundColor))
+                    .fill(isSelected ? Color.accentColor.opacity(0.16) : rowBackgroundFillColor())
             )
             .overlay(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)
@@ -256,6 +255,14 @@ private struct ArtworkLookupResultTile: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+private func rowBackgroundFillColor() -> Color {
+    #if os(macOS)
+    return Color(nsColor: .windowBackgroundColor)
+    #else
+    return Color(uiColor: .secondarySystemBackground)
+    #endif
 }
 
 private struct RemoteArtworkImage: View {

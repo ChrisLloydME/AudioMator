@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import SwiftUI
 
@@ -145,3 +146,4 @@ extension MiddleListHeaderContextMenuInstaller {
         }
     }
 }
+#endif

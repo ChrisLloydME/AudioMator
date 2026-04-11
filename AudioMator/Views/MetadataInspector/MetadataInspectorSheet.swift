@@ -6,7 +6,11 @@
 //
 
 import SwiftUI
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 /// A read-only inspector-style sheet that shows the *raw* metadata dump text.
 ///
@@ -104,9 +108,13 @@ struct MetadataInspectorSheet: View {
     }
 
     private func copyToPasteboard(_ string: String) {
+        #if os(macOS)
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(string, forType: .string)
+        #else
+        UIPasteboard.general.string = string
+        #endif
     }
 }
 

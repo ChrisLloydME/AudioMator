@@ -247,7 +247,10 @@ extension AudioViewModel {
     }
 
     private func loadPendingArtwork(from url: URL) throws -> PendingArtwork {
-        guard let image = NSImage(contentsOf: url) else {
+        guard
+            let data = try? Data(contentsOf: url),
+            let image = NSImage(data: data)
+        else {
             throw NSError(
                 domain: "AudioMator.Artwork",
                 code: 1,

@@ -1,4 +1,5 @@
 import Foundation
+internal import UIKit
 
 enum ITunesArtworkSearchEntity: String, Sendable {
     case album

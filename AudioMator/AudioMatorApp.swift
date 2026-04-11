@@ -55,17 +55,21 @@ struct AudioMatorApp: App {
     @StateObject private var metadataFilenameToolStore = MetadataFilenameToolStore()
     @StateObject private var metadataEditorStore = MetadataEditorStore()
 
+    private var contentRootView: some View {
+        ContentView(
+            viewModel: viewModel,
+            state: sharedState,
+            musicBrainzBrowserStore: musicBrainzBrowserStore,
+            metadataFilenameToolStore: metadataFilenameToolStore,
+            metadataEditorStore: metadataEditorStore
+        )
+            .frame(minWidth: 900, minHeight: 600)
+    }
+
     var body: some Scene {
         #if os(macOS)
         WindowGroup {
-            ContentView(
-                viewModel: viewModel,
-                state: sharedState,
-                musicBrainzBrowserStore: musicBrainzBrowserStore,
-                metadataFilenameToolStore: metadataFilenameToolStore,
-                metadataEditorStore: metadataEditorStore
-            )
-                .frame(minWidth: 900, minHeight: 600)
+            contentRootView
         }
         .commands {
             AppInfoCommands()
@@ -114,14 +118,7 @@ struct AudioMatorApp: App {
         .windowToolbarStyle(.expanded)
         #else
         WindowGroup {
-            ContentView(
-                viewModel: viewModel,
-                state: sharedState,
-                musicBrainzBrowserStore: musicBrainzBrowserStore,
-                metadataFilenameToolStore: metadataFilenameToolStore,
-                metadataEditorStore: metadataEditorStore
-            )
-                .frame(minWidth: 900, minHeight: 600)
+            contentRootView
         }
         #endif
     }

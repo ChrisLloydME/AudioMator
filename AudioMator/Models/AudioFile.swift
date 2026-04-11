@@ -10,6 +10,11 @@ import Combine
 // import SFBAudioEngine
 import AVFoundation
 import CoreMedia
+#if os(macOS)
+import AppKit
+#else
+internal import UIKit
+#endif
 
 // Loaded off the main actor and then treated as an immutable snapshot in the UI.
 struct AudioFile: Identifiable, @unchecked Sendable {

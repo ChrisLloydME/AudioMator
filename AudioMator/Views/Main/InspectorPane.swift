@@ -323,7 +323,6 @@ struct InspectorPane: View {
                             ReadOnlyMonospacedTextView(text: inspectorQuickPreview)
                                 .padding(1)
                             #endif
-                            .padding(1)
 
                             if inspectorQuickText.isEmpty {
                                 Text("Preview updates as you type.")

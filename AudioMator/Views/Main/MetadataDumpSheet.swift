@@ -1,6 +1,6 @@
 import SwiftUI
 #if !os(macOS)
-import UIKit
+internal import UIKit
 #endif
 
 struct MetadataDumpSheet: View {

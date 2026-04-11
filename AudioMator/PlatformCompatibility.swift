@@ -3,7 +3,7 @@ import SwiftUI
 #if os(macOS)
 import AppKit
 #else
-import UIKit
+internal import UIKit
 
 typealias NSImage = UIImage
 typealias NSFont = UIFont

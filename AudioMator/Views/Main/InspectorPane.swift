@@ -2,7 +2,7 @@ import SwiftUI
 #if os(macOS)
 import AppKit
 #else
-import UIKit
+internal import UIKit
 #endif
 
 #if os(macOS)

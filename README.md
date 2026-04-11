@@ -178,6 +178,15 @@ open AudioMator.xcodeproj
 - `AudioMator/TagLibBridge/`: Swift and Objective-C++ bridge layer around TagLib
 - `AudioMator.xcodeproj/`: Xcode project configuration
 - `RELEASE_NOTES.md`: release-oriented feature summary
+- `THIRD_PARTY_NOTICES.md`: third-party usage and licensing notices
+
+## Third-Party Licensing Notice
+
+AudioMator uses TagLib through a bundled bridge layer.
+
+For commercial/proprietary usage compliance notes (usage notice, TagLib licensing terms, and TagLib modification publication requirements), see:
+
+- [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
 
 ## Current Limitations
 

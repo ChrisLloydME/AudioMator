@@ -48,21 +48,23 @@ The app is local-first by default. Audio files stay on your Mac, watched folders
 
 AudioMator currently supports editing these user-facing fields:
 
-- `Title`
-- `Artist`
-- `Album`
-- `Composer`
-- `Genre`
-- `Year`
-- `Track Number`
-- `Disc Number`
-- `Comment`
-- `Album Artist`
-- `Release Date`
-- `Publisher`
-- `Copyright`
-- `Explicit`
-- `Artwork`
+| Field | Single‑file | Multi‑file |
+|---|---|---|
+| `Title` | ✓ | ✓ |
+| `Artist` | ✓ | ✓ |
+| `Album` | ✓ | ✓ |
+| `Album Artist` | ✓ | ✓ |
+| `Composer` | ✓ | ✓ |
+| `Genre` | ✓ | ✓ |
+| `Year` | ✓ | ✓ |
+| `Track Number` | ✓ | ✓ |
+| `Disc Number` | ✓ | ✓ |
+| `Release Date` | ✓ | ✓ |
+| `Comment` | ✓ | ✓ |
+| `Publisher` | ✓ | ✓ |
+| `Copyright` | ✓ | ✓ |
+| `Explicit` | ✓ | ✓ |
+| `Artwork` | ✓ | ✓ |
 
 Editing behavior currently includes:
 
@@ -115,29 +117,31 @@ Editing behavior currently includes:
 
 The current implementation exposes the same extension set for file import, metadata writing, and artwork writing:
 
-- `mp3`
-- `mp2`
-- `m4a`
-- `m4b`
-- `m4p`
-- `mp4`
-- `aac`
-- `ogg`
-- `opus`
-- `mpc`
-- `wma`
-- `asf`
-- `spx`
-- `flac`
-- `ape`
-- `wv`
-- `tta`
-- `wav`
-- `aiff`
-- `aif`
-- `dsf`
-- `dff`
-- `oga`
+| Extension | Format | Type |
+|---|---|---|
+| `mp3` | MPEG Audio Layer 3 | Lossy |
+| `mp2` | MPEG Audio Layer 2 | Lossy |
+| `m4a` | MPEG-4 Audio | Lossy / Lossless |
+| `m4b` | MPEG-4 Audiobook | Lossy |
+| `m4p` | iTunes Protected AAC | Lossy |
+| `mp4` | MPEG-4 Video/Audio | Lossy |
+| `aac` | Advanced Audio Coding | Lossy |
+| `ogg` | Ogg Vorbis | Lossy |
+| `opus` | Opus | Lossy |
+| `mpc` | Musepack | Lossy |
+| `wma` | Windows Media Audio | Lossy |
+| `asf` | Advanced Systems Format | Lossy |
+| `spx` | Speex | Lossy |
+| `flac` | Free Lossless Audio Codec | Lossless |
+| `ape` | Monkey's Audio | Lossless |
+| `wv` | WavPack | Lossless |
+| `tta` | TrueAudio | Lossless |
+| `wav` | Waveform Audio | Lossless |
+| `aiff` | Audio Interchange File Format | Lossless |
+| `aif` | Audio Interchange File Format | Lossless |
+| `dsf` | DSF (DSD Stream File) | Lossless |
+| `dff` | DSDIFF (DSD Interchange File Format) | Lossless |
+| `oga` | Ogg FLAC | Lossless |
 
 Practical metadata coverage can still vary by container and tag layout. `Erase All Tags` should be treated as a best-effort metadata-clearing action, not a guaranteed deep wipe for every format.
 

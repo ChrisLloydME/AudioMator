@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
     case title

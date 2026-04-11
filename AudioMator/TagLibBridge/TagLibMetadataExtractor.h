@@ -159,6 +159,16 @@ NS_SWIFT_NAME(writeTrackNumberText(_:discNumberText:to:));
                    error:(NSError *_Nullable *_Nullable)error
 NS_SWIFT_NAME(writeTrackNumber(_:totalTracks:padWidth:to:));
 
+/// Replace the file's textual TagLib property map with the provided key/value pairs.
+///
+/// This is intended for the dedicated metadata editor window where users edit
+/// the normalized property-map fields directly rather than the simplified
+/// inspector model.
++ (BOOL)writeRawPropertyMap:(NSDictionary<NSString *, NSString *> *)properties
+                     toURL:(NSURL *)fileURL
+                     error:(NSError *_Nullable *_Nullable)error
+NS_SWIFT_NAME(writeRawPropertyMap(_:to:));
+
 /// Return raw metadata as TagLib sees it for display purposes.
 ///
 /// The returned dictionary typically contains keys such as:

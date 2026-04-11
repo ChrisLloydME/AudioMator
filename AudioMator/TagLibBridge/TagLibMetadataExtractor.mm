@@ -1146,6 +1146,80 @@ static void ApplyGenericPropertyMapToFile(FileType &file, TagLibAudioMetadata *m
     file.setProperties(properties);
 }
 
+static TagLib::PropertyMap BuildRawPropertyMap(NSDictionary<NSString *, NSString *> *properties)
+{
+    TagLib::PropertyMap propertyMap;
+
+    if (!properties || properties.count == 0) {
+        return propertyMap;
+    }
+
+    for (NSString *key in properties) {
+        NSString *trimmedKey = TrimmedStringOrNil(key);
+        NSString *trimmedValue = TrimmedStringOrNil(properties[key]);
+        if (!trimmedKey || !trimmedValue) {
+            continue;
+        }
+
+        SetPropertyMapDynamicString(propertyMap, trimmedKey, trimmedValue);
+    }
+
+    return propertyMap;
+}
+
+static void AppendRawPropertyEntries(NSMutableArray<NSDictionary<NSString *, NSObject *> *> *propertiesOut,
+                                     const TagLib::PropertyMap &propertyMap)
+{
+    if (!propertiesOut) {
+        return;
+    }
+
+    for (auto pit = propertyMap.begin(); pit != propertyMap.end(); ++pit) {
+        NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
+        NSMutableArray<NSString *> *values = [NSMutableArray array];
+        for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
+            [values addObject:(TagStringToNSString(*vit) ?: @"")];
+        }
+        NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
+        [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
+    }
+}
+
+template <typename FileType>
+static BOOL WriteRawPropertyMapToFile(FileType &file,
+                                      NSDictionary<NSString *, NSString *> *properties,
+                                      NSError **error,
+                                      NSInteger openErrorCode,
+                                      NSString *openErrorMessage,
+                                      NSInteger saveErrorCode,
+                                      NSString *saveErrorMessage,
+                                      NSString *logContext)
+{
+    if (!file.isValid()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:openErrorCode
+                                     userInfo:@{ NSLocalizedDescriptionKey : openErrorMessage }];
+        }
+        TLog(@"Failed to open %@ for raw property-map writing", logContext);
+        return NO;
+    }
+
+    file.setProperties(BuildRawPropertyMap(properties));
+
+    if (!file.save()) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:saveErrorCode
+                                     userInfo:@{ NSLocalizedDescriptionKey : saveErrorMessage }];
+        }
+        TLog(@"TagLib save() failed after raw property-map write for %@", logContext);
+        return NO;
+    }
+
+    return YES;
+}
+
 template <typename FileType>
 static bool WritePropertyMapNumberTextToFile(FileType &file,
                                              NSString * _Nullable trackNumberText,
@@ -2976,6 +3050,232 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
     return YES;
 }
 
++ (BOOL)writeRawPropertyMap:(NSDictionary<NSString *, NSString *> *)properties
+                     toURL:(NSURL *)fileURL
+                     error:(NSError **)error
+{
+    if (!fileURL || !fileURL.isFileURL) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:100
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file URL" }];
+        }
+        return NO;
+    }
+
+    NSString *ext = fileURL.pathExtension.lowercaseString;
+    if (ext.length == 0 || ![self isSupportedFormat:ext]) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:101
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Unsupported audio format" }];
+        }
+        return NO;
+    }
+
+    const char *filePath = fileURL.path.UTF8String;
+    if (!filePath) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                         code:102
+                                     userInfo:@{ NSLocalizedDescriptionKey : @"Invalid file path" }];
+        }
+        return NO;
+    }
+
+    NSDictionary<NSString *, NSString *> *normalizedProperties = properties ?: @{};
+
+    if (IsMPEGLikeExtension(ext)) {
+        TagLib::MPEG::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         166,
+                                         @"Unable to open MPEG audio file for metadata editing",
+                                         167,
+                                         @"TagLib failed to save MPEG metadata property changes",
+                                         [NSString stringWithFormat:@"MPEG '%@'", fileURL.lastPathComponent]);
+    }
+
+    if (IsMP4LikeExtension(ext)) {
+        TagLib::MP4::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         168,
+                                         @"Unable to open MP4/M4A file for metadata editing",
+                                         169,
+                                         @"TagLib failed to save MP4/M4A metadata property changes",
+                                         [NSString stringWithFormat:@"MP4 '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"flac"]) {
+        TagLib::FLAC::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         170,
+                                         @"Unable to open FLAC file for metadata editing",
+                                         171,
+                                         @"TagLib failed to save FLAC metadata property changes",
+                                         [NSString stringWithFormat:@"FLAC '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"ogg"]) {
+        TagLib::Ogg::Vorbis::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         172,
+                                         @"Unable to open Ogg Vorbis file for metadata editing",
+                                         173,
+                                         @"TagLib failed to save Ogg Vorbis metadata property changes",
+                                         [NSString stringWithFormat:@"Ogg Vorbis '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"opus"]) {
+        TagLib::Ogg::Opus::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         174,
+                                         @"Unable to open Opus file for metadata editing",
+                                         175,
+                                         @"TagLib failed to save Opus metadata property changes",
+                                         [NSString stringWithFormat:@"Opus '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"oga"]) {
+        TagLib::Ogg::FLAC::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         176,
+                                         @"Unable to open Ogg FLAC file for metadata editing",
+                                         177,
+                                         @"TagLib failed to save Ogg FLAC metadata property changes",
+                                         [NSString stringWithFormat:@"Ogg FLAC '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"spx"]) {
+        TagLib::Ogg::Speex::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         178,
+                                         @"Unable to open Speex file for metadata editing",
+                                         179,
+                                         @"TagLib failed to save Speex metadata property changes",
+                                         [NSString stringWithFormat:@"Speex '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"ape"]) {
+        TagLib::APE::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         180,
+                                         @"Unable to open APE file for metadata editing",
+                                         181,
+                                         @"TagLib failed to save APE metadata property changes",
+                                         [NSString stringWithFormat:@"APE '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"wv"]) {
+        TagLib::WavPack::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         182,
+                                         @"Unable to open WavPack file for metadata editing",
+                                         183,
+                                         @"TagLib failed to save WavPack metadata property changes",
+                                         [NSString stringWithFormat:@"WavPack '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"mpc"]) {
+        TagLib::MPC::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         184,
+                                         @"Unable to open Musepack file for metadata editing",
+                                         185,
+                                         @"TagLib failed to save Musepack metadata property changes",
+                                         [NSString stringWithFormat:@"Musepack '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"wav"]) {
+        TagLib::RIFF::WAV::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         186,
+                                         @"Unable to open WAV file for metadata editing",
+                                         187,
+                                         @"TagLib failed to save WAV metadata property changes",
+                                         [NSString stringWithFormat:@"WAV '%@'", fileURL.lastPathComponent]);
+    }
+
+    if (IsAIFFLikeExtension(ext)) {
+        TagLib::RIFF::AIFF::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         188,
+                                         @"Unable to open AIFF file for metadata editing",
+                                         189,
+                                         @"TagLib failed to save AIFF metadata property changes",
+                                         [NSString stringWithFormat:@"AIFF '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"tta"]) {
+        TagLib::TrueAudio::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         190,
+                                         @"Unable to open TrueAudio file for metadata editing",
+                                         191,
+                                         @"TagLib failed to save TrueAudio metadata property changes",
+                                         [NSString stringWithFormat:@"TrueAudio '%@'", fileURL.lastPathComponent]);
+    }
+
+    if (IsASFLikeExtension(ext)) {
+        TagLib::ASF::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         192,
+                                         @"Unable to open ASF/WMA file for metadata editing",
+                                         193,
+                                         @"TagLib failed to save ASF/WMA metadata property changes",
+                                         [NSString stringWithFormat:@"ASF/WMA '%@'", fileURL.lastPathComponent]);
+    }
+
+    if ([ext isEqualToString:@"dsf"]) {
+        TagLib::DSF::File file(filePath);
+        return WriteRawPropertyMapToFile(file,
+                                         normalizedProperties,
+                                         error,
+                                         194,
+                                         @"Unable to open DSF file for metadata editing",
+                                         195,
+                                         @"TagLib failed to save DSF metadata property changes",
+                                         [NSString stringWithFormat:@"DSF '%@'", fileURL.lastPathComponent]);
+    }
+
+    TagLib::DSDIFF::File file(filePath);
+    return WriteRawPropertyMapToFile(file,
+                                     normalizedProperties,
+                                     error,
+                                     196,
+                                     @"Unable to open DSDIFF file for metadata editing",
+                                     197,
+                                     @"TagLib failed to save DSDIFF metadata property changes",
+                                     [NSString stringWithFormat:@"DSDIFF '%@'", fileURL.lastPathComponent]);
+}
+
 // Parse an NSString like "03/12" or "03" into numeric components and an inferred pad width.
 // padWidth is inferred only from the *track/disc part* (before '/'): if it contains leading zeros,
 // we treat its string length as the desired pad width.
@@ -4610,22 +4910,13 @@ static void AppendRIFFInfoSection(NSMutableString *out,
         return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
     }
 
-    // 1) Unified properties: prefer format-specific File classes when possible.
-    std::string ext = [[fileURL pathExtension].lowercaseString UTF8String];
+    NSString *ext = fileURL.pathExtension.lowercaseString;
 
-    if (ext == "mp3") {
+    // 1) Unified properties: use the same format-specific openers as the main read/write pipeline.
+    if (IsMPEGLikeExtension(ext)) {
         TagLib::MPEG::File f(filePath);
         if (f.isValid()) {
-            TagLib::PropertyMap pm = f.properties();
-            for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
-                NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
-                NSMutableArray<NSString *> *values = [NSMutableArray array];
-                for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
-                    [values addObject:(TagStringToNSString(*vit) ?: @"")];
-                }
-                NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
-                [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
-            }
+            AppendRawPropertyEntries(propertiesOut, f.properties());
         }
 
         // 2) ID3v2 frames (when applicable)
@@ -4664,19 +4955,105 @@ static void AppendRIFFInfoSection(NSMutableString *out,
         return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
     }
 
-    // Fallback: use FileRef properties for other formats.
+    if (IsMP4LikeExtension(ext)) {
+        TagLib::MP4::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+        }
+
+        return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+    }
+
+    if ([ext isEqualToString:@"flac"]) {
+        TagLib::FLAC::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"ogg"]) {
+        TagLib::Ogg::Vorbis::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"opus"]) {
+        TagLib::Ogg::Opus::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"oga"]) {
+        TagLib::Ogg::FLAC::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"spx"]) {
+        TagLib::Ogg::Speex::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"ape"]) {
+        TagLib::APE::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"wv"]) {
+        TagLib::WavPack::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"mpc"]) {
+        TagLib::MPC::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"wav"]) {
+        TagLib::RIFF::WAV::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if (IsAIFFLikeExtension(ext)) {
+        TagLib::RIFF::AIFF::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"tta"]) {
+        TagLib::TrueAudio::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if (IsASFLikeExtension(ext)) {
+        TagLib::ASF::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"dsf"]) {
+        TagLib::DSF::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    } else if ([ext isEqualToString:@"dff"]) {
+        TagLib::DSDIFF::File f(filePath);
+        if (f.isValid()) {
+            AppendRawPropertyEntries(propertiesOut, f.properties());
+            return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };
+        }
+    }
+
+    // Fallback: use FileRef properties only if the format-specific opener failed unexpectedly.
     TagLib::FileRef fileRef(filePath);
     if (!fileRef.isNull() && fileRef.file()) {
-        TagLib::PropertyMap pm = fileRef.file()->properties();
-        for (auto pit = pm.begin(); pit != pm.end(); ++pit) {
-            NSString *nsKey = TagStringToNSString(pit->first) ?: @"";
-            NSMutableArray<NSString *> *values = [NSMutableArray array];
-            for (auto vit = pit->second.begin(); vit != pit->second.end(); ++vit) {
-                [values addObject:(TagStringToNSString(*vit) ?: @"")];
-            }
-            NSString *joined = values.count ? [values componentsJoinedByString:@"; "] : @"";
-            [propertiesOut addObject:@{ @"key": nsKey, @"value": joined, @"values": values, @"count": @(values.count) }];
-        }
+        AppendRawPropertyEntries(propertiesOut, fileRef.file()->properties());
     }
 
     return @{ @"properties": propertiesOut, @"id3v2Frames": id3v2FramesOut };

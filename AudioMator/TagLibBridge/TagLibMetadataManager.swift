@@ -243,6 +243,56 @@ enum TagLibManagerError: Error {
 /// Thin wrapper around the Objective-C++ `TagLibMetadataExtractor`.
 struct TagLibMetadataManager {
 
+    private static func parsedPropertyEntries(fromDumpText text: String) -> [RawPropertyEntry] {
+        var isInPropertiesSection = false
+        var properties: [RawPropertyEntry] = []
+
+        for rawLine in text.components(separatedBy: .newlines) {
+            let trimmedLine = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmedLine.hasPrefix("[") && trimmedLine.hasSuffix("]") {
+                if isInPropertiesSection {
+                    break
+                }
+
+                isInPropertiesSection = (trimmedLine == "[TagLib Properties]")
+                continue
+            }
+
+            guard isInPropertiesSection else { continue }
+            guard !trimmedLine.isEmpty else { continue }
+
+            if trimmedLine == "(none)" || trimmedLine.hasPrefix("(unable to open") {
+                break
+            }
+
+            guard let separatorRange = trimmedLine.range(of: " = ") else { continue }
+
+            let key = String(trimmedLine[..<separatorRange.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = String(trimmedLine[separatorRange.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !key.isEmpty, !value.isEmpty else { continue }
+
+            let values = value
+                .components(separatedBy: "; ")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+
+            properties.append(
+                RawPropertyEntry(
+                    key: key,
+                    value: value,
+                    values: values,
+                    count: values.count
+                )
+            )
+        }
+
+        return properties.sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+    }
+
     // MARK: - Bridge Dump API
 
     /// Return a single plain-text dump of metadata as TagLib sees it.
@@ -497,6 +547,17 @@ struct TagLibMetadataManager {
         return true
     }
 
+    @discardableResult
+    static func writeRawMetadataPropertyMap(_ properties: [String: String], to url: URL) throws -> Bool {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
+            throw TagLibManagerError.unsupportedFormat
+        }
+
+        try TagLibMetadataExtractor.writeRawPropertyMap(properties, to: url)
+        return true
+    }
+
     /// Remove (as much as TagLib allows) all metadata from a file.
     ///
     /// Implementation strategy: write an empty `TagLibAudioMetadata` object.
@@ -514,21 +575,21 @@ struct TagLibMetadataManager {
     ///
     /// Returns `nil` if format is not supported by TagLib in this app.
     static func rawMetadata(from url: URL) -> RawMetadataDump? {
+        try? rawMetadataResult(from: url)
+    }
+
+    static func rawMetadataResult(from url: URL) throws -> RawMetadataDump {
         let ext = url.pathExtension.lowercased()
-        guard !ext.isEmpty else { return nil }
+        guard !ext.isEmpty else {
+            throw TagLibManagerError.unsupportedFormat
+        }
 
         guard TagLibMetadataExtractor.isSupportedFormat(ext) else {
-            return nil
+            throw TagLibManagerError.unsupportedFormat
         }
 
         // ObjC++ returns a Foundation dictionary for display; normalize it into Swift models.
-        let dictAny: Any
-        do {
-            dictAny = try TagLibMetadataExtractor.rawMetadata(for: url)
-        } catch {
-            print("TagLib rawMetadata error for \(url.lastPathComponent): \(error)")
-            return .empty
-        }
+        let dictAny = try TagLibMetadataExtractor.rawMetadata(for: url)
         let dict: NSDictionary
         if let d = dictAny as? NSDictionary {
             dict = d
@@ -578,6 +639,17 @@ struct TagLibMetadataManager {
             let lang = d["language"] as? String
 
             return RawID3v2FrameEntry(frameID: frameID, value: value, description: desc, language: lang)
+        }
+
+        if !properties.isEmpty {
+            return RawMetadataDump(properties: properties, id3v2Frames: id3v2Frames)
+        }
+
+        if let dumpText = try? TagLibMetadataExtractor.dumpMetadataText(from: url) {
+            let fallbackProperties = parsedPropertyEntries(fromDumpText: dumpText)
+            if !fallbackProperties.isEmpty {
+                return RawMetadataDump(properties: fallbackProperties, id3v2Frames: id3v2Frames)
+            }
         }
 
         return RawMetadataDump(properties: properties, id3v2Frames: id3v2Frames)

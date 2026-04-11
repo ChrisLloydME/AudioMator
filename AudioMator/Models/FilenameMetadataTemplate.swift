@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 extension FileRenameMetadataField {
     static let metadataToFilenameFields: [Self] = [

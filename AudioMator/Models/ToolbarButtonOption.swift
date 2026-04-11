@@ -6,6 +6,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
     case renumberTracks
     case musicBrainzBrowser
     case renameFiles
+    case metadataEditor
     case importField
     case clearList
     case cancelEdits
@@ -25,6 +26,8 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
             return "MusicBrainz Browser"
         case .renameFiles:
             return "Filename & Metadata"
+        case .metadataEditor:
+            return "Metadata Editor"
         case .importField:
             return "Import Field"
         case .clearList:
@@ -48,6 +51,8 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
             return "icloud.and.arrow.down"
         case .renameFiles:
             return "character.textbox"
+        case .metadataEditor:
+            return "tag"
         case .importField:
             return "arrow.down.doc"
         case .clearList:

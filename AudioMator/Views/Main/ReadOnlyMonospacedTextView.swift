@@ -20,11 +20,15 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 10, height: 10)
         textView.font = font
         textView.string = text
+
+        // Allow horizontal scrolling for very long lines.
         textView.isHorizontallyResizable = true
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        // Give the container an effectively unbounded width so the scroll view can scroll horizontally.
         textView.textContainer?.widthTracksTextView = false
         textView.textContainer?.containerSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude,
@@ -52,6 +56,7 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
             textView.textColor = textColor
         }
 
+        // Avoid resetting selection/scroll if the text didn't actually change.
         if textView.string != text {
             textView.string = text
             textView.needsDisplay = true

@@ -348,6 +348,7 @@ extension AudioViewModel {
         presentBatchMetadataWriteSummary(summary)
     }
 
+    #if os(macOS)
     func applyRawMetadataPropertyMaps(
         _ propertyMaps: [AudioFile.ID: [String: String]],
         to targets: [MetadataEditorTarget]
@@ -406,6 +407,7 @@ extension AudioViewModel {
 
         presentBatchMetadataWriteSummary(summary)
     }
+    #endif
 
     /// Imports one text field value per target file and writes the chosen metadata field in order.
     func importMetadataFieldValues(

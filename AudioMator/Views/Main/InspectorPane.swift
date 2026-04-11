@@ -1028,9 +1028,33 @@ struct ScrollableInspectorValueText: View {
     var body: some View {
         ScrollView {
             Text(text)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.system(size: font.pointSize))
+                .foregroundStyle(Color(color))
+                .multilineTextAlignment(swiftUITextAlignment)
+                .lineLimit(lineBreakMode == .byTruncatingTail ? 1 : nil)
+                .frame(maxWidth: .infinity, alignment: frameAlignment)
+        }
+    }
+
+    private var swiftUITextAlignment: TextAlignment {
+        switch textAlignment {
+        case .center:
+            return .center
+        case .right:
+            return .trailing
+        default:
+            return .leading
+        }
+    }
+
+    private var frameAlignment: Alignment {
+        switch textAlignment {
+        case .center:
+            return .center
+        case .right:
+            return .trailing
+        default:
+            return .leading
         }
     }
 }

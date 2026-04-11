@@ -20,7 +20,7 @@ AudioMator is a native macOS app built around a three-pane workflow:
 - a center table for browsing, selecting, and reordering tracks
 - a right-side inspector for single-file edits, multi-file edits, artwork, and technical details
 
-The app is local-first by default. Audio files stay on your Mac, watched folders are stored locally, and metadata writes happen through the bundled TagLib bridge. The only network-backed feature in the current app is the optional `MusicBrainz Browser`.
+The app is local-first by default. Audio files stay on your Mac, watched folders are stored locally, and metadata writes happen through the bundled TagLib bridge. The only network-backed feature is the optional `MusicBrainz Browser`.
 
 ## Current Capabilities
 
@@ -32,7 +32,8 @@ The app is local-first by default. Audio files stay on your Mac, watched folders
 - Switch between quick-import work and watched-folder browsing
 - View either `All Watched Files` or a specific watched folder
 - Reorder the visible list with drag and drop
-- Customize visible middle-list columns from the table header context menu
+- Sort by any column with a click on the column header
+- Customize visible middle-list columns from the table header context menu or Settings
 - Clear the current session list without touching files on disk
 
 ### Metadata Inspection
@@ -46,25 +47,12 @@ The app is local-first by default. Audio files stay on your Mac, watched folders
 
 ### Metadata Editing
 
-AudioMator currently supports editing these user-facing fields:
+The inspector supports editing these fields for one or multiple selected files:
 
-| Field | Single-file | Multi-file |
-|---|---|---|
-| `Title` | ✓ | ✓ |
-| `Artist` | ✓ | ✓ |
-| `Album` | ✓ | ✓ |
-| `Album Artist` | ✓ | ✓ |
-| `Composer` | ✓ | ✓ |
-| `Genre` | ✓ | ✓ |
-| `Year` | ✓ | ✓ |
-| `Track Number` | ✓ | ✓ |
-| `Disc Number` | ✓ | ✓ |
-| `Release Date` | ✓ | ✓ |
-| `Comment` | ✓ | ✓ |
-| `Publisher` | ✓ | ✓ |
-| `Copyright` | ✓ | ✓ |
-| `Explicit` | ✓ | ✓ |
-| `Artwork` | ✓ | ✓ |
+| `Title` | `Artist` | `Album` | `Album Artist` | `Composer` |
+|---|---|---|---|---|
+| `Genre` | `Year` | `Track Number` | `Disc Number` | `Release Date` |
+| `Comment` | `Publisher` | `Copyright` | `Explicit` | `Artwork` |
 
 Editing behavior currently includes:
 
@@ -73,7 +61,17 @@ Editing behavior currently includes:
 - keep-unchanged behavior for untouched fields during multi-file edits
 - mixed-value placeholders when the current selection differs
 - unsaved-change detection with discard confirmation
+- quick-edit sheets for longer text fields with hidden-character preview
 - success, warning, partial-save, and failure HUD feedback after writes
+
+### Metadata Editor Window
+
+A dedicated `Metadata Editor` window provides direct access to the raw TagLib property map for one or more selected files:
+
+- Add, edit, or delete any named property field
+- Multi-file editing with mixed-value indicators
+- Unsaved-changes badge and discard-on-close behavior
+- Changes are written directly to the file's property map via the TagLib bridge
 
 ### Artwork Support
 
@@ -87,15 +85,11 @@ Editing behavior currently includes:
 
 - Renumber tracks from the current visible list order
 - Apply renumbering to the full list or only the current selection
-- Choose ascending or descending numbering
-- Set a custom starting number
-- Optionally pad numbers with leading zeros
-- Import one metadata field from a plain-text file in row order
-- Rename selected files from metadata tokens while preserving file extensions
-- Open selected files
-- Reveal selected files in Finder
-- Copy selected file paths
-- Copy selected filenames
+- Choose ascending or descending numbering, custom start number, and optional leading-zero padding
+- Import one metadata field from plain text using configurable delimiters (newline, `,` `;` `，` `；`)
+- Rename selected files from a metadata token template while preserving file extensions
+- Extract metadata values from filenames using a match template (`Filename & Metadata` tool)
+- Open, reveal in Finder, copy path, or copy filename for selected files
 - Erase supported metadata fields from selected files
 
 ### MusicBrainz Browser
@@ -106,42 +100,43 @@ Editing behavior currently includes:
 - Review result details for recordings, releases, and tracks
 - Use MusicBrainz as an optional reference workflow while keeping local editing in AudioMator
 
+### MusicBrainz Tagging Workbench
+
+When viewing a release or track detail in the MusicBrainz Browser, open the tagging workbench to apply MusicBrainz metadata to local files:
+
+- Select which fields to write from the matched release
+
+  | `Title` | `Artist` | `Album Artist` | `Album` | `Track Number` | `Disc Number` | `Release Date` | `Publisher` | `Composer` |
+  |---|---|---|---|---|---|---|---|---|
+
+- Assign each loaded AudioMator file to a specific MusicBrainz release track
+- Preview a full diff of current tag values versus the proposed MusicBrainz values before committing
+- Composer credits are loaded asynchronously from MusicBrainz recording relationship data
+
+### Settings
+
+A `Settings` window (⌘,) provides app-wide preferences across four tabs:
+
+- **General** — toggle the welcome screen on launch; toggle the unsaved-inspector-edits warning
+- **Toolbar** — show or hide individual toolbar buttons
+- **Columns** — show or hide individual middle-list columns; restore defaults
+- **About** — version and build info, in-app release notes viewer, acknowledgements
+
 ### Welcome and App Experience
 
 - Show a multi-page welcome screen on first launch
-- Reopen the welcome screen later from the Help menu
+- Reopen the welcome screen from the Help menu or Settings
 - Toggle the inspector from the toolbar or menu commands
-- Use quick-edit sheets for longer text fields with hidden-character preview
 
 ## Supported Formats
 
-The current implementation exposes the same extension set for file import, metadata writing, and artwork writing:
+All 23 extensions use the same set for file import, metadata writing, and artwork writing:
 
-| Extension | Format | Type |
-|---|---|---|
-| `mp3` | MPEG Audio Layer 3 | Lossy |
-| `mp2` | MPEG Audio Layer 2 | Lossy |
-| `m4a` | MPEG-4 Audio | Lossy / Lossless |
-| `m4b` | MPEG-4 Audiobook | Lossy |
-| `m4p` | iTunes Protected AAC | Lossy |
-| `mp4` | MPEG-4 Video/Audio | Lossy |
-| `aac` | Advanced Audio Coding | Lossy |
-| `ogg` | Ogg Vorbis | Lossy |
-| `opus` | Opus | Lossy |
-| `mpc` | Musepack | Lossy |
-| `wma` | Windows Media Audio | Lossy |
-| `asf` | Advanced Systems Format | Lossy |
-| `spx` | Speex | Lossy |
-| `flac` | Free Lossless Audio Codec | Lossless |
-| `ape` | Monkey's Audio | Lossless |
-| `wv` | WavPack | Lossless |
-| `tta` | TrueAudio | Lossless |
-| `wav` | Waveform Audio | Lossless |
-| `aiff` | Audio Interchange File Format | Lossless |
-| `aif` | Audio Interchange File Format | Lossless |
-| `dsf` | DSF (DSD Stream File) | Lossless |
-| `dff` | DSDIFF (DSD Interchange File Format) | Lossless |
-| `oga` | Ogg FLAC | Lossless |
+| `mp3` | `mp2` | `m4a` | `m4b` | `m4p` | `mp4` |
+|---|---|---|---|---|---|
+| `aac` | `ogg` | `opus` | `mpc` | `wma` | `asf` |
+| `spx` | `flac` | `ape` | `wv` | `tta` | `wav` |
+| `aiff` | `aif` | `dsf` | `dff` | `oga` | |
 
 Practical metadata coverage can still vary by container and tag layout. `Erase All Tags` should be treated as a best-effort metadata-clearing action, not a guaranteed deep wipe for every format.
 
@@ -187,10 +182,10 @@ open AudioMator.xcodeproj
 
 - Session file lists are temporary and are cleared when the app closes
 - Manual file import is only available while `Current Session` is selected
-- Multi-file editing only applies fields you explicitly change
-- Raw metadata inspection is read-only
-- `Credits` are currently read-only when available
-- MusicBrainz lookup depends on network access and the external MusicBrainz service
+- Multi-file editing in the inspector only applies fields you explicitly change
+- Raw metadata inspection in the `Tag Inspector` is read-only
+- `Credits` are read-only (visible in the inspector and the middle-list column, but not writable through the inspector)
+- MusicBrainz lookup and tagging workbench depend on network access and the external MusicBrainz service
 - No separate test target is currently checked into the repository
 
 ## Disclaimer

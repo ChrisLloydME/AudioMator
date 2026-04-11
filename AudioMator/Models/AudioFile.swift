@@ -35,6 +35,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let releaseDate: String
     let isrc: String
     let barcode: String
+    let itunesAlbumID: String
     let musicBrainzArtistID: String
     let musicBrainzAlbumID: String
     let musicBrainzTrackID: String
@@ -106,6 +107,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         releaseDate: String,
         isrc: String,
         barcode: String,
+        itunesAlbumID: String,
         musicBrainzArtistID: String,
         musicBrainzAlbumID: String,
         musicBrainzTrackID: String,
@@ -141,6 +143,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.releaseDate = releaseDate
         self.isrc = isrc
         self.barcode = barcode
+        self.itunesAlbumID = itunesAlbumID
         self.musicBrainzArtistID = musicBrainzArtistID
         self.musicBrainzAlbumID = musicBrainzAlbumID
         self.musicBrainzTrackID = musicBrainzTrackID
@@ -179,6 +182,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             releaseDate: releaseDate,
             isrc: isrc,
             barcode: barcode,
+            itunesAlbumID: itunesAlbumID,
             musicBrainzArtistID: musicBrainzArtistID,
             musicBrainzAlbumID: musicBrainzAlbumID,
             musicBrainzTrackID: musicBrainzTrackID,
@@ -225,6 +229,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             releaseDate: releaseDate,
             isrc: isrc,
             barcode: barcode,
+            itunesAlbumID: itunesAlbumID,
             musicBrainzArtistID: musicBrainzArtistID,
             musicBrainzAlbumID: musicBrainzAlbumID,
             musicBrainzTrackID: musicBrainzTrackID,
@@ -398,6 +403,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.releaseDate = tag.releaseDate
         self.isrc        = tag.isrc
         self.barcode     = tag.barcode
+        self.itunesAlbumID = tag.itunesAlbumID
         self.musicBrainzArtistID = tag.musicBrainzArtistID
         self.musicBrainzAlbumID = tag.musicBrainzAlbumID
         self.musicBrainzTrackID = tag.musicBrainzTrackID

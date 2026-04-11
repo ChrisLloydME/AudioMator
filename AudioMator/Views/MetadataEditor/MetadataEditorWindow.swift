@@ -1055,7 +1055,6 @@ private struct MetadataEditorWindowChromeConfigurator: NSViewRepresentable {
         if window.toolbar == nil {
             let toolbar = NSToolbar(identifier: "metadata-editor-toolbar")
             toolbar.displayMode = .iconOnly
-            toolbar.showsBaselineSeparator = true
             window.toolbar = toolbar
         }
 

@@ -17,4 +17,18 @@ final class MetadataEditorStore: ObservableObject {
         _ = targetFiles
     }
 }
+
+struct MetadataEditorTarget: Identifiable, Hashable {
+    let id: AudioFile.ID
+    let url: URL
+
+    init(file: AudioFile) {
+        self.id = file.id
+        self.url = file.url
+    }
+
+    var fileName: String {
+        url.lastPathComponent
+    }
+}
 #endif

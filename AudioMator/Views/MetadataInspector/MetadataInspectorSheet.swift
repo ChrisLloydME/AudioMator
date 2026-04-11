@@ -77,7 +77,9 @@ struct MetadataInspectorSheet: View {
                 } label: {
                     Text("Copy Path")
                 }
+                #if os(macOS)
                 .buttonStyle(.link)
+                #endif
             }
         }
     }

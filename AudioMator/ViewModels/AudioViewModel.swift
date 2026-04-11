@@ -24,6 +24,22 @@ struct MetadataWriteHUD: Identifiable, Equatable {
     let subtitle: String
 }
 
+struct MetadataSaveProgress: Equatable {
+    let title: String
+    let subtitle: String
+    let completedUnitCount: Int
+    let totalUnitCount: Int
+
+    var fractionCompleted: Double {
+        guard totalUnitCount > 0 else { return 0 }
+        return min(max(Double(completedUnitCount) / Double(totalUnitCount), 0), 1)
+    }
+
+    var progressLabel: String {
+        "\(completedUnitCount) / \(totalUnitCount)"
+    }
+}
+
 @MainActor
 final class AudioViewModel: ObservableObject {
     nonisolated private static let readableAudioExtensions: Set<String> = Set(
@@ -40,6 +56,7 @@ final class AudioViewModel: ObservableObject {
     @Published var multiEdit: MultiFileEditModel?
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
+    @Published var metadataSaveProgress: MetadataSaveProgress?
 
     private let watchedFolderStore: WatchedFolderStore
     let iTunesArtworkService = ITunesArtworkService()

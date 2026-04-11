@@ -119,7 +119,7 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.saveEdits) {
                         Button("Save", action: onSaveEdits)
-                            .disabled(state.selectedAudioIDs.isEmpty)
+                            .disabled(state.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
                     }
 
                     Button(action: onToggleInspector) {

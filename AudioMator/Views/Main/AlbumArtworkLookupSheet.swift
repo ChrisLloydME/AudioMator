@@ -215,8 +215,7 @@ private struct ArtworkLookupResultTile: View {
 
     var body: some View {
         let outerCornerRadius: CGFloat = 16
-        let contentInset: CGFloat = 6
-        let innerCornerRadius = outerCornerRadius - contentInset
+        let innerCornerRadius: CGFloat = 10
 
         Button(action: onSelect) {
             VStack(alignment: .leading, spacing: 10) {
@@ -246,7 +245,6 @@ private struct ArtworkLookupResultTile: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(contentInset)
             .background(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)
                     .fill(isSelected ? Color.accentColor.opacity(0.16) : Color(nsColor: .windowBackgroundColor))

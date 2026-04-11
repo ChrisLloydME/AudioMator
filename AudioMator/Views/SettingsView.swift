@@ -353,7 +353,7 @@ private struct AcknowledgementsSheet: View {
     private let acknowledgements: [(title: String, detail: String)] = [
         (
             title: "TagLib",
-            detail: "AudioMator includes a bundled TagLib bridge for metadata reading and writing. TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). This generally allows use in proprietary applications, but if TagLib itself is modified, those TagLib changes must be contributed back to the project. Please review the licenses if you are considering using TagLib in your project."
+            detail: "AudioMator includes a bundled TagLib bridge for metadata reading and writing. TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). "
         ),
         (
             title: "iTunes-Artwork-Finder by bendodson",
@@ -366,7 +366,10 @@ private struct AcknowledgementsSheet: View {
         (
             title: "Privacy & Network Activity",
             detail: """
-            AudioMator performs optional network requests only for online features: (1) iTunes artwork lookup to itunes.apple.com (search/lookup), with query terms from metadata such as iTunes Album ID, album name, or track title; artwork downloads then come from Apple CDN hosts (is5-ssl.mzstatic.com / a5.mzstatic.com). (2) MusicBrainz Browser requests to musicbrainz.org/ws/2, using search metadata fields such as title, artist, album, album artist, track number, track total, duration bucket, release year/date, ISRC, barcode, and MusicBrainz IDs (or IDs parsed from a pasted MusicBrainz link). (3) Release Notes loading requests GitHub release data from api.github.com. Audio files themselves are never uploaded.
+            AudioMator performs optional network requests only for online features: 
+            1. iTunes artwork lookup to itunes.apple.com (search/lookup), with query terms from metadata such as iTunes Album ID, album name, or track title; artwork downloads then come from Apple CDN hosts (is5-ssl.mzstatic.com / a5.mzstatic.com). 
+            2. MusicBrainz Browser requests to musicbrainz.org/ws/2, using search metadata fields such as title, artist, album, album artist, track number, track total, duration bucket, release year/date, ISRC, barcode, and MusicBrainz IDs (or IDs parsed from a pasted MusicBrainz link). 
+            3. Release Notes loading requests GitHub release data from api.github.com. Audio files themselves are never uploaded.
             """
         )
     ]

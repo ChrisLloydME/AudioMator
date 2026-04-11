@@ -98,6 +98,16 @@ NS_ASSUME_NONNULL_BEGIN
 // Media type
 @property (nonatomic, copy, nullable) NSString *mediaType;
 
+// iTunes purchase metadata
+@property (nonatomic, copy, nullable) NSString *itunesAlbumId;
+@property (nonatomic, copy, nullable) NSString *itunesArtistId;
+@property (nonatomic, copy, nullable) NSString *itunesCatalogId;
+@property (nonatomic, copy, nullable) NSString *itunesGenreId;
+@property (nonatomic, copy, nullable) NSString *itunesMediaType;
+@property (nonatomic, copy, nullable) NSString *itunesPurchaseDate;
+@property (nonatomic, copy, nullable) NSString *itunesNorm;
+@property (nonatomic, copy, nullable) NSString *itunesSmpb;
+
 // Release information (professional fields)
 @property (nonatomic, copy, nullable) NSString *releaseType;      // Album, EP, Single, etc.
 @property (nonatomic, copy, nullable) NSString *catalogNumber;    // Catalog/Matrix number

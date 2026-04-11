@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -523,3 +524,24 @@ struct TextMetadataImportSheet: View {
         return normalized.isEmpty ? "Empty" : normalized
     }
 }
+#else
+import SwiftUI
+
+struct TextMetadataImportSheet: View {
+    @ObservedObject var viewModel: AudioViewModel
+    let targetFiles: [AudioFile]
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Import Field")
+                .font(.headline)
+            Text("This tool is currently available on macOS only.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Button("Done") { isPresented = false }
+        }
+        .padding(20)
+    }
+}
+#endif

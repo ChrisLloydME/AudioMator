@@ -1,5 +1,7 @@
 import SwiftUI
-import AppKit
+#if !os(macOS)
+import UIKit
+#endif
 
 struct MetadataDumpSheet: View {
     let metadataDumpText: String
@@ -21,8 +23,12 @@ struct MetadataDumpSheet: View {
                 Spacer()
 
                 Button("Copy") {
+                    #if os(macOS)
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(metadataDumpText, forType: .string)
+                    #else
+                    UIPasteboard.general.string = metadataDumpText
+                    #endif
                 }
             }
 

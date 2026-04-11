@@ -7,6 +7,9 @@
 
 import SwiftUI
 import AVFoundation
+#if os(macOS)
+import AppKit
+#endif
 
 struct ContentView: View {
     @ObservedObject var viewModel: AudioViewModel
@@ -161,25 +164,31 @@ struct ContentView: View {
     private func openMusicBrainzBrowser() {
         let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
         musicBrainzBrowserStore.apply(seed: seed)
+        #if os(macOS)
         openWindow(id: MusicBrainzBrowserView.windowID)
 
         if musicBrainzBrowserStore.hasSearchText {
             musicBrainzBrowserStore.search()
         }
+        #endif
     }
 
     private func findSelectedFileInMusicBrainz() {
         guard let seed = currentMusicBrainzMatchSeed() else { return }
 
         musicBrainzBrowserStore.apply(seed: seed)
+        #if os(macOS)
         openWindow(id: MusicBrainzBrowserView.windowID)
         musicBrainzBrowserStore.search()
+        #endif
     }
 
     private func openMetadataFilenameTool(targetFileIDs: [AudioFile.ID]) {
         guard !targetFileIDs.isEmpty else { return }
         metadataFilenameToolStore.present(targetFileIDs: targetFileIDs)
+        #if os(macOS)
         openWindow(id: MetadataFilenameWindowView.windowID)
+        #endif
     }
 
     private func openMetadataEditor(targetFileIDs: [AudioFile.ID]) {
@@ -190,7 +199,9 @@ struct ContentView: View {
         guard !targets.isEmpty else { return }
 
         metadataEditorStore.present(targetFiles: targets)
+        #if os(macOS)
         openWindow(id: MetadataEditorWindowView.windowID)
+        #endif
     }
 
     private func dismissWelcomeSplash() {
@@ -201,10 +212,12 @@ struct ContentView: View {
     private func quitApplication() {
         isWelcomeSplashPresented = false
 
+        #if os(macOS)
         Task { @MainActor in
             await Task.yield()
             NSApplication.shared.terminate(nil)
         }
+        #endif
     }
 
     private func attemptSelectionChange(to newSelection: Set<AudioFile.ID>) {
@@ -236,9 +249,14 @@ struct ContentView: View {
             return
         }
 
+        #if os(macOS)
         presentUnsavedInspectorDiscardAlert(onContinue: continueAction)
+        #else
+        continueAction()
+        #endif
     }
 
+    #if os(macOS)
     private func presentUnsavedInspectorDiscardAlert(onContinue: @escaping () -> Void) {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -266,6 +284,7 @@ struct ContentView: View {
             handleResponse(response)
         }
     }
+    #endif
 
     private func setInspectorVisibility(_ isVisible: Bool) {
         withAnimation(.easeInOut(duration: 0.18)) {

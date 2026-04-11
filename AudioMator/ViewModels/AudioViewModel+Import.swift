@@ -1,12 +1,16 @@
 import Foundation
-import AppKit
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 extension AudioViewModel {
     // MARK: - File Import
 
     func addFiles() {
         guard currentFileSourceMode == .quickImport else { return }
-
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -17,11 +21,12 @@ extension AudioViewModel {
         guard panel.runModal() == .OK else { return }
 
         importQuickFiles(from: panel.urls)
+        #endif
     }
 
     func pickArtwork(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
-
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -40,11 +45,18 @@ extension AudioViewModel {
                 reason: (error as NSError).localizedDescription
             )
         }
+        #else
+        presentMetadataWriteFailure(
+            for: file.url.lastPathComponent,
+            reason: "Use drag and drop or clipboard import on iPadOS."
+        )
+        #endif
     }
 
     func importArtworkFromClipboard(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
 
+        #if os(macOS)
         let pasteboard = NSPasteboard.general
         guard let image = pasteboard.readObjects(forClasses: [NSImage.self])?.first as? NSImage else {
             presentMetadataWriteFailure(
@@ -63,6 +75,25 @@ extension AudioViewModel {
                 reason: (error as NSError).localizedDescription
             )
         }
+        #else
+        guard let image = UIPasteboard.general.image else {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: "No image was found in the clipboard."
+            )
+            return
+        }
+
+        do {
+            let pendingArtwork = try loadPendingArtwork(from: image)
+            applyArtworkEditAction(.replace(pendingArtwork), to: file)
+        } catch {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: (error as NSError).localizedDescription
+            )
+        }
+        #endif
     }
 
     func clearArtwork(for file: AudioFile) {
@@ -72,7 +103,7 @@ extension AudioViewModel {
 
     func pickArtwork(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
-
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -92,11 +123,19 @@ extension AudioViewModel {
                 subtitle: (error as NSError).localizedDescription
             )
         }
+        #else
+        presentMetadataWriteHUD(
+            style: .failure,
+            title: "Artwork Update Failed",
+            subtitle: "Artwork picker is unavailable on iPadOS in this build."
+        )
+        #endif
     }
 
     func importArtworkFromClipboard(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
 
+        #if os(macOS)
         let pasteboard = NSPasteboard.general
         guard let image = pasteboard.readObjects(forClasses: [NSImage.self])?.first as? NSImage else {
             presentMetadataWriteHUD(
@@ -117,6 +156,27 @@ extension AudioViewModel {
                 subtitle: (error as NSError).localizedDescription
             )
         }
+        #else
+        guard let image = UIPasteboard.general.image else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Artwork Update Failed",
+                subtitle: "No image was found in the clipboard."
+            )
+            return
+        }
+
+        do {
+            let pendingArtwork = try loadPendingArtwork(from: image)
+            applyArtworkEditAction(.replace(pendingArtwork), to: files)
+        } catch {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Artwork Update Failed",
+                subtitle: (error as NSError).localizedDescription
+            )
+        }
+        #endif
     }
 
     func clearArtwork(for files: [AudioFile]) {

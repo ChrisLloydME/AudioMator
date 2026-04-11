@@ -7,7 +7,9 @@
 
 import Foundation
 import Combine
+#if os(macOS)
 import AppKit
+#endif
 
 private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
 
@@ -82,6 +84,7 @@ final class AudioViewModel: ObservableObject {
     init(watchedFolderStore: WatchedFolderStore) {
         self.watchedFolderStore = watchedFolderStore
 
+        #if os(macOS)
         let restoredFolders = watchedFolderStore.loadFolders()
         self.watchedFolders = restoredFolders
 
@@ -90,6 +93,7 @@ final class AudioViewModel: ObservableObject {
             updateDirectoryMonitors(for: folder.id, directories: [folder.url])
             scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
         }
+        #endif
 
         rebuildVisibleFiles()
     }
@@ -247,6 +251,7 @@ final class AudioViewModel: ObservableObject {
 
     @discardableResult
     func addWatchedFolders() -> SidebarSelection? {
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = true
@@ -302,6 +307,9 @@ final class AudioViewModel: ObservableObject {
         }
 
         return .watchedLibrary
+        #else
+        return nil
+        #endif
     }
 
     func removeWatchedFolder(id: UUID) {
@@ -525,6 +533,9 @@ final class AudioViewModel: ObservableObject {
     }
 
     private func normalizedSidebarSelection(_ selection: SidebarSelection) -> SidebarSelection {
+        #if !os(macOS)
+        return .quickImport
+        #else
         switch selection {
         case .watchedFolder(let folderID):
             if watchedFolders.contains(where: { $0.id == folderID }) {
@@ -536,6 +547,7 @@ final class AudioViewModel: ObservableObject {
         case .quickImport:
             return .quickImport
         }
+        #endif
     }
 
     private func mergedWatchedFiles() -> [AudioFile] {
@@ -676,6 +688,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     private func requestRenameDirectoryAccess(for directoryURL: URL) -> String? {
+        #if os(macOS)
         let displayName = FileManager.default.displayName(atPath: directoryURL.path)
         let key = Self.urlKey(for: directoryURL)
 
@@ -703,9 +716,14 @@ final class AudioViewModel: ObservableObject {
 
         securityScopedQuickImportRenameDirectoryURLs[key] = selectedURL
         return nil
+        #else
+        let displayName = FileManager.default.displayName(atPath: directoryURL.path)
+        return "Renaming requires folder access for “\(displayName)”."
+        #endif
     }
 
     private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {
+        #if os(macOS)
         let normalizedDirectories = Self.urlsByKey(directories)
 
         var monitors = folderDirectoryMonitors[folderID] ?? [:]
@@ -727,6 +745,10 @@ final class AudioViewModel: ObservableObject {
         }
 
         folderDirectoryMonitors[folderID] = monitors
+        #else
+        _ = folderID
+        _ = directories
+        #endif
     }
 
     private func persistWatchedFolders() {

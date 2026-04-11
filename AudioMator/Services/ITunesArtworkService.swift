@@ -1,5 +1,4 @@
 import Foundation
-import AppKit
 
 enum ITunesArtworkSearchEntity: String, Sendable {
     case album

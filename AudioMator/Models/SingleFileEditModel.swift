@@ -1,5 +1,3 @@
-import AppKit
-
 struct PendingArtwork {
     var image: NSImage
     var data: Data

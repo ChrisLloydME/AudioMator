@@ -1,20 +1,36 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 extension AudioViewModel {
     // MARK: - Context Menu Actions (Middle List)
 
     func openWithDefaultApp(_ file: AudioFile) {
+        #if os(macOS)
         NSWorkspace.shared.open(file.url)
+        #else
+        UIApplication.shared.open(file.url)
+        #endif
     }
 
     func revealInFinder(_ file: AudioFile) {
+        #if os(macOS)
         NSWorkspace.shared.activateFileViewerSelecting([file.url])
+        #else
+        UIApplication.shared.open(file.url)
+        #endif
     }
 
     func copyFilePath(_ file: AudioFile) {
+        #if os(macOS)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(file.url.path, forType: .string)
+        #else
+        UIPasteboard.general.string = file.url.path
+        #endif
     }
 
     func removeFromList(_ file: AudioFile) {

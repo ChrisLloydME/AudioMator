@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 
+#if os(macOS)
 final class DirectoryMonitor {
     private let queue: DispatchQueue
     private let eventHandler: @Sendable () -> Void
@@ -57,3 +58,20 @@ final class DirectoryMonitor {
         fileDescriptor = -1
     }
 }
+#else
+final class DirectoryMonitor {
+    init?(
+        url: URL,
+        queue: DispatchQueue = DispatchQueue(label: "AudioMator.DirectoryMonitor", qos: .utility),
+        eventHandler: @escaping @Sendable () -> Void
+    ) {
+        _ = url
+        _ = queue
+        _ = eventHandler
+        return nil
+    }
+
+    func start() {}
+    func stop() {}
+}
+#endif

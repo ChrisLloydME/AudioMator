@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 let inspectorRowContentHeight: CGFloat = 20
 let inspectorRowVerticalPadding: CGFloat = 6
@@ -803,6 +805,7 @@ struct InspectorPane: View {
     }
 }
 
+#if os(macOS)
 struct ScrollableInspectorValueText: NSViewRepresentable {
     let text: String
     let width: CGFloat
@@ -1012,6 +1015,24 @@ final class InspectorValueScrollView: NSScrollView {
         reflectScrolledClipView(contentView)
     }
 }
+#else
+struct ScrollableInspectorValueText: View {
+    let text: String
+    let font: NSFont
+    let color: NSColor
+    let textAlignment: NSTextAlignment
+    let lineBreakMode: NSLineBreakMode
+
+    var body: some View {
+        ScrollView {
+            Text(text)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+#endif
 
 final class WheelForwardingStackView: NSStackView {
     override func scrollWheel(with event: NSEvent) {

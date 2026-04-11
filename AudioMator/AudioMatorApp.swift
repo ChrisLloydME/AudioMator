@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 extension Notification.Name {
     static let showWelcomeSplash = Notification.Name("showWelcomeSplash")
@@ -20,6 +22,7 @@ extension Notification.Name {
     static let requestSelectAllTracks = Notification.Name("requestSelectAllTracks")
 }
 
+#if os(macOS)
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let hasLaunchedKey = "hasLaunchedBefore"
 
@@ -39,10 +42,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 }
+#endif
 
 @main
 struct AudioMatorApp: App {
+    #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
     @StateObject private var viewModel = AudioViewModel()
     @StateObject private var sharedState = SharedState()
     @StateObject private var musicBrainzBrowserStore = MusicBrainzBrowserStore()
@@ -60,6 +66,7 @@ struct AudioMatorApp: App {
             )
                 .frame(minWidth: 900, minHeight: 600)
         }
+        #if os(macOS)
         .commands {
             AppInfoCommands()
             SidebarCommands()
@@ -105,9 +112,11 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 920, height: 640)
         .windowToolbarStyle(.expanded)
+        #endif
     }
 }
 
+#if os(macOS)
 struct AppInfoCommands: Commands {
     @Environment(\.openSettings) private var openSettings
 
@@ -122,7 +131,9 @@ struct AppInfoCommands: Commands {
         }
     }
 }
+#endif
 
+#if os(macOS)
 struct ToolbarEditCommands: Commands {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var sharedState: SharedState
@@ -224,3 +235,4 @@ struct ViewLayoutCommands: Commands {
         }
     }
 }
+#endif

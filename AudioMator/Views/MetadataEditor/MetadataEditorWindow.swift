@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 import Combine
@@ -1285,3 +1286,4 @@ private enum MetadataInvisibleMarker {
         }
     }
 }
+#endif

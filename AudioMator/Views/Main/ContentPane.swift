@@ -1,6 +1,10 @@
 import SwiftUI
-import AppKit
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct ContentPane: View {
     @ObservedObject var viewModel: AudioViewModel
@@ -22,6 +26,7 @@ struct ContentPane: View {
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isTextMetadataImportPresented: Bool = false
     @State private var textMetadataImportTargets: [AudioFile] = []
+    @State private var isFileImporterPresented: Bool = false
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -48,7 +53,7 @@ struct ContentPane: View {
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     if visibleToolbarButtons.contains(.addFiles) {
-                        Button(action: onAddFiles) {
+                        Button(action: addFilesAction) {
                             Image(systemName: "plus")
                         }
                         .help(isQuickImportMode ? "Add files to this session" : "Select Current Session in the sidebar to add files")
@@ -74,42 +79,52 @@ struct ContentPane: View {
                     }
 
                     if visibleToolbarButtons.contains(.renameFiles) {
+                        #if os(macOS)
                         Button(action: openMetadataFilenameRenameSheet) {
                             Label("Filename & Metadata…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
                         }
                         .help("Convert between filenames and metadata for the selected files")
                         .disabled(state.selectedAudioIDs.isEmpty)
+                        #endif
                     }
 
                     if visibleToolbarButtons.contains(.metadataEditor) {
+                        #if os(macOS)
                         Button(action: openMetadataEditorWindow) {
                             Label("Metadata Editor…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
                         }
                         .help("Edit the selected metadata fields in a separate window")
                         .disabled(state.selectedAudioIDs.isEmpty)
+                        #endif
                     }
 
                     if visibleToolbarButtons.contains(.importField) {
+                        #if os(macOS)
                         Button(action: openTextMetadataImportSheet) {
                             Label("Import Field…", systemImage: ToolbarButtonOption.importField.systemImage)
                         }
                         .help("Import one field from a text file")
                         .disabled(state.selectedAudioIDs.isEmpty)
+                        #endif
                     }
 
                     if visibleToolbarButtons.contains(.tagInspector) {
+                        #if os(macOS)
                         Button(action: onShowMetadataDump) {
                             Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
                         }
                         .help("View raw metadata")
                         .disabled(state.selectedAudioIDs.isEmpty)
+                        #endif
                     }
 
                     if visibleToolbarButtons.contains(.musicBrainzBrowser) {
+                        #if os(macOS)
                         Button(action: onOpenMusicBrainzBrowser) {
                             Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
                         }
                         .help("Open MusicBrainz Browser")
+                        #endif
                     }
 
                     if visibleToolbarButtons.contains(.cancelEdits) {
@@ -147,6 +162,16 @@ struct ContentPane: View {
                     isPresented: $isTextMetadataImportPresented
                 )
             }
+            #if !os(macOS)
+            .fileImporter(
+                isPresented: $isFileImporterPresented,
+                allowedContentTypes: AudioFormatSupport.openPanelContentTypes,
+                allowsMultipleSelection: true
+            ) { result in
+                guard case .success(let urls) = result else { return }
+                viewModel.importQuickFiles(from: urls)
+            }
+            #endif
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }
                 isClearListConfirmPresented = true
@@ -171,6 +196,7 @@ struct ContentPane: View {
                     description: Text(emptyStateDescription)
                 )
             } else {
+                #if os(macOS)
                 MiddleListTable(
                     files: orderedFiles,
                     selection: selection,
@@ -212,8 +238,47 @@ struct ContentPane: View {
                 } message: {
                     Text("Removes metadata from the selected files. This can't be undone.")
                 }
+                #else
+                List(orderedFiles, selection: selection) { file in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(file.title.isEmpty ? file.url.lastPathComponent : file.title)
+                            .font(.body)
+                            .lineLimit(1)
+                        Text(file.artist.isEmpty ? file.url.lastPathComponent : file.artist)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .tag(file.id)
+                }
+                .onChange(of: state.selectedAudioIDs) { _, newSelection in
+                    viewModel.selectedAudioIDs = newSelection
+                    viewModel.updateEditForSelection()
+                }
+                .onAppear {
+                    syncSelectionWithFiles()
+                    viewModel.selectedAudioIDs = state.selectedAudioIDs
+                    viewModel.updateEditForSelection()
+                    syncCustomOrderWithFiles()
+                }
+                .onChange(of: viewModel.files.map { $0.id }) {
+                    syncSelectionWithFiles()
+                    viewModel.selectedAudioIDs = state.selectedAudioIDs
+                    viewModel.updateEditForSelection()
+                    syncCustomOrderWithFiles()
+                }
+                #endif
             }
         }
+    }
+
+    private func addFilesAction() {
+        #if os(macOS)
+        onAddFiles()
+        #else
+        guard isQuickImportMode else { return }
+        isFileImporterPresented = true
+        #endif
     }
 
     private var emptyStateTitle: String {
@@ -315,27 +380,44 @@ struct ContentPane: View {
     }
 
     private func openSelectedFiles() {
+        #if os(macOS)
         for file in selectedFiles {
             NSWorkspace.shared.open(file.url)
         }
+        #else
+        guard let url = selectedFiles.first?.url else { return }
+        UIApplication.shared.open(url)
+        #endif
     }
 
     private func revealSelectedFilesInFinder() {
+        #if os(macOS)
         let urls = selectedFiles.map { $0.url }
         guard !urls.isEmpty else { return }
         NSWorkspace.shared.activateFileViewerSelecting(urls)
+        #else
+        openSelectedFiles()
+        #endif
     }
 
     private func copySelectedFilePaths() {
         let text = selectedFiles.map { $0.url.path }.joined(separator: "\n")
+        #if os(macOS)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        #else
+        UIPasteboard.general.string = text
+        #endif
     }
 
     private func copySelectedFileNames() {
         let text = selectedFiles.map { $0.url.lastPathComponent }.joined(separator: "\n")
+        #if os(macOS)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        #else
+        UIPasteboard.general.string = text
+        #endif
     }
 
     private func clearAllMetadataForSelectedFiles() {

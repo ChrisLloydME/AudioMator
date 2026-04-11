@@ -1202,16 +1202,18 @@ private struct MusicBrainzEmbeddedWebPageView: View {
 
     @State private var page = WebPage()
 
+    private var backgroundColor: Color {
+        #if os(macOS)
+        Color(nsColor: .windowBackgroundColor)
+        #else
+        Color(uiColor: .systemBackground)
+        #endif
+    }
+
     var body: some View {
         WebView(page)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                #if os(macOS)
-                Color(nsColor: .windowBackgroundColor)
-                #else
-                Color(uiColor: .systemBackground)
-                #endif
-            )
+            .background(backgroundColor)
             .navigationTitle(title)
             #if os(macOS)
             .navigationSubtitle(url.host() ?? "MusicBrainz")

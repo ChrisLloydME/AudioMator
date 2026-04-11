@@ -56,6 +56,7 @@ struct AudioMatorApp: App {
     @StateObject private var metadataEditorStore = MetadataEditorStore()
 
     var body: some Scene {
+        #if os(macOS)
         WindowGroup {
             ContentView(
                 viewModel: viewModel,
@@ -66,7 +67,6 @@ struct AudioMatorApp: App {
             )
                 .frame(minWidth: 900, minHeight: 600)
         }
-        #if os(macOS)
         .commands {
             AppInfoCommands()
             SidebarCommands()
@@ -112,6 +112,17 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 920, height: 640)
         .windowToolbarStyle(.expanded)
+        #else
+        WindowGroup {
+            ContentView(
+                viewModel: viewModel,
+                state: sharedState,
+                musicBrainzBrowserStore: musicBrainzBrowserStore,
+                metadataFilenameToolStore: metadataFilenameToolStore,
+                metadataEditorStore: metadataEditorStore
+            )
+                .frame(minWidth: 900, minHeight: 600)
+        }
         #endif
     }
 }

@@ -9,7 +9,7 @@ import SwiftUI
 #if os(macOS)
 import AppKit
 #else
-import UIKit
+internal import UIKit
 #endif
 
 /// A read-only inspector-style sheet that shows the *raw* metadata dump text.

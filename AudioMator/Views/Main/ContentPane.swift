@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
 #else
-import UIKit
+internal import UIKit
 #endif
 
 struct ContentPane: View {

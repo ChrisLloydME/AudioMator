@@ -20,7 +20,7 @@ AudioMator is a native macOS app built around a three-pane workflow:
 - a center table for browsing, selecting, and reordering tracks
 - a right-side inspector for single-file edits, multi-file edits, artwork, and technical details
 
-The app is local-first by default. Audio files stay on your Mac, watched folders are stored locally, and metadata writes happen through the bundled TagLib bridge. The only network-backed feature is the optional `MusicBrainz Browser`.
+The app is local-first by default. Audio files stay on your Mac, watched folders are stored locally, and metadata writes happen through the bundled TagLib bridge. The only network-backed features are the optional `MusicBrainz Browser` and `Tagging Workbench`.
 
 ## Current Capabilities
 
@@ -104,10 +104,11 @@ A dedicated `Metadata Editor` window provides direct access to the raw TagLib pr
 
 When viewing a release or track detail in the MusicBrainz Browser, open the tagging workbench to apply MusicBrainz metadata to local files:
 
-- Select which fields to write from the matched release
+- Select which fields to write from the matched release:
 
   | `Title` | `Artist` | `Album Artist` | `Album` | `Track Number` | `Disc Number` | `Release Date` | `Publisher` | `Composer` |
   |---|---|---|---|---|---|---|---|---|
+  | ✓ default | ✓ default | ✓ default | ✓ default | ✓ default | ✓ default | ✓ default | ✓ default | opt-in |
 
 - Assign each loaded AudioMator file to a specific MusicBrainz release track
 - Preview a full diff of current tag values versus the proposed MusicBrainz values before committing

@@ -102,12 +102,16 @@ private enum WelcomeSplashPage: Int {
 }
 
 private struct AppIconHero: View {
-    var body: some View {
+    private var appIconImage: Image {
         #if os(macOS)
         Image(nsImage: NSApplication.shared.applicationIconImage)
         #else
         Image(systemName: "waveform.circle.fill")
         #endif
+    }
+
+    var body: some View {
+        appIconImage
             .resizable()
             .interpolation(.high)
             .scaledToFit()

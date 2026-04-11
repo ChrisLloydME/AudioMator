@@ -1,5 +1,6 @@
 #if !os(macOS)
 import SwiftUI
+import Combine
 
 @MainActor
 final class MetadataFilenameToolStore: ObservableObject {

@@ -5,6 +5,16 @@ import AppKit
 import UIKit
 #endif
 
+#if os(macOS)
+typealias PlatformFont = NSFont
+typealias PlatformColor = NSColor
+typealias PlatformImage = NSImage
+#else
+typealias PlatformFont = UIFont
+typealias PlatformColor = UIColor
+typealias PlatformImage = UIImage
+#endif
+
 let inspectorRowContentHeight: CGFloat = 20
 let inspectorRowVerticalPadding: CGFloat = 6
 
@@ -45,9 +55,13 @@ struct InspectorPane: View {
         max(inspectorQuickText.split(separator: "\n", omittingEmptySubsequences: false).count, 1)
     }
 
-    private var previewFont: NSFont {
-        NSFont(name: "Menlo-Regular", size: 13) ??
+    private var previewFont: PlatformFont {
+        #if os(macOS)
+        return NSFont(name: "Menlo-Regular", size: 13) ??
             NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        #else
+        return UIFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        #endif
     }
 
     private func renderedPreview(from text: String) -> String {
@@ -143,7 +157,7 @@ struct InspectorPane: View {
         )
     }
 
-    private func displayedArtwork(for file: AudioFile) -> NSImage? {
+    private func displayedArtwork(for file: AudioFile) -> PlatformImage? {
         switch viewModel.edit?.artworkEditAction ?? .unchanged {
         case .unchanged:
             return file.artwork
@@ -162,7 +176,7 @@ struct InspectorPane: View {
         viewModel.artworkLookupDisabledReason(for: file)
     }
 
-    private var multiDisplayedArtwork: NSImage? {
+    private var multiDisplayedArtwork: PlatformImage? {
         viewModel.multiEdit?.displayedArtwork
     }
 
@@ -184,6 +198,14 @@ struct InspectorPane: View {
 
     private func artworkLookupDisabledReason(for files: [AudioFile]) -> String? {
         viewModel.artworkLookupDisabledReason(for: files)
+    }
+
+    private func imageView(from image: PlatformImage) -> Image {
+        #if os(macOS)
+        return Image(nsImage: image)
+        #else
+        return Image(uiImage: image)
+        #endif
     }
 
     var body: some View {
@@ -290,11 +312,17 @@ struct InspectorPane: View {
                                     )
                                 )
 
+                            #if os(macOS)
                             ReadOnlyMonospacedTextView(
                                 text: inspectorQuickPreview,
                                 font: previewFont,
-                                textColor: .labelColor
+                                textColor: PlatformColor.label
                             )
+                            .padding(1)
+                            #else
+                            ReadOnlyMonospacedTextView(text: inspectorQuickPreview)
+                                .padding(1)
+                            #endif
                             .padding(1)
 
                             if inspectorQuickText.isEmpty {
@@ -376,7 +404,7 @@ struct InspectorPane: View {
         GroupBox {
             VStack(spacing: 16) {
                 if let image = displayedArtwork(for: file) {
-                    Image(nsImage: image)
+                    imageView(from: image)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
@@ -462,7 +490,7 @@ struct InspectorPane: View {
             VStack(spacing: 16) {
                 Group {
                     if let image = multiDisplayedArtwork {
-                        Image(nsImage: image)
+                        imageView(from: image)
                             .resizable()
                             .scaledToFit()
                             .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
@@ -1020,46 +1048,91 @@ final class InspectorValueScrollView: NSScrollView {
 #else
 struct ScrollableInspectorValueText: View {
     let text: String
-    let font: NSFont
-    let color: NSColor
-    let textAlignment: NSTextAlignment
-    let lineBreakMode: NSLineBreakMode
+    let width: CGFloat
 
     var body: some View {
-        ScrollView {
+        ScrollView(.horizontal, showsIndicators: false) {
             Text(text)
-                .font(.system(size: font.pointSize))
-                .foregroundStyle(Color(color))
-                .multilineTextAlignment(swiftUITextAlignment)
-                .lineLimit(lineBreakMode == .byTruncatingTail ? 1 : nil)
-                .frame(maxWidth: .infinity, alignment: frameAlignment)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(minWidth: width, alignment: .trailing)
+        }
+        .frame(height: inspectorRowContentHeight)
+    }
+}
+
+struct FlexibleScrollableInspectorValueText: View {
+    let text: String
+
+    var body: some View {
+        GeometryReader { proxy in
+            let availableWidth = max(proxy.size.width, 1)
+
+            ScrollableInspectorValueText(text: text, width: availableWidth)
+                .frame(width: availableWidth, height: inspectorRowContentHeight, alignment: .trailing)
+        }
+        .frame(height: inspectorRowContentHeight)
+    }
+}
+
+struct InspectorEditableValueField: View {
+    @Binding var text: String
+    var placeholder: String? = nil
+    let onDoubleClick: () -> Void
+
+    @FocusState private var isFocused: Bool
+    @State private var isEditing = false
+
+    var body: some View {
+        Group {
+            if isEditing {
+                TextField("", text: $text, prompt: placeholder.map(Text.init))
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .focused($isFocused)
+                    .onAppear {
+                        isFocused = true
+                    }
+                    .onSubmit {
+                        isEditing = false
+                    }
+                    .onChange(of: isFocused) { _, focused in
+                        if !focused {
+                            isEditing = false
+                        }
+                    }
+            } else {
+                FlexibleScrollableInspectorValueText(text: displayText)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        isEditing = true
+                    }
+                    .simultaneousGesture(
+                        TapGesture(count: 2)
+                            .onEnded {
+                                onDoubleClick()
+                            }
+                    )
+            }
         }
     }
 
-    private var swiftUITextAlignment: TextAlignment {
-        switch textAlignment {
-        case .center:
-            return .center
-        case .right:
-            return .trailing
-        default:
-            return .leading
+    private var displayText: String {
+        if !text.isEmpty {
+            return text
         }
-    }
 
-    private var frameAlignment: Alignment {
-        switch textAlignment {
-        case .center:
-            return .center
-        case .right:
-            return .trailing
-        default:
-            return .leading
+        if let placeholder, !placeholder.isEmpty {
+            return placeholder
         }
+
+        return "—"
     }
 }
 #endif
 
+#if os(macOS)
 final class WheelForwardingStackView: NSStackView {
     override func scrollWheel(with event: NSEvent) {
         enclosingScrollView?.scrollWheel(with: event)
@@ -1071,3 +1144,4 @@ final class WheelForwardingLabel: NSTextField {
         enclosingScrollView?.scrollWheel(with: event)
     }
 }
+#endif

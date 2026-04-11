@@ -67,7 +67,9 @@ struct InspectorPopup<Content: View>: View {
             .transition(.scale(scale: 0.98).combined(with: .opacity))
         }
         .animation(.easeInOut(duration: 0.16), value: isPresented)
+        #if os(macOS)
         .onExitCommand { dismiss() } // Close on Escape (macOS)
+        #endif
     }
 
     private var header: some View {

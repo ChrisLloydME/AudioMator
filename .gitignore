@@ -14,3 +14,4 @@ TestResults/
 
 # Local scratch data and audio test fixtures
 .tmp/
+/AudioMator.xcodeproj/project.xcworkspace/xcuserdata/lloyd.xcuserdatad/UserInterfaceState.xcuserstate

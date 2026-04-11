@@ -77,7 +77,7 @@ struct BasicMetadata {
     var artworkData: Data?
     var customFields: [String: String]
 
-    static let empty = BasicMetadata(
+    nonisolated static let empty = BasicMetadata(
         title: "",
         artist: "",
         album: "",
@@ -150,7 +150,7 @@ struct BasicMetadata {
     )
 }
 
-private func preferredRawNumberText(_ currentValue: String, _ candidateValue: String) -> String {
+nonisolated private func preferredRawNumberText(_ currentValue: String, _ candidateValue: String) -> String {
     func normalized(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -173,7 +173,7 @@ private func preferredRawNumberText(_ currentValue: String, _ candidateValue: St
     return score(trimmedCandidate) > score(trimmedCurrent) ? trimmedCandidate : trimmedCurrent
 }
 
-private func rawNumberTexts(from dump: RawMetadataDump) -> (track: String, disc: String) {
+nonisolated private func rawNumberTexts(from dump: RawMetadataDump) -> (track: String, disc: String) {
     let trackFromProperties = dump.properties
         .filter { ["TRACKNUMBER", "TRACK"].contains($0.key.uppercased()) }
         .reduce(into: "") { bestValue, entry in
@@ -216,7 +216,7 @@ struct RawMetadataDump: Hashable {
     var properties: [RawPropertyEntry]
     var id3v2Frames: [RawID3v2FrameEntry]
 
-    static let empty = RawMetadataDump(properties: [], id3v2Frames: [])
+    nonisolated static let empty = RawMetadataDump(properties: [], id3v2Frames: [])
 }
 
 struct RawPropertyEntry: Identifiable, Hashable {
@@ -243,20 +243,20 @@ enum TagLibManagerError: Error {
 /// Thin wrapper around the Objective-C++ `TagLibMetadataExtractor`.
 struct TagLibMetadataManager {
 
-    private static let hiddenInternalRawFieldKeys: Set<String> = [
+    nonisolated private static let hiddenInternalRawFieldKeys: Set<String> = [
         "AUDIOMATOR_TRACKNUMBER_TEXT",
         "AUDIOMATOR_DISCNUMBER_TEXT",
         "----:COM.APPLE.ITUNES:AUDIOMATOR_TRACKNUMBER_TEXT",
         "----:COM.APPLE.ITUNES:AUDIOMATOR_DISCNUMBER_TEXT",
     ]
 
-    private static func isHiddenInternalRawFieldKey(_ key: String) -> Bool {
+    nonisolated private static func isHiddenInternalRawFieldKey(_ key: String) -> Bool {
         hiddenInternalRawFieldKeys.contains(
             key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         )
     }
 
-    private static func parsedPropertyEntries(fromDumpText text: String) -> [RawPropertyEntry] {
+    nonisolated private static func parsedPropertyEntries(fromDumpText text: String) -> [RawPropertyEntry] {
         var isInPropertiesSection = false
         var properties: [RawPropertyEntry] = []
 
@@ -313,7 +313,7 @@ struct TagLibMetadataManager {
     ///
     /// Preferred path: call the ObjC++ bridge API directly (Swift `throws`).
     /// Fallback path: attempt older single-argument selector names via `perform` for compatibility.
-    private static func bridgeTextDumpIfAvailable(for url: URL) -> String? {
+    nonisolated private static func bridgeTextDumpIfAvailable(for url: URL) -> String? {
         // Newer bridge (preferred): `dumpMetadataText(from:)` is exposed as a Swift-throwing method.
         if let text = try? TagLibMetadataExtractor.dumpMetadataText(from: url) {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -351,7 +351,7 @@ struct TagLibMetadataManager {
         return nil
     }
 
-    static func readMetadata(from url: URL) -> BasicMetadata? {
+    nonisolated static func readMetadata(from url: URL) -> BasicMetadata? {
         // 1. Quickly filter by file extension.
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty else { return nil }
@@ -470,7 +470,7 @@ struct TagLibMetadataManager {
     /// - Fields that are empty strings are written as `nil` (i.e. removed/cleared).
     /// - `publisher` is mapped to TagLib's `label` field.
     @discardableResult
-    static func writeMetadata(_ meta: BasicMetadata, to url: URL) throws -> Bool {
+    nonisolated static func writeMetadata(_ meta: BasicMetadata, to url: URL) throws -> Bool {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
             throw TagLibManagerError.unsupportedFormat
@@ -562,7 +562,7 @@ struct TagLibMetadataManager {
     }
 
     @discardableResult
-    static func writeRawMetadataPropertyMap(_ properties: [String: String], to url: URL) throws -> Bool {
+    nonisolated static func writeRawMetadataPropertyMap(_ properties: [String: String], to url: URL) throws -> Bool {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
             throw TagLibManagerError.unsupportedFormat
@@ -577,7 +577,7 @@ struct TagLibMetadataManager {
     /// Implementation strategy: write an empty `TagLibAudioMetadata` object.
     /// This should clear the common tag fields and reset numeric fields to 0.
     @discardableResult
-    static func eraseAllMetadata(from url: URL) throws -> Bool {
+    nonisolated static func eraseAllMetadata(from url: URL) throws -> Bool {
         return try writeMetadata(.empty, to: url)
     }
 
@@ -588,11 +588,11 @@ struct TagLibMetadataManager {
     /// - "id3v2Frames": ID3v2 frames (MP3 only)
     ///
     /// Returns `nil` if format is not supported by TagLib in this app.
-    static func rawMetadata(from url: URL) -> RawMetadataDump? {
+    nonisolated static func rawMetadata(from url: URL) -> RawMetadataDump? {
         try? rawMetadataResult(from: url)
     }
 
-    static func rawMetadataResult(from url: URL) throws -> RawMetadataDump {
+    nonisolated static func rawMetadataResult(from url: URL) throws -> RawMetadataDump {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty else {
             throw TagLibManagerError.unsupportedFormat
@@ -603,15 +603,7 @@ struct TagLibMetadataManager {
         }
 
         // ObjC++ returns a Foundation dictionary for display; normalize it into Swift models.
-        let dictAny = try TagLibMetadataExtractor.rawMetadata(for: url)
-        let dict: NSDictionary
-        if let d = dictAny as? NSDictionary {
-            dict = d
-        } else if let d = dictAny as? [String: Any] {
-            dict = d as NSDictionary
-        } else {
-            return .empty
-        }
+        let dict = try TagLibMetadataExtractor.rawMetadata(for: url)
 
         let propsAny = dict["properties"] as? [Any] ?? []
         let framesAny = dict["id3v2Frames"] as? [Any] ?? []
@@ -677,7 +669,7 @@ struct TagLibMetadataManager {
     /// It surfaces:
     /// - TagLib `PropertyMap` entries (including multi-value fields)
     /// - ID3v2 frames (MP3 only), including TXXX/COMM details when available
-    static func rawMetadataText(from url: URL) -> String? {
+    nonisolated static func rawMetadataText(from url: URL) -> String? {
         // Prefer a direct text dump from the bridge if available.
         if let text = bridgeTextDumpIfAvailable(for: url) {
             return text

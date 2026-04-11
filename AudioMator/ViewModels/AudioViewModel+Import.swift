@@ -162,7 +162,7 @@ extension AudioViewModel {
         return true
     }
 
-    private func applyArtworkEditAction(_ action: ArtworkEditAction, to file: AudioFile) {
+    func applyArtworkEditAction(_ action: ArtworkEditAction, to file: AudioFile) {
         if var current = edit {
             current.artworkEditAction = action
             edit = current
@@ -173,7 +173,7 @@ extension AudioViewModel {
         }
     }
 
-    private func applyArtworkEditAction(_ action: ArtworkEditAction, to files: [AudioFile]) {
+    func applyArtworkEditAction(_ action: ArtworkEditAction, to files: [AudioFile]) {
         guard !files.isEmpty else { return }
 
         if var current = multiEdit {

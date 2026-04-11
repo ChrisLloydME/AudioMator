@@ -27,3 +27,13 @@ When using TagLib in commercial or closed-source applications, at minimum:
 
 - This repository includes usage notice and licensing notice for TagLib in this file and in `README.md`.
 - If future changes modify TagLib source itself, maintainers must publish those TagLib changes to remain compliant with the selected TagLib license path.
+
+## iTunes Artwork Finder
+
+- **Project**: iTunes Artwork Finder
+- **Source used in this repository**: partial adaptation of the iTunes artwork lookup and result transformation logic from the package placed at `.tmp/iTunes-Artwork-Finder-master`
+- **Upstream license**: The Unlicense / public domain dedication
+
+### Licensing
+
+The copied logic originates from software released under The Unlicense. That work is dedicated to the public domain where recognized, and otherwise provided for unrestricted use under the terms of The Unlicense.

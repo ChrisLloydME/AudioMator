@@ -39,9 +39,12 @@ final class AudioViewModel: ObservableObject {
     @Published var edit: SingleFileEditModel?
     @Published var multiEdit: MultiFileEditModel?
     @Published var metadataWriteHUD: MetadataWriteHUD?
+    @Published var artworkLookupSession: ArtworkLookupSession?
 
     private let watchedFolderStore: WatchedFolderStore
+    let iTunesArtworkService = ITunesArtworkService()
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
+    var artworkLookupTask: Task<Void, Never>?
     private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []
     private var quickImportFiles: [AudioFile] = []
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
@@ -75,6 +78,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     deinit {
+        artworkLookupTask?.cancel()
         metadataWriteHUDDismissTask?.cancel()
         folderRescanTasks.values.forEach { $0.cancel() }
         folderDirectoryMonitors.removeAll()

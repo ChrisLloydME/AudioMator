@@ -14,6 +14,17 @@ struct InspectorPane: View {
     @State private var inspectorQuickBinding: Binding<String>? = nil
     @State private var isInspectorQuickPresented: Bool = false
 
+    private var artworkLookupSessionBinding: Binding<ArtworkLookupSession?> {
+        Binding<ArtworkLookupSession?>(
+            get: { viewModel.artworkLookupSession },
+            set: { newValue in
+                if newValue == nil {
+                    viewModel.dismissArtworkLookup()
+                }
+            }
+        )
+    }
+
     private var selectedFiles: [AudioFile] {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
     }
@@ -143,6 +154,10 @@ struct InspectorPane: View {
         displayedArtwork(for: file) != nil
     }
 
+    private func artworkLookupDisabledReason(for file: AudioFile) -> String? {
+        viewModel.artworkLookupDisabledReason(for: file)
+    }
+
     private var multiDisplayedArtwork: NSImage? {
         viewModel.multiEdit?.displayedArtwork
     }
@@ -161,6 +176,10 @@ struct InspectorPane: View {
 
     private var hasPendingMultiArtworkChange: Bool {
         viewModel.multiEdit?.hasPendingArtworkChange ?? false
+    }
+
+    private func artworkLookupDisabledReason(for files: [AudioFile]) -> String? {
+        viewModel.artworkLookupDisabledReason(for: files)
     }
 
     var body: some View {
@@ -307,6 +326,9 @@ struct InspectorPane: View {
             .padding(20)
             .frame(width: 860, height: 420)
         }
+        .sheet(item: artworkLookupSessionBinding) { _ in
+            AlbumArtworkLookupSheet(viewModel: viewModel)
+        }
     }
 
     @ViewBuilder
@@ -344,26 +366,65 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func artworkSection(_ file: AudioFile) -> some View {
+        let artworkControlWidth: CGFloat = 220
+        let lookupDisabledReason = artworkLookupDisabledReason(for: file)
+
         GroupBox {
-            VStack {
+            VStack(spacing: 16) {
                 if let image = displayedArtwork(for: file) {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: 200, maxHeight: 200)
+                        .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
                         .cornerRadius(8)
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.secondary.opacity(0.1))
-                            .frame(width: 200, height: 200)
+                            .frame(width: artworkControlWidth, height: artworkControlWidth)
                         Image(systemName: "photo")
                             .font(.largeTitle)
                             .foregroundStyle(.secondary)
                     }
                 }
 
-                Text("Double-click to add or replace artwork")
+                VStack(spacing: 10) {
+                    Button {
+                        viewModel.pickArtwork(for: file)
+                    } label: {
+                        Text("Choose Artwork…")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .frame(width: artworkControlWidth)
+
+                    Button {
+                        viewModel.findOnlineArtwork(for: file)
+                    } label: {
+                        Text("Fetch Online…")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(lookupDisabledReason != nil)
+                    .help(lookupDisabledReason ?? "Search iTunes artwork using the selected file metadata.")
+                    .frame(width: artworkControlWidth)
+
+                    Button(role: .destructive) {
+                        viewModel.clearArtwork(for: file)
+                    } label: {
+                        Text("Clear Artwork")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .tint(.red)
+                    .disabled(!hasArtwork(for: file))
+                    .frame(width: artworkControlWidth)
+                }
+
+                Text("Double-click the cover to add or replace artwork.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -391,6 +452,7 @@ struct InspectorPane: View {
     @ViewBuilder
     private func multiArtworkSection(_ files: [AudioFile]) -> some View {
         let artworkControlWidth: CGFloat = 220
+        let lookupDisabledReason = artworkLookupDisabledReason(for: files)
 
         GroupBox {
             VStack(spacing: 16) {
@@ -431,6 +493,18 @@ struct InspectorPane: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
+                    .frame(width: artworkControlWidth)
+
+                    Button {
+                        viewModel.findOnlineArtwork(for: files)
+                    } label: {
+                        Text("Fetch Online…")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .disabled(lookupDisabledReason != nil)
+                    .help(lookupDisabledReason ?? "Search iTunes artwork for the shared album metadata.")
                     .frame(width: artworkControlWidth)
 
                     Button(role: .destructive) {

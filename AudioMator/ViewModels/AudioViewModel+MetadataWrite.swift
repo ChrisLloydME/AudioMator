@@ -106,6 +106,8 @@ extension AudioViewModel {
     // MARK: - Inspector Writes (TagLib)
 
     func saveInspectorEdits() {
+        guard metadataSaveProgress == nil else { return }
+
         if selectedAudioIDs.count > 1 {
             saveMultiFileEdits()
         } else {
@@ -123,8 +125,19 @@ extension AudioViewModel {
             return
         }
 
+        beginMetadataSaveProgress(
+            title: "Saving Metadata",
+            subtitle: file.url.lastPathComponent,
+            totalUnitCount: 1
+        )
+
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataEdit(edit, to: file)
+            self.updateMetadataSaveProgress(
+                subtitle: file.url.lastPathComponent,
+                completedUnitCount: 1
+            )
+            self.endMetadataSaveProgress()
 
             switch result {
             case .success(let success):
@@ -160,10 +173,21 @@ extension AudioViewModel {
 
         let editSnapshot = multiEdit
 
+        beginMetadataSaveProgress(
+            title: "Saving Album Artwork",
+            subtitle: "Preparing \(targetFiles.count) files…",
+            totalUnitCount: targetFiles.count
+        )
+
         Task(priority: .userInitiated) {
             var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
 
-            for file in targetFiles {
+            for (index, file) in targetFiles.enumerated() {
+                self.updateMetadataSaveProgress(
+                    subtitle: file.url.lastPathComponent,
+                    completedUnitCount: index
+                )
+
                 let effectiveEdit = editSnapshot.applyingChanges(to: file)
                 let result = await self.persistMetadataEdit(
                     effectiveEdit,
@@ -193,6 +217,12 @@ extension AudioViewModel {
                     )
                 }
             }
+
+            self.updateMetadataSaveProgress(
+                subtitle: "Finishing…",
+                completedUnitCount: targetFiles.count
+            )
+            self.endMetadataSaveProgress()
 
             if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
                 self.updateEditForSelection()
@@ -563,6 +593,36 @@ extension AudioViewModel {
             title: summary.hudTitle,
             subtitle: summary.hudSubtitle
         )
+    }
+
+    private func beginMetadataSaveProgress(
+        title: String,
+        subtitle: String,
+        totalUnitCount: Int
+    ) {
+        metadataSaveProgress = MetadataSaveProgress(
+            title: title,
+            subtitle: subtitle,
+            completedUnitCount: 0,
+            totalUnitCount: max(totalUnitCount, 1)
+        )
+    }
+
+    private func updateMetadataSaveProgress(
+        subtitle: String,
+        completedUnitCount: Int
+    ) {
+        guard let current = metadataSaveProgress else { return }
+        metadataSaveProgress = MetadataSaveProgress(
+            title: current.title,
+            subtitle: subtitle,
+            completedUnitCount: min(max(completedUnitCount, 0), current.totalUnitCount),
+            totalUnitCount: current.totalUnitCount
+        )
+    }
+
+    private func endMetadataSaveProgress() {
+        metadataSaveProgress = nil
     }
 
     /// Attempts to erase all metadata from a file by writing empty tags over the existing values.

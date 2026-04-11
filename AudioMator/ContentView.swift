@@ -113,6 +113,11 @@ struct ContentView: View {
                     .padding(.bottom, 40)
             }
         }
+        .overlay {
+            if let progress = viewModel.metadataSaveProgress {
+                MetadataSaveProgressOverlay(progress: progress)
+            }
+        }
         .onAppear {
             viewModel.setSidebarSelection(state.selectedSidebarItem)
         }
@@ -371,6 +376,49 @@ struct ContentView: View {
         } else {
             setInspectorVisibility(true)
         }
+    }
+}
+
+private struct MetadataSaveProgressOverlay: View {
+    let progress: MetadataSaveProgress
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.black.opacity(0.18))
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 14) {
+                Text(progress.title)
+                    .font(.headline)
+
+                Text(progress.subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+
+                ProgressView(value: progress.fractionCompleted)
+                    .progressViewStyle(.linear)
+
+                Text(progress.progressLabel)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(20)
+            .frame(width: 360)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.regularMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.16), radius: 24, x: 0, y: 12)
+            .allowsHitTesting(true)
+        }
+        .ignoresSafeArea()
     }
 }
 

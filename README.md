@@ -48,7 +48,7 @@ The app is local-first by default. Audio files stay on your Mac, watched folders
 
 AudioMator currently supports editing these user-facing fields:
 
-| Field | Single‑file | Multi‑file |
+| Field | Single-file | Multi-file |
 |---|---|---|
 | `Title` | ✓ | ✓ |
 | `Artist` | ✓ | ✓ |

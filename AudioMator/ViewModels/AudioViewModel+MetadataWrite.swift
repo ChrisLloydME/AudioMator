@@ -318,6 +318,65 @@ extension AudioViewModel {
         presentBatchMetadataWriteSummary(summary)
     }
 
+    func applyRawMetadataPropertyMaps(
+        _ propertyMaps: [AudioFile.ID: [String: String]],
+        to targets: [MetadataEditorTarget]
+    ) async {
+        guard !targets.isEmpty else { return }
+
+        var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
+
+        for target in targets {
+            guard isTagWriteSupportedExtension(target.url.pathExtension) else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: target.fileName,
+                        messages: ["This format does not support metadata writing yet."]
+                    )
+                )
+                continue
+            }
+
+            do {
+                try TagLibMetadataManager.writeRawMetadataPropertyMap(
+                    propertyMaps[target.id] ?? [:],
+                    to: target.url
+                )
+
+                summary.succeeded += 1
+
+                let refreshWarning = await reloadEditedFile(
+                    at: target.url,
+                    id: target.id,
+                    syncInspectorAfterReload: false
+                )
+
+                if let refreshWarning {
+                    summary.warningIssues.append(
+                        BatchMetadataWriteIssue(
+                            fileName: target.fileName,
+                            messages: [refreshWarning]
+                        )
+                    )
+                    summary.allSuccessfulFilesRefreshed = false
+                }
+            } catch {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: target.fileName,
+                        messages: [(error as NSError).localizedDescription]
+                    )
+                )
+            }
+        }
+
+        if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
+            updateEditForSelection()
+        }
+
+        presentBatchMetadataWriteSummary(summary)
+    }
+
     /// Imports one text field value per target file and writes the chosen metadata field in order.
     func importMetadataFieldValues(
         _ values: [String],
@@ -539,14 +598,27 @@ extension AudioViewModel {
         Task(priority: .userInitiated) {
             do {
                 try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
+                var warnings: [String] = []
+
+                do {
+                    try TagLibMetadataManager.writeRawMetadataPropertyMap([:], to: file.url)
+                } catch {
+                    warnings.append(
+                        "Some container-specific metadata could not be fully cleared: \((error as NSError).localizedDescription)"
+                    )
+                }
 
                 if let refreshWarning = await self.reloadEditedFile(file) {
-                    self.presentMetadataWriteWarning(
-                        title: "Saved, Refresh Failed",
-                        subtitle: [file.url.lastPathComponent, refreshWarning].joined(separator: "\n")
-                    )
-                } else {
+                    warnings.append(refreshWarning)
+                }
+
+                if warnings.isEmpty {
                     self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
+                } else {
+                    self.presentMetadataWriteWarning(
+                        title: "Saved with Issues",
+                        subtitle: ([file.url.lastPathComponent] + warnings).joined(separator: "\n")
+                    )
                 }
             } catch {
                 print("Failed to erase metadata via TagLib: \(error)")

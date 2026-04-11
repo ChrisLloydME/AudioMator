@@ -13,6 +13,7 @@ struct ContentView: View {
     @ObservedObject var state: SharedState
     @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
+    @ObservedObject var metadataEditorStore: MetadataEditorStore
     @Environment(\.openWindow) private var openWindow
 
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
@@ -52,6 +53,7 @@ struct ContentView: View {
                 onShowMetadataDump: presentMetadataDump,
                 onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
                 onOpenMetadataFilenameTool: openMetadataFilenameTool,
+                onOpenMetadataEditor: openMetadataEditor,
                 onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
                 onOpenTrackRenumber: openTrackRenumberSheet,
                 onCancelEdits: viewModel.cancelEditing,
@@ -173,6 +175,17 @@ struct ContentView: View {
         guard !targetFileIDs.isEmpty else { return }
         metadataFilenameToolStore.present(targetFileIDs: targetFileIDs)
         openWindow(id: MetadataFilenameWindowView.windowID)
+    }
+
+    private func openMetadataEditor(targetFileIDs: [AudioFile.ID]) {
+        guard !targetFileIDs.isEmpty else { return }
+
+        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        let targets = targetFileIDs.compactMap { filesByID[$0] }
+        guard !targets.isEmpty else { return }
+
+        metadataEditorStore.present(targetFiles: targets)
+        openWindow(id: MetadataEditorWindowView.windowID)
     }
 
     private func dismissWelcomeSplash() {
@@ -508,7 +521,8 @@ struct ContentView_Previews: PreviewProvider {
             viewModel: AudioViewModel(),
             state: SharedState(),
             musicBrainzBrowserStore: MusicBrainzBrowserStore(),
-            metadataFilenameToolStore: MetadataFilenameToolStore()
+            metadataFilenameToolStore: MetadataFilenameToolStore(),
+            metadataEditorStore: MetadataEditorStore()
         )
     }
 }

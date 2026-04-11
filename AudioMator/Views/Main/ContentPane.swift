@@ -10,6 +10,7 @@ struct ContentPane: View {
     let onShowMetadataDump: () -> Void
     let onOpenMusicBrainzBrowser: () -> Void
     let onOpenMetadataFilenameTool: ([AudioFile.ID]) -> Void
+    let onOpenMetadataEditor: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
     let onOpenTrackRenumber: () -> Void
     let onCancelEdits: () -> Void
@@ -80,6 +81,14 @@ struct ContentPane: View {
                         .disabled(state.selectedAudioIDs.isEmpty)
                     }
 
+                    if visibleToolbarButtons.contains(.metadataEditor) {
+                        Button(action: openMetadataEditorWindow) {
+                            Label("Metadata Editor…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
+                        }
+                        .help("Edit the selected metadata fields in a separate window")
+                        .disabled(state.selectedAudioIDs.isEmpty)
+                    }
+
                     if visibleToolbarButtons.contains(.importField) {
                         Button(action: openTextMetadataImportSheet) {
                             Label("Import Field…", systemImage: ToolbarButtonOption.importField.systemImage)
@@ -145,6 +154,10 @@ struct ContentPane: View {
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataFilenameRename)) { _ in
                 guard !state.selectedAudioIDs.isEmpty else { return }
                 openMetadataFilenameRenameSheet()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestMetadataEditor)) { _ in
+                guard !state.selectedAudioIDs.isEmpty else { return }
+                openMetadataEditorWindow()
             }
     }
 
@@ -293,6 +306,12 @@ struct ContentPane: View {
         }
 
         onOpenMetadataFilenameTool(targets.map(\.id))
+    }
+
+    private func openMetadataEditorWindow() {
+        let targets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+        guard !targets.isEmpty else { return }
+        onOpenMetadataEditor(targets.map(\.id))
     }
 
     private func openSelectedFiles() {

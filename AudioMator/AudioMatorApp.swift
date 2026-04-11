@@ -13,6 +13,7 @@ extension Notification.Name {
     static let requestMetadataDump = Notification.Name("requestMetadataDump")
     static let requestTrackRenumber = Notification.Name("requestTrackRenumber")
     static let requestMetadataFilenameRename = Notification.Name("requestMetadataFilenameRename")
+    static let requestMetadataEditor = Notification.Name("requestMetadataEditor")
     static let requestMusicBrainzBrowser = Notification.Name("requestMusicBrainzBrowser")
     static let requestToggleInspector = Notification.Name("requestToggleInspector")
     static let requestClearListConfirmation = Notification.Name("requestClearListConfirmation")
@@ -46,6 +47,7 @@ struct AudioMatorApp: App {
     @StateObject private var sharedState = SharedState()
     @StateObject private var musicBrainzBrowserStore = MusicBrainzBrowserStore()
     @StateObject private var metadataFilenameToolStore = MetadataFilenameToolStore()
+    @StateObject private var metadataEditorStore = MetadataEditorStore()
 
     var body: some Scene {
         WindowGroup {
@@ -53,7 +55,8 @@ struct AudioMatorApp: App {
                 viewModel: viewModel,
                 state: sharedState,
                 musicBrainzBrowserStore: musicBrainzBrowserStore,
-                metadataFilenameToolStore: metadataFilenameToolStore
+                metadataFilenameToolStore: metadataFilenameToolStore,
+                metadataEditorStore: metadataEditorStore
             )
                 .frame(minWidth: 900, minHeight: 600)
         }
@@ -93,6 +96,14 @@ struct AudioMatorApp: App {
             )
         }
         .defaultSize(width: 860, height: 720)
+
+        Window("Metadata Editor", id: MetadataEditorWindowView.windowID) {
+            MetadataEditorWindowView(
+                viewModel: viewModel,
+                store: metadataEditorStore
+            )
+        }
+        .defaultSize(width: 920, height: 640)
     }
 }
 
@@ -158,6 +169,13 @@ struct ToolbarEditCommands: Commands {
                 NotificationCenter.default.post(name: .requestMetadataFilenameRename, object: nil)
             } label: {
                 Label("Filename & Metadata…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+            }
+            .disabled(sharedState.selectedAudioIDs.isEmpty)
+
+            Button {
+                NotificationCenter.default.post(name: .requestMetadataEditor, object: nil)
+            } label: {
+                Label("Metadata Editor…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 

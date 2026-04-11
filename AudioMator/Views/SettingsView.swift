@@ -358,14 +358,6 @@ private struct AcknowledgementsSheet: View {
         (
             title: "MusicBrainz",
             detail: "The optional MusicBrainz Browser uses MusicBrainz web services and metadata for search and reference workflows. AudioMator's client integration is original code, while MusicBrainz data and services remain subject to MusicBrainz licensing and usage terms."
-        ),
-        (
-            title: "AVFoundation",
-            detail: "Apple media frameworks provide supplemental metadata inspection and audio property information."
-        ),
-        (
-            title: "SwiftUI and AppKit",
-            detail: "The macOS interface, commands, windows, and settings experience are built with Apple's native UI frameworks."
         )
     ]
 

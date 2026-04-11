@@ -243,6 +243,19 @@ enum TagLibManagerError: Error {
 /// Thin wrapper around the Objective-C++ `TagLibMetadataExtractor`.
 struct TagLibMetadataManager {
 
+    private static let hiddenInternalRawFieldKeys: Set<String> = [
+        "AUDIOMATOR_TRACKNUMBER_TEXT",
+        "AUDIOMATOR_DISCNUMBER_TEXT",
+        "----:COM.APPLE.ITUNES:AUDIOMATOR_TRACKNUMBER_TEXT",
+        "----:COM.APPLE.ITUNES:AUDIOMATOR_DISCNUMBER_TEXT",
+    ]
+
+    private static func isHiddenInternalRawFieldKey(_ key: String) -> Bool {
+        hiddenInternalRawFieldKeys.contains(
+            key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        )
+    }
+
     private static func parsedPropertyEntries(fromDumpText text: String) -> [RawPropertyEntry] {
         var isInPropertiesSection = false
         var properties: [RawPropertyEntry] = []
@@ -273,6 +286,7 @@ struct TagLibMetadataManager {
             let value = String(trimmedLine[separatorRange.upperBound...])
                 .trimmingCharacters(in: .whitespacesAndNewlines)
 
+            guard !isHiddenInternalRawFieldKey(key) else { continue }
             guard !key.isEmpty, !value.isEmpty else { continue }
 
             let values = value
@@ -625,6 +639,8 @@ struct TagLibMetadataManager {
             } else {
                 count = values.count
             }
+
+            guard !isHiddenInternalRawFieldKey(key) else { return nil }
 
             return RawPropertyEntry(key: key, value: value, values: values, count: count)
         }

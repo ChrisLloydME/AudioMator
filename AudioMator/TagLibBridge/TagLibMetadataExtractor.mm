@@ -273,13 +273,15 @@ static NSSet<NSString *> *KnownMetadataFieldKeys()
 {
     static NSSet<NSString *> *keys = [NSSet setWithArray:@[
         @"TITLE", @"ARTIST", @"ARTISTS", @"ALBUM", @"COMMENT", @"GENRE", @"COMPOSER", @"ALBUMARTIST",
-        @"DATE", @"RELEASEDATE", @"ORIGINALDATE", @"ORIGINAL YEAR",
-        @"TRACKNUMBER", @"TRACKTOTAL", @"TOTALTRACKS", @"DISCNUMBER", @"DISCTOTAL", @"TOTALDISCS",
+        @"DATE", @"YEAR", @"RELEASEDATE", @"ORIGINALDATE", @"ORIGINAL YEAR",
+        @"TRACKNUMBER", @"TRACK", @"TRACKTOTAL", @"TOTALTRACKS", @"DISCNUMBER", @"DISC", @"DISCTOTAL", @"TOTALDISCS",
         @"AUDIOMATOR_TRACKNUMBER_TEXT", @"AUDIOMATOR_DISCNUMBER_TEXT",
         @"COPYRIGHT", @"LYRICS", @"LABEL", @"ISRC", @"ENCODEDBY", @"ENCODING", @"ENCODERSETTINGS",
         @"TITLESORT", @"ARTISTSORT", @"ALBUMSORT", @"ALBUMARTISTSORT", @"COMPOSERSORT",
         @"GROUPING", @"SUBTITLE", @"LYRICIST", @"CONDUCTOR", @"REMIXER", @"PRODUCER", @"ENGINEER",
         @"MOVEMENT", @"MOOD", @"LANGUAGE", @"INITIALKEY", @"KEY", @"MEDIATYPE", @"MEDIA", @"MEDIA TYPE",
+        @"ITUNESALBUMID", @"ITUNESARTISTID", @"ITUNESCATALOGID", @"ITUNESGENREID",
+        @"ITUNESMEDIATYPE", @"ITUNESPURCHASEDATE", @"ITUNNORM", @"ITUNSMPB",
         @"RELEASETYPE", @"BARCODE", @"UPC", @"EAN", @"CATALOGNUMBER", @"CATALOG", @"RELEASECOUNTRY",
         @"ARTISTTYPE", @"MUSICBRAINZ ARTIST TYPE", @"MUSICBRAINZ_ARTISTTYPE",
         @"BPM", @"COMPILATION", @"ITUNESADVISORY", @"ADVISORY", @"EXPLICITCONTENT", @"EXPLICIT",
@@ -722,6 +724,50 @@ static bool ApplyKnownCustomMetadataField(NSString * _Nullable key,
         return true;
     }
 
+    if ([normalizedKey isEqualToString:@"YEAR"]) {
+        metadata.year = trimmedValue;
+        if (metadata.releaseDate.length == 0 && trimmedValue.length > 0) {
+            metadata.releaseDate = trimmedValue;
+        }
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"TRACKNUMBER"] ||
+        [normalizedKey isEqualToString:@"TRACK"]) {
+        metadata.trackNumberText = PreferredNumberText(metadata.trackNumberText, trimmedValue);
+        if (trimmedValue.length > 0) {
+            NSInteger trackNum = 0, trackTotal = 0;
+            ParseNumberPair(NSStringToTagString(trimmedValue), trackNum, trackTotal);
+            if (trackNum > 0) metadata.trackNumber = trackNum;
+            if (trackTotal > 0) metadata.totalTracks = trackTotal;
+        }
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"TRACKTOTAL"] ||
+        [normalizedKey isEqualToString:@"TOTALTRACKS"]) {
+        metadata.totalTracks = trimmedValue.length > 0 ? trimmedValue.integerValue : 0;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"DISCNUMBER"] ||
+        [normalizedKey isEqualToString:@"DISC"]) {
+        metadata.discNumberText = PreferredNumberText(metadata.discNumberText, trimmedValue);
+        if (trimmedValue.length > 0) {
+            NSInteger discNum = 0, discTotal = 0;
+            ParseNumberPair(NSStringToTagString(trimmedValue), discNum, discTotal);
+            if (discNum > 0) metadata.discNumber = discNum;
+            if (discTotal > 0) metadata.totalDiscs = discTotal;
+        }
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"DISCTOTAL"] ||
+        [normalizedKey isEqualToString:@"TOTALDISCS"]) {
+        metadata.totalDiscs = trimmedValue.length > 0 ? trimmedValue.integerValue : 0;
+        return true;
+    }
+
     if ([normalizedKey isEqualToString:@"ISRC"]) {
         metadata.isrc = trimmedValue;
         return true;
@@ -806,6 +852,46 @@ static bool ApplyKnownCustomMetadataField(NSString * _Nullable key,
         return true;
     }
 
+    if ([normalizedKey isEqualToString:@"ITUNESALBUMID"]) {
+        metadata.itunesAlbumId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNESARTISTID"]) {
+        metadata.itunesArtistId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNESCATALOGID"]) {
+        metadata.itunesCatalogId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNESGENREID"]) {
+        metadata.itunesGenreId = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNESMEDIATYPE"]) {
+        metadata.itunesMediaType = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNESPURCHASEDATE"]) {
+        metadata.itunesPurchaseDate = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNNORM"]) {
+        metadata.itunesNorm = trimmedValue;
+        return true;
+    }
+
+    if ([normalizedKey isEqualToString:@"ITUNSMPB"]) {
+        metadata.itunesSmpb = trimmedValue;
+        return true;
+    }
+
     if ([normalizedKey isEqualToString:@"REPLAYGAIN_TRACK_GAIN"]) {
         metadata.replayGainTrack = trimmedValue;
         return true;
@@ -836,6 +922,11 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     TagLib::PropertyMap properties;
     if (!metadata) return properties;
 
+    NSString *yearValue = TrimmedStringOrNil(metadata.year);
+    if (!yearValue && metadata.releaseDate.length >= 4) {
+        yearValue = [metadata.releaseDate substringToIndex:4];
+    }
+
     SetPropertyMapString(properties, "TITLE", metadata.title);
     SetPropertyMapString(properties, "ARTIST", metadata.artist);
     SetPropertyMapString(properties, "ALBUM", metadata.album);
@@ -844,6 +935,7 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     SetPropertyMapString(properties, "COMMENT", metadata.comment);
     SetPropertyMapString(properties, "ALBUMARTIST", metadata.albumArtist);
     SetPropertyMapString(properties, "DATE", metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year);
+    SetPropertyMapString(properties, "YEAR", yearValue);
     SetPropertyMapString(properties, "ORIGINALDATE", metadata.originalReleaseDate);
     SetPropertyMapString(properties, "COPYRIGHT", metadata.copyright);
     SetPropertyMapString(properties, "LABEL", metadata.label);
@@ -879,6 +971,14 @@ static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata
     SetPropertyMapString(properties, "REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
     SetPropertyMapString(properties, "REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
     SetPropertyMapString(properties, "MEDIATYPE", metadata.mediaType);
+    SetPropertyMapString(properties, "ITUNESALBUMID", metadata.itunesAlbumId);
+    SetPropertyMapString(properties, "ITUNESARTISTID", metadata.itunesArtistId);
+    SetPropertyMapString(properties, "ITUNESCATALOGID", metadata.itunesCatalogId);
+    SetPropertyMapString(properties, "ITUNESGENREID", metadata.itunesGenreId);
+    SetPropertyMapString(properties, "ITUNESMEDIATYPE", metadata.itunesMediaType);
+    SetPropertyMapString(properties, "ITUNESPURCHASEDATE", metadata.itunesPurchaseDate);
+    SetPropertyMapString(properties, "ITUNNORM", metadata.itunesNorm);
+    SetPropertyMapString(properties, "ITUNSMPB", metadata.itunesSmpb);
     SetPropertyMapString(
         properties,
         "BPM",
@@ -1289,7 +1389,7 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
     metadata.composer = FirstStringFromProperty(properties, {"COMPOSER"}) ?: metadata.composer;
     metadata.albumArtist = FirstStringFromProperty(properties, {"ALBUMARTIST"}) ?: metadata.albumArtist;
 
-    NSString *dateValue = FirstStringFromProperty(properties, {"RELEASEDATE", "DATE"});
+    NSString *dateValue = FirstStringFromProperty(properties, {"RELEASEDATE", "DATE", "YEAR"});
     if (dateValue.length > 0) {
         metadata.releaseDate = dateValue;
         if (metadata.year.length == 0 && dateValue.length >= 4) {
@@ -1302,23 +1402,39 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
         metadata.originalReleaseDate = originalDate;
     }
 
+    const char *trackKey = nullptr;
     if (properties.contains("TRACKNUMBER") && !properties["TRACKNUMBER"].isEmpty()) {
-        NSString *trackText = TrimmedStringOrNil(TagStringToNSString(properties["TRACKNUMBER"].front()));
+        trackKey = "TRACKNUMBER";
+    } else if (properties.contains("TRACK") && !properties["TRACK"].isEmpty()) {
+        trackKey = "TRACK";
+    }
+    if (trackKey) {
+        NSString *trackText = TrimmedStringOrNil(TagStringToNSString(properties[trackKey].front()));
         NSInteger trackNum = 0, trackTotal = 0;
-        ParseNumberPair(properties["TRACKNUMBER"].front(), trackNum, trackTotal);
+        ParseNumberPair(properties[trackKey].front(), trackNum, trackTotal);
         metadata.trackNumberText = PreferredNumberText(metadata.trackNumberText, trackText);
         if (trackNum > 0) metadata.trackNumber = trackNum;
         if (trackTotal > 0) metadata.totalTracks = trackTotal;
     }
+    NSString *trackTotalValue = FirstStringFromProperty(properties, {"TRACKTOTAL", "TOTALTRACKS"});
+    if (trackTotalValue.length > 0) metadata.totalTracks = trackTotalValue.integerValue;
 
+    const char *discKey = nullptr;
     if (properties.contains("DISCNUMBER") && !properties["DISCNUMBER"].isEmpty()) {
-        NSString *discText = TrimmedStringOrNil(TagStringToNSString(properties["DISCNUMBER"].front()));
+        discKey = "DISCNUMBER";
+    } else if (properties.contains("DISC") && !properties["DISC"].isEmpty()) {
+        discKey = "DISC";
+    }
+    if (discKey) {
+        NSString *discText = TrimmedStringOrNil(TagStringToNSString(properties[discKey].front()));
         NSInteger discNum = 0, discTotal = 0;
-        ParseNumberPair(properties["DISCNUMBER"].front(), discNum, discTotal);
+        ParseNumberPair(properties[discKey].front(), discNum, discTotal);
         metadata.discNumberText = PreferredNumberText(metadata.discNumberText, discText);
         if (discNum > 0) metadata.discNumber = discNum;
         if (discTotal > 0) metadata.totalDiscs = discTotal;
     }
+    NSString *discTotalValue = FirstStringFromProperty(properties, {"DISCTOTAL", "TOTALDISCS"});
+    if (discTotalValue.length > 0) metadata.totalDiscs = discTotalValue.integerValue;
 
     NSString *copyrightValue = FirstStringFromProperty(properties, {"COPYRIGHT"});
     if (copyrightValue.length > 0) metadata.copyright = copyrightValue;
@@ -1409,6 +1525,23 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
 
     NSString *mediaTypeValue = FirstStringFromProperty(properties, {"MEDIATYPE", "MEDIA", "MEDIA TYPE"});
     if (mediaTypeValue.length > 0) metadata.mediaType = mediaTypeValue;
+
+    NSString *itunesAlbumIdValue = FirstStringFromProperty(properties, {"ITUNESALBUMID"});
+    if (itunesAlbumIdValue.length > 0) metadata.itunesAlbumId = itunesAlbumIdValue;
+    NSString *itunesArtistIdValue = FirstStringFromProperty(properties, {"ITUNESARTISTID"});
+    if (itunesArtistIdValue.length > 0) metadata.itunesArtistId = itunesArtistIdValue;
+    NSString *itunesCatalogIdValue = FirstStringFromProperty(properties, {"ITUNESCATALOGID"});
+    if (itunesCatalogIdValue.length > 0) metadata.itunesCatalogId = itunesCatalogIdValue;
+    NSString *itunesGenreIdValue = FirstStringFromProperty(properties, {"ITUNESGENREID"});
+    if (itunesGenreIdValue.length > 0) metadata.itunesGenreId = itunesGenreIdValue;
+    NSString *itunesMediaTypeValue = FirstStringFromProperty(properties, {"ITUNESMEDIATYPE"});
+    if (itunesMediaTypeValue.length > 0) metadata.itunesMediaType = itunesMediaTypeValue;
+    NSString *itunesPurchaseDateValue = FirstStringFromProperty(properties, {"ITUNESPURCHASEDATE"});
+    if (itunesPurchaseDateValue.length > 0) metadata.itunesPurchaseDate = itunesPurchaseDateValue;
+    NSString *itunesNormValue = FirstStringFromProperty(properties, {"ITUNNORM"});
+    if (itunesNormValue.length > 0) metadata.itunesNorm = itunesNormValue;
+    NSString *itunesSmpbValue = FirstStringFromProperty(properties, {"ITUNSMPB"});
+    if (itunesSmpbValue.length > 0) metadata.itunesSmpb = itunesSmpbValue;
 
     if (properties.contains("BPM") && !properties["BPM"].isEmpty()) {
         metadata.bpm = ExtractNumber(properties["BPM"].front());
@@ -1536,6 +1669,15 @@ static void ExtractID3v2Metadata(TagLib::ID3v2::Tag* tag, TagLibAudioMetadata* m
                     }
                     if (metadata.releaseDate.length == 0) {
                         metadata.releaseDate = dateValue;
+                    }
+                }
+            }
+            else if (frameIDStr == "TYER") {
+                NSString *yearValue = TagStringToNSString(value);
+                if (yearValue.length > 0) {
+                    metadata.year = yearValue;
+                    if (metadata.releaseDate.length == 0) {
+                        metadata.releaseDate = yearValue;
                     }
                 }
             }
@@ -1769,6 +1911,9 @@ static void ExtractMP4Metadata(TagLib::MP4::Tag* tag, TagLibAudioMetadata* metad
     //       avoiding an out-of-range hex escape like "\xA9d".
     if (items.contains("\xA9" "day")) {
         metadata.releaseDate = TagStringToNSString(items["\xA9" "day"].toStringList().toString());
+        if (metadata.year.length == 0 && metadata.releaseDate.length >= 4) {
+            metadata.year = [metadata.releaseDate substringToIndex:4];
+        }
     }
     
     // Some tools store original year as a freeform atom
@@ -3364,17 +3509,29 @@ static void ParseNumberPairFromNSString(NSString *text,
             SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
 
             NSString *releaseDate = metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year;
+            NSString *id3v2Year = metadata.year.length > 0
+                ? metadata.year
+                : (releaseDate.length >= 4 ? [releaseDate substringToIndex:4] : nil);
             SetID3v2TextFrame(
                 id3v2Tag,
                 "TDRL",
                 releaseDate
             );
             SetID3v2TextFrame(id3v2Tag, "TDRC", releaseDate);
+            SetID3v2TextFrame(id3v2Tag, "TYER", id3v2Year);
             SetID3v2TextFrame(id3v2Tag, "TDOR", metadata.originalReleaseDate);
             SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
             SetID3v2UserTextFrame(id3v2Tag, "RELEASETYPE", metadata.releaseType);
             SetID3v2UserTextFrame(id3v2Tag, "BARCODE", metadata.barcode);
             SetID3v2UserTextFrame(id3v2Tag, "CATALOGNUMBER", metadata.catalogNumber);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESALBUMID", metadata.itunesAlbumId);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESARTISTID", metadata.itunesArtistId);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESCATALOGID", metadata.itunesCatalogId);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESGENREID", metadata.itunesGenreId);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESMEDIATYPE", metadata.itunesMediaType);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNESPURCHASEDATE", metadata.itunesPurchaseDate);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNNORM", metadata.itunesNorm);
+            SetID3v2UserTextFrame(id3v2Tag, "ITUNSMPB", metadata.itunesSmpb);
             SetID3v2UserTextFrame(id3v2Tag, "RELEASECOUNTRY", metadata.releaseCountry);
             SetID3v2UserTextFrame(id3v2Tag, "ARTISTTYPE", metadata.artistType);
             SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Artist Id", metadata.musicBrainzArtistId);
@@ -3506,6 +3663,14 @@ static void ParseNumberPairFromNSString(NSString *text,
         SetMP4FreeformTextItem(tag, @"REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
         SetMP4FreeformTextItem(tag, @"REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
         SetMP4FreeformTextItem(tag, @"MEDIATYPE", metadata.mediaType);
+        SetMP4FreeformTextItem(tag, @"ITUNESALBUMID", metadata.itunesAlbumId);
+        SetMP4FreeformTextItem(tag, @"ITUNESARTISTID", metadata.itunesArtistId);
+        SetMP4FreeformTextItem(tag, @"ITUNESCATALOGID", metadata.itunesCatalogId);
+        SetMP4FreeformTextItem(tag, @"ITUNESGENREID", metadata.itunesGenreId);
+        SetMP4FreeformTextItem(tag, @"ITUNESMEDIATYPE", metadata.itunesMediaType);
+        SetMP4FreeformTextItem(tag, @"ITUNESPURCHASEDATE", metadata.itunesPurchaseDate);
+        SetMP4FreeformTextItem(tag, @"ITUNNORM", metadata.itunesNorm);
+        SetMP4FreeformTextItem(tag, @"ITUNSMPB", metadata.itunesSmpb);
 
         SetMP4IntPairItem(tag, "trkn", metadata.trackNumber, metadata.totalTracks);
         SetMP4IntPairItem(tag, "disk", metadata.discNumber, metadata.totalDiscs);

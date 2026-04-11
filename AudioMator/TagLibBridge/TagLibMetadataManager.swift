@@ -53,6 +53,14 @@ struct BasicMetadata {
     var replayGainTrack: String
     var replayGainAlbum: String
     var mediaType: String
+    var itunesAlbumID: String
+    var itunesArtistID: String
+    var itunesCatalogID: String
+    var itunesGenreID: String
+    var itunesMediaType: String
+    var itunesPurchaseDate: String
+    var itunesNorm: String
+    var itunesSMPB: String
     var releaseType: String
     var catalogNumber: String
     var releaseCountry: String
@@ -116,6 +124,14 @@ struct BasicMetadata {
         replayGainTrack: "",
         replayGainAlbum: "",
         mediaType: "",
+        itunesAlbumID: "",
+        itunesArtistID: "",
+        itunesCatalogID: "",
+        itunesGenreID: "",
+        itunesMediaType: "",
+        itunesPurchaseDate: "",
+        itunesNorm: "",
+        itunesSMPB: "",
         releaseType: "",
         catalogNumber: "",
         releaseCountry: "",
@@ -351,6 +367,14 @@ struct TagLibMetadataManager {
                 replayGainTrack: meta.replayGainTrack ?? "",
                 replayGainAlbum: meta.replayGainAlbum ?? "",
                 mediaType: meta.mediaType ?? "",
+                itunesAlbumID: meta.itunesAlbumId ?? "",
+                itunesArtistID: meta.itunesArtistId ?? "",
+                itunesCatalogID: meta.itunesCatalogId ?? "",
+                itunesGenreID: meta.itunesGenreId ?? "",
+                itunesMediaType: meta.itunesMediaType ?? "",
+                itunesPurchaseDate: meta.itunesPurchaseDate ?? "",
+                itunesNorm: meta.itunesNorm ?? "",
+                itunesSMPB: meta.itunesSmpb ?? "",
                 releaseType: meta.releaseType ?? "",
                 catalogNumber: meta.catalogNumber ?? "",
                 releaseCountry: meta.releaseCountry ?? "",
@@ -443,6 +467,14 @@ struct TagLibMetadataManager {
         m.replayGainTrack = nilIfEmpty(meta.replayGainTrack)
         m.replayGainAlbum = nilIfEmpty(meta.replayGainAlbum)
         m.mediaType = nilIfEmpty(meta.mediaType)
+        m.itunesAlbumId = nilIfEmpty(meta.itunesAlbumID)
+        m.itunesArtistId = nilIfEmpty(meta.itunesArtistID)
+        m.itunesCatalogId = nilIfEmpty(meta.itunesCatalogID)
+        m.itunesGenreId = nilIfEmpty(meta.itunesGenreID)
+        m.itunesMediaType = nilIfEmpty(meta.itunesMediaType)
+        m.itunesPurchaseDate = nilIfEmpty(meta.itunesPurchaseDate)
+        m.itunesNorm = nilIfEmpty(meta.itunesNorm)
+        m.itunesSmpb = nilIfEmpty(meta.itunesSMPB)
         m.releaseType = nilIfEmpty(meta.releaseType)
         m.catalogNumber = nilIfEmpty(meta.catalogNumber)
         m.releaseCountry = nilIfEmpty(meta.releaseCountry)

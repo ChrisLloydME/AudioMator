@@ -274,20 +274,6 @@ struct MetadataEditorWindowView: View {
             .frame(minWidth: 820, idealWidth: 920, maxWidth: 1040, minHeight: 540, idealHeight: 640)
             .background(Color(nsColor: .windowBackgroundColor))
             .navigationTitle("Metadata Editor")
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 1) {
-                        Text("Metadata Editor")
-                            .font(.headline)
-
-                        Text(store.selectionSummaryText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: 320)
-                }
-            }
             .background(MetadataEditorWindowChromeConfigurator())
         }
         .sheet(item: $editorContext) { context in
@@ -305,10 +291,6 @@ struct MetadataEditorWindowView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text("Metadata Editor")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-
                 if store.hasUnsavedChanges {
                     Text("Unsaved Changes")
                         .font(.caption.weight(.medium))
@@ -733,13 +715,31 @@ private struct MetadataEditorWindowChromeConfigurator: NSViewRepresentable {
     private func applyConfiguration(to window: NSWindow?) {
         guard let window else { return }
 
-        if !window.styleMask.contains(.fullSizeContentView) {
-            window.styleMask.insert(.fullSizeContentView)
+        let requiredMasks: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        if !window.styleMask.isSuperset(of: requiredMasks) {
+            window.styleMask.formUnion(requiredMasks)
         }
 
-        if window.toolbarStyle != .expanded {
-            window.toolbarStyle = .expanded
+        // Use standard titled window chrome instead of full-size content blending.
+        if window.styleMask.contains(.fullSizeContentView) {
+            window.styleMask.remove(.fullSizeContentView)
         }
+
+        if window.toolbar == nil {
+            let toolbar = NSToolbar(identifier: "metadata-editor-toolbar")
+            toolbar.displayMode = .iconOnly
+            toolbar.showsBaselineSeparator = true
+            window.toolbar = toolbar
+        }
+
+        if window.toolbarStyle != .unified {
+            window.toolbarStyle = .unified
+        }
+
+        window.titlebarAppearsTransparent = false
+        window.titleVisibility = .visible
+        window.isOpaque = true
+        window.backgroundColor = .windowBackgroundColor
     }
 }
 

@@ -29,6 +29,20 @@ struct SingleFileEditModel {
     var albumArtist: String
     var releaseDate: String
     var publisher: String
+    var isrc: String
+    var barcode: String
+    var musicBrainzAlbumID: String
+    var musicBrainzTrackID: String
+    var musicBrainzReleaseGroupID: String
+    var lyricist: String
+    var remixer: String
+    var producer: String
+    var engineer: String
+    var language: String
+    var mediaType: String
+    var releaseType: String
+    var catalogNumber: String
+    var releaseCountry: String
     var copyright: String
     var isExplicit: Bool
     var artworkEditAction: ArtworkEditAction
@@ -50,6 +64,20 @@ struct SingleFileEditModel {
         albumArtist: String = "",
         releaseDate: String = "",
         publisher: String = "",
+        isrc: String = "",
+        barcode: String = "",
+        musicBrainzAlbumID: String = "",
+        musicBrainzTrackID: String = "",
+        musicBrainzReleaseGroupID: String = "",
+        lyricist: String = "",
+        remixer: String = "",
+        producer: String = "",
+        engineer: String = "",
+        language: String = "",
+        mediaType: String = "",
+        releaseType: String = "",
+        catalogNumber: String = "",
+        releaseCountry: String = "",
         copyright: String = "",
         isExplicit: Bool = false,
         artworkEditAction: ArtworkEditAction = .unchanged
@@ -70,6 +98,20 @@ struct SingleFileEditModel {
         self.albumArtist = albumArtist
         self.releaseDate = releaseDate
         self.publisher = publisher
+        self.isrc = isrc
+        self.barcode = barcode
+        self.musicBrainzAlbumID = musicBrainzAlbumID
+        self.musicBrainzTrackID = musicBrainzTrackID
+        self.musicBrainzReleaseGroupID = musicBrainzReleaseGroupID
+        self.lyricist = lyricist
+        self.remixer = remixer
+        self.producer = producer
+        self.engineer = engineer
+        self.language = language
+        self.mediaType = mediaType
+        self.releaseType = releaseType
+        self.catalogNumber = catalogNumber
+        self.releaseCountry = releaseCountry
         self.copyright = copyright
         self.isExplicit = isExplicit
         self.artworkEditAction = artworkEditAction
@@ -93,6 +135,20 @@ struct SingleFileEditModel {
             albumArtist: file.albumArtist,
             releaseDate: file.releaseDate,
             publisher: file.publisher,
+            isrc: file.isrc,
+            barcode: file.barcode,
+            musicBrainzAlbumID: file.musicBrainzAlbumID,
+            musicBrainzTrackID: file.musicBrainzTrackID,
+            musicBrainzReleaseGroupID: file.musicBrainzReleaseGroupID,
+            lyricist: file.lyricist,
+            remixer: file.remixer,
+            producer: file.producer,
+            engineer: file.engineer,
+            language: file.language,
+            mediaType: file.mediaType,
+            releaseType: file.releaseType,
+            catalogNumber: file.catalogNumber,
+            releaseCountry: file.releaseCountry,
             copyright: file.copyright,
             isExplicit: file.isExplicit
         )
@@ -118,6 +174,20 @@ struct SingleFileEditModel {
             albumArtist != baseline.albumArtist ||
             releaseDate != baseline.releaseDate ||
             publisher != baseline.publisher ||
+            isrc != baseline.isrc ||
+            barcode != baseline.barcode ||
+            musicBrainzAlbumID != baseline.musicBrainzAlbumID ||
+            musicBrainzTrackID != baseline.musicBrainzTrackID ||
+            musicBrainzReleaseGroupID != baseline.musicBrainzReleaseGroupID ||
+            lyricist != baseline.lyricist ||
+            remixer != baseline.remixer ||
+            producer != baseline.producer ||
+            engineer != baseline.engineer ||
+            language != baseline.language ||
+            mediaType != baseline.mediaType ||
+            releaseType != baseline.releaseType ||
+            catalogNumber != baseline.catalogNumber ||
+            releaseCountry != baseline.releaseCountry ||
             copyright != baseline.copyright ||
             isExplicit != baseline.isExplicit
 

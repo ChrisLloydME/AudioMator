@@ -6,11 +6,27 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
     case artist
     case albumArtist
     case album
+    case genre
     case trackNumber
     case discNumber
     case releaseDate
     case publisher
+    case isrc
+    case barcode
+    case musicBrainzAlbumID
+    case musicBrainzTrackID
+    case musicBrainzReleaseGroupID
+    case language
+    case mediaType
+    case releaseType
+    case catalogNumber
+    case releaseCountry
     case composer
+    case lyricist
+    case producer
+    case engineer
+    case remixer
+    case copyright
 
     var id: String { rawValue }
 
@@ -24,6 +40,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return "Album Artist"
         case .album:
             return "Album"
+        case .genre:
+            return "Genre"
         case .trackNumber:
             return "Track Number"
         case .discNumber:
@@ -32,8 +50,38 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return "Release Date"
         case .publisher:
             return "Publisher"
+        case .isrc:
+            return "ISRC"
+        case .barcode:
+            return "Barcode"
+        case .musicBrainzAlbumID:
+            return "MusicBrainz Release ID"
+        case .musicBrainzTrackID:
+            return "MusicBrainz Track ID"
+        case .musicBrainzReleaseGroupID:
+            return "MusicBrainz Release Group ID"
+        case .language:
+            return "Language"
+        case .mediaType:
+            return "Media Type"
+        case .releaseType:
+            return "Release Type"
+        case .catalogNumber:
+            return "Catalog Number"
+        case .releaseCountry:
+            return "Release Country"
         case .composer:
             return "Composer"
+        case .lyricist:
+            return "Lyricist"
+        case .producer:
+            return "Producer"
+        case .engineer:
+            return "Engineer"
+        case .remixer:
+            return "Remixer"
+        case .copyright:
+            return "Copyright"
         }
     }
 
@@ -47,6 +95,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return "Release artist credit."
         case .album:
             return "Release title."
+        case .genre:
+            return "Release genres from MusicBrainz."
         case .trackNumber:
             return "Matched track index, with total when MusicBrainz provides it."
         case .discNumber:
@@ -55,17 +105,62 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return "Release date from MusicBrainz."
         case .publisher:
             return "Primary label from the release."
+        case .isrc:
+            return "ISRC codes from the matched track."
+        case .barcode:
+            return "Release barcode or UPC/EAN."
+        case .musicBrainzAlbumID:
+            return "MusicBrainz release MBID."
+        case .musicBrainzTrackID:
+            return "MusicBrainz track MBID."
+        case .musicBrainzReleaseGroupID:
+            return "MusicBrainz release group MBID."
+        case .language:
+            return "Release text language."
+        case .mediaType:
+            return "Release medium format, such as CD or Digital Media."
+        case .releaseType:
+            return "Release group type, such as Album or EP."
+        case .catalogNumber:
+            return "Primary catalog number from the release label."
+        case .releaseCountry:
+            return "Release country code from MusicBrainz."
         case .composer:
             return "Composer credit from the matched recording's relationship data."
+        case .lyricist:
+            return "Lyricist or writer credits from the matched recording."
+        case .producer:
+            return "Producer credits from the matched recording."
+        case .engineer:
+            return "Engineer credits from the matched recording."
+        case .remixer:
+            return "Remixer credits from the matched recording."
+        case .copyright:
+            return "Phonographic copyright credits from the matched recording."
         }
     }
 
     var isDefaultSelected: Bool {
         switch self {
-        case .composer:
+        case .composer, .lyricist, .producer, .engineer, .remixer, .copyright, .genre:
             return false
-        case .title, .artist, .albumArtist, .album, .trackNumber, .discNumber, .releaseDate, .publisher:
+        case .title, .artist, .albumArtist, .album, .trackNumber, .discNumber, .releaseDate,
+             .publisher, .isrc, .barcode, .musicBrainzAlbumID, .musicBrainzTrackID,
+             .musicBrainzReleaseGroupID, .language, .mediaType, .releaseType,
+             .catalogNumber, .releaseCountry:
             return true
+        }
+    }
+
+    var requiresRecordingDetail: Bool {
+        switch self {
+        case .composer, .lyricist, .producer, .engineer, .remixer, .copyright:
+            return true
+        case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .discNumber,
+             .releaseDate, .publisher, .isrc, .barcode, .musicBrainzAlbumID,
+             .musicBrainzTrackID, .musicBrainzReleaseGroupID, .language, .mediaType,
+             .releaseType, .catalogNumber, .releaseCountry:
+            return false
         }
     }
 
@@ -79,6 +174,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return file.albumArtist
         case .album:
             return file.album
+        case .genre:
+            return file.genre
         case .trackNumber:
             return file.trackNumberText
         case .discNumber:
@@ -87,8 +184,38 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return file.releaseDate.isEmpty ? file.year : file.releaseDate
         case .publisher:
             return file.publisher
+        case .isrc:
+            return file.isrc
+        case .barcode:
+            return file.barcode
+        case .musicBrainzAlbumID:
+            return file.musicBrainzAlbumID
+        case .musicBrainzTrackID:
+            return file.musicBrainzTrackID
+        case .musicBrainzReleaseGroupID:
+            return file.musicBrainzReleaseGroupID
+        case .language:
+            return file.language
+        case .mediaType:
+            return file.mediaType
+        case .releaseType:
+            return file.releaseType
+        case .catalogNumber:
+            return file.catalogNumber
+        case .releaseCountry:
+            return file.releaseCountry
         case .composer:
             return file.composer
+        case .lyricist:
+            return file.lyricist
+        case .producer:
+            return file.producer
+        case .engineer:
+            return file.engineer
+        case .remixer:
+            return file.remixer
+        case .copyright:
+            return file.copyright
         }
     }
 
@@ -102,6 +229,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             edit.albumArtist = value
         case .album:
             edit.album = value
+        case .genre:
+            edit.genre = value
         case .trackNumber:
             edit.trackNumberText = value
         case .discNumber:
@@ -110,8 +239,38 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             edit.releaseDate = value
         case .publisher:
             edit.publisher = value
+        case .isrc:
+            edit.isrc = value
+        case .barcode:
+            edit.barcode = value
+        case .musicBrainzAlbumID:
+            edit.musicBrainzAlbumID = value
+        case .musicBrainzTrackID:
+            edit.musicBrainzTrackID = value
+        case .musicBrainzReleaseGroupID:
+            edit.musicBrainzReleaseGroupID = value
+        case .language:
+            edit.language = value
+        case .mediaType:
+            edit.mediaType = value
+        case .releaseType:
+            edit.releaseType = value
+        case .catalogNumber:
+            edit.catalogNumber = value
+        case .releaseCountry:
+            edit.releaseCountry = value
         case .composer:
             edit.composer = value
+        case .lyricist:
+            edit.lyricist = value
+        case .producer:
+            edit.producer = value
+        case .engineer:
+            edit.engineer = value
+        case .remixer:
+            edit.remixer = value
+        case .copyright:
+            edit.copyright = value
         }
     }
 }
@@ -203,18 +362,18 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         var id: String { fileInput.id }
     }
 
-    enum ComposerLookupState: Equatable {
+    enum RecordingLookupState: Equatable {
         case idle
         case loading
-        case loaded(String)
+        case loaded(MusicBrainzRecordingDetail)
         case failed(String)
 
-        var resolvedValue: String {
+        var recordingDetail: MusicBrainzRecordingDetail? {
             switch self {
-            case .loaded(let value):
-                return value
+            case .loaded(let detail):
+                return detail
             case .idle, .loading, .failed:
-                return ""
+                return nil
             }
         }
 
@@ -233,12 +392,13 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     @Published private(set) var availableTracks: [MusicBrainzReleaseMatchTrack]
     @Published private(set) var loadedFilesByInputID: [String: AudioFile]
     @Published var selectedFields: Set<MusicBrainzTagWriteField>
-    @Published private(set) var composerStates: [String: ComposerLookupState] = [:]
+    @Published private(set) var recordingStates: [String: RecordingLookupState] = [:]
 
     private let browserStore: MusicBrainzBrowserStore
-    private var composerLoadTasks: [String: Task<Void, Never>] = [:]
+    private var recordingLoadTasks: [String: Task<Void, Never>] = [:]
     private let releaseArtistCredit: String
     private let publisherName: String
+    private let primaryCatalogNumber: String
     private let totalMediumCount: Int
 
     init(
@@ -256,6 +416,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         self.selectedFields = Set(MusicBrainzTagWriteField.allCases.filter(\.isDefaultSelected))
         self.releaseArtistCredit = release.artistCredit
         self.publisherName = release.labels.first(where: { !$0.labelName.isEmpty })?.labelName ?? ""
+        self.primaryCatalogNumber = release.labels.first(where: { !$0.catalogNumber.isEmpty })?.catalogNumber ?? ""
         self.totalMediumCount = max(release.media.count, 1)
 
         let autoAssignments = Dictionary(
@@ -276,7 +437,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     deinit {
-        composerLoadTasks.values.forEach { $0.cancel() }
+        recordingLoadTasks.values.forEach { $0.cancel() }
     }
 
     var plan: MusicBrainzTaggingPlan {
@@ -301,12 +462,12 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         return duplicates
     }
 
-    var hasPendingComposerLoads: Bool {
-        composerStates.values.contains(where: \.isLoading)
+    var hasPendingRecordingLoads: Bool {
+        recordingStates.values.contains(where: \.isLoading)
     }
 
-    var composerFailureCount: Int {
-        composerStates.values.reduce(into: 0) { count, state in
+    var recordingFailureCount: Int {
+        recordingStates.values.reduce(into: 0) { count, state in
             if case .failed = state {
                 count += 1
             }
@@ -316,7 +477,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     var canApply: Bool {
         !selectedFields.isEmpty &&
         !hasDuplicateTrackAssignments &&
-        !hasPendingComposerLoads &&
+        !hasPendingRecordingLoads &&
         !plan.writeEntries.isEmpty
     }
 
@@ -329,8 +490,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             return "Each MusicBrainz track can only be assigned once before writing."
         }
 
-        if hasPendingComposerLoads {
-            return "Composer credits are still loading from MusicBrainz."
+        if hasPendingRecordingLoads {
+            return "MusicBrainz recording details are still loading."
         }
 
         if plan.writeEntries.isEmpty {
@@ -353,8 +514,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     func setFieldSelected(_ isSelected: Bool, for field: MusicBrainzTagWriteField) {
         if isSelected {
             selectedFields.insert(field)
-            if field == .composer {
-                ensureComposerDataIfNeeded()
+            if field.requiresRecordingDetail {
+                ensureRecordingDataIfNeeded()
             }
         } else {
             selectedFields.remove(field)
@@ -369,8 +530,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         guard let index = assignments.firstIndex(where: { $0.id == assignmentID }) else { return }
         assignments[index].selectedTrackID = trackID
 
-        if selectedFields.contains(.composer) {
-            ensureComposerDataIfNeeded()
+        if selectedFields.contains(where: \.requiresRecordingDetail) {
+            ensureRecordingDataIfNeeded()
         }
     }
 
@@ -384,16 +545,12 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         return duplicateTrackIDs.contains(selectedTrackID)
     }
 
-    func composerState(for recordingID: String) -> ComposerLookupState {
-        composerStates[recordingID] ?? .idle
+    func recordingState(for recordingID: String) -> RecordingLookupState {
+        recordingStates[recordingID] ?? .idle
     }
 
-    func composerRemoteValue(for recordingID: String) -> String {
-        composerState(for: recordingID).resolvedValue
-    }
-
-    func ensureComposerDataIfNeeded() {
-        guard selectedFields.contains(.composer) else { return }
+    func ensureRecordingDataIfNeeded() {
+        guard selectedFields.contains(where: \.requiresRecordingDetail) else { return }
 
         let recordingIDs = Set(
             assignments.compactMap { assignment in
@@ -403,28 +560,27 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         )
 
         for recordingID in recordingIDs {
-            let currentState = composerStates[recordingID] ?? .idle
+            let currentState = recordingStates[recordingID] ?? .idle
             guard case .idle = currentState else { continue }
 
-            composerStates[recordingID] = .loading
+            recordingStates[recordingID] = .loading
 
-            composerLoadTasks[recordingID] = Task { [weak self] in
+            recordingLoadTasks[recordingID] = Task { [weak self] in
                 guard let self else { return }
 
                 do {
                     let detail = try await self.browserStore.recordingDetail(id: recordingID)
-                    let composer = Self.composerValue(from: detail)
 
                     await MainActor.run {
-                        self.composerStates[recordingID] = .loaded(composer)
-                        self.composerLoadTasks[recordingID] = nil
+                        self.recordingStates[recordingID] = .loaded(detail)
+                        self.recordingLoadTasks[recordingID] = nil
                     }
                 } catch {
                     await MainActor.run {
-                        self.composerStates[recordingID] = .failed(
+                        self.recordingStates[recordingID] = .failed(
                             (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                         )
-                        self.composerLoadTasks[recordingID] = nil
+                        self.recordingLoadTasks[recordingID] = nil
                     }
                 }
             }
@@ -463,7 +619,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
                 willWrite: willWrite
             )
         }
-        .sorted { $0.field.rawValue < $1.field.rawValue }
+        .sorted { Self.fieldIndex(for: $0.field) < Self.fieldIndex(for: $1.field) }
 
         return MusicBrainzTaggingPlanRow(
             fileInput: assignment.fileInput,
@@ -490,6 +646,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             return releaseArtistCredit
         case .album:
             return release.title
+        case .genre:
+            return Self.genreValue(from: release)
         case .trackNumber:
             return Self.trackNumberText(for: selectedTrack)
         case .discNumber:
@@ -498,20 +656,128 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             return release.date
         case .publisher:
             return publisherName
+        case .isrc:
+            return Self.joinedList(selectedTrack.isrcs)
+        case .barcode:
+            return release.barcode
+        case .musicBrainzAlbumID:
+            return release.id
+        case .musicBrainzTrackID:
+            return selectedTrack.id
+        case .musicBrainzReleaseGroupID:
+            return release.releaseGroupID
+        case .language:
+            return release.language
+        case .mediaType:
+            return selectedTrack.mediumFormat.isEmpty ? Self.releaseMediaType(from: release) : selectedTrack.mediumFormat
+        case .releaseType:
+            return Self.releaseTypeValue(from: release)
+        case .catalogNumber:
+            return primaryCatalogNumber
+        case .releaseCountry:
+            return release.country
         case .composer:
-            if selectedTrack.recordingID.isEmpty {
-                return ""
-            }
-            return composerRemoteValue(for: selectedTrack.recordingID)
+            return recordingRemoteValue(for: .composer, recordingID: selectedTrack.recordingID)
+        case .lyricist:
+            return recordingRemoteValue(for: .lyricist, recordingID: selectedTrack.recordingID)
+        case .producer:
+            return recordingRemoteValue(for: .producer, recordingID: selectedTrack.recordingID)
+        case .engineer:
+            return recordingRemoteValue(for: .engineer, recordingID: selectedTrack.recordingID)
+        case .remixer:
+            return recordingRemoteValue(for: .remixer, recordingID: selectedTrack.recordingID)
+        case .copyright:
+            return recordingRemoteValue(for: .copyright, recordingID: selectedTrack.recordingID)
         }
     }
 
-    private static func composerValue(from detail: MusicBrainzRecordingDetail) -> String {
-        detail.relationshipGroups
-            .first(where: { $0.title.caseInsensitiveCompare("composer") == .orderedSame })?
-            .values
-            .joined(separator: ", ")
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    private func recordingRemoteValue(
+        for field: MusicBrainzTagWriteField,
+        recordingID: String
+    ) -> String {
+        guard
+            !recordingID.isEmpty,
+            let detail = recordingState(for: recordingID).recordingDetail
+        else {
+            return ""
+        }
+
+        return Self.recordingValue(for: field, from: detail)
+    }
+
+    private static func recordingValue(
+        for field: MusicBrainzTagWriteField,
+        from detail: MusicBrainzRecordingDetail
+    ) -> String {
+        switch field {
+        case .composer:
+            return relationshipValue(in: detail, matchingAnyOf: ["composer"])
+        case .lyricist:
+            return relationshipValue(in: detail, matchingAnyOf: ["lyricist", "writer", "text writer"])
+        case .producer:
+            return relationshipValue(in: detail, containing: "producer")
+        case .engineer:
+            return relationshipValue(in: detail, containing: "engineer")
+        case .remixer:
+            return relationshipValue(in: detail, matchingAnyOf: ["remixer", "remix"])
+        case .copyright:
+            return relationshipValue(in: detail, matchingAnyOf: ["phonographic copyright (℗) by"])
+        case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .discNumber,
+             .releaseDate, .publisher, .isrc, .barcode, .musicBrainzAlbumID,
+             .musicBrainzTrackID, .musicBrainzReleaseGroupID, .language, .mediaType,
+             .releaseType, .catalogNumber, .releaseCountry:
+            return ""
+        }
+    }
+
+    private static func relationshipValue(
+        in detail: MusicBrainzRecordingDetail,
+        matchingAnyOf exactTitles: [String]
+    ) -> String {
+        let normalizedTitles = Set(exactTitles.map { $0.lowercased() })
+        let matches = detail.relationshipGroups
+            .filter { normalizedTitles.contains($0.title.lowercased()) }
+            .flatMap(\.values)
+        return joinedList(matches)
+    }
+
+    private static func relationshipValue(
+        in detail: MusicBrainzRecordingDetail,
+        containing needle: String
+    ) -> String {
+        let loweredNeedle = needle.lowercased()
+        let matches = detail.relationshipGroups
+            .filter { $0.title.lowercased().contains(loweredNeedle) }
+            .flatMap(\.values)
+        return joinedList(matches)
+    }
+
+    private static func genreValue(from release: MusicBrainzReleaseDetail) -> String {
+        let preferredTerms = release.genres.isEmpty ? release.tags : release.genres
+        return joinedList(preferredTerms.map(\.name))
+    }
+
+    private static func releaseTypeValue(from release: MusicBrainzReleaseDetail) -> String {
+        joinedList([release.releaseGroupPrimaryType] + release.releaseGroupSecondaryTypes)
+    }
+
+    private static func releaseMediaType(from release: MusicBrainzReleaseDetail) -> String {
+        joinedList(release.media.map(\.format))
+    }
+
+    private static func joinedList(_ values: [String]) -> String {
+        let normalizedValues = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !normalizedValues.isEmpty else { return "" }
+
+        let uniqueValues = (Array(NSOrderedSet(array: normalizedValues)) as? [String]) ?? normalizedValues
+        return uniqueValues.joined(separator: ", ")
+    }
+
+    private static func fieldIndex(for field: MusicBrainzTagWriteField) -> Int {
+        MusicBrainzTagWriteField.allCases.firstIndex(of: field) ?? Int.max
     }
 
     private static func changeStatus(localValue: String, remoteValue: String) -> MusicBrainzTaggingFieldChange.Status {

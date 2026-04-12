@@ -43,6 +43,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let publisher: String
     let copyright: String
     let credits: String
+    let lyricist: String
+    let remixer: String
+    let producer: String
+    let engineer: String
+    let language: String
+    let mediaType: String
+    let releaseType: String
+    let catalogNumber: String
+    let releaseCountry: String
     let isExplicit: Bool
 
     // MARK: – Technical
@@ -78,6 +87,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         hasher.combine(publisher)
         hasher.combine(copyright)
         hasher.combine(credits)
+        hasher.combine(lyricist)
+        hasher.combine(remixer)
+        hasher.combine(producer)
+        hasher.combine(engineer)
+        hasher.combine(language)
+        hasher.combine(mediaType)
+        hasher.combine(releaseType)
+        hasher.combine(catalogNumber)
+        hasher.combine(releaseCountry)
         hasher.combine(isExplicit)
         hasher.combine(duration)
         hasher.combine(bitrate)
@@ -115,6 +133,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         publisher: String,
         copyright: String,
         credits: String,
+        lyricist: String,
+        remixer: String,
+        producer: String,
+        engineer: String,
+        language: String,
+        mediaType: String,
+        releaseType: String,
+        catalogNumber: String,
+        releaseCountry: String,
         isExplicit: Bool,
         duration: Double,
         bitrate: Int,
@@ -151,6 +178,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.publisher = publisher
         self.copyright = copyright
         self.credits = credits
+        self.lyricist = lyricist
+        self.remixer = remixer
+        self.producer = producer
+        self.engineer = engineer
+        self.language = language
+        self.mediaType = mediaType
+        self.releaseType = releaseType
+        self.catalogNumber = catalogNumber
+        self.releaseCountry = releaseCountry
         self.isExplicit = isExplicit
         self.duration = duration
         self.bitrate = bitrate
@@ -190,6 +226,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             publisher: publisher,
             copyright: copyright,
             credits: credits,
+            lyricist: lyricist,
+            remixer: remixer,
+            producer: producer,
+            engineer: engineer,
+            language: language,
+            mediaType: mediaType,
+            releaseType: releaseType,
+            catalogNumber: catalogNumber,
+            releaseCountry: releaseCountry,
             isExplicit: isExplicit,
             duration: duration,
             bitrate: bitrate,
@@ -237,6 +282,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             publisher: publisher,
             copyright: copyright,
             credits: credits,
+            lyricist: lyricist,
+            remixer: remixer,
+            producer: producer,
+            engineer: engineer,
+            language: language,
+            mediaType: mediaType,
+            releaseType: releaseType,
+            catalogNumber: catalogNumber,
+            releaseCountry: releaseCountry,
             isExplicit: isExplicit,
             duration: duration,
             bitrate: bitrate,
@@ -408,6 +462,15 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.musicBrainzAlbumID = tag.musicBrainzAlbumID
         self.musicBrainzTrackID = tag.musicBrainzTrackID
         self.musicBrainzReleaseGroupID = tag.musicBrainzReleaseGroupID
+        self.lyricist = tag.lyricist
+        self.remixer = tag.remixer
+        self.producer = tag.producer
+        self.engineer = tag.engineer
+        self.language = tag.language
+        self.mediaType = tag.mediaType
+        self.releaseType = tag.releaseType
+        self.catalogNumber = tag.catalogNumber
+        self.releaseCountry = tag.releaseCountry
         self.isExplicit  = tag.isExplicit
 
         let asset = AVURLAsset(url: url)

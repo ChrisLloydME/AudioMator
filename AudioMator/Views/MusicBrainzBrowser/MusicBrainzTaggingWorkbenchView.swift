@@ -65,7 +65,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 value: "\(store.plan.changeCount)"
             )
 
-            if store.plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments || store.hasPendingComposerLoads || store.composerFailureCount > 0 {
+            if store.plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments || store.hasPendingRecordingLoads || store.recordingFailureCount > 0 {
                 MetadataCardDivider()
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -75,15 +75,15 @@ struct MusicBrainzTaggingWorkbenchView: View {
                         )
                     }
 
-                    if store.hasPendingComposerLoads {
+                    if store.hasPendingRecordingLoads {
                         WarningLabel(
-                            text: "Composer credits are still loading. Applying is disabled until they finish."
+                            text: "MusicBrainz recording details are still loading. Applying is disabled until they finish."
                         )
                     }
 
-                    if store.composerFailureCount > 0 {
+                    if store.recordingFailureCount > 0 {
                         WarningLabel(
-                            text: "Some composer lookups failed. Those files will keep their current composer tag."
+                            text: "Some recording-detail lookups failed. Those fields will keep their current file tags."
                         )
                     }
 
@@ -102,11 +102,9 @@ struct MusicBrainzTaggingWorkbenchView: View {
     private var fieldSelectionSection: some View {
         MetadataSectionCard(title: "Fields", symbolName: "checklist.checked") {
             VStack(alignment: .leading, spacing: 14) {
-                if MusicBrainzTagWriteField.allCases.contains(.composer) {
-                    Text("Choose exactly which MusicBrainz values should overwrite the current file tags.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
+                Text("Choose exactly which MusicBrainz values should overwrite the current file tags.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
 
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 180), spacing: 12)],
@@ -169,7 +167,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 ForEach(Array(store.plan.rows.enumerated()), id: \.element.id) { index, row in
                     PlanRowView(
                         row: row,
-                        composerState: composerState(for: row)
+                        recordingState: recordingState(for: row)
                     )
 
                     if index < store.plan.rows.count - 1 {
@@ -238,12 +236,12 @@ struct MusicBrainzTaggingWorkbenchView: View {
         )
     }
 
-    private func composerState(for row: MusicBrainzTaggingPlanRow) -> MusicBrainzTaggingWorkbenchStore.ComposerLookupState? {
-        guard let track = row.track, row.changes.contains(where: { $0.field == .composer }) else {
+    private func recordingState(for row: MusicBrainzTaggingPlanRow) -> MusicBrainzTaggingWorkbenchStore.RecordingLookupState? {
+        guard let track = row.track, row.changes.contains(where: { $0.field.requiresRecordingDetail }) else {
             return nil
         }
 
-        return store.composerState(for: track.recordingID)
+        return store.recordingState(for: track.recordingID)
     }
 
     private func applyTags() {
@@ -374,7 +372,7 @@ private struct AssignmentEditorRow: View {
 
 private struct PlanRowView: View {
     let row: MusicBrainzTaggingPlanRow
-    let composerState: MusicBrainzTaggingWorkbenchStore.ComposerLookupState?
+    let recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -413,7 +411,7 @@ private struct PlanRowView: View {
                 ForEach(Array(row.changes.enumerated()), id: \.element.id) { index, change in
                     PlanChangeRow(
                         change: change,
-                        composerState: change.field == .composer ? composerState : nil
+                        recordingState: change.field.requiresRecordingDetail ? recordingState : nil
                     )
 
                     if index < row.changes.count - 1 {
@@ -433,7 +431,7 @@ private struct PlanRowView: View {
 
 private struct PlanChangeRow: View {
     let change: MusicBrainzTaggingFieldChange
-    let composerState: MusicBrainzTaggingWorkbenchStore.ComposerLookupState?
+    let recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -469,14 +467,14 @@ private struct PlanChangeRow: View {
     }
 
     private var remoteDisplayValue: String {
-        if change.field == .composer, let composerState {
-            switch composerState {
+        if change.field.requiresRecordingDetail, let recordingState {
+            switch recordingState {
             case .loading:
-                return "Loading composer..."
+                return "Loading recording details..."
             case .failed(let message):
-                return message.isEmpty ? "Composer lookup failed." : "Composer lookup failed."
+                return message.isEmpty ? "Recording lookup failed." : "Recording lookup failed."
             case .idle:
-                return "Loading composer..."
+                return "Loading recording details..."
             case .loaded:
                 return change.remoteValue
             }
@@ -526,7 +524,7 @@ private struct PlanChangeRow: View {
             return value
         }
 
-        if isRemote, change.field == .composer, composerState != nil {
+        if isRemote, change.field.requiresRecordingDetail, recordingState != nil {
             return remoteDisplayValue
         }
 
@@ -535,7 +533,7 @@ private struct PlanChangeRow: View {
 
     private func displayColor(for value: String, isRemote: Bool) -> Color {
         if value.isEmpty {
-            if isRemote, change.field == .composer, composerState != nil {
+            if isRemote, change.field.requiresRecordingDetail, recordingState != nil {
                 return .secondary
             }
             return .secondary.opacity(0.55)

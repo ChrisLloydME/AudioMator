@@ -276,6 +276,7 @@ private struct AboutSettingsTab: View {
     let aboutDescription: String
 
     @State private var isAcknowledgementsPresented: Bool = false
+    @State private var isPrivacyPresented: Bool = false
     @State private var isReleaseNotesPresented: Bool = false
 
     var body: some View {
@@ -319,12 +320,20 @@ private struct AboutSettingsTab: View {
                     isAcknowledgementsPresented = true
                 }
                 .controlSize(.large)
+
+                Button("Privacy…") {
+                    isPrivacyPresented = true
+                }
+                .controlSize(.large)
             }
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .sheet(isPresented: $isAcknowledgementsPresented) {
             AcknowledgementsSheet()
+        }
+        .sheet(isPresented: $isPrivacyPresented) {
+            PrivacySheet()
         }
         .sheet(isPresented: $isReleaseNotesPresented) {
             ReleaseNotesSheet()
@@ -350,27 +359,24 @@ private struct AboutAppIconView: View {
 private struct AcknowledgementsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    private let acknowledgements: [(title: String, detail: String)] = [
+    private let acknowledgements: [(title: String, details: [String])] = [
         (
             title: "TagLib",
-            detail: "AudioMator includes a bundled TagLib bridge for metadata reading and writing. TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). "
+            details: [
+                "Project: https://github.com/taglib/taglib",
+                "Website: https://taglib.org/",
+                "AudioMator uses TagLib through the local bridge for metadata reading and writing.",
+                "AudioMator includes a local copy of TagLib source code in the project and uses it directly through the bundled bridge.",
+                "This bundled copy has been trimmed for AudioMator's needs, including removal of files that are not required by this app.",
+                "TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). AudioMator distributes the relevant TagLib license texts with the app."
+            ]
         ),
         (
             title: "iTunes-Artwork-Finder by bendodson",
-            detail: "AudioMator's iTunes artwork implementation is fully written in Swift, but the lookup approach and method design were informed by iTunes-Artwork-Finder by bendodson."
-        ),
-        (
-            title: "MusicBrainz",
-            detail: "The optional MusicBrainz Browser uses MusicBrainz web services and metadata for search and reference workflows. AudioMator's client integration is original code, while MusicBrainz data and services remain subject to MusicBrainz licensing and usage terms."
-        ),
-        (
-            title: "Privacy & Network Activity",
-            detail: """
-            AudioMator performs optional network requests only for online features: 
-            1. iTunes artwork lookup to itunes.apple.com (search/lookup), with query terms from metadata such as iTunes Album ID, album name, or track title; artwork downloads then come from Apple CDN hosts (is5-ssl.mzstatic.com / a5.mzstatic.com). 
-            2. MusicBrainz Browser requests to musicbrainz.org/ws/2, using search metadata fields such as title, artist, album, album artist, track number, track total, duration bucket, release year/date, ISRC, barcode, and MusicBrainz IDs (or IDs parsed from a pasted MusicBrainz link). 
-            3. Release Notes loading requests GitHub release data from api.github.com. Audio files themselves are never uploaded.
-            """
+            details: [
+                "Project: https://github.com/bendodson/itunes-artwork-finder",
+                "AudioMator's current implementation is fully rewritten in Swift, but the artwork lookup method and approach are based on the ideas from this project."
+            ]
         )
     ]
 
@@ -379,7 +385,7 @@ private struct AcknowledgementsSheet: View {
             Text("Acknowledgements")
                 .font(.title2.weight(.semibold))
 
-            Text("AudioMator builds on the following frameworks and services.")
+            Text("AudioMator builds on the following third-party projects and ideas.")
                 .foregroundStyle(.secondary)
 
             ScrollView {
@@ -389,9 +395,11 @@ private struct AcknowledgementsSheet: View {
                             Text(item.title)
                                 .font(.headline)
 
-                            Text(item.detail)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            ForEach(item.details, id: \.self) { detail in
+                                Text(detail)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
                 }
@@ -408,6 +416,83 @@ private struct AcknowledgementsSheet: View {
         }
         .padding(24)
         .frame(width: 560, height: 460)
+    }
+}
+
+private struct PrivacySheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private let sections: [(title: String, details: [String])] = [
+        (
+            title: "Overview",
+            details: [
+                "AudioMator's local metadata reading and writing runs on your Mac.",
+                "Your music files themselves are not uploaded."
+            ]
+        ),
+        (
+            title: "iTunes artwork lookup",
+            details: [
+                "Target hosts: itunes.apple.com, is5-ssl.mzstatic.com, a5.mzstatic.com",
+                "Sent data: lookup and search query parameters derived from metadata fields such as iTunes Album ID, album name, or track title.",
+                "Purpose: searching for and downloading album artwork."
+            ]
+        ),
+        (
+            title: "MusicBrainz browser and search",
+            details: [
+                "Target host: musicbrainz.org (/ws/2 API and selected MusicBrainz pages)",
+                "Sent data: query terms generated from entered or selected metadata fields, including title, artist, album artist, album, track number, total tracks, duration bucket, release date or year, ISRC, barcode, MusicBrainz album ID, and MusicBrainz track ID, including IDs parsed from a pasted MusicBrainz link.",
+                "Purpose: searching and referencing MusicBrainz metadata."
+            ]
+        ),
+        (
+            title: "Release notes",
+            details: [
+                "Target host: api.github.com",
+                "Sent data: request headers and the release list request only. No audio file content is sent.",
+                "Purpose: loading published release notes for AudioMator."
+            ]
+        )
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Privacy")
+                .font(.title2.weight(.semibold))
+
+            Text("Network activity only happens when optional online features are used.")
+                .foregroundStyle(.secondary)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(sections, id: \.title) { section in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(section.title)
+                                .font(.headline)
+
+                            ForEach(section.details, id: \.self) { detail in
+                                Text(detail)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack {
+                Spacer()
+
+                Button("Done") {
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 580, height: 500)
     }
 }
 

@@ -712,10 +712,23 @@ struct InspectorPane: View {
     }
 
     private func inspectorSectionLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(.title3.weight(.bold))
-            .foregroundStyle(.secondary)
-            .symbolRenderingMode(.hierarchical)
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.secondary.opacity(0.10))
+                )
+
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.3)
+                .foregroundStyle(.secondary)
+        }
+        .textCase(.uppercase)
+        .symbolRenderingMode(.monochrome)
     }
 
     @ViewBuilder

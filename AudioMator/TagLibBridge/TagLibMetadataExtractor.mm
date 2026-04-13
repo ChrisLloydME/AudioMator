@@ -429,12 +429,20 @@ static bool IsMP4LikeExtension(NSString * _Nullable ext) {
            [lower isEqualToString:@"mp4"];
 }
 
-static bool IsMPEGLikeExtension(NSString * _Nullable ext) {
+static bool IsAACExtension(NSString * _Nullable ext) {
+    if (!ext) return false;
+    return [ext.lowercaseString isEqualToString:@"aac"];
+}
+
+static bool IsID3RichMPEGLikeExtension(NSString * _Nullable ext) {
     if (!ext) return false;
     NSString *lower = ext.lowercaseString;
     return [lower isEqualToString:@"mp3"] ||
-           [lower isEqualToString:@"mp2"] ||
-           [lower isEqualToString:@"aac"];
+           [lower isEqualToString:@"mp2"];
+}
+
+static bool IsMPEGLikeExtension(NSString * _Nullable ext) {
+    return IsID3RichMPEGLikeExtension(ext) || IsAACExtension(ext);
 }
 
 static bool IsAIFFLikeExtension(NSString * _Nullable ext) {
@@ -713,10 +721,12 @@ static void ApplyExplicitPropertyKeys(const TagLib::PropertyMap &properties,
             continue;
         }
 
-        BOOL explicitValue = metadata.explicitContent;
-        if (ParseExplicitTagValue(properties[key].front(), explicitValue)) {
-            metadata.explicitContent = explicitValue;
-            return;
+        for (const auto &explicitCandidate : properties[key]) {
+            BOOL explicitValue = metadata.explicitContent;
+            if (ParseExplicitTagValue(explicitCandidate, explicitValue)) {
+                metadata.explicitContent = explicitValue;
+                return;
+            }
         }
     }
 }
@@ -996,9 +1006,42 @@ static bool ApplyKnownCustomMetadataField(NSString * _Nullable key,
     return false;
 }
 
-static TagLib::PropertyMap BuildGenericPropertyMap(TagLibAudioMetadata *metadata)
+static TagLib::PropertyMap PreservedUnknownPropertyMapEntries(const TagLib::PropertyMap &existingProperties)
 {
     TagLib::PropertyMap properties;
+    if (existingProperties.isEmpty()) {
+        return properties;
+    }
+
+    for (const auto &[key, values] : existingProperties) {
+        if (values.isEmpty()) {
+            continue;
+        }
+
+        NSString *fieldKey = TrimmedStringOrNil(TagStringToNSString(key));
+        if (!fieldKey) {
+            continue;
+        }
+
+        if (IsHiddenInternalMetadataFieldKey(fieldKey) || IsKnownMetadataFieldKey(fieldKey)) {
+            continue;
+        }
+
+        properties.replace(key, values);
+    }
+
+    return properties;
+}
+
+static TagLib::PropertyMap BuildGenericPropertyMap(
+    TagLibAudioMetadata *metadata,
+    const TagLib::PropertyMap * _Nullable existingProperties = nullptr
+)
+{
+    TagLib::PropertyMap properties;
+    if (existingProperties) {
+        properties = PreservedUnknownPropertyMapEntries(*existingProperties);
+    }
     if (!metadata) return properties;
 
     NSString *yearValue = TrimmedStringOrNil(metadata.year);
@@ -1221,7 +1264,8 @@ static void ExtractArtworkFromComplexProperties(ComplexPropertyTarget *target,
 template <typename FileType>
 static void ApplyGenericPropertyMapToFile(FileType &file, TagLibAudioMetadata *metadata)
 {
-    TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata);
+    TagLib::PropertyMap existingProperties = file.properties();
+    TagLib::PropertyMap properties = BuildGenericPropertyMap(metadata, &existingProperties);
     file.setProperties(properties);
 }
 
@@ -1455,27 +1499,12 @@ static void ApplyCustomFieldsToID3v2Tag(TagLib::ID3v2::Tag *tag,
         return;
     }
 
-    TagLib::ID3v2::FrameList frames = tag->frameList("TXXX");
-    TagLib::ID3v2::FrameList framesToRemove;
-    for (auto it = frames.begin(); it != frames.end(); ++it) {
-        auto *userFrame = dynamic_cast<TagLib::ID3v2::UserTextIdentificationFrame *>(*it);
-        if (!userFrame) {
-            continue;
-        }
-
-        if (!IsKnownMetadataFieldKey(TagStringToNSString(userFrame->description()))) {
-            framesToRemove.append(userFrame);
-        }
-    }
-
-    for (auto it = framesToRemove.begin(); it != framesToRemove.end(); ++it) {
-        tag->removeFrame(*it);
-    }
-
     if (!customFields || customFields.count == 0) {
         return;
     }
 
+    // Preserve unknown TXXX frames by default; only upsert keys explicitly
+    // provided by the current edit payload.
     for (NSString *key in customFields) {
         if (IsKnownMetadataFieldKey(key)) {
             continue;
@@ -1492,26 +1521,12 @@ static void ApplyCustomFieldsToMP4Tag(TagLib::MP4::Tag *tag,
         return;
     }
 
-    TagLib::StringList keysToRemove;
-    const TagLib::MP4::ItemMap &items = tag->itemMap();
-    for (const auto &[itemKey, _] : items) {
-        NSString *description = MP4FreeformDescriptionForItemKey(itemKey);
-        if (!description || IsKnownMetadataFieldKey(description)) {
-            continue;
-        }
-
-        keysToRemove.append(itemKey);
-    }
-
-    for (const auto &itemKey : keysToRemove) {
-        std::string key = itemKey.to8Bit(true);
-        tag->removeItem(key.c_str());
-    }
-
     if (!customFields || customFields.count == 0) {
         return;
     }
 
+    // Preserve unknown freeform atoms by default; only upsert keys explicitly
+    // provided by the current edit payload.
     for (NSString *key in customFields) {
         if (IsKnownMetadataFieldKey(key)) {
             continue;
@@ -1522,12 +1537,29 @@ static void ApplyCustomFieldsToMP4Tag(TagLib::MP4::Tag *tag,
 }
 
 static NSString * _Nullable FirstStringFromProperty(const TagLib::PropertyMap &properties,
-                                                    std::initializer_list<const char *> keys)
+                                                    std::initializer_list<const char *> keys,
+                                                    bool joinMultipleValues = false)
 {
     for (const char *key : keys) {
         if (!key) continue;
         if (properties.contains(key) && !properties[key].isEmpty()) {
-            return TagStringToNSString(properties[key].front());
+            NSMutableArray<NSString *> *trimmedValues = [NSMutableArray array];
+            for (const auto &value : properties[key]) {
+                NSString *trimmed = TrimmedStringOrNil(TagStringToNSString(value));
+                if (trimmed) {
+                    [trimmedValues addObject:trimmed];
+                }
+            }
+
+            if (trimmedValues.count == 0) {
+                continue;
+            }
+
+            if (joinMultipleValues && trimmedValues.count > 1) {
+                return [trimmedValues componentsJoinedByString:@"; "];
+            }
+
+            return trimmedValues.firstObject;
         }
     }
     return nil;
@@ -1539,12 +1571,12 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
     if (!metadata || properties.isEmpty()) return;
 
     metadata.title = FirstStringFromProperty(properties, {"TITLE"}) ?: metadata.title;
-    metadata.artist = FirstStringFromProperty(properties, {"ARTIST", "ARTISTS"}) ?: metadata.artist;
+    metadata.artist = FirstStringFromProperty(properties, {"ARTIST", "ARTISTS"}, true) ?: metadata.artist;
     metadata.album = FirstStringFromProperty(properties, {"ALBUM"}) ?: metadata.album;
     metadata.comment = FirstStringFromProperty(properties, {"COMMENT"}) ?: metadata.comment;
-    metadata.genre = FirstStringFromProperty(properties, {"GENRE"}) ?: metadata.genre;
-    metadata.composer = FirstStringFromProperty(properties, {"COMPOSER"}) ?: metadata.composer;
-    metadata.albumArtist = FirstStringFromProperty(properties, {"ALBUMARTIST"}) ?: metadata.albumArtist;
+    metadata.genre = FirstStringFromProperty(properties, {"GENRE"}, true) ?: metadata.genre;
+    metadata.composer = FirstStringFromProperty(properties, {"COMPOSER"}, true) ?: metadata.composer;
+    metadata.albumArtist = FirstStringFromProperty(properties, {"ALBUMARTIST"}, true) ?: metadata.albumArtist;
 
     NSString *dateValue = FirstStringFromProperty(properties, {"RELEASEDATE", "DATE", "YEAR"});
     if (dateValue.length > 0) {
@@ -1566,12 +1598,14 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
         trackKey = "TRACK";
     }
     if (trackKey) {
-        NSString *trackText = TrimmedStringOrNil(TagStringToNSString(properties[trackKey].front()));
-        NSInteger trackNum = 0, trackTotal = 0;
-        ParseNumberPair(properties[trackKey].front(), trackNum, trackTotal);
-        metadata.trackNumberText = PreferredNumberText(metadata.trackNumberText, trackText);
-        if (trackNum > 0) metadata.trackNumber = trackNum;
-        if (trackTotal > 0) metadata.totalTracks = trackTotal;
+        for (const auto &trackValue : properties[trackKey]) {
+            NSString *trackText = TrimmedStringOrNil(TagStringToNSString(trackValue));
+            NSInteger trackNum = 0, trackTotal = 0;
+            ParseNumberPair(trackValue, trackNum, trackTotal);
+            metadata.trackNumberText = PreferredNumberText(metadata.trackNumberText, trackText);
+            if (trackNum > 0) metadata.trackNumber = trackNum;
+            if (trackTotal > 0) metadata.totalTracks = trackTotal;
+        }
     }
     NSString *trackTotalValue = FirstStringFromProperty(properties, {"TRACKTOTAL", "TOTALTRACKS"});
     if (trackTotalValue.length > 0) metadata.totalTracks = trackTotalValue.integerValue;
@@ -1583,12 +1617,14 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
         discKey = "DISC";
     }
     if (discKey) {
-        NSString *discText = TrimmedStringOrNil(TagStringToNSString(properties[discKey].front()));
-        NSInteger discNum = 0, discTotal = 0;
-        ParseNumberPair(properties[discKey].front(), discNum, discTotal);
-        metadata.discNumberText = PreferredNumberText(metadata.discNumberText, discText);
-        if (discNum > 0) metadata.discNumber = discNum;
-        if (discTotal > 0) metadata.totalDiscs = discTotal;
+        for (const auto &discValue : properties[discKey]) {
+            NSString *discText = TrimmedStringOrNil(TagStringToNSString(discValue));
+            NSInteger discNum = 0, discTotal = 0;
+            ParseNumberPair(discValue, discNum, discTotal);
+            metadata.discNumberText = PreferredNumberText(metadata.discNumberText, discText);
+            if (discNum > 0) metadata.discNumber = discNum;
+            if (discTotal > 0) metadata.totalDiscs = discTotal;
+        }
     }
     NSString *discTotalValue = FirstStringFromProperty(properties, {"DISCTOTAL", "TOTALDISCS"});
     if (discTotalValue.length > 0) metadata.totalDiscs = discTotalValue.integerValue;
@@ -1596,7 +1632,7 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
     NSString *copyrightValue = FirstStringFromProperty(properties, {"COPYRIGHT"});
     if (copyrightValue.length > 0) metadata.copyright = copyrightValue;
 
-    NSString *lyricsValue = FirstStringFromProperty(properties, {"LYRICS"});
+    NSString *lyricsValue = FirstStringFromProperty(properties, {"LYRICS"}, true);
     if (lyricsValue.length > 0) metadata.lyrics = lyricsValue;
 
     NSString *labelValue = FirstStringFromProperty(properties, {"LABEL"});
@@ -1621,33 +1657,33 @@ static void ApplyGenericPropertyMapMetadata(const TagLib::PropertyMap &propertie
     NSString *sortComposer = FirstStringFromProperty(properties, {"COMPOSERSORT"});
     if (sortComposer.length > 0) metadata.sortComposer = sortComposer;
 
-    NSString *groupingValue = FirstStringFromProperty(properties, {"GROUPING"});
+    NSString *groupingValue = FirstStringFromProperty(properties, {"GROUPING"}, true);
     if (groupingValue.length > 0) metadata.grouping = groupingValue;
 
     NSString *subtitleValue = FirstStringFromProperty(properties, {"SUBTITLE"});
     if (subtitleValue.length > 0) metadata.subtitle = subtitleValue;
 
-    NSString *lyricistValue = FirstStringFromProperty(properties, {"LYRICIST"});
+    NSString *lyricistValue = FirstStringFromProperty(properties, {"LYRICIST"}, true);
     if (lyricistValue.length > 0) metadata.lyricist = lyricistValue;
 
-    NSString *conductorValue = FirstStringFromProperty(properties, {"CONDUCTOR"});
+    NSString *conductorValue = FirstStringFromProperty(properties, {"CONDUCTOR"}, true);
     if (conductorValue.length > 0) metadata.conductor = conductorValue;
 
-    NSString *remixerValue = FirstStringFromProperty(properties, {"REMIXER"});
+    NSString *remixerValue = FirstStringFromProperty(properties, {"REMIXER"}, true);
     if (remixerValue.length > 0) metadata.remixer = remixerValue;
 
-    NSString *producerValue = FirstStringFromProperty(properties, {"PRODUCER"});
+    NSString *producerValue = FirstStringFromProperty(properties, {"PRODUCER"}, true);
     if (producerValue.length > 0) metadata.producer = producerValue;
 
-    NSString *engineerValue = FirstStringFromProperty(properties, {"ENGINEER"});
+    NSString *engineerValue = FirstStringFromProperty(properties, {"ENGINEER"}, true);
     if (engineerValue.length > 0) metadata.engineer = engineerValue;
     NSString *movementValue = FirstStringFromProperty(properties, {"MOVEMENT"});
     if (movementValue.length > 0) metadata.movement = movementValue;
 
-    NSString *moodValue = FirstStringFromProperty(properties, {"MOOD"});
+    NSString *moodValue = FirstStringFromProperty(properties, {"MOOD"}, true);
     if (moodValue.length > 0) metadata.mood = moodValue;
 
-    NSString *languageValue = FirstStringFromProperty(properties, {"LANGUAGE"});
+    NSString *languageValue = FirstStringFromProperty(properties, {"LANGUAGE"}, true);
     if (languageValue.length > 0) metadata.language = languageValue;
     NSString *musicalKeyValue = FirstStringFromProperty(properties, {"INITIALKEY", "KEY"});
     if (musicalKeyValue.length > 0) metadata.musicalKey = musicalKeyValue;
@@ -2453,6 +2489,7 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
     if (ext == "mp3" || ext == "mp2" || ext == "aac") {
         TagLib::MPEG::File mpegFile(filePath);
         if (mpegFile.isValid()) {
+            bool isAAC = (ext == "aac");
             openedSpecificFile = true;
 
             ApplyBasicTagMetadata(mpegFile.tag(), metadata);
@@ -2466,19 +2503,21 @@ static void ExtractAPEMetadata(TagLib::APE::Tag* tag, TagLibAudioMetadata* metad
             } else {
                 metadata.codec = @"MP3";
             }
-            
-            if (mpegFile.ID3v2Tag()) {
-                ExtractID3v2Metadata(mpegFile.ID3v2Tag(), metadata);
-            }
 
-            if (mpegFile.APETag()) {
-                ExtractAPEMetadata(mpegFile.APETag(), metadata);
-            }
+            if (!isAAC) {
+                if (mpegFile.ID3v2Tag()) {
+                    ExtractID3v2Metadata(mpegFile.ID3v2Tag(), metadata);
+                }
 
-            if (mpegFile.ID3v1Tag()) {
-                // ID3v1 is a low-fidelity fallback. It must not overwrite richer
-                // values already gathered from PropertyMap / ID3v2.
-                ApplyBasicTagMetadata(mpegFile.ID3v1Tag(), metadata);
+                if (mpegFile.APETag()) {
+                    ExtractAPEMetadata(mpegFile.APETag(), metadata);
+                }
+
+                if (mpegFile.ID3v1Tag()) {
+                    // ID3v1 is a low-fidelity fallback. It must not overwrite richer
+                    // values already gathered from PropertyMap / ID3v2.
+                    ApplyBasicTagMetadata(mpegFile.ID3v1Tag(), metadata);
+                }
             }
         }
     }
@@ -2862,42 +2901,56 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
     if (IsMPEGLikeExtension(ext)) {
         TagLib::MPEG::File mpegFile(filePath);
 
-        if (!mpegFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:42
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing track numbers" }];
+        if (IsAACExtension(ext)) {
+            if (!WritePropertyMapNumberTextToFile(mpegFile,
+                                                  BuildTRCKString(trackNumber, totalTracks, padWidth),
+                                                  nil,
+                                                  error,
+                                                  42,
+                                                  @"Unable to open AAC file for writing track numbers",
+                                                  44,
+                                                  @"TagLib failed to save AAC track numbers",
+                                                  [NSString stringWithFormat:@"AAC '%@'", fileURL.lastPathComponent])) {
+                return NO;
             }
-            TLog(@"Failed to open '%@' for track renumbering", fileURL.lastPathComponent);
-            return NO;
-        }
-
-        TagLib::Tag *tag = mpegFile.tag();
-        if (!tag) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:43
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write track numbers into" }];
+        } else {
+            if (!mpegFile.isValid()) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:42
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing track numbers" }];
+                }
+                TLog(@"Failed to open '%@' for track renumbering", fileURL.lastPathComponent);
+                return NO;
             }
-            TLog(@"No tag object available for '%@' (track renumbering)", fileURL.lastPathComponent);
-            return NO;
-        }
 
-        if (trackNumber > 0) {
-            tag->setTrack((unsigned int)trackNumber);
-        }
-
-        TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
-        SetID3v2TextFrame(id3v2Tag, "TRCK", BuildTRCKString(trackNumber, totalTracks, padWidth));
-
-        if (!mpegFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:44
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after writing track numbers" }];
+            TagLib::Tag *tag = mpegFile.tag();
+            if (!tag) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:43
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write track numbers into" }];
+                }
+                TLog(@"No tag object available for '%@' (track renumbering)", fileURL.lastPathComponent);
+                return NO;
             }
-            TLog(@"TagLib save() failed after track renumbering for '%@'", fileURL.lastPathComponent);
-            return NO;
+
+            if (trackNumber > 0) {
+                tag->setTrack((unsigned int)trackNumber);
+            }
+
+            TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
+            SetID3v2TextFrame(id3v2Tag, "TRCK", BuildTRCKString(trackNumber, totalTracks, padWidth));
+
+            if (!mpegFile.save()) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:44
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after writing track numbers" }];
+                }
+                TLog(@"TagLib save() failed after track renumbering for '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
         }
     } else if (IsMP4LikeExtension(ext)) {
         TagLib::MP4::File mp4File(filePath);
@@ -3429,58 +3482,72 @@ static void ParseNumberPairFromNSString(NSString *text,
     if (IsMPEGLikeExtension(ext)) {
         TagLib::MPEG::File mpegFile(filePath);
 
-        if (!mpegFile.isValid()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:52
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing track/disc numbers" }];
-            }
-            TLog(@"Failed to open '%@' for track/disc write", fileURL.lastPathComponent);
-            return NO;
-        }
-
-        TagLib::Tag *tag = mpegFile.tag();
-        if (!tag) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:53
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write track/disc numbers into" }];
-            }
-            TLog(@"No tag object available for '%@' (track/disc write)", fileURL.lastPathComponent);
-            return NO;
-        }
-
-        TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
-
-        NSString *trimmedTrackText = TrimmedStringOrNil(trackNumberText);
-        if (trimmedTrackText) {
-            NSInteger trackNumber = 0;
-            NSInteger totalTracks = 0;
-            NSInteger padWidth = 0;
-            ParseNumberPairFromNSString(trimmedTrackText, trackNumber, totalTracks, padWidth);
-            tag->setTrack(trackNumber > 0 ? (unsigned int)trackNumber : 0);
-
-            if (id3v2Tag) {
-                NSString *trckToWrite = BuildTRCKString(trackNumber, totalTracks, padWidth) ?: trimmedTrackText;
-                SetID3v2TextFrame(id3v2Tag, "TRCK", trckToWrite);
+        if (IsAACExtension(ext)) {
+            if (!WritePropertyMapNumberTextToFile(mpegFile,
+                                                  TrimmedStringOrNil(trackNumberText),
+                                                  discNumberText,
+                                                  error,
+                                                  52,
+                                                  @"Unable to open AAC file for writing track/disc numbers",
+                                                  54,
+                                                  @"TagLib failed to save AAC track/disc numbers",
+                                                  [NSString stringWithFormat:@"AAC '%@'", fileURL.lastPathComponent])) {
+                return NO;
             }
         } else {
-            tag->setTrack(0);
-            SetID3v2TextFrame(id3v2Tag, "TRCK", nil);
-        }
-
-        if (discNumberText != nil && id3v2Tag) {
-            SetID3v2TextFrame(id3v2Tag, "TPOS", TrimmedStringOrNil(discNumberText));
-        }
-
-        if (!mpegFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:54
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after writing track/disc numbers" }];
+            if (!mpegFile.isValid()) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:52
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"Unable to open file for writing track/disc numbers" }];
+                }
+                TLog(@"Failed to open '%@' for track/disc write", fileURL.lastPathComponent);
+                return NO;
             }
-            TLog(@"TagLib save() failed after track/disc write for '%@'", fileURL.lastPathComponent);
-            return NO;
+
+            TagLib::Tag *tag = mpegFile.tag();
+            if (!tag) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:53
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write track/disc numbers into" }];
+                }
+                TLog(@"No tag object available for '%@' (track/disc write)", fileURL.lastPathComponent);
+                return NO;
+            }
+
+            TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true);
+
+            NSString *trimmedTrackText = TrimmedStringOrNil(trackNumberText);
+            if (trimmedTrackText) {
+                NSInteger trackNumber = 0;
+                NSInteger totalTracks = 0;
+                NSInteger padWidth = 0;
+                ParseNumberPairFromNSString(trimmedTrackText, trackNumber, totalTracks, padWidth);
+                tag->setTrack(trackNumber > 0 ? (unsigned int)trackNumber : 0);
+
+                if (id3v2Tag) {
+                    NSString *trckToWrite = BuildTRCKString(trackNumber, totalTracks, padWidth) ?: trimmedTrackText;
+                    SetID3v2TextFrame(id3v2Tag, "TRCK", trckToWrite);
+                }
+            } else {
+                tag->setTrack(0);
+                SetID3v2TextFrame(id3v2Tag, "TRCK", nil);
+            }
+
+            if (discNumberText != nil && id3v2Tag) {
+                SetID3v2TextFrame(id3v2Tag, "TPOS", TrimmedStringOrNil(discNumberText));
+            }
+
+            if (!mpegFile.save()) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:54
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save after writing track/disc numbers" }];
+                }
+                TLog(@"TagLib save() failed after track/disc write for '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
         }
     } else if (IsMP4LikeExtension(ext)) {
         TagLib::MP4::File mp4File(filePath);
@@ -3755,6 +3822,7 @@ static void ParseNumberPairFromNSString(NSString *text,
     NSString *ext = fileURL.pathExtension.lowercaseString;
     
     bool isMPEG = IsMPEGLikeExtension(ext);
+    bool isAAC = IsAACExtension(ext);
     bool isMP4Like = IsMP4LikeExtension(ext);
     bool isPropertyMapWritable = IsPropertyMapWritableExtension(ext);
 
@@ -3798,166 +3866,190 @@ static void ParseNumberPairFromNSString(NSString *text,
             return NO;
         }
 
-        TagLib::Tag *tag = mpegFile.tag();
-        if (!tag) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:13
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write metadata into" }];
-            }
-            TLog(@"No tag object available for '%@'", fileURL.lastPathComponent);
-            return NO;
-        }
-
-        // --- Basic fields via TagLib::Tag ---
-        // Only overwrite fields when we have a non-nil NSString from Swift.
-        if (metadata.title) {
-            tag->setTitle(NSStringToTagString(metadata.title));
-        }
-        if (metadata.artist) {
-            tag->setArtist(NSStringToTagString(metadata.artist));
-        }
-        if (metadata.album) {
-            tag->setAlbum(NSStringToTagString(metadata.album));
-        }
-        if (metadata.genre) {
-            tag->setGenre(NSStringToTagString(metadata.genre));
-        }
-        if (metadata.comment) {
-            tag->setComment(NSStringToTagString(metadata.comment));
-        }
-
-        if (metadata.year.length > 0) {
-            tag->setYear((unsigned int)metadata.year.integerValue);
-        } else {
-            tag->setYear(0);
-        }
-
-        if (metadata.trackNumber > 0) {
-            tag->setTrack((unsigned int)metadata.trackNumber);
-        } else {
-            tag->setTrack(0);
-        }
-
-        // --- ID3v2-specific extended fields ---
-        TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true); // create if missing
-        if (id3v2Tag) {
-            SetID3v2TextFrame(id3v2Tag, "TPE2", metadata.albumArtist);
-            SetID3v2TextFrame(id3v2Tag, "TCOM", metadata.composer);
-            SetID3v2TextFrame(
-                id3v2Tag,
-                "TBPM",
-                metadata.bpm > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.bpm] : nil
-            );
-            SetID3v2TextFrame(id3v2Tag, "TSOT", metadata.sortTitle);
-            SetID3v2TextFrame(id3v2Tag, "TSOP", metadata.sortArtist);
-            SetID3v2TextFrame(id3v2Tag, "TSOA", metadata.sortAlbum);
-            SetID3v2TextFrame(id3v2Tag, "TSO2", metadata.sortAlbumArtist);
-            SetID3v2TextFrame(id3v2Tag, "TSOC", metadata.sortComposer);
-            SetID3v2TextFrame(id3v2Tag, "TPE3", metadata.conductor);
-            SetID3v2TextFrame(id3v2Tag, "TPE4", metadata.remixer);
-            SetID3v2TextFrame(id3v2Tag, "TEXT", metadata.lyricist);
-            SetID3v2TextFrame(id3v2Tag, "TENC", metadata.encodedBy);
-            SetID3v2TextFrame(id3v2Tag, "TSSE", metadata.encoderSettings);
-            SetID3v2TextFrame(id3v2Tag, "TSRC", metadata.isrc);
-            SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
-            SetID3v2TextFrame(id3v2Tag, "TIT3", metadata.subtitle);
-            SetID3v2TextFrame(id3v2Tag, "TIT1", metadata.grouping);
-            SetID3v2TextFrame(id3v2Tag, "TLAN", metadata.language);
-            SetID3v2TextFrame(id3v2Tag, "TKEY", metadata.musicalKey);
-            SetID3v2TextFrame(id3v2Tag, "TMOO", metadata.mood);
-            SetID3v2TextFrame(id3v2Tag, "TMED", metadata.mediaType);
-            SetID3v2TextFrame(id3v2Tag, "MVNM", metadata.movement);
-            SetID3v2TextFrame(id3v2Tag, "TCMP", metadata.compilation ? @"1" : nil);
-            SetID3v2LyricsFrame(id3v2Tag, metadata.lyrics);
-
-            NSString *trackString = TrimmedStringOrNil(metadata.trackNumberText);
-            if (!trackString && metadata.trackNumber > 0 && metadata.totalTracks > 0) {
-                trackString = [NSString stringWithFormat:@"%ld/%ld",
-                               (long)metadata.trackNumber,
-                               (long)metadata.totalTracks];
-            } else if (!trackString && metadata.trackNumber > 0) {
-                trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
-            }
-            SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
-
-            NSString *discString = TrimmedStringOrNil(metadata.discNumberText);
-            if (!discString && metadata.discNumber > 0 && metadata.totalDiscs > 0) {
-                discString = [NSString stringWithFormat:@"%ld/%ld",
-                              (long)metadata.discNumber,
-                              (long)metadata.totalDiscs];
-            } else if (!discString && metadata.discNumber > 0) {
-                discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
-            }
-            SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
-
-            NSString *releaseDate = metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year;
-            NSString *id3v2Year = metadata.year.length > 0
-                ? metadata.year
-                : (releaseDate.length >= 4 ? [releaseDate substringToIndex:4] : nil);
-            SetID3v2TextFrame(
-                id3v2Tag,
-                "TDRL",
-                releaseDate
-            );
-            SetID3v2TextFrame(id3v2Tag, "TDRC", releaseDate);
-            SetID3v2TextFrame(id3v2Tag, "TYER", id3v2Year);
-            SetID3v2TextFrame(id3v2Tag, "TDOR", metadata.originalReleaseDate);
-            SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
-            SetID3v2UserTextFrame(id3v2Tag, "RELEASETYPE", metadata.releaseType);
-            SetID3v2UserTextFrame(id3v2Tag, "BARCODE", metadata.barcode);
-            SetID3v2UserTextFrame(id3v2Tag, "CATALOGNUMBER", metadata.catalogNumber);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNESALBUMID", metadata.itunesAlbumId);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNESARTISTID", metadata.itunesArtistId);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNESCATALOGID", metadata.itunesCatalogId);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNESGENREID", metadata.itunesGenreId);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNESMEDIATYPE", metadata.itunesMediaType);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNESPURCHASEDATE", metadata.itunesPurchaseDate);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNNORM", metadata.itunesNorm);
-            SetID3v2UserTextFrame(id3v2Tag, "ITUNSMPB", metadata.itunesSmpb);
-            SetID3v2UserTextFrame(id3v2Tag, "RELEASECOUNTRY", metadata.releaseCountry);
-            SetID3v2UserTextFrame(id3v2Tag, "ARTISTTYPE", metadata.artistType);
-            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Artist Id", metadata.musicBrainzArtistId);
-            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Album Id", metadata.musicBrainzAlbumId);
-            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Track Id", metadata.musicBrainzTrackId);
-            SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Release Group Id", metadata.musicBrainzReleaseGroupId);
-            SetID3v2UserTextFrame(id3v2Tag, "PRODUCER", metadata.producer);
-            SetID3v2UserTextFrame(id3v2Tag, "ENGINEER", metadata.engineer);
-            SetID3v2UserTextFrame(id3v2Tag, "REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
-            SetID3v2UserTextFrame(id3v2Tag, "REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
-
-            // Explicit advisory (TXXX:ITUNESADVISORY, 0 = none, 1 = explicit, 2 = clean)
-            // Here we treat `explicitContent == YES` as advisory = 1, otherwise 0.
-            if (metadata.explicitContent) {
-                SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"1");
-            } else {
-                // If you prefer to completely remove the advisory when non-explicit,
-                // you can change @"0" to nil.
-                SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
-            }
-            ApplyCustomFieldsToID3v2Tag(id3v2Tag, metadata.customFields);
-
-            if (!ApplyPictureComplexProperties(id3v2Tag,
+        if (isAAC) {
+            ApplyGenericPropertyMapToFile(mpegFile, metadata);
+            if (!ApplyPictureComplexProperties(&mpegFile,
                                                metadata,
                                                error,
                                                68,
-                                               @"Unable to clear artwork from the ID3v2 tag",
+                                               @"Unable to clear artwork from AAC metadata",
                                                69,
-                                               @"Unable to write artwork into the ID3v2 tag",
-                                               [NSString stringWithFormat:@"MPEG '%@'", fileURL.lastPathComponent])) {
+                                               @"Unable to write artwork into AAC metadata",
+                                               [NSString stringWithFormat:@"AAC '%@'", fileURL.lastPathComponent])) {
                 return NO;
             }
-        }
 
-        // --- Save ---
-        if (!mpegFile.save()) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
-                                             code:14
-                                         userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to file" }];
+            if (!mpegFile.save()) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:14
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to AAC file" }];
+                }
+                TLog(@"TagLib save() failed for AAC '%@'", fileURL.lastPathComponent);
+                return NO;
             }
-            TLog(@"TagLib save() failed for '%@'", fileURL.lastPathComponent);
-            return NO;
+        } else {
+            TagLib::Tag *tag = mpegFile.tag();
+            if (!tag) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:13
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"No tag found to write metadata into" }];
+                }
+                TLog(@"No tag object available for '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
+
+            // --- Basic fields via TagLib::Tag ---
+            // Only overwrite fields when we have a non-nil NSString from Swift.
+            if (metadata.title) {
+                tag->setTitle(NSStringToTagString(metadata.title));
+            }
+            if (metadata.artist) {
+                tag->setArtist(NSStringToTagString(metadata.artist));
+            }
+            if (metadata.album) {
+                tag->setAlbum(NSStringToTagString(metadata.album));
+            }
+            if (metadata.genre) {
+                tag->setGenre(NSStringToTagString(metadata.genre));
+            }
+            if (metadata.comment) {
+                tag->setComment(NSStringToTagString(metadata.comment));
+            }
+
+            if (metadata.year.length > 0) {
+                tag->setYear((unsigned int)metadata.year.integerValue);
+            } else {
+                tag->setYear(0);
+            }
+
+            if (metadata.trackNumber > 0) {
+                tag->setTrack((unsigned int)metadata.trackNumber);
+            } else {
+                tag->setTrack(0);
+            }
+
+            // --- ID3v2-specific extended fields ---
+            TagLib::ID3v2::Tag *id3v2Tag = mpegFile.ID3v2Tag(true); // create if missing
+            if (id3v2Tag) {
+                SetID3v2TextFrame(id3v2Tag, "TPE2", metadata.albumArtist);
+                SetID3v2TextFrame(id3v2Tag, "TCOM", metadata.composer);
+                SetID3v2TextFrame(
+                    id3v2Tag,
+                    "TBPM",
+                    metadata.bpm > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.bpm] : nil
+                );
+                SetID3v2TextFrame(id3v2Tag, "TSOT", metadata.sortTitle);
+                SetID3v2TextFrame(id3v2Tag, "TSOP", metadata.sortArtist);
+                SetID3v2TextFrame(id3v2Tag, "TSOA", metadata.sortAlbum);
+                SetID3v2TextFrame(id3v2Tag, "TSO2", metadata.sortAlbumArtist);
+                SetID3v2TextFrame(id3v2Tag, "TSOC", metadata.sortComposer);
+                SetID3v2TextFrame(id3v2Tag, "TPE3", metadata.conductor);
+                SetID3v2TextFrame(id3v2Tag, "TPE4", metadata.remixer);
+                SetID3v2TextFrame(id3v2Tag, "TEXT", metadata.lyricist);
+                SetID3v2TextFrame(id3v2Tag, "TENC", metadata.encodedBy);
+                SetID3v2TextFrame(id3v2Tag, "TSSE", metadata.encoderSettings);
+                SetID3v2TextFrame(id3v2Tag, "TSRC", metadata.isrc);
+                SetID3v2TextFrame(id3v2Tag, "TCOP", metadata.copyright);
+                SetID3v2TextFrame(id3v2Tag, "TIT3", metadata.subtitle);
+                SetID3v2TextFrame(id3v2Tag, "TIT1", metadata.grouping);
+                SetID3v2TextFrame(id3v2Tag, "TLAN", metadata.language);
+                SetID3v2TextFrame(id3v2Tag, "TKEY", metadata.musicalKey);
+                SetID3v2TextFrame(id3v2Tag, "TMOO", metadata.mood);
+                SetID3v2TextFrame(id3v2Tag, "TMED", metadata.mediaType);
+                SetID3v2TextFrame(id3v2Tag, "MVNM", metadata.movement);
+                SetID3v2TextFrame(id3v2Tag, "TCMP", metadata.compilation ? @"1" : nil);
+                SetID3v2LyricsFrame(id3v2Tag, metadata.lyrics);
+
+                NSString *trackString = TrimmedStringOrNil(metadata.trackNumberText);
+                if (!trackString && metadata.trackNumber > 0 && metadata.totalTracks > 0) {
+                    trackString = [NSString stringWithFormat:@"%ld/%ld",
+                                   (long)metadata.trackNumber,
+                                   (long)metadata.totalTracks];
+                } else if (!trackString && metadata.trackNumber > 0) {
+                    trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
+                }
+                SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
+
+                NSString *discString = TrimmedStringOrNil(metadata.discNumberText);
+                if (!discString && metadata.discNumber > 0 && metadata.totalDiscs > 0) {
+                    discString = [NSString stringWithFormat:@"%ld/%ld",
+                                  (long)metadata.discNumber,
+                                  (long)metadata.totalDiscs];
+                } else if (!discString && metadata.discNumber > 0) {
+                    discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
+                }
+                SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
+
+                NSString *releaseDate = metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year;
+                NSString *id3v2Year = metadata.year.length > 0
+                    ? metadata.year
+                    : (releaseDate.length >= 4 ? [releaseDate substringToIndex:4] : nil);
+                SetID3v2TextFrame(
+                    id3v2Tag,
+                    "TDRL",
+                    releaseDate
+                );
+                SetID3v2TextFrame(id3v2Tag, "TDRC", releaseDate);
+                SetID3v2TextFrame(id3v2Tag, "TYER", id3v2Year);
+                SetID3v2TextFrame(id3v2Tag, "TDOR", metadata.originalReleaseDate);
+                SetID3v2TextFrame(id3v2Tag, "TPUB", metadata.label);
+                SetID3v2UserTextFrame(id3v2Tag, "RELEASETYPE", metadata.releaseType);
+                SetID3v2UserTextFrame(id3v2Tag, "BARCODE", metadata.barcode);
+                SetID3v2UserTextFrame(id3v2Tag, "CATALOGNUMBER", metadata.catalogNumber);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNESALBUMID", metadata.itunesAlbumId);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNESARTISTID", metadata.itunesArtistId);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNESCATALOGID", metadata.itunesCatalogId);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNESGENREID", metadata.itunesGenreId);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNESMEDIATYPE", metadata.itunesMediaType);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNESPURCHASEDATE", metadata.itunesPurchaseDate);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNNORM", metadata.itunesNorm);
+                SetID3v2UserTextFrame(id3v2Tag, "ITUNSMPB", metadata.itunesSmpb);
+                SetID3v2UserTextFrame(id3v2Tag, "RELEASECOUNTRY", metadata.releaseCountry);
+                SetID3v2UserTextFrame(id3v2Tag, "ARTISTTYPE", metadata.artistType);
+                SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Artist Id", metadata.musicBrainzArtistId);
+                SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Album Id", metadata.musicBrainzAlbumId);
+                SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Track Id", metadata.musicBrainzTrackId);
+                SetID3v2UserTextFrame(id3v2Tag, "MusicBrainz Release Group Id", metadata.musicBrainzReleaseGroupId);
+                SetID3v2UserTextFrame(id3v2Tag, "PRODUCER", metadata.producer);
+                SetID3v2UserTextFrame(id3v2Tag, "ENGINEER", metadata.engineer);
+                SetID3v2UserTextFrame(id3v2Tag, "REPLAYGAIN_TRACK_GAIN", metadata.replayGainTrack);
+                SetID3v2UserTextFrame(id3v2Tag, "REPLAYGAIN_ALBUM_GAIN", metadata.replayGainAlbum);
+
+                // Explicit advisory (TXXX:ITUNESADVISORY, 0 = none, 1 = explicit, 2 = clean)
+                // Here we treat `explicitContent == YES` as advisory = 1, otherwise 0.
+                if (metadata.explicitContent) {
+                    SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"1");
+                } else {
+                    // If you prefer to completely remove the advisory when non-explicit,
+                    // you can change @"0" to nil.
+                    SetID3v2UserTextFrame(id3v2Tag, "ITUNESADVISORY", @"0");
+                }
+                ApplyCustomFieldsToID3v2Tag(id3v2Tag, metadata.customFields);
+
+                if (!ApplyPictureComplexProperties(id3v2Tag,
+                                                   metadata,
+                                                   error,
+                                                   68,
+                                                   @"Unable to clear artwork from the ID3v2 tag",
+                                                   69,
+                                                   @"Unable to write artwork into the ID3v2 tag",
+                                                   [NSString stringWithFormat:@"MPEG '%@'", fileURL.lastPathComponent])) {
+                    return NO;
+                }
+            }
+
+            // --- Save ---
+            if (!mpegFile.save()) {
+                if (error) {
+                    *error = [NSError errorWithDomain:@"TagLibMetadataExtractor"
+                                                 code:14
+                                             userInfo:@{ NSLocalizedDescriptionKey : @"TagLib failed to save metadata to file" }];
+                }
+                TLog(@"TagLib save() failed for '%@'", fileURL.lastPathComponent);
+                return NO;
+            }
         }
     } else if (isMP4Like) {
         TagLib::MP4::File mp4File(filePath);
@@ -5013,7 +5105,7 @@ static void AppendRIFFInfoSection(NSMutableString *out,
         }
 
         // 2) ID3v2 frames (when applicable)
-        if (f.isValid() && f.ID3v2Tag()) {
+        if (IsID3RichMPEGLikeExtension(ext) && f.isValid() && f.ID3v2Tag()) {
             TagLib::ID3v2::Tag *id3 = f.ID3v2Tag();
             TagLib::ID3v2::FrameList frames = id3->frameList();
 
@@ -5216,7 +5308,7 @@ static void AppendRIFFInfoSection(NSMutableString *out,
 
     // 2) Format-specific raw structures (these are what helps with "same field, different names")
 
-    if (IsMPEGLikeExtension(fileURL.pathExtension)) {
+    if (IsID3RichMPEGLikeExtension(fileURL.pathExtension)) {
         TagLib::MPEG::File f(filePath);
         if (f.isValid()) {
             AppendID3v2FramesSection(out, f.hasID3v2Tag() ? f.ID3v2Tag() : nullptr, @"[ID3v2 Frames]");

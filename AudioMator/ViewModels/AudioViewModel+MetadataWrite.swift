@@ -8,6 +8,19 @@ private func isTagWriteSupportedExtension(_ ext: String) -> Bool {
     supportedTagWriteExtensions.contains(ext.lowercased())
 }
 
+private func parseNumberTextForWrite(_ rawText: String) -> (number: Int, total: Int) {
+    let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return (0, 0) }
+
+    let parts = trimmed.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+    let number = parts.first.flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
+    let total = parts.count > 1
+        ? Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        : 0
+
+    return (max(0, number), max(0, total))
+}
+
 func isArtworkWriteSupportedExtension(_ ext: String) -> Bool {
     supportedArtworkWriteExtensions.contains(ext.lowercased())
 }
@@ -368,12 +381,13 @@ extension AudioViewModel {
             }
 
             do {
-                try TagLibMetadataManager.writeRawMetadataPropertyMap(
+                let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
                     propertyMaps[target.id] ?? [:],
                     to: target.url
                 )
 
                 summary.succeeded += 1
+                var warningMessages = writeResult.warnings
 
                 let refreshWarning = await reloadEditedFile(
                     at: target.url,
@@ -382,13 +396,17 @@ extension AudioViewModel {
                 )
 
                 if let refreshWarning {
+                    warningMessages.append(refreshWarning)
+                    summary.allSuccessfulFilesRefreshed = false
+                }
+
+                if !warningMessages.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
                             fileName: target.fileName,
-                            messages: [refreshWarning]
+                            messages: warningMessages
                         )
                     )
-                    summary.allSuccessfulFilesRefreshed = false
                 }
             } catch {
                 summary.failureIssues.append(
@@ -480,21 +498,27 @@ extension AudioViewModel {
         logMetadataWrite(meta, edit: edit, file: file)
 
         do {
-            try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
-            var warnings: [String] = []
-
-            do {
-                let trackText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-                let discText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-                _ = try TagLibMetadataExtractor.writeTrackNumberText(
-                    trackText,
-                    discNumberText: discText,
-                    to: file.url
+            let writeResult = try TagLibMetadataManager.writeTagMetadata(
+                meta,
+                to: file.url,
+                verification: TagLibMetadataManager.MetadataWriteVerificationContext(
+                    expectedTrackNumberText: edit.trackNumberText,
+                    expectedDiscNumberText: edit.discNumberText,
+                    expectedExplicitContent: edit.isExplicit,
+                    artworkExpectation: {
+                        switch edit.artworkEditAction {
+                        case .unchanged:
+                            return .unchanged
+                        case .replace:
+                            return .present
+                        case .remove:
+                            return .absent
+                        }
+                    }(),
+                    customFieldKeys: Array((meta.customFields ?? [:]).keys)
                 )
-            } catch {
-                print("Failed to write Track/Disc numbers: \(error)")
-                warnings.append("Track/Disc numbers were not fully saved: \((error as NSError).localizedDescription)")
-            }
+            )
+            var warnings: [String] = writeResult.warnings
 
             let refreshWarning = await reloadEditedFile(
                 file,
@@ -563,14 +587,19 @@ extension AudioViewModel {
             meta.removeArtwork = true
         }
 
-        // Track/Disc are written via `writeTrackNumberText(...)` below so the UI can accept
-        // formats like "01" or "01/10" (and so we can omit the "/total" part when desired).
-        meta.trackNumberText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.discNumberText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.trackNumber = 0
-        meta.totalTracks = 0
-        meta.discNumber = 0
-        meta.totalDiscs = 0
+        // Keep text representations for padding/format fidelity and also populate
+        // numeric pairs so one write pass updates all container-specific fields.
+        let trackText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let discText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsedTrack = parseNumberTextForWrite(trackText)
+        let parsedDisc = parseNumberTextForWrite(discText)
+
+        meta.trackNumberText = trackText
+        meta.discNumberText = discText
+        meta.trackNumber = parsedTrack.number
+        meta.totalTracks = parsedTrack.total
+        meta.discNumber = parsedDisc.number
+        meta.totalDiscs = parsedDisc.total
 
         return meta
     }
@@ -664,51 +693,10 @@ extension AudioViewModel {
             return
         }
 
-        let meta = TagLibAudioMetadata()
-        meta.title = ""
-        meta.artist = ""
-        meta.album = ""
-        meta.composer = ""
-        meta.genre = ""
-        meta.comment = ""
-        meta.albumArtist = ""
-        meta.year = ""
-        meta.releaseDate = ""
-        meta.label = ""
-        meta.isrc = ""
-        meta.barcode = ""
-        meta.musicBrainzAlbumId = ""
-        meta.musicBrainzTrackId = ""
-        meta.musicBrainzReleaseGroupId = ""
-        meta.lyricist = ""
-        meta.remixer = ""
-        meta.producer = ""
-        meta.engineer = ""
-        meta.language = ""
-        meta.mediaType = ""
-        meta.releaseType = ""
-        meta.catalogNumber = ""
-        meta.releaseCountry = ""
-        meta.copyright = ""
-        meta.trackNumber = 0
-        meta.totalTracks = 0
-        meta.discNumber = 0
-        meta.totalDiscs = 0
-        meta.explicitContent = false
-        meta.removeArtwork = true
-
         Task(priority: .userInitiated) {
             do {
-                try TagLibMetadataExtractor.writeMetadata(meta, to: file.url)
-                var warnings: [String] = []
-
-                do {
-                    try TagLibMetadataManager.writeRawMetadataPropertyMap([:], to: file.url)
-                } catch {
-                    warnings.append(
-                        "Some container-specific metadata could not be fully cleared: \((error as NSError).localizedDescription)"
-                    )
-                }
+                let writeResult = try TagLibMetadataManager.eraseAllMetadataWithVerification(from: file.url)
+                var warnings: [String] = writeResult.warnings
 
                 if let refreshWarning = await self.reloadEditedFile(file) {
                     warnings.append(refreshWarning)
@@ -842,10 +830,11 @@ extension AudioViewModel {
                         ? String(format: "%0*d", padWidth, newNumber)
                         : String(newNumber)
 
-                    _ = try TagLibMetadataExtractor.writeTrackNumberText(
+                    _ = try TagLibMetadataManager.writeTrackNumberText(
                         formattedTrackNumber,
                         discNumberText: nil,
-                        to: target.url
+                        to: target.url,
+                        verifyAfterWrite: false
                     )
                     result.succeeded += 1
                     successfulTargets.append((id: target.id, url: target.url, trackNumberText: formattedTrackNumber))

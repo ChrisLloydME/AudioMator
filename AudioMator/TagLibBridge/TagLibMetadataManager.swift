@@ -5,6 +5,29 @@
 
 import Foundation
 
+enum MetadataValueSource: String, Hashable {
+    case nativeTag
+    case propertyMap
+    case id3v2Frame
+    case rawFallback
+    case derivedNumeric
+    case none
+}
+
+struct MetadataFieldProvenance: Hashable {
+    var trackNumberText: MetadataValueSource
+    var discNumberText: MetadataValueSource
+    var explicitContent: MetadataValueSource
+    var artwork: MetadataValueSource
+
+    nonisolated static let unknown = MetadataFieldProvenance(
+        trackNumberText: .none,
+        discNumberText: .none,
+        explicitContent: .none,
+        artwork: .none
+    )
+}
+
 /// Mirrors the metadata fields used in `AudioFile.swift`.
 struct BasicMetadata {
     var title: String
@@ -76,6 +99,7 @@ struct BasicMetadata {
     var format: String
     var artworkData: Data?
     var customFields: [String: String]
+    var provenance: MetadataFieldProvenance
 
     nonisolated static let empty = BasicMetadata(
         title: "",
@@ -146,7 +170,8 @@ struct BasicMetadata {
         bitDepth: 0,
         format: "",
         artworkData: nil,
-        customFields: [:]
+        customFields: [:],
+        provenance: .unknown
     )
 }
 
@@ -250,10 +275,258 @@ struct TagLibMetadataManager {
         "----:COM.APPLE.ITUNES:AUDIOMATOR_DISCNUMBER_TEXT",
     ]
 
+    enum ArtworkVerificationExpectation {
+        case unchanged
+        case present
+        case absent
+    }
+
+    struct MetadataWriteVerificationContext: Equatable {
+        var expectedTrackNumberText: String?
+        var expectedDiscNumberText: String?
+        var expectedExplicitContent: Bool?
+        var artworkExpectation: ArtworkVerificationExpectation
+        var customFieldKeys: [String]
+
+        nonisolated static let none = MetadataWriteVerificationContext(
+            expectedTrackNumberText: nil,
+            expectedDiscNumberText: nil,
+            expectedExplicitContent: nil,
+            artworkExpectation: .unchanged,
+            customFieldKeys: []
+        )
+    }
+
+    struct MetadataWriteResult {
+        var warnings: [String]
+    }
+
     nonisolated private static func isHiddenInternalRawFieldKey(_ key: String) -> Bool {
         hiddenInternalRawFieldKeys.contains(
             key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         )
+    }
+
+    nonisolated private static func normalizedTrimmed(_ value: String?) -> String {
+        (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated private static func parseNumberPair(_ value: String) -> (number: Int, total: Int) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return (0, 0) }
+
+        let parts = trimmed.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        let number = parts.first.flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
+        let total = parts.count > 1
+            ? Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            : 0
+        return (max(0, number), max(0, total))
+    }
+
+    nonisolated private static func numberPairEquivalent(_ lhs: String?, _ rhs: String?) -> Bool {
+        parseNumberPair(normalizedTrimmed(lhs)) == parseNumberPair(normalizedTrimmed(rhs))
+    }
+
+    nonisolated private static func rawPropertiesLookup(_ dump: RawMetadataDump) -> [String: [String]] {
+        dump.properties.reduce(into: [:]) { result, entry in
+            let key = entry.key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            guard !key.isEmpty else { return }
+
+            let mergedValues = (entry.values + [entry.value])
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+
+            guard !mergedValues.isEmpty else { return }
+
+            var existing = result[key] ?? []
+            existing.append(contentsOf: mergedValues)
+            result[key] = Array(Set(existing))
+        }
+    }
+
+    nonisolated private static func rawContainsCustomKey(_ key: String, dump: RawMetadataDump) -> Bool {
+        let expected = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !expected.isEmpty else { return true }
+
+        for property in dump.properties {
+            let candidate = property.key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            if candidate == expected || candidate.hasSuffix(":\(expected)") || candidate.contains(expected) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    nonisolated private static func explicitValueSource(from dump: RawMetadataDump, fallback: Bool) -> MetadataValueSource {
+        let explicitKeys = Set(["ITUNESADVISORY", "ADVISORY", "EXPLICITCONTENT", "EXPLICIT", "RTNG"])
+        if dump.properties.contains(where: { entry in
+            let key = entry.key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            return explicitKeys.contains(key) || key.hasSuffix(":ITUNESADVISORY")
+        }) {
+            return .propertyMap
+        }
+
+        if dump.id3v2Frames.contains(where: { frame in
+            if frame.frameID.uppercased() == "TXXX" {
+                let description = frame.description?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+                return description == "ITUNESADVISORY" || description == "EXPLICIT"
+            }
+            return false
+        }) {
+            return .id3v2Frame
+        }
+
+        return fallback ? .nativeTag : .none
+    }
+
+    nonisolated private static func hasVerificationExpectations(_ verification: MetadataWriteVerificationContext) -> Bool {
+        if let expectedTrack = verification.expectedTrackNumberText,
+           !normalizedTrimmed(expectedTrack).isEmpty {
+            return true
+        }
+
+        if let expectedDisc = verification.expectedDiscNumberText,
+           !normalizedTrimmed(expectedDisc).isEmpty {
+            return true
+        }
+
+        if verification.expectedExplicitContent != nil {
+            return true
+        }
+
+        switch verification.artworkExpectation {
+        case .unchanged:
+            break
+        case .present, .absent:
+            return true
+        }
+
+        return !verification.customFieldKeys.isEmpty
+    }
+
+    nonisolated private static func metadataWriteWarnings(
+        for url: URL,
+        verification: MetadataWriteVerificationContext
+    ) -> [String] {
+        guard hasVerificationExpectations(verification) else { return [] }
+
+        var warnings: [String] = []
+        let afterWrite = readMetadata(from: url)
+        let rawDump = rawMetadata(from: url)
+
+        if let expectedTrack = verification.expectedTrackNumberText,
+           !normalizedTrimmed(expectedTrack).isEmpty,
+           let afterWrite {
+            if !numberPairEquivalent(expectedTrack, afterWrite.trackNumberText) {
+                warnings.append(
+                    "Track number text differs after save (expected \(expectedTrack), got \(afterWrite.trackNumberText))."
+                )
+            } else if normalizedTrimmed(expectedTrack) != normalizedTrimmed(afterWrite.trackNumberText) {
+                warnings.append(
+                    "Track number formatting was normalized by the container (\(expectedTrack) -> \(afterWrite.trackNumberText))."
+                )
+            }
+        }
+
+        if let expectedDisc = verification.expectedDiscNumberText,
+           !normalizedTrimmed(expectedDisc).isEmpty,
+           let afterWrite {
+            if !numberPairEquivalent(expectedDisc, afterWrite.discNumberText) {
+                warnings.append(
+                    "Disc number text differs after save (expected \(expectedDisc), got \(afterWrite.discNumberText))."
+                )
+            } else if normalizedTrimmed(expectedDisc) != normalizedTrimmed(afterWrite.discNumberText) {
+                warnings.append(
+                    "Disc number formatting was normalized by the container (\(expectedDisc) -> \(afterWrite.discNumberText))."
+                )
+            }
+        }
+
+        if let expectedExplicit = verification.expectedExplicitContent, let afterWrite {
+            if expectedExplicit != afterWrite.isExplicit {
+                warnings.append(
+                    "Explicit flag differs after save (expected \(expectedExplicit ? "explicit" : "clean"), got \(afterWrite.isExplicit ? "explicit" : "clean"))."
+                )
+            }
+        }
+
+        if let afterWrite {
+            switch verification.artworkExpectation {
+            case .unchanged:
+                break
+            case .present:
+                if afterWrite.artworkData == nil {
+                    warnings.append("Artwork was expected to be present after save but no embedded artwork was found.")
+                }
+            case .absent:
+                if afterWrite.artworkData != nil {
+                    warnings.append("Artwork was expected to be removed but embedded artwork is still present.")
+                }
+            }
+        }
+
+        if !verification.customFieldKeys.isEmpty {
+            guard let rawDump else {
+                warnings.append("Could not verify custom field preservation after save.")
+                return warnings
+            }
+
+            for key in verification.customFieldKeys where !rawContainsCustomKey(key, dump: rawDump) {
+                warnings.append("Custom field \"\(key)\" could not be confirmed after save.")
+            }
+        }
+
+        return warnings
+    }
+
+    nonisolated private static func rawPropertyMapWriteWarnings(
+        requestedProperties: [String: String],
+        for url: URL
+    ) -> [String] {
+        guard !requestedProperties.isEmpty else { return [] }
+        guard let rawDump = rawMetadata(from: url) else {
+            return ["Could not verify raw metadata write after save."]
+        }
+
+        var warnings: [String] = []
+        let lookup = rawPropertiesLookup(rawDump)
+        let riskyNumberKeys = Set(["TRACKNUMBER", "TRACK", "DISCNUMBER", "DISC"])
+        let riskyExplicitKeys = Set(["ITUNESADVISORY", "ADVISORY", "EXPLICITCONTENT", "EXPLICIT"])
+
+        for (rawKey, rawValue) in requestedProperties {
+            let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else { continue }
+
+            guard let persistedValues = lookup[key], !persistedValues.isEmpty else {
+                warnings.append("Raw key \"\(rawKey)\" was not found after save.")
+                continue
+            }
+
+            if riskyNumberKeys.contains(key) {
+                let expectedPair = parseNumberPair(value)
+                let pairMatched = persistedValues.contains { parseNumberPair($0) == expectedPair }
+                if !pairMatched {
+                    warnings.append("Raw number key \"\(rawKey)\" differs after save.")
+                }
+                continue
+            }
+
+            if riskyExplicitKeys.contains(key) {
+                let normalizedPersisted = persistedValues.map { $0.uppercased() }
+                if !normalizedPersisted.contains(value.uppercased()) {
+                    warnings.append("Raw explicit key \"\(rawKey)\" differs after save.")
+                }
+                continue
+            }
+
+            if !persistedValues.contains(where: { $0.caseInsensitiveCompare(value) == .orderedSame }) {
+                warnings.append("Raw key \"\(rawKey)\" value changed after save.")
+            }
+        }
+
+        return warnings
     }
 
     nonisolated private static func parsedPropertyEntries(fromDumpText text: String) -> [RawPropertyEntry] {
@@ -373,12 +646,43 @@ struct TagLibMetadataManager {
                 discNumberText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
                 meta.discNumber > 0
 
+            var rawDump: RawMetadataDump?
             let rawNumberText: (track: String, disc: String)
             if needsTrackTextFallback || needsDiscTextFallback {
-                rawNumberText = rawMetadata(from: url).map(rawNumberTexts(from:)) ?? (track: "", disc: "")
+                rawDump = rawMetadata(from: url)
+                rawNumberText = rawDump.map(rawNumberTexts(from:)) ?? (track: "", disc: "")
             } else {
                 rawNumberText = (track: "", disc: "")
             }
+
+            if case nil = rawDump {
+                rawDump = rawMetadata(from: url)
+            }
+
+            var trackSource: MetadataValueSource =
+                trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? (meta.trackNumber > 0 ? .derivedNumeric : .none)
+                : .nativeTag
+
+            var discSource: MetadataValueSource =
+                discNumberText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? (meta.discNumber > 0 ? .derivedNumeric : .none)
+                : .nativeTag
+
+            if needsTrackTextFallback,
+               !rawNumberText.track.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                trackSource = .rawFallback
+            }
+
+            if needsDiscTextFallback,
+               !rawNumberText.disc.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                discSource = .rawFallback
+            }
+
+            let explicitSource = rawDump.map {
+                explicitValueSource(from: $0, fallback: meta.explicitContent)
+            } ?? (meta.explicitContent ? .nativeTag : .none)
+            let artworkSource: MetadataValueSource = (meta.artworkData as Data?) == nil ? .none : .nativeTag
 
             return BasicMetadata(
                 title: meta.title ?? "",
@@ -453,7 +757,13 @@ struct TagLibMetadataManager {
                 bitDepth: Int(meta.bitDepth),
                 format: meta.codec ?? "",
                 artworkData: meta.artworkData as Data?,
-                customFields: meta.customFields ?? [:]
+                customFields: meta.customFields ?? [:],
+                provenance: MetadataFieldProvenance(
+                    trackNumberText: trackSource,
+                    discNumberText: discSource,
+                    explicitContent: explicitSource,
+                    artwork: artworkSource
+                )
             )
         } catch {
             print("TagLib read error for \(url.lastPathComponent): \(error)")
@@ -462,6 +772,187 @@ struct TagLibMetadataManager {
     }
 
     // MARK: - Write / Erase
+
+    @discardableResult
+    nonisolated static func writeTagMetadata(
+        _ metadata: TagLibAudioMetadata,
+        to url: URL,
+        verification: MetadataWriteVerificationContext = .none
+    ) throws -> MetadataWriteResult {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
+            throw TagLibManagerError.unsupportedFormat
+        }
+
+        try TagLibMetadataExtractor.writeMetadata(metadata, to: url)
+        return MetadataWriteResult(
+            warnings: metadataWriteWarnings(for: url, verification: verification)
+        )
+    }
+
+    @discardableResult
+    nonisolated static func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool = true
+    ) throws -> MetadataWriteResult {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
+            throw TagLibManagerError.unsupportedFormat
+        }
+
+        try TagLibMetadataExtractor.writeTrackNumberText(
+            trackNumberText,
+            discNumberText: discNumberText,
+            to: url
+        )
+
+        if !verifyAfterWrite {
+            return MetadataWriteResult(warnings: [])
+        }
+
+        return MetadataWriteResult(
+            warnings: metadataWriteWarnings(
+                for: url,
+                verification: MetadataWriteVerificationContext(
+                    expectedTrackNumberText: trackNumberText,
+                    expectedDiscNumberText: discNumberText,
+                    expectedExplicitContent: nil,
+                    artworkExpectation: .unchanged,
+                    customFieldKeys: []
+                )
+            )
+        )
+    }
+
+    @discardableResult
+    nonisolated static func writeRawMetadataPropertyMapWithVerification(
+        _ properties: [String: String],
+        to url: URL,
+        verifyAfterWrite: Bool = true
+    ) throws -> MetadataWriteResult {
+        let ext = url.pathExtension.lowercased()
+        guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
+            throw TagLibManagerError.unsupportedFormat
+        }
+
+        try TagLibMetadataExtractor.writeRawPropertyMap(properties, to: url)
+        return MetadataWriteResult(
+            warnings: verifyAfterWrite
+                ? rawPropertyMapWriteWarnings(requestedProperties: properties, for: url)
+                : []
+        )
+    }
+
+    nonisolated private static func residualWarningsAfterErase(for url: URL) -> [String] {
+        var warnings: [String] = []
+
+        if let metadata = readMetadata(from: url) {
+            var residualFields: [String] = []
+            if !metadata.title.isEmpty { residualFields.append("TITLE") }
+            if !metadata.artist.isEmpty { residualFields.append("ARTIST") }
+            if !metadata.album.isEmpty { residualFields.append("ALBUM") }
+            if !metadata.comment.isEmpty { residualFields.append("COMMENT") }
+            if !metadata.genre.isEmpty { residualFields.append("GENRE") }
+            if metadata.track > 0 || metadata.trackTotal > 0 { residualFields.append("TRACK") }
+            if metadata.disc > 0 || metadata.discTotal > 0 { residualFields.append("DISC") }
+            if metadata.artworkData != nil { residualFields.append("ARTWORK") }
+            if !metadata.customFields.isEmpty { residualFields.append("CUSTOM") }
+
+            if !residualFields.isEmpty {
+                warnings.append(
+                    "Some metadata fields still remain after erase: \(residualFields.joined(separator: ", "))."
+                )
+            }
+        } else {
+            warnings.append("Could not verify erase result by re-reading metadata.")
+        }
+
+        if let rawDump = rawMetadata(from: url) {
+            let remainingKeys = rawDump.properties
+                .map(\.key)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !isHiddenInternalRawFieldKey($0) && !$0.isEmpty }
+                .sorted()
+
+            if !remainingKeys.isEmpty {
+                let preview = remainingKeys.prefix(8).joined(separator: ", ")
+                warnings.append(
+                    "Raw metadata still contains \(remainingKeys.count) key(s) after erase (\(preview)\(remainingKeys.count > 8 ? ", ..." : ""))."
+                )
+            }
+        }
+
+        return warnings
+    }
+
+    @discardableResult
+    nonisolated static func eraseAllMetadataWithVerification(from url: URL) throws -> MetadataWriteResult {
+        let meta = TagLibAudioMetadata()
+        meta.title = ""
+        meta.artist = ""
+        meta.album = ""
+        meta.composer = ""
+        meta.genre = ""
+        meta.comment = ""
+        meta.albumArtist = ""
+        meta.year = ""
+        meta.releaseDate = ""
+        meta.originalReleaseDate = ""
+        meta.label = ""
+        meta.isrc = ""
+        meta.barcode = ""
+        meta.musicBrainzArtistId = ""
+        meta.musicBrainzAlbumId = ""
+        meta.musicBrainzTrackId = ""
+        meta.musicBrainzReleaseGroupId = ""
+        meta.lyricist = ""
+        meta.remixer = ""
+        meta.producer = ""
+        meta.engineer = ""
+        meta.language = ""
+        meta.mediaType = ""
+        meta.releaseType = ""
+        meta.catalogNumber = ""
+        meta.releaseCountry = ""
+        meta.copyright = ""
+        meta.trackNumber = 0
+        meta.totalTracks = 0
+        meta.discNumber = 0
+        meta.totalDiscs = 0
+        meta.trackNumberText = nil
+        meta.discNumberText = nil
+        meta.explicitContent = false
+        meta.removeArtwork = true
+        meta.customFields = nil
+
+        var warnings: [String] = []
+        warnings.append(
+            contentsOf: try writeTagMetadata(
+                meta,
+                to: url,
+                verification: MetadataWriteVerificationContext(
+                    expectedTrackNumberText: nil,
+                    expectedDiscNumberText: nil,
+                    expectedExplicitContent: false,
+                    artworkExpectation: .absent,
+                    customFieldKeys: []
+                )
+            ).warnings
+        )
+
+        warnings.append(
+            contentsOf: try writeRawMetadataPropertyMapWithVerification(
+                [:],
+                to: url,
+                verifyAfterWrite: false
+            ).warnings
+        )
+
+        warnings.append(contentsOf: residualWarningsAfterErase(for: url))
+        return MetadataWriteResult(warnings: warnings)
+    }
 
     /// Write `BasicMetadata` back to the file using TagLib.
     ///
@@ -556,8 +1047,22 @@ struct TagLibMetadataManager {
         m.musicBrainzReleaseGroupId = nilIfEmpty(meta.musicBrainzReleaseGroupID)
         m.customFields = meta.customFields.isEmpty ? nil : meta.customFields
 
-        // Persist
-        try TagLibMetadataExtractor.writeMetadata(m, to: url)
+        // Persist through the write coordinator so all metadata entry points
+        // share post-write verification policy.
+        let result = try writeTagMetadata(
+            m,
+            to: url,
+            verification: MetadataWriteVerificationContext(
+                expectedTrackNumberText: meta.trackNumberText,
+                expectedDiscNumberText: meta.discNumberText,
+                expectedExplicitContent: meta.isExplicit,
+                artworkExpectation: .unchanged,
+                customFieldKeys: Array(meta.customFields.keys)
+            )
+        )
+        if !result.warnings.isEmpty {
+            print("[AudioMator] Metadata write warnings for \(url.lastPathComponent): \(result.warnings.joined(separator: " | "))")
+        }
         return true
     }
 
@@ -568,7 +1073,10 @@ struct TagLibMetadataManager {
             throw TagLibManagerError.unsupportedFormat
         }
 
-        try TagLibMetadataExtractor.writeRawPropertyMap(properties, to: url)
+        let result = try writeRawMetadataPropertyMapWithVerification(properties, to: url)
+        if !result.warnings.isEmpty {
+            print("[AudioMator] Raw metadata write warnings for \(url.lastPathComponent): \(result.warnings.joined(separator: " | "))")
+        }
         return true
     }
 
@@ -578,7 +1086,11 @@ struct TagLibMetadataManager {
     /// This should clear the common tag fields and reset numeric fields to 0.
     @discardableResult
     nonisolated static func eraseAllMetadata(from url: URL) throws -> Bool {
-        return try writeMetadata(.empty, to: url)
+        let result = try eraseAllMetadataWithVerification(from: url)
+        if !result.warnings.isEmpty {
+            print("[AudioMator] Erase warnings for \(url.lastPathComponent): \(result.warnings.joined(separator: " | "))")
+        }
+        return true
     }
 
     /// Raw metadata dump for GUI inspection ("show me everything TagLib sees").

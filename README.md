@@ -1,6 +1,6 @@
 # AudioMator
 
-AudioMator is a native **macOS SwiftUI** app for reading, editing, and writing audio metadata through a bundled **TagLib bridge** with additional inspection support from **AVFoundation**.
+AudioMator is a native macOS app for reading, editing, and writing audio metadata through a bundled TagLib bridge with additional inspection support from AVFoundation.
 
 The app is designed around local files you explicitly load, plus optional online lookup workflows (MusicBrainz and iTunes artwork).
 
@@ -93,29 +93,6 @@ These extensions are used for import/read and are also the app’s configured me
   - MusicBrainz search/detail/tagging support
   - iTunes artwork search/download
   - GitHub release-notes fetch in Settings → About
-
-## Build and run
-
-### Open in Xcode
-
-```bash
-open /home/runner/work/AudioMator/AudioMator/AudioMator.xcodeproj
-```
-
-### Build from CLI
-
-```bash
-/home/runner/work/AudioMator/AudioMator/scripts/codex-build.sh
-```
-
-Notes from project configuration:
-
-- Scheme: `AudioMator`
-- Swift: `5.0`
-- Marketing version: `1.6.1`
-- Project build version: `264133`
-- Deployment target: macOS `26.1`
-- The repo currently has one app target (no separate test target configured)
 
 ## Project structure
 

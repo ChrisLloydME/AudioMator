@@ -2,15 +2,15 @@ import Foundation
 import UniformTypeIdentifiers
 
 enum AudioFormatSupport {
-    private static let orderedSupportedExtensions: [String] = {
+    nonisolated private static let orderedSupportedExtensions: [String] = {
         TagLibMetadataExtractor.supportedExtensions().map { $0.lowercased() }
     }()
 
-    static let readableExtensions: Set<String> = Set(orderedSupportedExtensions)
-    static let metadataWritableExtensions: Set<String> = readableExtensions
-    static let artworkWritableExtensions: Set<String> = readableExtensions
+    nonisolated static let readableExtensions: Set<String> = Set(orderedSupportedExtensions)
+    nonisolated static let metadataWritableExtensions: Set<String> = readableExtensions
+    nonisolated static let artworkWritableExtensions: Set<String> = readableExtensions
 
-    static let openPanelContentTypes: [UTType] = {
+    nonisolated static let openPanelContentTypes: [UTType] = {
         var seenIdentifiers = Set<String>()
 
         return orderedSupportedExtensions.compactMap { ext in

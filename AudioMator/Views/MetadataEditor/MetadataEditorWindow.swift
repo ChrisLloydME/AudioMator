@@ -63,7 +63,12 @@ final class MetadataEditorStore: ObservableObject {
     @Published private(set) var loadErrorMessage: String?
     @Published var selectedFieldKey: String?
 
+    private let metadataPipeline: any AudioMetadataPipeline
     private var loadToken = UUID()
+
+    init(metadataPipeline: any AudioMetadataPipeline) {
+        self.metadataPipeline = metadataPipeline
+    }
 
     var hasUnsavedChanges: Bool {
         draftPropertyMaps != originalPropertyMaps
@@ -116,9 +121,10 @@ final class MetadataEditorStore: ObservableObject {
         self.selectedFieldKey = nil
         self.isLoading = true
         self.loadToken = token
+        let metadataPipeline = self.metadataPipeline
 
-        Task(priority: .userInitiated) {
-            let loadedState = Self.loadState(for: targets)
+        Task(priority: .userInitiated) { [targets, token, metadataPipeline] in
+            let loadedState = Self.loadState(for: targets, metadataPipeline: metadataPipeline)
 
             await MainActor.run {
                 guard self.loadToken == token else { return }
@@ -202,13 +208,16 @@ final class MetadataEditorStore: ObservableObject {
         }
     }
 
-    nonisolated private static func loadState(for targets: [MetadataEditorTarget]) -> LoadedState {
+    nonisolated private static func loadState(
+        for targets: [MetadataEditorTarget],
+        metadataPipeline: any AudioMetadataPipeline
+    ) -> LoadedState {
         var propertyMaps: [AudioFile.ID: [String: String]] = [:]
         var failures: [String] = []
 
         for target in targets {
             do {
-                propertyMaps[target.id] = try propertyMap(for: target.url)
+                propertyMaps[target.id] = try metadataPipeline.rawMetadataPropertyMap(for: target.url)
             } catch {
                 propertyMaps[target.id] = [:]
                 failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
@@ -225,22 +234,6 @@ final class MetadataEditorStore: ObservableObject {
         }
 
         return LoadedState(propertyMaps: propertyMaps, errorMessage: errorMessage)
-    }
-
-    nonisolated private static func propertyMap(for url: URL) throws -> [String: String] {
-        let dump = try TagLibMetadataManager.rawMetadataResult(from: url)
-        var propertyMap: [String: String] = [:]
-
-        for entry in dump.properties {
-            let key = normalizedFieldKey(entry.key)
-            let valueSource = entry.values.isEmpty ? entry.value : entry.values.joined(separator: "; ")
-            let value = normalizedFieldValue(valueSource)
-
-            guard !key.isEmpty, !value.isEmpty else { continue }
-            propertyMap[key] = value
-        }
-
-        return propertyMap
     }
 
     nonisolated private static func normalizedFieldKey(_ key: String) -> String {

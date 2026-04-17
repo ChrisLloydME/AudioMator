@@ -14,6 +14,7 @@ struct ContentView: View {
     @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @ObservedObject var metadataEditorStore: MetadataEditorStore
+    let metadataPipeline: any AudioMetadataPipeline
     @Environment(\.openWindow) private var openWindow
 
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
@@ -570,7 +571,8 @@ struct ContentView_Previews: PreviewProvider {
             state: SharedState(),
             musicBrainzBrowserStore: MusicBrainzBrowserStore(),
             metadataFilenameToolStore: MetadataFilenameToolStore(),
-            metadataEditorStore: MetadataEditorStore()
+            metadataEditorStore: MetadataEditorStore(metadataPipeline: TagLibAudioMetadataPipeline()),
+            metadataPipeline: TagLibAudioMetadataPipeline()
         )
     }
 }
@@ -615,7 +617,7 @@ extension ContentView {
     private func buildMetadataDump(for url: URL) async -> String {
         var sections: [String] = []
 
-        let tagLibText = TagLibMetadataManager.rawMetadataText(from: url)?
+        let tagLibText = metadataPipeline.rawMetadataDumpText(for: url)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !tagLibText.isEmpty {
             sections.append(tagLibText)

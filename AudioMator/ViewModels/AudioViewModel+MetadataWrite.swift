@@ -8,19 +8,6 @@ private func isTagWriteSupportedExtension(_ ext: String) -> Bool {
     supportedTagWriteExtensions.contains(ext.lowercased())
 }
 
-private func parseNumberTextForWrite(_ rawText: String) -> (number: Int, total: Int) {
-    let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { return (0, 0) }
-
-    let parts = trimmed.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
-    let number = parts.first.flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
-    let total = parts.count > 1
-        ? Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-        : 0
-
-    return (max(0, number), max(0, total))
-}
-
 func isArtworkWriteSupportedExtension(_ ext: String) -> Bool {
     supportedArtworkWriteExtensions.contains(ext.lowercased())
 }
@@ -381,7 +368,7 @@ extension AudioViewModel {
             }
 
             do {
-                let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
+                let writeResult = try metadataPipeline.writeRawMetadataPropertyMap(
                     propertyMaps[target.id] ?? [:],
                     to: target.url
                 )
@@ -494,30 +481,10 @@ extension AudioViewModel {
             return .failure("This format does not support metadata writing yet.")
         }
 
-        let meta = makeTagLibMetadata(from: edit, preservingMetadataFrom: file)
-        logMetadataWrite(meta, edit: edit, file: file)
+        let editPayload = MetadataEditPayload(edit)
 
         do {
-            let writeResult = try TagLibMetadataManager.writeTagMetadata(
-                meta,
-                to: file.url,
-                verification: TagLibMetadataManager.MetadataWriteVerificationContext(
-                    expectedTrackNumberText: edit.trackNumberText,
-                    expectedDiscNumberText: edit.discNumberText,
-                    expectedExplicitContent: edit.isExplicit,
-                    artworkExpectation: {
-                        switch edit.artworkEditAction {
-                        case .unchanged:
-                            return .unchanged
-                        case .replace:
-                            return .present
-                        case .remove:
-                            return .absent
-                        }
-                    }(),
-                    customFieldKeys: Array((meta.customFields ?? [:]).keys)
-                )
-            )
+            let writeResult = try metadataPipeline.writeMetadata(editPayload, to: file.url)
             var warnings: [String] = writeResult.warnings
 
             let refreshWarning = await reloadEditedFile(
@@ -538,108 +505,6 @@ extension AudioViewModel {
             print("Failed to write metadata via TagLib: \(error)")
             return .failure((error as NSError).localizedDescription)
         }
-    }
-
-    private func makeTagLibMetadata(
-        from edit: SingleFileEditModel,
-        preservingMetadataFrom file: AudioFile
-    ) -> TagLibAudioMetadata {
-        let meta = (try? TagLibMetadataExtractor.extractMetadata(from: file.url)) ?? TagLibAudioMetadata()
-
-        // Trim surrounding whitespace to avoid writing accidental padded tags.
-        meta.title = edit.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.artist = edit.artist.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.album = edit.album.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.composer = edit.composer.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.genre = edit.genre.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.comment = edit.comment.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.albumArtist = edit.albumArtist.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.year = edit.year.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.releaseDate = edit.releaseDate.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.label = edit.publisher.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.isrc = edit.isrc.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.barcode = edit.barcode.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.musicBrainzAlbumId = edit.musicBrainzAlbumID.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.musicBrainzTrackId = edit.musicBrainzTrackID.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.musicBrainzReleaseGroupId = edit.musicBrainzReleaseGroupID.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.lyricist = edit.lyricist.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.remixer = edit.remixer.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.producer = edit.producer.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.engineer = edit.engineer.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.language = edit.language.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.mediaType = edit.mediaType.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.releaseType = edit.releaseType.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.catalogNumber = edit.catalogNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.releaseCountry = edit.releaseCountry.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.copyright = edit.copyright.trimmingCharacters(in: .whitespacesAndNewlines)
-        meta.explicitContent = edit.isExplicit
-
-        switch edit.artworkEditAction {
-        case .unchanged:
-            meta.artworkData = nil
-            meta.artworkMimeType = nil
-            meta.removeArtwork = false
-        case .replace(let artwork):
-            meta.artworkData = artwork.data
-            meta.artworkMimeType = artwork.mimeType
-            meta.removeArtwork = false
-        case .remove:
-            meta.removeArtwork = true
-        }
-
-        // Keep text representations for padding/format fidelity and also populate
-        // numeric pairs so one write pass updates all container-specific fields.
-        let trackText = edit.trackNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let discText = edit.discNumberText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parsedTrack = parseNumberTextForWrite(trackText)
-        let parsedDisc = parseNumberTextForWrite(discText)
-
-        meta.trackNumberText = trackText
-        meta.discNumberText = discText
-        meta.trackNumber = parsedTrack.number
-        meta.totalTracks = parsedTrack.total
-        meta.discNumber = parsedDisc.number
-        meta.totalDiscs = parsedDisc.total
-
-        return meta
-    }
-
-    private func logMetadataWrite(
-        _ meta: TagLibAudioMetadata,
-        edit: SingleFileEditModel,
-        file: AudioFile
-    ) {
-        print("""
-        [AudioMator] Will write metadata for \(file.url.lastPathComponent)
-          title       = \(meta.title ?? "<nil>")
-          artist      = \(meta.artist ?? "<nil>")
-          album       = \(meta.album ?? "<nil>")
-          composer    = \(meta.composer ?? "<nil>")
-          genre       = \(meta.genre ?? "<nil>")
-          comment     = \(meta.comment ?? "<nil>")
-          albumArtist = \(meta.albumArtist ?? "<nil>")
-          releaseDate = \(meta.releaseDate ?? "<nil>")
-          publisher   = \(meta.label ?? "<nil>")
-          isrc        = \(meta.isrc ?? "<nil>")
-          barcode     = \(meta.barcode ?? "<nil>")
-          mbAlbumID   = \(meta.musicBrainzAlbumId ?? "<nil>")
-          mbTrackID   = \(meta.musicBrainzTrackId ?? "<nil>")
-          mbRGID      = \(meta.musicBrainzReleaseGroupId ?? "<nil>")
-          lyricist    = \(meta.lyricist ?? "<nil>")
-          remixer     = \(meta.remixer ?? "<nil>")
-          producer    = \(meta.producer ?? "<nil>")
-          engineer    = \(meta.engineer ?? "<nil>")
-          language    = \(meta.language ?? "<nil>")
-          mediaType   = \(meta.mediaType ?? "<nil>")
-          releaseType = \(meta.releaseType ?? "<nil>")
-          catalogNo   = \(meta.catalogNumber ?? "<nil>")
-          relCountry  = \(meta.releaseCountry ?? "<nil>")
-          copyright   = \(meta.copyright ?? "<nil>")
-          explicit    = \(meta.explicitContent ? "YES" : "NO")
-          year        = \(meta.year ?? "<nil>")
-          trackText   = \(edit.trackNumberText.isEmpty ? "<empty>" : edit.trackNumberText)
-          discText    = \(edit.discNumberText.isEmpty ? "<empty>" : edit.discNumberText)
-        """)
     }
 
     private func presentBatchMetadataWriteSummary(_ summary: BatchMetadataWriteSummary) {
@@ -695,7 +560,7 @@ extension AudioViewModel {
 
         Task(priority: .userInitiated) {
             do {
-                let writeResult = try TagLibMetadataManager.eraseAllMetadataWithVerification(from: file.url)
+                let writeResult = try metadataPipeline.eraseAllMetadata(at: file.url)
                 var warnings: [String] = writeResult.warnings
 
                 if let refreshWarning = await self.reloadEditedFile(file) {
@@ -737,7 +602,7 @@ extension AudioViewModel {
         syncInspectorAfterReload: Bool = true
     ) async -> String? {
         do {
-            let reloaded = try await AudioFile(url: url, id: id)
+            let reloaded = try await metadataPipeline.loadAudioFile(at: url, id: id)
             replaceLoadedFile(reloaded)
 
             if syncInspectorAfterReload, selectedAudioIDs.contains(id) {
@@ -803,9 +668,12 @@ extension AudioViewModel {
         let maxNumber = numbers.max() ?? start
         let padWidth = trackRenumberPadWidth(maxNumber: maxNumber, padWithZeros: options.padWithZeros)
         let writableExtensions = supportedTagWriteExtensions
+        let metadataPipeline = self.metadataPipeline
 
         // 4) Execute writes off the main thread.
-        let writeOutcome = await Task.detached(priority: .userInitiated) { [writeTargets, numbers, padWidth, writableExtensions] in
+        let writeOutcome = await Task.detached(
+            priority: .userInitiated
+        ) { [writeTargets, numbers, padWidth, writableExtensions, metadataPipeline] in
             var result = TrackRenumberResult(
                 totalTargets: writeTargets.count,
                 succeeded: 0,
@@ -830,7 +698,7 @@ extension AudioViewModel {
                         ? String(format: "%0*d", padWidth, newNumber)
                         : String(newNumber)
 
-                    _ = try TagLibMetadataManager.writeTrackNumberText(
+                    _ = try metadataPipeline.writeTrackNumberText(
                         formattedTrackNumber,
                         discNumberText: nil,
                         to: target.url,

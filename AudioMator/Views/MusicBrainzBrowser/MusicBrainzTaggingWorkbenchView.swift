@@ -33,7 +33,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
             idealHeight: 640,
             maxHeight: 820
         )
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(platformColor: .audiomatorWindowBackground))
         .navigationTitle("Review & Apply Tags")
         .task {
             store.refreshLoadedFiles(viewModel.files)
@@ -123,7 +123,9 @@ struct MusicBrainzTaggingWorkbenchView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
+                        #if os(macOS)
                         .toggleStyle(.checkbox)
+                        #endif
                         .disabled(isApplying)
                     }
                 }

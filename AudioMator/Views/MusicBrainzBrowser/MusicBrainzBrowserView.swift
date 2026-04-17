@@ -26,7 +26,7 @@ struct MusicBrainzBrowserView: View {
         }
         .frame(minWidth: 920, minHeight: 620)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(platformColor: .audiomatorWindowBackground))
         .onChange(of: store.mode) { oldMode, newMode in
             store.handleModeChange(from: oldMode, to: newMode)
         }
@@ -394,11 +394,11 @@ private struct MusicBrainzFileSelectionSummaryList: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(Color(platformColor: .audiomatorControlBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.3), lineWidth: 1)
+                .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.3), lineWidth: 1)
         )
     }
 }

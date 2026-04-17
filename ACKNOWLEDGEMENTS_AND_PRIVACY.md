@@ -1,36 +1,75 @@
-# Acknowledgements & Privacy Notes
+# Acknowledgements & Privacy
 
-## TagLib
+## Third-party foundations
 
-- Project: https://github.com/taglib/taglib
-- Website: https://taglib.org/
-- AudioMator uses TagLib through the local bridge for metadata reading and writing.
+### TagLib
 
-TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). Essentially that means that it may be used in proprietary applications, but if changes are made to TagLib they must be contributed back to the project. Please review the licenses if you are considering using TagLib in your project.
+- Project: <https://github.com/taglib/taglib>
+- Website: <https://taglib.org/>
+- AudioMator uses TagLib through a local Objective-C++ bridge for metadata reading, writing, raw property-map inspection, and most artwork operations.
 
-## iTunes-Artwork-Finder by bendodson
+TagLib is distributed under LGPL and MPL terms. Review the upstream licenses before reusing or redistributing it in another product.
 
-- Project: https://github.com/bendodson/itunes-artwork-finder
-- AudioMator's current implementation is fully rewritten in Swift, but the artwork lookup method and approach are based on the ideas from this project.
+### iTunes Artwork Finder inspiration
 
-## Privacy & Network Activity
+- Project: <https://github.com/bendodson/itunes-artwork-finder>
 
-AudioMator's local metadata reading/writing runs on your Mac.  
-**Your music files themselves are not uploaded.**
+AudioMator's artwork lookup implementation is written in Swift, but the lookup workflow was originally informed by this project.
 
-Network activity only happens when optional online features are used:
+## Local-first behavior
 
-1. **iTunes artwork lookup**
-   - Target hosts: `itunes.apple.com`, `is5-ssl.mzstatic.com`, `a5.mzstatic.com`
-   - Sent data: lookup/search query parameters derived from metadata fields (for example: iTunes Album ID, album name, or track title)
-   - Purpose: searching and downloading album artwork
+AudioMator is designed to work on local files.
 
-2. **MusicBrainz browser/search**
-   - Target host: `musicbrainz.org` (`/ws/2` API and selected MusicBrainz pages)
-   - Sent data: query terms generated from entered/selected metadata fields, including possible fields such as title, artist, album artist, album, track number, total tracks, duration bucket, release date/year, ISRC, barcode, MusicBrainz album ID, and MusicBrainz track ID (or IDs parsed from a pasted MusicBrainz link)
-   - Purpose: searching and referencing MusicBrainz metadata
+- Metadata reading happens on-device.
+- Metadata writing happens on-device.
+- Your audio files are not uploaded as part of normal editing.
+- The TagLib bridge, raw metadata inspector, filename tools, and batch editing workflows all run locally.
 
-3. **Release Notes**
-   - Target host: `api.github.com`
-   - Sent data: request headers and release list request only (no audio file content)
-   - Purpose: load published release notes for AudioMator
+## Platform-specific file access
+
+### macOS
+
+- Supports session imports and persistent watched folders
+- Uses security-scoped bookmarks for persistent folder access where needed
+- Can reveal files back into the desktop file system workflow
+
+### iPadOS
+
+- Uses session-scoped document picking
+- Does not keep a watched-folder model
+- Does not expose desktop-style folder monitoring
+- Keeps imported files inside the current editing session model
+
+## Network activity
+
+AudioMator only uses the network for optional features that you explicitly invoke.
+
+### MusicBrainz
+
+- Host: `musicbrainz.org`
+- Purpose: search, metadata reference, release lookup, tag-assist workflows
+- Typical data sent: query terms derived from metadata fields you choose to search with, such as title, artist, album, track/disc information, duration bucket, ISRC, barcode, or pasted MusicBrainz identifiers
+
+### iTunes artwork lookup
+
+- Hosts: `itunes.apple.com`, `mzstatic.com` image endpoints
+- Purpose: search for and download album artwork
+- Typical data sent: lookup terms such as album name, artist name, or iTunes IDs
+
+### Release notes
+
+- Host: `api.github.com`
+- Purpose: fetch published release notes for AudioMator
+- Typical data sent: a standard release-list request, not your media files
+
+## What AudioMator does not send
+
+- It does not upload your local audio files for ordinary metadata editing.
+- It does not upload album artwork embedded in your files as part of routine editing.
+- It does not require network access for core local editing, raw inspection, renaming, or track/disc number maintenance.
+
+## Practical privacy summary
+
+If you stay inside local editing features, AudioMator stays offline.
+
+If you use MusicBrainz, iTunes artwork, or release-note lookup, only the query information needed for that feature is sent, and the audio file contents remain local.

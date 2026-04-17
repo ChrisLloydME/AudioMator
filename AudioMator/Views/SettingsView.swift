@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 let settingsSelectedTabDefaultsKey = "settings.selectedTab"
@@ -343,16 +342,14 @@ private struct AboutSettingsTab: View {
 
 private struct AboutAppIconView: View {
     var body: some View {
-        Image(nsImage: applicationIcon)
-            .resizable()
-            .interpolation(.high)
-            .aspectRatio(contentMode: .fit)
-            .frame(width: 180, height: 180)
-            .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
-    }
-
-    private var applicationIcon: NSImage {
-        NSApp.applicationIconImage
+        if let applicationIcon = PlatformApplication.appIconImage {
+            Image(platformImage: applicationIcon)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 180, height: 180)
+                .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
+        }
     }
 }
 
@@ -565,7 +562,7 @@ private struct ReleaseNotesSheet: View {
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
         }
     }
@@ -637,7 +634,7 @@ private struct ReleaseNoteCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

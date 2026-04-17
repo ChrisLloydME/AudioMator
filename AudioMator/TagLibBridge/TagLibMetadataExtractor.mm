@@ -675,6 +675,42 @@ static void SetPropertyMapNumberText(TagLib::PropertyMap &properties,
     SetPropertyMapString(properties, key, value);
 }
 
+static void ParseNumberPairFromNSString(NSString *text,
+                                        NSInteger &number,
+                                        NSInteger &total,
+                                        NSInteger &padWidth);
+
+static NSInteger PropertyMapNumberTotal(TagLib::PropertyMap properties,
+                                        const char *numberKey,
+                                        const char *primaryTotalKey,
+                                        const char *alternateTotalKey)
+{
+    if (numberKey && properties.contains(numberKey)) {
+        NSInteger number = 0;
+        NSInteger total = 0;
+        NSInteger padWidth = 0;
+        ParseNumberPairFromNSString(
+            TrimmedStringOrNil(TagStringToNSString(properties[numberKey].toString(", "))),
+            number,
+            total,
+            padWidth
+        );
+        if (total > 0) {
+            return total;
+        }
+    }
+
+    if (primaryTotalKey && properties.contains(primaryTotalKey)) {
+        return ExtractNumber(properties[primaryTotalKey].toString(", "));
+    }
+
+    if (alternateTotalKey && properties.contains(alternateTotalKey)) {
+        return ExtractNumber(properties[alternateTotalKey].toString(", "));
+    }
+
+    return 0;
+}
+
 static void SetPropertyMapDynamicString(TagLib::PropertyMap &properties,
                                         NSString * _Nullable key,
                                         NSString * _Nullable value)
@@ -1451,9 +1487,74 @@ static bool WritePropertyMapNumberTextToFile(FileType &file,
     }
 
     TagLib::PropertyMap properties = file.properties();
-    SetPropertyMapNumberText(properties, "TRACKNUMBER", trackNumberText);
+    NSString *trimmedTrackNumberText = TrimmedStringOrNil(trackNumberText);
+    if (trimmedTrackNumberText) {
+        NSInteger explicitTrackTotal = 0;
+        NSInteger padWidth = 0;
+        NSInteger ignoredTrackNumber = 0;
+        ParseNumberPairFromNSString(trimmedTrackNumberText, ignoredTrackNumber, explicitTrackTotal, padWidth);
+        (void)ignoredTrackNumber;
+        (void)padWidth;
+        NSInteger effectiveTrackTotal = explicitTrackTotal > 0
+            ? explicitTrackTotal
+            : PropertyMapNumberTotal(properties, "TRACKNUMBER", "TRACKTOTAL", "TOTALTRACKS");
+
+        SetPropertyMapNumberText(properties, "TRACKNUMBER", trimmedTrackNumberText);
+        if (explicitTrackTotal > 0) {
+            SetPropertyMapString(
+                properties,
+                "TRACKTOTAL",
+                [NSString stringWithFormat:@"%ld", (long)explicitTrackTotal]
+            );
+            SetPropertyMapString(
+                properties,
+                "TOTALTRACKS",
+                [NSString stringWithFormat:@"%ld", (long)explicitTrackTotal]
+            );
+        } else if (effectiveTrackTotal <= 0) {
+            SetPropertyMapString(properties, "TRACKTOTAL", nil);
+            SetPropertyMapString(properties, "TOTALTRACKS", nil);
+        }
+    } else {
+        SetPropertyMapNumberText(properties, "TRACKNUMBER", nil);
+        SetPropertyMapString(properties, "TRACKTOTAL", nil);
+        SetPropertyMapString(properties, "TOTALTRACKS", nil);
+    }
+
     if (discNumberText != nil) {
-        SetPropertyMapNumberText(properties, "DISCNUMBER", discNumberText);
+        NSString *trimmedDiscNumberText = TrimmedStringOrNil(discNumberText);
+        if (trimmedDiscNumberText) {
+            NSInteger explicitDiscTotal = 0;
+            NSInteger padWidth = 0;
+            NSInteger ignoredDiscNumber = 0;
+            ParseNumberPairFromNSString(trimmedDiscNumberText, ignoredDiscNumber, explicitDiscTotal, padWidth);
+            (void)ignoredDiscNumber;
+            (void)padWidth;
+            NSInteger effectiveDiscTotal = explicitDiscTotal > 0
+                ? explicitDiscTotal
+                : PropertyMapNumberTotal(properties, "DISCNUMBER", "DISCTOTAL", "TOTALDISCS");
+
+            SetPropertyMapNumberText(properties, "DISCNUMBER", trimmedDiscNumberText);
+            if (explicitDiscTotal > 0) {
+                SetPropertyMapString(
+                    properties,
+                    "DISCTOTAL",
+                    [NSString stringWithFormat:@"%ld", (long)explicitDiscTotal]
+                );
+                SetPropertyMapString(
+                    properties,
+                    "TOTALDISCS",
+                    [NSString stringWithFormat:@"%ld", (long)explicitDiscTotal]
+                );
+            } else if (effectiveDiscTotal <= 0) {
+                SetPropertyMapString(properties, "DISCTOTAL", nil);
+                SetPropertyMapString(properties, "TOTALDISCS", nil);
+            }
+        } else {
+            SetPropertyMapNumberText(properties, "DISCNUMBER", nil);
+            SetPropertyMapString(properties, "DISCTOTAL", nil);
+            SetPropertyMapString(properties, "TOTALDISCS", nil);
+        }
     }
     file.setProperties(properties);
 
@@ -2954,6 +3055,18 @@ static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger tot
     return trackPart;
 }
 
+static NSString * _Nullable BuildNumberTextPreservingFormatting(NSString * _Nullable existingText,
+                                                                NSInteger number,
+                                                                NSInteger total)
+{
+    NSString *trimmedExistingText = TrimmedStringOrNil(existingText);
+    NSInteger ignoredNumber = 0;
+    NSInteger ignoredTotal = 0;
+    NSInteger padWidth = 0;
+    ParseNumberPairFromNSString(trimmedExistingText, ignoredNumber, ignoredTotal, padWidth);
+    return BuildTRCKString(number, total, padWidth);
+}
+
 // Write only track numbering (TRCK + TagLib::Tag::setTrack) to a file.
 + (BOOL)writeTrackNumber:(NSInteger)trackNumber
              totalTracks:(NSInteger)totalTracks
@@ -3627,6 +3740,19 @@ static void ParseNumberPairFromNSString(NSString *text,
                 NSInteger totalTracks = 0;
                 NSInteger padWidth = 0;
                 ParseNumberPairFromNSString(trimmedTrackText, trackNumber, totalTracks, padWidth);
+                if (totalTracks <= 0 && id3v2Tag) {
+                    TagLib::ID3v2::FrameList existingFrames = id3v2Tag->frameList("TRCK");
+                    if (!existingFrames.isEmpty()) {
+                        NSString *existingText = TagStringToNSString(existingFrames.front()->toString());
+                        NSInteger existingNumber = 0;
+                        NSInteger existingTotal = 0;
+                        NSInteger existingPadWidth = 0;
+                        ParseNumberPairFromNSString(existingText, existingNumber, existingTotal, existingPadWidth);
+                        (void)existingNumber;
+                        (void)existingPadWidth;
+                        totalTracks = existingTotal;
+                    }
+                }
                 tag->setTrack(trackNumber > 0 ? (unsigned int)trackNumber : 0);
 
                 if (id3v2Tag) {
@@ -3639,7 +3765,30 @@ static void ParseNumberPairFromNSString(NSString *text,
             }
 
             if (discNumberText != nil && id3v2Tag) {
-                SetID3v2TextFrame(id3v2Tag, "TPOS", TrimmedStringOrNil(discNumberText));
+                NSString *trimmedDiscText = TrimmedStringOrNil(discNumberText);
+                if (trimmedDiscText) {
+                    NSInteger discNumber = 0;
+                    NSInteger totalDiscs = 0;
+                    NSInteger padWidth = 0;
+                    ParseNumberPairFromNSString(trimmedDiscText, discNumber, totalDiscs, padWidth);
+                    if (totalDiscs <= 0) {
+                        TagLib::ID3v2::FrameList existingFrames = id3v2Tag->frameList("TPOS");
+                        if (!existingFrames.isEmpty()) {
+                            NSString *existingText = TagStringToNSString(existingFrames.front()->toString());
+                            NSInteger existingNumber = 0;
+                            NSInteger existingTotal = 0;
+                            NSInteger existingPadWidth = 0;
+                            ParseNumberPairFromNSString(existingText, existingNumber, existingTotal, existingPadWidth);
+                            (void)existingNumber;
+                            (void)existingPadWidth;
+                            totalDiscs = existingTotal;
+                        }
+                    }
+                    NSString *tposToWrite = BuildTRCKString(discNumber, totalDiscs, padWidth) ?: trimmedDiscText;
+                    SetID3v2TextFrame(id3v2Tag, "TPOS", tposToWrite);
+                } else {
+                    SetID3v2TextFrame(id3v2Tag, "TPOS", nil);
+                }
             }
 
             if (!mpegFile.save()) {
@@ -3682,9 +3831,12 @@ static void ParseNumberPairFromNSString(NSString *text,
             NSInteger totalTracks = 0;
             NSInteger padWidth = 0;
             ParseNumberPairFromNSString(trimmedTrackText, trackNumber, totalTracks, padWidth);
+            if (totalTracks <= 0 && mp4Tag->itemMap().contains("trkn")) {
+                totalTracks = mp4Tag->itemMap()["trkn"].toIntPair().second;
+            }
             (void)padWidth;
-            SetMP4IntPairItem(mp4Tag, "trkn", trackNumber, totalTracks);
             mp4Tag->setTrack(trackNumber > 0 ? (unsigned int)trackNumber : 0);
+            SetMP4IntPairItem(mp4Tag, "trkn", trackNumber, totalTracks);
             SetMP4TextItem(mp4Tag, kAudioMatorMP4TrackNumberTextKey, trimmedTrackText);
         } else {
             mp4Tag->removeItem("trkn");
@@ -3699,6 +3851,9 @@ static void ParseNumberPairFromNSString(NSString *text,
                 NSInteger totalDiscs = 0;
                 NSInteger padWidth = 0;
                 ParseNumberPairFromNSString(trimmedDiscText, discNumber, totalDiscs, padWidth);
+                if (totalDiscs <= 0 && mp4Tag->itemMap().contains("disk")) {
+                    totalDiscs = mp4Tag->itemMap()["disk"].toIntPair().second;
+                }
                 (void)padWidth;
                 SetMP4IntPairItem(mp4Tag, "disk", discNumber, totalDiscs);
                 SetMP4TextItem(mp4Tag, kAudioMatorMP4DiscNumberTextKey, trimmedDiscText);
@@ -4072,24 +4227,18 @@ static void ParseNumberPairFromNSString(NSString *text,
                 SetID3v2TextFrame(id3v2Tag, "TCMP", metadata.compilation ? @"1" : nil);
                 SetID3v2LyricsFrame(id3v2Tag, metadata.lyrics);
 
-                NSString *trackString = TrimmedStringOrNil(metadata.trackNumberText);
-                if (!trackString && metadata.trackNumber > 0 && metadata.totalTracks > 0) {
-                    trackString = [NSString stringWithFormat:@"%ld/%ld",
-                                   (long)metadata.trackNumber,
-                                   (long)metadata.totalTracks];
-                } else if (!trackString && metadata.trackNumber > 0) {
-                    trackString = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
-                }
+                NSString *trackString = BuildNumberTextPreservingFormatting(
+                    metadata.trackNumberText,
+                    metadata.trackNumber,
+                    metadata.totalTracks
+                );
                 SetID3v2TextFrame(id3v2Tag, "TRCK", trackString);
 
-                NSString *discString = TrimmedStringOrNil(metadata.discNumberText);
-                if (!discString && metadata.discNumber > 0 && metadata.totalDiscs > 0) {
-                    discString = [NSString stringWithFormat:@"%ld/%ld",
-                                  (long)metadata.discNumber,
-                                  (long)metadata.totalDiscs];
-                } else if (!discString && metadata.discNumber > 0) {
-                    discString = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
-                }
+                NSString *discString = BuildNumberTextPreservingFormatting(
+                    metadata.discNumberText,
+                    metadata.discNumber,
+                    metadata.totalDiscs
+                );
                 SetID3v2TextFrame(id3v2Tag, "TPOS", discString);
 
                 NSString *releaseDate = metadata.releaseDate.length > 0 ? metadata.releaseDate : metadata.year;

@@ -219,7 +219,9 @@ struct TrackRenumberSheet: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    #if os(macOS)
                     .toggleStyle(.checkbox)
+                    #endif
                     .disabled(isTrackRenumberRunning)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

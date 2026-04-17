@@ -7,7 +7,9 @@
 
 import Foundation
 import Combine
+#if os(macOS)
 import AppKit
+#endif
 
 private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
 
@@ -95,7 +97,9 @@ final class AudioViewModel: ObservableObject {
         self.watchedFolderStore = watchedFolderStore
         self.metadataPipeline = metadataPipeline
 
-        let restoredFolders = watchedFolderStore.loadFolders()
+        let restoredFolders = PlatformApplication.supportsWatchedFolders
+            ? watchedFolderStore.loadFolders()
+            : []
         self.watchedFolders = restoredFolders
 
         for folder in restoredFolders {
@@ -260,6 +264,9 @@ final class AudioViewModel: ObservableObject {
 
     @discardableResult
     func addWatchedFolders() -> SidebarSelection? {
+        guard PlatformApplication.supportsWatchedFolders else { return nil }
+
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = true
@@ -315,6 +322,9 @@ final class AudioViewModel: ObservableObject {
         }
 
         return .watchedLibrary
+        #else
+        return nil
+        #endif
     }
 
     func removeWatchedFolder(id: UUID) {
@@ -701,6 +711,7 @@ final class AudioViewModel: ObservableObject {
         let displayName = FileManager.default.displayName(atPath: directoryURL.path)
         let key = Self.urlKey(for: directoryURL)
 
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
@@ -725,6 +736,14 @@ final class AudioViewModel: ObservableObject {
 
         securityScopedQuickImportRenameDirectoryURLs[key] = selectedURL
         return nil
+        #else
+        if directoryURL.startAccessingSecurityScopedResource() {
+            securityScopedQuickImportRenameDirectoryURLs[key] = directoryURL
+            return nil
+        }
+
+        return "iPadOS can't request extra folder access here. Keep renamed files inside the imported session scope."
+        #endif
     }
 
     private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {

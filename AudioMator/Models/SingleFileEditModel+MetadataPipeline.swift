@@ -9,6 +9,10 @@ extension MetadataEditPayload {
         self.genre = edit.genre
         self.comment = edit.comment
         self.year = edit.year
+        self.trackNumber = edit.track
+        self.trackTotal = edit.trackTotal
+        self.discNumber = edit.disc
+        self.discTotal = edit.discTotal
         self.trackNumberText = edit.trackNumberText
         self.discNumberText = edit.discNumberText
         self.albumArtist = edit.albumArtist

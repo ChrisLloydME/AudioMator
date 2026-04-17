@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 extension Notification.Name {
     static let showWelcomeSplash = Notification.Name("showWelcomeSplash")
@@ -20,6 +22,7 @@ extension Notification.Name {
     static let requestSelectAllTracks = Notification.Name("requestSelectAllTracks")
 }
 
+#if os(macOS)
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let hasLaunchedKey = "hasLaunchedBefore"
 
@@ -39,10 +42,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 }
+#endif
 
 @main
 struct AudioMatorApp: App {
+    #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
     private let metadataPipeline: any AudioMetadataPipeline
     @StateObject private var viewModel: AudioViewModel
     @StateObject private var sharedState: SharedState
@@ -65,6 +71,7 @@ struct AudioMatorApp: App {
     }
 
     var body: some Scene {
+        #if os(macOS)
         WindowGroup {
             ContentView(
                 viewModel: viewModel,
@@ -121,9 +128,22 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 920, height: 640)
         .windowToolbarStyle(.expanded)
+        #else
+        WindowGroup {
+            ContentView(
+                viewModel: viewModel,
+                state: sharedState,
+                musicBrainzBrowserStore: musicBrainzBrowserStore,
+                metadataFilenameToolStore: metadataFilenameToolStore,
+                metadataEditorStore: metadataEditorStore,
+                metadataPipeline: metadataPipeline
+            )
+        }
+        #endif
     }
 }
 
+#if os(macOS)
 struct AppInfoCommands: Commands {
     @Environment(\.openSettings) private var openSettings
 
@@ -240,3 +260,4 @@ struct ViewLayoutCommands: Commands {
         }
     }
 }
+#endif

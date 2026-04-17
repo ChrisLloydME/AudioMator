@@ -103,9 +103,9 @@ extension FileRenameMetadataField {
         case .year:
             edit.year = value
         case .trackNumberText:
-            edit.trackNumberText = value
+            edit.setTrackNumberText(value)
         case .discNumberText:
-            edit.discNumberText = value
+            edit.setDiscNumberText(value)
         case .comment:
             edit.comment = value
         case .releaseDate:

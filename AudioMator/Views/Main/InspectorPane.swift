@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 let inspectorRowContentHeight: CGFloat = 20
 let inspectorRowVerticalPadding: CGFloat = 6
@@ -41,9 +40,9 @@ struct InspectorPane: View {
         max(inspectorQuickText.split(separator: "\n", omittingEmptySubsequences: false).count, 1)
     }
 
-    private var previewFont: NSFont {
-        NSFont(name: "Menlo-Regular", size: 13) ??
-            NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+    private var previewFont: PlatformFont {
+        PlatformFont(name: "Menlo-Regular", size: 13) ??
+            PlatformFont.monospacedSystemFont(ofSize: 13, weight: .regular)
     }
 
     private func renderedPreview(from text: String) -> String {
@@ -113,6 +112,70 @@ struct InspectorPane: View {
         )
     }
 
+    private func trackNumberFieldBinding(for file: AudioFile) -> Binding<String> {
+        Binding(
+            get: { viewModel.edit?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current.setTrackNumberFieldText(newValue)
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model.setTrackNumberFieldText(newValue)
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
+
+    private func trackTotalFieldBinding(for file: AudioFile) -> Binding<String> {
+        Binding(
+            get: { viewModel.edit?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current.setTrackTotalFieldText(newValue)
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model.setTrackTotalFieldText(newValue)
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
+
+    private func discNumberFieldBinding(for file: AudioFile) -> Binding<String> {
+        Binding(
+            get: { viewModel.edit?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current.setDiscNumberFieldText(newValue)
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model.setDiscNumberFieldText(newValue)
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
+
+    private func discTotalFieldBinding(for file: AudioFile) -> Binding<String> {
+        Binding(
+            get: { viewModel.edit?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current.setDiscTotalFieldText(newValue)
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model.setDiscTotalFieldText(newValue)
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
+
     private func multiBinding(for field: MultiFileEditableTextField) -> Binding<String> {
         Binding<String>(
             get: {
@@ -139,7 +202,7 @@ struct InspectorPane: View {
         )
     }
 
-    private func displayedArtwork(for file: AudioFile) -> NSImage? {
+    private func displayedArtwork(for file: AudioFile) -> PlatformImage? {
         switch viewModel.edit?.artworkEditAction ?? .unchanged {
         case .unchanged:
             return file.artwork
@@ -158,7 +221,7 @@ struct InspectorPane: View {
         viewModel.artworkLookupDisabledReason(for: file)
     }
 
-    private var multiDisplayedArtwork: NSImage? {
+    private var multiDisplayedArtwork: PlatformImage? {
         viewModel.multiEdit?.displayedArtwork
     }
 
@@ -289,7 +352,7 @@ struct InspectorPane: View {
                             ReadOnlyMonospacedTextView(
                                 text: inspectorQuickPreview,
                                 font: previewFont,
-                                textColor: .labelColor
+                                textColor: .audiomatorLabel
                             )
                             .padding(1)
 
@@ -337,9 +400,11 @@ struct InspectorPane: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(file.url.lastPathComponent)
                     .font(.headline)
+                #if os(macOS)
                 Text(file.url.path)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                #endif
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
@@ -372,7 +437,7 @@ struct InspectorPane: View {
         GroupBox {
             VStack(spacing: 16) {
                 if let image = displayedArtwork(for: file) {
-                    Image(nsImage: image)
+                    Image(platformImage: image)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
@@ -458,7 +523,7 @@ struct InspectorPane: View {
             VStack(spacing: 16) {
                 Group {
                     if let image = multiDisplayedArtwork {
-                        Image(nsImage: image)
+                        Image(platformImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
@@ -567,9 +632,13 @@ struct InspectorPane: View {
                 Divider()
                 editableRow(label: "Year", text: binding(for: file, keyPath: \.year))
                 Divider()
-                editableRow(label: "Track Number", text: binding(for: file, keyPath: \.trackNumberText))
+                editableRow(label: "Track Number", text: trackNumberFieldBinding(for: file))
                 Divider()
-                editableRow(label: "Disc Number", text: binding(for: file, keyPath: \.discNumberText))
+                editableRow(label: "Total Tracks", text: trackTotalFieldBinding(for: file))
+                Divider()
+                editableRow(label: "Disc Number", text: discNumberFieldBinding(for: file))
+                Divider()
+                editableRow(label: "Total Discs", text: discTotalFieldBinding(for: file))
                 Divider()
                 editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
                 Divider()
@@ -636,14 +705,26 @@ struct InspectorPane: View {
                     Divider()
                     editableRow(
                         label: "Track Number",
-                        text: multiBinding(for: .trackNumberText),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .trackNumberText)
+                        text: multiBinding(for: .trackNumber),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .trackNumber)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Total Tracks",
+                        text: multiBinding(for: .trackTotal),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .trackTotal)
                     )
                     Divider()
                     editableRow(
                         label: "Disc Number",
-                        text: multiBinding(for: .discNumberText),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .discNumberText)
+                        text: multiBinding(for: .discNumber),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .discNumber)
+                    )
+                    Divider()
+                    editableRow(
+                        label: "Total Discs",
+                        text: multiBinding(for: .discTotal),
+                        placeholder: viewModel.multiEdit?.placeholder(for: .discTotal)
                     )
                     Divider()
                     editableRow(
@@ -816,6 +897,7 @@ struct InspectorPane: View {
     }
 }
 
+ #if os(macOS)
 struct ScrollableInspectorValueText: NSViewRepresentable {
     let text: String
     let width: CGFloat
@@ -839,6 +921,21 @@ struct ScrollableInspectorValueText: NSViewRepresentable {
         )
     }
 }
+#else
+struct ScrollableInspectorValueText: View {
+    let text: String
+    let width: CGFloat
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            Text(text)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(minWidth: width, alignment: .trailing)
+        }
+    }
+}
+#endif
 
 struct FlexibleScrollableInspectorValueText: View {
     let text: String
@@ -910,6 +1007,7 @@ struct InspectorEditableValueField: View {
     }
 }
 
+ #if os(macOS)
 final class InspectorValueScrollView: NSScrollView {
     private let containerView = WheelForwardingStackView()
     private let spacerView = NSView(frame: .zero)
@@ -1037,3 +1135,4 @@ final class WheelForwardingLabel: NSTextField {
         enclosingScrollView?.scrollWheel(with: event)
     }
 }
+ #endif

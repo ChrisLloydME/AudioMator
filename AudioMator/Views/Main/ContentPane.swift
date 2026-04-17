@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 import UniformTypeIdentifiers
 
 struct ContentPane: View {
@@ -316,26 +315,24 @@ struct ContentPane: View {
 
     private func openSelectedFiles() {
         for file in selectedFiles {
-            NSWorkspace.shared.open(file.url)
+            PlatformWorkspace.open(file.url)
         }
     }
 
     private func revealSelectedFilesInFinder() {
         let urls = selectedFiles.map { $0.url }
         guard !urls.isEmpty else { return }
-        NSWorkspace.shared.activateFileViewerSelecting(urls)
+        PlatformWorkspace.reveal(urls)
     }
 
     private func copySelectedFilePaths() {
         let text = selectedFiles.map { $0.url.path }.joined(separator: "\n")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        PlatformPasteboard.copy(text)
     }
 
     private func copySelectedFileNames() {
         let text = selectedFiles.map { $0.url.lastPathComponent }.joined(separator: "\n")
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        PlatformPasteboard.copy(text)
     }
 
     private func clearAllMetadataForSelectedFiles() {

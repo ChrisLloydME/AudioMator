@@ -433,7 +433,7 @@ extension AudioViewModel {
 
         for (file, value) in zip(targetFiles, values) {
             var edit = SingleFileEditModel(from: file)
-            edit[keyPath: field.keyPath] = value
+            field.apply(value, to: &edit)
 
             let result = await persistMetadataEdit(
                 edit,

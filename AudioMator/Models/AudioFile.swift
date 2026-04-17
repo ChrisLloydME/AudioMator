@@ -10,7 +10,11 @@ import Combine
 // import SFBAudioEngine
 import AVFoundation
 import CoreMedia
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 // Loaded off the main actor and then treated as an immutable snapshot in the UI.
 struct AudioFile: Identifiable, @unchecked Sendable {
@@ -62,7 +66,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let format: String
 
     // MARK: – Artwork
-    let artwork: NSImage?
+    let artwork: PlatformImage?
     let artworkFingerprint: Int?
 
     // Stable content fingerprint for middle-list row refresh decisions.
@@ -148,7 +152,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         sampleRate: Double,
         channels: Int,
         format: String,
-        artwork: NSImage?,
+        artwork: PlatformImage?,
         artworkFingerprint: Int?
     ) {
         self.id = id
@@ -563,7 +567,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
 
         let artworkData = await AudioFile.readArtworkData(from: allMetadataItems) ?? tag.artworkData
         if let artworkData {
-            self.artwork = NSImage(data: artworkData)
+            self.artwork = PlatformImage(data: artworkData)
             self.artworkFingerprint = AudioFile.artworkFingerprint(for: artworkData)
         } else {
             self.artwork = nil

@@ -1,5 +1,7 @@
-import AppKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
 
 struct MiddleListHeaderContextMenuInstaller: NSViewRepresentable {
     @Binding var visibleColumns: Set<MiddleListColumn>
@@ -145,3 +147,4 @@ extension MiddleListHeaderContextMenuInstaller {
         }
     }
 }
+#endif

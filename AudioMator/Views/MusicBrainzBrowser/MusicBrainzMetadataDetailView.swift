@@ -120,12 +120,16 @@ struct MusicBrainzMetadataDetailView: View {
         if !detail.releases.isEmpty {
             MetadataSectionCard(title: "Releases", symbolName: "opticaldisc") {
                 ForEach(Array(detail.releases.enumerated()), id: \.element.id) { index, release in
-                    MetadataSummaryRow(
-                        title: release.title,
-                        subtitle: releaseMetadataLine(release),
-                        buttonTitle: release.musicBrainzURL == nil ? nil : "Open",
-                        destination: release.musicBrainzURL
-                    )
+                    NavigationLink(value: MusicBrainzBrowserDestination.release(
+                        MusicBrainzReleaseSearchResult(recordingRelease: release)
+                    )) {
+                        MetadataDetailNavigationRow(
+                            title: release.title,
+                            subtitle: releaseMetadataLine(release),
+                            symbolName: "opticaldisc"
+                        )
+                    }
+                    .buttonStyle(.plain)
 
                     if index < detail.releases.count - 1 {
                         MetadataCardDivider()
@@ -156,7 +160,9 @@ struct MusicBrainzMetadataDetailView: View {
 
     @ViewBuilder
     private func releaseSections(_ detail: MusicBrainzReleaseDetail) -> some View {
-        if let preview = detail.selectionMatchPreview {
+        let preview = resolvedSelectionPreview(for: detail)
+
+        if let preview {
             let comparisonGroups = preview.matchedAssignments.map { assignment in
                 MetadataComparisonGroup(
                     id: assignment.id,
@@ -519,6 +525,19 @@ struct MusicBrainzMetadataDetailView: View {
             remoteValue: remoteValue,
             status: status,
             monospaced: monospaced
+        )
+    }
+
+    private func resolvedSelectionPreview(
+        for release: MusicBrainzReleaseDetail
+    ) -> MusicBrainzReleaseMatchPreview? {
+        if let preview = release.selectionMatchPreview {
+            return preview
+        }
+
+        return MusicBrainzTaggingPreviewBuilder.makePreview(
+            files: store.fileSelectionSummary?.files ?? [],
+            release: release
         )
     }
 

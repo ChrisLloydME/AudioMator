@@ -550,6 +550,24 @@ struct MusicBrainzReleaseSearchResult: Identifiable, Equatable, Hashable {
     }
 }
 
+extension MusicBrainzReleaseSearchResult {
+    init(recordingRelease release: MusicBrainzRecordingResult.Release) {
+        self.init(
+            id: release.id,
+            title: release.title,
+            artistCredit: "",
+            score: 0,
+            date: release.date,
+            country: release.country,
+            status: release.status,
+            mediaFormats: [],
+            releaseGroup: nil,
+            selectionMatchPreview: nil,
+            selectionMatchScore: nil
+        )
+    }
+}
+
 enum MusicBrainzSearchResults: Equatable {
     case recordings([MusicBrainzRecordingResult])
     case releases([MusicBrainzReleaseSearchResult])
@@ -2612,6 +2630,20 @@ private extension MusicBrainzReleaseSearchResult {
             releaseGroup: releaseGroup,
             selectionMatchPreview: preview,
             selectionMatchScore: selectionMatchScore
+        )
+    }
+}
+
+enum MusicBrainzTaggingPreviewBuilder {
+    static func makePreview(
+        files: [MusicBrainzFileSearchInput],
+        release: MusicBrainzReleaseDetail
+    ) -> MusicBrainzReleaseMatchPreview? {
+        guard !files.isEmpty else { return nil }
+        let selection = MusicBrainzFileSelectionSummary(files: files)
+        return MusicBrainzFileSelectionMatcher.match(
+            selection: selection,
+            release: release
         )
     }
 }

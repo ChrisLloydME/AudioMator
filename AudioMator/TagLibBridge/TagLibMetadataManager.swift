@@ -282,14 +282,22 @@ struct TagLibMetadataManager {
     }
 
     struct MetadataWriteVerificationContext: Equatable {
+        var expectedTrackNumber: Int?
+        var expectedTrackTotal: Int?
         var expectedTrackNumberText: String?
+        var expectedDiscNumber: Int?
+        var expectedDiscTotal: Int?
         var expectedDiscNumberText: String?
         var expectedExplicitContent: Bool?
         var artworkExpectation: ArtworkVerificationExpectation
         var customFieldKeys: [String]
 
         nonisolated static let none = MetadataWriteVerificationContext(
+            expectedTrackNumber: nil,
+            expectedTrackTotal: nil,
             expectedTrackNumberText: nil,
+            expectedDiscNumber: nil,
+            expectedDiscTotal: nil,
             expectedDiscNumberText: nil,
             expectedExplicitContent: nil,
             artworkExpectation: .unchanged,
@@ -381,8 +389,16 @@ struct TagLibMetadataManager {
     }
 
     nonisolated private static func hasVerificationExpectations(_ verification: MetadataWriteVerificationContext) -> Bool {
+        if verification.expectedTrackNumber != nil || verification.expectedTrackTotal != nil {
+            return true
+        }
+
         if let expectedTrack = verification.expectedTrackNumberText,
            !normalizedTrimmed(expectedTrack).isEmpty {
+            return true
+        }
+
+        if verification.expectedDiscNumber != nil || verification.expectedDiscTotal != nil {
             return true
         }
 
@@ -415,6 +431,22 @@ struct TagLibMetadataManager {
         let afterWrite = readMetadata(from: url)
         let rawDump = rawMetadata(from: url)
 
+        if let afterWrite {
+            if let expectedTrackNumber = verification.expectedTrackNumber,
+               afterWrite.track != expectedTrackNumber {
+                warnings.append(
+                    "Track number differs after save (expected \(expectedTrackNumber), got \(afterWrite.track))."
+                )
+            }
+
+            if let expectedTrackTotal = verification.expectedTrackTotal,
+               afterWrite.trackTotal != expectedTrackTotal {
+                warnings.append(
+                    "Total tracks differs after save (expected \(expectedTrackTotal), got \(afterWrite.trackTotal))."
+                )
+            }
+        }
+
         if let expectedTrack = verification.expectedTrackNumberText,
            !normalizedTrimmed(expectedTrack).isEmpty,
            let afterWrite {
@@ -425,6 +457,22 @@ struct TagLibMetadataManager {
             } else if normalizedTrimmed(expectedTrack) != normalizedTrimmed(afterWrite.trackNumberText) {
                 warnings.append(
                     "Track number formatting was normalized by the container (\(expectedTrack) -> \(afterWrite.trackNumberText))."
+                )
+            }
+        }
+
+        if let afterWrite {
+            if let expectedDiscNumber = verification.expectedDiscNumber,
+               afterWrite.disc != expectedDiscNumber {
+                warnings.append(
+                    "Disc number differs after save (expected \(expectedDiscNumber), got \(afterWrite.disc))."
+                )
+            }
+
+            if let expectedDiscTotal = verification.expectedDiscTotal,
+               afterWrite.discTotal != expectedDiscTotal {
+                warnings.append(
+                    "Total discs differs after save (expected \(expectedDiscTotal), got \(afterWrite.discTotal))."
                 )
             }
         }
@@ -491,7 +539,10 @@ struct TagLibMetadataManager {
 
         var warnings: [String] = []
         let lookup = rawPropertiesLookup(rawDump)
-        let riskyNumberKeys = Set(["TRACKNUMBER", "TRACK", "DISCNUMBER", "DISC"])
+        let riskyNumberKeys = Set([
+            "TRACKNUMBER", "TRACK", "TRACKTOTAL", "TOTALTRACKS",
+            "DISCNUMBER", "DISC", "DISCTOTAL", "TOTALDISCS"
+        ])
         let riskyExplicitKeys = Set(["ITUNESADVISORY", "ADVISORY", "EXPLICITCONTENT", "EXPLICIT"])
 
         for (rawKey, rawValue) in requestedProperties {
@@ -812,11 +863,18 @@ struct TagLibMetadataManager {
             return MetadataWriteResult(warnings: [])
         }
 
+        let expectedTrackPair = parseNumberPair(trackNumberText)
+        let expectedDiscPair = parseNumberPair(normalizedTrimmed(discNumberText))
+
         return MetadataWriteResult(
             warnings: metadataWriteWarnings(
                 for: url,
                 verification: MetadataWriteVerificationContext(
+                    expectedTrackNumber: expectedTrackPair.number > 0 ? expectedTrackPair.number : nil,
+                    expectedTrackTotal: expectedTrackPair.total > 0 ? expectedTrackPair.total : nil,
                     expectedTrackNumberText: trackNumberText,
+                    expectedDiscNumber: expectedDiscPair.number > 0 ? expectedDiscPair.number : nil,
+                    expectedDiscTotal: expectedDiscPair.total > 0 ? expectedDiscPair.total : nil,
                     expectedDiscNumberText: discNumberText,
                     expectedExplicitContent: nil,
                     artworkExpectation: .unchanged,
@@ -933,7 +991,11 @@ struct TagLibMetadataManager {
                 meta,
                 to: url,
                 verification: MetadataWriteVerificationContext(
+                    expectedTrackNumber: nil,
+                    expectedTrackTotal: nil,
                     expectedTrackNumberText: nil,
+                    expectedDiscNumber: nil,
+                    expectedDiscTotal: nil,
                     expectedDiscNumberText: nil,
                     expectedExplicitContent: false,
                     artworkExpectation: .absent,
@@ -1053,7 +1115,11 @@ struct TagLibMetadataManager {
             m,
             to: url,
             verification: MetadataWriteVerificationContext(
+                expectedTrackNumber: meta.track,
+                expectedTrackTotal: meta.trackTotal,
                 expectedTrackNumberText: meta.trackNumberText,
+                expectedDiscNumber: meta.disc,
+                expectedDiscTotal: meta.discTotal,
                 expectedDiscNumberText: meta.discNumberText,
                 expectedExplicitContent: meta.isExplicit,
                 artworkExpectation: .unchanged,

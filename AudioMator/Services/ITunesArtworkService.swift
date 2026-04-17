@@ -1,5 +1,9 @@
 import Foundation
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 enum ITunesArtworkSearchEntity: String, Sendable {
     case album
@@ -154,15 +158,13 @@ struct ITunesArtworkService: Sendable {
             throw ITunesArtworkServiceError.invalidArtworkData
         }
 
-        guard let image = NSImage(data: downloadedData) else {
+        guard let image = PlatformImage(data: downloadedData) else {
             throw ITunesArtworkServiceError.imageDecodingFailed
         }
 
         guard
-            let tiffData = image.tiffRepresentation,
-            let bitmapRepresentation = NSBitmapImageRep(data: tiffData),
-            let pngData = bitmapRepresentation.representation(using: .png, properties: [:]),
-            let previewImage = NSImage(data: pngData)
+            let pngData = image.audiomatorPNGData,
+            let previewImage = PlatformImage(data: pngData)
         else {
             throw ITunesArtworkServiceError.imageEncodingFailed
         }

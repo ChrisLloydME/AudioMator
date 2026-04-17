@@ -1,20 +1,16 @@
-import AppKit
-
 extension AudioViewModel {
     // MARK: - Context Menu Actions (Middle List)
 
     func openWithDefaultApp(_ file: AudioFile) {
-        NSWorkspace.shared.open(file.url)
+        PlatformWorkspace.open(file.url)
     }
 
     func revealInFinder(_ file: AudioFile) {
-        NSWorkspace.shared.activateFileViewerSelecting([file.url])
+        PlatformWorkspace.reveal([file.url])
     }
 
     func copyFilePath(_ file: AudioFile) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(file.url.path, forType: .string)
+        PlatformPasteboard.copy(file.url.path)
     }
 
     func removeFromList(_ file: AudioFile) {

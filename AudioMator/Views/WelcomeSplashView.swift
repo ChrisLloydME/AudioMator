@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct WelcomeSplashView: View {
     let onQuit: () -> Void
@@ -101,11 +100,13 @@ private enum WelcomeSplashPage: Int {
 
 private struct AppIconHero: View {
     var body: some View {
-        Image(nsImage: NSApplication.shared.applicationIconImage)
-            .resizable()
-            .interpolation(.high)
-            .scaledToFit()
-            .frame(width: 104, height: 104)
+        if let image = PlatformApplication.appIconImage {
+            Image(platformImage: image)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: 104, height: 104)
+        }
     }
 }
 

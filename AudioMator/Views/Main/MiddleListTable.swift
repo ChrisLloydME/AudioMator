@@ -1,5 +1,7 @@
-import AppKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
 
 struct MiddleListTable: NSViewRepresentable {
     let files: [AudioFile]
@@ -534,3 +536,157 @@ extension MiddleListTable {
         }
     }
 }
+#else
+struct MiddleListTable: View {
+    let files: [AudioFile]
+    @Binding var selection: Set<AudioFile.ID>
+    @Binding var visibleColumns: Set<MiddleListColumn>
+    @Binding var customOrder: [AudioFile.ID]
+    @Binding var middleListSort: MiddleListSort?
+    let onOpenSelectedFiles: () -> Void
+    let onRevealSelectedFilesInFinder: () -> Void
+    let onCopySelectedFilePaths: () -> Void
+    let onCopySelectedFileNames: () -> Void
+    let onFindSelectedFileInMusicBrainz: () -> Void
+    let onRequestEraseAllTags: () -> Void
+
+    var body: some View {
+        List {
+            ForEach(files) { file in
+                row(for: file)
+                    .contentShape(Rectangle())
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                    .background(selection.contains(file.id) ? Color.accentColor.opacity(0.12) : .clear)
+                    .onTapGesture {
+                        selectOnly(file.id)
+                    }
+                    .onLongPressGesture {
+                        toggleSelection(file.id)
+                    }
+                    .contextMenu {
+                        Button("Open") {
+                            selection = [file.id]
+                            onOpenSelectedFiles()
+                        }
+                        Button("Copy Path") {
+                            selection = [file.id]
+                            onCopySelectedFilePaths()
+                        }
+                        Button("Copy Filename") {
+                            selection = [file.id]
+                            onCopySelectedFileNames()
+                        }
+                        Button("Find in MusicBrainz") {
+                            selection = [file.id]
+                            onFindSelectedFileInMusicBrainz()
+                        }
+                        Button("Erase All Tags", role: .destructive) {
+                            selection = [file.id]
+                            onRequestEraseAllTags()
+                        }
+                    }
+            }
+            .onMove(perform: moveRows)
+        }
+        .listStyle(.plain)
+        .environment(\.editMode, .constant(middleListSort == nil ? .active : .inactive))
+    }
+
+    @ViewBuilder
+    private func row(for file: AudioFile) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(primaryTitle(for: file))
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if visibleColumns.contains(.track), !file.trackNumberText.isEmpty {
+                    Text(file.trackNumberText)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 8) {
+                if visibleColumns.contains(.artist), !file.artist.isEmpty {
+                    rowTag(text: file.artist)
+                }
+                if visibleColumns.contains(.album), !file.album.isEmpty {
+                    rowTag(text: file.album)
+                }
+                if visibleColumns.contains(.format), !file.format.isEmpty {
+                    rowTag(text: file.format)
+                }
+                if visibleColumns.contains(.duration), file.duration > 0 {
+                    rowTag(text: MiddleListColumn.duration.text(for: file))
+                }
+            }
+
+            if secondarySummary(for: file) != nil {
+                Text(secondarySummary(for: file) ?? "")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func primaryTitle(for file: AudioFile) -> String {
+        let candidates: [String] = [
+            visibleColumns.contains(.title) ? file.title : "",
+            visibleColumns.contains(.filename) ? file.url.lastPathComponent : "",
+            file.url.lastPathComponent
+        ]
+        return candidates.first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? "Untitled"
+    }
+
+    private func secondarySummary(for file: AudioFile) -> String? {
+        let values = [
+            visibleColumns.contains(.albumArtist) ? file.albumArtist : "",
+            visibleColumns.contains(.genre) ? file.genre : "",
+            visibleColumns.contains(.year) ? file.year : ""
+        ]
+        let summary = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+        return summary.isEmpty ? nil : summary
+    }
+
+    private func rowTag(text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.secondary.opacity(0.12))
+            )
+    }
+
+    private func selectOnly(_ id: AudioFile.ID) {
+        selection = [id]
+    }
+
+    private func toggleSelection(_ id: AudioFile.ID) {
+        if selection.contains(id) {
+            selection.remove(id)
+        } else {
+            selection.insert(id)
+        }
+    }
+
+    private func moveRows(from source: IndexSet, to destination: Int) {
+        guard middleListSort == nil else { return }
+
+        var reordered = files.map(\.id)
+        reordered.move(fromOffsets: source, toOffset: destination)
+        customOrder = reordered
+    }
+}
+#endif

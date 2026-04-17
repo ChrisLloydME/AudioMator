@@ -232,9 +232,9 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .genre:
             edit.genre = value
         case .trackNumber:
-            edit.trackNumberText = value
+            edit.setTrackNumberText(value)
         case .discNumber:
-            edit.discNumberText = value
+            edit.setDiscNumberText(value)
         case .releaseDate:
             edit.releaseDate = value
         case .publisher:

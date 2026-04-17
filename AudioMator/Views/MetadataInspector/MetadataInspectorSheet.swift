@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import AppKit
 
 /// A read-only inspector-style sheet that shows the *raw* metadata dump text.
 ///
@@ -59,6 +58,7 @@ struct MetadataInspectorSheet: View {
             Text(fileName)
                 .font(.headline)
 
+            #if os(macOS)
             HStack(spacing: 6) {
                 Text(filePath)
                     .font(.subheadline)
@@ -75,6 +75,7 @@ struct MetadataInspectorSheet: View {
                 }
                 .buttonStyle(.link)
             }
+            #endif
         }
     }
 
@@ -104,9 +105,7 @@ struct MetadataInspectorSheet: View {
     }
 
     private func copyToPasteboard(_ string: String) {
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(string, forType: .string)
+        PlatformPasteboard.copy(string)
     }
 }
 

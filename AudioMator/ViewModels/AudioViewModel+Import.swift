@@ -1,52 +1,47 @@
 import Foundation
-import AppKit
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
 extension AudioViewModel {
     // MARK: - File Import
 
     func addFiles() {
         guard currentFileSourceMode == .quickImport else { return }
-
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = AudioFormatSupport.openPanelContentTypes
-        panel.title = "Choose Audio Files"
-
-        guard panel.runModal() == .OK else { return }
-
-        importQuickFiles(from: panel.urls)
+        PlatformDocumentPicker.pickAudioFiles { [weak self] urls in
+            guard !urls.isEmpty else { return }
+            Task { @MainActor in
+                self?.importQuickFiles(from: urls)
+            }
+        }
     }
 
     func pickArtwork(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
+        PlatformDocumentPicker.pickImage { [weak self] url in
+            guard let self, let url else { return }
 
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.image]
-        panel.title = "Choose Artwork Image"
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        do {
-            let pendingArtwork = try loadPendingArtwork(from: url)
-            applyArtworkEditAction(.replace(pendingArtwork), to: file)
-        } catch {
-            presentMetadataWriteFailure(
-                for: file.url.lastPathComponent,
-                reason: (error as NSError).localizedDescription
-            )
+            Task { @MainActor in
+                do {
+                    let pendingArtwork = try self.loadPendingArtwork(from: url)
+                    self.applyArtworkEditAction(.replace(pendingArtwork), to: file)
+                } catch {
+                    self.presentMetadataWriteFailure(
+                        for: file.url.lastPathComponent,
+                        reason: (error as NSError).localizedDescription
+                    )
+                }
+            }
         }
     }
 
     func importArtworkFromClipboard(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
 
-        let pasteboard = NSPasteboard.general
-        guard let image = pasteboard.readObjects(forClasses: [NSImage.self])?.first as? NSImage else {
+        guard let image = PlatformPasteboard.image else {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
                 reason: "No image was found in the clipboard."
@@ -72,33 +67,28 @@ extension AudioViewModel {
 
     func pickArtwork(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
+        PlatformDocumentPicker.pickImage { [weak self] url in
+            guard let self, let url else { return }
 
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = [.image]
-        panel.title = "Choose Artwork Image"
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        do {
-            let pendingArtwork = try loadPendingArtwork(from: url)
-            applyArtworkEditAction(.replace(pendingArtwork), to: files)
-        } catch {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: "Artwork Update Failed",
-                subtitle: (error as NSError).localizedDescription
-            )
+            Task { @MainActor in
+                do {
+                    let pendingArtwork = try self.loadPendingArtwork(from: url)
+                    self.applyArtworkEditAction(.replace(pendingArtwork), to: files)
+                } catch {
+                    self.presentMetadataWriteHUD(
+                        style: .failure,
+                        title: "Artwork Update Failed",
+                        subtitle: (error as NSError).localizedDescription
+                    )
+                }
+            }
         }
     }
 
     func importArtworkFromClipboard(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
 
-        let pasteboard = NSPasteboard.general
-        guard let image = pasteboard.readObjects(forClasses: [NSImage.self])?.first as? NSImage else {
+        guard let image = PlatformPasteboard.image else {
             presentMetadataWriteHUD(
                 style: .failure,
                 title: "Artwork Update Failed",
@@ -187,7 +177,7 @@ extension AudioViewModel {
     }
 
     private func loadPendingArtwork(from url: URL) throws -> PendingArtwork {
-        guard let image = NSImage(contentsOf: url) else {
+        guard let image = PlatformImage(contentsOfFile: url.path) else {
             throw NSError(
                 domain: "AudioMator.Artwork",
                 code: 1,
@@ -198,12 +188,8 @@ extension AudioViewModel {
         return try loadPendingArtwork(from: image)
     }
 
-    private func loadPendingArtwork(from image: NSImage) throws -> PendingArtwork {
-        guard
-            let tiffData = image.tiffRepresentation,
-            let bitmap = NSBitmapImageRep(data: tiffData),
-            let pngData = bitmap.representation(using: .png, properties: [:])
-        else {
+    private func loadPendingArtwork(from image: PlatformImage) throws -> PendingArtwork {
+        guard let pngData = image.audiomatorPNGData else {
             throw NSError(
                 domain: "AudioMator.Artwork",
                 code: 2,
@@ -211,7 +197,7 @@ extension AudioViewModel {
             )
         }
 
-        guard let previewImage = NSImage(data: pngData) else {
+        guard let previewImage = PlatformImage(data: pngData) else {
             throw NSError(
                 domain: "AudioMator.Artwork",
                 code: 3,

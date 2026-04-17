@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct MetadataDumpSheet: View {
     let metadataDumpText: String
@@ -21,8 +20,7 @@ struct MetadataDumpSheet: View {
                 Spacer()
 
                 Button("Copy") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(metadataDumpText, forType: .string)
+                    PlatformPasteboard.copy(metadataDumpText)
                 }
             }
 

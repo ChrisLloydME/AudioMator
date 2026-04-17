@@ -1,6 +1,10 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 import Combine
+
+#if os(macOS)
 
 struct MetadataEditorTarget: Identifiable, Hashable {
     let id: AudioFile.ID
@@ -1278,3 +1282,4 @@ private enum MetadataInvisibleMarker {
         }
     }
 }
+#endif

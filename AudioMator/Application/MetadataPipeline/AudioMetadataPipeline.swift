@@ -14,6 +14,10 @@ struct MetadataEditPayload: Sendable {
     var genre: String
     var comment: String
     var year: String
+    var trackNumber: Int
+    var trackTotal: Int
+    var discNumber: Int
+    var discTotal: Int
     var trackNumberText: String
     var discNumberText: String
     var albumArtist: String
@@ -92,7 +96,11 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             metadata,
             to: url,
             verification: TagLibMetadataManager.MetadataWriteVerificationContext(
+                expectedTrackNumber: edit.trackNumber,
+                expectedTrackTotal: edit.trackTotal,
                 expectedTrackNumberText: edit.trackNumberText,
+                expectedDiscNumber: edit.discNumber,
+                expectedDiscTotal: edit.discTotal,
                 expectedDiscNumberText: edit.discNumberText,
                 expectedExplicitContent: edit.isExplicit,
                 artworkExpectation: {
@@ -206,10 +214,10 @@ private enum MetadataPipelineSupport {
 
         metadata.trackNumberText = trackText
         metadata.discNumberText = discText
-        metadata.trackNumber = parsedTrack.number
-        metadata.totalTracks = parsedTrack.total
-        metadata.discNumber = parsedDisc.number
-        metadata.totalDiscs = parsedDisc.total
+        metadata.trackNumber = max(edit.trackNumber, parsedTrack.number)
+        metadata.totalTracks = max(edit.trackTotal, parsedTrack.total)
+        metadata.discNumber = max(edit.discNumber, parsedDisc.number)
+        metadata.totalDiscs = max(edit.discTotal, parsedDisc.total)
 
         return metadata
     }

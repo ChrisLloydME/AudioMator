@@ -1,7 +1,5 @@
-import AppKit
-
 struct PendingArtwork {
-    var image: NSImage
+    var image: PlatformImage
     var data: Data
     var mimeType: String
 }
@@ -200,6 +198,66 @@ struct SingleFileEditModel {
             return hasMetadataChanges || file.artwork != nil
         }
     }
+
+    var trackNumberFieldText: String {
+        AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal).displayedNumberText
+    }
+
+    var trackTotalFieldText: String {
+        AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal).displayedTotalText
+    }
+
+    var discNumberFieldText: String {
+        AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal).displayedNumberText
+    }
+
+    var discTotalFieldText: String {
+        AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal).displayedTotalText
+    }
+
+    mutating func setTrackNumberFieldText(_ text: String) {
+        let pair = AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal)
+            .replacingNumberText(text)
+        applyTrackPair(pair)
+    }
+
+    mutating func setTrackTotalFieldText(_ text: String) {
+        let pair = AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal)
+            .replacingTotalText(text)
+        applyTrackPair(pair)
+    }
+
+    mutating func setDiscNumberFieldText(_ text: String) {
+        let pair = AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal)
+            .replacingNumberText(text)
+        applyDiscPair(pair)
+    }
+
+    mutating func setDiscTotalFieldText(_ text: String) {
+        let pair = AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal)
+            .replacingTotalText(text)
+        applyDiscPair(pair)
+    }
+
+    mutating func setTrackNumberText(_ text: String) {
+        applyTrackPair(AudioTagNumberPair(rawText: text, number: track, total: trackTotal))
+    }
+
+    mutating func setDiscNumberText(_ text: String) {
+        applyDiscPair(AudioTagNumberPair(rawText: text, number: disc, total: discTotal))
+    }
+
+    private mutating func applyTrackPair(_ pair: AudioTagNumberPair) {
+        track = pair.number
+        trackTotal = pair.total
+        trackNumberText = pair.canonicalRawText
+    }
+
+    private mutating func applyDiscPair(_ pair: AudioTagNumberPair) {
+        disc = pair.number
+        discTotal = pair.total
+        discNumberText = pair.canonicalRawText
+    }
 }
 
 enum MultiFileEditableTextField: CaseIterable, Hashable {
@@ -209,8 +267,10 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
     case composer
     case genre
     case year
-    case trackNumberText
-    case discNumberText
+    case trackNumber
+    case trackTotal
+    case discNumber
+    case discTotal
     case comment
     case albumArtist
     case releaseDate
@@ -231,10 +291,14 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
             return "Genre"
         case .year:
             return "Year"
-        case .trackNumberText:
+        case .trackNumber:
             return "Track Number"
-        case .discNumberText:
+        case .trackTotal:
+            return "Total Tracks"
+        case .discNumber:
             return "Disc Number"
+        case .discTotal:
+            return "Total Discs"
         case .comment:
             return "Comment"
         case .albumArtist:
@@ -248,34 +312,38 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
         }
     }
 
-    var keyPath: WritableKeyPath<SingleFileEditModel, String> {
+    func value(from edit: SingleFileEditModel) -> String {
         switch self {
         case .title:
-            return \.title
+            return edit.title
         case .artist:
-            return \.artist
+            return edit.artist
         case .album:
-            return \.album
+            return edit.album
         case .composer:
-            return \.composer
+            return edit.composer
         case .genre:
-            return \.genre
+            return edit.genre
         case .year:
-            return \.year
-        case .trackNumberText:
-            return \.trackNumberText
-        case .discNumberText:
-            return \.discNumberText
+            return edit.year
+        case .trackNumber:
+            return edit.trackNumberFieldText
+        case .trackTotal:
+            return edit.trackTotalFieldText
+        case .discNumber:
+            return edit.discNumberFieldText
+        case .discTotal:
+            return edit.discTotalFieldText
         case .comment:
-            return \.comment
+            return edit.comment
         case .albumArtist:
-            return \.albumArtist
+            return edit.albumArtist
         case .releaseDate:
-            return \.releaseDate
+            return edit.releaseDate
         case .publisher:
-            return \.publisher
+            return edit.publisher
         case .copyright:
-            return \.copyright
+            return edit.copyright
         }
     }
 
@@ -293,10 +361,14 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
             return file.genre
         case .year:
             return file.year
-        case .trackNumberText:
-            return file.trackNumberText
-        case .discNumberText:
-            return file.discNumberText
+        case .trackNumber:
+            return AudioTagNumberPair(rawText: file.trackNumberText, number: file.track, total: file.trackTotal).displayedNumberText
+        case .trackTotal:
+            return AudioTagNumberPair(rawText: file.trackNumberText, number: file.track, total: file.trackTotal).displayedTotalText
+        case .discNumber:
+            return AudioTagNumberPair(rawText: file.discNumberText, number: file.disc, total: file.discTotal).displayedNumberText
+        case .discTotal:
+            return AudioTagNumberPair(rawText: file.discNumberText, number: file.disc, total: file.discTotal).displayedTotalText
         case .comment:
             return file.comment
         case .albumArtist:
@@ -307,6 +379,41 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
             return file.publisher
         case .copyright:
             return file.copyright
+        }
+    }
+
+    func apply(_ text: String, to edit: inout SingleFileEditModel) {
+        switch self {
+        case .title:
+            edit.title = text
+        case .artist:
+            edit.artist = text
+        case .album:
+            edit.album = text
+        case .composer:
+            edit.composer = text
+        case .genre:
+            edit.genre = text
+        case .year:
+            edit.year = text
+        case .trackNumber:
+            edit.setTrackNumberFieldText(text)
+        case .trackTotal:
+            edit.setTrackTotalFieldText(text)
+        case .discNumber:
+            edit.setDiscNumberFieldText(text)
+        case .discTotal:
+            edit.setDiscTotalFieldText(text)
+        case .comment:
+            edit.comment = text
+        case .albumArtist:
+            edit.albumArtist = text
+        case .releaseDate:
+            edit.releaseDate = text
+        case .publisher:
+            edit.publisher = text
+        case .copyright:
+            edit.copyright = text
         }
     }
 }
@@ -321,7 +428,7 @@ enum MultiFileExplicitEditState: String, CaseIterable, Identifiable {
 
 enum MultiFileArtworkState {
     case none
-    case shared(NSImage)
+    case shared(PlatformImage)
     case mixed
 }
 
@@ -340,7 +447,7 @@ struct MultiFileEditModel {
 
         for field in MultiFileEditableTextField.allCases {
             guard let firstFile = files.first else {
-                values[keyPath: field.keyPath] = ""
+                field.apply("", to: &values)
                 continue
             }
 
@@ -348,7 +455,7 @@ struct MultiFileEditModel {
             let isMixed = files.dropFirst().contains { field.value(from: $0) != firstValue }
             let mergedValue = isMixed ? "" : firstValue
 
-            values[keyPath: field.keyPath] = mergedValue
+            field.apply(mergedValue, to: &values)
             if isMixed {
                 mixedTextFields.insert(field)
             }
@@ -375,7 +482,7 @@ struct MultiFileEditModel {
     }
 
     func text(for field: MultiFileEditableTextField) -> String {
-        values[keyPath: field.keyPath]
+        field.value(from: values)
     }
 
     func placeholder(for field: MultiFileEditableTextField) -> String? {
@@ -394,7 +501,7 @@ struct MultiFileEditModel {
         }
     }
 
-    var displayedArtwork: NSImage? {
+    var displayedArtwork: PlatformImage? {
         switch artworkEditAction {
         case .unchanged:
             switch initialArtworkState {
@@ -472,7 +579,7 @@ struct MultiFileEditModel {
     }
 
     mutating func setText(_ text: String, for field: MultiFileEditableTextField) {
-        values[keyPath: field.keyPath] = text
+        field.apply(text, to: &values)
         modifiedTextFields.insert(field)
     }
 
@@ -484,7 +591,7 @@ struct MultiFileEditModel {
         var result = SingleFileEditModel(from: file)
 
         for field in modifiedTextFields {
-            result[keyPath: field.keyPath] = values[keyPath: field.keyPath]
+            field.apply(field.value(from: values), to: &result)
         }
 
         switch explicitEditState {

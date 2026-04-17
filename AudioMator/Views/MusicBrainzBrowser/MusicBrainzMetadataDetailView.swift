@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import SwiftUI
 import WebKit
@@ -64,7 +63,7 @@ struct MusicBrainzMetadataDetailView: View {
             .padding(.vertical, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(platformColor: .audiomatorWindowBackground))
     }
 
     @ViewBuilder
@@ -656,11 +655,11 @@ struct MetadataSectionCard<Content: View>: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .fill(Color(platformColor: .audiomatorControlBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 1)
+                    .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
             )
         }
     }
@@ -1045,7 +1044,7 @@ private struct MatchedFilesDetailView: View {
             .padding(.vertical, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(platformColor: .audiomatorWindowBackground))
         .navigationTitle("Matched Files")
     }
 }
@@ -1074,7 +1073,7 @@ private struct MetadataComparisonDetailView: View {
             .padding(.vertical, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(platformColor: .audiomatorWindowBackground))
         .navigationTitle("Metadata Comparison")
     }
 }
@@ -1224,7 +1223,7 @@ private struct MusicBrainzEmbeddedWebPageView: View {
     var body: some View {
         WebView(page)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(Color(platformColor: .audiomatorWindowBackground))
             .navigationTitle(title)
             .navigationSubtitle(url.host() ?? "MusicBrainz")
             .task(id: url) {
@@ -1239,8 +1238,7 @@ private struct MusicBrainzEmbeddedWebPageView: View {
                     }
 
                     Button {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                        PlatformPasteboard.copy(url.absoluteString)
                     } label: {
                         Label("Copy Link", systemImage: "doc.on.doc")
                     }

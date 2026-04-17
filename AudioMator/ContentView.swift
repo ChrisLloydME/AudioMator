@@ -9,18 +9,30 @@ import SwiftUI
 import AVFoundation
 
 struct ContentView: View {
+    private enum PendingDiscardAction {
+        case selection(Set<AudioFile.ID>)
+        case hideInspector
+    }
+
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
     @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @ObservedObject var metadataEditorStore: MetadataEditorStore
     let metadataPipeline: any AudioMetadataPipeline
+    #if os(macOS)
     @Environment(\.openWindow) private var openWindow
+    #endif
 
     @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
+    @State private var isMusicBrainzBrowserPresented: Bool = false
+    @State private var isMetadataFilenameToolPresented: Bool = false
+    @State private var isMetadataEditorPresented: Bool = false
+    @State private var isDiscardInspectorAlertPresented: Bool = false
+    @State private var pendingDiscardAction: PendingDiscardAction?
 
     // Full metadata dump (user-facing feature)
     @State private var isMetadataDumpPresented: Bool = false
@@ -43,112 +55,172 @@ struct ContentView: View {
     }
 
     var body: some View {
+        rootContent
+            .sheet(isPresented: $isMetadataDumpPresented) {
+                MetadataDumpSheet(
+                    metadataDumpText: metadataDumpText,
+                    onClose: { isMetadataDumpPresented = false }
+                )
+            }
+            .sheet(isPresented: $isTrackRenumberPresented) {
+                TrackRenumberSheet(
+                    viewModel: viewModel,
+                    state: state,
+                    isPresented: $isTrackRenumberPresented,
+                    trackRenumberOptions: $trackRenumberOptions,
+                    trackRenumberStartText: $trackRenumberStartText,
+                    isTrackRenumberRunning: $isTrackRenumberRunning,
+                    trackRenumberResult: $trackRenumberResult
+                )
+            }
+            .sheet(isPresented: $isWelcomeSplashPresented) {
+                WelcomeSplashView(
+                    onQuit: quitApplication,
+                    onContinue: dismissWelcomeSplash
+                )
+            }
+            #if os(iOS)
+            .sheet(isPresented: $isMusicBrainzBrowserPresented) {
+                MusicBrainzBrowserView(
+                    store: musicBrainzBrowserStore,
+                    viewModel: viewModel
+                )
+            }
+            .sheet(isPresented: $isMetadataFilenameToolPresented) {
+                MetadataFilenameWindowView(
+                    viewModel: viewModel,
+                    store: metadataFilenameToolStore
+                )
+            }
+            .sheet(isPresented: $isMetadataEditorPresented) {
+                MetadataEditorWindowView(
+                    viewModel: viewModel,
+                    store: metadataEditorStore
+                )
+            }
+            .confirmationDialog(
+                "Discard Inspector Edits?",
+                isPresented: $isDiscardInspectorAlertPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Discard Edits", role: .destructive) {
+                    performPendingDiscardAction()
+                }
+                Button("Always Discard Without Asking", role: .destructive) {
+                    suppressesUnsavedInspectorDiscardWarning = true
+                    performPendingDiscardAction()
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDiscardAction = nil
+                }
+            } message: {
+                Text("To continue, AudioMator needs to discard your unsaved inspector edits.")
+            }
+            #endif
+            .overlay(alignment: .bottom) {
+                if let hud = viewModel.metadataWriteHUD {
+                    MetadataWriteHUDView(hud: hud)
+                        .id(hud.id)
+                        .padding(.bottom, 40)
+                }
+            }
+            .overlay {
+                if let progress = viewModel.metadataSaveProgress {
+                    MetadataSaveProgressOverlay(progress: progress)
+                }
+            }
+            .onAppear {
+                viewModel.setSidebarSelection(state.selectedSidebarItem)
+            }
+            .task {
+                guard !hasCompletedWelcomeSplash, !isWelcomeSplashPresented else { return }
+                isWelcomeSplashPresented = true
+            }
+            .onChange(of: state.selectedSidebarItem) { _, newSelection in
+                viewModel.setSidebarSelection(newSelection)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .showWelcomeSplash)) { _ in
+                guard !isWelcomeSplashPresented else { return }
+                isWelcomeSplashPresented = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestMetadataDump)) { _ in
+                guard !state.selectedAudioIDs.isEmpty else { return }
+                presentMetadataDump()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestTrackRenumber)) { _ in
+                guard !viewModel.files.isEmpty else { return }
+                openTrackRenumberSheet()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestMusicBrainzBrowser)) { _ in
+                openMusicBrainzBrowser()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
+                attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .requestToggleInspector)) { _ in
+                toggleInspector()
+            }
+    }
+
+    @ViewBuilder
+    private var rootContent: some View {
+        #if os(macOS)
         NavigationSplitView {
             SidebarPane(viewModel: viewModel, state: state)
         } content: {
-            ContentPane(
-                viewModel: viewModel,
-                state: state,
-                selection: guardedSelection,
-                onAddFiles: viewModel.addFiles,
-                onShowMetadataDump: presentMetadataDump,
-                onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
-                onOpenMetadataFilenameTool: openMetadataFilenameTool,
-                onOpenMetadataEditor: openMetadataEditor,
-                onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
-                onOpenTrackRenumber: openTrackRenumberSheet,
-                onCancelEdits: viewModel.cancelEditing,
-                onSaveEdits: viewModel.saveInspectorEdits,
-                isInspectorVisible: isInspectorVisible,
-                onToggleInspector: toggleInspector
-            )
+            contentPane
         } detail: {
-            Group {
-                if isInspectorVisible {
-                    ZStack {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .ignoresSafeArea()
-
-                        InspectorPane(
-                            viewModel: viewModel,
-                            state: state,
-                            isInspectorVisible: $isInspectorVisible
-                        )
-                    }
-                    .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
-                } else {
-                    Color.clear
-                        .navigationSplitViewColumnWidth(min: 0, ideal: 0, max: 0)
-                }
-            }
+            inspectorPane
         }
         .navigationSplitViewStyle(.balanced)
-        .sheet(isPresented: $isMetadataDumpPresented) {
-            MetadataDumpSheet(
-                metadataDumpText: metadataDumpText,
-                onClose: { isMetadataDumpPresented = false }
-            )
+        #else
+        NavigationSplitView {
+            contentPane
+        } detail: {
+            inspectorPane
         }
-        .sheet(isPresented: $isTrackRenumberPresented) {
-            TrackRenumberSheet(
-                viewModel: viewModel,
-                state: state,
-                isPresented: $isTrackRenumberPresented,
-                trackRenumberOptions: $trackRenumberOptions,
-                trackRenumberStartText: $trackRenumberStartText,
-                isTrackRenumberRunning: $isTrackRenumberRunning,
-                trackRenumberResult: $trackRenumberResult
-            )
-        }
-        .sheet(isPresented: $isWelcomeSplashPresented) {
-            WelcomeSplashView(
-                onQuit: quitApplication,
-                onContinue: dismissWelcomeSplash
-            )
-        }
-        .overlay(alignment: .bottom) {
-            if let hud = viewModel.metadataWriteHUD {
-                MetadataWriteHUDView(hud: hud)
-                    .id(hud.id)
-                    .padding(.bottom, 40)
+        .navigationSplitViewStyle(.balanced)
+        #endif
+    }
+
+    private var contentPane: some View {
+        ContentPane(
+            viewModel: viewModel,
+            state: state,
+            selection: guardedSelection,
+            onAddFiles: viewModel.addFiles,
+            onShowMetadataDump: presentMetadataDump,
+            onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
+            onOpenMetadataFilenameTool: openMetadataFilenameTool,
+            onOpenMetadataEditor: openMetadataEditor,
+            onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
+            onOpenTrackRenumber: openTrackRenumberSheet,
+            onCancelEdits: viewModel.cancelEditing,
+            onSaveEdits: viewModel.saveInspectorEdits,
+            isInspectorVisible: isInspectorVisible,
+            onToggleInspector: toggleInspector
+        )
+    }
+
+    private var inspectorPane: some View {
+        Group {
+            if isInspectorVisible {
+                ZStack {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .ignoresSafeArea()
+
+                    InspectorPane(
+                        viewModel: viewModel,
+                        state: state,
+                        isInspectorVisible: $isInspectorVisible
+                    )
+                }
+                .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
+            } else {
+                Color.clear
+                    .navigationSplitViewColumnWidth(min: 0, ideal: 0, max: 0)
             }
-        }
-        .overlay {
-            if let progress = viewModel.metadataSaveProgress {
-                MetadataSaveProgressOverlay(progress: progress)
-            }
-        }
-        .onAppear {
-            viewModel.setSidebarSelection(state.selectedSidebarItem)
-        }
-        .task {
-            guard !hasCompletedWelcomeSplash, !isWelcomeSplashPresented else { return }
-            isWelcomeSplashPresented = true
-        }
-        .onChange(of: state.selectedSidebarItem) { _, newSelection in
-            viewModel.setSidebarSelection(newSelection)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .showWelcomeSplash)) { _ in
-            guard !isWelcomeSplashPresented else { return }
-            isWelcomeSplashPresented = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .requestMetadataDump)) { _ in
-            guard !state.selectedAudioIDs.isEmpty else { return }
-            presentMetadataDump()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .requestTrackRenumber)) { _ in
-            guard !viewModel.files.isEmpty else { return }
-            openTrackRenumberSheet()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .requestMusicBrainzBrowser)) { _ in
-            openMusicBrainzBrowser()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
-            attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .requestToggleInspector)) { _ in
-            toggleInspector()
         }
     }
 
@@ -162,7 +234,11 @@ struct ContentView: View {
     private func openMusicBrainzBrowser() {
         let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
         musicBrainzBrowserStore.apply(seed: seed)
+        #if os(macOS)
         openWindow(id: MusicBrainzBrowserView.windowID)
+        #else
+        isMusicBrainzBrowserPresented = true
+        #endif
 
         if musicBrainzBrowserStore.hasSearchText {
             musicBrainzBrowserStore.search()
@@ -173,14 +249,22 @@ struct ContentView: View {
         guard let seed = currentMusicBrainzMatchSeed() else { return }
 
         musicBrainzBrowserStore.apply(seed: seed)
+        #if os(macOS)
         openWindow(id: MusicBrainzBrowserView.windowID)
+        #else
+        isMusicBrainzBrowserPresented = true
+        #endif
         musicBrainzBrowserStore.search()
     }
 
     private func openMetadataFilenameTool(targetFileIDs: [AudioFile.ID]) {
         guard !targetFileIDs.isEmpty else { return }
         metadataFilenameToolStore.present(targetFileIDs: targetFileIDs)
+        #if os(macOS)
         openWindow(id: MetadataFilenameWindowView.windowID)
+        #else
+        isMetadataFilenameToolPresented = true
+        #endif
     }
 
     private func openMetadataEditor(targetFileIDs: [AudioFile.ID]) {
@@ -191,7 +275,11 @@ struct ContentView: View {
         guard !targets.isEmpty else { return }
 
         metadataEditorStore.present(targetFiles: targets)
+        #if os(macOS)
         openWindow(id: MetadataEditorWindowView.windowID)
+        #else
+        isMetadataEditorPresented = true
+        #endif
     }
 
     private func dismissWelcomeSplash() {
@@ -204,14 +292,14 @@ struct ContentView: View {
 
         Task { @MainActor in
             await Task.yield()
-            NSApplication.shared.terminate(nil)
+            PlatformApplication.terminate()
         }
     }
 
     private func attemptSelectionChange(to newSelection: Set<AudioFile.ID>) {
         guard newSelection != state.selectedAudioIDs else { return }
 
-        confirmDiscardUnsavedInspectorEditsIfNeeded {
+        confirmDiscardUnsavedInspectorEditsIfNeeded(pendingAction: .selection(newSelection)) {
             state.selectedAudioIDs = newSelection
         }
     }
@@ -221,7 +309,10 @@ struct ContentView: View {
         viewModel.cancelEditing()
     }
 
-    private func confirmDiscardUnsavedInspectorEditsIfNeeded(_ action: @escaping () -> Void) {
+    private func confirmDiscardUnsavedInspectorEditsIfNeeded(
+        pendingAction: PendingDiscardAction,
+        _ action: @escaping () -> Void
+    ) {
         guard viewModel.hasUnsavedInspectorChanges else {
             action()
             return
@@ -237,9 +328,15 @@ struct ContentView: View {
             return
         }
 
+        #if os(macOS)
         presentUnsavedInspectorDiscardAlert(onContinue: continueAction)
+        #else
+        pendingDiscardAction = pendingAction
+        isDiscardInspectorAlertPresented = true
+        #endif
     }
 
+    #if os(macOS)
     private func presentUnsavedInspectorDiscardAlert(onContinue: @escaping () -> Void) {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -267,6 +364,7 @@ struct ContentView: View {
             handleResponse(response)
         }
     }
+    #endif
 
     private func setInspectorVisibility(_ isVisible: Bool) {
         withAnimation(.easeInOut(duration: 0.18)) {
@@ -371,11 +469,25 @@ struct ContentView: View {
 
     private func toggleInspector() {
         if isInspectorVisible {
-            confirmDiscardUnsavedInspectorEditsIfNeeded {
+            confirmDiscardUnsavedInspectorEditsIfNeeded(pendingAction: .hideInspector) {
                 setInspectorVisibility(false)
             }
         } else {
             setInspectorVisibility(true)
+        }
+    }
+
+    private func performPendingDiscardAction() {
+        defer { pendingDiscardAction = nil }
+
+        discardInspectorEditsIfNeeded()
+
+        guard let pendingDiscardAction else { return }
+        switch pendingDiscardAction {
+        case .selection(let newSelection):
+            state.selectedAudioIDs = newSelection
+        case .hideInspector:
+            setInspectorVisibility(false)
         }
     }
 }

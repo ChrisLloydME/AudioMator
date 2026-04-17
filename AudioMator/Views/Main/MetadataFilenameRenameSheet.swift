@@ -1,7 +1,11 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 import Combine
 import UniformTypeIdentifiers
+
+#if os(macOS)
 
 private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
     case metadataToFilename
@@ -1295,3 +1299,4 @@ private extension FileRenameMetadataField {
         }
     }
 }
+#endif

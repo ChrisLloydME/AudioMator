@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 private let textImportInnerRadius: CGFloat = 12
 private let textImportSectionInset: CGFloat = 10
@@ -448,25 +447,20 @@ struct TextMetadataImportSheet: View {
     }
 
     private func chooseTextFile() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.canCreateDirectories = false
-        panel.title = "Choose a Text File"
-        panel.prompt = "Choose"
-        panel.message = "AudioMator will split this file into one value per selected row."
+        PlatformDocumentPicker.pickTextFile { url in
+            guard let url else { return }
 
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        do {
-            sourceText = try loadTextFile(from: url)
-            selectedTextFileURL = url
-            fileLoadError = nil
-        } catch {
-            selectedTextFileURL = nil
-            sourceText = ""
-            fileLoadError = (error as NSError).localizedDescription
+            Task { @MainActor in
+                do {
+                    sourceText = try loadTextFile(from: url)
+                    selectedTextFileURL = url
+                    fileLoadError = nil
+                } catch {
+                    selectedTextFileURL = nil
+                    sourceText = ""
+                    fileLoadError = (error as NSError).localizedDescription
+                }
+            }
         }
     }
 

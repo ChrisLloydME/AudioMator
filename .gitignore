@@ -17,3 +17,5 @@ TestResults/
 /AudioMator.xcodeproj/project.xcworkspace/xcuserdata/lloyd.xcuserdatad/UserInterfaceState.xcuserstate
 /.deriveddata-codex-noicon
 /.DerivedData
+/.deriveddata-ios-codex
+/.deriveddata-macos-codex

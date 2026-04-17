@@ -43,11 +43,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct AudioMatorApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @StateObject private var viewModel = AudioViewModel()
-    @StateObject private var sharedState = SharedState()
-    @StateObject private var musicBrainzBrowserStore = MusicBrainzBrowserStore()
-    @StateObject private var metadataFilenameToolStore = MetadataFilenameToolStore()
-    @StateObject private var metadataEditorStore = MetadataEditorStore()
+    private let metadataPipeline: any AudioMetadataPipeline
+    @StateObject private var viewModel: AudioViewModel
+    @StateObject private var sharedState: SharedState
+    @StateObject private var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @StateObject private var metadataFilenameToolStore: MetadataFilenameToolStore
+    @StateObject private var metadataEditorStore: MetadataEditorStore
+
+    init() {
+        let metadataPipeline = TagLibAudioMetadataPipeline()
+        self.metadataPipeline = metadataPipeline
+        _viewModel = StateObject(
+            wrappedValue: AudioViewModel(metadataPipeline: metadataPipeline)
+        )
+        _sharedState = StateObject(wrappedValue: SharedState())
+        _musicBrainzBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
+        _metadataFilenameToolStore = StateObject(wrappedValue: MetadataFilenameToolStore())
+        _metadataEditorStore = StateObject(
+            wrappedValue: MetadataEditorStore(metadataPipeline: metadataPipeline)
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -56,7 +71,8 @@ struct AudioMatorApp: App {
                 state: sharedState,
                 musicBrainzBrowserStore: musicBrainzBrowserStore,
                 metadataFilenameToolStore: metadataFilenameToolStore,
-                metadataEditorStore: metadataEditorStore
+                metadataEditorStore: metadataEditorStore,
+                metadataPipeline: metadataPipeline
             )
                 .frame(minWidth: 900, minHeight: 600)
         }

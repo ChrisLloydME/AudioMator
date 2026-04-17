@@ -1,0 +1,254 @@
+import Foundation
+
+enum MetadataArtworkChange: Sendable {
+    case unchanged
+    case replace(data: Data, mimeType: String)
+    case remove
+}
+
+struct MetadataEditPayload: Sendable {
+    var title: String
+    var artist: String
+    var album: String
+    var composer: String
+    var genre: String
+    var comment: String
+    var year: String
+    var trackNumberText: String
+    var discNumberText: String
+    var albumArtist: String
+    var releaseDate: String
+    var publisher: String
+    var isrc: String
+    var barcode: String
+    var musicBrainzAlbumID: String
+    var musicBrainzTrackID: String
+    var musicBrainzReleaseGroupID: String
+    var lyricist: String
+    var remixer: String
+    var producer: String
+    var engineer: String
+    var language: String
+    var mediaType: String
+    var releaseType: String
+    var catalogNumber: String
+    var releaseCountry: String
+    var copyright: String
+    var isExplicit: Bool
+    var artwork: MetadataArtworkChange
+}
+
+struct AudioMetadataWriteResult: Sendable {
+    let warnings: [String]
+}
+
+protocol AudioMetadataPipeline: Sendable {
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile
+    nonisolated func rawMetadataDumpText(for url: URL) -> String?
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String]
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult
+    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult
+}
+
+struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
+    nonisolated init() {}
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        try await AudioFile(url: url, id: id)
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? {
+        TagLibMetadataManager.rawMetadataText(from: url)
+    }
+
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
+        let dump = try TagLibMetadataManager.rawMetadataResult(from: url)
+        var propertyMap: [String: String] = [:]
+
+        for entry in dump.properties {
+            let key = MetadataPipelineSupport.normalizedFieldComponent(entry.key)
+            let valueSource = entry.values.isEmpty ? entry.value : entry.values.joined(separator: "; ")
+            let value = MetadataPipelineSupport.normalizedFieldComponent(valueSource)
+
+            guard !key.isEmpty, !value.isEmpty else { continue }
+            propertyMap[key] = value
+        }
+
+        return propertyMap
+    }
+
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+        let metadata = MetadataPipelineSupport.makeTagLibMetadata(from: edit, url: url)
+        MetadataPipelineSupport.logMetadataWrite(metadata, edit: edit, url: url)
+
+        let writeResult = try TagLibMetadataManager.writeTagMetadata(
+            metadata,
+            to: url,
+            verification: TagLibMetadataManager.MetadataWriteVerificationContext(
+                expectedTrackNumberText: edit.trackNumberText,
+                expectedDiscNumberText: edit.discNumberText,
+                expectedExplicitContent: edit.isExplicit,
+                artworkExpectation: {
+                    switch edit.artwork {
+                    case .unchanged:
+                        return .unchanged
+                    case .replace:
+                        return .present
+                    case .remove:
+                        return .absent
+                    }
+                }(),
+                customFieldKeys: Array((metadata.customFields ?? [:]).keys)
+            )
+        )
+
+        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+    }
+
+    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+        let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(propertyMap, to: url)
+        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+    }
+
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        let writeResult = try TagLibMetadataManager.eraseAllMetadataWithVerification(from: url)
+        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+    }
+
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        let writeResult = try TagLibMetadataManager.writeTrackNumberText(
+            trackNumberText,
+            discNumberText: discNumberText,
+            to: url,
+            verifyAfterWrite: verifyAfterWrite
+        )
+        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+    }
+}
+
+private enum MetadataPipelineSupport {
+    nonisolated static func normalizedFieldComponent(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated static func parseNumberTextForMetadataWrite(_ rawText: String) -> (number: Int, total: Int) {
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return (0, 0) }
+
+        let parts = trimmed.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        let number = parts.first.flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
+        let total = parts.count > 1
+            ? Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+            : 0
+
+        return (max(0, number), max(0, total))
+    }
+
+    nonisolated static func makeTagLibMetadata(from edit: MetadataEditPayload, url: URL) -> TagLibAudioMetadata {
+        let metadata = (try? TagLibMetadataExtractor.extractMetadata(from: url)) ?? TagLibAudioMetadata()
+
+        metadata.title = normalizedFieldComponent(edit.title)
+        metadata.artist = normalizedFieldComponent(edit.artist)
+        metadata.album = normalizedFieldComponent(edit.album)
+        metadata.composer = normalizedFieldComponent(edit.composer)
+        metadata.genre = normalizedFieldComponent(edit.genre)
+        metadata.comment = normalizedFieldComponent(edit.comment)
+        metadata.albumArtist = normalizedFieldComponent(edit.albumArtist)
+        metadata.year = normalizedFieldComponent(edit.year)
+        metadata.releaseDate = normalizedFieldComponent(edit.releaseDate)
+        metadata.label = normalizedFieldComponent(edit.publisher)
+        metadata.isrc = normalizedFieldComponent(edit.isrc)
+        metadata.barcode = normalizedFieldComponent(edit.barcode)
+        metadata.musicBrainzAlbumId = normalizedFieldComponent(edit.musicBrainzAlbumID)
+        metadata.musicBrainzTrackId = normalizedFieldComponent(edit.musicBrainzTrackID)
+        metadata.musicBrainzReleaseGroupId = normalizedFieldComponent(edit.musicBrainzReleaseGroupID)
+        metadata.lyricist = normalizedFieldComponent(edit.lyricist)
+        metadata.remixer = normalizedFieldComponent(edit.remixer)
+        metadata.producer = normalizedFieldComponent(edit.producer)
+        metadata.engineer = normalizedFieldComponent(edit.engineer)
+        metadata.language = normalizedFieldComponent(edit.language)
+        metadata.mediaType = normalizedFieldComponent(edit.mediaType)
+        metadata.releaseType = normalizedFieldComponent(edit.releaseType)
+        metadata.catalogNumber = normalizedFieldComponent(edit.catalogNumber)
+        metadata.releaseCountry = normalizedFieldComponent(edit.releaseCountry)
+        metadata.copyright = normalizedFieldComponent(edit.copyright)
+        metadata.explicitContent = edit.isExplicit
+
+        switch edit.artwork {
+        case .unchanged:
+            metadata.artworkData = nil
+            metadata.artworkMimeType = nil
+            metadata.removeArtwork = false
+        case .replace(let data, let mimeType):
+            metadata.artworkData = data
+            metadata.artworkMimeType = mimeType
+            metadata.removeArtwork = false
+        case .remove:
+            metadata.removeArtwork = true
+        }
+
+        let trackText = normalizedFieldComponent(edit.trackNumberText)
+        let discText = normalizedFieldComponent(edit.discNumberText)
+        let parsedTrack = parseNumberTextForMetadataWrite(trackText)
+        let parsedDisc = parseNumberTextForMetadataWrite(discText)
+
+        metadata.trackNumberText = trackText
+        metadata.discNumberText = discText
+        metadata.trackNumber = parsedTrack.number
+        metadata.totalTracks = parsedTrack.total
+        metadata.discNumber = parsedDisc.number
+        metadata.totalDiscs = parsedDisc.total
+
+        return metadata
+    }
+
+    nonisolated static func logMetadataWrite(
+        _ metadata: TagLibAudioMetadata,
+        edit: MetadataEditPayload,
+        url: URL
+    ) {
+        print("""
+        [AudioMator] Will write metadata for \(url.lastPathComponent)
+          title       = \(metadata.title ?? "<nil>")
+          artist      = \(metadata.artist ?? "<nil>")
+          album       = \(metadata.album ?? "<nil>")
+          composer    = \(metadata.composer ?? "<nil>")
+          genre       = \(metadata.genre ?? "<nil>")
+          comment     = \(metadata.comment ?? "<nil>")
+          albumArtist = \(metadata.albumArtist ?? "<nil>")
+          releaseDate = \(metadata.releaseDate ?? "<nil>")
+          publisher   = \(metadata.label ?? "<nil>")
+          isrc        = \(metadata.isrc ?? "<nil>")
+          barcode     = \(metadata.barcode ?? "<nil>")
+          mbAlbumID   = \(metadata.musicBrainzAlbumId ?? "<nil>")
+          mbTrackID   = \(metadata.musicBrainzTrackId ?? "<nil>")
+          mbRGID      = \(metadata.musicBrainzReleaseGroupId ?? "<nil>")
+          lyricist    = \(metadata.lyricist ?? "<nil>")
+          remixer     = \(metadata.remixer ?? "<nil>")
+          producer    = \(metadata.producer ?? "<nil>")
+          engineer    = \(metadata.engineer ?? "<nil>")
+          language    = \(metadata.language ?? "<nil>")
+          mediaType   = \(metadata.mediaType ?? "<nil>")
+          releaseType = \(metadata.releaseType ?? "<nil>")
+          catalogNo   = \(metadata.catalogNumber ?? "<nil>")
+          relCountry  = \(metadata.releaseCountry ?? "<nil>")
+          copyright   = \(metadata.copyright ?? "<nil>")
+          explicit    = \(metadata.explicitContent ? "YES" : "NO")
+          year        = \(metadata.year ?? "<nil>")
+          trackText   = \(edit.trackNumberText.isEmpty ? "<empty>" : edit.trackNumberText)
+          discText    = \(edit.discNumberText.isEmpty ? "<empty>" : edit.discNumberText)
+        """)
+    }
+}

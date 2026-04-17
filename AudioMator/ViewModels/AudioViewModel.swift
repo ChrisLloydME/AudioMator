@@ -42,9 +42,7 @@ struct MetadataSaveProgress: Equatable {
 
 @MainActor
 final class AudioViewModel: ObservableObject {
-    nonisolated private static let readableAudioExtensions: Set<String> = Set(
-        TagLibMetadataExtractor.supportedExtensions().map { $0.lowercased() }
-    )
+    nonisolated private static let readableAudioExtensions = AudioFormatSupport.readableExtensions
 
     // All audio files currently loaded into the middle list.
     @Published var files: [AudioFile] = []
@@ -59,6 +57,7 @@ final class AudioViewModel: ObservableObject {
     @Published var metadataSaveProgress: MetadataSaveProgress?
 
     private let watchedFolderStore: WatchedFolderStore
+    let metadataPipeline: any AudioMetadataPipeline
     let iTunesArtworkService = ITunesArtworkService()
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
     var artworkLookupTask: Task<Void, Never>?
@@ -76,11 +75,25 @@ final class AudioViewModel: ObservableObject {
     private var folderScanTokens: [UUID: UUID] = [:]
 
     convenience init() {
-        self.init(watchedFolderStore: WatchedFolderStore())
+        self.init(
+            watchedFolderStore: WatchedFolderStore(),
+            metadataPipeline: TagLibAudioMetadataPipeline()
+        )
     }
 
-    init(watchedFolderStore: WatchedFolderStore) {
+    convenience init(metadataPipeline: any AudioMetadataPipeline) {
+        self.init(
+            watchedFolderStore: WatchedFolderStore(),
+            metadataPipeline: metadataPipeline
+        )
+    }
+
+    init(
+        watchedFolderStore: WatchedFolderStore,
+        metadataPipeline: any AudioMetadataPipeline
+    ) {
         self.watchedFolderStore = watchedFolderStore
+        self.metadataPipeline = metadataPipeline
 
         let restoredFolders = watchedFolderStore.loadFolders()
         self.watchedFolders = restoredFolders
@@ -334,10 +347,14 @@ final class AudioViewModel: ObservableObject {
             let fileIDsByKey = await MainActor.run {
                 self.prepareStableIDs(for: candidateURLs)
             }
+            let metadataPipeline = await MainActor.run {
+                self.metadataPipeline
+            }
 
             _ = await Self.loadAudioFiles(
                 from: candidateURLs,
                 fileIDsByKey: fileIDsByKey,
+                metadataPipeline: metadataPipeline,
                 onBatchLoaded: { batch in
                     guard !batch.isEmpty else { return }
                     await MainActor.run {
@@ -498,9 +515,14 @@ final class AudioViewModel: ObservableObject {
         }.value
 
         let fileIDsByKey = prepareStableIDs(for: snapshot.audioURLs)
+        let metadataPipeline = self.metadataPipeline
 
         let loadedFiles = await Task.detached(priority: .userInitiated) {
-            await Self.loadAudioFiles(from: snapshot.audioURLs, fileIDsByKey: fileIDsByKey)
+            await Self.loadAudioFiles(
+                from: snapshot.audioURLs,
+                fileIDsByKey: fileIDsByKey,
+                metadataPipeline: metadataPipeline
+            )
         }.value
 
         guard folderScanTokens[id] == scanToken else { return }
@@ -736,6 +758,7 @@ final class AudioViewModel: ObservableObject {
     nonisolated private static func loadAudioFiles(
         from urls: [URL],
         fileIDsByKey: [String: UUID],
+        metadataPipeline: any AudioMetadataPipeline,
         onBatchLoaded: (@Sendable ([AudioFile]) async -> Void)? = nil
     ) async -> [AudioFile] {
         let inputs: [(index: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
@@ -770,7 +793,7 @@ final class AudioViewModel: ObservableObject {
                 group.addTask {
                     (
                         input.index,
-                        try? await AudioFile(url: input.url, id: input.id)
+                        try? await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
                     )
                 }
             }
@@ -807,7 +830,7 @@ final class AudioViewModel: ObservableObject {
                 group.addTask {
                     (
                         input.index,
-                        try? await AudioFile(url: input.url, id: input.id)
+                        try? await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
                     )
                 }
             }

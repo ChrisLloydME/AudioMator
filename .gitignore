@@ -19,3 +19,5 @@ TestResults/
 /.DerivedData
 /.deriveddata-ios-codex
 /.deriveddata-macos-codex
+/.deriveddata-ios-sim-codex
+/.deriveddata-ios-sim-codex-2

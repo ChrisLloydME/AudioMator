@@ -174,12 +174,20 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         #else
-        NavigationSplitView {
-            contentPane
-        } detail: {
-            inspectorPane
-        }
-        .navigationSplitViewStyle(.balanced)
+        IPadWorkspaceView(
+            viewModel: viewModel,
+            state: state,
+            selection: guardedSelection,
+            onAddFiles: viewModel.addFiles,
+            onShowMetadataDump: presentMetadataDump,
+            onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
+            onOpenMetadataFilenameTool: openMetadataFilenameTool,
+            onOpenMetadataEditor: openMetadataEditor,
+            onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
+            onOpenTrackRenumber: openTrackRenumberSheet,
+            onCancelEdits: viewModel.cancelEditing,
+            onSaveEdits: viewModel.saveInspectorEdits
+        )
         #endif
     }
 

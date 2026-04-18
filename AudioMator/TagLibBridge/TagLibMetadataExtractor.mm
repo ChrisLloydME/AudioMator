@@ -1227,15 +1227,12 @@ static TagLib::PropertyMap BuildGenericPropertyMap(
     SetPropertyMapString(properties, "COMPILATION", metadata.compilation ? @"1" : nil);
     SetPropertyMapString(properties, "ITUNESADVISORY", metadata.explicitContent ? @"1" : nil);
 
-    NSString *trackText = TrimmedStringOrNil(metadata.trackNumberText);
-    if (!trackText && (metadata.trackNumber > 0 || metadata.totalTracks > 0)) {
-        if (metadata.trackNumber > 0 && metadata.totalTracks > 0) {
-            trackText = [NSString stringWithFormat:@"%ld/%ld",
-                         (long)metadata.trackNumber,
-                         (long)metadata.totalTracks];
-        } else if (metadata.trackNumber > 0) {
-            trackText = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
-        }
+    NSString *trackText = BuildPropertyMapNumberTextPreservingFormatting(
+        metadata.trackNumberText,
+        metadata.trackNumber
+    );
+    if (!trackText && metadata.trackNumber > 0) {
+        trackText = [NSString stringWithFormat:@"%ld", (long)metadata.trackNumber];
     }
     SetPropertyMapNumberText(properties, "TRACKNUMBER", trackText);
     SetPropertyMapString(
@@ -1244,15 +1241,12 @@ static TagLib::PropertyMap BuildGenericPropertyMap(
         metadata.totalTracks > 0 ? [NSString stringWithFormat:@"%ld", (long)metadata.totalTracks] : nil
     );
 
-    NSString *discText = TrimmedStringOrNil(metadata.discNumberText);
-    if (!discText && (metadata.discNumber > 0 || metadata.totalDiscs > 0)) {
-        if (metadata.discNumber > 0 && metadata.totalDiscs > 0) {
-            discText = [NSString stringWithFormat:@"%ld/%ld",
-                        (long)metadata.discNumber,
-                        (long)metadata.totalDiscs];
-        } else if (metadata.discNumber > 0) {
-            discText = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
-        }
+    NSString *discText = BuildPropertyMapNumberTextPreservingFormatting(
+        metadata.discNumberText,
+        metadata.discNumber
+    );
+    if (!discText && metadata.discNumber > 0) {
+        discText = [NSString stringWithFormat:@"%ld", (long)metadata.discNumber];
     }
     SetPropertyMapNumberText(properties, "DISCNUMBER", discText);
     SetPropertyMapString(
@@ -1430,6 +1424,10 @@ static void AppendRawPropertyEntries(NSMutableArray<NSDictionary<NSString *, NSO
     }
 }
 
+static NSString * _Nullable BuildTRCKString(NSInteger trackNumber, NSInteger totalTracks, NSInteger padWidth);
+static NSString * _Nullable BuildPropertyMapNumberTextPreservingFormatting(NSString * _Nullable existingText,
+                                                                           NSInteger number);
+
 template <typename FileType>
 static BOOL WriteRawPropertyMapToFile(FileType &file,
                                       NSDictionary<NSString *, NSString *> *properties,
@@ -1489,17 +1487,20 @@ static bool WritePropertyMapNumberTextToFile(FileType &file,
     TagLib::PropertyMap properties = file.properties();
     NSString *trimmedTrackNumberText = TrimmedStringOrNil(trackNumberText);
     if (trimmedTrackNumberText) {
+        NSInteger explicitTrackNumber = 0;
         NSInteger explicitTrackTotal = 0;
         NSInteger padWidth = 0;
-        NSInteger ignoredTrackNumber = 0;
-        ParseNumberPairFromNSString(trimmedTrackNumberText, ignoredTrackNumber, explicitTrackTotal, padWidth);
-        (void)ignoredTrackNumber;
+        ParseNumberPairFromNSString(trimmedTrackNumberText, explicitTrackNumber, explicitTrackTotal, padWidth);
         (void)padWidth;
         NSInteger effectiveTrackTotal = explicitTrackTotal > 0
             ? explicitTrackTotal
             : PropertyMapNumberTotal(properties, "TRACKNUMBER", "TRACKTOTAL", "TOTALTRACKS");
 
-        SetPropertyMapNumberText(properties, "TRACKNUMBER", trimmedTrackNumberText);
+        SetPropertyMapNumberText(
+            properties,
+            "TRACKNUMBER",
+            BuildPropertyMapNumberTextPreservingFormatting(trimmedTrackNumberText, explicitTrackNumber)
+        );
         if (explicitTrackTotal > 0) {
             SetPropertyMapString(
                 properties,
@@ -1524,17 +1525,20 @@ static bool WritePropertyMapNumberTextToFile(FileType &file,
     if (discNumberText != nil) {
         NSString *trimmedDiscNumberText = TrimmedStringOrNil(discNumberText);
         if (trimmedDiscNumberText) {
+            NSInteger explicitDiscNumber = 0;
             NSInteger explicitDiscTotal = 0;
             NSInteger padWidth = 0;
-            NSInteger ignoredDiscNumber = 0;
-            ParseNumberPairFromNSString(trimmedDiscNumberText, ignoredDiscNumber, explicitDiscTotal, padWidth);
-            (void)ignoredDiscNumber;
+            ParseNumberPairFromNSString(trimmedDiscNumberText, explicitDiscNumber, explicitDiscTotal, padWidth);
             (void)padWidth;
             NSInteger effectiveDiscTotal = explicitDiscTotal > 0
                 ? explicitDiscTotal
                 : PropertyMapNumberTotal(properties, "DISCNUMBER", "DISCTOTAL", "TOTALDISCS");
 
-            SetPropertyMapNumberText(properties, "DISCNUMBER", trimmedDiscNumberText);
+            SetPropertyMapNumberText(
+                properties,
+                "DISCNUMBER",
+                BuildPropertyMapNumberTextPreservingFormatting(trimmedDiscNumberText, explicitDiscNumber)
+            );
             if (explicitDiscTotal > 0) {
                 SetPropertyMapString(
                     properties,
@@ -3065,6 +3069,17 @@ static NSString * _Nullable BuildNumberTextPreservingFormatting(NSString * _Null
     NSInteger padWidth = 0;
     ParseNumberPairFromNSString(trimmedExistingText, ignoredNumber, ignoredTotal, padWidth);
     return BuildTRCKString(number, total, padWidth);
+}
+
+static NSString * _Nullable BuildPropertyMapNumberTextPreservingFormatting(NSString * _Nullable existingText,
+                                                                           NSInteger number)
+{
+    NSString *trimmedExistingText = TrimmedStringOrNil(existingText);
+    NSInteger ignoredNumber = 0;
+    NSInteger ignoredTotal = 0;
+    NSInteger padWidth = 0;
+    ParseNumberPairFromNSString(trimmedExistingText, ignoredNumber, ignoredTotal, padWidth);
+    return BuildTRCKString(number, 0, padWidth);
 }
 
 // Write only track numbering (TRCK + TagLib::Tag::setTrack) to a file.

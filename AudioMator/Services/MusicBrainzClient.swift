@@ -754,6 +754,13 @@ enum MusicBrainzClientError: LocalizedError {
     }
 }
 
+private extension MusicBrainzClientError {
+    var isRecoverableServerFailure: Bool {
+        guard case .requestFailed(let statusCode) = self else { return false }
+        return (500...599).contains(statusCode)
+    }
+}
+
 actor MusicBrainzRateLimiter {
     private let minimumIntervalNanoseconds: UInt64
     private var lastRequestUptimeNanoseconds: UInt64?
@@ -795,9 +802,10 @@ struct MusicBrainzClient {
         self.decoder = decoder
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.chrislloydme.AudioMator"
+        let contactURL = "https://github.com/ChrisLloydME/AudioMator"
         // MusicBrainz asks clients to identify themselves clearly in the User-Agent.
-        // Keep this value specific to the app, and include a contact URL or email for wider distribution.
-        self.userAgent = "AudioMator/\(version) (local macOS project)"
+        self.userAgent = "AudioMator/\(version) (\(contactURL); \(bundleIdentifier))"
     }
 
     func search(matching query: MusicBrainzSearchQuery, limit: Int = 25) async throws -> MusicBrainzSearchResults {
@@ -836,8 +844,8 @@ struct MusicBrainzClient {
             throw MusicBrainzClientError.emptyQuery
         }
 
-        let luceneQuery = MusicBrainzLuceneQueryBuilder.recordingSearchQuery(from: query)
-        let results = try await searchRecordings(luceneQuery: luceneQuery, limit: limit)
+        let luceneQueries = MusicBrainzLuceneQueryBuilder.recordingSearchQueries(from: query)
+        let results = try await searchRecordings(luceneQueries: luceneQueries, limit: limit)
         return MusicBrainzResultRanker.rerankRecordings(results, query: query)
     }
 
@@ -846,8 +854,8 @@ struct MusicBrainzClient {
             throw MusicBrainzClientError.emptyQuery
         }
 
-        let luceneQuery = MusicBrainzLuceneQueryBuilder.releaseSearchQuery(from: query)
-        let releases = try await searchReleases(luceneQuery: luceneQuery, limit: limit)
+        let luceneQueries = MusicBrainzLuceneQueryBuilder.releaseSearchQueries(from: query)
+        let releases = try await searchReleases(luceneQueries: luceneQueries, limit: limit)
         return MusicBrainzResultRanker.rerankReleases(releases, query: query)
     }
 
@@ -868,14 +876,14 @@ struct MusicBrainzClient {
             filenameEvidenceByReleaseID[releaseID, default: 0] += 1.0
         }
 
-        let strongQuery = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQuery(from: query)
-        if !strongQuery.isEmpty {
-            candidates.append(contentsOf: try await searchReleases(luceneQuery: strongQuery, limit: 12))
+        let strongQueries = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQueries(from: query)
+        if !strongQueries.isEmpty {
+            candidates.append(contentsOf: try await searchReleases(luceneQueries: strongQueries, limit: 12))
         }
 
-        let broadQuery = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQuery(from: query)
-        if !broadQuery.isEmpty {
-            candidates.append(contentsOf: try await searchReleases(luceneQuery: broadQuery, limit: 20))
+        let broadQueries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(from: query)
+        if !broadQueries.isEmpty {
+            candidates.append(contentsOf: try await searchReleases(luceneQueries: broadQueries, limit: 20))
         }
 
         for candidate in try await releaseCandidatesFromRepresentativeFiles(selectionSummary) {
@@ -1016,16 +1024,16 @@ struct MusicBrainzClient {
         var candidates: [MusicBrainzRecordingResult] = []
         var preferredRecordingIDs: Set<String> = []
 
-        let strongQuery = MusicBrainzLuceneQueryBuilder.fileStrongSearchQuery(from: query)
-        if !strongQuery.isEmpty {
-            let exactMatches = try await searchRecordings(luceneQuery: strongQuery, limit: 15)
+        let strongQueries = MusicBrainzLuceneQueryBuilder.fileStrongSearchQueries(from: query)
+        if !strongQueries.isEmpty {
+            let exactMatches = try await searchRecordings(luceneQueries: strongQueries, limit: 15)
             candidates.append(contentsOf: exactMatches)
             preferredRecordingIDs.formUnion(exactMatches.map(\.id))
         }
 
-        let broadQuery = MusicBrainzLuceneQueryBuilder.fileSearchQuery(from: query)
-        if !broadQuery.isEmpty {
-            candidates.append(contentsOf: try await searchRecordings(luceneQuery: broadQuery, limit: limit))
+        let broadQueries = MusicBrainzLuceneQueryBuilder.fileSearchQueries(from: query)
+        if !broadQueries.isEmpty {
+            candidates.append(contentsOf: try await searchRecordings(luceneQueries: broadQueries, limit: limit))
         }
 
         let deduplicatedCandidates = Self.deduplicatedRecordings(candidates)
@@ -1150,6 +1158,48 @@ struct MusicBrainzClient {
         return payload.recordings.map(MusicBrainzRecordingResult.init)
     }
 
+    private func searchRecordings(luceneQueries: [String], limit: Int) async throws -> [MusicBrainzRecordingResult] {
+        let normalizedQueries = luceneQueries.filter { !$0.isEmpty }
+        guard !normalizedQueries.isEmpty else { return [] }
+
+        var mergedResults: [MusicBrainzRecordingResult] = []
+        var seenIDs: Set<String> = []
+        var lastRecoverableError: MusicBrainzClientError?
+
+        for luceneQuery in normalizedQueries {
+            do {
+                let results = try await searchRecordings(
+                    luceneQuery: luceneQuery,
+                    limit: max(8, min(limit, 25))
+                )
+
+                for result in results where seenIDs.insert(result.id).inserted {
+                    mergedResults.append(result)
+                }
+
+                if mergedResults.count >= limit {
+                    break
+                }
+            } catch let error as MusicBrainzClientError {
+                if error.isRecoverableServerFailure {
+                    lastRecoverableError = error
+                    continue
+                }
+                throw error
+            }
+        }
+
+        if !mergedResults.isEmpty {
+            return Array(mergedResults.prefix(limit))
+        }
+
+        if let lastRecoverableError {
+            throw lastRecoverableError
+        }
+
+        return []
+    }
+
     private func searchReleases(luceneQuery: String, limit: Int) async throws -> [MusicBrainzReleaseSearchResult] {
         guard !luceneQuery.isEmpty else {
             return []
@@ -1172,6 +1222,48 @@ struct MusicBrainzClient {
         }
 
         return payload.releases.map(MusicBrainzReleaseSearchResult.init)
+    }
+
+    private func searchReleases(luceneQueries: [String], limit: Int) async throws -> [MusicBrainzReleaseSearchResult] {
+        let normalizedQueries = luceneQueries.filter { !$0.isEmpty }
+        guard !normalizedQueries.isEmpty else { return [] }
+
+        var mergedResults: [MusicBrainzReleaseSearchResult] = []
+        var seenIDs: Set<String> = []
+        var lastRecoverableError: MusicBrainzClientError?
+
+        for luceneQuery in normalizedQueries {
+            do {
+                let results = try await searchReleases(
+                    luceneQuery: luceneQuery,
+                    limit: max(8, min(limit, 25))
+                )
+
+                for result in results where seenIDs.insert(result.id).inserted {
+                    mergedResults.append(result)
+                }
+
+                if mergedResults.count >= limit {
+                    break
+                }
+            } catch let error as MusicBrainzClientError {
+                if error.isRecoverableServerFailure {
+                    lastRecoverableError = error
+                    continue
+                }
+                throw error
+            }
+        }
+
+        if !mergedResults.isEmpty {
+            return Array(mergedResults.prefix(limit))
+        }
+
+        if let lastRecoverableError {
+            throw lastRecoverableError
+        }
+
+        return []
     }
 
     private static func deduplicatedRecordings(_ recordings: [MusicBrainzRecordingResult]) -> [MusicBrainzRecordingResult] {
@@ -1277,12 +1369,14 @@ struct MusicBrainzClient {
 
 private enum MusicBrainzLuceneQueryBuilder {
     nonisolated private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
+    nonisolated private static let maxPreferredClauseCount = 6
+    nonisolated private static let maxPreferredClauseLength = 260
 
-    static func recordingSearchQuery(from query: MusicBrainzSearchQuery) -> String {
-        joinPreferredClauses(recordingSearchClauses(from: query))
+    static func recordingSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
+        finalizedPreferredClauses(recordingSearchClauses(from: query))
     }
 
-    static func releaseSearchQuery(from query: MusicBrainzSearchQuery) -> String {
+    static func releaseSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
         var clauses: [String] = []
 
         if !query.album.isEmpty, !query.artist.isEmpty {
@@ -1305,15 +1399,15 @@ private enum MusicBrainzLuceneQueryBuilder {
             clauses.append(generalClause(query.artist))
         }
 
-        return joinPreferredClauses(clauses)
+        return finalizedPreferredClauses(clauses)
     }
 
-    static func fileSearchQuery(from query: MusicBrainzSearchQuery) -> String {
-        joinPreferredClauses(recordingSearchClauses(from: query))
+    static func fileSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
+        finalizedPreferredClauses(recordingSearchClauses(from: query))
     }
 
-    static func fileClusterStrongReleaseSearchQuery(from query: MusicBrainzSearchQuery) -> String {
-        guard let summary = query.fileSelectionSummary else { return "" }
+    static func fileClusterStrongReleaseSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
+        guard let summary = query.fileSelectionSummary else { return [] }
 
         var clauses: [String] = []
         let releaseClause = summary.albumCandidate.isEmpty ? "" : fieldClause(name: "release", value: summary.albumCandidate)
@@ -1356,11 +1450,11 @@ private enum MusicBrainzLuceneQueryBuilder {
             clauses.append(allOf([releaseClause, yearClause]))
         }
 
-        return joinPreferredClauses(clauses)
+        return finalizedPreferredClauses(clauses)
     }
 
-    static func fileClusterBroadReleaseSearchQuery(from query: MusicBrainzSearchQuery) -> String {
-        guard let summary = query.fileSelectionSummary else { return "" }
+    static func fileClusterBroadReleaseSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
+        guard let summary = query.fileSelectionSummary else { return [] }
 
         var clauses: [String] = []
 
@@ -1385,10 +1479,10 @@ private enum MusicBrainzLuceneQueryBuilder {
             clauses.append(fieldClause(name: "date", value: summary.releaseYearCandidate))
         }
 
-        return joinPreferredClauses(clauses)
+        return finalizedPreferredClauses(clauses)
     }
 
-    static func fileStrongSearchQuery(from query: MusicBrainzSearchQuery) -> String {
+    static func fileStrongSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
         var queries: [String] = []
         let titleClause = query.title.isEmpty ? "" : fieldClause(name: "recording", value: query.title)
         let releaseIDClause = validMBIDClause(name: "reid", value: query.musicBrainzAlbumID)
@@ -1447,7 +1541,7 @@ private enum MusicBrainzLuceneQueryBuilder {
             queries.append(contentsOf: releaseScopedQueries)
         }
 
-        return joinPreferredClauses(queries)
+        return finalizedPreferredClauses(queries)
     }
 
     nonisolated private static func fieldClause(name: String, value: String) -> String {
@@ -1483,6 +1577,14 @@ private enum MusicBrainzLuceneQueryBuilder {
     nonisolated private static func joinPreferredClauses(_ clauses: [String]) -> String {
         let deduplicated = deduplicatedClauses(clauses)
         return deduplicated.joined(separator: " OR ")
+    }
+
+    nonisolated private static func finalizedPreferredClauses(_ clauses: [String]) -> [String] {
+        deduplicatedClauses(clauses)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0.count <= maxPreferredClauseLength }
+            .prefix(maxPreferredClauseCount)
+            .map { $0 }
     }
 
     nonisolated private static func deduplicatedClauses(_ clauses: [String]) -> [String] {

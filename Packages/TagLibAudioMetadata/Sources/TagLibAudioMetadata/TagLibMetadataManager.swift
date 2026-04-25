@@ -4,8 +4,9 @@
 //
 
 import Foundation
+@_exported import CTagLibBridge
 
-enum MetadataValueSource: String, Hashable {
+public enum MetadataValueSource: String, Hashable, Sendable {
     case nativeTag
     case propertyMap
     case id3v2Frame
@@ -14,13 +15,25 @@ enum MetadataValueSource: String, Hashable {
     case none
 }
 
-struct MetadataFieldProvenance: Hashable {
-    var trackNumberText: MetadataValueSource
-    var discNumberText: MetadataValueSource
-    var explicitContent: MetadataValueSource
-    var artwork: MetadataValueSource
+public struct MetadataFieldProvenance: Hashable, Sendable {
+    public var trackNumberText: MetadataValueSource
+    public var discNumberText: MetadataValueSource
+    public var explicitContent: MetadataValueSource
+    public var artwork: MetadataValueSource
 
-    nonisolated static let unknown = MetadataFieldProvenance(
+    public init(
+        trackNumberText: MetadataValueSource,
+        discNumberText: MetadataValueSource,
+        explicitContent: MetadataValueSource,
+        artwork: MetadataValueSource
+    ) {
+        self.trackNumberText = trackNumberText
+        self.discNumberText = discNumberText
+        self.explicitContent = explicitContent
+        self.artwork = artwork
+    }
+
+    public nonisolated static let unknown = MetadataFieldProvenance(
         trackNumberText: .none,
         discNumberText: .none,
         explicitContent: .none,
@@ -29,79 +42,79 @@ struct MetadataFieldProvenance: Hashable {
 }
 
 /// Mirrors the metadata fields used in `AudioFile.swift`.
-struct BasicMetadata {
-    var title: String
-    var artist: String
-    var album: String
-    var composer: String
-    var genre: String
-    var comment: String
-    var lyrics: String
-    var track: Int
-    var trackTotal: Int
-    var disc: Int
-    var discTotal: Int
-    var trackNumberText: String
-    var discNumberText: String
-    var year: String
-    var albumArtist: String
-    var releaseDate: String
-    var originalReleaseDate: String
-    var isrc: String
-    var barcode: String
-    var musicBrainzArtistID: String
-    var musicBrainzAlbumID: String
-    var musicBrainzTrackID: String
-    var musicBrainzReleaseGroupID: String
-    var publisher: String
-    var copyright: String
-    var encodedBy: String
-    var encoderSettings: String
-    var sortTitle: String
-    var sortArtist: String
-    var sortAlbum: String
-    var sortAlbumArtist: String
-    var sortComposer: String
-    var conductor: String
-    var remixer: String
-    var producer: String
-    var engineer: String
-    var lyricist: String
-    var subtitle: String
-    var grouping: String
-    var movement: String
-    var mood: String
-    var language: String
-    var musicalKey: String
-    var replayGainTrack: String
-    var replayGainAlbum: String
-    var mediaType: String
-    var itunesAlbumID: String
-    var itunesArtistID: String
-    var itunesCatalogID: String
-    var itunesGenreID: String
-    var itunesMediaType: String
-    var itunesPurchaseDate: String
-    var itunesNorm: String
-    var itunesSMPB: String
-    var releaseType: String
-    var catalogNumber: String
-    var releaseCountry: String
-    var artistType: String
-    var bpm: Int
-    var isCompilation: Bool
-    var isExplicit: Bool
-    var duration: Double
-    var bitrate: Int
-    var sampleRate: Double
-    var channels: Int
-    var bitDepth: Int
-    var format: String
-    var artworkData: Data?
-    var customFields: [String: String]
-    var provenance: MetadataFieldProvenance
+public struct BasicMetadata: Sendable {
+    public var title: String
+    public var artist: String
+    public var album: String
+    public var composer: String
+    public var genre: String
+    public var comment: String
+    public var lyrics: String
+    public var track: Int
+    public var trackTotal: Int
+    public var disc: Int
+    public var discTotal: Int
+    public var trackNumberText: String
+    public var discNumberText: String
+    public var year: String
+    public var albumArtist: String
+    public var releaseDate: String
+    public var originalReleaseDate: String
+    public var isrc: String
+    public var barcode: String
+    public var musicBrainzArtistID: String
+    public var musicBrainzAlbumID: String
+    public var musicBrainzTrackID: String
+    public var musicBrainzReleaseGroupID: String
+    public var publisher: String
+    public var copyright: String
+    public var encodedBy: String
+    public var encoderSettings: String
+    public var sortTitle: String
+    public var sortArtist: String
+    public var sortAlbum: String
+    public var sortAlbumArtist: String
+    public var sortComposer: String
+    public var conductor: String
+    public var remixer: String
+    public var producer: String
+    public var engineer: String
+    public var lyricist: String
+    public var subtitle: String
+    public var grouping: String
+    public var movement: String
+    public var mood: String
+    public var language: String
+    public var musicalKey: String
+    public var replayGainTrack: String
+    public var replayGainAlbum: String
+    public var mediaType: String
+    public var itunesAlbumID: String
+    public var itunesArtistID: String
+    public var itunesCatalogID: String
+    public var itunesGenreID: String
+    public var itunesMediaType: String
+    public var itunesPurchaseDate: String
+    public var itunesNorm: String
+    public var itunesSMPB: String
+    public var releaseType: String
+    public var catalogNumber: String
+    public var releaseCountry: String
+    public var artistType: String
+    public var bpm: Int
+    public var isCompilation: Bool
+    public var isExplicit: Bool
+    public var duration: Double
+    public var bitrate: Int
+    public var sampleRate: Double
+    public var channels: Int
+    public var bitDepth: Int
+    public var format: String
+    public var artworkData: Data?
+    public var customFields: [String: String]
+    public var provenance: MetadataFieldProvenance
 
-    nonisolated static let empty = BasicMetadata(
+    public nonisolated static let empty = BasicMetadata(
         title: "",
         artist: "",
         album: "",
@@ -237,36 +250,55 @@ nonisolated private func rawNumberTexts(from dump: RawMetadataDump) -> (track: S
 
 // MARK: - Raw Metadata Dump Models (for GUI display)
 
-struct RawMetadataDump: Hashable {
-    var properties: [RawPropertyEntry]
-    var id3v2Frames: [RawID3v2FrameEntry]
+public struct RawMetadataDump: Hashable, Sendable {
+    public var properties: [RawPropertyEntry]
+    public var id3v2Frames: [RawID3v2FrameEntry]
 
-    nonisolated static let empty = RawMetadataDump(properties: [], id3v2Frames: [])
+    public init(properties: [RawPropertyEntry], id3v2Frames: [RawID3v2FrameEntry]) {
+        self.properties = properties
+        self.id3v2Frames = id3v2Frames
+    }
+
+    public nonisolated static let empty = RawMetadataDump(properties: [], id3v2Frames: [])
 }
 
-struct RawPropertyEntry: Identifiable, Hashable {
-    let id = UUID()
-    var key: String
-    var value: String
-    var values: [String]
-    var count: Int
+public struct RawPropertyEntry: Identifiable, Hashable, Sendable {
+    public let id = UUID()
+    public var key: String
+    public var value: String
+    public var values: [String]
+    public var count: Int
+
+    public init(key: String, value: String, values: [String], count: Int) {
+        self.key = key
+        self.value = value
+        self.values = values
+        self.count = count
+    }
 }
 
-struct RawID3v2FrameEntry: Identifiable, Hashable {
-    let id = UUID()
-    var frameID: String
-    var value: String
-    var description: String?
-    var language: String?
+public struct RawID3v2FrameEntry: Identifiable, Hashable, Sendable {
+    public let id = UUID()
+    public var frameID: String
+    public var value: String
+    public var description: String?
+    public var language: String?
+
+    public init(frameID: String, value: String, description: String?, language: String?) {
+        self.frameID = frameID
+        self.value = value
+        self.description = description
+        self.language = language
+    }
 }
 
-enum TagLibManagerError: Error {
+public enum TagLibManagerError: Error, Sendable {
     case unsupportedFormat
     case failedToRead
 }
 
 /// Thin wrapper around the Objective-C++ `TagLibMetadataExtractor`.
-struct TagLibMetadataManager {
+public struct TagLibMetadataManager {
 
     nonisolated private static let hiddenInternalRawFieldKeys: Set<String> = [
         "AUDIOMATOR_TRACKNUMBER_TEXT",
@@ -275,24 +307,46 @@ struct TagLibMetadataManager {
         "----:COM.APPLE.ITUNES:AUDIOMATOR_DISCNUMBER_TEXT",
     ]
 
-    enum ArtworkVerificationExpectation {
+    public enum ArtworkVerificationExpectation: Sendable {
         case unchanged
         case present
         case absent
     }
 
-    struct MetadataWriteVerificationContext: Equatable {
-        var expectedTrackNumber: Int?
-        var expectedTrackTotal: Int?
-        var expectedTrackNumberText: String?
-        var expectedDiscNumber: Int?
-        var expectedDiscTotal: Int?
-        var expectedDiscNumberText: String?
-        var expectedExplicitContent: Bool?
-        var artworkExpectation: ArtworkVerificationExpectation
-        var customFieldKeys: [String]
+    public struct MetadataWriteVerificationContext: Equatable, Sendable {
+        public var expectedTrackNumber: Int?
+        public var expectedTrackTotal: Int?
+        public var expectedTrackNumberText: String?
+        public var expectedDiscNumber: Int?
+        public var expectedDiscTotal: Int?
+        public var expectedDiscNumberText: String?
+        public var expectedExplicitContent: Bool?
+        public var artworkExpectation: ArtworkVerificationExpectation
+        public var customFieldKeys: [String]
 
-        nonisolated static let none = MetadataWriteVerificationContext(
+        public init(
+            expectedTrackNumber: Int?,
+            expectedTrackTotal: Int?,
+            expectedTrackNumberText: String?,
+            expectedDiscNumber: Int?,
+            expectedDiscTotal: Int?,
+            expectedDiscNumberText: String?,
+            expectedExplicitContent: Bool?,
+            artworkExpectation: ArtworkVerificationExpectation,
+            customFieldKeys: [String]
+        ) {
+            self.expectedTrackNumber = expectedTrackNumber
+            self.expectedTrackTotal = expectedTrackTotal
+            self.expectedTrackNumberText = expectedTrackNumberText
+            self.expectedDiscNumber = expectedDiscNumber
+            self.expectedDiscTotal = expectedDiscTotal
+            self.expectedDiscNumberText = expectedDiscNumberText
+            self.expectedExplicitContent = expectedExplicitContent
+            self.artworkExpectation = artworkExpectation
+            self.customFieldKeys = customFieldKeys
+        }
+
+        public nonisolated static let none = MetadataWriteVerificationContext(
             expectedTrackNumber: nil,
             expectedTrackTotal: nil,
             expectedTrackNumberText: nil,
@@ -305,8 +359,12 @@ struct TagLibMetadataManager {
         )
     }
 
-    struct MetadataWriteResult {
-        var warnings: [String]
+    public struct MetadataWriteResult: Sendable {
+        public var warnings: [String]
+
+        public init(warnings: [String]) {
+            self.warnings = warnings
+        }
     }
 
     nonisolated private static func isHiddenInternalRawFieldKey(_ key: String) -> Bool {
@@ -675,7 +733,7 @@ struct TagLibMetadataManager {
         return nil
     }
 
-    nonisolated static func readMetadata(from url: URL) -> BasicMetadata? {
+    public nonisolated static func readMetadata(from url: URL) -> BasicMetadata? {
         // 1. Quickly filter by file extension.
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty else { return nil }
@@ -825,7 +883,7 @@ struct TagLibMetadataManager {
     // MARK: - Write / Erase
 
     @discardableResult
-    nonisolated static func writeTagMetadata(
+    public nonisolated static func writeTagMetadata(
         _ metadata: TagLibAudioMetadata,
         to url: URL,
         verification: MetadataWriteVerificationContext = .none
@@ -842,7 +900,7 @@ struct TagLibMetadataManager {
     }
 
     @discardableResult
-    nonisolated static func writeTrackNumberText(
+    public nonisolated static func writeTrackNumberText(
         _ trackNumberText: String,
         discNumberText: String?,
         to url: URL,
@@ -885,7 +943,7 @@ struct TagLibMetadataManager {
     }
 
     @discardableResult
-    nonisolated static func writeRawMetadataPropertyMapWithVerification(
+    public nonisolated static func writeRawMetadataPropertyMapWithVerification(
         _ properties: [String: String],
         to url: URL,
         verifyAfterWrite: Bool = true
@@ -946,7 +1004,7 @@ struct TagLibMetadataManager {
     }
 
     @discardableResult
-    nonisolated static func eraseAllMetadataWithVerification(from url: URL) throws -> MetadataWriteResult {
+    public nonisolated static func eraseAllMetadataWithVerification(from url: URL) throws -> MetadataWriteResult {
         let meta = TagLibAudioMetadata()
         meta.title = ""
         meta.artist = ""
@@ -1023,7 +1081,7 @@ struct TagLibMetadataManager {
     /// - Fields that are empty strings are written as `nil` (i.e. removed/cleared).
     /// - `publisher` is mapped to TagLib's `label` field.
     @discardableResult
-    nonisolated static func writeMetadata(_ meta: BasicMetadata, to url: URL) throws -> Bool {
+    public nonisolated static func writeMetadata(_ meta: BasicMetadata, to url: URL) throws -> Bool {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
             throw TagLibManagerError.unsupportedFormat
@@ -1133,7 +1191,7 @@ struct TagLibMetadataManager {
     }
 
     @discardableResult
-    nonisolated static func writeRawMetadataPropertyMap(_ properties: [String: String], to url: URL) throws -> Bool {
+    public nonisolated static func writeRawMetadataPropertyMap(_ properties: [String: String], to url: URL) throws -> Bool {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty, TagLibMetadataExtractor.isSupportedFormat(ext) else {
             throw TagLibManagerError.unsupportedFormat
@@ -1151,7 +1209,7 @@ struct TagLibMetadataManager {
     /// Implementation strategy: write an empty `TagLibAudioMetadata` object.
     /// This should clear the common tag fields and reset numeric fields to 0.
     @discardableResult
-    nonisolated static func eraseAllMetadata(from url: URL) throws -> Bool {
+    public nonisolated static func eraseAllMetadata(from url: URL) throws -> Bool {
         let result = try eraseAllMetadataWithVerification(from: url)
         if !result.warnings.isEmpty {
             print("[AudioMator] Erase warnings for \(url.lastPathComponent): \(result.warnings.joined(separator: " | "))")
@@ -1166,11 +1224,11 @@ struct TagLibMetadataManager {
     /// - "id3v2Frames": ID3v2 frames (MP3 only)
     ///
     /// Returns `nil` if format is not supported by TagLib in this app.
-    nonisolated static func rawMetadata(from url: URL) -> RawMetadataDump? {
+    public nonisolated static func rawMetadata(from url: URL) -> RawMetadataDump? {
         try? rawMetadataResult(from: url)
     }
 
-    nonisolated static func rawMetadataResult(from url: URL) throws -> RawMetadataDump {
+    public nonisolated static func rawMetadataResult(from url: URL) throws -> RawMetadataDump {
         let ext = url.pathExtension.lowercased()
         guard !ext.isEmpty else {
             throw TagLibManagerError.unsupportedFormat
@@ -1247,7 +1305,7 @@ struct TagLibMetadataManager {
     /// It surfaces:
     /// - TagLib `PropertyMap` entries (including multi-value fields)
     /// - ID3v2 frames (MP3 only), including TXXX/COMM details when available
-    nonisolated static func rawMetadataText(from url: URL) -> String? {
+    public nonisolated static func rawMetadataText(from url: URL) -> String? {
         // Prefer a direct text dump from the bridge if available.
         if let text = bridgeTextDumpIfAvailable(for: url) {
             return text

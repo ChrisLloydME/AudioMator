@@ -1,3 +1,5 @@
+import Foundation
+
 struct PendingArtwork {
     var image: PlatformImage
     var data: Data

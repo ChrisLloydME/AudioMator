@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 enum MetadataArtworkChange: Sendable {
     case unchanged

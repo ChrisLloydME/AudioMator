@@ -250,7 +250,9 @@ extension AudioViewModel {
             }
 
             var edit = SingleFileEditModel(from: file)
-            for (field, value) in entry.values {
+            for (field, value) in entry.values.sorted(by: { lhs, rhs in
+                lhs.key.writeOrderIndex < rhs.key.writeOrderIndex
+            }) {
                 field.apply(value, to: &edit)
             }
 

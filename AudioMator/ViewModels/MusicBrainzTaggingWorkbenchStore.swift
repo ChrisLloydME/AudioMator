@@ -8,7 +8,9 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
     case album
     case genre
     case trackNumber
+    case trackTotal
     case discNumber
+    case discTotal
     case releaseDate
     case publisher
     case isrc
@@ -30,6 +32,10 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
 
     var id: String { rawValue }
 
+    var writeOrderIndex: Int {
+        Self.allCases.firstIndex(of: self) ?? Int.max
+    }
+
     var displayName: String {
         switch self {
         case .title:
@@ -44,8 +50,12 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
             return "Genre"
         case .trackNumber:
             return "Track Number"
+        case .trackTotal:
+            return "Total Tracks"
         case .discNumber:
             return "Disc Number"
+        case .discTotal:
+            return "Total Discs"
         case .releaseDate:
             return "Release Date"
         case .publisher:
@@ -98,9 +108,13 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .genre:
             return "Release genres from MusicBrainz."
         case .trackNumber:
-            return "Matched track index, with total when MusicBrainz provides it."
+            return "Matched track index."
+        case .trackTotal:
+            return "Total tracks from the matched MusicBrainz medium."
         case .discNumber:
-            return "Matched disc index, with total discs when available."
+            return "Matched disc index."
+        case .discTotal:
+            return "Total discs from the matched MusicBrainz release."
         case .releaseDate:
             return "Release date from MusicBrainz."
         case .publisher:
@@ -142,7 +156,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
 
     var isDefaultSelected: Bool {
         switch self {
-        case .composer, .lyricist, .producer, .engineer, .remixer, .copyright, .genre:
+        case .composer, .lyricist, .producer, .engineer, .remixer, .copyright, .genre,
+             .trackTotal, .discTotal:
             return false
         case .title, .artist, .albumArtist, .album, .trackNumber, .discNumber, .releaseDate,
              .publisher, .isrc, .barcode, .musicBrainzAlbumID, .musicBrainzTrackID,
@@ -156,7 +171,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .composer, .lyricist, .producer, .engineer, .remixer, .copyright:
             return true
-        case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .discNumber,
+        case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .trackTotal, .discNumber,
+             .discTotal,
              .releaseDate, .publisher, .isrc, .barcode, .musicBrainzAlbumID,
              .musicBrainzTrackID, .musicBrainzReleaseGroupID, .language, .mediaType,
              .releaseType, .catalogNumber, .releaseCountry:
@@ -177,9 +193,29 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .genre:
             return file.genre
         case .trackNumber:
-            return file.trackNumberText
+            return AudioTagNumberPair(
+                rawText: file.trackNumberText,
+                number: file.track,
+                total: file.trackTotal
+            ).displayedNumberText
+        case .trackTotal:
+            return AudioTagNumberPair(
+                rawText: file.trackNumberText,
+                number: file.track,
+                total: file.trackTotal
+            ).displayedTotalText
         case .discNumber:
-            return file.discNumberText
+            return AudioTagNumberPair(
+                rawText: file.discNumberText,
+                number: file.disc,
+                total: file.discTotal
+            ).displayedNumberText
+        case .discTotal:
+            return AudioTagNumberPair(
+                rawText: file.discNumberText,
+                number: file.disc,
+                total: file.discTotal
+            ).displayedTotalText
         case .releaseDate:
             return file.releaseDate.isEmpty ? file.year : file.releaseDate
         case .publisher:
@@ -232,9 +268,13 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .genre:
             edit.genre = value
         case .trackNumber:
-            edit.setTrackNumberText(value)
+            edit.setTrackNumberFieldText(value)
+        case .trackTotal:
+            edit.setTrackTotalFieldText(value)
         case .discNumber:
-            edit.setDiscNumberText(value)
+            edit.setDiscNumberFieldText(value)
+        case .discTotal:
+            edit.setDiscTotalFieldText(value)
         case .releaseDate:
             edit.releaseDate = value
         case .publisher:
@@ -650,8 +690,12 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             return Self.genreValue(from: release)
         case .trackNumber:
             return Self.trackNumberText(for: selectedTrack)
+        case .trackTotal:
+            return Self.trackTotalText(for: selectedTrack)
         case .discNumber:
-            return Self.discNumberText(for: selectedTrack, totalMediumCount: totalMediumCount)
+            return Self.discNumberText(for: selectedTrack)
+        case .discTotal:
+            return Self.discTotalText(totalMediumCount: totalMediumCount)
         case .releaseDate:
             return release.date
         case .publisher:
@@ -722,7 +766,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             return relationshipValue(in: detail, matchingAnyOf: ["remixer", "remix"])
         case .copyright:
             return relationshipValue(in: detail, matchingAnyOf: ["phonographic copyright (℗) by"])
-        case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .discNumber,
+        case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .trackTotal,
+             .discNumber, .discTotal,
              .releaseDate, .publisher, .isrc, .barcode, .musicBrainzAlbumID,
              .musicBrainzTrackID, .musicBrainzReleaseGroupID, .language, .mediaType,
              .releaseType, .catalogNumber, .releaseCountry:
@@ -818,7 +863,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
                     mediumTitle: medium.title,
                     mediumFormat: medium.format,
                     mediumPosition: mediumIndex + 1,
-                    mediumTrackCount: max(medium.trackCount, medium.tracks.count),
+                    mediumTrackCount: medium.trackCount,
                     releaseMediumCount: max(release.media.count, 1),
                     number: track.number,
                     title: track.title,
@@ -833,28 +878,34 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     private static func trackNumberText(for track: MusicBrainzReleaseMatchTrack) -> String {
         guard !track.number.isEmpty else { return "" }
-
-        if track.number.contains("/") || track.mediumTrackCount <= 0 {
-            return track.number
-        }
-
-        guard track.number.allSatisfy(\.isNumber) else {
-            return track.number
-        }
-
-        return "\(track.number)/\(track.mediumTrackCount)"
+        return numberComponents(track.number).number
     }
 
-    private static func discNumberText(
-        for track: MusicBrainzReleaseMatchTrack,
-        totalMediumCount: Int
-    ) -> String {
-        guard track.mediumPosition > 0 else { return "" }
-
-        if totalMediumCount > 1 {
-            return "\(track.mediumPosition)/\(totalMediumCount)"
+    private static func trackTotalText(for track: MusicBrainzReleaseMatchTrack) -> String {
+        let explicitTotal = numberComponents(track.number).total
+        if !explicitTotal.isEmpty {
+            return explicitTotal
         }
 
+        return track.mediumTrackCount > 0 ? String(track.mediumTrackCount) : ""
+    }
+
+    private static func discNumberText(for track: MusicBrainzReleaseMatchTrack) -> String {
+        guard track.mediumPosition > 0 else { return "" }
         return String(track.mediumPosition)
+    }
+
+    private static func discTotalText(totalMediumCount: Int) -> String {
+        totalMediumCount > 1 ? String(totalMediumCount) : ""
+    }
+
+    private static func numberComponents(_ value: String) -> (number: String, total: String) {
+        let parts = value.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        let number = parts.first.map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let total = parts.count > 1
+            ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            : ""
+        return (number, total)
     }
 }

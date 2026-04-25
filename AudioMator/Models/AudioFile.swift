@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import TagLibAudioMetadata
 import Combine
 // import SFBAudioEngine
 import AVFoundation

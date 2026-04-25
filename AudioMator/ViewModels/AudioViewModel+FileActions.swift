@@ -1,3 +1,5 @@
+import Foundation
+
 extension AudioViewModel {
     // MARK: - Context Menu Actions (Middle List)
 

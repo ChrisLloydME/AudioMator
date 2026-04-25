@@ -6,27 +6,17 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6EC21B342F9D0EE60020DADE /* TagLibAudioMetadata in Frameworks */ = {isa = PBXBuildFile; productRef = 6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		6ED09D162ED1ED550031CDAD /* AudioMator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AudioMator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		6EFF9E462EE3199F006EE677 /* Exceptions for "AudioMator" folder in "AudioMator" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				TagLibBridge/taglib/taglib/toolkit/tlist.tcc,
-				TagLibBridge/taglib/taglib/toolkit/tmap.tcc,
-			);
-			target = 6ED09D152ED1ED550031CDAD /* AudioMator */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6ED09D182ED1ED550031CDAD /* AudioMator */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				6EFF9E462EE3199F006EE677 /* Exceptions for "AudioMator" folder in "AudioMator" target */,
-			);
 			path = AudioMator;
 			sourceTree = "<group>";
 		};
@@ -37,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6EC21B342F9D0EE60020DADE /* TagLibAudioMetadata in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +78,7 @@
 			);
 			name = AudioMator;
 			packageProductDependencies = (
+				6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */,
 			);
 			productName = AudioMator;
 			productReference = 6ED09D162ED1ED550031CDAD /* AudioMator.app */;
@@ -118,6 +110,7 @@
 			mainGroup = 6ED09D0D2ED1ED550031CDAD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6ED09D172ED1ED550031CDAD /* Products */;
@@ -283,7 +276,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 264140;
+				CURRENT_PROJECT_VERSION = 264142;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -311,11 +304,12 @@
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.1;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TheLloydME.AudioMator.Beta;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -343,7 +337,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 264140;
+				CURRENT_PROJECT_VERSION = 264142;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -371,11 +365,12 @@
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 26.1;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.LloydME.AudioMator;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -415,6 +410,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../TagLibAudioMetadata;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TagLibAudioMetadata;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6ED09D0E2ED1ED550031CDAD /* Project object */;
 }

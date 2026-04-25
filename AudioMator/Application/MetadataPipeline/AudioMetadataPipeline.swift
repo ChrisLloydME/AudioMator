@@ -86,7 +86,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             propertyMap[key] = value
         }
 
-        return propertyMap
+        return MetadataPipelineSupport.propertyMapWithSeparatedNumberTotals(propertyMap)
     }
 
     nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
@@ -150,6 +150,57 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 private enum MetadataPipelineSupport {
     nonisolated static func normalizedFieldComponent(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated static func propertyMapWithSeparatedNumberTotals(_ propertyMap: [String: String]) -> [String: String] {
+        var separated = propertyMap
+        separateNumberTotal(
+            numberKeys: ["TRACKNUMBER", "TRACK"],
+            preferredNumberKey: "TRACKNUMBER",
+            totalKeys: ["TRACKTOTAL", "TOTALTRACKS"],
+            preferredTotalKey: "TRACKTOTAL",
+            in: &separated
+        )
+        separateNumberTotal(
+            numberKeys: ["DISCNUMBER", "DISC"],
+            preferredNumberKey: "DISCNUMBER",
+            totalKeys: ["DISCTOTAL", "TOTALDISCS"],
+            preferredTotalKey: "DISCTOTAL",
+            in: &separated
+        )
+        return separated
+    }
+
+    nonisolated private static func separateNumberTotal(
+        numberKeys: [String],
+        preferredNumberKey: String,
+        totalKeys: [String],
+        preferredTotalKey: String,
+        in propertyMap: inout [String: String]
+    ) {
+        guard
+            let existingNumberKey = numberKeys.first(where: { key in
+                propertyMap[key]?.contains("/") == true
+            }),
+            let value = propertyMap[existingNumberKey]
+        else {
+            return
+        }
+
+        let parts = value.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return }
+
+        let number = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let total = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !number.isEmpty else { return }
+
+        propertyMap.removeValue(forKey: existingNumberKey)
+        propertyMap[preferredNumberKey] = number
+
+        if !total.isEmpty && !totalKeys.contains(where: { propertyMap[$0]?.isEmpty == false }) {
+            propertyMap[preferredTotalKey] = total
+        }
     }
 
     nonisolated static func parseNumberTextForMetadataWrite(_ rawText: String) -> (number: Int, total: Int) {

@@ -5,6 +5,7 @@ struct MusicBrainzBrowserView: View {
 
     @ObservedObject var store: MusicBrainzBrowserStore
     @ObservedObject var viewModel: AudioViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var navigationPath: [MusicBrainzBrowserDestination] = []
 
     var body: some View {
@@ -34,14 +35,19 @@ struct MusicBrainzBrowserView: View {
             navigationPath.removeAll()
         }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Search Mode", selection: $store.mode) {
-                    ForEach(MusicBrainzSearchMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
+            #if os(iOS)
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    dismiss()
                 }
-                .pickerStyle(.segmented)
             }
+            #endif
+
+            #if os(macOS)
+            ToolbarItem(placement: .principal) {
+                modePicker
+            }
+            #endif
 
             if navigationPath.isEmpty {
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -71,6 +77,10 @@ struct MusicBrainzBrowserView: View {
 
     private var searchHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
+            #if os(iOS)
+            modePicker
+            #endif
+
             searchFields
 
             HStack(spacing: 8) {
@@ -92,6 +102,15 @@ struct MusicBrainzBrowserView: View {
         .onSubmit {
             store.search()
         }
+    }
+
+    private var modePicker: some View {
+        Picker("Search Mode", selection: $store.mode) {
+            ForEach(MusicBrainzSearchMode.allCases) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 
     @ViewBuilder

@@ -219,6 +219,14 @@ struct MetadataEditorWindowView: View {
             }
             .padding(20)
             .navigationTitle("Metadata Editor")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        Task { await commitAndDismiss() }
+                    }
+                    .disabled(isApplyingChanges)
+                }
+            }
         }
         .sheet(item: $editorContext) { context in
             NavigationStack {

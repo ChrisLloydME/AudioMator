@@ -25,14 +25,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
 
             actionBar
         }
-        .frame(
-            minWidth: 920,
-            idealWidth: 960,
-            maxWidth: 1100,
-            minHeight: 600,
-            idealHeight: 640,
-            maxHeight: 820
-        )
+        .modifier(MusicBrainzWorkbenchFrameModifier())
         .background(Color(platformColor: .audiomatorWindowBackground))
         .navigationTitle("Review & Apply Tags")
         .task {
@@ -289,6 +282,25 @@ private struct WarningLabel: View {
         Label(text, systemImage: "exclamationmark.triangle.fill")
             .font(.system(size: 12))
             .foregroundStyle(.secondary)
+    }
+}
+
+private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        #else
+        content
+            .frame(
+                minWidth: 920,
+                idealWidth: 960,
+                maxWidth: 1100,
+                minHeight: 600,
+                idealHeight: 640,
+                maxHeight: 820
+            )
+        #endif
     }
 }
 

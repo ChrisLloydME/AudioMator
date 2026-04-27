@@ -159,6 +159,14 @@ struct MetadataFilenameWindowView: View {
             }
             .padding(20)
             .navigationTitle("Filename & Metadata")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .disabled(isApplying)
+                }
+            }
         }
     }
 

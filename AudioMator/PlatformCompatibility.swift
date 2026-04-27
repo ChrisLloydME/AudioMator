@@ -76,6 +76,40 @@ extension PlatformColor {
     static var audiomatorSecondaryLabel: PlatformColor { .secondaryLabel }
     static var audiomatorTertiaryLabel: PlatformColor { .tertiaryLabel }
 }
+
+struct IPadDismissibleSheet<Content: View>: View {
+    let title: String
+    let isCloseDisabled: Bool
+    @ViewBuilder var content: () -> Content
+
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        title: String = "",
+        isCloseDisabled: Bool = false,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.isCloseDisabled = isCloseDisabled
+        self.content = content
+    }
+
+    var body: some View {
+        NavigationStack {
+            content()
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") {
+                            dismiss()
+                        }
+                        .disabled(isCloseDisabled)
+                    }
+                }
+        }
+    }
+}
 #endif
 
 enum PlatformApplication {

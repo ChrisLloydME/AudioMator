@@ -21,6 +21,11 @@ struct IPadWorkspaceView: View {
     @State private var isTextMetadataImportPresented: Bool = false
     @State private var textMetadataImportTargets: [AudioFile] = []
 
+    private let inspectorWidthRatio: CGFloat = 0.42
+    private let minimumInspectorWidth: CGFloat = 360
+    private let maximumInspectorWidth: CGFloat = 520
+    private let horizontalLayoutMinimumWidth: CGFloat = 860
+
     private var orderedFiles: [AudioFile] {
         state.orderedMiddleListFiles(from: viewModel.files)
     }
@@ -30,61 +35,59 @@ struct IPadWorkspaceView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            primaryColumn
-        } detail: {
-            IPadInspectorView(
-                viewModel: viewModel,
-                state: state,
-                onCancelEdits: onCancelEdits,
-                onSaveEdits: onSaveEdits
-            )
-        }
-        .navigationSplitViewStyle(.balanced)
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarLeading) {
-                Button(action: onAddFiles) {
-                    Image(systemName: "plus")
-                }
-                .help("Add files")
-
-                Button(isSelectionMode ? "Done" : "Select") {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        isSelectionMode.toggle()
-                    }
-                }
-                .disabled(orderedFiles.isEmpty)
+        NavigationStack {
+            GeometryReader { geometry in
+                workspaceContent(for: geometry.size)
             }
+            .navigationTitle("AudioMator")
+            .background(Color(platformColor: .audiomatorWindowBackground))
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button(action: onAddFiles) {
+                        Label("Add Files", systemImage: "plus")
+                    }
+                    .help("Add audio files to this session")
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Button("MusicBrainz Browser", action: onOpenMusicBrainzBrowser)
-                    Button("Tag Inspector", action: onShowMetadataDump)
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    Button("Filename & Metadata…", action: openMetadataFilenameRenameSheet)
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    Button("Metadata Editor…", action: openMetadataEditorWindow)
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    Button("Import Field…", action: openTextMetadataImportSheet)
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    Button("Renumber Tracks…", action: onOpenTrackRenumber)
-                        .disabled(orderedFiles.isEmpty)
-                    Divider()
-                    Button("Clear List", role: .destructive) {
-                        isClearListConfirmPresented = true
+                    Button(isSelectionMode ? "Done" : "Select") {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            isSelectionMode.toggle()
+                        }
                     }
                     .disabled(orderedFiles.isEmpty)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                }
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Menu {
+                        Button("MusicBrainz Browser", action: onOpenMusicBrainzBrowser)
+                        Button("Tag Inspector", action: onShowMetadataDump)
+                            .disabled(state.selectedAudioIDs.isEmpty)
+                        Button("Filename & Metadata...", action: openMetadataFilenameRenameSheet)
+                            .disabled(state.selectedAudioIDs.isEmpty)
+                        Button("Metadata Editor...", action: openMetadataEditorWindow)
+                            .disabled(state.selectedAudioIDs.isEmpty)
+                        Button("Import Field...", action: openTextMetadataImportSheet)
+                            .disabled(state.selectedAudioIDs.isEmpty)
+                        Button("Renumber Tracks...", action: onOpenTrackRenumber)
+                            .disabled(orderedFiles.isEmpty)
+                        Divider()
+                        Button("Clear List", role: .destructive) {
+                            isClearListConfirmPresented = true
+                        }
+                        .disabled(orderedFiles.isEmpty)
+                    } label: {
+                        Label("More", systemImage: "ellipsis.circle")
+                    }
                 }
             }
         }
         .sheet(isPresented: $isTextMetadataImportPresented) {
-            TextMetadataImportSheet(
-                viewModel: viewModel,
-                targetFiles: textMetadataImportTargets,
-                isPresented: $isTextMetadataImportPresented
-            )
+            IPadDismissibleSheet(title: "Import Metadata Field") {
+                TextMetadataImportSheet(
+                    viewModel: viewModel,
+                    targetFiles: textMetadataImportTargets,
+                    isPresented: $isTextMetadataImportPresented
+                )
+            }
         }
         .confirmationDialog(
             "Clear this list?",
@@ -126,36 +129,81 @@ struct IPadWorkspaceView: View {
     }
 
     @ViewBuilder
-    private var primaryColumn: some View {
-        Group {
-            if orderedFiles.isEmpty {
-                ContentUnavailableView(
-                    "No Files in Session",
-                    systemImage: "music.note.list",
-                    description: Text("Add audio files for one-off edits. iPadOS keeps AudioMator in session mode only.")
-                )
-            } else {
-                IPadFileBrowserView(
-                    files: orderedFiles,
-                    selection: selection,
-                    customOrder: $state.customOrder,
-                    middleListSort: $state.middleListSort,
-                    isSelectionMode: $isSelectionMode,
-                    onOpenSelectedFiles: openSelectedFiles,
-                    onCopySelectedFilePaths: copySelectedFilePaths,
-                    onCopySelectedFileNames: copySelectedFileNames,
-                    onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
-                    onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
-                )
+    private func workspaceContent(for size: CGSize) -> some View {
+        if orderedFiles.isEmpty {
+            emptySessionView
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if size.width >= horizontalLayoutMinimumWidth {
+            HStack(spacing: 0) {
+                primaryColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                Divider()
+
+                inspectorColumn
+                    .frame(width: inspectorWidth(for: size.width))
+                    .frame(maxHeight: .infinity)
+            }
+        } else {
+            VStack(spacing: 0) {
+                primaryColumn
+                    .frame(maxWidth: .infinity, maxHeight: max(320, size.height * 0.48))
+
+                Divider()
+
+                inspectorColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .navigationTitle("Current Session")
+    }
+
+    @ViewBuilder
+    private var primaryColumn: some View {
+        IPadFileBrowserView(
+            files: orderedFiles,
+            selection: selection,
+            customOrder: $state.customOrder,
+            middleListSort: $state.middleListSort,
+            isSelectionMode: $isSelectionMode,
+            onOpenSelectedFiles: openSelectedFiles,
+            onCopySelectedFilePaths: copySelectedFilePaths,
+            onCopySelectedFileNames: copySelectedFileNames,
+            onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
+            onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
+        )
         .background(Color(platformColor: .audiomatorWindowBackground))
         .safeAreaInset(edge: .bottom) {
             if !selectedFiles.isEmpty {
                 selectionActionBar
             }
         }
+    }
+
+    private var inspectorColumn: some View {
+        IPadInspectorView(
+            viewModel: viewModel,
+            state: state,
+            onCancelEdits: onCancelEdits,
+            onSaveEdits: onSaveEdits
+        )
+    }
+
+    private var emptySessionView: some View {
+        ContentUnavailableView {
+            Label("No Files in Session", systemImage: "music.note.list")
+        } description: {
+            Text("Add audio files for one-off metadata edits.")
+        } actions: {
+            Button(action: onAddFiles) {
+                Label("Add Files", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+    }
+
+    private func inspectorWidth(for totalWidth: CGFloat) -> CGFloat {
+        min(max(totalWidth * inspectorWidthRatio, minimumInspectorWidth), maximumInspectorWidth)
     }
 
     private var selectionActionBar: some View {

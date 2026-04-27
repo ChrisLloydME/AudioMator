@@ -1,0 +1,15 @@
+{
+  "originHash" : "05a92ac75743955086ea6bc0d6e66861ee659da97a5558d9ba22a385aed126bb",
+  "pins" : [
+    {
+      "identity" : "taglibaudiometadata",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ChrisLloydME/TagLibAudioMetadata.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "1e9ad362ef07a53d2a420a7118507c228a8a1b11"
+      }
+    }
+  ],
+  "version" : 3
+}

@@ -110,7 +110,7 @@
 			mainGroup = 6ED09D0D2ED1ED550031CDAD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */,
+				6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6ED09D172ED1ED550031CDAD /* Products */;
@@ -276,7 +276,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 264143;
+				CURRENT_PROJECT_VERSION = 264144;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -337,7 +337,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 264143;
+				CURRENT_PROJECT_VERSION = 264144;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -411,16 +411,21 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../TagLibAudioMetadata;
+/* Begin XCRemoteSwiftPackageReference section */
+		6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */;
 			productName = TagLibAudioMetadata;
 		};
 /* End XCSwiftPackageProductDependency section */

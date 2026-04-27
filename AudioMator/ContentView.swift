@@ -57,12 +57,34 @@ struct ContentView: View {
     var body: some View {
         rootContent
             .sheet(isPresented: $isMetadataDumpPresented) {
+                #if os(iOS)
+                IPadDismissibleSheet(title: "Raw Metadata") {
+                    MetadataDumpSheet(
+                        metadataDumpText: metadataDumpText,
+                        onClose: { isMetadataDumpPresented = false }
+                    )
+                }
+                #else
                 MetadataDumpSheet(
                     metadataDumpText: metadataDumpText,
                     onClose: { isMetadataDumpPresented = false }
                 )
+                #endif
             }
             .sheet(isPresented: $isTrackRenumberPresented) {
+                #if os(iOS)
+                IPadDismissibleSheet(title: "Renumber Tracks", isCloseDisabled: isTrackRenumberRunning) {
+                    TrackRenumberSheet(
+                        viewModel: viewModel,
+                        state: state,
+                        isPresented: $isTrackRenumberPresented,
+                        trackRenumberOptions: $trackRenumberOptions,
+                        trackRenumberStartText: $trackRenumberStartText,
+                        isTrackRenumberRunning: $isTrackRenumberRunning,
+                        trackRenumberResult: $trackRenumberResult
+                    )
+                }
+                #else
                 TrackRenumberSheet(
                     viewModel: viewModel,
                     state: state,
@@ -72,6 +94,7 @@ struct ContentView: View {
                     isTrackRenumberRunning: $isTrackRenumberRunning,
                     trackRenumberResult: $trackRenumberResult
                 )
+                #endif
             }
             .sheet(isPresented: $isWelcomeSplashPresented) {
                 WelcomeSplashView(

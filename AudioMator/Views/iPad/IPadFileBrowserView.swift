@@ -65,6 +65,7 @@ extension IPadFileBrowserView {
         fileprivate var parent: IPadFileBrowserView
         private weak var tableView: UITableView?
         private var draggedIDs: [AudioFile.ID] = []
+        private var renderedRows: [String] = []
         private var isApplyingSelection = false
 
         init(parent: IPadFileBrowserView) {
@@ -79,6 +80,7 @@ extension IPadFileBrowserView {
             tableView.dragDelegate = self
             tableView.dropDelegate = self
             self.tableView = tableView
+            renderedRows = currentRowFingerprints
             syncEditingState(on: tableView)
             syncSelection(on: tableView)
             return controller
@@ -87,7 +89,11 @@ extension IPadFileBrowserView {
         func update(_ controller: BrowserViewController) {
             let tableView = self.tableView ?? controller.tableView
             self.tableView = tableView
-            tableView.reloadData()
+            let currentRows = currentRowFingerprints
+            if renderedRows != currentRows {
+                renderedRows = currentRows
+                tableView.reloadData()
+            }
             syncEditingState(on: tableView)
             syncSelection(on: tableView)
         }
@@ -259,6 +265,10 @@ extension IPadFileBrowserView {
                 tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false, scrollPosition: .none)
             }
             isApplyingSelection = false
+        }
+
+        private var currentRowFingerprints: [String] {
+            parent.files.map { "\($0.id.uuidString):\($0.middleListContentFingerprint)" }
         }
     }
 }

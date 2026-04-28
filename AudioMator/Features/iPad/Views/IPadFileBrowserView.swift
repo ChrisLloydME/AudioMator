@@ -305,11 +305,15 @@ private struct IPadFileBrowserRow: View {
         return file.disc > 0 ? "Disc \(file.disc)" : ""
     }
 
-    private var trailingMetadataText: String {
-        [trackText.isEmpty ? "" : "Track \(trackText)", discText]
+    private var trailingMetadataItems: [String] {
+        [
+            trackText.isEmpty ? "" : "Track \(trackText)",
+            discText,
+            file.composer.trimmingCharacters(in: .whitespacesAndNewlines),
+            file.genre.trimmingCharacters(in: .whitespacesAndNewlines)
+        ]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-            .joined(separator: " • ")
     }
 
     var body: some View {
@@ -353,12 +357,17 @@ private struct IPadFileBrowserRow: View {
 
             Spacer(minLength: 8)
 
-            if !trailingMetadataText.isEmpty {
-                Text(trailingMetadataText)
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.trailing)
-                    .lineLimit(2)
+            if !trailingMetadataItems.isEmpty {
+                VStack(alignment: .trailing, spacing: 3) {
+                    ForEach(trailingMetadataItems.prefix(3), id: \.self) { item in
+                        Text(item)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(width: 124, alignment: .trailing)
             }
         }
         .padding(.horizontal, 16)

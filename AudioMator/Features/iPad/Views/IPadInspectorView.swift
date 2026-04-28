@@ -38,7 +38,7 @@ struct IPadInspectorView: View {
             }
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if !selectedFiles.isEmpty {
                 actionBar
             }
@@ -194,15 +194,22 @@ struct IPadInspectorView: View {
             Spacer(minLength: 12)
 
             Button("Cancel", action: onCancelEdits)
+                .buttonStyle(IPadGlassActionButtonStyle())
                 .disabled(!viewModel.hasUnsavedInspectorChanges)
 
             Button("Save", action: onSaveEdits)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(IPadGlassActionButtonStyle(isProminent: true))
                 .disabled(!viewModel.hasUnsavedInspectorChanges || viewModel.metadataSaveProgress != nil)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(.bar)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.white.opacity(0.16))
+                .frame(height: 0.5)
+        }
     }
 
     private var actionBarSubtitle: String {
@@ -388,7 +395,7 @@ private extension IPadInspectorView {
                 }
 
                 GridRow {
-                    artworkButton("Clear", systemImage: "trash", role: .destructive) {
+                    artworkButton("Clear", systemImage: "trash", role: .destructive, isDestructive: true) {
                         viewModel.clearArtwork(for: file)
                     }
                     .disabled(!hasArtwork(for: file))
@@ -424,11 +431,11 @@ private extension IPadInspectorView {
                 }
 
                 GridRow {
-                    artworkButton("Keep Current", systemImage: "arrow.uturn.left") {
+                    artworkButton("Keep Current", systemImage: "checkmark.seal") {
                         viewModel.keepArtwork(for: files)
                     }
 
-                    artworkButton("Clear", systemImage: "trash", role: .destructive) {
+                    artworkButton("Clear", systemImage: "trash", role: .destructive, isDestructive: true) {
                         viewModel.clearArtwork(for: files)
                     }
                     .disabled(!canClearMultiArtwork)
@@ -448,14 +455,15 @@ private extension IPadInspectorView {
         _ title: String,
         systemImage: String,
         role: ButtonRole? = nil,
+        isDestructive: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(role: role, action: action) {
             Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.medium))
-                .frame(maxWidth: .infinity, minHeight: 34)
+                .font(.subheadline.weight(.bold))
+                .frame(maxWidth: .infinity, minHeight: 38)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(IPadArtworkButtonStyle(isDestructive: isDestructive))
         .controlSize(.regular)
     }
 
@@ -590,6 +598,101 @@ private extension IPadInspectorView {
 
     func readOnlyRow(_ title: String, value: String) -> some View {
         LabeledContent(title, value: value.isEmpty ? "—" : value)
+    }
+}
+
+private struct IPadArtworkButtonStyle: ButtonStyle {
+    var isDestructive: Bool = false
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(foregroundColor)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(background(configuration: configuration))
+            .overlay(border)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .opacity(isEnabled ? 1 : 0.45)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private var foregroundColor: Color {
+        isDestructive ? .white : .primary
+    }
+
+    @ViewBuilder
+    private func background(configuration: Configuration) -> some View {
+        if isDestructive {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.red.opacity(configuration.isPressed ? 0.78 : 0.92))
+        } else {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.regularMaterial)
+                .opacity(configuration.isPressed ? 0.82 : 1)
+        }
+    }
+
+    @ViewBuilder
+    private var border: some View {
+        if isDestructive {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+        } else {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        }
+    }
+}
+
+private struct IPadGlassActionButtonStyle: ButtonStyle {
+    var isProminent: Bool = false
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(foregroundColor)
+            .frame(minWidth: 86)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(background(configuration: configuration))
+            .overlay(border(configuration: configuration))
+            .clipShape(Capsule(style: .continuous))
+            .opacity(isEnabled ? 1 : 0.45)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private var foregroundColor: Color {
+        isProminent ? .white : .primary
+    }
+
+    @ViewBuilder
+    private func background(configuration: Configuration) -> some View {
+        if isProminent {
+            Capsule(style: .continuous)
+                .fill(Color.accentColor.opacity(configuration.isPressed ? 0.72 : 0.88))
+                .background(.thinMaterial, in: Capsule(style: .continuous))
+        } else {
+            Capsule(style: .continuous)
+                .fill(.regularMaterial)
+                .opacity(configuration.isPressed ? 0.82 : 1)
+        }
+    }
+
+    @ViewBuilder
+    private func border(configuration: Configuration) -> some View {
+        Capsule(style: .continuous)
+            .strokeBorder(
+                isProminent
+                    ? Color.white.opacity(configuration.isPressed ? 0.16 : 0.28)
+                    : Color.primary.opacity(configuration.isPressed ? 0.10 : 0.16),
+                lineWidth: 1
+            )
     }
 }
 #endif

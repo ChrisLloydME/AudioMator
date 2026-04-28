@@ -53,8 +53,10 @@ struct WelcomeSplashView: View {
             maxHeight: maximumHeight
         )
         #if os(iOS)
+        .background(.regularMaterial)
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .presentationBackground(.thinMaterial)
         #endif
         .animation(.easeInOut(duration: 0.18), value: currentPage)
     }

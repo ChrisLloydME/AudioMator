@@ -184,7 +184,7 @@ struct ITunesArtworkService: Sendable {
     ) -> URL? {
         var components = URLComponents()
         components.scheme = "https"
-        components.host = "itunes.apple.com"
+        components.host = NetworkServiceDisclosure.ITunesArtwork.searchHost
 
         switch entity {
         case .idAlbum:
@@ -277,7 +277,7 @@ struct ITunesArtworkService: Sendable {
 
     private func normalizedHiresURL(from hiresCandidate: String) -> String? {
         guard let path = URL(string: hiresCandidate)?.path else { return nil }
-        return "https://is5-ssl.mzstatic.com\(path)"
+        return "https://\(NetworkServiceDisclosure.ITunesArtwork.highResolutionArtworkHost)\(path)"
     }
 
     private func normalizedUncompressedURL(from hiresURL: String?) -> String? {
@@ -289,6 +289,6 @@ struct ITunesArtworkService: Sendable {
         var imageParts = parts[1].components(separatedBy: "/")
         guard !imageParts.isEmpty else { return nil }
         imageParts.removeLast()
-        return "https://a5.mzstatic.com/us/r1000/0/\(imageParts.joined(separator: "/"))"
+        return "https://\(NetworkServiceDisclosure.ITunesArtwork.uncompressedArtworkHost)/us/r1000/0/\(imageParts.joined(separator: "/"))"
     }
 }

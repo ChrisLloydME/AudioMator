@@ -172,6 +172,9 @@ struct IPadWorkspaceView: View {
             onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
         )
         .background(Color(platformColor: .audiomatorWindowBackground))
+        .safeAreaInset(edge: .top) {
+            fileListSortBar
+        }
         .safeAreaInset(edge: .bottom) {
             if !selectedFiles.isEmpty {
                 selectionActionBar
@@ -206,8 +209,65 @@ struct IPadWorkspaceView: View {
         min(max(totalWidth * inspectorWidthRatio, minimumInspectorWidth), maximumInspectorWidth)
     }
 
-    private var selectionActionBar: some View {
+    private var fileListSortBar: some View {
         HStack(spacing: 12) {
+            Menu {
+                Button {
+                    state.middleListSort = nil
+                } label: {
+                    if state.middleListSort == nil {
+                        Label("Manual Order", systemImage: "checkmark")
+                    } else {
+                        Text("Manual Order")
+                    }
+                }
+                .disabled(state.middleListSort == nil)
+
+                Divider()
+
+                ForEach(MiddleListColumn.allCases) { column in
+                    Menu(column.displayName) {
+                        sortButton(for: column, ascending: true)
+                        sortButton(for: column, ascending: false)
+                    }
+                }
+            } label: {
+                Label(sortButtonTitle, systemImage: "arrow.up.arrow.down")
+            }
+            .buttonStyle(.bordered)
+            .disabled(orderedFiles.isEmpty)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    private func sortButton(for column: MiddleListColumn, ascending: Bool) -> some View {
+        Button {
+            state.middleListSort = MiddleListSort(column: column, ascending: ascending)
+        } label: {
+            let title = ascending ? "Ascending" : "Descending"
+            if state.middleListSort == MiddleListSort(column: column, ascending: ascending) {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
+    }
+
+    private var sortButtonTitle: String {
+        guard let middleListSort = state.middleListSort else {
+            return "Sort by Manual Order"
+        }
+
+        let direction = middleListSort.ascending ? "Ascending" : "Descending"
+        return "Sort by \(middleListSort.column.displayName), \(direction)"
+    }
+
+    private var selectionActionBar: some View {
+        HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(selectedFiles.count) Selected")
                     .font(.subheadline.weight(.semibold))
@@ -217,26 +277,7 @@ struct IPadWorkspaceView: View {
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 12)
-
-            Button("MusicBrainz", action: onFindSelectedFileInMusicBrainz)
-                .buttonStyle(.bordered)
-
-            Button("Rename", action: openMetadataFilenameRenameSheet)
-                .buttonStyle(.bordered)
-
-            Menu {
-                Button("Metadata Editor…", action: openMetadataEditorWindow)
-                Button("Import Field…", action: openTextMetadataImportSheet)
-                Button("Raw Metadata", action: onShowMetadataDump)
-                Divider()
-                Button("Erase All Tags", role: .destructive) {
-                    isEraseAllTagsConfirmPresented = true
-                }
-            } label: {
-                Label("More", systemImage: "ellipsis.circle")
-            }
-            .buttonStyle(.bordered)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

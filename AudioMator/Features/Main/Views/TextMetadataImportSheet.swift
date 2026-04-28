@@ -354,32 +354,36 @@ struct TextMetadataImportSheet: View {
 
                 if hasLoadedSourceFile {
                     #if os(iOS)
-                    List(previewRows) { row in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("\(row.position)")
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(.secondary)
+                    List {
+                        Section {
+                            ForEach(previewRows) { row in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Text("\(row.position)")
+                                            .font(.subheadline.monospacedDigit())
+                                            .foregroundStyle(.secondary)
 
-                                Text(row.fileName)
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
+                                        Text(row.fileName)
+                                            .font(.subheadline.weight(.semibold))
+                                            .lineLimit(1)
 
-                                Spacer(minLength: 0)
+                                        Spacer(minLength: 0)
 
-                                Image(systemName: row.status.symbolName)
-                                    .foregroundStyle(row.status.tint)
-                                    .accessibilityLabel(row.status.title)
-                            }
+                                        Image(systemName: row.status.symbolName)
+                                            .foregroundStyle(row.status.tint)
+                                            .accessibilityLabel(row.status.title)
+                                    }
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                previewValueLine("Current \(selectedField.displayName)", value: row.currentValue)
-                                previewValueLine("Imported Value", value: row.importedValue)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        previewValueLine("Current \(selectedField.displayName)", value: row.currentValue)
+                                        previewValueLine("Imported Value", value: row.importedValue)
+                                    }
+                                }
+                                .padding(.vertical, 4)
                             }
                         }
-                        .padding(.vertical, 4)
                     }
-                    .listStyle(.plain)
+                    .iPadRoundedGroupedListStyle()
                     .frame(minHeight: 280)
                     #else
                     previewTable

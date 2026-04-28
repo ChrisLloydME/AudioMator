@@ -30,10 +30,14 @@ struct MetadataDumpSheet: View {
 
             ReadOnlyMonospacedTextView(text: displayText)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                #if os(iOS)
+                .iPadRoundedGroupedSurface()
+                #else
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.secondary.opacity(0.08))
                 )
+                #endif
 
             HStack {
                 Spacer()

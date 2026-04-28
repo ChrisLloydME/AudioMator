@@ -97,10 +97,14 @@ struct MetadataInspectorSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
             }
+            #if os(iOS)
+            .iPadRoundedGroupedSurface()
+            #else
             .background {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(.quaternary.opacity(0.35))
             }
+            #endif
         }
     }
 

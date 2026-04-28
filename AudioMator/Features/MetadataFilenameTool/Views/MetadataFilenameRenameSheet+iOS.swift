@@ -184,37 +184,39 @@ struct MetadataFilenameWindowView: View {
                 )
             } else {
                 List {
-                    if mode == .metadataToFilename {
-                        ForEach(Array(renamePlan.rows), id: \.id) { (row: FileRenamePreviewRow) in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(row.currentName)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(row.previewName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text(row.status.message)
-                                    .font(.caption)
-                                    .foregroundStyle(row.status.isError ? .orange : .secondary)
-                            }
-                        }
-                    } else {
-                        ForEach(Array(filenameMetadataPlan.rows), id: \.id) { (row: FilenameMetadataPreviewRow) in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(row.currentName)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(row.status.message)
-                                    .font(.caption)
-                                    .foregroundStyle(row.status.isError ? .orange : .secondary)
-                                if !row.changes.isEmpty {
-                                    Text(row.changes.map { "\($0.field.displayName): \($0.extractedValue)" }.joined(separator: " · "))
+                    Section {
+                        if mode == .metadataToFilename {
+                            ForEach(Array(renamePlan.rows), id: \.id) { (row: FileRenamePreviewRow) in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(row.currentName)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text(row.previewName)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    Text(row.status.message)
+                                        .font(.caption)
+                                        .foregroundStyle(row.status.isError ? .orange : .secondary)
+                                }
+                            }
+                        } else {
+                            ForEach(Array(filenameMetadataPlan.rows), id: \.id) { (row: FilenameMetadataPreviewRow) in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(row.currentName)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text(row.status.message)
+                                        .font(.caption)
+                                        .foregroundStyle(row.status.isError ? .orange : .secondary)
+                                    if !row.changes.isEmpty {
+                                        Text(row.changes.map { "\($0.field.displayName): \($0.extractedValue)" }.joined(separator: " · "))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                .listStyle(.plain)
+                .iPadRoundedGroupedListStyle()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

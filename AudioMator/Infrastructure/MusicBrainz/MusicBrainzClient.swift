@@ -546,7 +546,7 @@ struct MusicBrainzReleaseSearchResult: Identifiable, Equatable, Hashable {
     }
 
     var musicBrainzURL: URL? {
-        URL(string: "https://musicbrainz.org/release/\(id)")
+        NetworkServiceDisclosure.MusicBrainz.webURL(path: "/release/\(id)")
     }
 }
 
@@ -591,7 +591,7 @@ struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable {
         let status: String
 
         var musicBrainzURL: URL? {
-            URL(string: "https://musicbrainz.org/release/\(id)")
+            NetworkServiceDisclosure.MusicBrainz.webURL(path: "/release/\(id)")
         }
     }
 
@@ -605,7 +605,7 @@ struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable {
     let releases: [Release]
 
     var musicBrainzURL: URL? {
-        URL(string: "https://musicbrainz.org/recording/\(id)")
+        NetworkServiceDisclosure.MusicBrainz.webURL(path: "/recording/\(id)")
     }
 
     var primaryRelease: Release? {
@@ -629,7 +629,7 @@ struct MusicBrainzRecordingDetail: Equatable {
     let relationshipGroups: [MusicBrainzRelationshipGroup]
 
     var musicBrainzURL: URL? {
-        URL(string: "https://musicbrainz.org/recording/\(id)")
+        NetworkServiceDisclosure.MusicBrainz.webURL(path: "/recording/\(id)")
     }
 }
 
@@ -710,7 +710,7 @@ struct MusicBrainzReleaseDetail: Equatable {
     var selectionMatchPreview: MusicBrainzReleaseMatchPreview?
 
     var musicBrainzURL: URL? {
-        URL(string: "https://musicbrainz.org/release/\(id)")
+        NetworkServiceDisclosure.MusicBrainz.webURL(path: "/release/\(id)")
     }
 }
 
@@ -784,7 +784,7 @@ actor MusicBrainzRateLimiter {
 }
 
 struct MusicBrainzClient {
-    private static let baseURL = URL(string: "https://musicbrainz.org/ws/2")!
+    private static let baseURL = URL(string: "https://\(NetworkServiceDisclosure.MusicBrainz.host)/ws/2")!
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -1756,10 +1756,7 @@ private extension String {
 }
 
 private enum MusicBrainzLinkParser {
-    private static let supportedHosts: Set<String> = [
-        "musicbrainz.org",
-        "www.musicbrainz.org"
-    ]
+    private static let supportedHosts = Set(NetworkServiceDisclosure.MusicBrainz.acceptedLinkDomains)
 
     static func parse(_ rawValue: String) throws -> MusicBrainzLinkTarget {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)

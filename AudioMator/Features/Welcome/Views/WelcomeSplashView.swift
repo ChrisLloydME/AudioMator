@@ -8,7 +8,11 @@ struct WelcomeSplashView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
-            pageContent
+            ScrollView {
+                pageContent
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollIndicators(.hidden)
 
             Spacer(minLength: 0)
 
@@ -29,7 +33,7 @@ struct WelcomeSplashView: View {
 
                 Spacer()
 
-                Button("Continue") {
+                Button(currentPage.next == nil ? "Get Started" : "Continue") {
                     advance()
                 }
                 .buttonStyle(GlassActionButtonStyle(isProminent: true))
@@ -50,8 +54,12 @@ struct WelcomeSplashView: View {
             WelcomePage()
         case .features:
             FeaturesPage()
+        case .musicBrainz:
+            MusicBrainzPage()
+        case .artwork:
+            ArtworkPage()
         case .privacy:
-            PrivacyPage()
+            NetworkPrivacyPage()
         }
     }
 
@@ -73,6 +81,8 @@ struct WelcomeSplashView: View {
 private enum WelcomeSplashPage: Int {
     case welcome
     case features
+    case musicBrainz
+    case artwork
     case privacy
 
     var next: WelcomeSplashPage? {
@@ -80,6 +90,10 @@ private enum WelcomeSplashPage: Int {
         case .welcome:
             .features
         case .features:
+            .musicBrainz
+        case .musicBrainz:
+            .artwork
+        case .artwork:
             .privacy
         case .privacy:
             nil
@@ -92,8 +106,12 @@ private enum WelcomeSplashPage: Int {
             nil
         case .features:
             .welcome
-        case .privacy:
+        case .musicBrainz:
             .features
+        case .artwork:
+            .musicBrainz
+        case .privacy:
+            .artwork
         }
     }
 }
@@ -196,6 +214,12 @@ private struct FeaturesPage: View {
                         title: "Use batch utilities",
                         description: "Reorder files, renumber tracks, reveal files in Finder, copy paths, or clear tags."
                     )
+
+                    WelcomeFeatureRow(
+                        symbol: "photo.on.rectangle.angled",
+                        title: "Work with artwork",
+                        description: "Replace, remove, preview, and apply album artwork without leaving the inspector."
+                    )
                 }
                 .padding(.vertical, 18)
             }
@@ -204,35 +228,117 @@ private struct FeaturesPage: View {
     }
 }
 
-private struct PrivacyPage: View {
+private struct MusicBrainzPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             PageHeader(
-                title: "Privacy",
-                subtitle: "Your files stay on your Mac. AudioMator only accesses files and folders you choose."
+                title: "Match Metadata with MusicBrainz",
+                subtitle: "Search releases and tracks, compare the candidates, and apply the details you choose."
             )
 
             GroupBox {
                 VStack(alignment: .leading, spacing: 22) {
-                    PrivacyRow(
-                        symbol: "folder.badge.questionmark",
-                        title: "You choose the files",
-                        description: "AudioMator reads only the files and folders you add. Remove watched folders anytime."
+                    WelcomeFeatureRow(
+                        symbol: "magnifyingglass",
+                        title: "Search from selected files",
+                        description: "Start with the metadata already in your tracks, or enter a MusicBrainz search manually."
                     )
 
-                    PrivacyRow(
-                        symbol: "internaldrive",
-                        title: "Metadata stays local",
-                        description: "Reading and writing happen on your Mac. Your files and tags aren't uploaded."
+                    WelcomeFeatureRow(
+                        symbol: "list.bullet.rectangle",
+                        title: "Review before applying",
+                        description: "Check candidate release and track information before it changes your files."
                     )
 
-                    PrivacyRow(
-                        symbol: "person.crop.circle.badge.xmark",
-                        title: "No account needed",
-                        description: "No sign-in, cloud profile, or remote library."
+                    WelcomeFeatureRow(
+                        symbol: "square.and.arrow.down",
+                        title: "Apply metadata when ready",
+                        description: "Write matched titles, artists, album details, track numbers, dates, and identifiers back to supported files."
                     )
                 }
                 .padding(.vertical, 18)
+            }
+        }
+        .padding(.top, 8)
+    }
+}
+
+private struct ArtworkPage: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            PageHeader(
+                title: "Find Album Artwork",
+                subtitle: "Use iTunes artwork lookup to find covers, preview them, and apply the selected image."
+            )
+
+            GroupBox {
+                VStack(alignment: .leading, spacing: 22) {
+                    WelcomeFeatureRow(
+                        symbol: "magnifyingglass.circle",
+                        title: "Find covers online",
+                        description: "Search from album details, an iTunes Album ID, or your own artwork search terms."
+                    )
+
+                    WelcomeFeatureRow(
+                        symbol: "rectangle.on.rectangle",
+                        title: "Preview the result",
+                        description: "Compare available artwork before choosing what to use."
+                    )
+
+                    WelcomeFeatureRow(
+                        symbol: "checkmark.rectangle.stack",
+                        title: "Apply to selected files",
+                        description: "Save the selected artwork into supported audio files alongside your other metadata edits."
+                    )
+                }
+                .padding(.vertical, 18)
+            }
+        }
+        .padding(.top, 8)
+    }
+}
+
+private struct NetworkPrivacyPage: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            PageHeader(
+                title: "Privacy & Network Access",
+                subtitle: "Local editing stays on your Mac. Online lookup features contact external services only when you use them."
+            )
+
+            GroupBox {
+                VStack(alignment: .leading, spacing: 18) {
+                    PrivacyRow(
+                        symbol: "internaldrive",
+                        title: "Audio files are not uploaded",
+                        description: "AudioMator reads and writes the files you choose locally. The audio file contents themselves are not sent for online lookup."
+                    )
+
+                    PrivacyRow(
+                        symbol: "text.magnifyingglass",
+                        title: "Lookup queries may use metadata",
+                        description: "Depending on the feature, search terms may include title, artist, album, album artist, track number, duration, release identifiers, and manually entered queries."
+                    )
+
+                    PrivacyRow(
+                        symbol: "music.mic",
+                        title: "MusicBrainz lookup",
+                        description: NetworkServiceDisclosure.MusicBrainz.sentDataSummary
+                    )
+
+                    PrivacyRow(
+                        symbol: "photo",
+                        title: "Artwork lookup",
+                        description: "Artwork lookup may contact Apple or iTunes-related services. \(NetworkServiceDisclosure.ITunesArtwork.sentDataSummary)"
+                    )
+
+                    DomainList(
+                        title: "Domains used by online lookup",
+                        domains: NetworkServiceDisclosure.MusicBrainz.domains +
+                            NetworkServiceDisclosure.ITunesArtwork.domains
+                    )
+                }
+                .padding(.vertical, 16)
             }
         }
         .padding(.top, 8)
@@ -316,6 +422,28 @@ private struct PrivacyRow: View {
             Spacer(minLength: 0)
         }
         .padding(.leading, 18)
+    }
+}
+
+private struct DomainList: View {
+    let title: String
+    let domains: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+
+            VStack(alignment: .leading, spacing: 7) {
+                ForEach(domains, id: \.self) { domain in
+                    Text(domain)
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.leading, 66)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

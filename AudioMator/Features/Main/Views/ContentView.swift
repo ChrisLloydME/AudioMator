@@ -24,7 +24,8 @@ struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     #endif
 
-    @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
@@ -156,7 +157,7 @@ struct ContentView: View {
                 viewModel.setSidebarSelection(state.selectedSidebarItem)
             }
             .task {
-                guard !hasCompletedWelcomeSplash, !isWelcomeSplashPresented else { return }
+                guard shouldPresentWelcomeSplashOnLaunch, !isWelcomeSplashPresented else { return }
                 isWelcomeSplashPresented = true
             }
             .onChange(of: state.selectedSidebarItem) { _, newSelection in
@@ -315,7 +316,13 @@ struct ContentView: View {
 
     private func dismissWelcomeSplash() {
         hasCompletedWelcomeSplash = true
+        completedWelcomeSplashVersion = WelcomeSplashProgress.currentVersion
         isWelcomeSplashPresented = false
+    }
+
+    private var shouldPresentWelcomeSplashOnLaunch: Bool {
+        !hasCompletedWelcomeSplash ||
+        completedWelcomeSplashVersion < WelcomeSplashProgress.currentVersion
     }
 
     private func quitApplication() {

@@ -12,7 +12,8 @@ enum AppSettingsTab: String, Hashable {
 struct SettingsView: View {
     @ObservedObject var sharedState: SharedState
 
-    @AppStorage("hasCompletedWelcomeSplash") private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @AppStorage(settingsSelectedTabDefaultsKey) private var selectedTabRawValue: String = AppSettingsTab.general.rawValue
 
@@ -70,8 +71,14 @@ struct SettingsView: View {
 
     private var showWelcomeScreenOnLaunchBinding: Binding<Bool> {
         Binding(
-            get: { !hasCompletedWelcomeSplash },
-            set: { hasCompletedWelcomeSplash = !$0 }
+            get: {
+                !hasCompletedWelcomeSplash ||
+                completedWelcomeSplashVersion < WelcomeSplashProgress.currentVersion
+            },
+            set: { shouldShowOnLaunch in
+                hasCompletedWelcomeSplash = !shouldShowOnLaunch
+                completedWelcomeSplashVersion = shouldShowOnLaunch ? 0 : WelcomeSplashProgress.currentVersion
+            }
         )
     }
 
@@ -419,39 +426,41 @@ private struct AcknowledgementsSheet: View {
 private struct PrivacySheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    private let sections: [(title: String, details: [String])] = [
-        (
-            title: "Overview",
-            details: [
-                "AudioMator's local metadata reading and writing runs on your Mac.",
-                "Your music files themselves are not uploaded."
-            ]
-        ),
-        (
-            title: "iTunes artwork lookup",
-            details: [
-                "Target hosts: itunes.apple.com, is5-ssl.mzstatic.com, a5.mzstatic.com",
-                "Sent data: lookup and search query parameters derived from metadata fields such as iTunes Album ID, album name, or track title.",
-                "Purpose: searching for and downloading album artwork."
-            ]
-        ),
-        (
-            title: "MusicBrainz browser and search",
-            details: [
-                "Target host: musicbrainz.org (/ws/2 API and selected MusicBrainz pages)",
-                "Sent data: query terms generated from entered or selected metadata fields, including title, artist, album artist, album, track number, total tracks, duration bucket, release date or year, ISRC, barcode, MusicBrainz album ID, and MusicBrainz track ID, including IDs parsed from a pasted MusicBrainz link.",
-                "Purpose: searching and referencing MusicBrainz metadata."
-            ]
-        ),
-        (
-            title: "Release notes",
-            details: [
-                "Target host: api.github.com",
-                "Sent data: request headers and the release list request only. No audio file content is sent.",
-                "Purpose: loading published release notes for AudioMator."
-            ]
-        )
-    ]
+    private var sections: [(title: String, details: [String])] {
+        [
+            (
+                title: "Overview",
+                details: [
+                    "AudioMator's local metadata reading and writing runs on your Mac.",
+                    "Your music files themselves are not uploaded."
+                ]
+            ),
+            (
+                title: "iTunes artwork lookup",
+                details: [
+                    "Target hosts: \(NetworkServiceDisclosure.ITunesArtwork.domains.joined(separator: ", "))",
+                    NetworkServiceDisclosure.ITunesArtwork.sentDataSummary,
+                    "Purpose: searching for, previewing, downloading, and applying album artwork."
+                ]
+            ),
+            (
+                title: "MusicBrainz browser and search",
+                details: [
+                    "Target host: \(NetworkServiceDisclosure.MusicBrainz.domains.joined(separator: ", ")) (/ws/2 API and selected MusicBrainz pages)",
+                    NetworkServiceDisclosure.MusicBrainz.sentDataSummary,
+                    "Purpose: searching, reviewing, and applying MusicBrainz metadata."
+                ]
+            ),
+            (
+                title: "Release notes",
+                details: [
+                    "Target host: \(NetworkServiceDisclosure.ReleaseNotes.host)",
+                    "Sent data: request headers and the release list request only. No audio file content is sent.",
+                    "Purpose: loading published release notes for AudioMator."
+                ]
+            )
+        ]
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {

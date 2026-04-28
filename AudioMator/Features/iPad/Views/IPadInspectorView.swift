@@ -375,23 +375,25 @@ private extension IPadInspectorView {
         return VStack(alignment: .leading, spacing: 14) {
             artworkPreview(displayedArtwork(for: file), placeholderSymbol: "photo")
 
-            HStack(spacing: 10) {
-                Button("Choose Artwork…") {
-                    viewModel.pickArtwork(for: file)
-                }
-                .buttonStyle(.bordered)
+            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+                GridRow {
+                    artworkButton("Choose", systemImage: "photo.badge.plus") {
+                        viewModel.pickArtwork(for: file)
+                    }
 
-                Button("Fetch Online…") {
-                    viewModel.findOnlineArtwork(for: file)
+                    artworkButton("Fetch Online", systemImage: "icloud.and.arrow.down") {
+                        viewModel.findOnlineArtwork(for: file)
+                    }
+                    .disabled(disabledReason != nil)
                 }
-                .buttonStyle(.bordered)
-                .disabled(disabledReason != nil)
 
-                Button("Clear", role: .destructive) {
-                    viewModel.clearArtwork(for: file)
+                GridRow {
+                    artworkButton("Clear", systemImage: "trash", role: .destructive) {
+                        viewModel.clearArtwork(for: file)
+                    }
+                    .disabled(!hasArtwork(for: file))
+                    .gridCellColumns(2)
                 }
-                .buttonStyle(.bordered)
-                .disabled(!hasArtwork(for: file))
             }
 
             if let disabledReason {
@@ -409,28 +411,28 @@ private extension IPadInspectorView {
         return VStack(alignment: .leading, spacing: 14) {
             artworkPreview(multiDisplayedArtwork, placeholderSymbol: multiArtworkPlaceholderSymbolName, subtitle: multiArtworkSummary)
 
-            HStack(spacing: 10) {
-                Button("Choose Artwork…") {
-                    viewModel.pickArtwork(for: files)
-                }
-                .buttonStyle(.bordered)
+            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+                GridRow {
+                    artworkButton("Choose", systemImage: "photo.badge.plus") {
+                        viewModel.pickArtwork(for: files)
+                    }
 
-                Button("Fetch Online…") {
-                    viewModel.findOnlineArtwork(for: files)
+                    artworkButton("Fetch Online", systemImage: "icloud.and.arrow.down") {
+                        viewModel.findOnlineArtwork(for: files)
+                    }
+                    .disabled(disabledReason != nil)
                 }
-                .buttonStyle(.bordered)
-                .disabled(disabledReason != nil)
 
-                Button("Keep Current") {
-                    viewModel.keepArtwork(for: files)
-                }
-                .buttonStyle(.bordered)
+                GridRow {
+                    artworkButton("Keep Current", systemImage: "arrow.uturn.left") {
+                        viewModel.keepArtwork(for: files)
+                    }
 
-                Button("Clear", role: .destructive) {
-                    viewModel.clearArtwork(for: files)
+                    artworkButton("Clear", systemImage: "trash", role: .destructive) {
+                        viewModel.clearArtwork(for: files)
+                    }
+                    .disabled(!canClearMultiArtwork)
                 }
-                .buttonStyle(.bordered)
-                .disabled(!canClearMultiArtwork)
             }
 
             if let disabledReason {
@@ -440,6 +442,21 @@ private extension IPadInspectorView {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    func artworkButton(
+        _ title: String,
+        systemImage: String,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.medium))
+                .frame(maxWidth: .infinity, minHeight: 34)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.regular)
     }
 
     @ViewBuilder

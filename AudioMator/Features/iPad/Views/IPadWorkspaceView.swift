@@ -40,7 +40,7 @@ struct IPadWorkspaceView: View {
             GeometryReader { geometry in
                 workspaceContent(for: geometry.size)
             }
-            .navigationTitle("AudioMator")
+            .navigationBarTitleDisplayMode(.inline)
             .background(Color(platformColor: .audiomatorWindowBackground))
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
@@ -164,18 +164,23 @@ struct IPadWorkspaceView: View {
 
     @ViewBuilder
     private var primaryColumn: some View {
-        IPadFileBrowserView(
-            files: orderedFiles,
-            selection: selection,
-            customOrder: $state.customOrder,
-            middleListSort: $state.middleListSort,
-            isSelectionMode: $isSelectionMode,
-            onOpenSelectedFiles: openSelectedFiles,
-            onCopySelectedFilePaths: copySelectedFilePaths,
-            onCopySelectedFileNames: copySelectedFileNames,
-            onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
-            onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
-        )
+        VStack(alignment: .leading, spacing: 0) {
+            leftColumnTitle
+
+            IPadFileBrowserView(
+                files: orderedFiles,
+                selection: selection,
+                customOrder: $state.customOrder,
+                middleListSort: $state.middleListSort,
+                isSelectionMode: $isSelectionMode,
+                onOpenSelectedFiles: openSelectedFiles,
+                onCopySelectedFilePaths: copySelectedFilePaths,
+                onCopySelectedFileNames: copySelectedFileNames,
+                onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
+                onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
         .background(Color(platformColor: .audiomatorWindowBackground))
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !selectedFiles.isEmpty {
@@ -191,6 +196,17 @@ struct IPadWorkspaceView: View {
             onCancelEdits: onCancelEdits,
             onSaveEdits: onSaveEdits
         )
+    }
+
+    private var leftColumnTitle: some View {
+        Text("AudioMator")
+            .font(.largeTitle.weight(.bold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            .background(Color(platformColor: .audiomatorWindowBackground))
     }
 
     private var emptySessionView: some View {

@@ -151,25 +151,43 @@ struct MusicBrainzBrowserView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         } else {
-            List {
-                switch store.results {
-                case .recordings(let results):
-                    ForEach(results) { result in
-                        NavigationLink(value: MusicBrainzBrowserDestination.recording(result)) {
-                            MusicBrainzRecordingRow(result: result)
-                                .padding(.vertical, 6)
-                        }
-                    }
-                case .releases(let results):
-                    ForEach(results) { result in
-                        NavigationLink(value: MusicBrainzBrowserDestination.release(result)) {
-                            MusicBrainzReleaseRow(result: result)
-                                .padding(.vertical, 6)
-                        }
-                    }
+            searchResultsList
+        }
+    }
+
+    private var searchResultsList: some View {
+        #if os(iOS)
+        List {
+            Section {
+                searchResultRows
+            }
+        }
+        .iPadRoundedGroupedListStyle()
+        #else
+        List {
+            searchResultRows
+        }
+        .listStyle(.inset)
+        #endif
+    }
+
+    @ViewBuilder
+    private var searchResultRows: some View {
+        switch store.results {
+        case .recordings(let results):
+            ForEach(results) { result in
+                NavigationLink(value: MusicBrainzBrowserDestination.recording(result)) {
+                    MusicBrainzRecordingRow(result: result)
+                        .padding(.vertical, 6)
                 }
             }
-            .listStyle(.inset)
+        case .releases(let results):
+            ForEach(results) { result in
+                NavigationLink(value: MusicBrainzBrowserDestination.release(result)) {
+                    MusicBrainzReleaseRow(result: result)
+                        .padding(.vertical, 6)
+                }
+            }
         }
     }
 

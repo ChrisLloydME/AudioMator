@@ -299,10 +299,14 @@ struct TrackRenumberSheet: View {
         }
         .frame(maxWidth: .infinity, minHeight: 188, alignment: .topLeading)
         .padding(cardInset)
+        #if os(iOS)
+        .iPadRoundedGroupedSurface()
+        #else
         .background(
             RoundedRectangle(cornerRadius: previewInnerRadius)
                 .fill(Color.secondary.opacity(0.08))
         )
+        #endif
     }
 
     private var resultSection: some View {
@@ -345,10 +349,14 @@ struct TrackRenumberSheet: View {
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(cardInset)
+                                    #if os(iOS)
+                                    .iPadRoundedGroupedSurface()
+                                    #else
                                     .background(
                                         RoundedRectangle(cornerRadius: previewInnerRadius)
                                             .fill(Color.secondary.opacity(0.08))
                                     )
+                                    #endif
                                 }
                             }
                         }
@@ -449,10 +457,14 @@ struct TrackRenumberSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(cardInset)
+        #if os(iOS)
+        .iPadRoundedGroupedSurface()
+        #else
         .background(
             RoundedRectangle(cornerRadius: previewInnerRadius)
                 .fill(Color.secondary.opacity(0.08))
         )
+        #endif
     }
 
     private func resultMetricSymbol(for title: String) -> String {

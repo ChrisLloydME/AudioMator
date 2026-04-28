@@ -175,17 +175,19 @@ struct MetadataEditorWindowView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(selection: $store.selectedFieldKey) {
-                        ForEach(store.rows) { row in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(row.key)
-                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                                Text(row.isMixed ? "Multiple Values" : row.value)
-                                    .font(.subheadline)
-                                    .foregroundStyle(row.isMixed ? .secondary : .primary)
+                        Section {
+                            ForEach(store.rows) { row in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(row.key)
+                                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    Text(row.isMixed ? "Multiple Values" : row.value)
+                                        .font(.subheadline)
+                                        .foregroundStyle(row.isMixed ? .secondary : .primary)
+                                }
                             }
                         }
                     }
-                    .listStyle(.plain)
+                    .iPadRoundedGroupedListStyle()
                 }
 
                 HStack {
@@ -247,6 +249,7 @@ struct MetadataEditorWindowView: View {
                             .font(.system(size: 14, design: .monospaced))
                     }
                 }
+                .iPadRoundedGroupedFormStyle()
                 .navigationTitle(context.key == nil ? "Add Field" : "Edit Field")
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {

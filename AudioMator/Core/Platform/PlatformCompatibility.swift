@@ -77,6 +77,56 @@ extension PlatformColor {
     static var audiomatorTertiaryLabel: PlatformColor { .tertiaryLabel }
 }
 
+extension View {
+    @ViewBuilder
+    func iPadRoundedGroupedListStyle() -> some View {
+        self
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+    }
+
+    @ViewBuilder
+    func iPadRoundedGroupedFormStyle() -> some View {
+        self
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(Color(uiColor: .systemGroupedBackground))
+    }
+
+    @ViewBuilder
+    func iPadRoundedGroupedSurface(cornerRadius: CGFloat = 20) -> some View {
+        self
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color(uiColor: .separator).opacity(0.35), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+struct IPadRoundedRowGroup<Content: View>: View {
+    let cornerRadius: CGFloat
+    let content: Content
+
+    init(cornerRadius: CGFloat = 20, @ViewBuilder content: () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .iPadRoundedGroupedSurface(cornerRadius: cornerRadius)
+    }
+}
+
 struct IPadDismissibleSheet<Content: View>: View {
     let title: String
     let isCloseDisabled: Bool

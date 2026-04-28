@@ -512,6 +512,26 @@ private struct AcknowledgementsSheet: View {
                 .foregroundStyle(.secondary)
 
             ScrollView {
+                #if os(iOS)
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(acknowledgements, id: \.title) { item in
+                        IPadRoundedRowGroup {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(item.title)
+                                    .font(.headline)
+
+                                ForEach(item.details, id: \.self) { detail in
+                                    Text(detail)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(16)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #else
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(acknowledgements, id: \.title) { item in
                         VStack(alignment: .leading, spacing: 6) {
@@ -527,6 +547,7 @@ private struct AcknowledgementsSheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                #endif
             }
 
             HStack {
@@ -594,6 +615,26 @@ private struct PrivacySheet: View {
                 .foregroundStyle(.secondary)
 
             ScrollView {
+                #if os(iOS)
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(sections, id: \.title) { section in
+                        IPadRoundedRowGroup {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(section.title)
+                                    .font(.headline)
+
+                                ForEach(section.details, id: \.self) { detail in
+                                    Text(detail)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(16)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #else
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(sections, id: \.title) { section in
                         VStack(alignment: .leading, spacing: 6) {
@@ -609,6 +650,7 @@ private struct PrivacySheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                #endif
             }
 
             HStack {
@@ -702,7 +744,11 @@ private struct ReleaseNotesSheet: View {
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
+                #if os(iOS)
+                .iPadRoundedGroupedSurface()
+                #else
                 .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                #endif
             }
         }
     }
@@ -774,7 +820,11 @@ private struct ReleaseNoteCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        #if os(iOS)
+        .iPadRoundedGroupedSurface()
+        #else
         .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        #endif
     }
 }
 

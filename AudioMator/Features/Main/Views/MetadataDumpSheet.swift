@@ -44,6 +44,10 @@ struct MetadataDumpSheet: View {
             }
         }
         .padding(16)
+        #if os(iOS)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         .frame(width: 760, height: 560)
+        #endif
     }
 }

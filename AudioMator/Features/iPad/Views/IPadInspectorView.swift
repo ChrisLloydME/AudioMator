@@ -630,8 +630,8 @@ private struct IPadArtworkButtonStyle: ButtonStyle {
                 .fill(Color.red.opacity(configuration.isPressed ? 0.78 : 0.92))
         } else {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.regularMaterial)
-                .opacity(configuration.isPressed ? 0.82 : 1)
+                .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(configuration.isPressed ? 0.68 : 0.86))
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
 

@@ -97,6 +97,7 @@ struct IPadDismissibleSheet<Content: View>: View {
     var body: some View {
         NavigationStack {
             content()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -108,6 +109,7 @@ struct IPadDismissibleSheet<Content: View>: View {
                     }
                 }
         }
+        .presentationDetents([.large])
     }
 }
 #endif

@@ -78,12 +78,19 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         var propertyMap: [String: String] = [:]
 
         for entry in dump.properties {
-            let key = MetadataPipelineSupport.normalizedFieldComponent(entry.key)
-            let valueSource = entry.values.isEmpty ? entry.value : entry.values.joined(separator: "; ")
+            let key = MetadataPipelineSupport.normalizedPropertyMapKey(entry.key)
+            let values = entry.values.isEmpty ? [entry.value] : entry.values
+            let valueSource = values
+                .map(MetadataPipelineSupport.normalizedFieldComponent)
+                .filter { !$0.isEmpty }
+                .joined(separator: "; ")
             let value = MetadataPipelineSupport.normalizedFieldComponent(valueSource)
 
             guard !key.isEmpty, !value.isEmpty else { continue }
-            propertyMap[key] = value
+            propertyMap[key] = MetadataPipelineSupport.mergedPropertyMapValue(
+                existing: propertyMap[key],
+                incoming: value
+            )
         }
 
         return MetadataPipelineSupport.propertyMapWithSeparatedNumberTotals(propertyMap)
@@ -122,7 +129,8 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
-        let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(propertyMap, to: url)
+        let valueMap = MetadataPipelineSupport.rawPropertyMapValues(from: propertyMap)
+        let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapValuesWithVerification(valueMap, to: url)
         return AudioMetadataWriteResult(warnings: writeResult.warnings)
     }
 
@@ -150,6 +158,47 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 private enum MetadataPipelineSupport {
     nonisolated static func normalizedFieldComponent(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated static func normalizedPropertyMapKey(_ key: String) -> String {
+        MetadataFieldRegistry.normalizePropertyMapKey(key)
+    }
+
+    nonisolated static func mergedPropertyMapValue(existing: String?, incoming: String) -> String {
+        guard let existing = existing, !existing.isEmpty else { return incoming }
+
+        var parts: [String] = []
+        var seen = Set<String>()
+
+        for value in (existing + "; " + incoming).components(separatedBy: "; ") {
+            let trimmed = normalizedFieldComponent(value)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            parts.append(trimmed)
+        }
+
+        return parts.joined(separator: "; ")
+    }
+
+    nonisolated static func rawPropertyMapValues(from propertyMap: [String: String]) -> [String: [String]] {
+        propertyMap.reduce(into: [String: [String]]()) { result, entry in
+            let key = normalizedPropertyMapKey(entry.key)
+            let value = normalizedFieldComponent(entry.value)
+            guard !key.isEmpty else { return }
+
+            if value.isEmpty {
+                result[key] = []
+                return
+            }
+
+            if MetadataFieldRegistry.shouldDisplayRawPropertyAsMultiValue(key) {
+                result[key] = value
+                    .components(separatedBy: "; ")
+                    .map(normalizedFieldComponent)
+                    .filter { !$0.isEmpty }
+            } else {
+                result[key] = [value]
+            }
+        }
     }
 
     nonisolated static func propertyMapWithSeparatedNumberTotals(_ propertyMap: [String: String]) -> [String: String] {

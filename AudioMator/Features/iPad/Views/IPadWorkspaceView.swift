@@ -140,8 +140,6 @@ struct IPadWorkspaceView: View {
                 primaryColumn
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                Divider()
-
                 inspectorColumn
                     .frame(width: inspectorWidth(for: size.width))
                     .frame(maxHeight: .infinity)
@@ -150,8 +148,6 @@ struct IPadWorkspaceView: View {
             VStack(spacing: 0) {
                 primaryColumn
                     .frame(maxWidth: .infinity, maxHeight: max(320, size.height * 0.48))
-
-                Divider()
 
                 inspectorColumn
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -174,7 +170,7 @@ struct IPadWorkspaceView: View {
             onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
         )
         .background(Color(platformColor: .audiomatorWindowBackground))
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if !selectedFiles.isEmpty {
                 selectionActionBar
             }
@@ -271,8 +267,14 @@ struct IPadWorkspaceView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-        .background(.bar)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.white.opacity(0.16))
+                .frame(height: 0.5)
+        }
     }
 }
 

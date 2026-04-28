@@ -72,8 +72,10 @@ struct SettingsView: View {
     private var showWelcomeScreenOnLaunchBinding: Binding<Bool> {
         Binding(
             get: {
-                !hasCompletedWelcomeSplash ||
-                completedWelcomeSplashVersion < WelcomeSplashProgress.currentVersion
+                WelcomeSplashProgress.shouldPresent(
+                    hasCompleted: hasCompletedWelcomeSplash,
+                    completedVersion: completedWelcomeSplashVersion
+                )
             },
             set: { shouldShowOnLaunch in
                 hasCompletedWelcomeSplash = !shouldShowOnLaunch

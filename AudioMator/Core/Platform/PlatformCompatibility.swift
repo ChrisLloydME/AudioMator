@@ -131,7 +131,7 @@ enum PlatformApplication {
         #if os(macOS)
         NSApplication.shared.applicationIconImage
         #else
-        UIImage(systemName: "music.note.list")
+        UIImage(named: "AppIconPreview")
         #endif
     }
 }

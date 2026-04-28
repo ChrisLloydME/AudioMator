@@ -289,7 +289,7 @@ private struct IPadFileBrowserRow: View {
     }
 
     private var tertiaryText: String {
-        [file.albumArtist, file.genre, file.year]
+        [file.albumArtist, file.composer, file.genre, file.year]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " • ")
@@ -300,8 +300,13 @@ private struct IPadFileBrowserRow: View {
         return file.track > 0 ? "\(file.track)" : ""
     }
 
-    private var trailingMetaText: String {
-        [formatDuration(file.duration), file.format]
+    private var discText: String {
+        if !file.discNumberText.isEmpty { return "Disc \(file.discNumberText)" }
+        return file.disc > 0 ? "Disc \(file.disc)" : ""
+    }
+
+    private var trailingMetadataText: String {
+        [trackText.isEmpty ? "" : "Track \(trackText)", discText]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " • ")
@@ -340,27 +345,20 @@ private struct IPadFileBrowserRow: View {
 
                 if !tertiaryText.isEmpty {
                     Text(tertiaryText)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
 
             Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 4) {
-                if !trackText.isEmpty {
-                    Text(trackText)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-
-                if !trailingMetaText.isEmpty {
-                    Text(trailingMetaText)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .multilineTextAlignment(.trailing)
-                }
+            if !trailingMetadataText.isEmpty {
+                Text(trailingMetadataText)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
             }
         }
         .padding(.horizontal, 16)

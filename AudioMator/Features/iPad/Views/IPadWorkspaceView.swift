@@ -57,6 +57,8 @@ struct IPadWorkspaceView: View {
                 }
 
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    sortMenu
+
                     Menu {
                         Button("MusicBrainz Browser", action: onOpenMusicBrainzBrowser)
                         Button("Tag Inspector", action: onShowMetadataDump)
@@ -172,9 +174,6 @@ struct IPadWorkspaceView: View {
             onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
         )
         .background(Color(platformColor: .audiomatorWindowBackground))
-        .safeAreaInset(edge: .top) {
-            fileListSortBar
-        }
         .safeAreaInset(edge: .bottom) {
             if !selectedFiles.isEmpty {
                 selectionActionBar
@@ -209,39 +208,31 @@ struct IPadWorkspaceView: View {
         min(max(totalWidth * inspectorWidthRatio, minimumInspectorWidth), maximumInspectorWidth)
     }
 
-    private var fileListSortBar: some View {
-        HStack(spacing: 12) {
-            Menu {
-                Button {
-                    state.middleListSort = nil
-                } label: {
-                    if state.middleListSort == nil {
-                        Label("Manual Order", systemImage: "checkmark")
-                    } else {
-                        Text("Manual Order")
-                    }
-                }
-                .disabled(state.middleListSort == nil)
-
-                Divider()
-
-                ForEach(MiddleListColumn.allCases) { column in
-                    Menu(column.displayName) {
-                        sortButton(for: column, ascending: true)
-                        sortButton(for: column, ascending: false)
-                    }
-                }
+    private var sortMenu: some View {
+        Menu {
+            Button {
+                state.middleListSort = nil
             } label: {
-                Label(sortButtonTitle, systemImage: "arrow.up.arrow.down")
+                if state.middleListSort == nil {
+                    Label("Manual Order", systemImage: "checkmark")
+                } else {
+                    Text("Manual Order")
+                }
             }
-            .buttonStyle(.bordered)
-            .disabled(orderedFiles.isEmpty)
+            .disabled(state.middleListSort == nil)
 
-            Spacer(minLength: 0)
+            Divider()
+
+            ForEach(MiddleListColumn.allCases) { column in
+                Menu(column.displayName) {
+                    sortButton(for: column, ascending: true)
+                    sortButton(for: column, ascending: false)
+                }
+            }
+        } label: {
+            Label(sortButtonTitle, systemImage: "arrow.up.arrow.down")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .disabled(orderedFiles.isEmpty)
     }
 
     private func sortButton(for column: MiddleListColumn, ascending: Bool) -> some View {

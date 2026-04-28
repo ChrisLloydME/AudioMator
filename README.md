@@ -1,8 +1,23 @@
-# AudioMator
+<p align="center">
+  <img src="AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="320">
+</p>
 
-AudioMator is a native audio metadata editor for `macOS` and `iPadOS`.
+<h1 align="center">AudioMator</h1>
 
-The project is built around a bundled TagLib bridge, a SwiftUI-first shell, and platform-specific UI where native behavior matters. On macOS the app keeps its existing desktop workflow, including watched folders and multi-window tools. On iPadOS the app switches to a session-only model that matches the sandbox and touch interaction model instead of pretending the desktop file workflow still exists.
+<hr>
+
+<p align="center">
+  <strong>Native audio metadata editing for macOS and iPadOS.</strong><br>
+  Inspect tags, batch edit fields, manage artwork, rename files from metadata, extract metadata from filenames, renumber tracks, and tag releases with MusicBrainz.
+</p>
+
+<p align="center">
+  <a href="#building">
+    <img alt="Build app for macOS" src="https://img.shields.io/badge/Build%20app%20for-macOS-black?style=for-the-badge&logo=apple">
+  </a>
+</p>
+
+AudioMator is built around a TagLib-powered metadata pipeline, a SwiftUI-first shell, and platform-specific UI where native behavior matters. On macOS the app keeps its desktop workflow, including watched folders and multi-window tools. On iPadOS the app switches to a session-only model that matches the sandbox and touch interaction model.
 
 ## Current platform model
 
@@ -86,11 +101,13 @@ That same round-trip is now verified for MP4/M4A instead of silently losing the 
 
 ## Supported formats
 
-AudioMator currently imports and writes metadata for these extensions through the bundled TagLib bridge:
+AudioMator discovers readable and writable formats from the `TagLibAudioMetadata` Swift package at runtime. Current supported extensions include:
 
 `mp3`, `mp2`, `m4a`, `m4b`, `m4p`, `mp4`, `aac`, `ogg`, `opus`, `mpc`, `wma`, `asf`, `spx`, `flac`, `ape`, `wv`, `tta`, `wav`, `aiff`, `aif`, `dsf`, `dff`, `oga`
 
 Format-specific depth still depends on the underlying container and tag implementation. Raw property-map support is the widest common surface across formats.
+
+Some module/tracker formats are treated as metadata-only writable formats for artwork purposes.
 
 ## Optional online features
 
@@ -104,7 +121,11 @@ Your audio files are read and written locally. AudioMator does not upload the fi
 
 ## Building
 
-Open `AudioMator.xcodeproj` in Xcode and build the `AudioMator` scheme.
+Open `AudioMator.xcodeproj` in Xcode and build the `AudioMator` scheme. The project uses Swift Package Manager to resolve `TagLibAudioMetadata` from:
+
+`https://github.com/ChrisLloydME/TagLibAudioMetadata.git`
+
+Current deployment targets in the Xcode project are macOS 26.0 and iOS/iPadOS 26.0.
 
 Useful local commands:
 
@@ -116,7 +137,7 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug
 
 ## TagLib bridge smoke testing
 
-The repository now includes a lightweight bridge regression tool:
+The repository includes a lightweight bridge regression tool under `scripts/`. It is intended for local bridge/package debugging and may require the expected TagLib bridge source layout to be available in your checkout.
 
 ```bash
 bash scripts/build-taglib-bridge-smoke.sh
@@ -137,16 +158,24 @@ This tool is intended for bridge-level debugging, especially around:
 
 - `AudioMator/`
   The app source
-- `AudioMator/TagLibBridge/`
-  Swift wrapper + Objective-C++ bridge + bundled TagLib sources
+- `AudioMator/App/`
+  App entry point, commands, notifications, and platform delegates
+- `AudioMator/Core/`
+  Shared platform and audio-format support
+- `AudioMator/Domain/`
+  Metadata pipeline models, audio-file models, rename templates, file sources, and UI state
+- `AudioMator/Features/`
+  SwiftUI feature areas for the main window, iPad workspace, metadata editor, MusicBrainz browser, settings, and welcome flow
+- `AudioMator/Infrastructure/`
+  File-system, MusicBrainz, iTunes artwork, and GitHub release-note services
 - `scripts/`
   Build and smoke-test helpers
 - `README.md`
   Product and developer overview
 - `ACKNOWLEDGEMENTS_AND_PRIVACY.md`
   Network/privacy notes and third-party acknowledgements
-- `FORMAT_METADATA_SUPPORT_ANALYSIS.md`
-  Format and field support reference
+- `THIRD_PARTY_NOTICES.md`
+  Third-party license notices
 
 ## Current design constraints
 

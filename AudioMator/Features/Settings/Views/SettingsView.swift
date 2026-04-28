@@ -160,6 +160,46 @@ struct SettingsView: View {
     }
 }
 
+#if os(iOS)
+struct IPadSettingsView: View {
+    @ObservedObject var sharedState: SharedState
+
+    var body: some View {
+        AboutSettingsTab(
+            appDisplayName: appDisplayName,
+            shortVersionString: shortVersionString,
+            buildNumber: buildNumber,
+            aboutDescription: aboutDescription
+        )
+    }
+
+    private var appDisplayName: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? "AudioMator"
+    }
+
+    private var shortVersionString: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "Unknown"
+    }
+
+    private var buildNumber: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "Unknown"
+    }
+
+    private var aboutDescription: String {
+        let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !copyright.isEmpty {
+            return "\(copyright) AudioMator includes third-party open-source software. See Acknowledgements."
+        }
+
+        return "Copyright © 2025-2026 Christopher Lloyd. All rights reserved. AudioMator includes third-party open-source software. See Acknowledgements."
+    }
+}
+#endif
+
 private struct GeneralSettingsTab: View {
     @Binding var showWelcomeScreenOnLaunch: Bool
     @Binding var warnBeforeDiscardingInspectorEdits: Bool
@@ -288,6 +328,76 @@ private struct AboutSettingsTab: View {
     @State private var isReleaseNotesPresented: Bool = false
 
     var body: some View {
+        #if os(iOS)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(alignment: .center, spacing: 18) {
+                    AboutAppIconView(size: 96)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(appDisplayName)
+                            .font(.largeTitle.weight(.regular))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+
+                        Text("Version \(shortVersionString)")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        Text("Build \(buildNumber)")
+                            .font(.subheadline)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                Text(aboutDescription)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(spacing: 10) {
+                    Button("Release Notes…") {
+                        isReleaseNotesPresented = true
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+
+                    Button("Acknowledgements…") {
+                        isAcknowledgementsPresented = true
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+
+                    Button("Privacy…") {
+                        isPrivacyPresented = true
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $isAcknowledgementsPresented) {
+            IPadDismissibleSheet(title: "Acknowledgements") {
+                AcknowledgementsSheet()
+            }
+        }
+        .sheet(isPresented: $isPrivacyPresented) {
+            IPadDismissibleSheet(title: "Privacy") {
+                PrivacySheet()
+            }
+        }
+        .sheet(isPresented: $isReleaseNotesPresented) {
+            IPadDismissibleSheet(title: "Release Notes") {
+                ReleaseNotesSheet()
+            }
+        }
+        #else
         VStack(alignment: .leading, spacing: 34) {
             HStack(alignment: .center, spacing: 36) {
                 AboutAppIconView()
@@ -346,17 +456,24 @@ private struct AboutSettingsTab: View {
         .sheet(isPresented: $isReleaseNotesPresented) {
             ReleaseNotesSheet()
         }
+        #endif
     }
 }
 
 private struct AboutAppIconView: View {
+    let size: CGFloat
+
+    init(size: CGFloat = 180) {
+        self.size = size
+    }
+
     var body: some View {
         if let applicationIcon = PlatformApplication.appIconImage {
             Image(platformImage: applicationIcon)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 180, height: 180)
+                .frame(width: size, height: size)
                 .shadow(color: .black.opacity(0.18), radius: 18, y: 8)
         }
     }
@@ -421,7 +538,11 @@ private struct AcknowledgementsSheet: View {
             }
         }
         .padding(24)
+        #if os(iOS)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         .frame(width: 560, height: 460)
+        #endif
     }
 }
 
@@ -500,7 +621,11 @@ private struct PrivacySheet: View {
             }
         }
         .padding(24)
+        #if os(iOS)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         .frame(width: 580, height: 500)
+        #endif
     }
 }
 
@@ -531,7 +656,11 @@ private struct ReleaseNotesSheet: View {
             }
         }
         .padding(24)
+        #if os(iOS)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         .frame(width: 640, height: 430)
+        #endif
         .task {
             await loadReleaseNotes()
         }

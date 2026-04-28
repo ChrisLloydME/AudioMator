@@ -12,6 +12,7 @@ struct IPadWorkspaceView: View {
     let onOpenMetadataEditor: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
     let onOpenTrackRenumber: () -> Void
+    let onOpenSettings: () -> Void
     let onCancelEdits: () -> Void
     let onSaveEdits: () -> Void
 
@@ -71,6 +72,12 @@ struct IPadWorkspaceView: View {
                             .disabled(state.selectedAudioIDs.isEmpty)
                         Button("Renumber Tracks...", action: onOpenTrackRenumber)
                             .disabled(orderedFiles.isEmpty)
+                        Divider()
+                        Button {
+                            onOpenSettings()
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
                         Divider()
                         Button("Clear List", role: .destructive) {
                             isClearListConfirmPresented = true

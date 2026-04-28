@@ -217,8 +217,13 @@ struct TextMetadataImportSheet: View {
 
             footer
         }
+        #if os(iOS)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         .padding(20)
         .frame(width: 860, height: 640)
+        #endif
     }
 
     private var header: some View {
@@ -348,44 +353,38 @@ struct TextMetadataImportSheet: View {
                 }
 
                 if hasLoadedSourceFile {
-                    Table(previewRows) {
-                        TableColumn("#") { row in
-                            Text("\(row.position)")
-                                .monospacedDigit()
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .width(36)
+                    #if os(iOS)
+                    List(previewRows) { row in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("\(row.position)")
+                                    .font(.subheadline.monospacedDigit())
+                                    .foregroundStyle(.secondary)
 
-                        TableColumn("File") { row in
-                            Text(row.fileName)
-                                .lineLimit(1)
-                        }
-                        .width(min: 180, ideal: 220)
+                                Text(row.fileName)
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
 
-                        TableColumn("Current \(selectedField.displayName)") { row in
-                            Text(row.currentValue)
-                                .lineLimit(2)
-                                .foregroundStyle(row.currentValue == "Empty" ? Color.secondary : Color.primary)
-                        }
-                        .width(min: 170, ideal: 210)
+                                Spacer(minLength: 0)
 
-                        TableColumn("Imported Value") { row in
-                            Text(row.importedValue)
-                                .lineLimit(2)
-                                .foregroundStyle(row.importedValue == "Empty" ? Color.secondary : Color.primary)
-                        }
-                        .width(min: 170, ideal: 210)
+                                Image(systemName: row.status.symbolName)
+                                    .foregroundStyle(row.status.tint)
+                                    .accessibilityLabel(row.status.title)
+                            }
 
-                        TableColumn("") { row in
-                            Image(systemName: row.status.symbolName)
-                                .foregroundStyle(row.status.tint)
-                                .frame(maxWidth: .infinity)
-                                .help(row.status.title)
+                            VStack(alignment: .leading, spacing: 4) {
+                                previewValueLine("Current \(selectedField.displayName)", value: row.currentValue)
+                                previewValueLine("Imported Value", value: row.importedValue)
+                            }
                         }
-                        .width(34)
+                        .padding(.vertical, 4)
                     }
+                    .listStyle(.plain)
                     .frame(minHeight: 280)
+                    #else
+                    previewTable
+                        .frame(minHeight: 280)
+                    #endif
                 } else {
                     ContentUnavailableView(
                         "Choose a File",
@@ -427,16 +426,27 @@ struct TextMetadataImportSheet: View {
         caption: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.headline)
-                    .lineLimit(1)
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        #if os(iOS)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 16) {
+                configurationLabel(title: title, caption: caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                content()
+                    .frame(maxWidth: textImportControlColumnWidth, alignment: .trailing)
             }
+
+            VStack(alignment: .leading, spacing: 10) {
+                configurationLabel(title: title, caption: caption)
+
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        #else
+        HStack(alignment: .top, spacing: 16) {
+            configurationLabel(title: title, caption: caption)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             content()
@@ -444,7 +454,77 @@ struct TextMetadataImportSheet: View {
                 .frame(width: textImportControlColumnWidth, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        #endif
     }
+
+    private func configurationLabel(title: String, caption: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    #if os(macOS)
+    private var previewTable: some View {
+        Table(previewRows) {
+            TableColumn("#") { row in
+                Text("\(row.position)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+            .width(36)
+
+            TableColumn("File") { row in
+                Text(row.fileName)
+                    .lineLimit(1)
+            }
+            .width(min: 180, ideal: 220)
+
+            TableColumn("Current \(selectedField.displayName)") { row in
+                Text(row.currentValue)
+                    .lineLimit(2)
+                    .foregroundStyle(row.currentValue == "Empty" ? Color.secondary : Color.primary)
+            }
+            .width(min: 170, ideal: 210)
+
+            TableColumn("Imported Value") { row in
+                Text(row.importedValue)
+                    .lineLimit(2)
+                    .foregroundStyle(row.importedValue == "Empty" ? Color.secondary : Color.primary)
+            }
+            .width(min: 170, ideal: 210)
+
+            TableColumn("") { row in
+                Image(systemName: row.status.symbolName)
+                    .foregroundStyle(row.status.tint)
+                    .frame(maxWidth: .infinity)
+                    .help(row.status.title)
+            }
+            .width(34)
+        }
+    }
+    #endif
+
+    #if os(iOS)
+    private func previewValueLine(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.subheadline)
+                .foregroundStyle(value == "Empty" ? Color.secondary : Color.primary)
+                .lineLimit(2)
+        }
+    }
+    #endif
 
     private func chooseTextFile() {
         PlatformDocumentPicker.pickTextFile { url in

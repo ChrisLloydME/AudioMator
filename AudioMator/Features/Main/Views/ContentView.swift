@@ -32,6 +32,7 @@ struct ContentView: View {
     @State private var isMusicBrainzBrowserPresented: Bool = false
     @State private var isMetadataFilenameToolPresented: Bool = false
     @State private var isMetadataEditorPresented: Bool = false
+    @State private var isSettingsPresented: Bool = false
     @State private var isDiscardInspectorAlertPresented: Bool = false
     @State private var pendingDiscardAction: PendingDiscardAction?
 
@@ -122,6 +123,11 @@ struct ContentView: View {
                     store: metadataEditorStore
                 )
             }
+            .sheet(isPresented: $isSettingsPresented) {
+                IPadDismissibleSheet(title: "Settings") {
+                    IPadSettingsView(sharedState: state)
+                }
+            }
             .confirmationDialog(
                 "Discard Inspector Edits?",
                 isPresented: $isDiscardInspectorAlertPresented,
@@ -209,6 +215,7 @@ struct ContentView: View {
             onOpenMetadataEditor: openMetadataEditor,
             onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
             onOpenTrackRenumber: openTrackRenumberSheet,
+            onOpenSettings: openSettings,
             onCancelEdits: viewModel.cancelEditing,
             onSaveEdits: viewModel.saveInspectorEdits
         )
@@ -313,6 +320,12 @@ struct ContentView: View {
         isMetadataEditorPresented = true
         #endif
     }
+
+    #if os(iOS)
+    private func openSettings() {
+        isSettingsPresented = true
+    }
+    #endif
 
     private func dismissWelcomeSplash() {
         hasCompletedWelcomeSplash = true

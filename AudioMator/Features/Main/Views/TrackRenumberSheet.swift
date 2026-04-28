@@ -123,8 +123,13 @@ struct TrackRenumberSheet: View {
 
             footer
         }
+        #if os(iOS)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         .padding(20)
         .frame(width: 640, height: 560)
+        #endif
     }
 
     private var header: some View {
@@ -163,71 +168,31 @@ struct TrackRenumberSheet: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 14) {
-                    configurationRow(
-                        title: "Scope",
-                        caption: selectionDetailText
-                    ) {
-                        Text(selectionSummaryText)
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(.secondary)
+            Group {
+                #if os(iOS)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 16) {
+                        configurationControls
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        previewCard
+                            .frame(width: 176)
                     }
 
-                    Divider()
-
-                    configurationRow(
-                        title: "Direction",
-                        caption: "Choose whether the first row gets the lowest or highest number."
-                    ) {
-                        Picker("", selection: $trackRenumberOptions.direction) {
-                            Text("Ascending").tag(TrackRenumberDirection.ascending)
-                            Text("Descending").tag(TrackRenumberDirection.descending)
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
-                        .frame(width: 220)
-                        .disabled(isTrackRenumberRunning)
+                    VStack(alignment: .leading, spacing: 14) {
+                        configurationControls
+                        previewCard
                     }
-
-                    Divider()
-
-                    configurationRow(
-                        title: "Start number",
-                        caption: "Set the first number in the sequence."
-                    ) {
-                        HStack(spacing: 8) {
-                            TextField("1", text: $trackRenumberStartText)
-                                .textFieldStyle(.roundedBorder)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 72)
-                                .disabled(isTrackRenumberRunning)
-
-                            Stepper("", value: startNumberBinding, in: 0...9999)
-                                .labelsHidden()
-                                .disabled(isTrackRenumberRunning)
-                        }
-                    }
-
-                    Divider()
-
-                    Toggle(isOn: $trackRenumberOptions.padWithZeros) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Pad with leading zeros")
-                            Text("Keeps the same width as numbers grow.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    #if os(macOS)
-                    .toggleStyle(.checkbox)
-                    #endif
-                    .disabled(isTrackRenumberRunning)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                #else
+                HStack(alignment: .top, spacing: 16) {
+                    configurationControls
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                previewCard
-                    .frame(width: 176)
+                    previewCard
+                        .frame(width: 176)
+                }
+                #endif
             }
             .padding(setupSectionInset)
             .background(
@@ -235,6 +200,74 @@ struct TrackRenumberSheet: View {
                     .fill(Color.secondary.opacity(0.06))
             )
         }
+    }
+
+    private var configurationControls: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            configurationRow(
+                title: "Scope",
+                caption: selectionDetailText
+            ) {
+                Text(selectionSummaryText)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            configurationRow(
+                title: "Direction",
+                caption: "Choose whether the first row gets the lowest or highest number."
+            ) {
+                Picker("", selection: $trackRenumberOptions.direction) {
+                    Text("Ascending").tag(TrackRenumberDirection.ascending)
+                    Text("Descending").tag(TrackRenumberDirection.descending)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                #if os(macOS)
+                .frame(width: 220)
+                #else
+                .frame(maxWidth: 260)
+                #endif
+                .disabled(isTrackRenumberRunning)
+            }
+
+            Divider()
+
+            configurationRow(
+                title: "Start number",
+                caption: "Set the first number in the sequence."
+            ) {
+                HStack(spacing: 8) {
+                    TextField("1", text: $trackRenumberStartText)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 72)
+                        .disabled(isTrackRenumberRunning)
+
+                    Stepper("", value: startNumberBinding, in: 0...9999)
+                        .labelsHidden()
+                        .disabled(isTrackRenumberRunning)
+                }
+            }
+
+            Divider()
+
+            Toggle(isOn: $trackRenumberOptions.padWithZeros) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Pad with leading zeros")
+                    Text("Keeps the same width as numbers grow.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            #if os(macOS)
+            .toggleStyle(.checkbox)
+            #endif
+            .disabled(isTrackRenumberRunning)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var previewCard: some View {
@@ -355,20 +388,44 @@ struct TrackRenumberSheet: View {
         caption: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.headline)
-                    .lineLimit(1)
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        #if os(iOS)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 16) {
+                configurationLabel(title: title, caption: caption)
+                    .frame(width: 144, alignment: .leading)
+
+                Spacer(minLength: 12)
+
+                content()
             }
+
+            VStack(alignment: .leading, spacing: 10) {
+                configurationLabel(title: title, caption: caption)
+
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        #else
+        HStack(alignment: .top, spacing: 16) {
+            configurationLabel(title: title, caption: caption)
             .frame(width: 144, alignment: .leading)
 
             Spacer(minLength: 12)
 
             content()
+        }
+        #endif
+    }
+
+    private func configurationLabel(title: String, caption: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

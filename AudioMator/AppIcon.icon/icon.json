@@ -6,19 +6,19 @@
     {
       "layers" : [
         {
-          "image-name" : "Group 3.png",
-          "name" : "Group 3",
+          "image-name" : "music.quarternote.3 4.png",
+          "name" : "music.quarternote.3 4",
           "position" : {
             "scale" : 1,
             "translation-in-points" : [
-              -120.32552083333337,
-              116.78971354166663
+              22.802274415569002,
+              -45.9886163527721
             ]
           }
         }
       ],
       "position" : {
-        "scale" : 0.75,
+        "scale" : 3.21,
         "translation-in-points" : [
           0,
           0
@@ -29,7 +29,7 @@
         "opacity" : 0.5
       },
       "translucency" : {
-        "enabled" : true,
+        "enabled" : false,
         "value" : 0.5
       }
     },
@@ -37,19 +37,19 @@
       "blur-material" : null,
       "layers" : [
         {
-          "image-name" : "Group 4.png",
-          "name" : "Group 4",
+          "image-name" : "square.fill.text.grid.1x2 2.png",
+          "name" : "square.fill.text.grid.1x2 2",
           "position" : {
             "scale" : 1,
             "translation-in-points" : [
-              0.5,
-              5.684341886080802e-14
+              1.0000000000001137,
+              -46.078241285434274
             ]
           }
         }
       ],
       "position" : {
-        "scale" : 1.35,
+        "scale" : 0.68,
         "translation-in-points" : [
           0,
           0
@@ -61,7 +61,7 @@
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 1
       }
     }
   ],

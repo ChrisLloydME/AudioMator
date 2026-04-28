@@ -321,8 +321,10 @@ struct ContentView: View {
     }
 
     private var shouldPresentWelcomeSplashOnLaunch: Bool {
-        !hasCompletedWelcomeSplash ||
-        completedWelcomeSplashVersion < WelcomeSplashProgress.currentVersion
+        WelcomeSplashProgress.shouldPresent(
+            hasCompleted: hasCompletedWelcomeSplash,
+            completedVersion: completedWelcomeSplashVersion
+        )
     }
 
     private func quitApplication() {

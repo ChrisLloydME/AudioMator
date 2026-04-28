@@ -5,6 +5,7 @@ struct WelcomeSplashView: View {
     let onContinue: () -> Void
 
     @State private var currentPage: WelcomeSplashPage = .welcome
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         VStack(alignment: .leading, spacing: 30) {
@@ -18,8 +19,8 @@ struct WelcomeSplashView: View {
 
             HStack {
                 if currentPage == .welcome {
-                    Button("Quit") {
-                        onQuit()
+                    Button(platformCancelTitle) {
+                        platformCancelAction()
                     }
                     .buttonStyle(GlassActionButtonStyle())
                     .keyboardShortcut(.cancelAction)
@@ -43,7 +44,18 @@ struct WelcomeSplashView: View {
         .padding(.horizontal, 30)
         .padding(.top, 30)
         .padding(.bottom, 30)
-        .frame(width: 750, height: 700)
+        .frame(
+            minWidth: minimumWidth,
+            idealWidth: 750,
+            maxWidth: maximumWidth,
+            minHeight: minimumHeight,
+            idealHeight: 700,
+            maxHeight: maximumHeight
+        )
+        #if os(iOS)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        #endif
         .animation(.easeInOut(duration: 0.18), value: currentPage)
     }
 
@@ -75,6 +87,54 @@ struct WelcomeSplashView: View {
     private func retreat() {
         guard let previousPage = currentPage.previous else { return }
         currentPage = previousPage
+    }
+
+    private var platformCancelTitle: String {
+        #if os(macOS)
+        "Quit"
+        #else
+        "Skip"
+        #endif
+    }
+
+    private func platformCancelAction() {
+        #if os(macOS)
+        onQuit()
+        #else
+        onContinue()
+        #endif
+    }
+
+    private var minimumWidth: CGFloat? {
+        #if os(macOS)
+        750
+        #else
+        nil
+        #endif
+    }
+
+    private var maximumWidth: CGFloat? {
+        #if os(macOS)
+        750
+        #else
+        horizontalSizeClass == .compact ? .infinity : 750
+        #endif
+    }
+
+    private var minimumHeight: CGFloat? {
+        #if os(macOS)
+        700
+        #else
+        nil
+        #endif
+    }
+
+    private var maximumHeight: CGFloat? {
+        #if os(macOS)
+        700
+        #else
+        .infinity
+        #endif
     }
 }
 
@@ -133,13 +193,13 @@ private struct WelcomePage: View {
         VStack(alignment: .leading, spacing: 30) {
             PageHeader(
                 title: "Welcome to AudioMator",
-                subtitle: "Inspect, clean up, and rewrite audio metadata on your Mac."
+                subtitle: "Inspect, clean up, and rewrite audio metadata on \(platformDeviceName)."
             )
 
             VStack(alignment: .leading, spacing: 24) {
                 WelcomeIntroRow(
                     symbol: "music.note",
-                    title: "Edit metadata on your Mac",
+                    title: "Edit metadata on \(platformDeviceName)",
                     description: "Open the tracks you want and work locally."
                 )
                 WelcomeIntroRow(
@@ -148,13 +208,37 @@ private struct WelcomePage: View {
                     description: "Spot important fields fast and make precise fixes."
                 )
                 WelcomeIntroRow(
-                    symbol: "macwindow",
-                    title: "Feels native on macOS",
+                    symbol: platformNativeSymbol,
+                    title: "Feels native on \(platformName)",
                     description: "Uses familiar windows, sheets, and inspectors."
                 )
             }
             .padding(.top, 8)
         }
+    }
+
+    private var platformDeviceName: String {
+        #if os(macOS)
+        "your Mac"
+        #else
+        "your iPad"
+        #endif
+    }
+
+    private var platformName: String {
+        #if os(macOS)
+        "macOS"
+        #else
+        "iPadOS"
+        #endif
+    }
+
+    private var platformNativeSymbol: String {
+        #if os(macOS)
+        "macwindow"
+        #else
+        "ipad"
+        #endif
     }
 }
 

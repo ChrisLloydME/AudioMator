@@ -476,8 +476,8 @@ private struct AboutSettingsTab: View {
 
     var body: some View {
         #if os(iOS)
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+        List {
+            Section {
                 HStack(alignment: .center, spacing: 18) {
                     AboutAppIconView(size: 96)
 
@@ -498,37 +498,31 @@ private struct AboutSettingsTab: View {
 
                     Spacer(minLength: 0)
                 }
+                .listRowInsets(EdgeInsets(top: 18, leading: 16, bottom: 18, trailing: 16))
 
                 Text(aboutDescription)
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+            }
 
-                VStack(spacing: 10) {
-                    Button("Release Notes…") {
-                        isReleaseNotesPresented = true
-                    }
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
+            Section {
+                AboutNavigationRow("Release Notes…") {
+                    isReleaseNotesPresented = true
+                }
 
-                    Button("Acknowledgements…") {
-                        isAcknowledgementsPresented = true
-                    }
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
+                AboutNavigationRow("Acknowledgements…") {
+                    isAcknowledgementsPresented = true
+                }
 
-                    Button("Privacy…") {
-                        isPrivacyPresented = true
-                    }
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
+                AboutNavigationRow("Privacy…") {
+                    isPrivacyPresented = true
                 }
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .iPadRoundedGroupedListStyle()
+        .background(Color(uiColor: .systemGroupedBackground))
         .sheet(isPresented: $isAcknowledgementsPresented) {
             IPadDismissibleSheet(title: "Acknowledgements") {
                 AcknowledgementsSheet()
@@ -606,6 +600,36 @@ private struct AboutSettingsTab: View {
         #endif
     }
 }
+
+#if os(iOS)
+private struct AboutNavigationRow: View {
+    let title: String
+    let action: () -> Void
+
+    init(_ title: String, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(title)
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 12)
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title.replacingOccurrences(of: "…", with: ""))
+    }
+}
+#endif
 
 private struct AboutAppIconView: View {
     let size: CGFloat

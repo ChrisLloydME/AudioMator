@@ -232,6 +232,15 @@ private struct IPadLeftListMetadataSettingsTab: View {
     var body: some View {
         List {
             Section {
+                IPadLeftListMetadataPreviewRow(
+                    fields: SharedState.normalizedIPadLeftListMetadataFields(sharedState.iPadLeftListMetadataFields)
+                )
+                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+            } header: {
+                Text("Preview")
+            }
+
+            Section {
                 ForEach(0..<IPadLeftListMetadataField.defaultConfiguration.count, id: \.self) { index in
                     Picker("Field \(index + 1)", selection: metadataFieldBinding(at: index)) {
                         ForEach(IPadLeftListMetadataField.allCases) { field in
@@ -269,6 +278,71 @@ private struct IPadLeftListMetadataSettingsTab: View {
                 sharedState.iPadLeftListMetadataFields = fields
             }
         )
+    }
+}
+
+private struct IPadLeftListMetadataPreviewRow: View {
+    let fields: [IPadLeftListMetadataField]
+
+    private var normalizedFields: [IPadLeftListMetadataField] {
+        SharedState.normalizedIPadLeftListMetadataFields(fields)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            artworkPlaceholder
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Title")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                metadataRow(leftPositions: [0, 1], rightPositions: [2, 3])
+                metadataRow(leftPositions: [4, 5], rightPositions: [6, 7])
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func metadataRow(leftPositions: [Int], rightPositions: [Int]) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            metadataGroupText(for: leftPositions, alignment: .leading)
+
+            Spacer(minLength: 16)
+
+            metadataGroupText(for: rightPositions, alignment: .trailing)
+        }
+    }
+
+    private func metadataGroupText(for positions: [Int], alignment: TextAlignment) -> some View {
+        Text(fieldNames(for: positions))
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(alignment)
+            .lineLimit(1)
+    }
+
+    private func fieldNames(for positions: [Int]) -> String {
+        positions
+            .compactMap { position -> String? in
+                guard normalizedFields.indices.contains(position) else { return nil }
+                return normalizedFields[position].displayName
+            }
+            .joined(separator: " · ")
+    }
+
+    private var artworkPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(Color.secondary.opacity(0.12))
+            .frame(width: 44, height: 44)
+            .overlay {
+                Image(systemName: "music.note")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
     }
 }
 #endif

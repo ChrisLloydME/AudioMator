@@ -241,3 +241,210 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
         return compareText(lhsRawText, rhsRawText)
     }
 }
+
+#if os(iOS)
+enum IPadLeftListMetadataField: String, CaseIterable, Identifiable {
+    case artist
+    case album
+    case albumArtist
+    case composer
+    case genre
+    case year
+    case track
+    case disc
+    case comment
+    case releaseDate
+    case publisher
+    case copyright
+    case credits
+    case explicit
+    case duration
+    case bitrate
+    case sampleRate
+    case channels
+    case format
+    case lyricist
+    case remixer
+    case producer
+    case engineer
+    case language
+    case mediaType
+    case releaseType
+    case catalogNumber
+    case releaseCountry
+    case isrc
+    case barcode
+    case musicBrainzArtistID
+    case musicBrainzAlbumID
+    case musicBrainzTrackID
+    case musicBrainzReleaseGroupID
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .artist:
+            return "Artist"
+        case .album:
+            return "Album"
+        case .albumArtist:
+            return "Album Artist"
+        case .composer:
+            return "Composer"
+        case .genre:
+            return "Genre"
+        case .year:
+            return "Year"
+        case .track:
+            return "Track"
+        case .disc:
+            return "Disc"
+        case .comment:
+            return "Comment"
+        case .releaseDate:
+            return "Release Date"
+        case .publisher:
+            return "Publisher"
+        case .copyright:
+            return "Copyright"
+        case .credits:
+            return "Credits"
+        case .explicit:
+            return "Explicit"
+        case .duration:
+            return "Duration"
+        case .bitrate:
+            return "Bitrate"
+        case .sampleRate:
+            return "Sample Rate"
+        case .channels:
+            return "Channels"
+        case .format:
+            return "Format"
+        case .lyricist:
+            return "Lyricist"
+        case .remixer:
+            return "Remixer"
+        case .producer:
+            return "Producer"
+        case .engineer:
+            return "Engineer"
+        case .language:
+            return "Language"
+        case .mediaType:
+            return "Media Type"
+        case .releaseType:
+            return "Release Type"
+        case .catalogNumber:
+            return "Catalog Number"
+        case .releaseCountry:
+            return "Release Country"
+        case .isrc:
+            return "ISRC"
+        case .barcode:
+            return "Barcode"
+        case .musicBrainzArtistID:
+            return "MusicBrainz Artist ID"
+        case .musicBrainzAlbumID:
+            return "MusicBrainz Album ID"
+        case .musicBrainzTrackID:
+            return "MusicBrainz Track ID"
+        case .musicBrainzReleaseGroupID:
+            return "MusicBrainz Release Group ID"
+        }
+    }
+
+    static let defaultConfiguration: [IPadLeftListMetadataField] = [
+        .artist,
+        .album,
+        .track,
+        .disc,
+        .albumArtist,
+        .composer,
+        .genre,
+        .year
+    ]
+
+    func text(for file: AudioFile) -> String {
+        let text: String
+        switch self {
+        case .artist:
+            text = file.artist
+        case .album:
+            text = file.album
+        case .albumArtist:
+            text = file.albumArtist
+        case .composer:
+            text = file.composer
+        case .genre:
+            text = file.genre
+        case .year:
+            text = file.year
+        case .track:
+            let value = file.trackNumberText.isEmpty
+                ? formatTrackIndex(file.track, total: file.trackTotal)
+                : file.trackNumberText
+            text = value.isEmpty ? "" : "Track \(value)"
+        case .disc:
+            let value = file.discNumberText.isEmpty
+                ? formatTrackIndex(file.disc, total: file.discTotal)
+                : file.discNumberText
+            text = value.isEmpty ? "" : "Disc \(value)"
+        case .comment:
+            text = file.comment
+        case .releaseDate:
+            text = file.releaseDate
+        case .publisher:
+            text = file.publisher
+        case .copyright:
+            text = file.copyright
+        case .credits:
+            text = file.credits
+        case .explicit:
+            text = file.isExplicit ? "Explicit" : ""
+        case .duration:
+            text = file.duration > 0 ? formatDuration(file.duration) : ""
+        case .bitrate:
+            text = formatBitrate(file.bitrate)
+        case .sampleRate:
+            text = formatSampleRate(file.sampleRate)
+        case .channels:
+            text = formatChannelCount(file.channels)
+        case .format:
+            text = file.format
+        case .lyricist:
+            text = file.lyricist
+        case .remixer:
+            text = file.remixer
+        case .producer:
+            text = file.producer
+        case .engineer:
+            text = file.engineer
+        case .language:
+            text = file.language
+        case .mediaType:
+            text = file.mediaType
+        case .releaseType:
+            text = file.releaseType
+        case .catalogNumber:
+            text = file.catalogNumber
+        case .releaseCountry:
+            text = file.releaseCountry
+        case .isrc:
+            text = file.isrc
+        case .barcode:
+            text = file.barcode
+        case .musicBrainzArtistID:
+            text = file.musicBrainzArtistID
+        case .musicBrainzAlbumID:
+            text = file.musicBrainzAlbumID
+        case .musicBrainzTrackID:
+            text = file.musicBrainzTrackID
+        case .musicBrainzReleaseGroupID:
+            text = file.musicBrainzReleaseGroupID
+        }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+#endif

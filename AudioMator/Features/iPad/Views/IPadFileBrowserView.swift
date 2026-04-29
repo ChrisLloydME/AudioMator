@@ -7,6 +7,7 @@ struct IPadFileBrowserView: UIViewControllerRepresentable {
     @Binding var selection: Set<AudioFile.ID>
     @Binding var customOrder: [AudioFile.ID]
     @Binding var middleListSort: MiddleListSort?
+    let metadataFields: [IPadLeftListMetadataField]
     @Binding var isSelectionMode: Bool
     let onOpenSelectedFiles: () -> Void
     let onCopySelectedFilePaths: () -> Void
@@ -108,7 +109,10 @@ extension IPadFileBrowserView {
 
             let file = parent.files[indexPath.row]
             cell.contentConfiguration = UIHostingConfiguration {
-                IPadFileBrowserRow(file: file)
+                IPadFileBrowserRow(
+                    file: file,
+                    metadataFields: parent.metadataFields
+                )
             }
             .margins(.all, 0)
 
@@ -268,52 +272,23 @@ extension IPadFileBrowserView {
         }
 
         private var currentRowFingerprints: [String] {
-            parent.files.map { "\($0.id.uuidString):\($0.middleListContentFingerprint)" }
+            let metadataFingerprint = parent.metadataFields.map(\.rawValue).joined(separator: ",")
+            return parent.files.map { "\($0.id.uuidString):\($0.middleListContentFingerprint):\(metadataFingerprint)" }
         }
     }
 }
 
 private struct IPadFileBrowserRow: View {
     let file: AudioFile
+    let metadataFields: [IPadLeftListMetadataField]
 
     private var titleText: String {
         let trimmedTitle = file.title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedTitle.isEmpty ? file.url.deletingPathExtension().lastPathComponent : trimmedTitle
     }
 
-    private var subtitleText: String {
-        [file.artist, file.album]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " • ")
-    }
-
-    private var tertiaryText: String {
-        [file.albumArtist, file.composer, file.genre, file.year]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: " • ")
-    }
-
-    private var trackText: String {
-        if !file.trackNumberText.isEmpty { return file.trackNumberText }
-        return file.track > 0 ? "\(file.track)" : ""
-    }
-
-    private var discText: String {
-        if !file.discNumberText.isEmpty { return "Disc \(file.discNumberText)" }
-        return file.disc > 0 ? "Disc \(file.disc)" : ""
-    }
-
-    private var trailingMetadataItems: [String] {
-        [
-            trackText.isEmpty ? "" : "Track \(trackText)",
-            discText,
-            file.composer.trimmingCharacters(in: .whitespacesAndNewlines),
-            file.genre.trimmingCharacters(in: .whitespacesAndNewlines)
-        ]
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+    private var normalizedMetadataFields: [IPadLeftListMetadataField] {
+        SharedState.normalizedIPadLeftListMetadataFields(metadataFields)
     }
 
     var body: some View {
@@ -340,39 +315,50 @@ private struct IPadFileBrowserRow: View {
                     }
                 }
 
-                if !subtitleText.isEmpty {
-                    Text(subtitleText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                if !tertiaryText.isEmpty {
-                    Text(tertiaryText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 8)
-
-            if !trailingMetadataItems.isEmpty {
-                VStack(alignment: .trailing, spacing: 3) {
-                    ForEach(trailingMetadataItems.prefix(3), id: \.self) { item in
-                        Text(item)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(width: 124, alignment: .trailing)
+                metadataRow(leftPositions: [0, 1], rightPositions: [2, 3])
+                metadataRow(leftPositions: [4, 5], rightPositions: [6, 7])
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func metadataRow(leftPositions: [Int], rightPositions: [Int]) -> some View {
+        let leftText = metadataText(for: leftPositions)
+        let rightText = metadataText(for: rightPositions)
+
+        if !leftText.isEmpty || !rightText.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                metadataGroupText(leftText, alignment: .leading)
+
+                Spacer(minLength: 16)
+
+                metadataGroupText(rightText, alignment: .trailing)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func metadataGroupText(_ text: String, alignment: TextAlignment) -> some View {
+        if !text.isEmpty {
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(alignment)
+                .lineLimit(1)
+        }
+    }
+
+    private func metadataText(for positions: [Int]) -> String {
+        positions
+            .compactMap { position -> String? in
+                guard normalizedMetadataFields.indices.contains(position) else { return nil }
+                let text = normalizedMetadataFields[position].text(for: file)
+                return text.isEmpty ? nil : text
+            }
+            .joined(separator: " · ")
     }
 
     @ViewBuilder

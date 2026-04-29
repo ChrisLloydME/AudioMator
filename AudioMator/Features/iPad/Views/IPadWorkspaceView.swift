@@ -172,6 +172,7 @@ struct IPadWorkspaceView: View {
                 selection: selection,
                 customOrder: $state.customOrder,
                 middleListSort: $state.middleListSort,
+                metadataFields: state.iPadLeftListMetadataFields,
                 isSelectionMode: $isSelectionMode,
                 onOpenSelectedFiles: openSelectedFiles,
                 onCopySelectedFilePaths: copySelectedFilePaths,

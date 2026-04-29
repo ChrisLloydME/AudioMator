@@ -161,15 +161,42 @@ struct SettingsView: View {
 }
 
 #if os(iOS)
+private enum IPadSettingsTab: String, Hashable {
+    case leftList
+    case about
+}
+
 struct IPadSettingsView: View {
     @ObservedObject var sharedState: SharedState
 
+    @AppStorage("ipad.settings.selectedTab") private var selectedTabRawValue: String = IPadSettingsTab.leftList.rawValue
+
     var body: some View {
-        AboutSettingsTab(
-            appDisplayName: appDisplayName,
-            shortVersionString: shortVersionString,
-            buildNumber: buildNumber,
-            aboutDescription: aboutDescription
+        TabView(selection: selectedTabBinding) {
+            IPadLeftListMetadataSettingsTab(sharedState: sharedState)
+                .tabItem {
+                    Label("List", systemImage: "list.bullet.rectangle")
+                }
+                .tag(IPadSettingsTab.leftList)
+
+            AboutSettingsTab(
+                appDisplayName: appDisplayName,
+                shortVersionString: shortVersionString,
+                buildNumber: buildNumber,
+                aboutDescription: aboutDescription
+            )
+            .tabItem {
+                Label("About", systemImage: "info.circle")
+            }
+            .tag(IPadSettingsTab.about)
+        }
+        .frame(minWidth: 540, minHeight: 520)
+    }
+
+    private var selectedTabBinding: Binding<IPadSettingsTab> {
+        Binding(
+            get: { IPadSettingsTab(rawValue: selectedTabRawValue) ?? .leftList },
+            set: { selectedTabRawValue = $0.rawValue }
         )
     }
 
@@ -196,6 +223,52 @@ struct IPadSettingsView: View {
         }
 
         return "Copyright © 2025-2026 Christopher Lloyd. All rights reserved. AudioMator includes third-party open-source software. See Acknowledgements."
+    }
+}
+
+private struct IPadLeftListMetadataSettingsTab: View {
+    @ObservedObject var sharedState: SharedState
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(0..<IPadLeftListMetadataField.defaultConfiguration.count, id: \.self) { index in
+                    Picker("Field \(index + 1)", selection: metadataFieldBinding(at: index)) {
+                        ForEach(IPadLeftListMetadataField.allCases) { field in
+                            Text(field.displayName)
+                                .tag(field)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            } header: {
+                Text("Left List Metadata Fields")
+            } footer: {
+                Text("Fields 1-2 and 5-6 appear on the left side of the two metadata rows. Fields 3-4 and 7-8 appear on the right side.")
+            }
+
+            Section {
+                Button("Restore Default Metadata Fields") {
+                    sharedState.iPadLeftListMetadataFields = IPadLeftListMetadataField.defaultConfiguration
+                }
+            }
+        }
+        .iPadRoundedGroupedListStyle()
+        .background(Color(uiColor: .systemGroupedBackground))
+    }
+
+    private func metadataFieldBinding(at index: Int) -> Binding<IPadLeftListMetadataField> {
+        Binding(
+            get: {
+                let fields = SharedState.normalizedIPadLeftListMetadataFields(sharedState.iPadLeftListMetadataFields)
+                return fields[index]
+            },
+            set: { field in
+                var fields = SharedState.normalizedIPadLeftListMetadataFields(sharedState.iPadLeftListMetadataFields)
+                fields[index] = field
+                sharedState.iPadLeftListMetadataFields = fields
+            }
+        )
     }
 }
 #endif

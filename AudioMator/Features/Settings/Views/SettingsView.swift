@@ -478,33 +478,12 @@ private struct AboutSettingsTab: View {
         #if os(iOS)
         List {
             Section {
-                HStack(alignment: .center, spacing: 18) {
-                    AboutAppIconView(size: 96)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(appDisplayName)
-                            .font(.largeTitle.weight(.regular))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-
-                        Text("Version \(shortVersionString)")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        Text("Build \(buildNumber)")
-                            .font(.subheadline)
-                            .foregroundStyle(.tertiary)
-                    }
-
-                    Spacer(minLength: 0)
-                }
-                .listRowInsets(EdgeInsets(top: 18, leading: 16, bottom: 18, trailing: 16))
-
-                Text(aboutDescription)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                IPadAboutHeroCard(
+                    title: "AudioMator",
+                    copyrightText: copyrightText
+                )
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                .listRowBackground(Color.clear)
             }
 
             Section {
@@ -599,9 +578,59 @@ private struct AboutSettingsTab: View {
         }
         #endif
     }
+
+    private var copyrightText: String {
+        let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !copyright.isEmpty {
+            return copyright
+        }
+
+        return "Copyright © 2025-2026 Christopher Lloyd. All rights reserved."
+    }
 }
 
 #if os(iOS)
+private struct IPadAboutHeroCard: View {
+    let title: String
+    let copyrightText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Image("AppIconPreview")
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.title.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Text(copyrightText)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 28)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color(uiColor: .separator).opacity(0.24), lineWidth: 1)
+        }
+    }
+}
+
 private struct AboutNavigationRow: View {
     let title: String
     let action: () -> Void

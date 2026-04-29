@@ -11,6 +11,9 @@ final class SharedState: ObservableObject {
     private static let visibleToolbarButtonsDefaultsKey = "toolbar.visibleButtons"
     private static let middleListSortColumnDefaultsKey = "middleList.sort.column"
     private static let middleListSortAscendingDefaultsKey = "middleList.sort.ascending"
+    #if os(iOS)
+    private static let iPadLeftListMetadataFieldsDefaultsKey = "ipad.leftList.metadataFields"
+    #endif
 
     @Published var selectedSidebarItem: SidebarSelection? = .quickImport
     @Published var selectedAudioIDs: Set<AudioFile.ID> = []
@@ -61,6 +64,24 @@ final class SharedState: ObservableObject {
         }
     }
 
+    #if os(iOS)
+    @Published var iPadLeftListMetadataFields: [IPadLeftListMetadataField] {
+        didSet {
+            let normalizedFields = Self.normalizedIPadLeftListMetadataFields(iPadLeftListMetadataFields)
+
+            guard normalizedFields == iPadLeftListMetadataFields else {
+                iPadLeftListMetadataFields = normalizedFields
+                return
+            }
+
+            UserDefaults.standard.set(
+                normalizedFields.map(\.rawValue),
+                forKey: Self.iPadLeftListMetadataFieldsDefaultsKey
+            )
+        }
+    }
+    #endif
+
     init() {
         let storedColumns = UserDefaults.standard
             .stringArray(forKey: Self.visibleMiddleListColumnsDefaultsKey)?
@@ -75,11 +96,22 @@ final class SharedState: ObservableObject {
                 column: $0,
                 ascending: UserDefaults.standard.object(forKey: Self.middleListSortAscendingDefaultsKey) as? Bool ?? true
             ) }
+        #if os(iOS)
+        let storedIPadLeftListMetadataFields = Self.normalizedIPadLeftListMetadataFields(
+            UserDefaults.standard
+                .stringArray(forKey: Self.iPadLeftListMetadataFieldsDefaultsKey)?
+                .compactMap(IPadLeftListMetadataField.init(rawValue:))
+                ?? IPadLeftListMetadataField.defaultConfiguration
+        )
+        #endif
         let fallbackColumns = Set(MiddleListColumn.defaultVisibleColumns)
         let fallbackToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)
         self.visibleMiddleListColumns = storedColumns.map(Set.init) ?? fallbackColumns
         self.visibleToolbarButtons = storedToolbarButtons.map(Set.init) ?? fallbackToolbarButtons
         self.middleListSort = storedSort
+        #if os(iOS)
+        self.iPadLeftListMetadataFields = storedIPadLeftListMetadataFields
+        #endif
 
         if visibleMiddleListColumns.isEmpty {
             visibleMiddleListColumns = fallbackColumns
@@ -132,4 +164,19 @@ final class SharedState: ObservableObject {
 
         return orderedFiles
     }
+
+    #if os(iOS)
+    static func normalizedIPadLeftListMetadataFields(
+        _ fields: [IPadLeftListMetadataField]
+    ) -> [IPadLeftListMetadataField] {
+        let defaults = IPadLeftListMetadataField.defaultConfiguration
+        var normalized = Array(fields.prefix(defaults.count))
+
+        if normalized.count < defaults.count {
+            normalized.append(contentsOf: defaults.dropFirst(normalized.count))
+        }
+
+        return normalized
+    }
+    #endif
 }

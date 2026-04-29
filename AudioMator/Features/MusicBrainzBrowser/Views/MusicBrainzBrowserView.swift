@@ -20,6 +20,25 @@ struct MusicBrainzBrowserView: View {
             #if os(iOS)
             .navigationTitle("MusicBrainz Browser")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+
+                if navigationPath.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            store.search()
+                        } label: {
+                            Label("Search", systemImage: "magnifyingglass")
+                        }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!store.hasSearchText || store.isSearching)
+                    }
+                }
+            }
             #endif
             .navigationDestination(for: MusicBrainzBrowserDestination.self) { destination in
                 MusicBrainzMetadataDetailView(
@@ -38,35 +57,8 @@ struct MusicBrainzBrowserView: View {
         .onChange(of: store.navigationResetToken) { _, _ in
             navigationPath.removeAll()
         }
+        #if os(macOS)
         .toolbar {
-            #if os(iOS)
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Close") {
-                    dismiss()
-                }
-            }
-
-            if navigationPath.isEmpty {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        store.search()
-                    } label: {
-                        Label("Search", systemImage: "magnifyingglass")
-                    }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!store.hasSearchText || store.isSearching)
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Clear") {
-                        store.clearSearch()
-                    }
-                    .disabled(!canClearSearch)
-                }
-            }
-            #endif
-
-            #if os(macOS)
             ToolbarItem(placement: .principal) {
                 modePicker
             }
@@ -85,8 +77,8 @@ struct MusicBrainzBrowserView: View {
                     .disabled(!canClearSearch)
                 }
             }
-            #endif
         }
+        #endif
     }
 
     private var searchHeader: some View {

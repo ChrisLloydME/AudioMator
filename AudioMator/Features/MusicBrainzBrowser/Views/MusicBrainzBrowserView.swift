@@ -17,6 +17,10 @@ struct MusicBrainzBrowserView: View {
 
                 content
             }
+            #if os(iOS)
+            .navigationTitle("MusicBrainz Browser")
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .navigationDestination(for: MusicBrainzBrowserDestination.self) { destination in
                 MusicBrainzMetadataDetailView(
                     store: store,
@@ -41,13 +45,31 @@ struct MusicBrainzBrowserView: View {
                     dismiss()
                 }
             }
+
+            if navigationPath.isEmpty {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        store.search()
+                    } label: {
+                        Label("Search", systemImage: "magnifyingglass")
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!store.hasSearchText || store.isSearching)
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Clear") {
+                        store.clearSearch()
+                    }
+                    .disabled(!canClearSearch)
+                }
+            }
             #endif
 
             #if os(macOS)
             ToolbarItem(placement: .principal) {
                 modePicker
             }
-            #endif
 
             if navigationPath.isEmpty {
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -60,18 +82,10 @@ struct MusicBrainzBrowserView: View {
                     Button("Clear") {
                         store.clearSearch()
                     }
-                    .disabled(
-                        store.titleQuery.isEmpty &&
-                        store.artistQuery.isEmpty &&
-                        store.albumArtistQuery.isEmpty &&
-                        store.albumQuery.isEmpty &&
-                        store.trackNumberQuery.isEmpty &&
-                        store.linkQuery.isEmpty &&
-                        store.results.isEmpty &&
-                        store.errorMessage == nil
-                    )
+                    .disabled(!canClearSearch)
                 }
             }
+            #endif
         }
     }
 
@@ -260,6 +274,17 @@ struct MusicBrainzBrowserView: View {
                 return "album"
             }
         }
+    }
+
+    private var canClearSearch: Bool {
+        !store.titleQuery.isEmpty ||
+            !store.artistQuery.isEmpty ||
+            !store.albumArtistQuery.isEmpty ||
+            !store.albumQuery.isEmpty ||
+            !store.trackNumberQuery.isEmpty ||
+            !store.linkQuery.isEmpty ||
+            !store.results.isEmpty ||
+            store.errorMessage != nil
     }
 
     private var noResultsDescription: String {

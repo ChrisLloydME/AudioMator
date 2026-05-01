@@ -5,21 +5,28 @@ Thumbs.db
 
 # Local build and test outputs
 build/
+Build/
 DerivedData/
+.DerivedData/
 .build/
-.deriveddata-codex/
-/.deriveddata-codex-ios
-/.deriveddata-codex-macos
+.deriveddata*/
+DerivedData*/
 *.xcresult
 *.xcresult/
 TestResults/
 
+# Xcode personal state
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+
+# Xcode generated archives and debug symbols
+*.xcarchive
+*.dSYM
+*.ipa
+*.app
+
 # Local scratch data and audio test fixtures
 .tmp/
-/AudioMator.xcodeproj/project.xcworkspace/xcuserdata/lloyd.xcuserdatad/UserInterfaceState.xcuserstate
-/.deriveddata-codex-noicon
-/.DerivedData
-/.deriveddata-ios-codex
-/.deriveddata-macos-codex
-/.deriveddata-ios-sim-codex
-/.deriveddata-ios-sim-codex-2

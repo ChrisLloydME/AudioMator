@@ -37,3 +37,14 @@ When using TagLib in commercial or closed-source applications, at minimum:
 ### Licensing
 
 The copied logic originates from software released under The Unlicense. That work is dedicated to the public domain where recognized, and otherwise provided for unrestricted use under the terms of The Unlicense.
+
+## Sparkle
+
+- **Project**: Sparkle
+- **Website**: https://sparkle-project.org/
+- **Source**: https://github.com/sparkle-project/Sparkle
+- **Usage in this repository**: AudioMator keeps a macOS Sparkle integration available, but update checking is currently disabled in the app.
+
+### Licensing
+
+Sparkle is third-party open-source software. Review Sparkle's upstream license before redistributing the app.

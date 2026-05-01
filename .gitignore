@@ -8,6 +8,8 @@ build/
 DerivedData/
 .build/
 .deriveddata-codex/
+/.deriveddata-codex-ios
+/.deriveddata-codex-macos
 *.xcresult
 *.xcresult/
 TestResults/

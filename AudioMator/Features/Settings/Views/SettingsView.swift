@@ -695,6 +695,14 @@ private struct AcknowledgementsSheet: View {
             ]
         ),
         (
+            title: "Sparkle",
+            details: [
+                "Project: https://github.com/sparkle-project/Sparkle",
+                "Website: https://sparkle-project.org/",
+                "AudioMator includes Sparkle as a macOS update framework integration, but update checking is currently disabled."
+            ]
+        ),
+        (
             title: "iTunes-Artwork-Finder by bendodson",
             details: [
                 "Project: https://github.com/bendodson/itunes-artwork-finder",

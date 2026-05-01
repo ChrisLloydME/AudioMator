@@ -125,6 +125,10 @@ Open `AudioMator.xcodeproj` in Xcode and build the `AudioMator` scheme. The proj
 
 `https://github.com/ChrisLloydME/TagLibAudioMetadata.git`
 
+The macOS target also resolves Sparkle 2 from:
+
+`https://github.com/sparkle-project/Sparkle`
+
 Current deployment targets in the Xcode project are macOS 26.0 and iOS/iPadOS 26.0.
 
 Useful local commands:
@@ -134,6 +138,16 @@ bash scripts/codex-build.sh
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 ```
+
+## Sparkle updates
+
+Sparkle is wired only for the macOS build, but update checking is currently disabled. The app does not expose a **Check for Updates…** command, does not show an update button in About settings, and does not start the Sparkle updater at launch. The package, appcast metadata, and sandbox support are kept in place so the feature can be enabled later without reworking the core integration.
+
+Before shipping a build, replace the placeholder `SUPublicEDKey` build setting in `AudioMator.xcodeproj` with the public key printed by Sparkle's `generate_keys` tool. Publish the appcast at:
+
+`https://chrislloydme.github.io/AudioMator/appcast.xml`
+
+Sparkle's SPM tools are available under Xcode's package artifacts directory after dependency resolution, typically in `SourcePackages/artifacts/sparkle/Sparkle/bin/`. Use `generate_appcast` on the folder containing signed and notarized update archives, then upload the generated appcast and archives to the update host.
 
 ## TagLib bridge smoke testing
 

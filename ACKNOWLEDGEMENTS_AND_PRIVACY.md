@@ -16,6 +16,13 @@ TagLib is distributed under LGPL and MPL terms. Review the upstream licenses bef
 
 AudioMator's artwork lookup implementation is written in Swift, but the lookup workflow was originally informed by this project.
 
+### Sparkle
+
+- Project: <https://github.com/sparkle-project/Sparkle>
+- Website: <https://sparkle-project.org/>
+
+AudioMator includes Sparkle as a macOS update framework integration, but update checking is currently disabled in the app.
+
 ## Local-first behavior
 
 AudioMator is designed to work on local files.
@@ -62,6 +69,12 @@ AudioMator only uses the network for optional features that you explicitly invok
 - Purpose: fetch published release notes for AudioMator
 - Typical data sent: a standard release-list request, not your media files
 
+### Software updates
+
+- Host: `chrislloydme.github.io`
+- Purpose: reserved for Sparkle appcast and update archives if macOS updates are enabled later
+- Typical data sent: none while Sparkle update checking remains disabled
+
 ## What AudioMator does not send
 
 - It does not upload your local audio files for ordinary metadata editing.
@@ -72,4 +85,4 @@ AudioMator only uses the network for optional features that you explicitly invok
 
 If you stay inside local editing features, AudioMator stays offline.
 
-If you use MusicBrainz, iTunes artwork, or release-note lookup, only the query information needed for that feature is sent, and the audio file contents remain local.
+If you use MusicBrainz, iTunes artwork, release-note lookup, or software updates, only the request information needed for that feature is sent, and the audio file contents remain local.

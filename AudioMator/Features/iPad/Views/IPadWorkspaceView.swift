@@ -376,9 +376,7 @@ private extension IPadWorkspaceView {
     }
 
     func clearAllMetadataForSelectedFiles() {
-        for file in selectedFiles {
-            viewModel.eraseAllMetadata(file)
-        }
+        viewModel.eraseAllMetadata(selectedFiles)
     }
 
     func clearFileList() {

@@ -336,10 +336,7 @@ struct ContentPane: View {
     }
 
     private func clearAllMetadataForSelectedFiles() {
-        // Best-effort erase using TagLib bridge. This is a user-facing action.
-        for file in selectedFiles {
-            viewModel.eraseAllMetadata(file)
-        }
+        viewModel.eraseAllMetadata(selectedFiles)
     }
 
     private func clearFileList() {

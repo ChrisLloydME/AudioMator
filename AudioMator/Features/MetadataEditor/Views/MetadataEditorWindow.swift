@@ -562,7 +562,7 @@ private struct MetadataFieldEntrySheet: View {
                     Text("Field")
                         .font(.headline)
 
-                    MetadataFieldKeyComboBox(
+                    MetadataFieldKeyAutocompleteField(
                         text: $fieldKey,
                         suggestions: MetadataFieldSuggestion.allSupported,
                         placeholder: "For example: MUSICBRAINZ_ALBUMID"
@@ -637,7 +637,7 @@ private struct MetadataFieldEntrySheet: View {
     }
 }
 
-private struct MetadataFieldKeyComboBox: NSViewRepresentable {
+private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
     @Binding var text: String
     let suggestions: [MetadataFieldSuggestion]
     let placeholder: String
@@ -646,42 +646,43 @@ private struct MetadataFieldKeyComboBox: NSViewRepresentable {
         Coordinator(parent: self)
     }
 
-    func makeNSView(context: Context) -> NSComboBox {
-        let comboBox = NSComboBox()
-        comboBox.usesDataSource = true
-        comboBox.dataSource = context.coordinator
-        comboBox.delegate = context.coordinator
-        comboBox.completes = true
-        comboBox.numberOfVisibleItems = 12
-        comboBox.isButtonBordered = true
-        comboBox.placeholderString = placeholder
-        comboBox.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        comboBox.controlSize = .regular
-        comboBox.focusRingType = .default
-        comboBox.stringValue = text
-        context.coordinator.comboBox = comboBox
+    func makeNSView(context: Context) -> NSSearchField {
+        let textField = NSSearchField()
+        textField.delegate = context.coordinator
+        textField.placeholderString = placeholder
+        textField.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        textField.controlSize = .regular
+        textField.focusRingType = .default
+        textField.sendsSearchStringImmediately = true
+        textField.sendsWholeSearchString = false
+        textField.stringValue = text
+        context.coordinator.textField = textField
         context.coordinator.refreshSuggestions(for: text)
-        return comboBox
+        return textField
     }
 
-    func updateNSView(_ comboBox: NSComboBox, context: Context) {
+    func updateNSView(_ textField: NSSearchField, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.comboBox = comboBox
-        context.coordinator.refreshSuggestions(for: text)
+        context.coordinator.textField = textField
 
-        if comboBox.stringValue != text {
-            comboBox.stringValue = text
+        if textField.currentEditor() == nil, textField.stringValue != text {
+            textField.stringValue = text
         }
+
+        context.coordinator.refreshSuggestions(for: textField.stringValue)
     }
 
-    final class Coordinator: NSObject, NSComboBoxDataSource, NSComboBoxDelegate {
-        var parent: MetadataFieldKeyComboBox
-        weak var comboBox: NSComboBox?
+    final class Coordinator: NSObject, NSSearchFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
+        var parent: MetadataFieldKeyAutocompleteField
+        weak var textField: NSSearchField?
 
         private var filteredSuggestions: [MetadataFieldSuggestion] = []
-        private var isApplyingSelection = false
+        private var popover: NSPopover?
+        private var tableView: MetadataFieldSuggestionTableView?
+        private let rowHeight: CGFloat = 42
+        private let popoverInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
 
-        init(parent: MetadataFieldKeyComboBox) {
+        init(parent: MetadataFieldKeyAutocompleteField) {
             self.parent = parent
             self.filteredSuggestions = parent.suggestions
         }
@@ -689,55 +690,210 @@ private struct MetadataFieldKeyComboBox: NSViewRepresentable {
         func refreshSuggestions(for query: String) {
             let nextSuggestions = Self.filteredSuggestions(from: parent.suggestions, query: query)
             guard nextSuggestions != filteredSuggestions else { return }
-
             filteredSuggestions = nextSuggestions
-            comboBox?.reloadData()
+            tableView?.reloadData()
+            selectFirstRowIfNeeded()
+            updatePopoverSize()
         }
 
-        func numberOfItems(in comboBox: NSComboBox) -> Int {
+        func controlTextDidBeginEditing(_ notification: Notification) {
+            guard let textField = notification.object as? NSSearchField else { return }
+            refreshSuggestions(for: textField.stringValue)
+            showPopover()
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSSearchField else { return }
+
+            let newText = textField.stringValue
+            parent.text = newText
+            refreshSuggestions(for: newText)
+            showPopover()
+        }
+
+        func controlTextDidEndEditing(_ notification: Notification) {
+            popover?.performClose(nil)
+        }
+
+        func control(
+            _ control: NSControl,
+            textView: NSTextView,
+            doCommandBy commandSelector: Selector
+        ) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.moveDown(_:)):
+                return moveSelection(offset: 1)
+            case #selector(NSResponder.moveUp(_:)):
+                return moveSelection(offset: -1)
+            case #selector(NSResponder.insertNewline(_:)):
+                guard popover?.isShown == true, tableView?.selectedRow ?? -1 >= 0 else { return false }
+                selectHighlightedSuggestion()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                guard popover?.isShown == true else { return false }
+                popover?.performClose(nil)
+                return true
+            default:
+                return false
+            }
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int {
             filteredSuggestions.count
         }
 
-        func comboBox(_ comboBox: NSComboBox, objectValueForItemAt index: Int) -> Any? {
-            guard filteredSuggestions.indices.contains(index) else { return nil }
-            return filteredSuggestions[index].key
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            guard filteredSuggestions.indices.contains(row) else { return nil }
+
+            let identifier = NSUserInterfaceItemIdentifier("metadata-field-suggestion")
+            let cellView = (tableView.makeView(withIdentifier: identifier, owner: nil) as? MetadataFieldSuggestionCellView) ?? {
+                let view = MetadataFieldSuggestionCellView()
+                view.identifier = identifier
+                return view
+            }()
+            cellView.configure(with: filteredSuggestions[row])
+            return cellView
         }
 
-        func comboBox(_ comboBox: NSComboBox, completedString string: String) -> String? {
-            Self.filteredSuggestions(from: parent.suggestions, query: string).first?.key
+        func tableViewSelectionDidChange(_ notification: Notification) {}
+
+        func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+            true
         }
 
-        func comboBoxSelectionDidChange(_ notification: Notification) {
+        @objc
+        private func selectHighlightedSuggestion() {
+            guard let tableView else { return }
+            selectSuggestion(at: tableView.selectedRow)
+        }
+
+        fileprivate func selectSuggestion(at row: Int) {
             guard
-                let comboBox = notification.object as? NSComboBox,
-                filteredSuggestions.indices.contains(comboBox.indexOfSelectedItem)
+                filteredSuggestions.indices.contains(row),
+                let textField
             else {
                 return
             }
 
-            let selectedKey = filteredSuggestions[comboBox.indexOfSelectedItem].key
-            isApplyingSelection = true
-            comboBox.stringValue = selectedKey
-            parent.text = selectedKey
-            isApplyingSelection = false
-        }
+            let suggestion = filteredSuggestions[row]
+            textField.stringValue = suggestion.key
+            parent.text = suggestion.key
+            popover?.performClose(nil)
 
-        func controlTextDidBeginEditing(_ notification: Notification) {
-            guard let comboBox = notification.object as? NSComboBox else { return }
-
-            refreshSuggestions(for: comboBox.stringValue)
-            DispatchQueue.main.async {
-                guard comboBox.window?.firstResponder === comboBox.currentEditor() else { return }
-                comboBox.performClick(nil)
+            if let editor = textField.currentEditor() {
+                editor.selectedRange = NSRange(location: suggestion.key.utf16.count, length: 0)
+                textField.window?.makeFirstResponder(editor)
             }
         }
 
-        func controlTextDidChange(_ notification: Notification) {
-            guard !isApplyingSelection, let comboBox = notification.object as? NSComboBox else { return }
+        private func moveSelection(offset: Int) -> Bool {
+            guard !filteredSuggestions.isEmpty else { return false }
+            showPopover()
+            let selectedRow = tableView?.selectedRow ?? (offset > 0 ? -1 : filteredSuggestions.count)
+            let nextRow = min(max(selectedRow + offset, 0), filteredSuggestions.count - 1)
+            selectRow(nextRow)
+            return true
+        }
 
-            let newText = comboBox.stringValue
-            parent.text = newText
-            refreshSuggestions(for: newText)
+        private func showPopover() {
+            guard
+                let textField,
+                textField.currentEditor() != nil,
+                !filteredSuggestions.isEmpty
+            else {
+                popover?.performClose(nil)
+                return
+            }
+
+            if popover == nil {
+                popover = makePopover()
+            }
+
+            selectFirstRowIfNeeded()
+            updatePopoverSize()
+
+            if popover?.isShown != true {
+                popover?.show(relativeTo: textField.bounds, of: textField, preferredEdge: .maxY)
+                if let editor = textField.currentEditor() {
+                    textField.window?.makeFirstResponder(editor)
+                }
+            }
+        }
+
+        private func makePopover() -> NSPopover {
+            let tableView = MetadataFieldSuggestionTableView()
+            tableView.autocompleteCoordinator = self
+            tableView.delegate = self
+            tableView.dataSource = self
+            tableView.headerView = nil
+            tableView.rowHeight = rowHeight
+            tableView.intercellSpacing = NSSize(width: 0, height: 2)
+            tableView.selectionHighlightStyle = .regular
+            tableView.backgroundColor = .clear
+
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("field"))
+            tableView.addTableColumn(column)
+
+            let scrollView = NSScrollView()
+            scrollView.documentView = tableView
+            scrollView.hasVerticalScroller = true
+            scrollView.drawsBackground = false
+            scrollView.borderType = .noBorder
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+            let materialView = NSVisualEffectView()
+            materialView.material = .popover
+            materialView.blendingMode = .behindWindow
+            materialView.state = .active
+            materialView.wantsLayer = true
+            materialView.layer?.cornerRadius = 14
+            materialView.layer?.cornerCurve = .continuous
+            materialView.layer?.masksToBounds = true
+            materialView.addSubview(scrollView)
+
+            NSLayoutConstraint.activate([
+                scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor, constant: popoverInsets.left),
+                scrollView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor, constant: -popoverInsets.right),
+                scrollView.topAnchor.constraint(equalTo: materialView.topAnchor, constant: popoverInsets.top),
+                scrollView.bottomAnchor.constraint(equalTo: materialView.bottomAnchor, constant: -popoverInsets.bottom)
+            ])
+
+            let viewController = NSViewController()
+            viewController.view = materialView
+
+            let popover = NSPopover()
+            popover.behavior = .applicationDefined
+            popover.animates = true
+            popover.contentViewController = viewController
+
+            self.tableView = tableView
+            return popover
+        }
+
+        private func selectFirstRowIfNeeded() {
+            guard !filteredSuggestions.isEmpty, let tableView else { return }
+            if tableView.selectedRow < 0 || tableView.selectedRow >= filteredSuggestions.count {
+                selectRow(0)
+            }
+        }
+
+        private func selectRow(_ row: Int) {
+            guard filteredSuggestions.indices.contains(row), let tableView else { return }
+            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+            tableView.scrollRowToVisible(row)
+        }
+
+        private func updatePopoverSize() {
+            guard let textField, let popover, let tableView else { return }
+
+            let visibleRows = min(max(filteredSuggestions.count, 1), 10)
+            let width = max(textField.bounds.width, 430)
+            let height = CGFloat(visibleRows) * rowHeight
+                + CGFloat(max(visibleRows - 1, 0)) * tableView.intercellSpacing.height
+                + popoverInsets.top
+                + popoverInsets.bottom
+            popover.contentSize = NSSize(width: width, height: height)
+            tableView.tableColumns.first?.width = width - popoverInsets.left - popoverInsets.right - 18
         }
 
         private static func filteredSuggestions(
@@ -753,6 +909,71 @@ private struct MetadataFieldKeyComboBox: NSViewRepresentable {
                     || suggestion.category.displayName.localizedCaseInsensitiveContains(normalizedQuery)
             }
         }
+    }
+}
+
+private final class MetadataFieldSuggestionTableView: NSTableView {
+    weak var autocompleteCoordinator: MetadataFieldKeyAutocompleteField.Coordinator?
+
+    override var acceptsFirstResponder: Bool {
+        false
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let row = row(at: point)
+
+        guard row >= 0 else {
+            super.mouseDown(with: event)
+            return
+        }
+
+        selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        autocompleteCoordinator?.selectSuggestion(at: row)
+    }
+}
+
+private final class MetadataFieldSuggestionCellView: NSTableCellView {
+    private let keyLabel = NSTextField(labelWithString: "")
+    private let detailLabel = NSTextField(labelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configureView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureView()
+    }
+
+    func configure(with suggestion: MetadataFieldSuggestion) {
+        keyLabel.stringValue = suggestion.key
+        detailLabel.stringValue = suggestion.detailText
+        toolTip = suggestion.detailText
+    }
+
+    private func configureView() {
+        keyLabel.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
+        keyLabel.lineBreakMode = .byTruncatingTail
+        keyLabel.textColor = .labelColor
+
+        detailLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        detailLabel.lineBreakMode = .byTruncatingTail
+        detailLabel.textColor = .secondaryLabelColor
+
+        let stackView = NSStackView(views: [keyLabel, detailLabel])
+        stackView.orientation = .vertical
+        stackView.alignment = .leading
+        stackView.spacing = 2
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stackView)
+
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            stackView.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
     }
 }
 

@@ -6,6 +6,8 @@ AudioMator is a native SwiftUI-first audio metadata editor for macOS and iPadOS.
 
 The app is built around a TagLib-powered metadata pipeline from the `TagLibAudioMetadata` Swift package. It supports inspecting and editing audio tags, artwork, filename/metadata conversion, track renumbering, MusicBrainz-assisted tagging, watched folders on macOS, and a session-scoped iPad workflow.
 
+SwiftUI is used because it makes cross-platform migration convenient, not because the project has a strict preference for SwiftUI over AppKit or UIKit. If AppKit or UIKit can produce a more complete native result, reduce implementation complexity, or improve performance for a specific feature, prefer AppKit or UIKit for that feature.
+
 ## Repository Layout
 
 - `AudioMator/App/`: app entry point, commands, notifications, and platform delegates.
@@ -50,6 +52,7 @@ Keep Xcode groups aligned with on-disk folders when adding files.
 - Prefer `guard` and early returns to reduce nesting.
 - Use value types unless identity, observation, or platform lifecycle requires a class.
 - Use Swift concurrency where it fits the surrounding code.
+- SwiftUI is not mandatory for every UI surface. Use AppKit on macOS or UIKit on iOS/iPadOS when it is the better engineering choice for fidelity, performance, platform behavior, or implementation simplicity.
 - Keep UI state ownership in feature view models or domain state, not hidden inside views.
 - Avoid introducing singletons for feature work.
 - Use `String(localized:)` for user-facing strings.

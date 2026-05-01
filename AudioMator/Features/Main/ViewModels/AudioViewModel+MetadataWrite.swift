@@ -98,6 +98,77 @@ private struct BatchMetadataWriteSummary {
     }
 }
 
+private struct BatchMetadataClearSummary {
+    let totalTargets: Int
+    var succeeded: Int = 0
+    var warningIssues: [BatchMetadataWriteIssue] = []
+    var failureIssues: [BatchMetadataWriteIssue] = []
+    var allSuccessfulFilesRefreshed = true
+
+    var hudStyle: MetadataWriteHUDStyle {
+        if failureIssues.isEmpty && warningIssues.isEmpty {
+            return .success
+        }
+
+        if failureIssues.isEmpty {
+            return .warning
+        }
+
+        return succeeded > 0 ? .warning : .failure
+    }
+
+    var hudTitle: String {
+        if failureIssues.isEmpty && warningIssues.isEmpty {
+            return "Metadata Cleared"
+        }
+
+        if failureIssues.isEmpty {
+            return "Cleared with Issues"
+        }
+
+        return succeeded > 0 ? "Partially Cleared" : "Clear Failed"
+    }
+
+    var hudSubtitle: String {
+        if failureIssues.isEmpty && warningIssues.isEmpty {
+            return fileCountLabel(succeeded)
+        }
+
+        var lines: [String] = [summaryLine]
+
+        if !warningIssues.isEmpty {
+            lines.append("\(warningIssues.count) file(s) cleared with issues")
+        }
+
+        if !failureIssues.isEmpty {
+            lines.append("\(failureIssues.count) file(s) failed")
+        }
+
+        let detailSource = failureIssues.isEmpty ? warningIssues : failureIssues
+        for issue in detailSource.prefix(2) {
+            let detail = issue.messages.joined(separator: " ")
+            lines.append("\(issue.fileName): \(detail)")
+        }
+
+        if detailSource.count > 2 {
+            lines.append("...and \(detailSource.count - 2) more")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private var summaryLine: String {
+        switch succeeded {
+        case totalTargets:
+            return "\(totalTargets) of \(totalTargets) files cleared"
+        case 0:
+            return "No files were cleared"
+        default:
+            return "\(succeeded) of \(totalTargets) files cleared"
+        }
+    }
+}
+
 func fileCountLabel(_ count: Int) -> String {
     count == 1 ? "1 file" : "\(count) files"
 }
@@ -551,40 +622,147 @@ extension AudioViewModel {
 
     /// Attempts to erase all metadata from a file by writing empty tags over the existing values.
     func eraseAllMetadata(_ file: AudioFile) {
-        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            print("Skip unsupported erase format for: \(file.url.lastPathComponent)")
-            presentMetadataWriteFailure(
-                for: file.url.lastPathComponent,
-                reason: "This format does not support metadata writing yet."
-            )
-            return
-        }
+        guard metadataSaveProgress == nil else { return }
 
         Task(priority: .userInitiated) {
-            do {
-                let writeResult = try metadataPipeline.eraseAllMetadata(at: file.url)
-                var warnings: [String] = writeResult.warnings
+            let result = await self.persistMetadataErase(file, syncInspectorAfterReload: true)
 
-                if let refreshWarning = await self.reloadEditedFile(file) {
-                    warnings.append(refreshWarning)
-                }
-
-                if warnings.isEmpty {
-                    self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
+            switch result {
+            case .success(let success):
+                if success.warnings.isEmpty {
+                    self.presentMetadataWriteHUD(
+                        style: .success,
+                        title: "Metadata Cleared",
+                        subtitle: file.url.lastPathComponent
+                    )
                 } else {
                     self.presentMetadataWriteWarning(
-                        title: "Saved with Issues",
-                        subtitle: ([file.url.lastPathComponent] + warnings).joined(separator: "\n")
+                        title: "Cleared with Issues",
+                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
                     )
                 }
-            } catch {
-                print("Failed to erase metadata via TagLib: \(error)")
-                self.presentMetadataWriteFailure(
-                    for: file.url.lastPathComponent,
-                    reason: (error as NSError).localizedDescription
+            case .failure(let reason):
+                self.presentMetadataWriteHUD(
+                    style: .failure,
+                    title: "Clear Failed",
+                    subtitle: [file.url.lastPathComponent, reason]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n")
                 )
             }
         }
+    }
+
+    /// Attempts to erase all metadata from a batch of files with the same progress UI used by batch saves.
+    func eraseAllMetadata(_ targetFiles: [AudioFile]) {
+        guard metadataSaveProgress == nil else { return }
+
+        let targetFiles = targetFiles
+        guard !targetFiles.isEmpty else { return }
+
+        if targetFiles.count == 1, let file = targetFiles.first {
+            eraseAllMetadata(file)
+            return
+        }
+
+        beginMetadataSaveProgress(
+            title: "Clearing Metadata",
+            subtitle: "Preparing \(targetFiles.count) files...",
+            totalUnitCount: targetFiles.count
+        )
+
+        Task(priority: .userInitiated) {
+            var summary = BatchMetadataClearSummary(totalTargets: targetFiles.count)
+
+            for (index, file) in targetFiles.enumerated() {
+                self.updateMetadataSaveProgress(
+                    subtitle: file.url.lastPathComponent,
+                    completedUnitCount: index
+                )
+
+                let result = await self.persistMetadataErase(
+                    file,
+                    syncInspectorAfterReload: false
+                )
+
+                switch result {
+                case .success(let success):
+                    summary.succeeded += 1
+                    summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
+
+                    if !success.warnings.isEmpty {
+                        summary.warningIssues.append(
+                            BatchMetadataWriteIssue(
+                                fileName: file.url.lastPathComponent,
+                                messages: success.warnings
+                            )
+                        )
+                    }
+                case .failure(let reason):
+                    summary.failureIssues.append(
+                        BatchMetadataWriteIssue(
+                            fileName: file.url.lastPathComponent,
+                            messages: [reason]
+                        )
+                    )
+                }
+            }
+
+            self.updateMetadataSaveProgress(
+                subtitle: "Finishing...",
+                completedUnitCount: targetFiles.count
+            )
+            self.endMetadataSaveProgress()
+
+            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
+                self.updateEditForSelection()
+            }
+
+            self.presentBatchMetadataClearSummary(summary)
+        }
+    }
+
+    private func persistMetadataErase(
+        _ file: AudioFile,
+        syncInspectorAfterReload: Bool
+    ) async -> MetadataWriteExecutionResult {
+        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
+            print("Skip unsupported erase format for: \(file.url.lastPathComponent)")
+            return .failure("This format does not support metadata writing yet.")
+        }
+
+        do {
+            let writeResult = try metadataPipeline.eraseAllMetadata(at: file.url)
+            var warnings: [String] = writeResult.warnings
+
+            let refreshWarning = await reloadEditedFile(
+                file,
+                syncInspectorAfterReload: syncInspectorAfterReload
+            )
+            if let refreshWarning {
+                warnings.append(refreshWarning)
+            }
+
+            return .success(
+                MetadataWriteSuccessOutcome(
+                    warnings: warnings,
+                    didRefreshFileModel: refreshWarning == nil
+                )
+            )
+        } catch {
+            print("Failed to erase metadata via TagLib: \(error)")
+            return .failure((error as NSError).localizedDescription)
+        }
+    }
+
+    private func presentBatchMetadataClearSummary(_ summary: BatchMetadataClearSummary) {
+        guard summary.totalTargets > 0 else { return }
+
+        presentMetadataWriteHUD(
+            style: summary.hudStyle,
+            title: summary.hudTitle,
+            subtitle: summary.hudSubtitle
+        )
     }
 
     func reloadEditedFile(

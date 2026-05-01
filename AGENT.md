@@ -90,6 +90,13 @@ Do not launch the iPadOS simulator, boot virtual devices, or use simulator-only 
 - Current deployment targets in the project are macOS 26.0 and iOS/iPadOS 26.0.
 - Do not vendor package source into this repository unless explicitly requested.
 
+## Repository Hygiene
+
+- Do not commit generated Xcode build output, local package build products, scratch audio fixtures, or personal IDE state.
+- Keep `DerivedData/`, `.DerivedData/`, `.deriveddata*/`, `.build/`, `.tmp/`, `*.xcresult`, `*.xcuserstate`, `xcuserdata/`, archives, debug symbols, and app bundles out of source control.
+- If a generated file was already tracked, remove it with `git rm --cached` and keep the local copy ignored.
+- Do not rewrite published Git history casually. If large generated artifacts have already reached GitHub, document the need for a coordinated history rewrite and force push rather than treating it as a normal cleanup commit.
+
 ## Change Hygiene
 
 - Keep changes narrowly scoped to the requested feature or fix.

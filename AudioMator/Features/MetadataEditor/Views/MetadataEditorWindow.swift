@@ -3,6 +3,7 @@ import SwiftUI
 import AppKit
 #endif
 import Combine
+import TagLibAudioMetadata
 
 #if os(macOS)
 
@@ -49,6 +50,82 @@ private struct MetadataFieldEditorContext: Identifiable {
             return "add"
         case .edit:
             return "edit:\(key ?? "")"
+        }
+    }
+}
+
+private struct MetadataFieldSuggestion: Identifiable, Hashable {
+    let key: String
+    let displayName: String
+    let category: MetadataFieldCategory
+
+    var id: String { key }
+
+    var detailText: String {
+        "\(displayName) - \(category.displayName)"
+    }
+
+    static let allSupported: [MetadataFieldSuggestion] = {
+        var suggestions: [MetadataFieldSuggestion] = []
+        var seenKeys = Set<String>()
+
+        for schema in MetadataFieldRegistry.allSchemas where !schema.isArtworkField {
+            for propertyMapKey in schema.propertyMapKeys {
+                let normalizedKey = MetadataFieldRegistry.normalizePropertyMapKey(propertyMapKey)
+                guard !normalizedKey.isEmpty, seenKeys.insert(normalizedKey).inserted else { continue }
+
+                suggestions.append(
+                    MetadataFieldSuggestion(
+                        key: normalizedKey,
+                        displayName: schema.displayName,
+                        category: schema.category
+                    )
+                )
+            }
+        }
+
+        return suggestions.sorted { lhs, rhs in
+            let displayComparison = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
+            if displayComparison != .orderedSame {
+                return displayComparison == .orderedAscending
+            }
+
+            return lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending
+        }
+    }()
+}
+
+private extension MetadataFieldCategory {
+    var displayName: String {
+        switch self {
+        case .basic:
+            return "Basic"
+        case .numbering:
+            return "Numbering"
+        case .artwork:
+            return "Artwork"
+        case .lyricsAndComments:
+            return "Lyrics & Comments"
+        case .dates:
+            return "Dates"
+        case .people:
+            return "People"
+        case .peopleRoles:
+            return "People Roles"
+        case .sorting:
+            return "Sorting"
+        case .identifiers:
+            return "Identifiers"
+        case .release:
+            return "Release"
+        case .replayGain:
+            return "ReplayGain"
+        case .itunes:
+            return "iTunes"
+        case .technical:
+            return "Technical"
+        case .custom:
+            return "Custom"
         }
     }
 }
@@ -485,9 +562,12 @@ private struct MetadataFieldEntrySheet: View {
                     Text("Field")
                         .font(.headline)
 
-                    TextField("For example: MUSICBRAINZ_ALBUMID", text: $fieldKey)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    MetadataFieldKeyComboBox(
+                        text: $fieldKey,
+                        suggestions: MetadataFieldSuggestion.allSupported,
+                        placeholder: "For example: MUSICBRAINZ_ALBUMID"
+                    )
+                    .frame(height: 24)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
@@ -554,6 +634,125 @@ private struct MetadataFieldEntrySheet: View {
         }
         .padding(20)
         .frame(width: 860, height: 540)
+    }
+}
+
+private struct MetadataFieldKeyComboBox: NSViewRepresentable {
+    @Binding var text: String
+    let suggestions: [MetadataFieldSuggestion]
+    let placeholder: String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> NSComboBox {
+        let comboBox = NSComboBox()
+        comboBox.usesDataSource = true
+        comboBox.dataSource = context.coordinator
+        comboBox.delegate = context.coordinator
+        comboBox.completes = true
+        comboBox.numberOfVisibleItems = 12
+        comboBox.isButtonBordered = true
+        comboBox.placeholderString = placeholder
+        comboBox.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        comboBox.controlSize = .regular
+        comboBox.focusRingType = .default
+        comboBox.stringValue = text
+        context.coordinator.comboBox = comboBox
+        context.coordinator.refreshSuggestions(for: text)
+        return comboBox
+    }
+
+    func updateNSView(_ comboBox: NSComboBox, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.comboBox = comboBox
+        context.coordinator.refreshSuggestions(for: text)
+
+        if comboBox.stringValue != text {
+            comboBox.stringValue = text
+        }
+    }
+
+    final class Coordinator: NSObject, NSComboBoxDataSource, NSComboBoxDelegate {
+        var parent: MetadataFieldKeyComboBox
+        weak var comboBox: NSComboBox?
+
+        private var filteredSuggestions: [MetadataFieldSuggestion] = []
+        private var isApplyingSelection = false
+
+        init(parent: MetadataFieldKeyComboBox) {
+            self.parent = parent
+            self.filteredSuggestions = parent.suggestions
+        }
+
+        func refreshSuggestions(for query: String) {
+            let nextSuggestions = Self.filteredSuggestions(from: parent.suggestions, query: query)
+            guard nextSuggestions != filteredSuggestions else { return }
+
+            filteredSuggestions = nextSuggestions
+            comboBox?.reloadData()
+        }
+
+        func numberOfItems(in comboBox: NSComboBox) -> Int {
+            filteredSuggestions.count
+        }
+
+        func comboBox(_ comboBox: NSComboBox, objectValueForItemAt index: Int) -> Any? {
+            guard filteredSuggestions.indices.contains(index) else { return nil }
+            return filteredSuggestions[index].key
+        }
+
+        func comboBox(_ comboBox: NSComboBox, completedString string: String) -> String? {
+            Self.filteredSuggestions(from: parent.suggestions, query: string).first?.key
+        }
+
+        func comboBoxSelectionDidChange(_ notification: Notification) {
+            guard
+                let comboBox = notification.object as? NSComboBox,
+                filteredSuggestions.indices.contains(comboBox.indexOfSelectedItem)
+            else {
+                return
+            }
+
+            let selectedKey = filteredSuggestions[comboBox.indexOfSelectedItem].key
+            isApplyingSelection = true
+            comboBox.stringValue = selectedKey
+            parent.text = selectedKey
+            isApplyingSelection = false
+        }
+
+        func controlTextDidBeginEditing(_ notification: Notification) {
+            guard let comboBox = notification.object as? NSComboBox else { return }
+
+            refreshSuggestions(for: comboBox.stringValue)
+            DispatchQueue.main.async {
+                guard comboBox.window?.firstResponder === comboBox.currentEditor() else { return }
+                comboBox.performClick(nil)
+            }
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard !isApplyingSelection, let comboBox = notification.object as? NSComboBox else { return }
+
+            let newText = comboBox.stringValue
+            parent.text = newText
+            refreshSuggestions(for: newText)
+        }
+
+        private static func filteredSuggestions(
+            from suggestions: [MetadataFieldSuggestion],
+            query: String
+        ) -> [MetadataFieldSuggestion] {
+            let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalizedQuery.isEmpty else { return suggestions }
+
+            return suggestions.filter { suggestion in
+                suggestion.key.localizedCaseInsensitiveContains(normalizedQuery)
+                    || suggestion.displayName.localizedCaseInsensitiveContains(normalizedQuery)
+                    || suggestion.category.displayName.localizedCaseInsensitiveContains(normalizedQuery)
+            }
+        }
     }
 }
 

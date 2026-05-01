@@ -39,4 +39,8 @@ enum NetworkServiceDisclosure {
     enum ReleaseNotes {
         static let host = "api.github.com"
     }
+
+    enum SoftwareUpdates {
+        static let host = "chrislloydme.github.io"
+    }
 }

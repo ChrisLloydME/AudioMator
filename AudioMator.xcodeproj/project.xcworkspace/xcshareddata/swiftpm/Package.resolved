@@ -1,6 +1,15 @@
 {
-  "originHash" : "05a92ac75743955086ea6bc0d6e66861ee659da97a5558d9ba22a385aed126bb",
+  "originHash" : "304c350f6746832da42b2064d8685cd29af60e87c9f4799ec66764512f870b9c",
   "pins" : [
+    {
+      "identity" : "sparkle",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sparkle-project/Sparkle",
+      "state" : {
+        "revision" : "066e75a8b3e99962685d6a90cdd5293ebffd9261",
+        "version" : "2.9.1"
+      }
+    },
     {
       "identity" : "taglibaudiometadata",
       "kind" : "remoteSourceControl",

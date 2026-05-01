@@ -3,16 +3,6 @@ import TagLibAudioMetadata
 import UniformTypeIdentifiers
 
 enum AudioFormatSupport {
-    nonisolated private static let metadataOnlyWritableExtensions: Set<String> = [
-        "mod",
-        "module",
-        "nst",
-        "wow",
-        "s3m",
-        "it",
-        "xm"
-    ]
-
     nonisolated private static let orderedSupportedExtensions: [String] = {
         TagLibMetadataManager.readableExtensions.map { $0.lowercased() }
     }()
@@ -21,10 +11,23 @@ enum AudioFormatSupport {
         TagLibMetadataManager.writableExtensions.map { $0.lowercased() }
     }()
 
+    nonisolated private static let orderedArtworkWritableExtensions: [String] = {
+        var seenExtensions = Set<String>()
+
+        return TagLibMetadataManager.formatCapabilities.flatMap { capability in
+            guard capability.isWritable, capability.canWriteArtwork else { return [String]() }
+
+            return capability.extensions.compactMap { ext in
+                let normalized = ext.lowercased()
+                guard seenExtensions.insert(normalized).inserted else { return nil }
+                return normalized
+            }
+        }
+    }()
+
     nonisolated static let readableExtensions: Set<String> = Set(orderedSupportedExtensions)
     nonisolated static let metadataWritableExtensions: Set<String> = Set(orderedWritableExtensions)
-    nonisolated static let artworkWritableExtensions: Set<String> = metadataWritableExtensions
-        .subtracting(metadataOnlyWritableExtensions)
+    nonisolated static let artworkWritableExtensions: Set<String> = Set(orderedArtworkWritableExtensions)
 
     nonisolated static let openPanelContentTypes: [UTType] = {
         var seenIdentifiers = Set<String>()

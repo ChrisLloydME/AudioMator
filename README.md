@@ -178,7 +178,7 @@ The Codex build helper writes derived data to `.deriveddata-codex` and is intend
 
 ## Sparkle Updates
 
-Sparkle is wired only for the macOS build, but update checking is currently disabled. The app does not expose a **Check for Updates...** command, does not show an update button in About settings, and does not start the Sparkle updater at launch. The package, appcast metadata, and sandbox support are kept in place so the feature can be enabled later without reworking the core integration.
+Sparkle update support is kept as dormant macOS infrastructure, but update checking is currently disabled. The app does not expose a **Check for Updates...** command, does not show an update button in About settings, does not start the Sparkle updater at launch, and does not link `Sparkle.framework` unless `ENABLE_SPARKLE_UPDATES` is added and the Sparkle package product is linked back into the app target. The package reference, appcast metadata, and sandbox support are kept in place so the feature can be enabled later without reworking the core integration.
 
 Before shipping a Sparkle-enabled build, replace the placeholder `SUPublicEDKey` build setting in `AudioMator.xcodeproj` with the public key printed by Sparkle's `generate_keys` tool. Publish the appcast at:
 

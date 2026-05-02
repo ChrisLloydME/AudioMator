@@ -699,7 +699,7 @@ private struct AcknowledgementsSheet: View {
             details: [
                 "Project: https://github.com/sparkle-project/Sparkle",
                 "Website: https://sparkle-project.org/",
-                "AudioMator includes Sparkle as a macOS update framework integration, but update checking is currently disabled."
+                "AudioMator keeps Sparkle update infrastructure available for macOS, but update checking is currently disabled and Sparkle is not linked into the app by default."
             ]
         ),
         (

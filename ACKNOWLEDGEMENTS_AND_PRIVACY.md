@@ -30,9 +30,9 @@ AudioMator's current artwork lookup implementation is written in Swift in this r
 
 - Project: <https://github.com/sparkle-project/Sparkle>
 - Website: <https://sparkle-project.org/>
-- Role in AudioMator: macOS update framework dependency and dormant update infrastructure.
+- Role in AudioMator: dormant macOS update infrastructure.
 
-Sparkle update checking is currently disabled in the app. The package and appcast-related project settings are kept in place so macOS updates can be enabled later without reworking the integration.
+Sparkle update checking is currently disabled in the app. The package reference and appcast-related project settings are kept in place, but the app target does not link Sparkle by default.
 
 ## Local-First Behavior
 

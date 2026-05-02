@@ -58,7 +58,7 @@ The referenced project is released under The Unlicense. Where recognized, the wo
 - **Project**: Sparkle
 - **Website**: https://sparkle-project.org/
 - **Source**: https://github.com/sparkle-project/Sparkle
-- **Usage in this repository**: AudioMator keeps a macOS Sparkle integration available, but update checking is currently disabled in the app.
+- **Usage in this repository**: AudioMator keeps dormant macOS Sparkle update infrastructure available, but update checking is currently disabled and the app target does not link Sparkle by default.
 - **Current resolution**: pinned by `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 
 ### Licensing

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		6E1F4D5A2FAD100000000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 6E1F4D592FAD100000000001 /* Sparkle */; settings = {platformFilters = (macos, ); }; };
 		6EC21B342F9D0EE60020DADE /* TagLibAudioMetadata in Frameworks */ = {isa = PBXBuildFile; productRef = 6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */; };
 /* End PBXBuildFile section */
 
@@ -28,7 +27,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6E1F4D5A2FAD100000000001 /* Sparkle in Frameworks */,
 				6EC21B342F9D0EE60020DADE /* TagLibAudioMetadata in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -80,7 +78,6 @@
 			);
 			name = AudioMator;
 			packageProductDependencies = (
-				6E1F4D592FAD100000000001 /* Sparkle */,
 				6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */,
 			);
 			productName = AudioMator;
@@ -283,7 +280,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = AudioMator/AudioMator.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2651;
+				CURRENT_PROJECT_VERSION = 2652;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -321,7 +318,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.1;
+				MARKETING_VERSION = 2.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TheLloydME.AudioMator.Beta;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -352,7 +349,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2651;
+				CURRENT_PROJECT_VERSION = 2652;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -390,7 +387,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.1;
+				MARKETING_VERSION = 2.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.LloydME.AudioMator;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -450,11 +447,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		6E1F4D592FAD100000000001 /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6E1F4D582FAD100000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
-		};
 		6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */;

@@ -646,9 +646,10 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
         Coordinator(parent: self)
     }
 
-    func makeNSView(context: Context) -> NSSearchField {
-        let textField = NSSearchField()
+    func makeNSView(context: Context) -> MetadataFieldAutocompleteSearchField {
+        let textField = MetadataFieldAutocompleteSearchField()
         textField.delegate = context.coordinator
+        textField.focusDelegate = context.coordinator
         textField.placeholderString = placeholder
         textField.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         textField.controlSize = .regular
@@ -661,9 +662,10 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
         return textField
     }
 
-    func updateNSView(_ textField: NSSearchField, context: Context) {
+    func updateNSView(_ textField: MetadataFieldAutocompleteSearchField, context: Context) {
         context.coordinator.parent = self
         context.coordinator.textField = textField
+        textField.focusDelegate = context.coordinator
 
         if textField.currentEditor() == nil, textField.stringValue != text {
             textField.stringValue = text
@@ -672,7 +674,7 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
         context.coordinator.refreshSuggestions(for: textField.stringValue)
     }
 
-    final class Coordinator: NSObject, NSSearchFieldDelegate, NSTableViewDataSource, NSTableViewDelegate {
+    final class Coordinator: NSObject, NSSearchFieldDelegate, NSTableViewDataSource, NSTableViewDelegate, MetadataFieldAutocompleteSearchFieldFocusDelegate {
         var parent: MetadataFieldKeyAutocompleteField
         weak var textField: NSSearchField?
 
@@ -700,6 +702,11 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
 
         func controlTextDidBeginEditing(_ notification: Notification) {
             guard let textField = notification.object as? NSSearchField else { return }
+            refreshSuggestions(for: textField.stringValue)
+            showDropdown()
+        }
+
+        func autocompleteSearchFieldDidBecomeActive(_ textField: MetadataFieldAutocompleteSearchField) {
             refreshSuggestions(for: textField.stringValue)
             showDropdown()
         }
@@ -983,6 +990,34 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
                     || suggestion.displayName.localizedCaseInsensitiveContains(normalizedQuery)
                     || suggestion.category.displayName.localizedCaseInsensitiveContains(normalizedQuery)
             }
+        }
+    }
+}
+
+private protocol MetadataFieldAutocompleteSearchFieldFocusDelegate: AnyObject {
+    func autocompleteSearchFieldDidBecomeActive(_ textField: MetadataFieldAutocompleteSearchField)
+}
+
+private final class MetadataFieldAutocompleteSearchField: NSSearchField {
+    weak var focusDelegate: MetadataFieldAutocompleteSearchFieldFocusDelegate?
+
+    override func becomeFirstResponder() -> Bool {
+        let becameFirstResponder = super.becomeFirstResponder()
+        if becameFirstResponder {
+            notifyActive()
+        }
+        return becameFirstResponder
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
+        notifyActive()
+    }
+
+    private func notifyActive() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.focusDelegate?.autocompleteSearchFieldDidBecomeActive(self)
         }
     }
 }

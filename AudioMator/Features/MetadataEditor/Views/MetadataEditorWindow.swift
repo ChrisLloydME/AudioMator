@@ -54,82 +54,6 @@ private struct MetadataFieldEditorContext: Identifiable {
     }
 }
 
-private struct MetadataFieldSuggestion: Identifiable, Hashable {
-    let key: String
-    let displayName: String
-    let category: MetadataFieldCategory
-
-    var id: String { key }
-
-    var detailText: String {
-        "\(displayName) - \(category.displayName)"
-    }
-
-    static let allSupported: [MetadataFieldSuggestion] = {
-        var suggestions: [MetadataFieldSuggestion] = []
-        var seenKeys = Set<String>()
-
-        for schema in MetadataFieldRegistry.allSchemas where !schema.isArtworkField {
-            for propertyMapKey in schema.propertyMapKeys {
-                let normalizedKey = MetadataFieldRegistry.normalizePropertyMapKey(propertyMapKey)
-                guard !normalizedKey.isEmpty, seenKeys.insert(normalizedKey).inserted else { continue }
-
-                suggestions.append(
-                    MetadataFieldSuggestion(
-                        key: normalizedKey,
-                        displayName: schema.displayName,
-                        category: schema.category
-                    )
-                )
-            }
-        }
-
-        return suggestions.sorted { lhs, rhs in
-            let displayComparison = lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName)
-            if displayComparison != .orderedSame {
-                return displayComparison == .orderedAscending
-            }
-
-            return lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending
-        }
-    }()
-}
-
-private extension MetadataFieldCategory {
-    var displayName: String {
-        switch self {
-        case .basic:
-            return "Basic"
-        case .numbering:
-            return "Numbering"
-        case .artwork:
-            return "Artwork"
-        case .lyricsAndComments:
-            return "Lyrics & Comments"
-        case .dates:
-            return "Dates"
-        case .people:
-            return "People"
-        case .peopleRoles:
-            return "People Roles"
-        case .sorting:
-            return "Sorting"
-        case .identifiers:
-            return "Identifiers"
-        case .release:
-            return "Release"
-        case .replayGain:
-            return "ReplayGain"
-        case .itunes:
-            return "iTunes"
-        case .technical:
-            return "Technical"
-        case .custom:
-            return "Custom"
-        }
-    }
-}
-
 @MainActor
 final class MetadataEditorStore: ObservableObject {
     private struct LoadedState {
@@ -318,7 +242,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     nonisolated private static func normalizedFieldKey(_ key: String) -> String {
-        key.trimmingCharacters(in: .whitespacesAndNewlines)
+        MetadataFieldSuggestion.resolvedKey(for: key)
     }
 
     nonisolated private static func normalizedFieldValue(_ value: String) -> String {
@@ -794,12 +718,12 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             }
 
             let suggestion = filteredSuggestions[row]
-            textField.stringValue = suggestion.key
-            parent.text = suggestion.key
+            textField.stringValue = suggestion.canonicalKey
+            parent.text = suggestion.canonicalKey
             closeDropdown()
 
             if let editor = textField.currentEditor() {
-                editor.selectedRange = NSRange(location: suggestion.key.utf16.count, length: 0)
+                editor.selectedRange = NSRange(location: suggestion.canonicalKey.utf16.count, length: 0)
                 textField.window?.makeFirstResponder(editor)
             }
         }
@@ -986,9 +910,7 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             guard !normalizedQuery.isEmpty else { return suggestions }
 
             return suggestions.filter { suggestion in
-                suggestion.key.localizedCaseInsensitiveContains(normalizedQuery)
-                    || suggestion.displayName.localizedCaseInsensitiveContains(normalizedQuery)
-                    || suggestion.category.displayName.localizedCaseInsensitiveContains(normalizedQuery)
+                suggestion.matches(query: normalizedQuery)
             }
         }
     }
@@ -1111,13 +1033,13 @@ private final class MetadataFieldSuggestionCellView: NSTableCellView {
     }
 
     func configure(with suggestion: MetadataFieldSuggestion) {
-        keyLabel.stringValue = suggestion.key
+        keyLabel.stringValue = suggestion.displayName
         detailLabel.stringValue = suggestion.detailText
-        toolTip = suggestion.detailText
+        toolTip = "\(suggestion.displayName)\n\(suggestion.detailText)"
     }
 
     private func configureView() {
-        keyLabel.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
+        keyLabel.font = .systemFont(ofSize: 12, weight: .medium)
         keyLabel.lineBreakMode = .byTruncatingTail
         keyLabel.textColor = .labelColor
 

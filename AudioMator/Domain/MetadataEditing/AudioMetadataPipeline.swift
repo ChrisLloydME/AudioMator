@@ -70,7 +70,11 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
-        TagLibMetadataManager.rawMetadataText(from: url)
+        guard let rawText = TagLibMetadataManager.rawMetadataText(from: url) else {
+            return nil
+        }
+
+        return MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes(rawText)
     }
 
     nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
@@ -156,6 +160,129 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 }
 
 private enum MetadataPipelineSupport {
+    nonisolated static func rawMetadataDumpTextWithCompatibilityNotes(_ rawText: String) -> String {
+        let notes = legacyTagCompatibilityNotes(for: rawText)
+        guard !notes.isEmpty else { return rawText }
+
+        let noteText = (["[AudioMator Compatibility Notes]"] + notes.map { "- \($0)" })
+            .joined(separator: "\n")
+        return [rawText, noteText].joined(separator: "\n\n")
+    }
+
+    nonisolated private static func legacyTagCompatibilityNotes(for rawText: String) -> [String] {
+        let sections = metadataDumpSections(from: rawText)
+        let properties = sections["TagLib Properties"] ?? [:]
+        let id3v1 = sections["ID3v1 Tag"] ?? [:]
+
+        var notes: [String] = []
+
+        for field in id3v1ComparisonFields {
+            guard
+                let canonicalValue = firstNonEmptyValue(for: field.canonicalKeys, in: properties),
+                let legacyValue = firstNonEmptyValue(for: field.legacyKeys, in: id3v1),
+                legacyValue != canonicalValue
+            else {
+                continue
+            }
+
+            if canonicalValue.hasPrefix(legacyValue) {
+                notes.append(
+                    "\(field.displayName) also exists in the ID3v1 tag as a shorter value. AudioMator treats the TagLib property value as authoritative because ID3v1 fields are length-limited."
+                )
+            } else {
+                notes.append(
+                    "\(field.displayName) differs between TagLib properties and the ID3v1 tag. AudioMator treats the TagLib property value as authoritative."
+                )
+            }
+        }
+
+        if !id3v1.isEmpty && !notes.isEmpty {
+            notes.append("Saving metadata through AudioMator writes the modern TagLib-backed fields; the legacy ID3v1 copy may still be constrained by the file format or TagLib writer.")
+        }
+
+        return notes
+    }
+
+    nonisolated private static var id3v1ComparisonFields: [LegacyTagComparisonField] {
+        [
+            LegacyTagComparisonField(
+                displayName: "Title",
+                canonicalKeys: ["TITLE"],
+                legacyKeys: ["Title"]
+            ),
+            LegacyTagComparisonField(
+                displayName: "Artist",
+                canonicalKeys: ["ARTIST"],
+                legacyKeys: ["Artist"]
+            ),
+            LegacyTagComparisonField(
+                displayName: "Album",
+                canonicalKeys: ["ALBUM"],
+                legacyKeys: ["Album"]
+            ),
+            LegacyTagComparisonField(
+                displayName: "Year",
+                canonicalKeys: ["DATE", "YEAR", "RELEASEDATE"],
+                legacyKeys: ["Year"]
+            ),
+            LegacyTagComparisonField(
+                displayName: "Track",
+                canonicalKeys: ["TRACKNUMBER", "TRACK"],
+                legacyKeys: ["Track"]
+            )
+        ]
+    }
+
+    nonisolated private static func firstNonEmptyValue(
+        for keys: [String],
+        in valuesByKey: [String: String]
+    ) -> String? {
+        for key in keys {
+            if let value = valuesByKey[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !value.isEmpty {
+                return value
+            }
+        }
+
+        return nil
+    }
+
+    nonisolated private static func metadataDumpSections(from rawText: String) -> [String: [String: String]] {
+        var sections: [String: [String: String]] = [:]
+        var currentSection: String?
+
+        for line in rawText.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            if trimmed.hasPrefix("["), trimmed.hasSuffix("]") {
+                currentSection = String(trimmed.dropFirst().dropLast())
+                if let currentSection {
+                    sections[currentSection, default: [:]] = [:]
+                }
+                continue
+            }
+
+            guard
+                let currentSection,
+                trimmed != "(none)",
+                let separatorRange = trimmed.range(of: " = ")
+            else {
+                continue
+            }
+
+            let key = String(trimmed[..<separatorRange.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = String(trimmed[separatorRange.upperBound...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            guard !key.isEmpty, !value.isEmpty else { continue }
+            sections[currentSection, default: [:]][key] = value
+        }
+
+        return sections
+    }
+
     nonisolated static func normalizedFieldComponent(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -360,4 +487,10 @@ private enum MetadataPipelineSupport {
           discText    = \(edit.discNumberText.isEmpty ? "<empty>" : edit.discNumberText)
         """)
     }
+}
+
+private struct LegacyTagComparisonField {
+    let displayName: String
+    let canonicalKeys: [String]
+    let legacyKeys: [String]
 }

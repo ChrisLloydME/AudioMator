@@ -677,10 +677,12 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
         weak var textField: NSSearchField?
 
         private var filteredSuggestions: [MetadataFieldSuggestion] = []
-        private var popover: NSPopover?
+        private var dropdownWindow: NSPanel?
+        private var outsideClickMonitor: Any?
         private var tableView: MetadataFieldSuggestionTableView?
         private let rowHeight: CGFloat = 42
-        private let popoverInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+        private let dropdownInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+        private let highlightCornerRadius: CGFloat = 5
 
         init(parent: MetadataFieldKeyAutocompleteField) {
             self.parent = parent
@@ -693,13 +695,13 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             filteredSuggestions = nextSuggestions
             tableView?.reloadData()
             selectFirstRowIfNeeded()
-            updatePopoverSize()
+            updateDropdownFrame()
         }
 
         func controlTextDidBeginEditing(_ notification: Notification) {
             guard let textField = notification.object as? NSSearchField else { return }
             refreshSuggestions(for: textField.stringValue)
-            showPopover()
+            showDropdown()
         }
 
         func controlTextDidChange(_ notification: Notification) {
@@ -708,11 +710,11 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             let newText = textField.stringValue
             parent.text = newText
             refreshSuggestions(for: newText)
-            showPopover()
+            showDropdown()
         }
 
         func controlTextDidEndEditing(_ notification: Notification) {
-            popover?.performClose(nil)
+            closeDropdown()
         }
 
         func control(
@@ -726,12 +728,12 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             case #selector(NSResponder.moveUp(_:)):
                 return moveSelection(offset: -1)
             case #selector(NSResponder.insertNewline(_:)):
-                guard popover?.isShown == true, tableView?.selectedRow ?? -1 >= 0 else { return false }
+                guard dropdownWindow?.isVisible == true, tableView?.selectedRow ?? -1 >= 0 else { return false }
                 selectHighlightedSuggestion()
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
-                guard popover?.isShown == true else { return false }
-                popover?.performClose(nil)
+                guard dropdownWindow?.isVisible == true else { return false }
+                closeDropdown()
                 return true
             default:
                 return false
@@ -761,6 +763,15 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             true
         }
 
+        func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+            MetadataFieldSuggestionRowView(cornerRadius: highlightCornerRadius)
+        }
+
+        fileprivate func hoverSuggestion(at row: Int) {
+            guard filteredSuggestions.indices.contains(row) else { return }
+            selectRow(row, scrollToVisible: false)
+        }
+
         @objc
         private func selectHighlightedSuggestion() {
             guard let tableView else { return }
@@ -778,7 +789,7 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             let suggestion = filteredSuggestions[row]
             textField.stringValue = suggestion.key
             parent.text = suggestion.key
-            popover?.performClose(nil)
+            closeDropdown()
 
             if let editor = textField.currentEditor() {
                 editor.selectedRange = NSRange(location: suggestion.key.utf16.count, length: 0)
@@ -788,39 +799,41 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
 
         private func moveSelection(offset: Int) -> Bool {
             guard !filteredSuggestions.isEmpty else { return false }
-            showPopover()
+            showDropdown()
             let selectedRow = tableView?.selectedRow ?? (offset > 0 ? -1 : filteredSuggestions.count)
             let nextRow = min(max(selectedRow + offset, 0), filteredSuggestions.count - 1)
             selectRow(nextRow)
             return true
         }
 
-        private func showPopover() {
+        private func showDropdown() {
             guard
                 let textField,
                 textField.currentEditor() != nil,
                 !filteredSuggestions.isEmpty
             else {
-                popover?.performClose(nil)
+                closeDropdown()
                 return
             }
 
-            if popover == nil {
-                popover = makePopover()
+            if dropdownWindow == nil {
+                dropdownWindow = makeDropdownWindow()
             }
 
             selectFirstRowIfNeeded()
-            updatePopoverSize()
+            updateDropdownFrame()
 
-            if popover?.isShown != true {
-                popover?.show(relativeTo: textField.bounds, of: textField, preferredEdge: .maxY)
+            if dropdownWindow?.isVisible != true {
+                textField.window?.addChildWindow(dropdownWindow!, ordered: .above)
+                dropdownWindow?.orderFront(nil)
+                installOutsideClickMonitor()
                 if let editor = textField.currentEditor() {
                     textField.window?.makeFirstResponder(editor)
                 }
             }
         }
 
-        private func makePopover() -> NSPopover {
+        private func makeDropdownWindow() -> NSPanel {
             let tableView = MetadataFieldSuggestionTableView()
             tableView.autocompleteCoordinator = self
             tableView.delegate = self
@@ -842,32 +855,39 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             scrollView.translatesAutoresizingMaskIntoConstraints = false
 
             let materialView = NSVisualEffectView()
-            materialView.material = .popover
+            materialView.material = .menu
             materialView.blendingMode = .behindWindow
             materialView.state = .active
             materialView.wantsLayer = true
-            materialView.layer?.cornerRadius = 14
+            materialView.layer?.cornerRadius = dropdownInsets.top + highlightCornerRadius
             materialView.layer?.cornerCurve = .continuous
             materialView.layer?.masksToBounds = true
             materialView.addSubview(scrollView)
 
             NSLayoutConstraint.activate([
-                scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor, constant: popoverInsets.left),
-                scrollView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor, constant: -popoverInsets.right),
-                scrollView.topAnchor.constraint(equalTo: materialView.topAnchor, constant: popoverInsets.top),
-                scrollView.bottomAnchor.constraint(equalTo: materialView.bottomAnchor, constant: -popoverInsets.bottom)
+                scrollView.leadingAnchor.constraint(equalTo: materialView.leadingAnchor, constant: dropdownInsets.left),
+                scrollView.trailingAnchor.constraint(equalTo: materialView.trailingAnchor, constant: -dropdownInsets.right),
+                scrollView.topAnchor.constraint(equalTo: materialView.topAnchor, constant: dropdownInsets.top),
+                scrollView.bottomAnchor.constraint(equalTo: materialView.bottomAnchor, constant: -dropdownInsets.bottom)
             ])
 
-            let viewController = NSViewController()
-            viewController.view = materialView
-
-            let popover = NSPopover()
-            popover.behavior = .applicationDefined
-            popover.animates = true
-            popover.contentViewController = viewController
+            let panel = NSPanel(
+                contentRect: .zero,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.isReleasedWhenClosed = false
+            panel.hidesOnDeactivate = true
+            panel.hasShadow = true
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.level = .popUpMenu
+            panel.acceptsMouseMovedEvents = true
+            panel.contentView = materialView
 
             self.tableView = tableView
-            return popover
+            return panel
         }
 
         private func selectFirstRowIfNeeded() {
@@ -877,23 +897,78 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             }
         }
 
-        private func selectRow(_ row: Int) {
+        private func selectRow(_ row: Int, scrollToVisible: Bool = true) {
             guard filteredSuggestions.indices.contains(row), let tableView else { return }
             tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-            tableView.scrollRowToVisible(row)
+            if scrollToVisible {
+                tableView.scrollRowToVisible(row)
+            }
         }
 
-        private func updatePopoverSize() {
-            guard let textField, let popover, let tableView else { return }
+        private func updateDropdownFrame() {
+            guard
+                let textField,
+                let sourceWindow = textField.window,
+                let dropdownWindow,
+                let tableView
+            else {
+                return
+            }
 
             let visibleRows = min(max(filteredSuggestions.count, 1), 10)
             let width = max(textField.bounds.width, 430)
             let height = CGFloat(visibleRows) * rowHeight
                 + CGFloat(max(visibleRows - 1, 0)) * tableView.intercellSpacing.height
-                + popoverInsets.top
-                + popoverInsets.bottom
-            popover.contentSize = NSSize(width: width, height: height)
-            tableView.tableColumns.first?.width = width - popoverInsets.left - popoverInsets.right - 18
+                + dropdownInsets.top
+                + dropdownInsets.bottom
+
+            let fieldScreenRect = sourceWindow.convertToScreen(textField.convert(textField.bounds, to: nil))
+            let frame = NSRect(
+                x: fieldScreenRect.minX,
+                y: fieldScreenRect.minY - height - 4,
+                width: width,
+                height: height
+            )
+
+            dropdownWindow.setFrame(frame, display: true)
+            tableView.tableColumns.first?.width = width - dropdownInsets.left - dropdownInsets.right - 18
+        }
+
+        private func closeDropdown() {
+            if let dropdownWindow, let parentWindow = textField?.window {
+                parentWindow.removeChildWindow(dropdownWindow)
+            }
+            dropdownWindow?.orderOut(nil)
+
+            if let outsideClickMonitor {
+                NSEvent.removeMonitor(outsideClickMonitor)
+                self.outsideClickMonitor = nil
+            }
+        }
+
+        private func installOutsideClickMonitor() {
+            guard outsideClickMonitor == nil else { return }
+
+            outsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+                guard let self else { return event }
+                guard self.dropdownWindow?.isVisible == true else { return event }
+
+                if self.event(event, isInside: self.textField) || self.event(event, isInside: self.dropdownWindow?.contentView) {
+                    return event
+                }
+
+                self.closeDropdown()
+                return event
+            }
+        }
+
+        private func event(_ event: NSEvent, isInside view: NSView?) -> Bool {
+            guard let view, let eventWindow = event.window, eventWindow === view.window else {
+                return false
+            }
+
+            let point = view.convert(event.locationInWindow, from: nil)
+            return view.bounds.contains(point)
         }
 
         private static func filteredSuggestions(
@@ -914,9 +989,38 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
 
 private final class MetadataFieldSuggestionTableView: NSTableView {
     weak var autocompleteCoordinator: MetadataFieldKeyAutocompleteField.Coordinator?
+    private var trackingArea: NSTrackingArea?
 
     override var acceptsFirstResponder: Bool {
         false
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+
+        let trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+        self.trackingArea = trackingArea
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let row = row(at: point)
+
+        if row >= 0 {
+            autocompleteCoordinator?.hoverSuggestion(at: row)
+        }
+
+        super.mouseMoved(with: event)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -930,6 +1034,30 @@ private final class MetadataFieldSuggestionTableView: NSTableView {
 
         selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         autocompleteCoordinator?.selectSuggestion(at: row)
+    }
+}
+
+private final class MetadataFieldSuggestionRowView: NSTableRowView {
+    private let cornerRadius: CGFloat
+
+    init(cornerRadius: CGFloat) {
+        self.cornerRadius = cornerRadius
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) {
+        self.cornerRadius = 5
+        super.init(coder: coder)
+    }
+
+    override func drawSelection(in dirtyRect: NSRect) {
+        let selectionRect = bounds.insetBy(dx: 2, dy: 1)
+        NSColor.selectedContentBackgroundColor.setFill()
+        NSBezierPath(
+            roundedRect: selectionRect,
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
+        ).fill()
     }
 }
 

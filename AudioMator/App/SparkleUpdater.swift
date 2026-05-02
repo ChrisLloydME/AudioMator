@@ -1,4 +1,4 @@
-#if os(macOS)
+#if os(macOS) && ENABLE_SPARKLE_UPDATES
 import Sparkle
 
 final class SparkleUpdater {

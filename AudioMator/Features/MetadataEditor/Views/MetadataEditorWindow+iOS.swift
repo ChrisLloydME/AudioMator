@@ -110,7 +110,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func upsertField(key: String, value: String) {
-        let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedKey = MetadataFieldSuggestion.resolvedKey(for: key)
         let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedKey.isEmpty, !normalizedValue.isEmpty else { return }
 

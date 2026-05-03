@@ -551,37 +551,36 @@ private struct MetadataSaveProgressOverlay: View {
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(.black.opacity(0.18))
+                .fill(.black.opacity(0.10))
                 .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 14) {
-                Text(progress.title)
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(progress.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
 
-                Text(progress.subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    Text(progress.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
 
-                ProgressView(value: progress.fractionCompleted)
-                    .progressViewStyle(.linear)
+                VStack(alignment: .trailing, spacing: 7) {
+                    ProgressView(value: progress.fractionCompleted)
+                        .progressViewStyle(.linear)
+                        .tint(.accentColor)
 
-                Text(progress.progressLabel)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    Text(progress.progressLabel)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(20)
-            .frame(width: 360)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.regularMaterial)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.16), radius: 24, x: 0, y: 12)
+            .frame(width: 380)
+            .glassEffect(.regular, in: .rect(cornerRadius: 26.0))
+            .shadow(color: .black.opacity(0.18), radius: 28, x: 0, y: 18)
             .allowsHitTesting(true)
         }
         .ignoresSafeArea()
@@ -594,69 +593,35 @@ private struct MetadataWriteHUDView: View {
     let hud: MetadataWriteHUD
 
     var body: some View {
-        VStack(spacing: 10) {
-            MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
+        GlassEffectContainer(spacing: 14) {
+            VStack(spacing: 12) {
+                MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
 
-            VStack(spacing: 3) {
-                Text(hud.title)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(primaryTextColor)
+                VStack(spacing: 4) {
+                    Text(hud.title)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(.primary)
 
-                Text(hud.subtitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(secondaryTextColor)
-                    .lineLimit(4)
-                    .multilineTextAlignment(.center)
+                    Text(hud.subtitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                        .multilineTextAlignment(.center)
+                }
             }
+            .frame(width: 320)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 18)
+            .glassEffect(.regular, in: .rect(cornerRadius: 26.0))
+            .shadow(color: shadowColor, radius: 22, x: 0, y: 14)
         }
-        .frame(width: 320)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 18)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(backgroundColor)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(borderColor, lineWidth: 1)
-        )
-        .shadow(color: shadowColor, radius: 18, x: 0, y: 12)
         .allowsHitTesting(false)
-    }
-
-    private var backgroundColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.10, green: 0.10, blue: 0.11).opacity(0.94)
-            : Color.white.opacity(0.96)
-    }
-
-    private var borderColor: Color {
-        switch hud.style {
-        case .success:
-            return colorScheme == .dark
-                ? Color.white.opacity(0.08)
-                : Color.black.opacity(0.08)
-        case .warning:
-            return Color.orange.opacity(colorScheme == .dark ? 0.55 : 0.35)
-        case .failure:
-            return Color.red.opacity(colorScheme == .dark ? 0.58 : 0.38)
-        }
     }
 
     private var shadowColor: Color {
         colorScheme == .dark
             ? Color.black.opacity(0.30)
             : Color.black.opacity(0.14)
-    }
-
-    private var primaryTextColor: Color {
-        colorScheme == .dark ? Color.white : Color.black.opacity(0.88)
-    }
-
-    private var secondaryTextColor: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.66)
-            : Color.black.opacity(0.56)
     }
 }
 
@@ -665,51 +630,16 @@ private struct MetadataWriteHUDIcon: View {
     let colorScheme: ColorScheme
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(badgeFillColor)
-                .frame(width: 54, height: 54)
-
-            Circle()
-                .stroke(ringStrokeColor, lineWidth: 1)
-                .frame(width: 54, height: 54)
-
-            Image(systemName: symbolName)
-                .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(symbolColor)
-        }
-    }
-
-    private var badgeFillColor: Color {
-        switch style {
-        case .success:
-            return colorScheme == .dark
-                ? Color.white.opacity(0.08)
-                : Color.black.opacity(0.06)
-        case .warning:
-            return Color.orange.opacity(colorScheme == .dark ? 0.18 : 0.14)
-        case .failure:
-            return Color.red.opacity(colorScheme == .dark ? 0.18 : 0.14)
-        }
-    }
-
-    private var ringStrokeColor: Color {
-        switch style {
-        case .success:
-            return colorScheme == .dark
-                ? Color.white.opacity(0.12)
-                : Color.black.opacity(0.12)
-        case .warning:
-            return Color.orange.opacity(colorScheme == .dark ? 0.42 : 0.28)
-        case .failure:
-            return Color.red.opacity(colorScheme == .dark ? 0.44 : 0.30)
-        }
+        Image(systemName: symbolName)
+            .font(.system(size: 54, weight: .semibold))
+            .foregroundStyle(symbolColor)
+        .frame(width: 54, height: 54)
     }
 
     private var symbolColor: Color {
         switch style {
         case .success:
-            return colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.84)
+            return Color.green.opacity(colorScheme == .dark ? 0.92 : 0.86)
         case .warning:
             return colorScheme == .dark ? Color.orange.opacity(0.92) : Color.orange.opacity(0.86)
         case .failure:
@@ -720,11 +650,11 @@ private struct MetadataWriteHUDIcon: View {
     private var symbolName: String {
         switch style {
         case .success:
-            return "checkmark"
+            return "checkmark.circle.fill"
         case .warning:
             return "exclamationmark.triangle.fill"
         case .failure:
-            return "xmark"
+            return "xmark.circle.fill"
         }
     }
 }

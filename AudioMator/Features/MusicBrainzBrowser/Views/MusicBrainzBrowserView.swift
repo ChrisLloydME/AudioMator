@@ -7,6 +7,7 @@ struct MusicBrainzBrowserView: View {
     @ObservedObject var viewModel: AudioViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var navigationPath: [MusicBrainzBrowserDestination] = []
+    @State private var isShowingFilters = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -89,6 +90,10 @@ struct MusicBrainzBrowserView: View {
 
             searchFields
 
+            if store.mode != .link {
+                filterBar
+            }
+
             HStack(spacing: 8) {
                 Spacer()
 
@@ -117,6 +122,43 @@ struct MusicBrainzBrowserView: View {
             }
         }
         .pickerStyle(.segmented)
+    }
+
+    private var filterBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                isShowingFilters = true
+            } label: {
+                Label("Filters", systemImage: store.releaseFilters.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+            }
+            .popover(isPresented: $isShowingFilters) {
+                MusicBrainzReleaseFilterPanel(
+                    filters: $store.releaseFilters,
+                    onReset: store.resetFilters
+                )
+                .frame(minWidth: 360)
+            }
+
+            if !store.releaseFilters.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(store.releaseFilters.summaryParts.enumerated()), id: \.offset) { _, part in
+                            MusicBrainzFilterChip(title: part)
+                        }
+                    }
+                }
+
+                Button("Reset") {
+                    store.resetFilters()
+                }
+                .buttonStyle(.borderless)
+                .font(.system(size: 12))
+            } else {
+                Text("No release filters")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     @ViewBuilder
@@ -320,6 +362,150 @@ private struct MusicBrainzQueryField: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: minimumWidth)
         }
+    }
+}
+
+private struct MusicBrainzReleaseFilterPanel: View {
+    @Binding var filters: MusicBrainzReleaseFilters
+    let onReset: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Release Filters")
+                    .font(.system(size: 13, weight: .semibold))
+
+                Spacer()
+
+                Button("Reset") {
+                    onReset()
+                }
+                .buttonStyle(.borderless)
+                .disabled(filters.isEmpty)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                filterLabel("Medium", systemImage: "opticaldisc")
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(MusicBrainzReleaseMediaFormat.allCases) { format in
+                        Toggle(format.displayName, isOn: mediaFormatBinding(format))
+                    }
+                }
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    filterLabel("Year", systemImage: "calendar")
+
+                    TextField("YYYY", text: releaseYearBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 92)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    filterLabel("Country", systemImage: "globe")
+
+                    TextField("US, JP, GB", text: countryBinding)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    filterLabel("Status", systemImage: "checkmark.seal")
+
+                    Spacer()
+
+                    Button("Official Only") {
+                        filters.statuses = [.official]
+                    }
+                    .buttonStyle(.borderless)
+
+                    Button("Any") {
+                        filters.statuses.removeAll()
+                    }
+                    .buttonStyle(.borderless)
+                }
+
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(MusicBrainzReleaseStatus.allCases) { status in
+                        Toggle(status.displayName, isOn: statusBinding(status))
+                    }
+                }
+            }
+        }
+        .padding(16)
+    }
+
+    private var releaseYearBinding: Binding<String> {
+        Binding(
+            get: { filters.releaseYear },
+            set: { newValue in
+                filters.releaseYear = String(newValue.filter(\.isNumber).prefix(4))
+            }
+        )
+    }
+
+    private var countryBinding: Binding<String> {
+        Binding(
+            get: { filters.normalizedCountries.joined(separator: ", ") },
+            set: { newValue in
+                let countries = newValue
+                    .split { !$0.isLetter }
+                    .compactMap { MusicBrainzReleaseFilters.normalizedCountryCode(String($0)) }
+                filters.countries = Set(countries)
+            }
+        )
+    }
+
+    private func mediaFormatBinding(_ format: MusicBrainzReleaseMediaFormat) -> Binding<Bool> {
+        Binding(
+            get: { filters.mediaFormats.contains(format) },
+            set: { isSelected in
+                if isSelected {
+                    filters.mediaFormats.insert(format)
+                } else {
+                    filters.mediaFormats.remove(format)
+                }
+            }
+        )
+    }
+
+    private func statusBinding(_ status: MusicBrainzReleaseStatus) -> Binding<Bool> {
+        Binding(
+            get: { filters.statuses.contains(status) },
+            set: { isSelected in
+                if isSelected {
+                    filters.statuses.insert(status)
+                } else {
+                    filters.statuses.remove(status)
+                }
+            }
+        )
+    }
+
+    private func filterLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct MusicBrainzFilterChip: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+            )
+            .foregroundStyle(Color.accentColor)
     }
 }
 

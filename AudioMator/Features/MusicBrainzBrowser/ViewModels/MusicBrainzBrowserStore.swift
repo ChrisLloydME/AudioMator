@@ -66,6 +66,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     @Published var albumQuery: String = ""
     @Published var trackNumberQuery: String = ""
     @Published var linkQuery: String = ""
+    @Published var releaseFilters: MusicBrainzReleaseFilters = MusicBrainzReleaseFilters()
     @Published private(set) var isSearching: Bool = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var results: MusicBrainzSearchResults = .recordings([])
@@ -120,7 +121,8 @@ final class MusicBrainzBrowserStore: ObservableObject {
             musicBrainzAlbumID: resolvedMusicBrainzAlbumID,
             musicBrainzTrackID: resolvedMusicBrainzTrackID,
             fileInputs: fileInputs,
-            link: linkQuery
+            link: linkQuery,
+            releaseFilters: mode == .link ? MusicBrainzReleaseFilters() : releaseFilters
         )
     }
 
@@ -187,6 +189,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
         fileMusicBrainzTrackID = ""
         fileInputs = []
         linkQuery = ""
+        releaseFilters = MusicBrainzReleaseFilters()
         mode = .track
         results = .recordings([])
         errorMessage = nil
@@ -219,6 +222,10 @@ final class MusicBrainzBrowserStore: ObservableObject {
         sourceDescription = fileInputs.isEmpty
             ? "Edit the fields below or seed them from the current AudioMator selection."
             : "Seeded from the current AudioMator selection."
+    }
+
+    func resetFilters() {
+        releaseFilters = MusicBrainzReleaseFilters()
     }
 
     func handleModeChange(from oldMode: MusicBrainzSearchMode, to newMode: MusicBrainzSearchMode) {

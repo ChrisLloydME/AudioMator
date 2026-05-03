@@ -433,6 +433,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     @Published private(set) var loadedFilesByInputID: [String: AudioFile]
     @Published var selectedFields: Set<MusicBrainzTagWriteField>
     @Published private(set) var recordingStates: [String: RecordingLookupState] = [:]
+    @Published private(set) var fieldAvailabilityRecordingIDs: Set<String> = []
+    @Published private(set) var recordingPreloadTargetIDs: Set<String> = []
 
     private let browserStore: MusicBrainzBrowserStore
     private var recordingLoadTasks: [String: Task<Void, Never>] = [:]
@@ -440,6 +442,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     private let publisherName: String
     private let primaryCatalogNumber: String
     private let totalMediumCount: Int
+    private let shouldPreloadAllReleaseRecordings: Bool
 
     init(
         release: MusicBrainzReleaseDetail,
@@ -449,7 +452,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     ) {
         self.release = release
         self.browserStore = browserStore
-        self.availableTracks = Self.flattenedTracks(from: release)
+        let flattenedTracks = Self.flattenedTracks(from: release)
+        self.availableTracks = flattenedTracks
         self.loadedFilesByInputID = Dictionary(
             uniqueKeysWithValues: loadedFiles.map { ($0.id.uuidString, $0) }
         )
@@ -458,6 +462,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         self.publisherName = release.labels.first(where: { !$0.labelName.isEmpty })?.labelName ?? ""
         self.primaryCatalogNumber = release.labels.first(where: { !$0.catalogNumber.isEmpty })?.catalogNumber ?? ""
         self.totalMediumCount = max(release.media.count, 1)
+        self.shouldPreloadAllReleaseRecordings = flattenedTracks.count <= MusicBrainzBrowserStore.fullReleaseRecordingPreloadLimit
 
         let autoAssignments = Dictionary(
             uniqueKeysWithValues: preview.matchedAssignments.map { ($0.file.id, $0) }
@@ -474,6 +479,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
                 selectedTrackID: autoAssignment?.track.id
             )
         }
+
+        refreshRecordingPreloadTargets()
     }
 
     deinit {
@@ -482,6 +489,47 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     var plan: MusicBrainzTaggingPlan {
         MusicBrainzTaggingPlan(rows: assignments.map(buildPlanRow))
+    }
+
+    var availableFields: [MusicBrainzTagWriteField] {
+        guard !isLoadingFieldAvailability else { return [] }
+
+        return MusicBrainzTagWriteField.allCases.filter(isFieldAvailable)
+    }
+
+    var selectedAvailableFields: Set<MusicBrainzTagWriteField> {
+        selectedFields.intersection(availableFields)
+    }
+
+    var isLoadingFieldAvailability: Bool {
+        fieldAvailabilityRecordingIDs.contains { recordingID in
+            switch recordingState(for: recordingID) {
+            case .idle, .loading:
+                return true
+            case .loaded, .failed:
+                return false
+            }
+        }
+    }
+
+    var recordingPreloadCompletedCount: Int {
+        recordingPreloadTargetIDs.reduce(into: 0) { count, recordingID in
+            switch recordingState(for: recordingID) {
+            case .loaded, .failed:
+                count += 1
+            case .idle, .loading:
+                break
+            }
+        }
+    }
+
+    var recordingPreloadTotalCount: Int {
+        recordingPreloadTargetIDs.count
+    }
+
+    var recordingPreloadProgress: Double {
+        guard recordingPreloadTotalCount > 0 else { return 1 }
+        return Double(recordingPreloadCompletedCount) / Double(recordingPreloadTotalCount)
     }
 
     var hasDuplicateTrackAssignments: Bool {
@@ -503,26 +551,32 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var hasPendingRecordingLoads: Bool {
-        recordingStates.values.contains(where: \.isLoading)
+        guard selectedFields.contains(where: \.requiresRecordingDetail) else { return false }
+
+        return recordingIDsForAssignedTracks.contains { recordingID in
+            recordingState(for: recordingID).isLoading
+        }
     }
 
     var recordingFailureCount: Int {
-        recordingStates.values.reduce(into: 0) { count, state in
-            if case .failed = state {
+        guard selectedFields.contains(where: \.requiresRecordingDetail) else { return 0 }
+
+        return recordingIDsForAssignedTracks.reduce(into: 0) { count, recordingID in
+            if case .failed = recordingState(for: recordingID) {
                 count += 1
             }
         }
     }
 
     var canApply: Bool {
-        !selectedFields.isEmpty &&
+        !selectedAvailableFields.isEmpty &&
         !hasDuplicateTrackAssignments &&
         !hasPendingRecordingLoads &&
         !plan.writeEntries.isEmpty
     }
 
     var applyDisabledReason: String? {
-        if selectedFields.isEmpty {
+        if selectedAvailableFields.isEmpty {
             return "Choose at least one field to write."
         }
 
@@ -570,7 +624,9 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         guard let index = assignments.firstIndex(where: { $0.id == assignmentID }) else { return }
         assignments[index].selectedTrackID = trackID
 
-        if selectedFields.contains(where: \.requiresRecordingDetail) {
+        refreshRecordingPreloadTargets()
+
+        if selectedAvailableFields.contains(where: \.requiresRecordingDetail) {
             ensureRecordingDataIfNeeded()
         }
     }
@@ -591,17 +647,43 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func ensureRecordingDataIfNeeded() {
         guard selectedFields.contains(where: \.requiresRecordingDetail) else { return }
+        refreshRecordingPreloadTargets()
+    }
 
-        let recordingIDs = Set(
+    private var recordingIDsForAssignedTracks: Set<String> {
+        Set(
             assignments.compactMap { assignment in
                 track(for: assignment)?.recordingID
             }
             .filter { !$0.isEmpty }
         )
+    }
 
+    private var recordingIDsForReleaseTracks: Set<String> {
+        Set(availableTracks.map(\.recordingID).filter { !$0.isEmpty })
+    }
+
+    private func refreshRecordingPreloadTargets() {
+        fieldAvailabilityRecordingIDs = recordingIDsForAssignedTracks
+
+        if shouldPreloadAllReleaseRecordings {
+            recordingPreloadTargetIDs = recordingIDsForReleaseTracks
+        } else {
+            recordingPreloadTargetIDs.formUnion(recordingIDsForAssignedTracks)
+        }
+
+        ensureRecordingDataIfNeeded(for: recordingPreloadTargetIDs)
+    }
+
+    private func ensureRecordingDataIfNeeded(for recordingIDs: Set<String>) {
         for recordingID in recordingIDs {
             let currentState = recordingStates[recordingID] ?? .idle
             guard case .idle = currentState else { continue }
+
+            if let cachedDetail = browserStore.cachedRecordingDetail(id: recordingID) {
+                recordingStates[recordingID] = .loaded(cachedDetail)
+                continue
+            }
 
             recordingStates[recordingID] = .loading
 
@@ -640,12 +722,11 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             issueMessage = nil
         }
 
-        let changes: [MusicBrainzTaggingFieldChange] = selectedFields.compactMap { field in
+        let changes: [MusicBrainzTaggingFieldChange] = selectedAvailableFields.compactMap { field in
             guard let file else { return nil }
             let localValue = field.localValue(from: file)
             let remoteValue = remoteValue(
                 for: field,
-                assignment: assignment,
                 selectedTrack: selectedTrack
             )
             let status = Self.changeStatus(localValue: localValue, remoteValue: remoteValue)
@@ -670,9 +751,31 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         )
     }
 
+    private func isFieldAvailable(_ field: MusicBrainzTagWriteField) -> Bool {
+        let selectedTracks = assignments.compactMap(track)
+
+        return selectedTracks.contains { track in
+            hasRemoteValue(
+                for: field,
+                selectedTrack: track
+            )
+        }
+    }
+
+    private func hasRemoteValue(
+        for field: MusicBrainzTagWriteField,
+        selectedTrack: MusicBrainzReleaseMatchTrack?
+    ) -> Bool {
+        !remoteValue(
+            for: field,
+            selectedTrack: selectedTrack
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .isEmpty
+    }
+
     private func remoteValue(
         for field: MusicBrainzTagWriteField,
-        assignment: AssignmentDraft,
         selectedTrack: MusicBrainzReleaseMatchTrack?
     ) -> String {
         guard let selectedTrack else { return "" }

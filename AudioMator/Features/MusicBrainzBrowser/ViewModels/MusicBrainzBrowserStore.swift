@@ -59,6 +59,8 @@ struct MusicBrainzSearchSeed {
 
 @MainActor
 final class MusicBrainzBrowserStore: ObservableObject {
+    static let fullReleaseRecordingPreloadLimit = 35
+
     @Published var mode: MusicBrainzSearchMode = .track
     @Published var titleQuery: String = ""
     @Published var artistQuery: String = ""
@@ -76,6 +78,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     private let client: MusicBrainzClient
     private var searchTask: Task<Void, Never>?
+    private var recordingDetailsByID: [String: MusicBrainzRecordingDetail] = [:]
     private var fileTrackTotal: Int = 0
     private var fileDurationMilliseconds: Int?
     private var fileReleaseDate: String = ""
@@ -327,7 +330,58 @@ final class MusicBrainzBrowserStore: ObservableObject {
     }
 
     func recordingDetail(id: String) async throws -> MusicBrainzRecordingDetail {
-        try await client.recordingDetail(id: id, fallbackReleases: [])
+        if let cachedDetail = recordingDetailsByID[id] {
+            return cachedDetail
+        }
+
+        let detail = try await client.recordingDetail(id: id, fallbackReleases: [])
+        recordingDetailsByID[id] = detail
+        return detail
+    }
+
+    func cachedRecordingDetail(id: String) -> MusicBrainzRecordingDetail? {
+        recordingDetailsByID[id]
+    }
+
+    func recordingPreloadTargetIDs(for release: MusicBrainzReleaseDetail) -> Set<String> {
+        let releaseRecordingIDs = Self.recordingIDsForReleaseTracks(release)
+
+        if releaseRecordingIDs.count <= Self.fullReleaseRecordingPreloadLimit {
+            return releaseRecordingIDs
+        }
+
+        guard let preview = release.selectionMatchPreview else { return [] }
+        return Set(preview.matchedAssignments.map(\.track.recordingID).filter { !$0.isEmpty })
+    }
+
+    func preloadRecordingDetails(
+        for release: MusicBrainzReleaseDetail,
+        progress: @MainActor (_ completedCount: Int, _ totalCount: Int) -> Void
+    ) async {
+        let recordingIDs = recordingPreloadTargetIDs(for: release)
+        guard !recordingIDs.isEmpty else {
+            progress(0, 0)
+            return
+        }
+
+        var completedCount = 0
+        progress(completedCount, recordingIDs.count)
+
+        for recordingID in recordingIDs.sorted() {
+            guard !Task.isCancelled else { return }
+
+            if recordingDetailsByID[recordingID] == nil {
+                do {
+                    let detail = try await client.recordingDetail(id: recordingID, fallbackReleases: [])
+                    recordingDetailsByID[recordingID] = detail
+                } catch {
+                    // Keep release loading resilient; missing recording detail only hides deep relationship fields.
+                }
+            }
+
+            completedCount += 1
+            progress(completedCount, recordingIDs.count)
+        }
     }
 
     private func resetNavigation() {
@@ -343,5 +397,14 @@ final class MusicBrainzBrowserStore: ObservableObject {
         case .track, .link:
             return .recordings([])
         }
+    }
+
+    private static func recordingIDsForReleaseTracks(_ release: MusicBrainzReleaseDetail) -> Set<String> {
+        Set(
+            release.media
+                .flatMap(\.tracks)
+                .map(\.recordingID)
+                .filter { !$0.isEmpty }
+        )
     }
 }

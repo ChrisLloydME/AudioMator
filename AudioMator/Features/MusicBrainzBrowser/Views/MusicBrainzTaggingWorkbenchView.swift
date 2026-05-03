@@ -45,7 +45,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
             MetadataCardDivider()
             SummaryRow(
                 title: "Selected Fields",
-                value: "\(store.selectedFields.count)"
+                value: store.isLoadingFieldAvailability ? "Loading" : "\(store.selectedAvailableFields.count)"
             )
             MetadataCardDivider()
             SummaryRow(
@@ -99,27 +99,51 @@ struct MusicBrainzTaggingWorkbenchView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 180), spacing: 12)],
-                    alignment: .leading,
-                    spacing: 12
-                ) {
-                    ForEach(MusicBrainzTagWriteField.allCases) { field in
-                        Toggle(isOn: fieldBinding(field)) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(field.displayName)
-                                    .font(.system(size: 13, weight: .medium))
+                if store.isLoadingFieldAvailability {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                                .controlSize(.small)
 
-                                Text(field.description)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
+                            Text("Loading MusicBrainz fields…")
+                                .font(.system(size: 13, weight: .medium))
                         }
-                        #if os(macOS)
-                        .toggleStyle(.checkbox)
-                        #endif
-                        .disabled(isApplying)
+
+                        if store.recordingPreloadTotalCount > 0 {
+                            ProgressView(
+                                value: Double(store.recordingPreloadCompletedCount),
+                                total: Double(store.recordingPreloadTotalCount)
+                            )
+
+                            Text("\(store.recordingPreloadCompletedCount) of \(store.recordingPreloadTotalCount) recording details loaded")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: 360, alignment: .leading)
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 180), spacing: 12)],
+                        alignment: .leading,
+                        spacing: 12
+                    ) {
+                        ForEach(store.availableFields) { field in
+                            Toggle(isOn: fieldBinding(field)) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(field.displayName)
+                                        .font(.system(size: 13, weight: .medium))
+
+                                    Text(field.description)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            #if os(macOS)
+                            .toggleStyle(.checkbox)
+                            #endif
+                            .disabled(isApplying)
+                        }
                     }
                 }
             }

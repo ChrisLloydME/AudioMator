@@ -9,6 +9,8 @@ struct MusicBrainzMetadataDetailView: View {
 
     @State private var loadState: LoadState = .loading
     @State private var workbenchStore: MusicBrainzTaggingWorkbenchStore?
+    @State private var metadataLoadingMessage: String = "Loading metadata…"
+    @State private var recordingPreloadProgress: (completedCount: Int, totalCount: Int)?
 
     var body: some View {
         Group {
@@ -16,8 +18,22 @@ struct MusicBrainzMetadataDetailView: View {
             case .loading:
                 VStack(spacing: 16) {
                     ProgressView()
-                    Text("Loading metadata…")
+                    Text(metadataLoadingMessage)
                         .foregroundStyle(.secondary)
+
+                    if let recordingPreloadProgress, recordingPreloadProgress.totalCount > 0 {
+                        VStack(spacing: 8) {
+                            ProgressView(
+                                value: Double(recordingPreloadProgress.completedCount),
+                                total: Double(recordingPreloadProgress.totalCount)
+                            )
+                            .frame(maxWidth: 320)
+
+                            Text("\(recordingPreloadProgress.completedCount) of \(recordingPreloadProgress.totalCount) recording details loaded")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -391,9 +407,25 @@ struct MusicBrainzMetadataDetailView: View {
 
     private func loadMetadata() async {
         loadState = .loading
+        metadataLoadingMessage = "Loading metadata…"
+        recordingPreloadProgress = nil
 
         do {
             let detail = try await store.metadataDetail(for: destination)
+            guard !Task.isCancelled else { return }
+
+            if case .release(let release) = detail {
+                let targetCount = store.recordingPreloadTargetIDs(for: release).count
+                if targetCount > 0 {
+                    metadataLoadingMessage = "Loading MusicBrainz recording details…"
+                    recordingPreloadProgress = (completedCount: 0, totalCount: targetCount)
+
+                    await store.preloadRecordingDetails(for: release) { completedCount, totalCount in
+                        recordingPreloadProgress = (completedCount: completedCount, totalCount: totalCount)
+                    }
+                }
+            }
+
             guard !Task.isCancelled else { return }
             loadState = .loaded(detail)
         } catch {

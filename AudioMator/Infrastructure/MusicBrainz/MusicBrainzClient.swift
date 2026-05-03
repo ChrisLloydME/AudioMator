@@ -8,7 +8,7 @@ enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var displayName: String {
+    nonisolated var displayName: String {
         switch self {
         case .track: return "Track"
         case .album: return "Album"
@@ -263,6 +263,141 @@ struct MusicBrainzReleaseMatchPreview: Equatable, Hashable {
     }
 }
 
+enum MusicBrainzReleaseStatus: String, CaseIterable, Identifiable, Hashable {
+    case official
+    case promotion
+    case bootleg
+    case pseudoRelease = "pseudo-release"
+    case withdrawn
+    case expunged
+    case cancelled
+
+    var id: String { rawValue }
+
+    nonisolated var displayName: String {
+        switch self {
+        case .official: return "Official"
+        case .promotion: return "Promotion"
+        case .bootleg: return "Bootleg"
+        case .pseudoRelease: return "Pseudo-release"
+        case .withdrawn: return "Withdrawn"
+        case .expunged: return "Expunged"
+        case .cancelled: return "Cancelled"
+        }
+    }
+}
+
+enum MusicBrainzReleaseMediaFormat: String, CaseIterable, Identifiable, Hashable {
+    case digitalMedia = "Digital Media"
+    case cd = "CD"
+    case vinyl = "Vinyl"
+    case cassette = "Cassette"
+    case dvd = "DVD"
+    case bluRay = "Blu-ray"
+    case sacd = "SACD"
+    case minidisc = "MiniDisc"
+
+    var id: String { rawValue }
+
+    nonisolated var displayName: String { rawValue }
+}
+
+struct MusicBrainzReleaseFilters: Equatable, Hashable {
+    var mediaFormats: Set<MusicBrainzReleaseMediaFormat>
+    var releaseYear: String
+    var countries: Set<String>
+    var statuses: Set<MusicBrainzReleaseStatus>
+
+    init(
+        mediaFormats: Set<MusicBrainzReleaseMediaFormat> = [],
+        releaseYear: String = "",
+        countries: Set<String> = [],
+        statuses: Set<MusicBrainzReleaseStatus> = []
+    ) {
+        self.mediaFormats = mediaFormats
+        self.releaseYear = Self.normalizedYear(releaseYear)
+        self.countries = Set(countries.compactMap(Self.normalizedCountryCode))
+        self.statuses = statuses
+    }
+
+    nonisolated var isEmpty: Bool {
+        mediaFormats.isEmpty &&
+            releaseYear.isEmpty &&
+            countries.isEmpty &&
+            statuses.isEmpty
+    }
+
+    nonisolated var normalizedCountries: [String] {
+        countries.sorted()
+    }
+
+    nonisolated var summaryParts: [String] {
+        var parts: [String] = []
+        parts.append(contentsOf: mediaFormats.sorted { $0.displayName < $1.displayName }.map(\.displayName))
+
+        if !releaseYear.isEmpty {
+            parts.append(releaseYear)
+        }
+
+        parts.append(contentsOf: normalizedCountries)
+        parts.append(contentsOf: statuses.sorted { $0.displayName < $1.displayName }.map(\.displayName))
+        return parts
+    }
+
+    nonisolated var summaryText: String {
+        summaryParts.joined(separator: " • ")
+    }
+
+    nonisolated func matches(date: String, country: String, status: String, candidateMediaFormats: [String]) -> Bool {
+        if !releaseYear.isEmpty {
+            let candidateYear = Self.normalizedYear(date)
+            guard candidateYear == releaseYear else { return false }
+        }
+
+        if !countries.isEmpty {
+            guard countries.contains(country.uppercased()) else { return false }
+        }
+
+        if !statuses.isEmpty {
+            let normalizedStatus = status
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            guard statuses.contains(where: { $0.rawValue == normalizedStatus }) else { return false }
+        }
+
+        if !mediaFormats.isEmpty {
+            let normalizedCandidateFormats = Set(candidateMediaFormats.map(Self.normalizedFormat))
+            guard mediaFormats.contains(where: { normalizedCandidateFormats.contains(Self.normalizedFormat($0.rawValue)) }) else {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    nonisolated static func normalizedYear(_ rawValue: String) -> String {
+        let digits = rawValue.filter(\.isNumber)
+        guard digits.count >= 4 else { return "" }
+        return String(digits.prefix(4))
+    }
+
+    nonisolated static func normalizedCountryCode(_ rawValue: String) -> String? {
+        let letters = rawValue
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .filter(\.isLetter)
+            .uppercased()
+
+        guard letters.count == 2 else { return nil }
+        return letters
+    }
+
+    nonisolated private static func normalizedFormat(_ rawValue: String) -> String {
+        rawValue
+            .lowercased()
+            .filter { $0.isLetter || $0.isNumber }
+    }
+}
+
 struct MusicBrainzSearchQuery: Equatable {
     var mode: MusicBrainzSearchMode
     var title: String
@@ -279,6 +414,7 @@ struct MusicBrainzSearchQuery: Equatable {
     var musicBrainzTrackID: String
     var fileInputs: [MusicBrainzFileSearchInput]
     var link: String
+    var releaseFilters: MusicBrainzReleaseFilters
 
     init(
         mode: MusicBrainzSearchMode = .track,
@@ -295,7 +431,8 @@ struct MusicBrainzSearchQuery: Equatable {
         musicBrainzAlbumID: String = "",
         musicBrainzTrackID: String = "",
         fileInputs: [MusicBrainzFileSearchInput] = [],
-        link: String = ""
+        link: String = "",
+        releaseFilters: MusicBrainzReleaseFilters = MusicBrainzReleaseFilters()
     ) {
         self.mode = mode
         self.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -312,6 +449,7 @@ struct MusicBrainzSearchQuery: Equatable {
         self.musicBrainzTrackID = musicBrainzTrackID.trimmingCharacters(in: .whitespacesAndNewlines)
         self.fileInputs = fileInputs
         self.link = link.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.releaseFilters = releaseFilters
     }
 
     var isEmpty: Bool {
@@ -405,6 +543,10 @@ struct MusicBrainzSearchQuery: Equatable {
 
         if !link.isEmpty {
             parts.append("link: \(link)")
+        }
+
+        if !releaseFilters.isEmpty {
+            parts.append("filters: \(releaseFilters.summaryText)")
         }
 
         return parts.joined(separator: " • ")
@@ -509,7 +651,8 @@ struct MusicBrainzSearchQuery: Equatable {
             musicBrainzAlbumID: summary?.musicBrainzAlbumIDCandidate ?? "",
             musicBrainzTrackID: "",
             fileInputs: effectiveFileInputs,
-            link: ""
+            link: "",
+            releaseFilters: releaseFilters
         )
     }
 
@@ -872,7 +1015,15 @@ struct MusicBrainzClient {
         let selectionQuery = query.selectionReleaseQuery
 
         if let releaseID = selectionSummary.musicBrainzAlbumIDCandidate.validMBID {
-            candidates.append(try await releaseSummary(id: releaseID))
+            let release = try await releaseSummary(id: releaseID)
+            if query.releaseFilters.isEmpty || query.releaseFilters.matches(
+                date: release.date,
+                country: release.country,
+                status: release.status,
+                candidateMediaFormats: release.mediaFormats
+            ) {
+                candidates.append(release)
+            }
             filenameEvidenceByReleaseID[releaseID, default: 0] += 1.0
         }
 
@@ -886,7 +1037,7 @@ struct MusicBrainzClient {
             candidates.append(contentsOf: try await searchReleases(luceneQueries: broadQueries, limit: 20))
         }
 
-        for candidate in try await releaseCandidatesFromRepresentativeFiles(selectionSummary) {
+        for candidate in try await releaseCandidatesFromRepresentativeFiles(selectionSummary, filters: query.releaseFilters) {
             candidates.append(candidate.release)
             filenameEvidenceByReleaseID[candidate.release.id, default: 0] += candidate.evidence
         }
@@ -958,7 +1109,8 @@ struct MusicBrainzClient {
     }
 
     private func releaseCandidatesFromRepresentativeFiles(
-        _ summary: MusicBrainzFileSelectionSummary
+        _ summary: MusicBrainzFileSelectionSummary,
+        filters: MusicBrainzReleaseFilters
     ) async throws -> [(release: MusicBrainzReleaseSearchResult, evidence: Double)] {
         let representativeFiles = Self.representativeFilesForReleaseLookup(from: summary.files)
         guard !representativeFiles.isEmpty else { return [] }
@@ -984,7 +1136,8 @@ struct MusicBrainzClient {
                 musicBrainzAlbumID: file.musicBrainzAlbumID,
                 musicBrainzTrackID: file.musicBrainzTrackID,
                 fileInputs: [file],
-                link: ""
+                link: "",
+                releaseFilters: filters
             )
 
             let recordings = try await searchFiles(matching: query, limit: 6)
@@ -1005,9 +1158,19 @@ struct MusicBrainzClient {
         for releaseID in evidenceByReleaseID.keys
             .sorted(by: { (evidenceByReleaseID[$0] ?? 0) > (evidenceByReleaseID[$1] ?? 0) })
             .prefix(6) {
+            let release = try await releaseSummary(id: releaseID)
+            guard filters.isEmpty || filters.matches(
+                date: release.date,
+                country: release.country,
+                status: release.status,
+                candidateMediaFormats: release.mediaFormats
+            ) else {
+                continue
+            }
+
             candidates.append(
                 (
-                    release: try await releaseSummary(id: releaseID),
+                    release: release,
                     evidence: evidenceByReleaseID[releaseID] ?? 0
                 )
             )
@@ -1370,10 +1533,12 @@ struct MusicBrainzClient {
 private enum MusicBrainzLuceneQueryBuilder {
     nonisolated private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
     nonisolated private static let maxPreferredClauseCount = 6
-    nonisolated private static let maxPreferredClauseLength = 260
+    nonisolated private static let maxPreferredClauseLength = 420
 
     static func recordingSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
-        finalizedPreferredClauses(recordingSearchClauses(from: query))
+        finalizedPreferredClauses(
+            applyingFilters(to: recordingSearchClauses(from: query), filters: query.releaseFilters)
+        )
     }
 
     static func releaseSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
@@ -1399,11 +1564,13 @@ private enum MusicBrainzLuceneQueryBuilder {
             clauses.append(generalClause(query.artist))
         }
 
-        return finalizedPreferredClauses(clauses)
+        return finalizedPreferredClauses(applyingFilters(to: clauses, filters: query.releaseFilters))
     }
 
     static func fileSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
-        finalizedPreferredClauses(recordingSearchClauses(from: query))
+        finalizedPreferredClauses(
+            applyingFilters(to: recordingSearchClauses(from: query), filters: query.releaseFilters)
+        )
     }
 
     static func fileClusterStrongReleaseSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
@@ -1450,7 +1617,7 @@ private enum MusicBrainzLuceneQueryBuilder {
             clauses.append(allOf([releaseClause, yearClause]))
         }
 
-        return finalizedPreferredClauses(clauses)
+        return finalizedPreferredClauses(applyingFilters(to: clauses, filters: query.releaseFilters))
     }
 
     static func fileClusterBroadReleaseSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
@@ -1479,7 +1646,7 @@ private enum MusicBrainzLuceneQueryBuilder {
             clauses.append(fieldClause(name: "date", value: summary.releaseYearCandidate))
         }
 
-        return finalizedPreferredClauses(clauses)
+        return finalizedPreferredClauses(applyingFilters(to: clauses, filters: query.releaseFilters))
     }
 
     static func fileStrongSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
@@ -1541,7 +1708,7 @@ private enum MusicBrainzLuceneQueryBuilder {
             queries.append(contentsOf: releaseScopedQueries)
         }
 
-        return finalizedPreferredClauses(queries)
+        return finalizedPreferredClauses(applyingFilters(to: queries, filters: query.releaseFilters))
     }
 
     nonisolated private static func fieldClause(name: String, value: String) -> String {
@@ -1562,6 +1729,10 @@ private enum MusicBrainzLuceneQueryBuilder {
 
     nonisolated private static func allOf(_ clauses: [String]) -> String {
         "(" + clauses.joined(separator: " AND ") + ")"
+    }
+
+    nonisolated private static func anyOf(_ clauses: [String]) -> String {
+        "(" + clauses.joined(separator: " OR ") + ")"
     }
 
     nonisolated private static func numericClause(name: String, value: Int) -> String {
@@ -1585,6 +1756,64 @@ private enum MusicBrainzLuceneQueryBuilder {
             .filter { !$0.isEmpty && $0.count <= maxPreferredClauseLength }
             .prefix(maxPreferredClauseCount)
             .map { $0 }
+    }
+
+    nonisolated private static func applyingFilters(
+        to clauses: [String],
+        filters: MusicBrainzReleaseFilters
+    ) -> [String] {
+        let filterClauses = releaseFilterClauses(from: filters)
+        guard !filterClauses.isEmpty else { return clauses }
+
+        let baseClauses = clauses
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard !baseClauses.isEmpty else {
+            return [allOf(filterClauses)]
+        }
+
+        return baseClauses.map { allOf([$0] + filterClauses) }
+    }
+
+    nonisolated private static func releaseFilterClauses(from filters: MusicBrainzReleaseFilters) -> [String] {
+        var clauses: [String] = []
+
+        if !filters.mediaFormats.isEmpty {
+            clauses.append(
+                anyOf(
+                    filters.mediaFormats
+                        .sorted { $0.displayName < $1.displayName }
+                        .map { fieldClause(name: "format", value: $0.rawValue) }
+                )
+            )
+        }
+
+        let releaseYear = MusicBrainzReleaseFilters.normalizedYear(filters.releaseYear)
+        if !releaseYear.isEmpty {
+            clauses.append(fieldClause(name: "date", value: releaseYear))
+        }
+
+        if !filters.countries.isEmpty {
+            clauses.append(
+                anyOf(
+                    filters.normalizedCountries
+                        .map { fieldClause(name: "country", value: $0.lowercased()) }
+                )
+            )
+        }
+
+        if !filters.statuses.isEmpty {
+            clauses.append(
+                anyOf(
+                    filters.statuses
+                        .sorted { $0.displayName < $1.displayName }
+                        .map { fieldClause(name: "status", value: $0.rawValue) }
+                )
+            )
+        }
+
+        return clauses
     }
 
     nonisolated private static func deduplicatedClauses(_ clauses: [String]) -> [String] {

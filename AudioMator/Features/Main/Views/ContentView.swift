@@ -545,7 +545,7 @@ struct ContentView: View {
     }
 }
 
-private struct MetadataSaveProgressOverlay: View {
+struct MetadataSaveProgressOverlay: View {
     let progress: MetadataSaveProgress
 
     var body: some View {

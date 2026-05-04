@@ -304,12 +304,23 @@ extension AudioViewModel {
     }
 
     func applyMusicBrainzTaggingPlan(_ entries: [MusicBrainzTaggingWriteEntry]) async {
-        guard !entries.isEmpty else { return }
+        guard !entries.isEmpty, metadataSaveProgress == nil else { return }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
-        for entry in entries {
+        beginMetadataSaveProgress(
+            title: "Applying MusicBrainz Tags",
+            subtitle: "Preparing \(entries.count) files...",
+            totalUnitCount: entries.count
+        )
+
+        for (index, entry) in entries.enumerated() {
+            updateMetadataSaveProgress(
+                subtitle: entry.fileName,
+                completedUnitCount: index
+            )
+
             guard let file = filesByID[entry.fileID] else {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
@@ -355,6 +366,12 @@ extension AudioViewModel {
                 )
             }
         }
+
+        updateMetadataSaveProgress(
+            subtitle: "Finishing...",
+            completedUnitCount: entries.count
+        )
+        endMetadataSaveProgress()
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             updateEditForSelection()

@@ -34,6 +34,11 @@ struct MusicBrainzTaggingWorkbenchView: View {
         .onChange(of: viewModel.files.map(\.middleListContentFingerprint)) { _, _ in
             store.refreshLoadedFiles(viewModel.files)
         }
+        .overlay {
+            if let progress = viewModel.metadataSaveProgress {
+                MetadataSaveProgressOverlay(progress: progress)
+            }
+        }
     }
 
     private var summarySection: some View {
@@ -227,7 +232,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
-            .disabled(isApplying || !store.canApply)
+            .disabled(isApplying || viewModel.metadataSaveProgress != nil || !store.canApply)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -265,7 +270,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
 
     private func applyTags() {
         let entries = store.plan.writeEntries
-        guard !entries.isEmpty else { return }
+        guard !entries.isEmpty, viewModel.metadataSaveProgress == nil else { return }
 
         Task {
             isApplying = true

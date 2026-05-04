@@ -39,118 +39,118 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
     var displayName: String {
         switch self {
         case .title:
-            return "Title"
+            return L10n.string("Title")
         case .artist:
-            return "Artist"
+            return L10n.string("Artist")
         case .albumArtist:
-            return "Album Artist"
+            return L10n.string("Album Artist")
         case .album:
-            return "Album"
+            return L10n.string("Album")
         case .genre:
-            return "Genre"
+            return L10n.string("Genre")
         case .trackNumber:
-            return "Track Number"
+            return L10n.string("Track Number")
         case .trackTotal:
-            return "Total Tracks"
+            return L10n.string("Total Tracks")
         case .discNumber:
-            return "Disc Number"
+            return L10n.string("Disc Number")
         case .discTotal:
-            return "Total Discs"
+            return L10n.string("Total Discs")
         case .releaseDate:
-            return "Release Date"
+            return L10n.string("Release Date")
         case .publisher:
-            return "Publisher"
+            return L10n.string("Publisher")
         case .isrc:
-            return "ISRC"
+            return L10n.string("ISRC")
         case .barcode:
-            return "Barcode"
+            return L10n.string("Barcode")
         case .musicBrainzAlbumID:
-            return "MusicBrainz Release ID"
+            return L10n.string("MusicBrainz Release ID")
         case .musicBrainzTrackID:
-            return "MusicBrainz Track ID"
+            return L10n.string("MusicBrainz Track ID")
         case .musicBrainzReleaseGroupID:
-            return "MusicBrainz Release Group ID"
+            return L10n.string("MusicBrainz Release Group ID")
         case .language:
-            return "Language"
+            return L10n.string("Language")
         case .mediaType:
-            return "Media Type"
+            return L10n.string("Media Type")
         case .releaseType:
-            return "Release Type"
+            return L10n.string("Release Type")
         case .catalogNumber:
-            return "Catalog Number"
+            return L10n.string("Catalog Number")
         case .releaseCountry:
-            return "Release Country"
+            return L10n.string("Release Country")
         case .composer:
-            return "Composer"
+            return L10n.string("Composer")
         case .lyricist:
-            return "Lyricist"
+            return L10n.string("Lyricist")
         case .producer:
-            return "Producer"
+            return L10n.string("Producer")
         case .engineer:
-            return "Engineer"
+            return L10n.string("Engineer")
         case .remixer:
-            return "Remixer"
+            return L10n.string("Remixer")
         case .copyright:
-            return "Copyright"
+            return L10n.string("Copyright")
         }
     }
 
     var description: String {
         switch self {
         case .title:
-            return "Track title from the matched release track."
+            return L10n.string("Track title from the matched release track.")
         case .artist:
-            return "Track artist credit, or the release artist when the track artist is blank."
+            return L10n.string("Track artist credit, or the release artist when the track artist is blank.")
         case .albumArtist:
-            return "Release artist credit."
+            return L10n.string("Release artist credit.")
         case .album:
-            return "Release title."
+            return L10n.string("Release title.")
         case .genre:
-            return "Release genres from MusicBrainz."
+            return L10n.string("Release genres from MusicBrainz.")
         case .trackNumber:
-            return "Matched track index."
+            return L10n.string("Matched track index.")
         case .trackTotal:
-            return "Total tracks from the matched MusicBrainz medium."
+            return L10n.string("Total tracks from the matched MusicBrainz medium.")
         case .discNumber:
-            return "Matched disc index."
+            return L10n.string("Matched disc index.")
         case .discTotal:
-            return "Total discs from the matched MusicBrainz release."
+            return L10n.string("Total discs from the matched MusicBrainz release.")
         case .releaseDate:
-            return "Release date from MusicBrainz."
+            return L10n.string("Release date from MusicBrainz.")
         case .publisher:
-            return "Primary label from the release."
+            return L10n.string("Primary label from the release.")
         case .isrc:
-            return "ISRC codes from the matched track."
+            return L10n.string("ISRC codes from the matched track.")
         case .barcode:
-            return "Release barcode or UPC/EAN."
+            return L10n.string("Release barcode or UPC/EAN.")
         case .musicBrainzAlbumID:
-            return "MusicBrainz release MBID."
+            return L10n.string("MusicBrainz release MBID.")
         case .musicBrainzTrackID:
-            return "MusicBrainz track MBID."
+            return L10n.string("MusicBrainz track MBID.")
         case .musicBrainzReleaseGroupID:
-            return "MusicBrainz release group MBID."
+            return L10n.string("MusicBrainz release group MBID.")
         case .language:
-            return "Release text language."
+            return L10n.string("Release text language.")
         case .mediaType:
-            return "Release medium format, such as CD or Digital Media."
+            return L10n.string("Release medium format, such as CD or Digital Media.")
         case .releaseType:
-            return "Release group type, such as Album or EP."
+            return L10n.string("Release group type, such as Album or EP.")
         case .catalogNumber:
-            return "Primary catalog number from the release label."
+            return L10n.string("Primary catalog number from the release label.")
         case .releaseCountry:
-            return "Release country code from MusicBrainz."
+            return L10n.string("Release country code from MusicBrainz.")
         case .composer:
-            return "Composer credit from the matched recording's relationship data."
+            return L10n.string("Composer credit from the matched recording's relationship data.")
         case .lyricist:
-            return "Lyricist or writer credits from the matched recording."
+            return L10n.string("Lyricist or writer credits from the matched recording.")
         case .producer:
-            return "Producer credits from the matched recording."
+            return L10n.string("Producer credits from the matched recording.")
         case .engineer:
-            return "Engineer credits from the matched recording."
+            return L10n.string("Engineer credits from the matched recording.")
         case .remixer:
-            return "Remixer credits from the matched recording."
+            return L10n.string("Remixer credits from the matched recording.")
         case .copyright:
-            return "Phonographic copyright credits from the matched recording."
+            return L10n.string("Phonographic copyright credits from the matched recording.")
         }
     }
 
@@ -577,19 +577,19 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     var applyDisabledReason: String? {
         if selectedAvailableFields.isEmpty {
-            return "Choose at least one field to write."
+            return L10n.string("Choose at least one field to write.")
         }
 
         if hasDuplicateTrackAssignments {
-            return "Each MusicBrainz track can only be assigned once before writing."
+            return L10n.string("Each MusicBrainz track can only be assigned once before writing.")
         }
 
         if hasPendingRecordingLoads {
-            return "MusicBrainz recording details are still loading."
+            return L10n.string("MusicBrainz recording details are still loading.")
         }
 
         if plan.writeEntries.isEmpty {
-            return "No selected fields would change any loaded files."
+            return L10n.string("No selected fields would change any loaded files.")
         }
 
         return nil

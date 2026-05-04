@@ -17,25 +17,25 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .addFiles:
-            return "Add Files"
+            return L10n.string("Add Files")
         case .tagInspector:
-            return "Tag Inspector"
+            return L10n.string("Tag Inspector")
         case .renumberTracks:
-            return "Renumber Tracks"
+            return L10n.string("Renumber Tracks")
         case .musicBrainzBrowser:
-            return "MusicBrainz Browser"
+            return L10n.string("MusicBrainz Browser")
         case .renameFiles:
-            return "Filename & Metadata"
+            return L10n.string("Filename & Metadata")
         case .metadataEditor:
-            return "Metadata Editor"
+            return L10n.string("Metadata Editor")
         case .importField:
-            return "Import Field"
+            return L10n.string("Import Field")
         case .clearList:
-            return "Clear List"
+            return L10n.string("Clear List")
         case .cancelEdits:
-            return "Cancel"
+            return L10n.string("Cancel")
         case .saveEdits:
-            return "Save"
+            return L10n.string("Save")
         }
     }
 

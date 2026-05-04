@@ -16,30 +16,30 @@ private enum TextMetadataImportDelimiter: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .newline:
-            return "Newline"
+            return L10n.string("Newline")
         case .englishComma:
-            return "English Comma (,)"
+            return L10n.string("English Comma (,)")
         case .chineseComma:
-            return "Chinese Comma (，)"
+            return L10n.string("Chinese Comma (，)")
         case .englishSemicolon:
-            return "English Semicolon (;)"
+            return L10n.string("English Semicolon (;)")
         case .chineseSemicolon:
-            return "Chinese Semicolon (；)"
+            return L10n.string("Chinese Semicolon (；)")
         }
     }
 
     var caption: String {
         switch self {
         case .newline:
-            return "Use one line per selected file."
+            return L10n.string("Use one line per selected file.")
         case .englishComma:
-            return "Split on the ASCII comma."
+            return L10n.string("Split on the ASCII comma.")
         case .chineseComma:
-            return "Split on the full-width comma."
+            return L10n.string("Split on the full-width comma.")
         case .englishSemicolon:
-            return "Split on the ASCII semicolon."
+            return L10n.string("Split on the ASCII semicolon.")
         case .chineseSemicolon:
-            return "Split on the full-width semicolon."
+            return L10n.string("Split on the full-width semicolon.")
         }
     }
 
@@ -86,11 +86,11 @@ private enum TextMetadataImportPreviewStatus {
     var title: String {
         switch self {
         case .ready:
-            return "Ready"
+            return L10n.string("Ready")
         case .missingImportedValue:
-            return "Missing Value"
+            return L10n.string("Missing Value")
         case .extraImportedValue:
-            return "Unused Value"
+            return L10n.string("Unused Value")
         }
     }
 
@@ -181,18 +181,18 @@ struct TextMetadataImportSheet: View {
 
     private var previewStatusMessage: String {
         guard hasLoadedSourceFile else {
-            return "Choose a text file to preview how values map to the selected rows."
+            return L10n.string("Choose a text file to preview how values map to the selected rows.")
         }
 
         if importedValues.count == targetFiles.count {
-            return "Counts match. Applying will overwrite only the selected field."
+            return L10n.string("Counts match. Applying will overwrite only the selected field.")
         }
 
         if importedValues.count < targetFiles.count {
-            return "The text file doesn't provide enough values for all selected files."
+            return L10n.string("The text file doesn't provide enough values for all selected files.")
         }
 
-        return "The text file contains more values than the current selection."
+        return L10n.string("The text file contains more values than the current selection.")
     }
 
     private var canApply: Bool {

@@ -48,11 +48,11 @@ private struct BatchMetadataWriteSummary {
 
     var hudTitle: String {
         if failureIssues.isEmpty && warningIssues.isEmpty {
-            return "Saved to Disk"
+            return L10n.string("Saved to Disk")
         }
 
         if failureIssues.isEmpty {
-            return "Saved with Issues"
+            return L10n.string("Saved with Issues")
         }
 
         return succeeded > 0 ? "Partially Saved" : "Save Failed"
@@ -91,7 +91,7 @@ private struct BatchMetadataWriteSummary {
         case totalTargets:
             return "\(totalTargets) of \(totalTargets) files saved"
         case 0:
-            return "No files were saved"
+            return L10n.string("No files were saved")
         default:
             return "\(succeeded) of \(totalTargets) files saved"
         }
@@ -119,11 +119,11 @@ private struct BatchMetadataClearSummary {
 
     var hudTitle: String {
         if failureIssues.isEmpty && warningIssues.isEmpty {
-            return "Metadata Cleared"
+            return L10n.string("Metadata Cleared")
         }
 
         if failureIssues.isEmpty {
-            return "Cleared with Issues"
+            return L10n.string("Cleared with Issues")
         }
 
         return succeeded > 0 ? "Partially Cleared" : "Clear Failed"
@@ -162,7 +162,7 @@ private struct BatchMetadataClearSummary {
         case totalTargets:
             return "\(totalTargets) of \(totalTargets) files cleared"
         case 0:
-            return "No files were cleared"
+            return L10n.string("No files were cleared")
         default:
             return "\(succeeded) of \(totalTargets) files cleared"
         }

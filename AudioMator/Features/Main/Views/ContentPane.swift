@@ -218,11 +218,11 @@ struct ContentPane: View {
     private var emptyStateTitle: String {
         switch currentSidebarSelection {
         case .quickImport:
-            return "No Files in Session"
+            return L10n.string("No Files in Session")
         case .watchedLibrary:
             return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : "No Audio Files Found"
         case .watchedFolder:
-            return "No Audio Files Found"
+            return L10n.string("No Audio Files Found")
         }
     }
 

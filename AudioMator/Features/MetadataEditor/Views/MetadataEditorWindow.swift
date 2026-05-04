@@ -112,7 +112,7 @@ final class MetadataEditorStore: ObservableObject {
             return target.url.path
         }
 
-        return "Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file."
+        return L10n.string("Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file.")
     }
 
     func present(targetFiles: [AudioFile]) {
@@ -451,21 +451,21 @@ private struct MetadataFieldEntrySheet: View {
     private var titleText: String {
         switch context.mode {
         case .add:
-            return "Add Metadata Field"
+            return L10n.string("Add Metadata Field")
         case .edit:
-            return "Edit Metadata Field"
+            return L10n.string("Edit Metadata Field")
         }
     }
 
     private var descriptionText: String {
         switch context.mode {
         case .add:
-            return "Enter the property-map field name and the value to write."
+            return L10n.string("Enter the property-map field name and the value to write.")
         case .edit:
             if context.isMixed {
-                return "Selected files currently contain different values. Saving replaces them with one shared value."
+                return L10n.string("Selected files currently contain different values. Saving replaces them with one shared value.")
             }
-            return "Update the selected metadata field for every file in the current selection."
+            return L10n.string("Update the selected metadata field for every file in the current selection.")
         }
     }
 

@@ -180,26 +180,26 @@ enum FilenameMetadataPreviewStatus: Equatable {
     var title: String {
         switch self {
         case .ready:
-            return "Ready"
+            return L10n.string("Ready")
         case .unchanged:
-            return "Unchanged"
+            return L10n.string("Unchanged")
         case .noMatch:
-            return "No Match"
+            return L10n.string("No Match")
         case .noWritableFields:
-            return "No Writable Fields"
+            return L10n.string("No Writable Fields")
         }
     }
 
     var message: String {
         switch self {
         case .ready:
-            return "The filename matched and extracted metadata can be written."
+            return L10n.string("The filename matched and extracted metadata can be written.")
         case .unchanged:
-            return "The extracted metadata already matches the file's current tags."
+            return L10n.string("The extracted metadata already matches the file's current tags.")
         case .noMatch:
-            return "The filename did not fully match the template."
+            return L10n.string("The filename did not fully match the template.")
         case .noWritableFields:
-            return "The template matched, but it did not extract any writable metadata fields."
+            return L10n.string("The template matched, but it did not extract any writable metadata fields.")
         }
     }
 
@@ -328,13 +328,13 @@ private struct FilenameMetadataPlanBuilder {
         }
 
         guard hasExtractionField else {
-            return "Add at least one metadata field to extract from the filename."
+            return L10n.string("Add at least one metadata field to extract from the filename.")
         }
 
         for index in document.segments.indices.dropLast() {
             guard case .field = document.segments[index] else { continue }
             guard case .field = document.segments[index + 1] else { continue }
-            return "Add literal separators between metadata fields so AudioMator can parse the filename unambiguously."
+            return L10n.string("Add literal separators between metadata fields so AudioMator can parse the filename unambiguously.")
         }
 
         return nil

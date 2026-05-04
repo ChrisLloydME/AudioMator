@@ -28,47 +28,47 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .filename:
-            return "Filename"
+            return L10n.string("Filename")
         case .title:
-            return "Title"
+            return L10n.string("Title")
         case .artist:
-            return "Artist"
+            return L10n.string("Artist")
         case .album:
-            return "Album"
+            return L10n.string("Album")
         case .albumArtist:
-            return "Album Artist"
+            return L10n.string("Album Artist")
         case .composer:
-            return "Composer"
+            return L10n.string("Composer")
         case .genre:
-            return "Genre"
+            return L10n.string("Genre")
         case .year:
-            return "Year"
+            return L10n.string("Year")
         case .track:
-            return "Track"
+            return L10n.string("Track")
         case .disc:
-            return "Disc"
+            return L10n.string("Disc")
         case .comment:
-            return "Comment"
+            return L10n.string("Comment")
         case .releaseDate:
-            return "Release Date"
+            return L10n.string("Release Date")
         case .publisher:
-            return "Publisher"
+            return L10n.string("Publisher")
         case .copyright:
-            return "Copyright"
+            return L10n.string("Copyright")
         case .credits:
-            return "Credits"
+            return L10n.string("Credits")
         case .explicit:
-            return "Explicit"
+            return L10n.string("Explicit")
         case .duration:
-            return "Duration"
+            return L10n.string("Duration")
         case .bitrate:
-            return "Bitrate"
+            return L10n.string("Bitrate")
         case .sampleRate:
-            return "Sample Rate"
+            return L10n.string("Sample Rate")
         case .channels:
-            return "Channels"
+            return L10n.string("Channels")
         case .format:
-            return "Format"
+            return L10n.string("Format")
         }
     }
 
@@ -284,73 +284,73 @@ enum IPadLeftListMetadataField: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .artist:
-            return "Artist"
+            return L10n.string("Artist")
         case .album:
-            return "Album"
+            return L10n.string("Album")
         case .albumArtist:
-            return "Album Artist"
+            return L10n.string("Album Artist")
         case .composer:
-            return "Composer"
+            return L10n.string("Composer")
         case .genre:
-            return "Genre"
+            return L10n.string("Genre")
         case .year:
-            return "Year"
+            return L10n.string("Year")
         case .track:
-            return "Track"
+            return L10n.string("Track")
         case .disc:
-            return "Disc"
+            return L10n.string("Disc")
         case .comment:
-            return "Comment"
+            return L10n.string("Comment")
         case .releaseDate:
-            return "Release Date"
+            return L10n.string("Release Date")
         case .publisher:
-            return "Publisher"
+            return L10n.string("Publisher")
         case .copyright:
-            return "Copyright"
+            return L10n.string("Copyright")
         case .credits:
-            return "Credits"
+            return L10n.string("Credits")
         case .explicit:
-            return "Explicit"
+            return L10n.string("Explicit")
         case .duration:
-            return "Duration"
+            return L10n.string("Duration")
         case .bitrate:
-            return "Bitrate"
+            return L10n.string("Bitrate")
         case .sampleRate:
-            return "Sample Rate"
+            return L10n.string("Sample Rate")
         case .channels:
-            return "Channels"
+            return L10n.string("Channels")
         case .format:
-            return "Format"
+            return L10n.string("Format")
         case .lyricist:
-            return "Lyricist"
+            return L10n.string("Lyricist")
         case .remixer:
-            return "Remixer"
+            return L10n.string("Remixer")
         case .producer:
-            return "Producer"
+            return L10n.string("Producer")
         case .engineer:
-            return "Engineer"
+            return L10n.string("Engineer")
         case .language:
-            return "Language"
+            return L10n.string("Language")
         case .mediaType:
-            return "Media Type"
+            return L10n.string("Media Type")
         case .releaseType:
-            return "Release Type"
+            return L10n.string("Release Type")
         case .catalogNumber:
-            return "Catalog Number"
+            return L10n.string("Catalog Number")
         case .releaseCountry:
-            return "Release Country"
+            return L10n.string("Release Country")
         case .isrc:
-            return "ISRC"
+            return L10n.string("ISRC")
         case .barcode:
-            return "Barcode"
+            return L10n.string("Barcode")
         case .musicBrainzArtistID:
-            return "MusicBrainz Artist ID"
+            return L10n.string("MusicBrainz Artist ID")
         case .musicBrainzAlbumID:
-            return "MusicBrainz Album ID"
+            return L10n.string("MusicBrainz Album ID")
         case .musicBrainzTrackID:
-            return "MusicBrainz Track ID"
+            return L10n.string("MusicBrainz Track ID")
         case .musicBrainzReleaseGroupID:
-            return "MusicBrainz Release Group ID"
+            return L10n.string("MusicBrainz Release Group ID")
         }
     }
 

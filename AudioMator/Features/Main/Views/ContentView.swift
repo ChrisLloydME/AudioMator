@@ -7,6 +7,9 @@
 
 import SwiftUI
 import AVFoundation
+#if os(macOS)
+import AppKit
+#endif
 
 struct ContentView: View {
     private enum PendingDiscardAction {
@@ -147,6 +150,9 @@ struct ContentView: View {
                 Text("To continue, AudioMator needs to discard your unsaved inspector edits.")
             }
             #endif
+            #if os(macOS)
+            .background(MetadataWriteHUDScreenPresenter(hud: viewModel.metadataWriteHUD))
+            #else
             .overlay(alignment: .bottom) {
                 if let hud = viewModel.metadataWriteHUD {
                     MetadataWriteHUDView(hud: hud)
@@ -154,6 +160,7 @@ struct ContentView: View {
                         .padding(.bottom, 40)
                 }
             }
+            #endif
             .overlay {
                 if let progress = viewModel.metadataSaveProgress {
                     MetadataSaveProgressOverlay(progress: progress)
@@ -624,6 +631,145 @@ private struct MetadataWriteHUDView: View {
             : Color.black.opacity(0.14)
     }
 }
+
+#if os(macOS)
+private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
+    let hud: MetadataWriteHUD?
+
+    func makeNSView(context: Context) -> NSView {
+        NSView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.update(hud: hud)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        private var panel: NSPanel?
+        private var hostingController: NSHostingController<MetadataWriteHUDScreenRoot>?
+        private var presentedHUDID: UUID?
+
+        @MainActor
+        func update(hud: MetadataWriteHUD?) {
+            guard let hud else {
+                dismissPanel()
+                return
+            }
+
+            if panel == nil {
+                createPanel()
+            }
+
+            guard let panel, let hostingController else { return }
+
+            hostingController.rootView = MetadataWriteHUDScreenRoot(hud: hud)
+            hostingController.view.layoutSubtreeIfNeeded()
+            resizeAndPosition(panel: panel, for: hostingController)
+
+            if presentedHUDID != hud.id || !panel.isVisible {
+                panel.alphaValue = 0
+                panel.orderFrontRegardless()
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.16
+                    panel.animator().alphaValue = 1
+                }
+            }
+
+            presentedHUDID = hud.id
+        }
+
+        @MainActor
+        private func createPanel() {
+            let hostingController = NSHostingController(rootView: MetadataWriteHUDScreenRoot.empty)
+            hostingController.view.wantsLayer = true
+
+            let panel = NSPanel(
+                contentRect: .zero,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.backgroundColor = .clear
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+            panel.contentViewController = hostingController
+            panel.hasShadow = false
+            panel.hidesOnDeactivate = false
+            panel.ignoresMouseEvents = true
+            panel.isMovable = false
+            panel.isOpaque = false
+            panel.level = .statusBar
+            panel.isReleasedWhenClosed = false
+
+            self.hostingController = hostingController
+            self.panel = panel
+        }
+
+        @MainActor
+        private func resizeAndPosition(
+            panel: NSPanel,
+            for hostingController: NSHostingController<MetadataWriteHUDScreenRoot>
+        ) {
+            let fittingSize = hostingController.view.fittingSize
+            let width = max(fittingSize.width, 364)
+            let height = max(fittingSize.height, 150)
+            let screenFrame = targetScreen()?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+            let lowerHalfCenterY = screenFrame.minY + screenFrame.height * 0.35
+            let origin = NSPoint(
+                x: screenFrame.midX - width / 2,
+                y: lowerHalfCenterY - height / 2
+            )
+
+            panel.setFrame(
+                NSRect(origin: origin, size: NSSize(width: width, height: height)),
+                display: true
+            )
+        }
+
+        @MainActor
+        private func dismissPanel() {
+            guard let panel else {
+                presentedHUDID = nil
+                return
+            }
+
+            presentedHUDID = nil
+
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.12
+                panel.animator().alphaValue = 0
+            } completionHandler: {
+                panel.orderOut(nil)
+            }
+        }
+
+        @MainActor
+        private func targetScreen() -> NSScreen? {
+            NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main
+        }
+    }
+}
+
+private struct MetadataWriteHUDScreenRoot: View {
+    let hud: MetadataWriteHUD?
+
+    static let empty = MetadataWriteHUDScreenRoot(hud: nil)
+
+    var body: some View {
+        ZStack {
+            if let hud {
+                MetadataWriteHUDView(hud: hud)
+                    .id(hud.id)
+                    .padding(18)
+            }
+        }
+        .fixedSize()
+    }
+}
+#endif
 
 private struct MetadataWriteHUDIcon: View {
     let style: MetadataWriteHUDStyle

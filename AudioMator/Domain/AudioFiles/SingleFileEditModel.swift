@@ -542,7 +542,7 @@ struct MultiFileEditModel {
         case .unchanged:
             switch initialArtworkState {
             case .none:
-                return "photo.slash"
+                return "photo.badge.exclamationmark"
             case .shared:
                 return "photo"
             case .mixed:

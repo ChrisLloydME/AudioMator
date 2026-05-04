@@ -1,7 +1,15 @@
 import SwiftUI
+import PhotosUI
 
 let inspectorRowContentHeight: CGFloat = 20
 let inspectorRowVerticalPadding: CGFloat = 6
+let artworkActionButtonHeight: CGFloat = 28
+let artworkActionButtonCornerRadius: CGFloat = 14
+
+enum ArtworkImportTarget {
+    case file(AudioFile)
+    case files([AudioFile])
+}
 
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
@@ -12,6 +20,9 @@ struct InspectorPane: View {
     @State private var inspectorQuickText: String = ""
     @State private var inspectorQuickBinding: Binding<String>? = nil
     @State private var isInspectorQuickPresented: Bool = false
+    @State private var photoLibraryArtworkTarget: ArtworkImportTarget?
+    @State private var isPhotoLibraryArtworkPickerPresented: Bool = false
+    @State private var selectedPhotoLibraryArtworkItem: PhotosPickerItem?
 
     private var artworkLookupSessionBinding: Binding<ArtworkLookupSession?> {
         Binding<ArtworkLookupSession?>(
@@ -392,6 +403,126 @@ struct InspectorPane: View {
         .sheet(item: artworkLookupSessionBinding) { _ in
             AlbumArtworkLookupSheet(viewModel: viewModel)
         }
+        .photosPicker(
+            isPresented: $isPhotoLibraryArtworkPickerPresented,
+            selection: $selectedPhotoLibraryArtworkItem,
+            matching: .images
+        )
+        .onChange(of: selectedPhotoLibraryArtworkItem) { _, newItem in
+            importSelectedPhotoLibraryArtwork(newItem)
+        }
+    }
+
+    private func pickArtworkFromFinder(for target: ArtworkImportTarget) {
+        switch target {
+        case .file(let file):
+            viewModel.pickArtwork(for: file)
+        case .files(let files):
+            viewModel.pickArtwork(for: files)
+        }
+    }
+
+    private func presentPhotoLibraryArtworkPicker(for target: ArtworkImportTarget) {
+        photoLibraryArtworkTarget = target
+
+        Task { @MainActor in
+            await Task.yield()
+            isPhotoLibraryArtworkPickerPresented = true
+        }
+    }
+
+    @ViewBuilder
+    private func chooseArtworkMenu(
+        for target: ArtworkImportTarget,
+        width: CGFloat
+    ) -> some View {
+        Menu {
+            Button("Finder") {
+                pickArtworkFromFinder(for: target)
+            }
+
+            Button("Photo Library") {
+                presentPhotoLibraryArtworkPicker(for: target)
+            }
+        } label: {
+            artworkActionLabel("Choose Artwork…", width: width)
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .controlSize(.large)
+        .frame(width: width)
+    }
+
+    private func artworkActionButton(
+        _ title: String,
+        width: CGFloat,
+        role: ButtonRole? = nil,
+        isEnabled: Bool = true,
+        help: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            artworkActionLabel(
+                title,
+                width: width,
+                isDestructive: role == .destructive,
+                isEnabled: isEnabled
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .help(help ?? "")
+    }
+
+    private func artworkActionLabel(
+        _ title: String,
+        width: CGFloat,
+        isDestructive: Bool = false,
+        isEnabled: Bool = true
+    ) -> some View {
+        Text(title)
+            .font(.body.weight(isDestructive ? .semibold : .regular))
+            .foregroundStyle(artworkActionForeground(isDestructive: isDestructive, isEnabled: isEnabled))
+            .frame(width: width, height: artworkActionButtonHeight)
+            .background(
+                RoundedRectangle(cornerRadius: artworkActionButtonCornerRadius, style: .continuous)
+                    .fill(artworkActionBackground(isDestructive: isDestructive, isEnabled: isEnabled))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: artworkActionButtonCornerRadius, style: .continuous))
+    }
+
+    private func artworkActionForeground(isDestructive: Bool, isEnabled: Bool) -> Color {
+        if isDestructive {
+            return .white.opacity(isEnabled ? 1 : 0.45)
+        }
+
+        return isEnabled ? .primary : .secondary.opacity(0.55)
+    }
+
+    private func artworkActionBackground(isDestructive: Bool, isEnabled: Bool) -> Color {
+        if isDestructive {
+            return .red.opacity(isEnabled ? 0.82 : 0.35)
+        }
+
+        return .secondary.opacity(isEnabled ? 0.16 : 0.10)
+    }
+
+    private func importSelectedPhotoLibraryArtwork(_ item: PhotosPickerItem?) {
+        guard let item, let target = photoLibraryArtworkTarget else { return }
+        selectedPhotoLibraryArtworkItem = nil
+        photoLibraryArtworkTarget = nil
+
+        Task {
+            let data = try? await item.loadTransferable(type: Data.self)
+            await MainActor.run {
+                switch target {
+                case .file(let file):
+                    viewModel.importArtworkFromPhotoLibrary(data, for: file)
+                case .files(let files):
+                    viewModel.importArtworkFromPhotoLibrary(data, for: files)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -454,39 +585,25 @@ struct InspectorPane: View {
                 }
 
                 VStack(spacing: 10) {
-                    Button {
-                        viewModel.pickArtwork(for: file)
-                    } label: {
-                        Text("Choose Artwork…")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .frame(width: artworkControlWidth)
+                    chooseArtworkMenu(for: .file(file), width: artworkControlWidth)
 
-                    Button {
+                    artworkActionButton(
+                        "Fetch Online…",
+                        width: artworkControlWidth,
+                        isEnabled: lookupDisabledReason == nil,
+                        help: lookupDisabledReason ?? "Search iTunes artwork using the selected file metadata."
+                    ) {
                         viewModel.findOnlineArtwork(for: file)
-                    } label: {
-                        Text("Fetch Online…")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(lookupDisabledReason != nil)
-                    .help(lookupDisabledReason ?? "Search iTunes artwork using the selected file metadata.")
-                    .frame(width: artworkControlWidth)
 
-                    Button(role: .destructive) {
+                    artworkActionButton(
+                        "Clear Artwork",
+                        width: artworkControlWidth,
+                        role: .destructive,
+                        isEnabled: hasArtwork(for: file)
+                    ) {
                         viewModel.clearArtwork(for: file)
-                    } label: {
-                        Text("Clear Artwork")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .tint(.red)
-                    .disabled(!hasArtwork(for: file))
-                    .frame(width: artworkControlWidth)
                 }
 
                 Text("Double-click the cover to add or replace artwork.")
@@ -500,6 +617,14 @@ struct InspectorPane: View {
                 viewModel.pickArtwork(for: file)
             }
             .contextMenu {
+                Button("Choose from Finder") {
+                    viewModel.pickArtwork(for: file)
+                }
+
+                Button("Choose from Photo Library") {
+                    presentPhotoLibraryArtworkPicker(for: .file(file))
+                }
+
                 Button("Import from Clipboard") {
                     viewModel.importArtworkFromClipboard(for: file)
                 }
@@ -550,39 +675,25 @@ struct InspectorPane: View {
                 }
 
                 VStack(spacing: 10) {
-                    Button {
-                        viewModel.pickArtwork(for: files)
-                    } label: {
-                        Text("Choose Artwork…")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .frame(width: artworkControlWidth)
+                    chooseArtworkMenu(for: .files(files), width: artworkControlWidth)
 
-                    Button {
+                    artworkActionButton(
+                        "Fetch Online…",
+                        width: artworkControlWidth,
+                        isEnabled: lookupDisabledReason == nil,
+                        help: lookupDisabledReason ?? "Search iTunes artwork for the shared album metadata."
+                    ) {
                         viewModel.findOnlineArtwork(for: files)
-                    } label: {
-                        Text("Fetch Online…")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .disabled(lookupDisabledReason != nil)
-                    .help(lookupDisabledReason ?? "Search iTunes artwork for the shared album metadata.")
-                    .frame(width: artworkControlWidth)
 
-                    Button(role: .destructive) {
+                    artworkActionButton(
+                        "Clear All",
+                        width: artworkControlWidth,
+                        role: .destructive,
+                        isEnabled: canClearMultiArtwork
+                    ) {
                         viewModel.clearArtwork(for: files)
-                    } label: {
-                        Text("Clear All")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .tint(.red)
-                    .disabled(!canClearMultiArtwork)
-                    .frame(width: artworkControlWidth)
                 }
                 .frame(width: artworkControlWidth)
             }
@@ -593,8 +704,12 @@ struct InspectorPane: View {
                 viewModel.pickArtwork(for: files)
             }
             .contextMenu {
-                Button("Choose Artwork…") {
+                Button("Choose from Finder") {
                     viewModel.pickArtwork(for: files)
+                }
+
+                Button("Choose from Photo Library") {
+                    presentPhotoLibraryArtworkPicker(for: .files(files))
                 }
 
                 Button("Import from Clipboard") {

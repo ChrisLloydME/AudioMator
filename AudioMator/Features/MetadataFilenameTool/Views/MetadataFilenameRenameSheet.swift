@@ -16,54 +16,54 @@ private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
     var pickerTitle: String {
         switch self {
         case .metadataToFilename:
-            return "Metadata to Filename"
+            return L10n.string("Metadata to Filename")
         case .filenameToMetadata:
-            return "Filename to Metadata"
+            return L10n.string("Filename to Metadata")
         }
     }
 
     var actionTitle: String {
         switch self {
         case .metadataToFilename:
-            return "Rename"
+            return L10n.string("Rename")
         case .filenameToMetadata:
-            return "Write Metadata"
+            return L10n.string("Write Metadata")
         }
     }
 
     var templateTitle: String {
         switch self {
         case .metadataToFilename:
-            return "Rename template"
+            return L10n.string("Rename template")
         case .filenameToMetadata:
-            return "Match template"
+            return L10n.string("Match template")
         }
     }
 
     var placeholderText: String {
         switch self {
         case .metadataToFilename:
-            return "Type separators, then insert fields where you want them."
+            return L10n.string("Type separators, then insert fields where you want them.")
         case .filenameToMetadata:
-            return "Type the literal filename separators, then insert the fields you want to extract."
+            return L10n.string("Type the literal filename separators, then insert the fields you want to extract.")
         }
     }
 
     var emptyPreviewDescription: String {
         switch self {
         case .metadataToFilename:
-            return "Add text or metadata fields to preview the new filenames."
+            return L10n.string("Add text or metadata fields to preview the new filenames.")
         case .filenameToMetadata:
-            return "Add literal filename parts and metadata fields to preview the extracted tags."
+            return L10n.string("Add literal filename parts and metadata fields to preview the extracted tags.")
         }
     }
 
     var headerDescription: String {
         switch self {
         case .metadataToFilename:
-            return "Type the punctuation and spacing you want. Click or drag a field to insert it at the caret."
+            return L10n.string("Type the punctuation and spacing you want. Click or drag a field to insert it at the caret.")
         case .filenameToMetadata:
-            return "Type the fixed filename separators you expect. Click or drag a field to mark where metadata should be extracted."
+            return L10n.string("Type the fixed filename separators you expect. Click or drag a field to mark where metadata should be extracted.")
         }
     }
 }
@@ -212,11 +212,11 @@ struct MetadataFilenameWindowView: View {
 
     private var metadataToFilenameStatusMessage: String {
         if targetFiles.isEmpty {
-            return "Select files in the center list first."
+            return L10n.string("Select files in the center list first.")
         }
 
         if metadataToFilenameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Enter a template or drag metadata chips into the field."
+            return L10n.string("Enter a template or drag metadata chips into the field.")
         }
 
         if renamePlan.hasIssues {
@@ -224,7 +224,7 @@ struct MetadataFilenameWindowView: View {
         }
 
         if renamePlan.readyCount == 0 {
-            return "The filenames already match."
+            return L10n.string("The filenames already match.")
         }
 
         return "\(renamePlan.readyCount) file(s) will be renamed. File extensions stay the same."
@@ -232,7 +232,7 @@ struct MetadataFilenameWindowView: View {
 
     private var renameIssueSummaryText: String {
         let issueRows = renamePlan.rows.filter { $0.status.isError }
-        guard !issueRows.isEmpty else { return "No conflicts." }
+        guard !issueRows.isEmpty else { return L10n.string("No conflicts.") }
 
         var countsByTitle: [String: Int] = [:]
         for row in issueRows {
@@ -249,11 +249,11 @@ struct MetadataFilenameWindowView: View {
 
     private var filenameToMetadataStatusMessage: String {
         if targetFiles.isEmpty {
-            return "Select files in the center list first."
+            return L10n.string("Select files in the center list first.")
         }
 
         if filenameToMetadataTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Enter a matching template or drag metadata chips into the field."
+            return L10n.string("Enter a matching template or drag metadata chips into the field.")
         }
 
         if let validationMessage = filenameMetadataPlan.validationMessage {
@@ -269,7 +269,7 @@ struct MetadataFilenameWindowView: View {
         }
 
         if filenameMetadataPlan.noWritableCount > 0 {
-            return "The template matched, but it did not extract any writable metadata fields."
+            return L10n.string("The template matched, but it did not extract any writable metadata fields.")
         }
 
         return "The extracted metadata already matches the current tags."
@@ -277,7 +277,7 @@ struct MetadataFilenameWindowView: View {
 
     private var filenameMetadataIssueSummaryText: String {
         let issueRows = filenameMetadataPlan.rows.filter { $0.status.isError }
-        guard !issueRows.isEmpty else { return "No filename matching issues." }
+        guard !issueRows.isEmpty else { return L10n.string("No filename matching issues.") }
 
         var countsByTitle: [String: Int] = [:]
         for row in issueRows {
@@ -430,9 +430,9 @@ struct MetadataFilenameWindowView: View {
     private var setupDescription: String {
         switch mode {
         case .metadataToFilename:
-            return "AudioMator keeps each file's current extension. The template changes only the filename."
+            return L10n.string("AudioMator keeps each file's current extension. The template changes only the filename.")
         case .filenameToMetadata:
-            return "AudioMator matches the current filename without its extension. The template must match the whole filename, and only extracted metadata fields will be written."
+            return L10n.string("AudioMator matches the current filename without its extension. The template must match the whole filename, and only extracted metadata fields will be written.")
         }
     }
 

@@ -110,33 +110,33 @@ extension MetadataFieldCategory {
     nonisolated var displayName: String {
         switch self {
         case .basic:
-            return "Basic"
+            return L10n.string("Basic")
         case .numbering:
-            return "Numbering"
+            return L10n.string("Numbering")
         case .artwork:
-            return "Artwork"
+            return L10n.string("Artwork")
         case .lyricsAndComments:
-            return "Lyrics & Comments"
+            return L10n.string("Lyrics & Comments")
         case .dates:
-            return "Dates"
+            return L10n.string("Dates")
         case .people:
-            return "People"
+            return L10n.string("People")
         case .peopleRoles:
-            return "People Roles"
+            return L10n.string("People Roles")
         case .sorting:
-            return "Sorting"
+            return L10n.string("Sorting")
         case .identifiers:
-            return "Identifiers"
+            return L10n.string("Identifiers")
         case .release:
-            return "Release"
+            return L10n.string("Release")
         case .replayGain:
-            return "ReplayGain"
+            return L10n.string("ReplayGain")
         case .itunes:
             return "iTunes"
         case .technical:
-            return "Technical"
+            return L10n.string("Technical")
         case .custom:
-            return "Custom"
+            return L10n.string("Custom")
         }
     }
 }

@@ -282,35 +282,35 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
     var displayName: String {
         switch self {
         case .title:
-            return "Title"
+            return L10n.string("Title")
         case .artist:
-            return "Artist"
+            return L10n.string("Artist")
         case .album:
-            return "Album"
+            return L10n.string("Album")
         case .composer:
-            return "Composer"
+            return L10n.string("Composer")
         case .genre:
-            return "Genre"
+            return L10n.string("Genre")
         case .year:
-            return "Year"
+            return L10n.string("Year")
         case .trackNumber:
-            return "Track Number"
+            return L10n.string("Track Number")
         case .trackTotal:
-            return "Total Tracks"
+            return L10n.string("Total Tracks")
         case .discNumber:
-            return "Disc Number"
+            return L10n.string("Disc Number")
         case .discTotal:
-            return "Total Discs"
+            return L10n.string("Total Discs")
         case .comment:
-            return "Comment"
+            return L10n.string("Comment")
         case .albumArtist:
-            return "Album Artist"
+            return L10n.string("Album Artist")
         case .releaseDate:
-            return "Release Date"
+            return L10n.string("Release Date")
         case .publisher:
-            return "Publisher"
+            return L10n.string("Publisher")
         case .copyright:
-            return "Copyright"
+            return L10n.string("Copyright")
         }
     }
 
@@ -489,17 +489,17 @@ struct MultiFileEditModel {
 
     func placeholder(for field: MultiFileEditableTextField) -> String? {
         guard mixedTextFields.contains(field), !modifiedTextFields.contains(field) else { return nil }
-        return "Multiple Values"
+        return L10n.string("Multiple Values")
     }
 
     var explicitCurrentValueDescription: String {
         switch initialExplicitValue {
         case .some(true):
-            return "Current value: Explicit"
+            return L10n.string("Current value: Explicit")
         case .some(false):
-            return "Current value: Clean"
+            return L10n.string("Current value: Clean")
         case .none:
-            return "Current values differ"
+            return L10n.string("Current values differ")
         }
     }
 
@@ -524,16 +524,16 @@ struct MultiFileEditModel {
         case .unchanged:
             switch initialArtworkState {
             case .none:
-                return "No artwork in the current selection"
+                return L10n.string("No artwork in the current selection")
             case .shared:
-                return "Shared artwork across selected files"
+                return L10n.string("Shared artwork across selected files")
             case .mixed:
-                return "Artwork differs across selected files"
+                return L10n.string("Artwork differs across selected files")
             }
         case .replace:
-            return "This artwork will be applied to all selected files"
+            return L10n.string("This artwork will be applied to all selected files")
         case .remove:
-            return "Artwork will be removed from all selected files"
+            return L10n.string("Artwork will be removed from all selected files")
         }
     }
 

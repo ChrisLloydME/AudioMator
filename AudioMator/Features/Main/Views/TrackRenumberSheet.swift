@@ -66,7 +66,7 @@ struct TrackRenumberSheet: View {
     }
 
     private var previewSequenceText: String {
-        guard !previewNumbers.isEmpty else { return "No tracks selected" }
+        guard !previewNumbers.isEmpty else { return L10n.string("No tracks selected") }
 
         let visibleNumbers = previewNumbers.prefix(3).map(formattedNumber)
         if previewNumbers.count <= 3 {
@@ -78,7 +78,7 @@ struct TrackRenumberSheet: View {
 
     private var previewRangeText: String {
         guard let first = previewNumbers.first, let last = previewNumbers.last else {
-            return "Add files to preview the new numbers."
+            return L10n.string("Add files to preview the new numbers.")
         }
 
         let scope = state.selectedAudioIDs.isEmpty ? "current list" : "selection"
@@ -87,7 +87,7 @@ struct TrackRenumberSheet: View {
 
     private var selectionSummaryText: String {
         if state.selectedAudioIDs.isEmpty {
-            return "Current list"
+            return L10n.string("Current list")
         }
 
         return "\(targetCount) selected tracks"

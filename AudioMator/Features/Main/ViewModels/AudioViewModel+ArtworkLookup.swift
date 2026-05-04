@@ -41,7 +41,7 @@ struct ArtworkLookupSession: Identifiable {
 extension AudioViewModel {
     func artworkLookupDisabledReason(for file: AudioFile) -> String? {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
-            return "This format does not support embedded artwork writing yet."
+            return L10n.string("This format does not support embedded artwork writing yet.")
         }
 
         return makeArtworkLookupRequest(for: file) == nil
@@ -52,7 +52,7 @@ extension AudioViewModel {
     func artworkLookupDisabledReason(for files: [AudioFile]) -> String? {
         let unsupportedFiles = files.filter { !isArtworkWriteSupportedExtension($0.url.pathExtension) }
         guard unsupportedFiles.isEmpty else {
-            return "Some selected formats do not support embedded artwork writing yet."
+            return L10n.string("Some selected formats do not support embedded artwork writing yet.")
         }
 
         if makeArtworkLookupRequest(for: files) != nil {
@@ -65,10 +65,10 @@ extension AudioViewModel {
         }
 
         if hasAnyAlbumSignal {
-            return "Online artwork lookup for multiple files is only available when all selected tracks belong to the same album."
+            return L10n.string("Online artwork lookup for multiple files is only available when all selected tracks belong to the same album.")
         }
 
-        return "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value."
+        return L10n.string("Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value.")
     }
 
     func findOnlineArtwork(for file: AudioFile) {

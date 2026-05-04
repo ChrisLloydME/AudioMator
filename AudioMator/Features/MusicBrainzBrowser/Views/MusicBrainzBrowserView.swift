@@ -324,15 +324,15 @@ struct MusicBrainzBrowserView: View {
     private var noResultsDescription: String {
         switch store.mode {
         case .track:
-            return "No tracks matched this search."
+            return L10n.string("No tracks matched this search.")
         case .album:
-            return "No albums matched this search."
+            return L10n.string("No albums matched this search.")
         case .file:
             return store.isMultiFileSelection
                 ? "No strong album matches for the selected files."
                 : "No strong track matches for the selected file."
         case .link:
-            return "That link didn't resolve to a supported MusicBrainz result."
+            return L10n.string("That link didn't resolve to a supported MusicBrainz result.")
         }
     }
 }
@@ -540,20 +540,20 @@ private struct MusicBrainzFileSelectionSummaryView: View {
     }
 
     private var selectionTitle: String {
-        guard let summary else { return "No Files Selected" }
+        guard let summary else { return L10n.string("No Files Selected") }
         return summary.isMultiFile ? "Selected Files" : "Selected File"
     }
 
     private var selectionDescription: String {
         guard let summary else {
-            return "Select files in AudioMator, then choose Find in MusicBrainz."
+            return L10n.string("Select files in AudioMator, then choose Find in MusicBrainz.")
         }
 
         if summary.isMultiFile {
-            return "Find matching releases, then map the selected files to album tracks."
+            return L10n.string("Find matching releases, then map the selected files to album tracks.")
         }
 
-        return "Find the best recording match from the selected file's metadata."
+        return L10n.string("Find the best recording match from the selected file's metadata.")
     }
 
     private func summaryRows(for summary: MusicBrainzFileSelectionSummary) -> [SelectionSummaryRow] {

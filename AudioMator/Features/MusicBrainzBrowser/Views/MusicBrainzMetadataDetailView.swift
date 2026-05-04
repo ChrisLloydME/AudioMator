@@ -668,13 +668,13 @@ private enum MetadataComparisonStatus {
     var label: String {
         switch self {
         case .same:
-            return "Same"
+            return L10n.string("Same")
         case .different:
-            return "Different"
+            return L10n.string("Different")
         case .missingLocal:
-            return "Missing Locally"
+            return L10n.string("Missing Locally")
         case .missingRemote:
-            return "Missing on MusicBrainz"
+            return L10n.string("Missing on MusicBrainz")
         }
     }
 }

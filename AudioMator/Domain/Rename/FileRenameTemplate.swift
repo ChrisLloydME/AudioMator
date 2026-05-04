@@ -23,35 +23,35 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
     var displayName: String {
         switch self {
         case .title:
-            return "Title"
+            return L10n.string("Title")
         case .artist:
-            return "Artist"
+            return L10n.string("Artist")
         case .album:
-            return "Album"
+            return L10n.string("Album")
         case .albumArtist:
-            return "Album Artist"
+            return L10n.string("Album Artist")
         case .composer:
-            return "Composer"
+            return L10n.string("Composer")
         case .genre:
-            return "Genre"
+            return L10n.string("Genre")
         case .year:
-            return "Year"
+            return L10n.string("Year")
         case .trackNumberText:
-            return "Track Number"
+            return L10n.string("Track Number")
         case .discNumberText:
-            return "Disc Number"
+            return L10n.string("Disc Number")
         case .comment:
-            return "Comment"
+            return L10n.string("Comment")
         case .releaseDate:
-            return "Release Date"
+            return L10n.string("Release Date")
         case .publisher:
-            return "Publisher"
+            return L10n.string("Publisher")
         case .copyright:
-            return "Copyright"
+            return L10n.string("Copyright")
         case .credits:
-            return "Credits"
+            return L10n.string("Credits")
         case .ignore:
-            return "Ignore"
+            return L10n.string("Ignore")
         }
     }
 
@@ -109,30 +109,30 @@ enum FileRenamePreviewStatus: Equatable {
     var title: String {
         switch self {
         case .ready:
-            return "Ready"
+            return L10n.string("Ready")
         case .unchanged:
-            return "Unchanged"
+            return L10n.string("Unchanged")
         case .emptyName:
-            return "Empty Name"
+            return L10n.string("Empty Name")
         case .duplicateTarget:
-            return "Duplicate Target"
+            return L10n.string("Duplicate Target")
         case .existingFile:
-            return "File Exists"
+            return L10n.string("File Exists")
         }
     }
 
     var message: String {
         switch self {
         case .ready:
-            return "This file can be renamed."
+            return L10n.string("This file can be renamed.")
         case .unchanged:
-            return "The generated filename already matches the current file."
+            return L10n.string("The generated filename already matches the current file.")
         case .emptyName:
-            return "This template resolves to an empty filename for the file."
+            return L10n.string("This template resolves to an empty filename for the file.")
         case .duplicateTarget:
-            return "Multiple selected files would end up with the same filename."
+            return L10n.string("Multiple selected files would end up with the same filename.")
         case .existingFile:
-            return "A different file already exists at the target path."
+            return L10n.string("A different file already exists at the target path.")
         }
     }
 

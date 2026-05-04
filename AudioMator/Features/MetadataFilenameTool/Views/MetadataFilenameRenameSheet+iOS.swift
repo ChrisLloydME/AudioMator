@@ -11,18 +11,18 @@ private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .metadataToFilename:
-            return "Metadata to Filename"
+            return L10n.string("Metadata to Filename")
         case .filenameToMetadata:
-            return "Filename to Metadata"
+            return L10n.string("Filename to Metadata")
         }
     }
 
     var actionTitle: String {
         switch self {
         case .metadataToFilename:
-            return "Rename"
+            return L10n.string("Rename")
         case .filenameToMetadata:
-            return "Write Metadata"
+            return L10n.string("Write Metadata")
         }
     }
 }

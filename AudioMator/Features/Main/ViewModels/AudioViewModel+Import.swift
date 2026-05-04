@@ -38,6 +38,32 @@ extension AudioViewModel {
         }
     }
 
+    func canImportArtwork(for file: AudioFile) -> Bool {
+        validateArtworkEditingSupport(for: file)
+    }
+
+    func importArtworkFromPhotoLibrary(_ data: Data?, for file: AudioFile) {
+        guard validateArtworkEditingSupport(for: file) else { return }
+
+        guard let data else {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: "The selected photo could not be loaded."
+            )
+            return
+        }
+
+        do {
+            let pendingArtwork = try loadPendingArtwork(fromImageData: data)
+            applyArtworkEditAction(.replace(pendingArtwork), to: file)
+        } catch {
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent,
+                reason: (error as NSError).localizedDescription
+            )
+        }
+    }
+
     func importArtworkFromClipboard(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
 
@@ -82,6 +108,34 @@ extension AudioViewModel {
                     )
                 }
             }
+        }
+    }
+
+    func canImportArtwork(for files: [AudioFile]) -> Bool {
+        validateArtworkEditingSupport(for: files)
+    }
+
+    func importArtworkFromPhotoLibrary(_ data: Data?, for files: [AudioFile]) {
+        guard validateArtworkEditingSupport(for: files) else { return }
+
+        guard let data else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Artwork Update Failed",
+                subtitle: "The selected photo could not be loaded."
+            )
+            return
+        }
+
+        do {
+            let pendingArtwork = try loadPendingArtwork(fromImageData: data)
+            applyArtworkEditAction(.replace(pendingArtwork), to: files)
+        } catch {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Artwork Update Failed",
+                subtitle: (error as NSError).localizedDescription
+            )
         }
     }
 
@@ -182,6 +236,18 @@ extension AudioViewModel {
                 domain: "AudioMator.Artwork",
                 code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "The selected image could not be opened."]
+            )
+        }
+
+        return try loadPendingArtwork(from: image)
+    }
+
+    private func loadPendingArtwork(fromImageData data: Data) throws -> PendingArtwork {
+        guard let image = PlatformImage(data: data) else {
+            throw NSError(
+                domain: "AudioMator.Artwork",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "The selected photo could not be opened."]
             )
         }
 

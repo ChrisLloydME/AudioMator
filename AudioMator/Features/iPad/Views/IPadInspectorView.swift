@@ -1,4 +1,5 @@
 #if os(iOS)
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -7,6 +8,10 @@ struct IPadInspectorView: View {
     @ObservedObject var state: SharedState
     let onCancelEdits: () -> Void
     let onSaveEdits: () -> Void
+
+    @State private var photoLibraryArtworkTarget: ArtworkImportTarget?
+    @State private var isPhotoLibraryArtworkPickerPresented: Bool = false
+    @State private var selectedPhotoLibraryArtworkItem: PhotosPickerItem?
 
     private var selectedFiles: [AudioFile] {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
@@ -49,6 +54,50 @@ struct IPadInspectorView: View {
                 isCloseDisabled: viewModel.artworkLookupSession?.isApplying == true
             ) {
                 AlbumArtworkLookupSheet(viewModel: viewModel)
+            }
+        }
+        .photosPicker(
+            isPresented: $isPhotoLibraryArtworkPickerPresented,
+            selection: $selectedPhotoLibraryArtworkItem,
+            matching: .images
+        )
+        .onChange(of: selectedPhotoLibraryArtworkItem) { _, newItem in
+            importSelectedPhotoLibraryArtwork(newItem)
+        }
+    }
+
+    private func pickArtworkFromFiles(for target: ArtworkImportTarget) {
+        switch target {
+        case .file(let file):
+            viewModel.pickArtwork(for: file)
+        case .files(let files):
+            viewModel.pickArtwork(for: files)
+        }
+    }
+
+    private func presentPhotoLibraryArtworkPicker(for target: ArtworkImportTarget) {
+        photoLibraryArtworkTarget = target
+
+        Task { @MainActor in
+            await Task.yield()
+            isPhotoLibraryArtworkPickerPresented = true
+        }
+    }
+
+    private func importSelectedPhotoLibraryArtwork(_ item: PhotosPickerItem?) {
+        guard let item, let target = photoLibraryArtworkTarget else { return }
+        selectedPhotoLibraryArtworkItem = nil
+        photoLibraryArtworkTarget = nil
+
+        Task {
+            let data = try? await item.loadTransferable(type: Data.self)
+            await MainActor.run {
+                switch target {
+                case .file(let file):
+                    viewModel.importArtworkFromPhotoLibrary(data, for: file)
+                case .files(let files):
+                    viewModel.importArtworkFromPhotoLibrary(data, for: files)
+                }
             }
         }
     }
@@ -384,9 +433,7 @@ private extension IPadInspectorView {
 
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
-                    artworkButton("Choose", systemImage: "photo.badge.plus") {
-                        viewModel.pickArtwork(for: file)
-                    }
+                    artworkSourceMenu(for: .file(file))
 
                     artworkButton("Fetch Online", systemImage: "icloud.and.arrow.down") {
                         viewModel.findOnlineArtwork(for: file)
@@ -420,9 +467,7 @@ private extension IPadInspectorView {
 
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
-                    artworkButton("Choose", systemImage: "photo.badge.plus") {
-                        viewModel.pickArtwork(for: files)
-                    }
+                    artworkSourceMenu(for: .files(files))
 
                     artworkButton("Fetch Online", systemImage: "icloud.and.arrow.down") {
                         viewModel.findOnlineArtwork(for: files)
@@ -449,6 +494,26 @@ private extension IPadInspectorView {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    func artworkSourceMenu(for target: ArtworkImportTarget) -> some View {
+        Menu {
+            Button("Files") {
+                pickArtworkFromFiles(for: target)
+            }
+
+            Button("Photo Library") {
+                presentPhotoLibraryArtworkPicker(for: target)
+            }
+        } label: {
+            Label("Choose", systemImage: "photo.badge.plus")
+                .font(.subheadline.weight(.bold))
+                .frame(maxWidth: .infinity, minHeight: 38)
+        }
+        .menuIndicator(.hidden)
+        .menuStyle(.button)
+        .buttonStyle(IPadArtworkButtonStyle())
+        .controlSize(.regular)
     }
 
     func artworkButton(

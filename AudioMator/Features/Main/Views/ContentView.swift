@@ -712,7 +712,7 @@ extension ContentView {
     private func buildMetadataDump(for url: URL) async -> String {
         var sections: [String] = []
 
-        let tagLibText = metadataPipeline.rawMetadataDumpText(for: url)?
+        let tagLibText = await rawMetadataDumpTextOffMainActor(for: url)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !tagLibText.isEmpty {
             sections.append(tagLibText)
@@ -732,6 +732,14 @@ extension ContentView {
 
         (No metadata could be read by either TagLib or AVFoundation.)
         """
+    }
+
+    private func rawMetadataDumpTextOffMainActor(for url: URL) async -> String? {
+        let metadataPipeline = metadataPipeline
+
+        return await Task.detached(priority: .userInitiated) {
+            metadataPipeline.rawMetadataDumpText(for: url)
+        }.value
     }
 
     private func buildAVFoundationMetadataDump(for url: URL) async -> String? {

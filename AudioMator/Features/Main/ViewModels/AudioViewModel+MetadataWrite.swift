@@ -441,7 +441,7 @@ extension AudioViewModel {
             }
 
             do {
-                let writeResult = try metadataPipeline.writeRawMetadataPropertyMap(
+                let writeResult = try await writeRawMetadataPropertyMapOffMainActor(
                     propertyMaps[target.id] ?? [:],
                     to: target.url
                 )
@@ -557,7 +557,7 @@ extension AudioViewModel {
         let editPayload = MetadataEditPayload(edit)
 
         do {
-            let writeResult = try metadataPipeline.writeMetadata(editPayload, to: file.url)
+            let writeResult = try await writeMetadataOffMainActor(editPayload, to: file.url)
             var warnings: [String] = writeResult.warnings
 
             let refreshWarning = await reloadEditedFile(
@@ -624,8 +624,19 @@ extension AudioViewModel {
     func eraseAllMetadata(_ file: AudioFile) {
         guard metadataSaveProgress == nil else { return }
 
+        beginMetadataSaveProgress(
+            title: "Clearing Metadata",
+            subtitle: file.url.lastPathComponent,
+            totalUnitCount: 1
+        )
+
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataErase(file, syncInspectorAfterReload: true)
+            self.updateMetadataSaveProgress(
+                subtitle: file.url.lastPathComponent,
+                completedUnitCount: 1
+            )
+            self.endMetadataSaveProgress()
 
             switch result {
             case .success(let success):
@@ -732,7 +743,7 @@ extension AudioViewModel {
         }
 
         do {
-            let writeResult = try metadataPipeline.eraseAllMetadata(at: file.url)
+            let writeResult = try await eraseAllMetadataOffMainActor(at: file.url)
             var warnings: [String] = writeResult.warnings
 
             let refreshWarning = await reloadEditedFile(
@@ -763,6 +774,36 @@ extension AudioViewModel {
             title: summary.hudTitle,
             subtitle: summary.hudSubtitle
         )
+    }
+
+    private func writeMetadataOffMainActor(
+        _ edit: MetadataEditPayload,
+        to url: URL
+    ) async throws -> AudioMetadataWriteResult {
+        let metadataPipeline = self.metadataPipeline
+
+        return try await Task.detached(priority: .userInitiated) {
+            try metadataPipeline.writeMetadata(edit, to: url)
+        }.value
+    }
+
+    private func writeRawMetadataPropertyMapOffMainActor(
+        _ propertyMap: [String: String],
+        to url: URL
+    ) async throws -> AudioMetadataWriteResult {
+        let metadataPipeline = self.metadataPipeline
+
+        return try await Task.detached(priority: .userInitiated) {
+            try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+        }.value
+    }
+
+    private func eraseAllMetadataOffMainActor(at url: URL) async throws -> AudioMetadataWriteResult {
+        let metadataPipeline = self.metadataPipeline
+
+        return try await Task.detached(priority: .userInitiated) {
+            try metadataPipeline.eraseAllMetadata(at: url)
+        }.value
     }
 
     func reloadEditedFile(

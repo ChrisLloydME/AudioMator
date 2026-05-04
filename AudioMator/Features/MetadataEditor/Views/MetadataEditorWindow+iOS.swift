@@ -79,7 +79,7 @@ final class MetadataEditorStore: ObservableObject {
         self.loadToken = token
         let metadataPipeline = self.metadataPipeline
 
-        Task(priority: .userInitiated) { [targets, token, metadataPipeline] in
+        Task.detached(priority: .userInitiated) { [targets, token, metadataPipeline] in
             let loadedState = Self.loadState(for: targets, metadataPipeline: metadataPipeline)
 
             await MainActor.run {

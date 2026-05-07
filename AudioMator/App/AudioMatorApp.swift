@@ -78,7 +78,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 980, height: 700)
 
-        Window("Filename & Metadata", id: MetadataFilenameWindowView.windowID) {
+        Window("Converter", id: MetadataFilenameWindowView.windowID) {
             MetadataFilenameWindowView(
                 viewModel: viewModel,
                 store: metadataFilenameToolStore

@@ -204,10 +204,16 @@ struct ContentView: View {
         #if os(macOS)
         NavigationSplitView {
             SidebarPane(viewModel: viewModel, state: state)
-        } content: {
-            contentPane
         } detail: {
-            inspectorPane
+            contentPane
+                .inspector(isPresented: $isInspectorVisible) {
+                    InspectorPane(
+                        viewModel: viewModel,
+                        state: state,
+                        isInspectorVisible: $isInspectorVisible
+                    )
+                    .inspectorColumnWidth(min: 340, ideal: 380, max: 480)
+                }
         }
         .navigationSplitViewStyle(.balanced)
         #else
@@ -246,28 +252,6 @@ struct ContentView: View {
             isInspectorVisible: isInspectorVisible,
             onToggleInspector: toggleInspector
         )
-    }
-
-    private var inspectorPane: some View {
-        Group {
-            if isInspectorVisible {
-                ZStack {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .ignoresSafeArea()
-
-                    InspectorPane(
-                        viewModel: viewModel,
-                        state: state,
-                        isInspectorVisible: $isInspectorVisible
-                    )
-                }
-                .navigationSplitViewColumnWidth(min: 340, ideal: 380, max: 480)
-            } else {
-                Color.clear
-                    .navigationSplitViewColumnWidth(min: 0, ideal: 0, max: 0)
-            }
-        }
     }
 
     private func openTrackRenumberSheet() {

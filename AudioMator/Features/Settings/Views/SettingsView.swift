@@ -367,6 +367,7 @@ private struct GeneralSettingsTab: View {
                 )
             }
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -415,6 +416,7 @@ private struct ColumnVisibilitySettingsTab: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
@@ -460,6 +462,7 @@ private struct ToolbarSettingsTab: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
@@ -712,12 +715,17 @@ private struct AcknowledgementsSheet: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Acknowledgements")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Acknowledgements")
+                    .font(.title2.weight(.semibold))
 
-            Text("AudioMator builds on the following third-party projects and ideas.")
-                .foregroundStyle(.secondary)
+                Text("AudioMator builds on the following third-party projects and ideas.")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 18)
 
             ScrollView {
                 #if os(iOS)
@@ -739,6 +747,8 @@ private struct AcknowledgementsSheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
                 #else
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(acknowledgements, id: \.title) { item in
@@ -755,18 +765,25 @@ private struct AcknowledgementsSheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
                 #endif
             }
+            .safeAreaBar(edge: .bottom, spacing: 0) {
+                HStack {
+                    Spacer()
 
-            HStack {
-                Spacer()
-
-                Button("Done") {
-                    dismiss()
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
             }
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        .padding(24)
         #if os(iOS)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
@@ -815,12 +832,17 @@ private struct PrivacySheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Privacy")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Privacy")
+                    .font(.title2.weight(.semibold))
 
-            Text("Network activity only happens when optional online features are used.")
-                .foregroundStyle(.secondary)
+                Text("Network activity only happens when optional online features are used.")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 18)
 
             ScrollView {
                 #if os(iOS)
@@ -842,6 +864,8 @@ private struct PrivacySheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
                 #else
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(sections, id: \.title) { section in
@@ -858,19 +882,26 @@ private struct PrivacySheet: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
                 #endif
             }
+            .safeAreaBar(edge: .bottom, spacing: 0) {
+                HStack {
+                    Spacer()
 
-            HStack {
-                Spacer()
-
-                Button("Done") {
-                    dismiss()
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .keyboardShortcut(.defaultAction)
                 }
-                .keyboardShortcut(.defaultAction)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
             }
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        .padding(24)
         #if os(iOS)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
@@ -887,25 +918,35 @@ private struct ReleaseNotesSheet: View {
     private let client = GitHubReleaseNotesClient()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Release Notes")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Release Notes")
+                    .font(.title2.weight(.semibold))
 
-            Text("Recent published changes for AudioMator.")
-                .foregroundStyle(.secondary)
+                Text("Recent published changes for AudioMator.")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 18)
 
             content
+                .safeAreaBar(edge: .bottom, spacing: 0) {
+                    HStack {
+                        Spacer()
 
-            HStack {
-                Spacer()
-
-                Button("Done") {
-                    dismiss()
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .keyboardShortcut(.defaultAction)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                    .padding(.bottom, 20)
                 }
-                .keyboardShortcut(.defaultAction)
-            }
+                .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        .padding(24)
         #if os(iOS)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
@@ -950,13 +991,10 @@ private struct ReleaseNotesSheet: View {
                         }
                     }
                     .padding(20)
+                    .padding(.bottom, 64)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
-                #if os(iOS)
-                .iPadRoundedGroupedSurface()
-                #else
-                .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                #endif
+                .audiomatorScrollEdgeEffect(.soft, for: .vertical)
             }
         }
     }

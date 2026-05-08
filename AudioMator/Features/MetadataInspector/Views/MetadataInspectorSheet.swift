@@ -97,6 +97,7 @@ struct MetadataInspectorSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
             }
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
             #if os(iOS)
             .iPadRoundedGroupedSurface()
             #else

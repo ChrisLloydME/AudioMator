@@ -589,6 +589,7 @@ struct MiddleListTable: View {
             .onMove(perform: moveRows)
         }
         .listStyle(.plain)
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .environment(\.editMode, .constant(middleListSort == nil ? .active : .inactive))
     }
 

@@ -1,6 +1,15 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension View {
+    func audiomatorScrollEdgeEffect(
+        _ style: ScrollEdgeEffectStyle = .soft,
+        for edges: Edge.Set = .all
+    ) -> some View {
+        scrollEdgeEffectStyle(style, for: edges)
+    }
+}
+
 #if os(macOS)
 import AppKit
 
@@ -84,6 +93,7 @@ extension View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(Color.clear)
+            .audiomatorScrollEdgeEffect()
     }
 
     @ViewBuilder
@@ -92,6 +102,7 @@ extension View {
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .background(Color(uiColor: .systemGroupedBackground))
+            .audiomatorScrollEdgeEffect()
     }
 
     @ViewBuilder

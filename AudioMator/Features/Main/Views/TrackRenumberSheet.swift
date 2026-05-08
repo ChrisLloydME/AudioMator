@@ -13,6 +13,7 @@ struct TrackRenumberSheet: View {
     private let cardInset: CGFloat = 16
     private let previewInnerRadius: CGFloat = 12
     private let setupSectionInset: CGFloat = 10
+    private let contentInset: CGFloat = 20
 
     private var setupSectionRadius: CGFloat {
         previewInnerRadius + setupSectionInset
@@ -106,28 +107,28 @@ struct TrackRenumberSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    configurationSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                configurationSection
 
-                    if hasResult {
-                        resultSection
-                    }
+                if hasResult {
+                    resultSection
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
             }
-            .scrollBounceBehavior(.basedOnSize)
-
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, contentInset)
+            .padding(.top, contentInset)
+            .padding(.bottom, contentInset)
+        }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .scrollBounceBehavior(.basedOnSize)
         #if os(iOS)
-        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
-        .padding(20)
         .frame(width: 640, height: 560)
         #endif
     }
@@ -360,6 +361,7 @@ struct TrackRenumberSheet: View {
                                 }
                             }
                         }
+                        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
                         .frame(maxHeight: 150)
                     }
                 }
@@ -389,6 +391,10 @@ struct TrackRenumberSheet: View {
             .keyboardShortcut(.defaultAction)
             .disabled(isTrackRenumberRunning || targetCount == 0)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, contentInset)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
     }
 
     private func configurationRow<Content: View>(

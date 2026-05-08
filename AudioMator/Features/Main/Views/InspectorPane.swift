@@ -268,6 +268,7 @@ struct InspectorPane: View {
                     }
                     .padding()
                 }
+                .audiomatorScrollEdgeEffect(.soft, for: .vertical)
             } else if selectedFiles.count > 1 {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -277,6 +278,7 @@ struct InspectorPane: View {
                     }
                     .padding()
                 }
+                .audiomatorScrollEdgeEffect(.soft, for: .vertical)
             } else {
                 ContentUnavailableView(
                     "Select a File",
@@ -315,6 +317,7 @@ struct InspectorPane: View {
 
                             TextEditor(text: $inspectorQuickText)
                                 .scrollContentBackground(.hidden)
+                                .audiomatorScrollEdgeEffect(.soft, for: .vertical)
                                 .font(.system(size: 14, weight: .regular, design: .monospaced))
                                 .foregroundStyle(.primary.opacity(0.82))
                                 .padding(10)
@@ -1048,6 +1051,7 @@ struct ScrollableInspectorValueText: View {
                 .foregroundStyle(.secondary)
                 .frame(minWidth: width, alignment: .trailing)
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .horizontal)
     }
 }
 #endif

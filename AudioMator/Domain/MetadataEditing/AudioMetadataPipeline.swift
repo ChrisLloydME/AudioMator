@@ -26,6 +26,7 @@ struct MetadataEditPayload: Sendable {
     var publisher: String
     var isrc: String
     var barcode: String
+    var itunesAlbumID: String
     var musicBrainzAlbumID: String
     var musicBrainzTrackID: String
     var musicBrainzReleaseGroupID: String
@@ -407,6 +408,7 @@ private enum MetadataPipelineSupport {
         metadata.label = normalizedFieldComponent(edit.publisher)
         metadata.isrc = normalizedFieldComponent(edit.isrc)
         metadata.barcode = normalizedFieldComponent(edit.barcode)
+        metadata.itunesAlbumId = normalizedFieldComponent(edit.itunesAlbumID)
         metadata.musicBrainzAlbumId = normalizedFieldComponent(edit.musicBrainzAlbumID)
         metadata.musicBrainzTrackId = normalizedFieldComponent(edit.musicBrainzTrackID)
         metadata.musicBrainzReleaseGroupId = normalizedFieldComponent(edit.musicBrainzReleaseGroupID)
@@ -468,6 +470,7 @@ private enum MetadataPipelineSupport {
           publisher   = \(metadata.label ?? "<nil>")
           isrc        = \(metadata.isrc ?? "<nil>")
           barcode     = \(metadata.barcode ?? "<nil>")
+          itAlbumID   = \(metadata.itunesAlbumId ?? "<nil>")
           mbAlbumID   = \(metadata.musicBrainzAlbumId ?? "<nil>")
           mbTrackID   = \(metadata.musicBrainzTrackId ?? "<nil>")
           mbRGID      = \(metadata.musicBrainzReleaseGroupId ?? "<nil>")

@@ -108,7 +108,7 @@ struct ContentPane: View {
                         Button(action: onOpenMusicBrainzBrowser) {
                             Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
                         }
-                        .help("Open MusicBrainz Browser")
+                        .help("Open Metadata Browser")
                     }
 
                     if visibleToolbarButtons.contains(.cancelEdits) {

@@ -20,6 +20,7 @@ extension MetadataEditPayload {
         self.publisher = edit.publisher
         self.isrc = edit.isrc
         self.barcode = edit.barcode
+        self.itunesAlbumID = edit.itunesAlbumID
         self.musicBrainzAlbumID = edit.musicBrainzAlbumID
         self.musicBrainzTrackID = edit.musicBrainzTrackID
         self.musicBrainzReleaseGroupID = edit.musicBrainzReleaseGroupID

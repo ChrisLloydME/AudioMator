@@ -70,7 +70,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 700, height: 480)
 
-        Window("MusicBrainz Browser", id: MusicBrainzBrowserView.windowID) {
+        Window("Metadata Browser", id: MusicBrainzBrowserView.windowID) {
             MusicBrainzBrowserView(
                 store: musicBrainzBrowserStore,
                 viewModel: viewModel

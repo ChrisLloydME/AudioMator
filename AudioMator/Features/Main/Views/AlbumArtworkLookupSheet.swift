@@ -111,6 +111,7 @@ struct AlbumArtworkLookupSheet: View {
                         }
                         .padding(.vertical, 2)
                     }
+                    .audiomatorScrollEdgeEffect(.soft, for: .vertical)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -132,6 +132,7 @@ struct MetadataFilenameWindowView: View {
                     }
                     .padding(.vertical, 2)
                 }
+                .audiomatorScrollEdgeEffect(.soft, for: .horizontal)
 
                 if mode == .filenameToMetadata {
                     Toggle("Replace underscores with spaces", isOn: $replaceUnderscoresWithSpaces)

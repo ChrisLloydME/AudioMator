@@ -111,6 +111,7 @@ struct MetadataFilenameWindowView: View {
     private let sectionInset: CGFloat = 12
     private let sectionRadius: CGFloat = 18
     private let controlRadius: CGFloat = 12
+    private let contentInset: CGFloat = 20
 
     private var targetFiles: [AudioFile] {
         let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
@@ -367,8 +368,7 @@ struct MetadataFilenameWindowView: View {
                     )
                 }
             }
-            .padding(20)
-            .frame(minWidth: 820, idealWidth: 860, maxWidth: 980, minHeight: 620, idealHeight: 720)
+            .frame(minWidth: 820, idealWidth: 860, maxWidth: .infinity, minHeight: 620, idealHeight: 720, maxHeight: .infinity)
             .background(Color(nsColor: .windowBackgroundColor))
             .navigationTitle(selectedConverterMode?.title ?? "Converter")
             .toolbar {
@@ -411,20 +411,22 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var filenameMetadataDetail: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    setupSection
-                    previewSection
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                setupSection
+                previewSection
             }
-            .scrollBounceBehavior(.basedOnSize)
-
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, contentInset)
+            .padding(.top, contentInset)
+            .padding(.bottom, contentInset)
+        }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     private func selectConverterMode(_ selectedMode: MetadataConverterMode) {
@@ -586,20 +588,22 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func metadataExchangeDetail(for selectedMode: MetadataConverterMode) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    metadataExchangeHeader(for: selectedMode)
-                    metadataExchangeSetupSection(for: selectedMode)
-                    metadataExchangePreviewSection(for: selectedMode)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                metadataExchangeHeader(for: selectedMode)
+                metadataExchangeSetupSection(for: selectedMode)
+                metadataExchangePreviewSection(for: selectedMode)
             }
-            .scrollBounceBehavior(.basedOnSize)
-
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, contentInset)
+            .padding(.top, contentInset)
+            .padding(.bottom, contentInset)
+        }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     private func metadataExchangeHeader(for selectedMode: MetadataConverterMode) -> some View {
@@ -982,6 +986,10 @@ struct MetadataFilenameWindowView: View {
             .keyboardShortcut(.defaultAction)
             .disabled(!canApply)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, contentInset)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
     }
 
     private func metadataChip(for field: FileRenameMetadataField) -> some View {
@@ -1342,6 +1350,7 @@ private struct MetadataCSVExportPreviewList: View {
                         }
                     }
                 }
+                .audiomatorScrollEdgeEffect(.soft, for: .horizontal)
             }
         }
     }

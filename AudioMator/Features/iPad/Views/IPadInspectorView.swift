@@ -159,6 +159,7 @@ struct IPadInspectorView: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     private func multiFileInspector(_ files: [AudioFile]) -> some View {
@@ -228,6 +229,7 @@ struct IPadInspectorView: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     private var actionBar: some View {

@@ -147,6 +147,7 @@ struct MusicBrainzBrowserView: View {
                         }
                     }
                 }
+                .audiomatorScrollEdgeEffect(.soft, for: .horizontal)
 
                 Button("Reset") {
                     store.resetFilters()
@@ -216,6 +217,7 @@ struct MusicBrainzBrowserView: View {
             searchResultRows
         }
         .listStyle(.inset)
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         #endif
     }
 

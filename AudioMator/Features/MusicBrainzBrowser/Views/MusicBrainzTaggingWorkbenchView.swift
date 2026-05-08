@@ -20,6 +20,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 24)
             }
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
 
             Divider()
 

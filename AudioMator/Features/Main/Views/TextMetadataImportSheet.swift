@@ -3,6 +3,7 @@ import SwiftUI
 private let textImportInnerRadius: CGFloat = 12
 private let textImportSectionInset: CGFloat = 10
 private let textImportControlColumnWidth: CGFloat = 260
+private let textImportContentInset: CGFloat = 20
 
 private enum TextMetadataImportDelimiter: String, CaseIterable, Identifiable {
     case newline
@@ -203,25 +204,25 @@ struct TextMetadataImportSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    configurationSection
-                    previewSection
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                configurationSection
+                previewSection
             }
-            .scrollBounceBehavior(.basedOnSize)
-
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, textImportContentInset)
+            .padding(.top, textImportContentInset)
+            .padding(.bottom, textImportContentInset)
+        }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .scrollBounceBehavior(.basedOnSize)
         #if os(iOS)
-        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         #else
-        .padding(20)
         .frame(width: 860, height: 640)
         #endif
     }
@@ -423,6 +424,10 @@ struct TextMetadataImportSheet: View {
             .keyboardShortcut(.defaultAction)
             .disabled(!canApply)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, textImportContentInset)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
     }
 
     private func configurationRow<Content: View>(

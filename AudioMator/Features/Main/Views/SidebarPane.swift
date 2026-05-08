@@ -55,6 +55,7 @@ struct SidebarPane: View {
             }
         }
         .listStyle(.sidebar)
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     private var sidebarSelection: Binding<SidebarSelection?> {

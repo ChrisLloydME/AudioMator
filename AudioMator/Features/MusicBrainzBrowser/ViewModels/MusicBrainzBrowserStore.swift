@@ -201,6 +201,12 @@ final class MusicBrainzBrowserStore: ObservableObject {
         sourceDescription = "Edit the fields below or seed them from the current AudioMator selection."
     }
 
+    func closeWindowSession() {
+        searchTask?.cancel()
+        recordingDetailsByID = [:]
+        resetToDefault()
+    }
+
     func clearSearch() {
         searchTask?.cancel()
         resetNavigation()

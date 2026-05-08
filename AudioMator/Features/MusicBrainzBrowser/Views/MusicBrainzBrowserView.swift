@@ -1,15 +1,86 @@
 import SwiftUI
 
+enum MetadataBrowserSource: String, CaseIterable, Identifiable {
+    case musicBrainz
+    case iTunes
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .musicBrainz: return "MusicBrainz"
+        case .iTunes: return "iTunes"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .musicBrainz:
+            return "Search rich community metadata, release relationships, credits, and MusicBrainz IDs."
+        case .iTunes:
+            return "Search Apple iTunes catalog text metadata from tags, filenames, UPCs, links, and store IDs."
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .musicBrainz: return "brain.head.profile"
+        case .iTunes: return "music.note.list"
+        }
+    }
+}
+
 struct MusicBrainzBrowserView: View {
     static let windowID = "musicbrainz-browser"
 
     @ObservedObject var store: MusicBrainzBrowserStore
     @ObservedObject var viewModel: AudioViewModel
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedMetadataSource: MetadataBrowserSource?
     @State private var navigationPath: [MusicBrainzBrowserDestination] = []
     @State private var isShowingFilters = false
 
     var body: some View {
+        Group {
+            if let selectedMetadataSource {
+                switch selectedMetadataSource {
+                case .musicBrainz:
+                    musicBrainzContent
+                case .iTunes:
+                    ITunesBrowserView(
+                        viewModel: viewModel,
+                        onBackToSources: { self.selectedMetadataSource = nil }
+                    )
+                }
+            } else {
+                NavigationStack {
+                    MetadataSourcePickerView { source in
+                        selectMetadataSource(source)
+                    }
+                    .navigationTitle("Metadata Browser")
+                    #if os(macOS)
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            Color.clear
+                                .frame(width: 0, height: 0)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    #endif
+                }
+                .frame(minWidth: 920, minHeight: 620)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color(platformColor: .audiomatorWindowBackground))
+            }
+        }
+        .onDisappear {
+            selectedMetadataSource = nil
+            navigationPath.removeAll()
+            store.closeWindowSession()
+        }
+    }
+
+    private var musicBrainzContent: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {
                 searchHeader
@@ -60,6 +131,14 @@ struct MusicBrainzBrowserView: View {
         }
         #if os(macOS)
         .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    selectedMetadataSource = nil
+                } label: {
+                    Label("Sources", systemImage: "chevron.left")
+                }
+            }
+
             ToolbarItem(placement: .principal) {
                 modePicker
             }
@@ -80,6 +159,13 @@ struct MusicBrainzBrowserView: View {
             }
         }
         #endif
+    }
+
+    private func selectMetadataSource(_ source: MetadataBrowserSource) {
+        selectedMetadataSource = source
+        if source == .musicBrainz, store.hasSearchText {
+            store.search()
+        }
     }
 
     private var searchHeader: some View {

@@ -61,7 +61,7 @@ struct IPadWorkspaceView: View {
                     sortMenu
 
                     Menu {
-                        Button("MusicBrainz Browser", action: onOpenMusicBrainzBrowser)
+                        Button("Metadata Browser", action: onOpenMusicBrainzBrowser)
                         Button("Tag Inspector", action: onShowMetadataDump)
                             .disabled(state.selectedAudioIDs.isEmpty)
                         Button("Filename & Metadata...", action: openMetadataFilenameRenameSheet)

@@ -173,6 +173,7 @@
 "Multiple selected files would end up with the same filename." = "多个所选文件会生成相同文件名。";
 "Multiple Values" = "多个值";
 "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value." = "多文件在线封面查找需要共享的 iTunes 专辑 ID 或专辑值。";
+"Metadata Browser" = "元数据浏览器";
 "MusicBrainz" = "MusicBrainz";
 "MusicBrainz Album ID" = "MusicBrainz 专辑 ID";
 "MusicBrainz Artist ID" = "MusicBrainz 艺人 ID";

@@ -363,7 +363,6 @@ struct MetadataFilenameWindowView: View {
                     converterDetail(for: selectedConverterMode)
                 } else {
                     MetadataConverterModePickerView(
-                        targetCount: targetFiles.count,
                         onSelect: selectConverterMode
                     )
                 }
@@ -374,7 +373,7 @@ struct MetadataFilenameWindowView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Color.clear
-                        .frame(width: 1, height: 1)
+                        .frame(width: 0, height: 0)
                         .accessibilityHidden(true)
                 }
 
@@ -1184,37 +1183,12 @@ struct MetadataFilenameWindowView: View {
 }
 
 private struct MetadataConverterModePickerView: View {
-    let targetCount: Int
     let onSelect: (MetadataConverterMode) -> Void
 
     private let rowRadius: CGFloat = 12
 
     var body: some View {
-        VStack(spacing: 22) {
-            Spacer(minLength: 8)
-
-            Image(systemName: "arrow.trianglehead.2.clockwise")
-                .font(.system(size: 44, weight: .regular))
-                .foregroundStyle(.secondary)
-                .symbolRenderingMode(.hierarchical)
-
-            VStack(spacing: 8) {
-                Text("Converter")
-                    .font(.largeTitle.weight(.semibold))
-
-                Text("Choose how AudioMator should convert the selected files.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                Label(
-                    targetCount == 1 ? "1 selected file" : "\(targetCount) selected files",
-                    systemImage: "checkmark.circle"
-                )
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-            }
-
+        VStack(spacing: 8) {
             VStack(spacing: 8) {
                 ForEach(MetadataConverterMode.allCases) { mode in
                     Button {
@@ -1259,8 +1233,6 @@ private struct MetadataConverterModePickerView: View {
                 }
             }
             .frame(maxWidth: 620)
-
-            Spacer(minLength: 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

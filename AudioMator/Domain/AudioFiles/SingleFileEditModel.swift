@@ -31,6 +31,7 @@ struct SingleFileEditModel {
     var publisher: String
     var isrc: String
     var barcode: String
+    var itunesAlbumID: String
     var musicBrainzAlbumID: String
     var musicBrainzTrackID: String
     var musicBrainzReleaseGroupID: String
@@ -66,6 +67,7 @@ struct SingleFileEditModel {
         publisher: String = "",
         isrc: String = "",
         barcode: String = "",
+        itunesAlbumID: String = "",
         musicBrainzAlbumID: String = "",
         musicBrainzTrackID: String = "",
         musicBrainzReleaseGroupID: String = "",
@@ -100,6 +102,7 @@ struct SingleFileEditModel {
         self.publisher = publisher
         self.isrc = isrc
         self.barcode = barcode
+        self.itunesAlbumID = itunesAlbumID
         self.musicBrainzAlbumID = musicBrainzAlbumID
         self.musicBrainzTrackID = musicBrainzTrackID
         self.musicBrainzReleaseGroupID = musicBrainzReleaseGroupID
@@ -137,6 +140,7 @@ struct SingleFileEditModel {
             publisher: file.publisher,
             isrc: file.isrc,
             barcode: file.barcode,
+            itunesAlbumID: file.itunesAlbumID,
             musicBrainzAlbumID: file.musicBrainzAlbumID,
             musicBrainzTrackID: file.musicBrainzTrackID,
             musicBrainzReleaseGroupID: file.musicBrainzReleaseGroupID,
@@ -176,6 +180,7 @@ struct SingleFileEditModel {
             publisher != baseline.publisher ||
             isrc != baseline.isrc ||
             barcode != baseline.barcode ||
+            itunesAlbumID != baseline.itunesAlbumID ||
             musicBrainzAlbumID != baseline.musicBrainzAlbumID ||
             musicBrainzTrackID != baseline.musicBrainzTrackID ||
             musicBrainzReleaseGroupID != baseline.musicBrainzReleaseGroupID ||

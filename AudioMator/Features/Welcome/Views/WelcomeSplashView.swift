@@ -8,12 +8,9 @@ struct WelcomeSplashView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 30) {
-            ScrollView {
-                pageContent
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .scrollIndicators(.hidden)
+        VStack(alignment: .leading, spacing: 22) {
+            pageContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             Spacer(minLength: 0)
 
@@ -192,30 +189,32 @@ private struct AppIconHero: View {
 
 private struct WelcomePage: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 30) {
+        VStack(alignment: .leading, spacing: 28) {
             PageHeader(
                 title: "Welcome to AudioMator",
                 subtitle: "Inspect, clean up, and rewrite audio metadata on \(platformDeviceName)."
             )
 
-            VStack(alignment: .leading, spacing: 24) {
-                WelcomeIntroRow(
-                    symbol: "music.note",
-                    title: "Edit metadata on \(platformDeviceName)",
-                    description: "Open the tracks you want and work locally."
-                )
-                WelcomeIntroRow(
-                    symbol: "wand.and.stars",
-                    title: "Review tags quickly",
-                    description: "Spot important fields fast and make precise fixes."
-                )
-                WelcomeIntroRow(
-                    symbol: platformNativeSymbol,
-                    title: "Feels native on \(platformName)",
-                    description: "Uses familiar windows, sheets, and inspectors."
-                )
+            GroupBox {
+                VStack(alignment: .leading, spacing: 24) {
+                    WelcomeIntroRow(
+                        symbol: "music.note",
+                        title: "Edit metadata on \(platformDeviceName)",
+                        description: "Open the tracks you want and work locally."
+                    )
+                    WelcomeIntroRow(
+                        symbol: "wand.and.stars",
+                        title: "Review tags quickly",
+                        description: "Spot important fields fast and make precise fixes."
+                    )
+                    WelcomeIntroRow(
+                        symbol: platformNativeSymbol,
+                        title: "Feels native on \(platformName)",
+                        description: "Uses familiar windows, sheets, and inspectors."
+                    )
+                }
+                .padding(.vertical, 22)
             }
-            .padding(.top, 8)
         }
     }
 
@@ -250,64 +249,64 @@ private struct WelcomeIntroRow: View {
     let description: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: 18) {
             Image(systemName: symbol)
-                .font(.system(size: 23, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 30, height: 30)
-                .padding(.top, 3)
+                .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 21, weight: .semibold))
-                    .foregroundStyle(Color.primary.opacity(0.80))
+                    .font(.system(size: 18, weight: .semibold))
 
                 Text(description)
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
         }
+        .padding(.leading, 18)
     }
 }
 
 private struct FeaturesPage: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 26) {
             PageHeader(
                 title: "What You Can Do",
                 subtitle: "Bring in tracks, inspect tags, make precise changes, and save when you're ready."
             )
 
             GroupBox {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 23) {
                     WelcomeFeatureRow(
                         symbol: "music.note.list",
                         title: "Choose one-time or watched sources",
-                        description: "Use Current Session for one-off work, or add watched folders to keep files available across launches."
+                        description: "Use Current Session for one-off work, or add watched folders for later."
                     )
 
                     WelcomeFeatureRow(
                         symbol: "slider.horizontal.3",
                         title: "Inspect and edit metadata",
-                        description: "Review track tags, compare selections, and check raw metadata before saving."
+                        description: "Review tags, compare selections, and check raw metadata before saving."
                     )
 
                     WelcomeFeatureRow(
                         symbol: "square.stack.3d.down.right",
                         title: "Use batch utilities",
-                        description: "Reorder files, renumber tracks, reveal files in Finder, copy paths, or clear tags."
+                        description: "Reorder files, renumber tracks, copy paths, reveal files, or clear tags."
                     )
 
                     WelcomeFeatureRow(
                         symbol: "photo.on.rectangle.angled",
                         title: "Work with artwork",
-                        description: "Replace, remove, preview, and apply album artwork without leaving the inspector."
+                        description: "Replace, remove, preview, and apply album artwork from the inspector."
                     )
                 }
-                .padding(.vertical, 18)
+                .padding(.vertical, 20)
             }
         }
         .padding(.top, 8)
@@ -316,18 +315,18 @@ private struct FeaturesPage: View {
 
 private struct MusicBrainzPage: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 26) {
             PageHeader(
                 title: "Match Metadata with MusicBrainz",
                 subtitle: "Search releases and tracks, compare the candidates, and apply the details you choose."
             )
 
             GroupBox {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 24) {
                     WelcomeFeatureRow(
                         symbol: "magnifyingglass",
                         title: "Search from selected files",
-                        description: "Start with the metadata already in your tracks, or enter a MusicBrainz search manually."
+                        description: "Start with existing track metadata, or enter a MusicBrainz search manually."
                     )
 
                     WelcomeFeatureRow(
@@ -339,10 +338,10 @@ private struct MusicBrainzPage: View {
                     WelcomeFeatureRow(
                         symbol: "square.and.arrow.down",
                         title: "Apply metadata when ready",
-                        description: "Write matched titles, artists, album details, track numbers, dates, and identifiers back to supported files."
+                        description: "Write matched titles, artists, album details, dates, and identifiers."
                     )
                 }
-                .padding(.vertical, 18)
+                .padding(.vertical, 22)
             }
         }
         .padding(.top, 8)
@@ -351,14 +350,14 @@ private struct MusicBrainzPage: View {
 
 private struct ArtworkPage: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 26) {
             PageHeader(
                 title: "Find Album Artwork",
                 subtitle: "Use iTunes artwork lookup to find covers, preview them, and apply the selected image."
             )
 
             GroupBox {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 24) {
                     WelcomeFeatureRow(
                         symbol: "magnifyingglass.circle",
                         title: "Find covers online",
@@ -374,10 +373,10 @@ private struct ArtworkPage: View {
                     WelcomeFeatureRow(
                         symbol: "checkmark.rectangle.stack",
                         title: "Apply to selected files",
-                        description: "Save the selected artwork into supported audio files alongside your other metadata edits."
+                        description: "Save selected artwork into supported audio files with your metadata edits."
                     )
                 }
-                .padding(.vertical, 18)
+                .padding(.vertical, 22)
             }
         }
         .padding(.top, 8)
@@ -386,48 +385,48 @@ private struct ArtworkPage: View {
 
 private struct NetworkPrivacyPage: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             PageHeader(
                 title: "Privacy & Network Access",
-                subtitle: "Local editing stays on your Mac. Online lookup features contact external services only when you use them."
+                subtitle: "AudioMator edits files locally. Online services are contacted only when you use lookup features."
             )
 
             GroupBox {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 20) {
                     PrivacyRow(
                         symbol: "internaldrive",
-                        title: "Audio files are not uploaded",
-                        description: "AudioMator reads and writes the files you choose locally. The audio file contents themselves are not sent for online lookup."
+                        title: "Your audio stays local",
+                        description: "AudioMator reads and writes the files you choose. Lookup features do not upload audio file contents."
                     )
 
                     PrivacyRow(
                         symbol: "text.magnifyingglass",
-                        title: "Lookup queries may use metadata",
-                        description: "Depending on the feature, search terms may include title, artist, album, album artist, track number, duration, release identifiers, and manually entered queries."
+                        title: "Lookup sends search details",
+                        description: "MusicBrainz and artwork searches may use metadata such as title, artist, album, track number, duration, identifiers, or text you enter."
                     )
 
                     PrivacyRow(
-                        symbol: "music.mic",
-                        title: "MusicBrainz lookup",
-                        description: NetworkServiceDisclosure.MusicBrainz.sentDataSummary
+                        symbol: "network",
+                        title: "External services",
+                        description: "Lookups may contact MusicBrainz, Cover Art Archive, Apple, or iTunes-related services."
                     )
 
-                    PrivacyRow(
-                        symbol: "photo",
-                        title: "Artwork lookup",
-                        description: "Artwork lookup may contact Apple or iTunes-related services. \(NetworkServiceDisclosure.ITunesArtwork.sentDataSummary)"
-                    )
-
-                    DomainList(
-                        title: "Domains used by online lookup",
-                        domains: NetworkServiceDisclosure.MusicBrainz.domains +
-                            NetworkServiceDisclosure.ITunesArtwork.domains
-                    )
+                    Text(domainSummary)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 66)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.vertical, 16)
+                .padding(.vertical, 20)
             }
         }
         .padding(.top, 8)
+    }
+
+    private var domainSummary: String {
+        (NetworkServiceDisclosure.MusicBrainz.domains +
+            NetworkServiceDisclosure.ITunesArtwork.domains)
+            .joined(separator: "  ")
     }
 }
 
@@ -438,7 +437,7 @@ private struct PageHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             AppIconHero()
-                .padding(.top, 8)
+                .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 12) {
                 Text(title)
@@ -466,9 +465,9 @@ private struct WelcomeFeatureRow: View {
                 .frame(width: 30, height: 30)
                 .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
 
                 Text(description)
                     .font(.system(size: 15))
@@ -495,9 +494,9 @@ private struct PrivacyRow: View {
                 .frame(width: 30, height: 30)
                 .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
 
                 Text(description)
                     .font(.system(size: 15))
@@ -508,28 +507,6 @@ private struct PrivacyRow: View {
             Spacer(minLength: 0)
         }
         .padding(.leading, 18)
-    }
-}
-
-private struct DomainList: View {
-    let title: String
-    let domains: [String]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 17, weight: .semibold))
-
-            VStack(alignment: .leading, spacing: 7) {
-                ForEach(domains, id: \.self) { domain in
-                    Text(domain)
-                        .font(.system(size: 14, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.leading, 66)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

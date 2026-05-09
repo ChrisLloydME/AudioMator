@@ -14,7 +14,7 @@ enum ITunesSearchMode: String, CaseIterable, Identifiable {
         case .track: return "Track"
         case .album: return "Album"
         case .file: return "File"
-        case .link: return "Apple Music Link"
+        case .link: return "Link"
         case .upc: return "UPC"
         }
     }

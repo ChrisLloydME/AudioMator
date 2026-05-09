@@ -87,6 +87,8 @@ struct ITunesFileSearchInput: Identifiable, Equatable, Hashable {
     let releaseDate: String
     let barcode: String
     let itunesAlbumID: String
+    let itunesArtistID: String
+    let itunesCatalogID: String
 
     var preferredDisplayTitle: String {
         if !title.isEmpty { return title }
@@ -241,8 +243,11 @@ enum ITunesSearchResults: Equatable {
 struct ITunesTrackResult: Identifiable, Equatable, Hashable {
     let trackID: Int
     let collectionID: Int?
+    let artistID: Int?
+    let collectionArtistID: Int?
     let trackName: String
     let artistName: String
+    let collectionArtistName: String
     let collectionName: String
     let trackNumber: Int
     let trackCount: Int
@@ -253,10 +258,14 @@ struct ITunesTrackResult: Identifiable, Equatable, Hashable {
     let primaryGenreName: String
     let country: String
     let copyright: String
+    let contentAdvisoryRating: String
+    let kind: String
+    let wrapperType: String
     let trackExplicitness: String
     let collectionExplicitness: String
     let trackViewURL: URL?
     let collectionViewURL: URL?
+    let artistViewURL: URL?
 
     var id: Int { trackID }
     var isExplicit: Bool { trackExplicitness == "explicit" || collectionExplicitness == "explicit" }
@@ -264,15 +273,20 @@ struct ITunesTrackResult: Identifiable, Equatable, Hashable {
 
 struct ITunesAlbumResult: Identifiable, Equatable, Hashable {
     let collectionID: Int
+    let artistID: Int?
+    let collectionArtistID: Int?
     let collectionName: String
     let artistName: String
+    let collectionArtistName: String
     let trackCount: Int
     let releaseDate: String
     let primaryGenreName: String
     let country: String
     let copyright: String
+    let contentAdvisoryRating: String
     let collectionExplicitness: String
     let collectionViewURL: URL?
+    let artistViewURL: URL?
     var selectionMatchPreview: ITunesAlbumMatchPreview?
     var selectionMatchScore: Double?
 
@@ -607,8 +621,11 @@ struct ITunesClient: Sendable {
         return ITunesTrackResult(
             trackID: trackID,
             collectionID: raw["collectionId"] as? Int,
+            artistID: raw["artistId"] as? Int,
+            collectionArtistID: raw["collectionArtistId"] as? Int,
             trackName: raw["trackName"] as? String ?? "",
             artistName: raw["artistName"] as? String ?? "",
+            collectionArtistName: raw["collectionArtistName"] as? String ?? "",
             collectionName: raw["collectionName"] as? String ?? "",
             trackNumber: raw["trackNumber"] as? Int ?? 0,
             trackCount: raw["trackCount"] as? Int ?? 0,
@@ -619,10 +636,14 @@ struct ITunesClient: Sendable {
             primaryGenreName: raw["primaryGenreName"] as? String ?? "",
             country: raw["country"] as? String ?? "",
             copyright: raw["copyright"] as? String ?? "",
+            contentAdvisoryRating: raw["contentAdvisoryRating"] as? String ?? "",
+            kind: raw["kind"] as? String ?? "",
+            wrapperType: raw["wrapperType"] as? String ?? "",
             trackExplicitness: raw["trackExplicitness"] as? String ?? "",
             collectionExplicitness: raw["collectionExplicitness"] as? String ?? "",
             trackViewURL: (raw["trackViewUrl"] as? String).flatMap(URL.init(string:)),
-            collectionViewURL: (raw["collectionViewUrl"] as? String).flatMap(URL.init(string:))
+            collectionViewURL: (raw["collectionViewUrl"] as? String).flatMap(URL.init(string:)),
+            artistViewURL: (raw["artistViewUrl"] as? String).flatMap(URL.init(string:))
         )
     }
 
@@ -630,15 +651,20 @@ struct ITunesClient: Sendable {
         guard let collectionID = raw["collectionId"] as? Int else { return nil }
         return ITunesAlbumResult(
             collectionID: collectionID,
+            artistID: raw["artistId"] as? Int,
+            collectionArtistID: raw["collectionArtistId"] as? Int,
             collectionName: raw["collectionName"] as? String ?? "",
             artistName: raw["artistName"] as? String ?? "",
+            collectionArtistName: raw["collectionArtistName"] as? String ?? "",
             trackCount: raw["trackCount"] as? Int ?? 0,
             releaseDate: normalizedDate(raw["releaseDate"] as? String),
             primaryGenreName: raw["primaryGenreName"] as? String ?? "",
             country: raw["country"] as? String ?? "",
             copyright: raw["copyright"] as? String ?? "",
+            contentAdvisoryRating: raw["contentAdvisoryRating"] as? String ?? "",
             collectionExplicitness: raw["collectionExplicitness"] as? String ?? "",
             collectionViewURL: (raw["collectionViewUrl"] as? String).flatMap(URL.init(string:)),
+            artistViewURL: (raw["artistViewUrl"] as? String).flatMap(URL.init(string:)),
             selectionMatchPreview: nil,
             selectionMatchScore: nil
         )

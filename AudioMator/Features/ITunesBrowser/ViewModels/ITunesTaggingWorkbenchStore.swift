@@ -15,6 +15,8 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
     case copyright
     case barcode
     case itunesAlbumID
+    case itunesArtistID
+    case itunesCatalogID
     case isExplicit
 
     var id: String { rawValue }
@@ -35,6 +37,8 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .copyright: return L10n.string("Copyright")
         case .barcode: return L10n.string("Barcode")
         case .itunesAlbumID: return L10n.string("iTunes Album ID")
+        case .itunesArtistID: return L10n.string("iTunes Artist ID")
+        case .itunesCatalogID: return L10n.string("iTunes Catalog ID")
         case .isExplicit: return L10n.string("Explicit")
         }
     }
@@ -54,6 +58,8 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .copyright: return L10n.string("Copyright text from iTunes, when available.")
         case .barcode: return L10n.string("UPC/EAN already known from the selected file lookup.")
         case .itunesAlbumID: return L10n.string("iTunes collection ID.")
+        case .itunesArtistID: return L10n.string("iTunes artist ID.")
+        case .itunesCatalogID: return L10n.string("iTunes track catalog ID.")
         case .isExplicit: return L10n.string("Explicit content flag from iTunes.")
         }
     }
@@ -63,7 +69,7 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .copyright, .barcode, .trackTotal, .discTotal:
             return false
         case .title, .artist, .albumArtist, .album, .genre, .trackNumber, .discNumber,
-             .releaseDate, .itunesAlbumID, .isExplicit:
+             .releaseDate, .itunesAlbumID, .itunesArtistID, .itunesCatalogID, .isExplicit:
             return true
         }
     }
@@ -87,6 +93,8 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .copyright: return file.copyright
         case .barcode: return file.barcode
         case .itunesAlbumID: return file.itunesAlbumID
+        case .itunesArtistID: return file.itunesArtistID
+        case .itunesCatalogID: return file.itunesCatalogID
         case .isExplicit: return file.isExplicit ? "Yes" : "No"
         }
     }
@@ -106,6 +114,8 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .copyright: edit.copyright = value
         case .barcode: edit.barcode = value
         case .itunesAlbumID: edit.itunesAlbumID = value
+        case .itunesArtistID: edit.itunesArtistID = value
+        case .itunesCatalogID: edit.itunesCatalogID = value
         case .isExplicit: edit.isExplicit = value == "Yes"
         }
     }
@@ -324,7 +334,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         switch field {
         case .title: return selectedTrack.trackName
         case .artist: return selectedTrack.artistName
-        case .albumArtist: return detail.album.artistName
+        case .albumArtist: return selectedTrack.collectionArtistName.isEmpty ? detail.album.artistName : selectedTrack.collectionArtistName
         case .album: return detail.album.collectionName
         case .genre: return selectedTrack.primaryGenreName.isEmpty ? detail.album.primaryGenreName : selectedTrack.primaryGenreName
         case .trackNumber: return selectedTrack.trackNumber > 0 ? String(selectedTrack.trackNumber) : ""
@@ -335,6 +345,8 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         case .copyright: return selectedTrack.copyright.isEmpty ? detail.album.copyright : selectedTrack.copyright
         case .barcode: return barcodeValue
         case .itunesAlbumID: return String(detail.album.collectionID)
+        case .itunesArtistID: return selectedTrack.artistID.map(String.init) ?? detail.album.artistID.map(String.init) ?? ""
+        case .itunesCatalogID: return String(selectedTrack.trackID)
         case .isExplicit: return selectedTrack.isExplicit || detail.album.isExplicit ? "Yes" : "No"
         }
     }

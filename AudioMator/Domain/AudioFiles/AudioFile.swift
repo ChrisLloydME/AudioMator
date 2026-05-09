@@ -41,6 +41,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let isrc: String
     let barcode: String
     let itunesAlbumID: String
+    let itunesArtistID: String
+    let itunesCatalogID: String
     let musicBrainzArtistID: String
     let musicBrainzAlbumID: String
     let musicBrainzTrackID: String
@@ -89,6 +91,9 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         hasher.combine(discNumberText)
         hasher.combine(comment)
         hasher.combine(releaseDate)
+        hasher.combine(itunesAlbumID)
+        hasher.combine(itunesArtistID)
+        hasher.combine(itunesCatalogID)
         hasher.combine(publisher)
         hasher.combine(copyright)
         hasher.combine(credits)
@@ -131,6 +136,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         isrc: String,
         barcode: String,
         itunesAlbumID: String,
+        itunesArtistID: String,
+        itunesCatalogID: String,
         musicBrainzArtistID: String,
         musicBrainzAlbumID: String,
         musicBrainzTrackID: String,
@@ -176,6 +183,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.isrc = isrc
         self.barcode = barcode
         self.itunesAlbumID = itunesAlbumID
+        self.itunesArtistID = itunesArtistID
+        self.itunesCatalogID = itunesCatalogID
         self.musicBrainzArtistID = musicBrainzArtistID
         self.musicBrainzAlbumID = musicBrainzAlbumID
         self.musicBrainzTrackID = musicBrainzTrackID
@@ -224,6 +233,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             isrc: isrc,
             barcode: barcode,
             itunesAlbumID: itunesAlbumID,
+            itunesArtistID: itunesArtistID,
+            itunesCatalogID: itunesCatalogID,
             musicBrainzArtistID: musicBrainzArtistID,
             musicBrainzAlbumID: musicBrainzAlbumID,
             musicBrainzTrackID: musicBrainzTrackID,
@@ -280,6 +291,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             isrc: isrc,
             barcode: barcode,
             itunesAlbumID: itunesAlbumID,
+            itunesArtistID: itunesArtistID,
+            itunesCatalogID: itunesCatalogID,
             musicBrainzArtistID: musicBrainzArtistID,
             musicBrainzAlbumID: musicBrainzAlbumID,
             musicBrainzTrackID: musicBrainzTrackID,
@@ -463,6 +476,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.isrc        = tag.isrc
         self.barcode     = tag.barcode
         self.itunesAlbumID = tag.itunesAlbumID
+        self.itunesArtistID = tag.itunesArtistID
+        self.itunesCatalogID = tag.itunesCatalogID
         self.musicBrainzArtistID = tag.musicBrainzArtistID
         self.musicBrainzAlbumID = tag.musicBrainzAlbumID
         self.musicBrainzTrackID = tag.musicBrainzTrackID

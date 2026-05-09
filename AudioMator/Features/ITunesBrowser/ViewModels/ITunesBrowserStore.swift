@@ -224,7 +224,9 @@ final class ITunesBrowserStore: ObservableObject {
             durationMilliseconds: file.duration.isFinite && file.duration > 0 ? Int((file.duration * 1000).rounded()) : nil,
             releaseDate: fallback.releaseDate,
             barcode: file.barcode,
-            itunesAlbumID: file.itunesAlbumID
+            itunesAlbumID: file.itunesAlbumID,
+            itunesArtistID: file.itunesArtistID,
+            itunesCatalogID: file.itunesCatalogID
         )
     }
 }

@@ -32,6 +32,8 @@ struct SingleFileEditModel {
     var isrc: String
     var barcode: String
     var itunesAlbumID: String
+    var itunesArtistID: String
+    var itunesCatalogID: String
     var musicBrainzAlbumID: String
     var musicBrainzTrackID: String
     var musicBrainzReleaseGroupID: String
@@ -68,6 +70,8 @@ struct SingleFileEditModel {
         isrc: String = "",
         barcode: String = "",
         itunesAlbumID: String = "",
+        itunesArtistID: String = "",
+        itunesCatalogID: String = "",
         musicBrainzAlbumID: String = "",
         musicBrainzTrackID: String = "",
         musicBrainzReleaseGroupID: String = "",
@@ -103,6 +107,8 @@ struct SingleFileEditModel {
         self.isrc = isrc
         self.barcode = barcode
         self.itunesAlbumID = itunesAlbumID
+        self.itunesArtistID = itunesArtistID
+        self.itunesCatalogID = itunesCatalogID
         self.musicBrainzAlbumID = musicBrainzAlbumID
         self.musicBrainzTrackID = musicBrainzTrackID
         self.musicBrainzReleaseGroupID = musicBrainzReleaseGroupID
@@ -141,6 +147,8 @@ struct SingleFileEditModel {
             isrc: file.isrc,
             barcode: file.barcode,
             itunesAlbumID: file.itunesAlbumID,
+            itunesArtistID: file.itunesArtistID,
+            itunesCatalogID: file.itunesCatalogID,
             musicBrainzAlbumID: file.musicBrainzAlbumID,
             musicBrainzTrackID: file.musicBrainzTrackID,
             musicBrainzReleaseGroupID: file.musicBrainzReleaseGroupID,
@@ -181,6 +189,8 @@ struct SingleFileEditModel {
             isrc != baseline.isrc ||
             barcode != baseline.barcode ||
             itunesAlbumID != baseline.itunesAlbumID ||
+            itunesArtistID != baseline.itunesArtistID ||
+            itunesCatalogID != baseline.itunesCatalogID ||
             musicBrainzAlbumID != baseline.musicBrainzAlbumID ||
             musicBrainzTrackID != baseline.musicBrainzTrackID ||
             musicBrainzReleaseGroupID != baseline.musicBrainzReleaseGroupID ||

@@ -443,6 +443,7 @@ private struct ITunesTrackDetailView: View {
         [
             infoItem("title", "Title", track.trackName),
             infoItem("artist", "Artist", track.artistName),
+            infoItem("album-artist", "Album Artist", track.collectionArtistName),
             infoItem("album", "Album", track.collectionName),
             infoItem("genre", "Genre", track.primaryGenreName),
             infoItem("track", "Track", numberPair(track.trackNumber, track.trackCount), monospaced: true),
@@ -451,8 +452,12 @@ private struct ITunesTrackDetailView: View {
             infoItem("release-date", "Release Date", track.releaseDate),
             infoItem("country", "Country", track.country),
             infoItem("explicit", "Explicit", track.isExplicit ? "Yes" : "No"),
+            infoItem("advisory", "Advisory", track.contentAdvisoryRating),
+            infoItem("kind", "Kind", track.kind),
             infoItem("track-id", "iTunes Track ID", String(track.trackID), monospaced: true),
             infoItem("collection-id", "iTunes Album ID", track.collectionID.map(String.init) ?? "", monospaced: true),
+            infoItem("artist-id", "iTunes Artist ID", track.artistID.map(String.init) ?? "", monospaced: true),
+            infoItem("collection-artist-id", "iTunes Album Artist ID", track.collectionArtistID.map(String.init) ?? "", monospaced: true),
             infoItem("copyright", "Copyright", track.copyright)
         ].compactMap { $0 }
     }
@@ -469,15 +474,20 @@ private struct ITunesTrackDetailView: View {
                     detail = try await store.albumDetail(
                         for: ITunesAlbumResult(
                             collectionID: collectionID,
+                            artistID: track.artistID,
+                            collectionArtistID: track.collectionArtistID,
                             collectionName: track.collectionName,
                             artistName: track.artistName,
+                            collectionArtistName: track.collectionArtistName,
                             trackCount: track.trackCount,
                             releaseDate: track.releaseDate,
                             primaryGenreName: track.primaryGenreName,
                             country: track.country,
                             copyright: track.copyright,
+                            contentAdvisoryRating: track.contentAdvisoryRating,
                             collectionExplicitness: track.collectionExplicitness,
                             collectionViewURL: track.collectionViewURL,
+                            artistViewURL: track.artistViewURL,
                             selectionMatchPreview: nil,
                             selectionMatchScore: nil
                         )
@@ -529,15 +539,20 @@ private struct ITunesTrackDetailView: View {
         ITunesAlbumDetail(
             album: ITunesAlbumResult(
                 collectionID: track.collectionID ?? track.trackID,
+                artistID: track.artistID,
+                collectionArtistID: track.collectionArtistID,
                 collectionName: track.collectionName,
                 artistName: track.artistName,
+                collectionArtistName: track.collectionArtistName,
                 trackCount: track.trackCount,
                 releaseDate: track.releaseDate,
                 primaryGenreName: track.primaryGenreName,
                 country: track.country,
                 copyright: track.copyright,
+                contentAdvisoryRating: track.contentAdvisoryRating,
                 collectionExplicitness: track.collectionExplicitness,
                 collectionViewURL: track.collectionViewURL,
+                artistViewURL: track.artistViewURL,
                 selectionMatchPreview: nil,
                 selectionMatchScore: nil
             ),
@@ -729,12 +744,16 @@ private struct ITunesAlbumDetailView: View {
         [
             infoItem("title", "Title", album.collectionName),
             infoItem("artist", "Artist", album.artistName),
+            infoItem("album-artist", "Album Artist", album.collectionArtistName),
             infoItem("genre", "Genre", album.primaryGenreName),
             infoItem("release-date", "Release Date", album.releaseDate),
             infoItem("country", "Country", album.country),
             infoItem("track-count", "Track Count", album.trackCount > 0 ? String(album.trackCount) : "", monospaced: true),
             infoItem("explicit", "Explicit", album.isExplicit ? "Yes" : "No"),
+            infoItem("advisory", "Advisory", album.contentAdvisoryRating),
             infoItem("collection-id", "iTunes Album ID", String(album.collectionID), monospaced: true),
+            infoItem("artist-id", "iTunes Artist ID", album.artistID.map(String.init) ?? "", monospaced: true),
+            infoItem("collection-artist-id", "iTunes Album Artist ID", album.collectionArtistID.map(String.init) ?? "", monospaced: true),
             infoItem("copyright", "Copyright", album.copyright)
         ].compactMap { $0 }
     }
@@ -808,6 +827,8 @@ private struct ITunesAlbumDetailView: View {
         case .releaseDate: return file.releaseDate
         case .barcode: return file.barcode
         case .itunesAlbumID: return file.itunesAlbumID
+        case .itunesArtistID: return file.itunesArtistID
+        case .itunesCatalogID: return file.itunesCatalogID
         case .genre, .discTotal, .copyright, .isExplicit: return ""
         }
     }
@@ -821,7 +842,7 @@ private struct ITunesAlbumDetailView: View {
         switch field {
         case .title: return track.trackName
         case .artist: return track.artistName
-        case .albumArtist: return detail.album.artistName
+        case .albumArtist: return track.collectionArtistName.isEmpty ? detail.album.artistName : track.collectionArtistName
         case .album: return detail.album.collectionName
         case .genre: return track.primaryGenreName.isEmpty ? detail.album.primaryGenreName : track.primaryGenreName
         case .trackNumber: return track.trackNumber > 0 ? String(track.trackNumber) : ""
@@ -832,6 +853,8 @@ private struct ITunesAlbumDetailView: View {
         case .copyright: return track.copyright.isEmpty ? detail.album.copyright : track.copyright
         case .barcode: return assignment.file.barcode
         case .itunesAlbumID: return String(detail.album.collectionID)
+        case .itunesArtistID: return track.artistID.map(String.init) ?? detail.album.artistID.map(String.init) ?? ""
+        case .itunesCatalogID: return String(track.trackID)
         case .isExplicit: return track.isExplicit || detail.album.isExplicit ? "Yes" : "No"
         }
     }
@@ -1416,7 +1439,8 @@ private struct ITunesMetadataComparisonRowView: View {
 private extension ITunesTagWriteField {
     var usesMonospacedComparisonValue: Bool {
         switch self {
-        case .trackNumber, .trackTotal, .discNumber, .discTotal, .barcode, .itunesAlbumID:
+        case .trackNumber, .trackTotal, .discNumber, .discTotal, .barcode,
+             .itunesAlbumID, .itunesArtistID, .itunesCatalogID:
             return true
         case .title, .artist, .albumArtist, .album, .genre, .releaseDate, .copyright, .isExplicit:
             return false

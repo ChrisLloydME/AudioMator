@@ -27,7 +27,7 @@ struct ITunesTaggingWorkbenchView: View {
         }
         .modifier(ITunesWorkbenchFrameModifier())
         .background(Color(platformColor: .audiomatorWindowBackground))
-        .navigationTitle("Review & Apply iTunes Tags")
+        .navigationTitle("Review & Apply Tags")
         .task {
             store.refreshLoadedFiles(viewModel.files)
         }
@@ -43,7 +43,7 @@ struct ITunesTaggingWorkbenchView: View {
 
     private var summarySection: some View {
         MetadataSectionCard(title: "Summary", symbolName: "text.badge.checkmark") {
-            ITunesSummaryRow(title: "Album", value: summaryAlbumLine)
+            ITunesSummaryRow(title: "Release", value: summaryAlbumLine)
             MetadataCardDivider()
             ITunesSummaryRow(title: "Selected Fields", value: "\(store.selectedAvailableFields.count)")
             MetadataCardDivider()
@@ -55,14 +55,16 @@ struct ITunesTaggingWorkbenchView: View {
                 MetadataCardDivider()
                 VStack(alignment: .leading, spacing: 8) {
                     if store.hasDuplicateTrackAssignments {
-                        Label("Some iTunes tracks are assigned to more than one file.", systemImage: "exclamationmark.triangle.fill")
+                        ITunesWarningLabel(
+                            text: "Some iTunes tracks are assigned to more than one file."
+                        )
                     }
                     if store.plan.unresolvedIssueCount > 0 {
-                        Label("\(store.plan.unresolvedIssueCount) file(s) cannot be written until assigned and loaded.", systemImage: "exclamationmark.triangle.fill")
+                        ITunesWarningLabel(
+                            text: "\(store.plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to an iTunes track and remain loaded."
+                        )
                     }
                 }
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
             }
@@ -72,7 +74,7 @@ struct ITunesTaggingWorkbenchView: View {
     private var fieldSelectionSection: some View {
         MetadataSectionCard(title: "Fields", symbolName: "checklist.checked") {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Choose which iTunes text values should overwrite the current file tags. Artwork is not part of this pipeline.")
+                Text("Choose exactly which iTunes values should overwrite the current file tags.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
@@ -234,6 +236,16 @@ private struct ITunesSummaryRow: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 11)
+    }
+}
+
+private struct ITunesWarningLabel: View {
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: "exclamationmark.triangle.fill")
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
     }
 }
 

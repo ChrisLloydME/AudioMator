@@ -1,10 +1,12 @@
 import SwiftUI
+import WebKit
 
 struct ITunesBrowserView: View {
     @StateObject private var store = ITunesBrowserStore()
     @ObservedObject var viewModel: AudioViewModel
     let onBackToSources: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var navigationPath: [ITunesBrowserDestination] = []
 
     var body: some View {
@@ -37,17 +39,41 @@ struct ITunesBrowserView: View {
                     modePicker
                 }
 
-                ToolbarItemGroup(placement: .primaryAction) {
-                    Button("Search") {
-                        store.search()
-                    }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!store.hasSearchText || store.isSearching)
+                if navigationPath.isEmpty {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        Button("Search") {
+                            store.search()
+                        }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!store.hasSearchText || store.isSearching)
 
-                    Button("Clear") {
-                        store.clearSearch()
+                        Button("Clear") {
+                            store.clearSearch()
+                        }
+                        .disabled(!canClearSearch)
                     }
-                    .disabled(!canClearSearch)
+                }
+            }
+            #endif
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                }
+
+                if navigationPath.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            store.search()
+                        } label: {
+                            Label("Search", systemImage: "magnifyingglass")
+                        }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!store.hasSearchText || store.isSearching)
+                    }
                 }
             }
             #endif
@@ -64,6 +90,9 @@ struct ITunesBrowserView: View {
         }
         .onChange(of: store.navigationResetToken) { _, _ in
             navigationPath.removeAll()
+        }
+        .onDisappear {
+            store.closeWindowSession()
         }
         .frame(minWidth: 920, minHeight: 620)
     }
@@ -129,8 +158,10 @@ struct ITunesBrowserView: View {
                     }
                 }
             } label: {
-                Text("\(store.storefront.emoji) \(store.storefront.displayName)")
+                Label("Storefront", systemImage: "globe")
             }
+
+            ITunesStorefrontChip(title: "\(store.storefront.emoji) \(store.storefront.displayName)")
 
             Spacer(minLength: 0)
         }
@@ -183,18 +214,31 @@ struct ITunesBrowserView: View {
                 ContentUnavailableView(
                     store.lastSubmittedQuery == nil ? "Search iTunes" : "No Results",
                     systemImage: "magnifyingglass",
-                    description: Text(store.lastSubmittedQuery == nil ? "Choose a search mode, then enter what you know." : "No iTunes results matched this search.")
+                    description: Text(store.lastSubmittedQuery == nil ? "Choose a search mode, then enter what you know." : noResultsDescription)
                 )
                 .padding(.top, 36)
                 Spacer(minLength: 0)
             }
         } else {
+            searchResultsList
+        }
+    }
+
+    private var searchResultsList: some View {
+        #if os(iOS)
+        List {
+            Section {
+                searchResultRows
+            }
+        }
+        .iPadRoundedGroupedListStyle()
+        #else
             List {
                 searchResultRows
             }
             .listStyle(.inset)
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-        }
+        #endif
     }
 
     @ViewBuilder
@@ -218,9 +262,18 @@ struct ITunesBrowserView: View {
     }
 
     private var resultUnitLabel: String {
-        switch store.results {
-        case .tracks: return "track"
-        case .albums: return "album"
+        switch store.mode {
+        case .track:
+            return "track"
+        case .album, .upc:
+            return "album"
+        case .file, .link:
+            switch store.results {
+            case .tracks:
+                return "track"
+            case .albums:
+                return "album"
+            }
         }
     }
 
@@ -233,6 +286,23 @@ struct ITunesBrowserView: View {
             !store.linkQuery.isEmpty ||
             !store.results.isEmpty ||
             store.errorMessage != nil
+    }
+
+    private var noResultsDescription: String {
+        switch store.mode {
+        case .track:
+            return "No tracks matched this search."
+        case .album:
+            return "No albums matched this search."
+        case .file:
+            return store.fileSelectionSummary?.isMultiFile == true
+                ? "No strong album matches for the selected files."
+                : "No strong track matches for the selected file."
+        case .link:
+            return "That link didn't resolve to a supported iTunes result."
+        case .upc:
+            return "No iTunes album matched this UPC/EAN."
+        }
     }
 
     private func seedSelection() {
@@ -275,38 +345,186 @@ private struct ITunesFileSelectionSummaryView: View {
     let summary: ITunesFileSelectionSummary?
 
     var body: some View {
-        HStack(spacing: 12) {
-            Label(summaryText, systemImage: "doc.text.magnifyingglass")
-                .font(.system(size: 12, weight: .medium))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: summary?.isMultiFile == true ? "square.stack.3d.up" : "waveform.path")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(selectionTitle)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+
+            Text(selectionDescription)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
 
             if let summary {
-                summaryChip("Album", summary.albumCandidate)
-                summaryChip("Album Artist", summary.albumArtistCandidate.isEmpty ? summary.primaryArtistCandidate : summary.albumArtistCandidate)
-                summaryChip("UPC", summary.barcodeCandidate)
-                summaryChip("iTunes ID", summary.itunesAlbumIDCandidate)
+                ITunesFileSelectionSummaryList(rows: summaryRows(for: summary))
+
+                if summary.selectionLooksMixed {
+                    Label("Selection looks mixed. Album matches may be less accurate.", systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+    }
+
+    private var selectionTitle: String {
+        guard let summary else { return "No Files Selected" }
+        return summary.isMultiFile ? "Selected Files" : "Selected File"
+    }
+
+    private var selectionDescription: String {
+        guard let summary else {
+            return "Select files in AudioMator, then choose Find in iTunes."
+        }
+
+        if summary.isMultiFile {
+            return "Find matching albums, then map the selected files to iTunes tracks."
+        }
+
+        return "Find the best iTunes track match from the selected file's metadata."
+    }
+
+    private func summaryRows(for summary: ITunesFileSelectionSummary) -> [ITunesSelectionSummaryRow] {
+        var rows: [ITunesSelectionSummaryRow] = [
+            ITunesSelectionSummaryRow(id: "files", title: "Files", value: "\(summary.totalSelectedFiles)", symbolName: "music.note.list")
+        ]
+
+        if !summary.albumCandidate.isEmpty {
+            rows.append(ITunesSelectionSummaryRow(id: "album", title: "Album", value: summary.albumCandidate, symbolName: "opticaldisc"))
+        }
+
+        if !summary.albumArtistCandidate.isEmpty {
+            rows.append(
+                ITunesSelectionSummaryRow(
+                    id: "album-artist",
+                    title: "Album Artist",
+                    value: summary.albumArtistCandidate,
+                    symbolName: "person.2"
+                )
+            )
+        } else if !summary.primaryArtistCandidate.isEmpty {
+            rows.append(
+                ITunesSelectionSummaryRow(
+                    id: "artist",
+                    title: "Artist",
+                    value: summary.primaryArtistCandidate,
+                    symbolName: "person"
+                )
+            )
+        }
+
+        if summary.trackCountCandidate > 0 {
+            rows.append(
+                ITunesSelectionSummaryRow(
+                    id: "track-count",
+                    title: "Track Count",
+                    value: "\(summary.trackCountCandidate)",
+                    symbolName: "number"
+                )
+            )
+        }
+
+        if !summary.releaseYearCandidate.isEmpty {
+            rows.append(
+                ITunesSelectionSummaryRow(
+                    id: "year",
+                    title: "Year",
+                    value: summary.releaseYearCandidate,
+                    symbolName: "calendar"
+                )
+            )
+        }
+
+        if !summary.barcodeCandidate.isEmpty {
+            rows.append(
+                ITunesSelectionSummaryRow(
+                    id: "barcode",
+                    title: "UPC/EAN",
+                    value: summary.barcodeCandidate,
+                    symbolName: "barcode"
+                )
+            )
+        }
+
+        if !summary.itunesAlbumIDCandidate.isEmpty {
+            rows.append(
+                ITunesSelectionSummaryRow(
+                    id: "itunes-id",
+                    title: "iTunes Album ID",
+                    value: summary.itunesAlbumIDCandidate,
+                    symbolName: "number.square"
+                )
+            )
+        }
+
+        return rows
+    }
+}
+
+private struct ITunesSelectionSummaryRow: Identifiable {
+    let id: String
+    let title: String
+    let value: String
+    let symbolName: String
+}
+
+private struct ITunesFileSelectionSummaryList: View {
+    let rows: [ITunesSelectionSummaryRow]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                ITunesFileSelectionRow(row: row)
+
+                if index < rows.count - 1 {
+                    Divider()
+                        .padding(.leading, 40)
+                }
+            }
+        }
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(platformColor: .audiomatorControlBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.3), lineWidth: 1)
         )
     }
+}
 
-    private var summaryText: String {
-        guard let summary else { return "No selected files seeded" }
-        return summary.files.count == 1 ? "1 selected file" : "\(summary.files.count) selected files"
-    }
+private struct ITunesFileSelectionRow: View {
+    let row: ITunesSelectionSummaryRow
 
-    @ViewBuilder
-    private func summaryChip(_ title: String, _ value: String) -> some View {
-        if !value.isEmpty {
-            Text("\(title): \(value)")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Label {
+                Text(row.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: row.symbolName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 14)
+            }
+            .frame(width: 132, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            Text(row.value)
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .textSelection(.enabled)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 }
 
@@ -314,34 +532,60 @@ private struct ITunesTrackRow: View {
     let track: ITunesTrackResult
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(track.trackName.isEmpty ? "Untitled Track" : track.trackName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
 
                 if track.isExplicit {
                     Text("Explicit")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.orange.opacity(0.12))
+                        )
+                        .foregroundStyle(Color.orange)
+                }
+
+                Spacer()
+            }
+
+            if !track.artistName.isEmpty {
+                Label(track.artistName, systemImage: "person.2")
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                if !track.collectionName.isEmpty {
+                    ITunesMetaPill(title: "Album", value: track.collectionName)
+                }
+
+                if track.trackNumber > 0 {
+                    ITunesMetaPill(title: "Track", value: track.trackCount > 0 ? "\(track.trackNumber)/\(track.trackCount)" : "\(track.trackNumber)")
+                }
+
+                let durationText = formattedITunesDuration(track.durationMilliseconds)
+                if !durationText.isEmpty {
+                    ITunesMetaPill(title: "Length", value: durationText)
+                }
+
+                if !track.releaseDate.isEmpty {
+                    ITunesMetaPill(title: "Release Date", value: track.releaseDate)
+                }
+
+                if !track.country.isEmpty {
+                    ITunesMetaPill(title: "Country", value: track.country)
                 }
             }
 
-            Text(subtitle)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+            if !track.primaryGenreName.isEmpty {
+                Text(track.primaryGenreName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
         }
-    }
-
-    private var subtitle: String {
-        [
-            track.artistName,
-            track.collectionName,
-            track.trackNumber > 0 ? "Track \(track.trackNumber)" : "",
-            track.releaseDate
-        ]
-        .filter { !$0.isEmpty }
-        .joined(separator: " • ")
     }
 }
 
@@ -349,34 +593,115 @@ private struct ITunesAlbumRow: View {
     let album: ITunesAlbumResult
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(album.collectionName.isEmpty ? "Untitled Album" : album.collectionName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
 
-                if let score = album.selectionMatchScore {
-                    Text("\(Int((score * 100).rounded()))% match")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                if let preview = album.selectionMatchPreview {
+                    Text("Matched \(preview.matchedAssignments.count)/\(preview.totalSelectedFiles)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.green.opacity(0.12))
+                        )
+                        .foregroundStyle(Color.green)
+
+                    Text("\(Int((preview.overallScore * 100).rounded()))%")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                Spacer()
+            }
+
+            if !album.artistName.isEmpty {
+                Label(album.artistName, systemImage: "person.2")
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                if let preview = album.selectionMatchPreview {
+                    if !preview.unmatchedFiles.isEmpty {
+                        ITunesMetaPill(title: "Unmatched", value: "\(preview.unmatchedFiles.count)")
+                    }
+
+                    if !preview.unassignedTracks.isEmpty {
+                        ITunesMetaPill(title: "Missing Tracks", value: "\(preview.unassignedTracks.count)")
+                    }
+                }
+
+                if album.trackCount > 0 {
+                    ITunesMetaPill(title: "Tracks", value: "\(album.trackCount)")
+                }
+
+                if !album.primaryGenreName.isEmpty {
+                    ITunesMetaPill(title: "Genre", value: album.primaryGenreName)
+                }
+
+                if !album.releaseDate.isEmpty {
+                    ITunesMetaPill(title: "Release Date", value: album.releaseDate)
+                }
+
+                if !album.country.isEmpty {
+                    ITunesMetaPill(title: "Country", value: album.country)
                 }
             }
 
-            Text(subtitle)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
+            if album.selectionMatchPreview != nil,
+               album.selectionMatchScore ?? 0 < 0.55 {
+                Text("Low confidence match. Check the file-to-track matches in the detail view.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
+}
 
-    private var subtitle: String {
-        [
-            album.artistName,
-            album.trackCount > 0 ? "\(album.trackCount) tracks" : "",
-            album.primaryGenreName,
-            album.releaseDate
-        ]
-        .filter { !$0.isEmpty }
-        .joined(separator: " • ")
+private struct ITunesStorefrontChip: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+            )
+            .foregroundStyle(Color.accentColor)
+    }
+}
+
+private struct ITunesMetaPill: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.system(size: 11))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
     }
 }
 
@@ -1074,7 +1399,12 @@ private struct ITunesMetadataLinkRow: View {
     let destination: URL
 
     var body: some View {
-        Link(destination: destination) {
+        NavigationLink {
+            ITunesEmbeddedWebPageView(
+                title: title,
+                url: destination
+            )
+        } label: {
             HStack(alignment: .center, spacing: 18) {
                 Text(title)
                     .font(.system(size: 13))
@@ -1082,7 +1412,7 @@ private struct ITunesMetadataLinkRow: View {
 
                 Spacer(minLength: 12)
 
-                Image(systemName: "arrow.up.forward")
+                Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
@@ -1091,6 +1421,39 @@ private struct ITunesMetadataLinkRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct ITunesEmbeddedWebPageView: View {
+    let title: String
+    let url: URL
+
+    @State private var page = WebPage()
+
+    var body: some View {
+        WebView(page)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(platformColor: .audiomatorWindowBackground))
+            .navigationTitle(title)
+            .navigationSubtitle(url.host() ?? "iTunes")
+            .task(id: url) {
+                page.load(URLRequest(url: url))
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button {
+                        page.load(URLRequest(url: url))
+                    } label: {
+                        Label("Reload", systemImage: "arrow.clockwise")
+                    }
+
+                    Button {
+                        PlatformPasteboard.copy(url.absoluteString)
+                    } label: {
+                        Label("Copy Link", systemImage: "doc.on.doc")
+                    }
+                }
+            }
     }
 }
 

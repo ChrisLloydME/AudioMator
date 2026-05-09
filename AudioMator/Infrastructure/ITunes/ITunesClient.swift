@@ -104,6 +104,20 @@ struct ITunesFileSearchInput: Identifiable, Equatable, Hashable {
         Self.normalizedIndex(discNumber)
     }
 
+    var normalizedReleaseYear: String {
+        let digits = releaseDate.filter(\.isNumber)
+        guard digits.count >= 4 else { return "" }
+        return String(digits.prefix(4))
+    }
+
+    var artistCandidates: [String] {
+        let values = [artist, albumArtist]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        return (Array(NSOrderedSet(array: values)) as? [String]) ?? values
+    }
+
     private static func normalizedIndex(_ rawValue: String) -> Int? {
         let normalized = rawValue
             .split(separator: "/")
@@ -121,23 +135,34 @@ struct ITunesFileSelectionSummary: Equatable, Hashable {
     let albumCandidate: String
     let albumArtistCandidate: String
     let primaryArtistCandidate: String
+    let totalSelectedFiles: Int
     let trackCountCandidate: Int
+    let releaseYearCandidate: String
     let barcodeCandidate: String
     let itunesAlbumIDCandidate: String
+    let distinctAlbumCount: Int
+    let distinctArtistCount: Int
 
     init(files: [ITunesFileSearchInput]) {
         self.files = files
+        self.totalSelectedFiles = files.count
         self.albumCandidate = Self.majorityValue(files.map(\.album))
         self.albumArtistCandidate = Self.majorityValue(
             files.map { $0.albumArtist.isEmpty ? $0.artist : $0.albumArtist }
         )
         self.primaryArtistCandidate = Self.majorityValue(files.map(\.artist))
         self.trackCountCandidate = max(Self.majorityInt(files.map(\.trackTotal).filter { $0 > 0 }) ?? 0, files.count)
+        self.releaseYearCandidate = Self.majorityValue(files.map(\.normalizedReleaseYear))
         self.barcodeCandidate = Self.majorityValue(files.map(\.barcode))
         self.itunesAlbumIDCandidate = Self.majorityValue(files.map(\.itunesAlbumID))
+        self.distinctAlbumCount = Self.distinctValueCount(files.map(\.album))
+        self.distinctArtistCount = Self.distinctValueCount(
+            files.map { $0.albumArtist.isEmpty ? $0.artist : $0.albumArtist }
+        )
     }
 
     var isMultiFile: Bool { files.count > 1 }
+    var selectionLooksMixed: Bool { distinctAlbumCount > 1 || distinctArtistCount > 1 }
 
     private static func majorityValue(_ values: [String]) -> String {
         let cleaned = values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -170,6 +195,14 @@ struct ITunesFileSelectionSummary: Equatable, Hashable {
             }
         }
         return best
+    }
+
+    private static func distinctValueCount(_ values: [String]) -> Int {
+        Set(
+            values
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        ).count
     }
 }
 
@@ -318,97 +351,396 @@ struct ITunesAlbumMatchPreview: Equatable, Hashable {
 
 enum ITunesAlbumMatcher {
     static func match(selection: ITunesFileSelectionSummary, detail: ITunesAlbumDetail) -> ITunesAlbumMatchPreview {
-        var remainingTracks = detail.tracks
-        var assignments: [ITunesAlbumMatchAssignment] = []
-        var unmatched: [ITunesFileSearchInput] = []
-
-        for file in selection.files {
-            let scored = remainingTracks.map { track in
-                (track, trackScore(track, file: file))
-            }
-            .sorted {
-                if $0.1 != $1.1 { return $0.1 > $1.1 }
-                return trackSort($0.0, $1.0)
-            }
-
-            guard let best = scored.first, best.1 >= 0.32 else {
-                unmatched.append(file)
-                continue
-            }
-
-            remainingTracks.removeAll { $0.trackID == best.0.trackID }
-            assignments.append(
-                ITunesAlbumMatchAssignment(
-                    id: "\(file.id):\(best.0.trackID)",
-                    file: file,
-                    track: best.0,
-                    score: best.1,
-                    reason: matchReason(track: best.0, file: file)
-                )
+        let exactAssignments = greedyAssignments(
+            from: buildCandidates(
+                files: selection.files,
+                tracks: detail.tracks,
+                album: detail.album,
+                exactOnly: true
             )
-        }
+        )
+        let exactFileIDs = Set(exactAssignments.map(\.file.id))
+        let exactTrackIDs = Set(exactAssignments.map(\.track.trackID))
 
-        let average = assignments.isEmpty
+        let similarityAssignments = greedyAssignments(
+            from: buildCandidates(
+                files: selection.files.filter { !exactFileIDs.contains($0.id) },
+                tracks: detail.tracks.filter { !exactTrackIDs.contains($0.trackID) },
+                album: detail.album,
+                exactOnly: false
+            )
+        )
+
+        let assignments = (exactAssignments + similarityAssignments)
+            .sorted {
+                ($0.file.normalizedDiscNumber ?? 0, $0.file.normalizedTrackNumber ?? 0, $0.file.preferredDisplayTitle)
+                    < ($1.file.normalizedDiscNumber ?? 0, $1.file.normalizedTrackNumber ?? 0, $1.file.preferredDisplayTitle)
+            }
+
+        let assignedFileIDs = Set(assignments.map(\.file.id))
+        let assignedTrackIDs = Set(assignments.map(\.track.trackID))
+        let unmatched = selection.files.filter { !assignedFileIDs.contains($0.id) }
+        let unassignedTracks = detail.tracks.filter { !assignedTrackIDs.contains($0.trackID) }
+
+        let averageTrackScore = assignments.isEmpty
             ? 0
             : assignments.map(\.score).reduce(0, +) / Double(assignments.count)
         let coverage = selection.files.isEmpty ? 0 : Double(assignments.count) / Double(selection.files.count)
+        let albumScore = releaseScore(selection: selection, album: detail.album)
+        var overallScore = (albumScore * 0.32) + (averageTrackScore * 0.43) + (coverage * 0.25)
+        overallScore -= min(0.2, Double(unmatched.count) * 0.035)
+        if selection.selectionLooksMixed {
+            overallScore -= 0.05
+        }
 
         return ITunesAlbumMatchPreview(
             totalSelectedFiles: selection.files.count,
             matchedAssignments: assignments,
             unmatchedFiles: unmatched,
-            unassignedTracks: remainingTracks,
-            overallScore: (average * 0.72) + (coverage * 0.28)
+            unassignedTracks: unassignedTracks,
+            overallScore: min(1, max(0, overallScore))
         )
     }
 
     static func rerankTracks(_ tracks: [ITunesTrackResult], file: ITunesFileSearchInput) -> [ITunesTrackResult] {
         tracks.sorted {
-            let lhsScore = trackScore($0, file: file)
-            let rhsScore = trackScore($1, file: file)
+            let lhsScore = trackSimilarityScore(track: $0, file: file, album: nil)
+            let rhsScore = trackSimilarityScore(track: $1, file: file, album: nil)
             if lhsScore != rhsScore { return lhsScore > rhsScore }
             return trackSort($0, $1)
         }
     }
 
-    private static func trackScore(_ track: ITunesTrackResult, file: ITunesFileSearchInput) -> Double {
-        var score = 0.0
-        let normalizedTrackName = normalized(track.trackName)
-        let normalizedFileTitle = normalized(file.title)
+    private static func buildCandidates(
+        files: [ITunesFileSearchInput],
+        tracks: [ITunesTrackResult],
+        album: ITunesAlbumResult?,
+        exactOnly: Bool
+    ) -> [ITunesAlbumMatchAssignment] {
+        var candidates: [ITunesAlbumMatchAssignment] = []
 
-        if normalizedTrackName == normalizedFileTitle, !file.title.isEmpty { score += 0.34 }
-        else if normalizedTrackName.contains(normalizedFileTitle), !file.title.isEmpty { score += 0.18 }
-        if normalized(track.artistName) == normalized(file.artist), !file.artist.isEmpty { score += 0.16 }
-        if normalized(track.collectionName) == normalized(file.album), !file.album.isEmpty { score += 0.10 }
-        if let number = file.normalizedTrackNumber, number == track.trackNumber { score += 0.34 }
-        if let disc = file.normalizedDiscNumber, disc == track.discNumber { score += 0.10 }
-        if let localDuration = file.durationMilliseconds, let remoteDuration = track.durationMilliseconds {
-            let delta = abs(localDuration - remoteDuration)
-            if delta <= 2_500 { score += 0.12 }
-            else if delta <= 7_500 { score += 0.06 }
+        for file in files {
+            for track in tracks {
+                guard let candidate = candidateAssignment(file: file, track: track, album: album, exactOnly: exactOnly) else {
+                    continue
+                }
+                candidates.append(candidate)
+            }
         }
-        return min(score, 1.0)
+
+        return candidates.sorted {
+            if $0.score == $1.score {
+                return $0.file.preferredDisplayTitle < $1.file.preferredDisplayTitle
+            }
+            return $0.score > $1.score
+        }
     }
 
-    private static func matchReason(track: ITunesTrackResult, file: ITunesFileSearchInput) -> String {
-        var parts: [String] = []
-        if let disc = file.normalizedDiscNumber, disc == track.discNumber { parts.append("disc number") }
-        if let number = file.normalizedTrackNumber, number == track.trackNumber { parts.append("track number") }
-        if normalized(track.trackName) == normalized(file.title), !file.title.isEmpty { parts.append("title") }
-        if normalized(track.artistName) == normalized(file.artist), !file.artist.isEmpty { parts.append("artist") }
-        if let localDuration = file.durationMilliseconds, let remoteDuration = track.durationMilliseconds,
-           abs(localDuration - remoteDuration) <= 2_500 {
-            parts.append("duration")
+    private static func greedyAssignments(from candidates: [ITunesAlbumMatchAssignment]) -> [ITunesAlbumMatchAssignment] {
+        var assignedFileIDs: Set<String> = []
+        var assignedTrackIDs: Set<Int> = []
+        var assignments: [ITunesAlbumMatchAssignment] = []
+
+        for candidate in candidates {
+            guard !assignedFileIDs.contains(candidate.file.id) else { continue }
+            guard !assignedTrackIDs.contains(candidate.track.trackID) else { continue }
+
+            assignedFileIDs.insert(candidate.file.id)
+            assignedTrackIDs.insert(candidate.track.trackID)
+            assignments.append(candidate)
         }
-        return parts.isEmpty ? "metadata similarity" : parts.joined(separator: ", ")
+
+        return assignments
     }
 
-    private static func normalized(_ value: String) -> String {
-        value
-            .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
-            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+    private static func candidateAssignment(
+        file: ITunesFileSearchInput,
+        track: ITunesTrackResult,
+        album: ITunesAlbumResult?,
+        exactOnly: Bool
+    ) -> ITunesAlbumMatchAssignment? {
+        if let exactReason = exactMatchReason(file: file, track: track) {
+            return ITunesAlbumMatchAssignment(
+                id: "\(file.id):\(track.trackID)",
+                file: file,
+                track: track,
+                score: exactReason.score,
+                reason: exactReason.reason
+            )
+        }
+
+        guard !exactOnly else { return nil }
+
+        var score = trackSimilarityScore(track: track, file: file, album: album)
+        let isTitleVersionMatch = titleVersionMatch(file.title, track.trackName)
+        guard score >= 0.48 || (isTitleVersionMatch && score >= 0.38) else { return nil }
+        if isTitleVersionMatch {
+            score = max(score, 0.62)
+        }
+
+        return ITunesAlbumMatchAssignment(
+            id: "\(file.id):\(track.trackID)",
+            file: file,
+            track: track,
+            score: score,
+            reason: matchReason(file: file, track: track, isTitleVersionMatch: isTitleVersionMatch)
+        )
+    }
+
+    private static func exactMatchReason(file: ITunesFileSearchInput, track: ITunesTrackResult) -> (score: Double, reason: String)? {
+        let sameTrackNumber = file.normalizedTrackNumber == track.trackNumber
+        let sameDiscNumber = file.normalizedDiscNumber == nil || file.normalizedDiscNumber == track.discNumber
+        let titleScore = titleSimilarity(file.title, track.trackName)
+
+        if sameTrackNumber, sameDiscNumber, titleScore >= 0.88 {
+            return (0.94, "Track number + title")
+        }
+
+        if titleScore >= 0.96,
+           durationSimilarity(file.durationMilliseconds, track.durationMilliseconds) >= 0.9,
+           bestSimilarity(file.artistCandidates, candidates: [track.artistName, track.collectionArtistName]) >= 0.82 {
+            return (0.93, "Title + artist + duration")
+        }
+
+        return nil
+    }
+
+    private static func trackSimilarityScore(
+        track: ITunesTrackResult,
+        file: ITunesFileSearchInput,
+        album: ITunesAlbumResult?
+    ) -> Double {
+        let albumTitle = album?.collectionName ?? track.collectionName
+        let albumArtist = album?.collectionArtistName ?? track.collectionArtistName
+        let titleScore = titleSimilarity(file.title, track.trackName)
+        let artistScore = bestSimilarity(file.artistCandidates, candidates: [track.artistName, albumArtist])
+        let albumScore = fuzzySimilarity(file.album, albumTitle)
+        let durationScore = durationSimilarity(file.durationMilliseconds, track.durationMilliseconds)
+        let trackNumberScore = trackIndexSimilarity(file.normalizedTrackNumber, candidateValue: track.trackNumber)
+        let discNumberScore = discIndexSimilarity(file.normalizedDiscNumber, candidateValue: track.discNumber)
+
+        return min(
+            1,
+            (titleScore * 0.40) +
+            (artistScore * 0.17) +
+            (durationScore * 0.16) +
+            (trackNumberScore * 0.16) +
+            (albumScore * 0.07) +
+            (discNumberScore * 0.04)
+        )
+    }
+
+    private static func releaseScore(selection: ITunesFileSelectionSummary, album: ITunesAlbumResult) -> Double {
+        let albumScore = fuzzySimilarity(selection.albumCandidate, album.collectionName) * 0.36
+        let artistScore = bestSimilarity(
+            [selection.albumArtistCandidate, selection.primaryArtistCandidate].filter { !$0.isEmpty },
+            candidates: [album.collectionArtistName, album.artistName]
+        ) * 0.26
+        let yearScore = yearSimilarity(selection.releaseYearCandidate, candidateDate: album.releaseDate) * 0.10
+        let countScore = trackCountSimilarity(selectedCount: selection.trackCountCandidate, albumTrackCount: album.trackCount) * 0.18
+        let idScore = Int(selection.itunesAlbumIDCandidate) == album.collectionID ? 0.10 : 0
+
+        return min(1, albumScore + artistScore + yearScore + countScore + idScore)
+    }
+
+    private static func trackIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
+        guard let expected, candidateValue > 0 else { return 0 }
+        if expected == candidateValue { return 1 }
+        if abs(expected - candidateValue) == 1 { return 0.35 }
+        return 0
+    }
+
+    private static func discIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
+        guard let expected, candidateValue > 0 else { return 0 }
+        return expected == candidateValue ? 1 : 0
+    }
+
+    private static func durationSimilarity(_ lhs: Int?, _ rhs: Int?) -> Double {
+        guard let lhs, let rhs else { return 0 }
+        let difference = abs(lhs - rhs)
+        guard difference < 30_000 else { return 0 }
+        return 1 - (Double(difference) / 30_000)
+    }
+
+    private static func yearSimilarity(_ queryYear: String, candidateDate: String) -> Double {
+        let digits = candidateDate.filter(\.isNumber)
+        guard digits.count >= 4, !queryYear.isEmpty else { return 0 }
+        let candidateYear = String(digits.prefix(4))
+        guard let queryValue = Int(queryYear), let candidateValue = Int(candidateYear) else { return 0 }
+
+        switch abs(queryValue - candidateValue) {
+        case 0: return 1
+        case 1: return 0.65
+        case 2: return 0.3
+        default: return 0
+        }
+    }
+
+    private static func trackCountSimilarity(selectedCount: Int, albumTrackCount: Int) -> Double {
+        guard selectedCount > 0, albumTrackCount > 0 else { return 0 }
+        if selectedCount == albumTrackCount { return 1 }
+        if selectedCount < albumTrackCount { return 0.3 }
+        return 0
+    }
+
+    private static func bestSimilarity(_ queries: [String], candidates: [String]) -> Double {
+        var best = 0.0
+        for query in queries {
+            for candidate in candidates {
+                best = max(best, fuzzySimilarity(query, candidate))
+            }
+        }
+        return best
+    }
+
+    private static func matchReason(
+        file: ITunesFileSearchInput,
+        track: ITunesTrackResult,
+        isTitleVersionMatch: Bool
+    ) -> String {
+        if file.normalizedTrackNumber == track.trackNumber {
+            return "Track number + metadata"
+        }
+
+        if isTitleVersionMatch {
+            return "Title version"
+        }
+
+        return "Metadata similarity"
+    }
+
+    private static func titleSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        max(fuzzySimilarity(lhs, rhs), titleVersionMatch(lhs, rhs) ? 0.98 : 0)
+    }
+
+    private static func titleVersionMatch(_ lhs: String, _ rhs: String) -> Bool {
+        let normalizedLHS = normalize(lhs)
+        let normalizedRHS = normalize(rhs)
+        guard !normalizedLHS.isEmpty, !normalizedRHS.isEmpty else { return false }
+        guard normalizedLHS != normalizedRHS else { return true }
+
+        let shorter = normalizedLHS.count <= normalizedRHS.count ? normalizedLHS : normalizedRHS
+        let longer = normalizedLHS.count <= normalizedRHS.count ? normalizedRHS : normalizedLHS
+        let shorterTokens = normalizedTokens(shorter)
+
+        guard shorter.count >= 12 || shorterTokens.count >= 3 else { return false }
+        return tokenSequenceContains(longer, sequence: shorter)
+    }
+
+    private static func fuzzySimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let normalizedLHS = normalize(lhs)
+        let normalizedRHS = normalize(rhs)
+        guard !normalizedLHS.isEmpty, !normalizedRHS.isEmpty else { return 0 }
+
+        if normalizedLHS == normalizedRHS {
+            return 1
+        }
+
+        if normalizedLHS.contains(normalizedRHS) || normalizedRHS.contains(normalizedLHS) {
+            return 0.92
+        }
+
+        let tokenScore = jaccardSimilarity(
+            Set(normalizedTokens(normalizedLHS)),
+            Set(normalizedTokens(normalizedRHS))
+        )
+        let editScore = normalizedEditSimilarity(normalizedLHS, normalizedRHS)
+        let prefixScore = commonPrefixSimilarity(normalizedLHS, normalizedRHS)
+
+        return min(1, (editScore * 0.6) + (tokenScore * 0.3) + (prefixScore * 0.1))
+    }
+
+    private static func normalizedTokens(_ normalizedValue: String) -> [String] {
+        normalizedValue
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count >= 2 }
+    }
+
+    private static func tokenSequenceContains(_ value: String, sequence: String) -> Bool {
+        let valueTokens = normalizedTokens(value)
+        let sequenceTokens = normalizedTokens(sequence)
+        guard !valueTokens.isEmpty, !sequenceTokens.isEmpty else { return false }
+        guard sequenceTokens.count <= valueTokens.count else { return false }
+
+        for startIndex in 0...(valueTokens.count - sequenceTokens.count) {
+            let candidate = valueTokens[startIndex..<(startIndex + sequenceTokens.count)]
+            if Array(candidate) == sequenceTokens {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private static func normalize(_ value: String) -> String {
+        let folded = value.folding(
+            options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive],
+            locale: .current
+        )
+        let mappedScalars = folded.unicodeScalars.map { scalar -> Character in
+            CharacterSet.alphanumerics.contains(scalar) ? Character(scalar) : " "
+        }
+        return String(mappedScalars)
+            .split(separator: " ")
             .joined(separator: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func jaccardSimilarity(_ lhs: Set<String>, _ rhs: Set<String>) -> Double {
+        guard !lhs.isEmpty, !rhs.isEmpty else { return 0 }
+        let unionCount = lhs.union(rhs).count
+        guard unionCount > 0 else { return 0 }
+        return Double(lhs.intersection(rhs).count) / Double(unionCount)
+    }
+
+    private static func commonPrefixSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let lhsCharacters = Array(lhs)
+        let rhsCharacters = Array(rhs)
+        let maxLength = max(lhsCharacters.count, rhsCharacters.count)
+        guard maxLength > 0 else { return 0 }
+
+        var prefixLength = 0
+        for (lhsCharacter, rhsCharacter) in zip(lhsCharacters, rhsCharacters) {
+            guard lhsCharacter == rhsCharacter else { break }
+            prefixLength += 1
+        }
+
+        return Double(prefixLength) / Double(maxLength)
+    }
+
+    private static func normalizedEditSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let lhsCharacters = Array(lhs)
+        let rhsCharacters = Array(rhs)
+        let maxLength = max(lhsCharacters.count, rhsCharacters.count)
+        guard maxLength > 0 else { return 0 }
+
+        let distance = levenshteinDistance(lhsCharacters, rhsCharacters)
+        return max(0, 1 - (Double(distance) / Double(maxLength)))
+    }
+
+    private static func levenshteinDistance(_ lhs: [Character], _ rhs: [Character]) -> Int {
+        if lhs.isEmpty { return rhs.count }
+        if rhs.isEmpty { return lhs.count }
+
+        var previousRow = Array(0...rhs.count)
+        var currentRow = Array(repeating: 0, count: rhs.count + 1)
+
+        for (lhsIndex, lhsCharacter) in lhs.enumerated() {
+            currentRow[0] = lhsIndex + 1
+
+            for (rhsIndex, rhsCharacter) in rhs.enumerated() {
+                let substitutionCost = lhsCharacter == rhsCharacter ? 0 : 1
+                currentRow[rhsIndex + 1] = min(
+                    previousRow[rhsIndex + 1] + 1,
+                    currentRow[rhsIndex] + 1,
+                    previousRow[rhsIndex] + substitutionCost
+                )
+            }
+
+            swap(&previousRow, &currentRow)
+        }
+
+        return previousRow[rhs.count]
     }
 
     private static func trackSort(_ lhs: ITunesTrackResult, _ rhs: ITunesTrackResult) -> Bool {
@@ -503,22 +835,22 @@ struct ITunesClient: Sendable {
         }
 
         if summary.isMultiFile {
-            let albums = try await searchAlbums(term: query.searchTerm, country: query.country, limit: max(limit, 12))
-            var matchedAlbums: [ITunesAlbumResult] = []
+            let albums = try await albumCandidates(for: summary, query: query, limit: max(limit, 25))
+            var matchedAlbumsByID: [Int: ITunesAlbumResult] = [:]
 
-            for album in albums.prefix(8) {
+            for album in albums.prefix(18) {
                 do {
                     var detail = try await albumDetail(collectionID: album.collectionID, country: query.country)
                     let preview = ITunesAlbumMatcher.match(selection: summary, detail: detail)
                     detail.selectionMatchPreview = preview
-                    matchedAlbums.append(album.withPreview(preview))
+                    matchedAlbumsByID[album.collectionID] = detail.album.withPreview(preview)
                 } catch {
-                    matchedAlbums.append(album)
+                    matchedAlbumsByID[album.collectionID] = album
                 }
             }
 
             return .albums(
-                matchedAlbums.sorted {
+                Array(matchedAlbumsByID.values).sorted {
                     ($0.selectionMatchScore ?? 0) == ($1.selectionMatchScore ?? 0)
                         ? $0.trackCount > $1.trackCount
                         : ($0.selectionMatchScore ?? 0) > ($1.selectionMatchScore ?? 0)
@@ -529,6 +861,94 @@ struct ITunesClient: Sendable {
         let tracks = try await searchTracks(term: query.searchTerm, country: query.country, limit: max(limit, 50))
         guard let file = summary.files.first else { return .tracks(tracks) }
         return .tracks(ITunesAlbumMatcher.rerankTracks(tracks, file: file))
+    }
+
+    private func albumCandidates(
+        for summary: ITunesFileSelectionSummary,
+        query: ITunesSearchQuery,
+        limit: Int
+    ) async throws -> [ITunesAlbumResult] {
+        var albumsByID: [Int: ITunesAlbumResult] = [:]
+
+        func append(_ albums: [ITunesAlbumResult]) {
+            for album in albums {
+                albumsByID[album.collectionID] = album
+            }
+        }
+
+        append(try await searchAlbums(term: query.searchTerm, country: query.country, limit: limit))
+
+        let albumArtistTerm = [summary.albumCandidate, summary.albumArtistCandidate]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        if !albumArtistTerm.isEmpty, albumArtistTerm != query.searchTerm {
+            do {
+                append(try await searchAlbums(term: albumArtistTerm, country: query.country, limit: min(limit, 25)))
+            } catch {
+                // Keep the primary album search usable if a secondary recall query fails.
+            }
+        }
+
+        let representativeFiles = representativeFilesForAlbumDiscovery(summary.files)
+        for file in representativeFiles {
+            let term = [file.title, file.artist, file.album]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            guard !term.isEmpty else { continue }
+
+            let tracks: [ITunesTrackResult]
+            do {
+                tracks = try await searchTracks(term: term, country: query.country, limit: 12)
+            } catch {
+                continue
+            }
+            for track in ITunesAlbumMatcher.rerankTracks(tracks, file: file) {
+                guard let collectionID = track.collectionID, albumsByID[collectionID] == nil else { continue }
+                albumsByID[collectionID] = ITunesAlbumResult(
+                    collectionID: collectionID,
+                    artistID: track.artistID,
+                    collectionArtistID: track.collectionArtistID,
+                    collectionName: track.collectionName,
+                    artistName: track.artistName,
+                    collectionArtistName: track.collectionArtistName,
+                    trackCount: track.trackCount,
+                    releaseDate: track.releaseDate,
+                    primaryGenreName: track.primaryGenreName,
+                    country: track.country,
+                    copyright: track.copyright,
+                    contentAdvisoryRating: track.contentAdvisoryRating,
+                    collectionExplicitness: track.collectionExplicitness,
+                    collectionViewURL: track.collectionViewURL,
+                    artistViewURL: track.artistViewURL,
+                    selectionMatchPreview: nil,
+                    selectionMatchScore: nil
+                )
+            }
+        }
+
+        return Array(albumsByID.values).sorted {
+            if $0.trackCount == $1.trackCount {
+                return $0.collectionName < $1.collectionName
+            }
+            return $0.trackCount > $1.trackCount
+        }
+    }
+
+    private func representativeFilesForAlbumDiscovery(_ files: [ITunesFileSearchInput]) -> [ITunesFileSearchInput] {
+        let preferred = files.sorted {
+            let lhsNumber = $0.normalizedTrackNumber ?? Int.max
+            let rhsNumber = $1.normalizedTrackNumber ?? Int.max
+            if lhsNumber != rhsNumber { return lhsNumber < rhsNumber }
+            return $0.preferredDisplayTitle < $1.preferredDisplayTitle
+        }
+
+        var result: [ITunesFileSearchInput] = []
+        for file in preferred {
+            guard !file.title.isEmpty || !file.artist.isEmpty else { continue }
+            result.append(file)
+            if result.count >= 5 { break }
+        }
+        return result
     }
 
     private func searchByLink(_ link: String, country: String) async throws -> ITunesSearchResults {

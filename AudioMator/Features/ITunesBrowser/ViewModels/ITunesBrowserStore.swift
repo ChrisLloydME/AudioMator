@@ -103,6 +103,12 @@ final class ITunesBrowserStore: ObservableObject {
         sourceDescription = "Seed iTunes from the current AudioMator selection or search manually."
     }
 
+    func closeWindowSession() {
+        searchTask?.cancel()
+        albumDetailsByID = [:]
+        resetToDefault()
+    }
+
     func clearSearch() {
         searchTask?.cancel()
         resetNavigation()
@@ -117,6 +123,9 @@ final class ITunesBrowserStore: ObservableObject {
         errorMessage = nil
         lastSubmittedQuery = nil
         isSearching = false
+        sourceDescription = fileInputs.isEmpty
+            ? "Seed iTunes from the current AudioMator selection or search manually."
+            : "Seeded from the current AudioMator selection."
     }
 
     func handleModeChange(from oldMode: ITunesSearchMode, to newMode: ITunesSearchMode) {

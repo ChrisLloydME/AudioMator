@@ -61,12 +61,12 @@ struct IPadWorkspaceView: View {
                     sortMenu
 
                     Menu {
-                        Button("Metadata Browser", action: onOpenMusicBrainzBrowser)
-                        Button("Tag Inspector", action: onShowMetadataDump)
+                        Button(ToolbarButtonOption.musicBrainzBrowser.displayName, action: onOpenMusicBrainzBrowser)
+                        Button(ToolbarButtonOption.tagInspector.displayName, action: onShowMetadataDump)
                             .disabled(state.selectedAudioIDs.isEmpty)
-                        Button("Filename & Metadata...", action: openMetadataFilenameRenameSheet)
+                        Button(ToolbarButtonOption.renameFiles.displayName + "...", action: openMetadataFilenameRenameSheet)
                             .disabled(state.selectedAudioIDs.isEmpty)
-                        Button("Metadata Editor...", action: openMetadataEditorWindow)
+                        Button(ToolbarButtonOption.metadataEditor.displayName + "...", action: openMetadataEditorWindow)
                             .disabled(state.selectedAudioIDs.isEmpty)
                         Button("Import Field...", action: openTextMetadataImportSheet)
                             .disabled(state.selectedAudioIDs.isEmpty)

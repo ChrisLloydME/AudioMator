@@ -14,7 +14,7 @@ enum ITunesSearchMode: String, CaseIterable, Identifiable {
         case .track: return "Track"
         case .album: return "Album"
         case .file: return "File"
-        case .link: return "Link"
+        case .link: return "Apple Music Link"
         case .upc: return "UPC"
         }
     }
@@ -435,7 +435,7 @@ enum ITunesClientError: LocalizedError {
         case .failedToBuildURL:
             return "Failed to build the iTunes request."
         case .unsupportedLink:
-            return "That link did not contain a supported iTunes or Apple Music ID."
+            return "That link did not contain a supported Apple Music or iTunes album/track ID."
         case .requestFailed(let code):
             return "The iTunes request failed with status code \(code)."
         case .invalidResponseBody:

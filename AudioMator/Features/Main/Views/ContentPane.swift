@@ -74,7 +74,7 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.renameFiles) {
                         Button(action: openMetadataFilenameRenameSheet) {
-                            Label("Filename & Metadata…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+                            Label(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
                         }
                         .help("Convert between filenames and metadata for the selected files")
                         .disabled(state.selectedAudioIDs.isEmpty)
@@ -82,7 +82,7 @@ struct ContentPane: View {
 
                     if visibleToolbarButtons.contains(.metadataEditor) {
                         Button(action: openMetadataEditorWindow) {
-                            Label("Metadata Editor…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
+                            Label(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
                         }
                         .help("Edit the selected metadata fields in a separate window")
                         .disabled(state.selectedAudioIDs.isEmpty)
@@ -108,7 +108,7 @@ struct ContentPane: View {
                         Button(action: onOpenMusicBrainzBrowser) {
                             Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
                         }
-                        .help("Open Metadata Browser")
+                        .help("Open Online Metadata")
                     }
 
                     if visibleToolbarButtons.contains(.cancelEdits) {

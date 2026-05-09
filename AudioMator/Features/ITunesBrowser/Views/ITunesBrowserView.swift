@@ -132,10 +132,6 @@ struct ITunesBrowserView: View {
                 Text("\(store.storefront.emoji) \(store.storefront.displayName)")
             }
 
-            Text("Storefront")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-
             Spacer(minLength: 0)
         }
     }
@@ -152,12 +148,12 @@ struct ITunesBrowserView: View {
         case .album:
             HStack(alignment: .top, spacing: 12) {
                 ITunesQueryField(title: "Album", symbolName: "square.stack", text: $store.albumQuery)
-                ITunesQueryField(title: "Artist", symbolName: "person", text: $store.artistQuery)
+                ITunesQueryField(title: "Album Artist", symbolName: "person.2", text: $store.albumArtistQuery)
             }
         case .file:
             ITunesFileSelectionSummaryView(summary: store.fileSelectionSummary)
         case .link:
-            ITunesQueryField(title: "iTunes or Apple Music Link", symbolName: "link", text: $store.linkQuery, minimumWidth: 520)
+            ITunesQueryField(title: "Apple Music or iTunes Album/Track Link", symbolName: "link", text: $store.linkQuery, minimumWidth: 520)
         case .upc:
             ITunesQueryField(title: "UPC/EAN", symbolName: "barcode", text: $store.upcQuery, minimumWidth: 260)
         }
@@ -231,6 +227,7 @@ struct ITunesBrowserView: View {
     private var canClearSearch: Bool {
         !store.titleQuery.isEmpty ||
             !store.artistQuery.isEmpty ||
+            !store.albumArtistQuery.isEmpty ||
             !store.albumQuery.isEmpty ||
             !store.upcQuery.isEmpty ||
             !store.linkQuery.isEmpty ||
@@ -284,7 +281,7 @@ private struct ITunesFileSelectionSummaryView: View {
 
             if let summary {
                 summaryChip("Album", summary.albumCandidate)
-                summaryChip("Artist", summary.albumArtistCandidate.isEmpty ? summary.primaryArtistCandidate : summary.albumArtistCandidate)
+                summaryChip("Album Artist", summary.albumArtistCandidate.isEmpty ? summary.primaryArtistCandidate : summary.albumArtistCandidate)
                 summaryChip("UPC", summary.barcodeCandidate)
                 summaryChip("iTunes ID", summary.itunesAlbumIDCandidate)
             }

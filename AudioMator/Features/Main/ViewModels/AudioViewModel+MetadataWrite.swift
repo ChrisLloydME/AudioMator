@@ -720,6 +720,13 @@ extension AudioViewModel {
                 warnings.append(refreshWarning)
             }
 
+            if !warnings.isEmpty {
+                print("""
+                [AudioMator] Metadata write completed with warning(s) for \(file.url.lastPathComponent)
+                \(warnings.map { "  - \($0)" }.joined(separator: "\n"))
+                """)
+            }
+
             return .success(
                 MetadataWriteSuccessOutcome(
                     warnings: warnings,

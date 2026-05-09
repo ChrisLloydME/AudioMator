@@ -47,14 +47,14 @@ struct ToolbarEditCommands: Commands {
             Button {
                 NotificationCenter.default.post(name: .requestMetadataFilenameRename, object: nil)
             } label: {
-                Label("Filename & Metadata…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+                Label(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestMetadataEditor, object: nil)
             } label: {
-                Label("Metadata Editor…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
+                Label(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 

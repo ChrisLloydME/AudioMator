@@ -18,6 +18,7 @@ final class ITunesBrowserStore: ObservableObject {
     @Published var mode: ITunesSearchMode = .track
     @Published var titleQuery: String = ""
     @Published var artistQuery: String = ""
+    @Published var albumArtistQuery: String = ""
     @Published var albumQuery: String = ""
     @Published var upcQuery: String = ""
     @Published var linkQuery: String = ""
@@ -46,7 +47,7 @@ final class ITunesBrowserStore: ObservableObject {
         ITunesSearchQuery(
             mode: mode,
             title: titleQuery,
-            artist: artistQuery,
+            artist: mode == .album ? albumArtistQuery : artistQuery,
             album: albumQuery,
             upc: upcQuery,
             link: linkQuery,
@@ -71,6 +72,7 @@ final class ITunesBrowserStore: ObservableObject {
 
         titleQuery = first.title
         artistQuery = first.artist
+        albumArtistQuery = first.albumArtist.isEmpty ? first.artist : first.albumArtist
         albumQuery = first.album
         upcQuery = first.barcode
         linkQuery = ""
@@ -88,6 +90,7 @@ final class ITunesBrowserStore: ObservableObject {
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
+        albumArtistQuery = ""
         albumQuery = ""
         upcQuery = ""
         linkQuery = ""
@@ -105,6 +108,7 @@ final class ITunesBrowserStore: ObservableObject {
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
+        albumArtistQuery = ""
         albumQuery = ""
         upcQuery = ""
         linkQuery = ""
@@ -126,6 +130,9 @@ final class ITunesBrowserStore: ObservableObject {
         if newMode == .album, albumQuery.isEmpty, !titleQuery.isEmpty {
             albumQuery = titleQuery
             titleQuery = ""
+        }
+        if newMode == .album, albumArtistQuery.isEmpty, !artistQuery.isEmpty {
+            albumArtistQuery = artistQuery
         }
 
         results = Self.emptyResults(for: currentQuery)

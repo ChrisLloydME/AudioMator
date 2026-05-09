@@ -302,9 +302,11 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
+				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = AppIcon.icon;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = AppIcon.icon;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AudioMator/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd. All rights reserved.";
@@ -371,9 +373,11 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readwrite;
+				EXCLUDED_SOURCE_FILE_NAMES = Info.plist;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = AppIcon.icon;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = AppIcon.icon;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AudioMator/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd. All rights reserved.";

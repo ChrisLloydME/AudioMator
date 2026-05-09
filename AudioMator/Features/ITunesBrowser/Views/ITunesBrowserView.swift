@@ -129,10 +129,7 @@ struct ITunesBrowserView: View {
                     }
                 }
             } label: {
-                Label(
-                    "\(store.storefront.emoji) \(store.storefront.displayName)",
-                    systemImage: "globe"
-                )
+                Text("\(store.storefront.emoji) \(store.storefront.displayName)")
             }
 
             Text("Storefront")

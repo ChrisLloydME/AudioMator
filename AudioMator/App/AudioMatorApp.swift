@@ -70,7 +70,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 700, height: 480)
 
-        Window("Metadata Browser", id: MusicBrainzBrowserView.windowID) {
+        Window("Online Metadata", id: MusicBrainzBrowserView.windowID) {
             MusicBrainzBrowserView(
                 store: musicBrainzBrowserStore,
                 viewModel: viewModel
@@ -78,7 +78,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 980, height: 700)
 
-        Window("Converter", id: MetadataFilenameWindowView.windowID) {
+        Window("Filename & Metadata", id: MetadataFilenameWindowView.windowID) {
             MetadataFilenameWindowView(
                 viewModel: viewModel,
                 store: metadataFilenameToolStore

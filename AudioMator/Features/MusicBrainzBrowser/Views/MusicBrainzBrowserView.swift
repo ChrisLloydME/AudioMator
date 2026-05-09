@@ -57,7 +57,7 @@ struct MusicBrainzBrowserView: View {
                     MetadataSourcePickerView { source in
                         selectMetadataSource(source)
                     }
-                    .navigationTitle("Metadata Browser")
+                    .navigationTitle("Online Metadata")
                     #if os(macOS)
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {

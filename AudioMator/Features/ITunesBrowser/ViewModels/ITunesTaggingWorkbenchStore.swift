@@ -202,13 +202,15 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
 
         let autoAssignments = Dictionary(uniqueKeysWithValues: preview.matchedAssignments.map { ($0.file.id, $0) })
         let orderedFiles = preview.matchedAssignments.map(\.file) + preview.unmatchedFiles
+        let availableTrackIDs = Set(detail.tracks.map(\.trackID))
         self.assignments = orderedFiles.map { file in
             let auto = autoAssignments[file.id]
+            let selectedTrackID = auto?.track.trackID
             return AssignmentDraft(
                 fileInput: file,
                 initialTrackID: auto?.track.trackID,
                 initialReason: auto?.reason,
-                selectedTrackID: auto?.track.trackID
+                selectedTrackID: selectedTrackID.flatMap { availableTrackIDs.contains($0) ? $0 : nil }
             )
         }
     }
@@ -272,7 +274,12 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func updateSelectedTrack(_ trackID: Int?, for assignmentID: String) {
         guard let index = assignments.firstIndex(where: { $0.id == assignmentID }) else { return }
-        assignments[index].selectedTrackID = trackID
+        guard let trackID else {
+            assignments[index].selectedTrackID = nil
+            return
+        }
+
+        assignments[index].selectedTrackID = availableTracks.contains { $0.trackID == trackID } ? trackID : nil
     }
 
     func track(for assignment: AssignmentDraft) -> ITunesTrackResult? {

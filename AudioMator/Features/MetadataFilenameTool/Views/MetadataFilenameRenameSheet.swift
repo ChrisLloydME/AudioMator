@@ -369,7 +369,7 @@ struct MetadataFilenameWindowView: View {
             }
             .frame(minWidth: 820, idealWidth: 860, maxWidth: .infinity, minHeight: 620, idealHeight: 720, maxHeight: .infinity)
             .background(Color(nsColor: .windowBackgroundColor))
-            .navigationTitle(selectedConverterMode?.title ?? "Converter")
+            .navigationTitle(selectedConverterMode?.title ?? "Filename & Metadata")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Color.clear

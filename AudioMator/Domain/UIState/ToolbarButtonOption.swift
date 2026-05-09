@@ -23,7 +23,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         case .renumberTracks:
             return L10n.string("Renumber Tracks")
         case .musicBrainzBrowser:
-            return L10n.string("Metadata Browser")
+            return L10n.string("Online Metadata")
         case .renameFiles:
             return L10n.string("Filename & Metadata")
         case .metadataEditor:

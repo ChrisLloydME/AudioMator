@@ -17,10 +17,23 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6ED09D182ED1ED550031CDAD /* AudioMator */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6E0000002FB0000000000001 /* Exceptions for "AudioMator" folder in "AudioMator" target */,
+			);
 			path = AudioMator;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6E0000002FB0000000000001 /* Exceptions for "AudioMator" folder in "AudioMator" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6ED09D152ED1ED550031CDAD /* AudioMator */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		6ED09D132ED1ED550031CDAD /* Frameworks */ = {

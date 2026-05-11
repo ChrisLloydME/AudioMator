@@ -216,9 +216,9 @@ This tool is intended for bridge-level debugging, especially around:
 - `AudioMator/Domain/`
   Metadata pipeline models, audio-file models, rename templates, file sources, track renumbering, and UI state.
 - `AudioMator/Features/`
-  SwiftUI feature areas for the main window, iPad workspace, metadata editor, MusicBrainz browser, settings, filename tools, metadata inspector, and welcome flow.
+  SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
 - `AudioMator/Infrastructure/`
-  File-system monitoring, MusicBrainz, iTunes artwork, and GitHub release-note services.
+  File-system monitoring, MusicBrainz, iTunes Store/artwork, and GitHub release-note services.
 - `scripts/`
   Build and smoke-test helpers.
 - `README.md`
@@ -227,10 +227,6 @@ This tool is intended for bridge-level debugging, especially around:
   Network/privacy notes and third-party acknowledgements.
 - `THIRD_PARTY_NOTICES.md`
   Third-party license notices.
-- `PROMO_ARTICLE.md`
-  Long-form promotional article.
-- `PROMO_WEB_PAGE.md`
-  Product marketing page copy.
 
 ## Repository Hygiene
 

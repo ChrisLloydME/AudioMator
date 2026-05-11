@@ -335,6 +335,11 @@
 "Watched Folders" = "監看檔案夾";
 "Write" = "寫入";
 "Write Metadata" = "寫入元資料";
+"Changes apply immediately. At least one metadata field must remain visible." = "更改會立即套用。至少必須保留一個元資料字段可見。";
+"Choose which metadata fields appear in the right inspector." = "選擇右側檢閱器中顯示的元資料字段。";
+"Inspector" = "檢閱器";
+"Inspector Metadata Fields" = "檢閱器元資料字段";
+"Restore Default Metadata Fields" = "還原預設元資料字段";
 "Year" = "年份";
 "· space  ⇥ tab  ↩ newline  ⍽ nbsp" = "· 空格  ⇥ 制表符  ↩ 換行  ⍽ 不換行空格";
 "•" = "•";

@@ -117,7 +117,7 @@ struct SettingsView: View {
             return "\(copyright) AudioMator includes third-party open-source software. See Acknowledgements."
         }
 
-        return "Copyright © 2025-2026 Christopher Lloyd. All rights reserved. AudioMator includes third-party open-source software. See Acknowledgements."
+        return "Copyright © 2025-2026 Christopher Lloyd. AudioMator includes third-party open-source software. See Acknowledgements."
     }
 
     private func columnVisibilityBinding(for column: MiddleListColumn) -> Binding<Bool> {
@@ -222,7 +222,7 @@ struct IPadSettingsView: View {
             return "\(copyright) AudioMator includes third-party open-source software. See Acknowledgements."
         }
 
-        return "Copyright © 2025-2026 Christopher Lloyd. All rights reserved. AudioMator includes third-party open-source software. See Acknowledgements."
+        return "Copyright © 2025-2026 Christopher Lloyd. AudioMator includes third-party open-source software. See Acknowledgements."
     }
 }
 
@@ -472,6 +472,7 @@ private struct AboutSettingsTab: View {
     let shortVersionString: String
     let buildNumber: String
     let aboutDescription: String
+    private let contactEmail = "AudioMator@lloydME.com"
 
     @State private var isAcknowledgementsPresented: Bool = false
     @State private var isPrivacyPresented: Bool = false
@@ -483,7 +484,8 @@ private struct AboutSettingsTab: View {
             Section {
                 IPadAboutHeroCard(
                     title: "AudioMator",
-                    copyrightText: copyrightText
+                    copyrightText: copyrightText,
+                    contactEmail: contactEmail
                 )
                 .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
                 .listRowBackground(Color.clear)
@@ -547,6 +549,11 @@ private struct AboutSettingsTab: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Link(destination: URL(string: "mailto:\(contactEmail)")!) {
+                Label(contactEmail, systemImage: "envelope")
+                    .font(.headline)
+            }
+
             Spacer()
 
             HStack {
@@ -590,7 +597,7 @@ private struct AboutSettingsTab: View {
             return copyright
         }
 
-        return "Copyright © 2025-2026 Christopher Lloyd. All rights reserved."
+        return "Copyright © 2025-2026 Christopher Lloyd"
     }
 }
 
@@ -598,6 +605,7 @@ private struct AboutSettingsTab: View {
 private struct IPadAboutHeroCard: View {
     let title: String
     let copyrightText: String
+    let contactEmail: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -621,6 +629,11 @@ private struct IPadAboutHeroCard: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
+
+                Link(destination: URL(string: "mailto:\(contactEmail)")!) {
+                    Label(contactEmail, systemImage: "envelope")
+                        .font(.body.weight(.medium))
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

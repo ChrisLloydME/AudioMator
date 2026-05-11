@@ -17,23 +17,10 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6ED09D182ED1ED550031CDAD /* AudioMator */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				6E0000002FB0000000000001 /* Exceptions for "AudioMator" folder in "AudioMator" target */,
-			);
 			path = AudioMator;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		6E0000002FB0000000000001 /* Exceptions for "AudioMator" folder in "AudioMator" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 6ED09D152ED1ED550031CDAD /* AudioMator */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		6ED09D132ED1ED550031CDAD /* Frameworks */ = {
@@ -319,10 +306,10 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = AppIcon.icon;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = AppIcon.icon;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = AudioMator/Info.plist;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd";
 				"INFOPLIST_KEY_SUEnableAutomaticChecks[sdk=macosx*]" = NO;
 				"INFOPLIST_KEY_SUEnableInstallerLauncherService[sdk=macosx*]" = YES;
 				"INFOPLIST_KEY_SUFeedURL[sdk=macosx*]" = "https://chrislloydme.github.io/AudioMator/appcast.xml";
@@ -390,10 +377,10 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = AppIcon.icon;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = AppIcon.icon;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = AudioMator/Info.plist;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd";
 				"INFOPLIST_KEY_SUEnableAutomaticChecks[sdk=macosx*]" = NO;
 				"INFOPLIST_KEY_SUEnableInstallerLauncherService[sdk=macosx*]" = YES;
 				"INFOPLIST_KEY_SUFeedURL[sdk=macosx*]" = "https://chrislloydme.github.io/AudioMator/appcast.xml";

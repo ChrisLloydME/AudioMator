@@ -219,6 +219,8 @@ This tool is intended for bridge-level debugging, especially around:
   SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
 - `AudioMator/Infrastructure/`
   File-system monitoring, MusicBrainz, iTunes Store/artwork, and GitHub release-note services.
+- `Config/`
+  Project configuration inputs, including the app Info.plist.
 - `scripts/`
   Build and smoke-test helpers.
 - `README.md`

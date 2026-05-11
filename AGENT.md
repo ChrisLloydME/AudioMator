@@ -15,9 +15,10 @@ SwiftUI is used because it makes cross-platform migration convenient, not becaus
 - `AudioMator/Domain/`: metadata models, audio-file models, rename templates, file sources, and UI state.
 - `AudioMator/Features/`: SwiftUI feature areas for the main window, iPad workspace, online metadata browser, metadata editor, settings, and welcome flow.
 - `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes, and GitHub release-note services.
+- `Config/`: project configuration files that should not be compiled or copied from the synchronized app source root.
 - `scripts/`: build and smoke-test helpers.
 
-The app source is attached to the target through Xcode's file-system synchronized `AudioMator/` root. Keep feature and infrastructure boundaries clear on disk; Xcode will mirror those folders automatically. Files that must not be copied or compiled from the synchronized root, such as `Info.plist`, should be handled with `PBXFileSystemSynchronizedBuildFileExceptionSet` entries in the project file.
+The app source is attached to the target through Xcode's file-system synchronized `AudioMator/` root. Keep feature and infrastructure boundaries clear on disk; Xcode will mirror those folders automatically. Keep target configuration inputs such as `Config/Info.plist` outside that synchronized source root so Xcode processes them as build settings inputs instead of bundle resources.
 
 ## Platform Model
 
@@ -66,11 +67,11 @@ Useful commands:
 
 ```bash
 bash scripts/codex-build.sh
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
 
-Prefer `bash scripts/codex-build.sh` for Codex validation. It writes derived data to `.deriveddata-codex` and treats the known Codex `AppIcon.icon` asset-tool crash as an environment-specific false positive.
+Prefer `bash scripts/codex-build.sh` for Codex validation. All Agent-triggered Xcode builds should write derived data to the repository-local `.deriveddata-codex` directory. Do not create alternate local build roots such as `.DerivedData`, `.deriveddata-codex-ios`, `.deriveddata-ios-codex`, or `.deriveddata-macos-codex`; reuse `.deriveddata-codex` and let the existing `.gitignore` keep it out of source control.
 
 For bridge/package debugging:
 

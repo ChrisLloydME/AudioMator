@@ -6,6 +6,7 @@ enum AppSettingsTab: String, Hashable {
     case general
     case toolbar
     case columns
+    case inspector
     case about
 }
 
@@ -47,6 +48,16 @@ struct SettingsView: View {
                 Label("Columns", systemImage: "rectangle.split.3x1")
             }
             .tag(AppSettingsTab.columns)
+
+            InspectorSettingsTab(
+                sharedState: sharedState,
+                metadataFieldVisibilityBinding: metadataFieldVisibilityBinding(for:),
+                isLastVisibleMetadataField: isLastVisibleMetadataField
+            )
+            .tabItem {
+                Label("Inspector", systemImage: "sidebar.right")
+            }
+            .tag(AppSettingsTab.inspector)
 
             AboutSettingsTab(
                 appDisplayName: appDisplayName,
@@ -154,9 +165,31 @@ struct SettingsView: View {
         )
     }
 
+    private func metadataFieldVisibilityBinding(for field: InspectorMetadataField) -> Binding<Bool> {
+        Binding(
+            get: { sharedState.visibleInspectorMetadataFields.contains(field) },
+            set: { isVisible in
+                var updatedFields = sharedState.visibleInspectorMetadataFields
+
+                if isVisible {
+                    updatedFields.insert(field)
+                } else if updatedFields.count > 1 {
+                    updatedFields.remove(field)
+                }
+
+                sharedState.visibleInspectorMetadataFields = updatedFields
+            }
+        )
+    }
+
     private func isLastVisibleColumn(_ column: MiddleListColumn) -> Bool {
         sharedState.visibleMiddleListColumns.contains(column)
             && sharedState.visibleMiddleListColumns.count == 1
+    }
+
+    private func isLastVisibleMetadataField(_ field: InspectorMetadataField) -> Bool {
+        sharedState.visibleInspectorMetadataFields.contains(field)
+            && sharedState.visibleInspectorMetadataFields.count == 1
     }
 }
 
@@ -455,6 +488,54 @@ private struct ToolbarSettingsTab: View {
                     }
 
                     Text("Changes apply immediately in the main window toolbar.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct InspectorSettingsTab: View {
+    @ObservedObject var sharedState: SharedState
+    let metadataFieldVisibilityBinding: (InspectorMetadataField) -> Binding<Bool>
+    let isLastVisibleMetadataField: (InspectorMetadataField) -> Bool
+
+    private let fieldGridColumns: [GridItem] = [
+        GridItem(.flexible(minimum: 220), alignment: .leading),
+        GridItem(.flexible(minimum: 220), alignment: .leading)
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Inspector Metadata Fields")
+                        .font(.title3.weight(.semibold))
+
+                    Text("Choose which metadata fields appear in the right inspector.")
+                        .foregroundStyle(.secondary)
+                }
+
+                LazyVGrid(columns: fieldGridColumns, alignment: .leading, spacing: 12) {
+                    ForEach(InspectorMetadataField.allCases) { field in
+                        Toggle(field.displayName, isOn: metadataFieldVisibilityBinding(field))
+                            .disabled(isLastVisibleMetadataField(field))
+                    }
+                }
+
+                Divider()
+
+                HStack(alignment: .firstTextBaseline, spacing: 16) {
+                    Button("Restore Default Metadata Fields") {
+                        sharedState.visibleInspectorMetadataFields = Set(InspectorMetadataField.defaultVisibleFields)
+                    }
+
+                    Text("Changes apply immediately. At least one metadata field must remain visible.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

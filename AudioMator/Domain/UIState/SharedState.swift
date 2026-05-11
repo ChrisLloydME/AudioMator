@@ -9,6 +9,7 @@ struct MiddleListSort: Equatable {
 final class SharedState: ObservableObject {
     private static let visibleMiddleListColumnsDefaultsKey = "middleList.visibleColumns"
     private static let visibleToolbarButtonsDefaultsKey = "toolbar.visibleButtons"
+    private static let visibleInspectorMetadataFieldsDefaultsKey = "inspector.metadata.visibleFields"
     private static let middleListSortColumnDefaultsKey = "middleList.sort.column"
     private static let middleListSortAscendingDefaultsKey = "middleList.sort.ascending"
     #if os(iOS)
@@ -64,6 +65,25 @@ final class SharedState: ObservableObject {
         }
     }
 
+    @Published var visibleInspectorMetadataFields: Set<InspectorMetadataField> {
+        didSet {
+            let fallbackFields = Set(InspectorMetadataField.defaultVisibleFields)
+            let normalizedFields = visibleInspectorMetadataFields.isEmpty ? fallbackFields : visibleInspectorMetadataFields
+
+            guard normalizedFields == visibleInspectorMetadataFields else {
+                visibleInspectorMetadataFields = normalizedFields
+                return
+            }
+
+            UserDefaults.standard.set(
+                InspectorMetadataField.allCases
+                    .filter(normalizedFields.contains)
+                    .map(\.rawValue),
+                forKey: Self.visibleInspectorMetadataFieldsDefaultsKey
+            )
+        }
+    }
+
     #if os(iOS)
     @Published var iPadLeftListMetadataFields: [IPadLeftListMetadataField] {
         didSet {
@@ -89,6 +109,9 @@ final class SharedState: ObservableObject {
         let storedToolbarButtons = UserDefaults.standard
             .stringArray(forKey: Self.visibleToolbarButtonsDefaultsKey)?
             .compactMap(ToolbarButtonOption.init(rawValue:))
+        let storedInspectorMetadataFields = UserDefaults.standard
+            .stringArray(forKey: Self.visibleInspectorMetadataFieldsDefaultsKey)?
+            .compactMap(InspectorMetadataField.init(rawValue:))
         let storedSort = UserDefaults.standard
             .string(forKey: Self.middleListSortColumnDefaultsKey)
             .flatMap(MiddleListColumn.init(rawValue:))
@@ -106,8 +129,10 @@ final class SharedState: ObservableObject {
         #endif
         let fallbackColumns = Set(MiddleListColumn.defaultVisibleColumns)
         let fallbackToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)
+        let fallbackInspectorMetadataFields = Set(InspectorMetadataField.defaultVisibleFields)
         self.visibleMiddleListColumns = storedColumns.map(Set.init) ?? fallbackColumns
         self.visibleToolbarButtons = storedToolbarButtons.map(Set.init) ?? fallbackToolbarButtons
+        self.visibleInspectorMetadataFields = storedInspectorMetadataFields.map(Set.init) ?? fallbackInspectorMetadataFields
         self.middleListSort = storedSort
         #if os(iOS)
         self.iPadLeftListMetadataFields = storedIPadLeftListMetadataFields
@@ -115,6 +140,9 @@ final class SharedState: ObservableObject {
 
         if visibleMiddleListColumns.isEmpty {
             visibleMiddleListColumns = fallbackColumns
+        }
+        if visibleInspectorMetadataFields.isEmpty {
+            visibleInspectorMetadataFields = fallbackInspectorMetadataFields
         }
     }
 

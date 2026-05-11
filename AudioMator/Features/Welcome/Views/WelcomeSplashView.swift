@@ -402,13 +402,13 @@ private struct NetworkPrivacyPage: View {
                     PrivacyRow(
                         symbol: "text.magnifyingglass",
                         title: "Lookup sends search details",
-                        description: "MusicBrainz and artwork searches may use metadata such as title, artist, album, track number, duration, identifiers, or text you enter."
+                        description: "MusicBrainz and iTunes searches may use metadata such as title, artist, album, track number, duration, identifiers, links, or text you enter."
                     )
 
                     PrivacyRow(
                         symbol: "network",
                         title: "External services",
-                        description: "Lookups may contact MusicBrainz, Cover Art Archive, Apple, or iTunes-related services."
+                        description: "Lookups may contact MusicBrainz, Apple iTunes Search API, Apple artwork CDN, or related services."
                     )
 
                     Text(domainSummary)

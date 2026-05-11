@@ -147,11 +147,11 @@ AudioMator is local-first. Core editing, raw inspection, filename tools, batch e
 Network access happens only when you explicitly use an online feature:
 
 - MusicBrainz lookup and tagging contacts `musicbrainz.org`.
-- iTunes artwork lookup contacts Apple/iTunes artwork endpoints such as `itunes.apple.com` and image CDN hosts.
+- iTunes metadata and artwork lookup contacts the Apple iTunes Search API at `itunes.apple.com` and Apple artwork CDN hosts.
 - Release-note lookup may contact `api.github.com`.
 - Sparkle update infrastructure is present for macOS, but update checking is currently disabled.
 
-AudioMator does not upload the audio file contents for ordinary metadata editing. Online lookup features may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, ISRC, barcode, iTunes album ID, MusicBrainz identifiers, pasted MusicBrainz links, or manually entered queries.
+AudioMator does not upload the audio file contents for ordinary metadata editing. Online lookup features may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, ISRC, barcode/UPC, iTunes album/artist/track IDs, MusicBrainz identifiers, pasted MusicBrainz/Apple Music/iTunes links, storefront country, or manually entered queries.
 
 See `ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
 
@@ -218,7 +218,7 @@ This tool is intended for bridge-level debugging, especially around:
 - `AudioMator/Features/`
   SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
 - `AudioMator/Infrastructure/`
-  File-system monitoring, MusicBrainz, iTunes Store/artwork, and GitHub release-note services.
+  File-system monitoring, MusicBrainz, iTunes Search API/artwork, and GitHub release-note services.
 - `Config/`
   Project configuration inputs, including the app Info.plist.
 - `scripts/`

@@ -335,6 +335,11 @@
 "Watched Folders" = "Watched Folders";
 "Write" = "Write";
 "Write Metadata" = "Write Metadata";
+"Changes apply immediately. At least one metadata field must remain visible." = "Changes apply immediately. At least one metadata field must remain visible.";
+"Choose which metadata fields appear in the right inspector." = "Choose which metadata fields appear in the right inspector.";
+"Inspector" = "Inspector";
+"Inspector Metadata Fields" = "Inspector Metadata Fields";
+"Restore Default Metadata Fields" = "Restore Default Metadata Fields";
 "Year" = "Year";
 "· space  ⇥ tab  ↩ newline  ⍽ nbsp" = "· space  ⇥ tab  ↩ newline  ⍽ nbsp";
 "•" = "•";

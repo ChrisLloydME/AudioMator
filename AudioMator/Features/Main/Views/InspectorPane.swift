@@ -736,41 +736,16 @@ struct InspectorPane: View {
 
     @ViewBuilder
     private func metadataSection(_ file: AudioFile) -> some View {
+        let fields = visibleInspectorMetadataFields
+
         GroupBox {
             VStack(spacing: 6) {
-                editableRow(label: "Title", text: binding(for: file, keyPath: \.title))
-                Divider()
-                editableRow(label: "Artist", text: binding(for: file, keyPath: \.artist))
-                Divider()
-                editableRow(label: "Album", text: binding(for: file, keyPath: \.album))
-                Divider()
-                editableRow(label: "Composer", text: binding(for: file, keyPath: \.composer))
-                Divider()
-                editableRow(label: "Genre", text: binding(for: file, keyPath: \.genre))
-                Divider()
-                editableRow(label: "Year", text: binding(for: file, keyPath: \.year))
-                Divider()
-                editableRow(label: "Track Number", text: trackNumberFieldBinding(for: file))
-                Divider()
-                editableRow(label: "Total Tracks", text: trackTotalFieldBinding(for: file))
-                Divider()
-                editableRow(label: "Disc Number", text: discNumberFieldBinding(for: file))
-                Divider()
-                editableRow(label: "Total Discs", text: discTotalFieldBinding(for: file))
-                Divider()
-                editableRow(label: "Comment", text: binding(for: file, keyPath: \.comment))
-                Divider()
-                editableRow(label: "Album Artist", text: binding(for: file, keyPath: \.albumArtist))
-                Divider()
-                editableRow(label: "Release Date", text: binding(for: file, keyPath: \.releaseDate))
-                Divider()
-                editableRow(label: "Publisher", text: binding(for: file, keyPath: \.publisher))
-                Divider()
-                editableRow(label: "Copyright", text: binding(for: file, keyPath: \.copyright))
-                Divider()
-                explicitRow(label: "Explicit", isOn: boolBinding(for: file, keyPath: \.isExplicit))
-                Divider()
-                metadataRow(label: "Credits", value: file.credits)
+                ForEach(Array(fields.enumerated()), id: \.element) { index, field in
+                    if index > 0 {
+                        Divider()
+                    }
+                    metadataFieldRow(field, file: file)
+                }
             }
             .padding(.vertical, 3)
         } label: {
@@ -781,112 +756,170 @@ struct InspectorPane: View {
     @ViewBuilder
     private func multiMetadataSection(_ files: [AudioFile]) -> some View {
         let merged = MergedAudioFile(files: files)
+        let fields = visibleInspectorMetadataFields
 
         GroupBox {
             if viewModel.multiEdit != nil {
                 VStack(spacing: 6) {
-                    editableRow(
-                        label: "Title",
-                        text: multiBinding(for: .title),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .title)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Artist",
-                        text: multiBinding(for: .artist),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .artist)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Album",
-                        text: multiBinding(for: .album),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .album)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Composer",
-                        text: multiBinding(for: .composer),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .composer)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Genre",
-                        text: multiBinding(for: .genre),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .genre)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Year",
-                        text: multiBinding(for: .year),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .year)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Track Number",
-                        text: multiBinding(for: .trackNumber),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .trackNumber)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Total Tracks",
-                        text: multiBinding(for: .trackTotal),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .trackTotal)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Disc Number",
-                        text: multiBinding(for: .discNumber),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .discNumber)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Total Discs",
-                        text: multiBinding(for: .discTotal),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .discTotal)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Comment",
-                        text: multiBinding(for: .comment),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .comment)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Album Artist",
-                        text: multiBinding(for: .albumArtist),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .albumArtist)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Release Date",
-                        text: multiBinding(for: .releaseDate),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Publisher",
-                        text: multiBinding(for: .publisher),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .publisher)
-                    )
-                    Divider()
-                    editableRow(
-                        label: "Copyright",
-                        text: multiBinding(for: .copyright),
-                        placeholder: viewModel.multiEdit?.placeholder(for: .copyright)
-                    )
-                    Divider()
-                    multiExplicitRow(
-                        label: "Explicit",
-                        selection: multiExplicitBinding,
-                        currentValueDescription: viewModel.multiEdit?.explicitCurrentValueDescription ?? "Values differ"
-                    )
-                    Divider()
-                    metadataRow(label: "Credits", value: merged.credits)
+                    ForEach(Array(fields.enumerated()), id: \.element) { index, field in
+                        if index > 0 {
+                            Divider()
+                        }
+                        multiMetadataFieldRow(field, merged: merged)
+                    }
                 }
                 .padding(.vertical, 3)
             }
         } label: {
             inspectorSectionLabel("Metadata", systemImage: "tag")
+        }
+    }
+
+    private var visibleInspectorMetadataFields: [InspectorMetadataField] {
+        InspectorMetadataField.allCases.filter(state.visibleInspectorMetadataFields.contains)
+    }
+
+    @ViewBuilder
+    private func metadataFieldRow(_ field: InspectorMetadataField, file: AudioFile) -> some View {
+        switch field {
+        case .title:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.title))
+        case .artist:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.artist))
+        case .album:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.album))
+        case .composer:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.composer))
+        case .genre:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.genre))
+        case .year:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.year))
+        case .trackNumber:
+            editableRow(label: field.displayName, text: trackNumberFieldBinding(for: file))
+        case .totalTracks:
+            editableRow(label: field.displayName, text: trackTotalFieldBinding(for: file))
+        case .discNumber:
+            editableRow(label: field.displayName, text: discNumberFieldBinding(for: file))
+        case .totalDiscs:
+            editableRow(label: field.displayName, text: discTotalFieldBinding(for: file))
+        case .comment:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.comment))
+        case .albumArtist:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.albumArtist))
+        case .releaseDate:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.releaseDate))
+        case .publisher:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.publisher))
+        case .copyright:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.copyright))
+        case .explicit:
+            explicitRow(label: field.displayName, isOn: boolBinding(for: file, keyPath: \.isExplicit))
+        case .credits:
+            metadataRow(label: field.displayName, value: file.credits)
+        }
+    }
+
+    @ViewBuilder
+    private func multiMetadataFieldRow(_ field: InspectorMetadataField, merged: MergedAudioFile) -> some View {
+        switch field {
+        case .title:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .title),
+                placeholder: viewModel.multiEdit?.placeholder(for: .title)
+            )
+        case .artist:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .artist),
+                placeholder: viewModel.multiEdit?.placeholder(for: .artist)
+            )
+        case .album:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .album),
+                placeholder: viewModel.multiEdit?.placeholder(for: .album)
+            )
+        case .composer:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .composer),
+                placeholder: viewModel.multiEdit?.placeholder(for: .composer)
+            )
+        case .genre:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .genre),
+                placeholder: viewModel.multiEdit?.placeholder(for: .genre)
+            )
+        case .year:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .year),
+                placeholder: viewModel.multiEdit?.placeholder(for: .year)
+            )
+        case .trackNumber:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .trackNumber),
+                placeholder: viewModel.multiEdit?.placeholder(for: .trackNumber)
+            )
+        case .totalTracks:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .trackTotal),
+                placeholder: viewModel.multiEdit?.placeholder(for: .trackTotal)
+            )
+        case .discNumber:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .discNumber),
+                placeholder: viewModel.multiEdit?.placeholder(for: .discNumber)
+            )
+        case .totalDiscs:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .discTotal),
+                placeholder: viewModel.multiEdit?.placeholder(for: .discTotal)
+            )
+        case .comment:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .comment),
+                placeholder: viewModel.multiEdit?.placeholder(for: .comment)
+            )
+        case .albumArtist:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .albumArtist),
+                placeholder: viewModel.multiEdit?.placeholder(for: .albumArtist)
+            )
+        case .releaseDate:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .releaseDate),
+                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
+            )
+        case .publisher:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .publisher),
+                placeholder: viewModel.multiEdit?.placeholder(for: .publisher)
+            )
+        case .copyright:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .copyright),
+                placeholder: viewModel.multiEdit?.placeholder(for: .copyright)
+            )
+        case .explicit:
+            multiExplicitRow(
+                label: field.displayName,
+                selection: multiExplicitBinding,
+                currentValueDescription: viewModel.multiEdit?.explicitCurrentValueDescription ?? "Values differ"
+            )
+        case .credits:
+            metadataRow(label: field.displayName, value: merged.credits)
         }
     }
 

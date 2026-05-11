@@ -13,11 +13,11 @@ SwiftUI is used because it makes cross-platform migration convenient, not becaus
 - `AudioMator/App/`: app entry point, commands, notifications, and platform delegates.
 - `AudioMator/Core/`: shared platform, network disclosure, and audio-format support.
 - `AudioMator/Domain/`: metadata models, audio-file models, rename templates, file sources, and UI state.
-- `AudioMator/Features/`: SwiftUI feature areas for the main window, iPad workspace, metadata editor, MusicBrainz browser, settings, and welcome flow.
-- `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes artwork, and GitHub release-note services.
+- `AudioMator/Features/`: SwiftUI feature areas for the main window, iPad workspace, online metadata browser, metadata editor, settings, and welcome flow.
+- `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes, and GitHub release-note services.
 - `scripts/`: build and smoke-test helpers.
 
-Keep Xcode groups aligned with on-disk folders when adding files.
+The app source is attached to the target through Xcode's file-system synchronized `AudioMator/` root. Keep feature and infrastructure boundaries clear on disk; Xcode will mirror those folders automatically. Files that must not be copied or compiled from the synchronized root, such as `Info.plist`, should be handled with `PBXFileSystemSynchronizedBuildFileExceptionSet` entries in the project file.
 
 ## Platform Model
 
@@ -30,6 +30,8 @@ Keep Xcode groups aligned with on-disk folders when adding files.
 
 - Keep domain logic in `AudioMator/Domain/` and service integrations in `AudioMator/Infrastructure/`.
 - Keep SwiftUI views and feature-specific view models under the closest `AudioMator/Features/*` folder.
+- Keep cross-provider online metadata selection under `AudioMator/Features/OnlineMetadataBrowser/`; provider-specific browser flows stay under `Features/MusicBrainzBrowser/` and `Features/ITunesBrowser/`.
+- Keep iTunes Store API clients and iTunes artwork lookup services together under `AudioMator/Infrastructure/ITunes/`.
 - Avoid adding new top-level folders unless there is a clear architectural boundary.
 - Prefer small feature-owned helpers over broad shared abstractions until more than one feature actually needs the behavior.
 - Preserve the existing metadata write pipeline instead of writing container-specific metadata directly from UI code.
@@ -87,7 +89,7 @@ Do not launch the iPadOS simulator, boot virtual devices, or use simulator-only 
 ## Dependency Notes
 
 - Swift Package Manager resolves `TagLibAudioMetadata` from `https://github.com/ChrisLloydME/TagLibAudioMetadata.git`.
-- Current deployment targets in the project are macOS 26.0 and iOS/iPadOS 26.0.
+- Current app target deployment settings in the project are macOS 26.0 and iOS/iPadOS 26.0; project-level macOS build settings may be newer for local Xcode tooling.
 - Do not vendor package source into this repository unless explicitly requested.
 
 ## Repository Hygiene

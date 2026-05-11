@@ -17,11 +17,7 @@
 
 ## Overview
 
-AudioMator is a local-first audio metadata workbench for people who care about a clean music library. It is designed for the jobs that become painful in a generic media player: checking the exact tags inside a file, fixing an album across many tracks, preserving track and disc totals, replacing cover art, renaming files from metadata, reading metadata back from filenames, and matching releases against MusicBrainz before writing anything to disk.
-
-The app is built as a native SwiftUI application with platform-specific behavior where it matters. On macOS, AudioMator behaves like a desktop utility: persistent watched folders, a three-pane window, Finder-style file actions, and separate tool windows. On iPadOS, it switches to a session-based document workflow that respects the sandbox, touch interaction, and the way iPad users expect document picking and sheets to behave.
-
-AudioMator uses the `TagLibAudioMetadata` Swift package for audio metadata reading, writing, artwork operations, raw property-map inspection, and format capability discovery. The application code keeps metadata changes flowing through a shared pipeline so the inspector, batch tools, MusicBrainz tagging, filename import/export, and raw metadata editor remain consistent.
+AudioMator is a local-first audio metadata workbench for inspecting, organizing, and editing music libraries. It supports workflows such as bulk tag editing, artwork replacement, filename-based metadata import/export, raw metadata inspection, and retrieving metadata from online sources for automatic tagging. Built as a native SwiftUI application, AudioMator adopts platform-specific behavior where appropriate: on macOS, it provides a desktop-style workflow with watched folders, a multi-pane interface, and Finder-style file actions, while on iPadOS it follows a document-based workflow designed around sandboxed file access and touch interaction. AudioMator uses TagLib for audio metadata reading, writing, artwork handling, raw property inspection, and format capability discovery, with metadata changes flowing through a shared pipeline so the inspector, batch tools, online tagging workflows, filename operations, and raw metadata editor remain behaviorally consistent.
 
 ## Screenshot
 
@@ -36,19 +32,14 @@ AudioMator uses the `TagLibAudioMetadata` Swift package for audio metadata readi
 - Open audio files directly into the current session.
 - Edit a single file in the inspector.
 - Select multiple files and apply only the fields you intentionally change.
-- Preserve untouched fields when batch editing.
 - Save title, artist, album, album artist, composer, genre, year, release date, publisher, copyright, explicit status, track/disc numbering, and other supported fields.
-- See progress and per-file warnings when saving a batch.
-- Refresh the in-memory file model after successful writes so the list and inspector reflect the tags currently on disk.
 
 ### Artwork management
 
 - Preview embedded artwork in the inspector.
-- Choose a local image as replacement artwork.
-- Import artwork from the clipboard.
+- Import artwork from clipboard / Photo Library / Finder.
 - Clear artwork from one file or from a selected group.
 - Search online artwork through the iTunes artwork workflow when you explicitly ask for it.
-- Apply selected artwork alongside metadata edits for supported formats.
 
 ### Batch utilities
 
@@ -63,12 +54,10 @@ AudioMator uses the `TagLibAudioMetadata` Swift package for audio metadata readi
 - Validate rename conflicts before moving files.
 - Keep file extensions unchanged when generating new filenames.
 
-### MusicBrainz-assisted tagging
+### Online tagging
 
-- Search MusicBrainz by track metadata.
-- Search MusicBrainz by album/release metadata.
+- Search online metadata sources through MusicBrainz and iTunes.
 - Search from selected files using existing tags and filename fallback.
-- Search from a MusicBrainz link.
 - Review recordings, releases, media, track lists, identifiers, dates, artist credits, labels, catalog numbers, countries, genres, tags, ratings, and relationships before applying.
 - Use the tagging workbench to map selected files to release tracks.
 - Apply chosen fields back to local files through the same metadata write path used by the inspector.
@@ -113,6 +102,8 @@ The iPadOS build intentionally avoids pretending to be macOS:
 - File-path presentation is hidden where it does not fit iPadOS.
 - Settings focus on iPad-specific list metadata and About information.
 
+`At the moment, I do not have an Apple Developer Program membership and there are currently no plans to commercialize AudioMator. The iPadOS version is being developed separately from the macOS release cycle and should be considered more of a personal side project and platform experiment rather than a feature-parity target.`
+
 ## Track And Disc Number Handling
 
 AudioMator treats track and disc data as structured metadata instead of a single loose string. These fields are first-class throughout the inspector, batch editor, filename tools, MusicBrainz write-back, and write verification path:
@@ -155,36 +146,9 @@ AudioMator does not upload the audio file contents for ordinary metadata editing
 
 See `ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
 
-## Building
-
-Open `AudioMator.xcodeproj` in Xcode and build the `AudioMator` scheme.
-
-The project uses Swift Package Manager to resolve:
-
-- `TagLibAudioMetadata` from `https://github.com/ChrisLloydME/TagLibAudioMetadata.git`
-- Sparkle 2 from `https://github.com/sparkle-project/Sparkle`
-
-Current deployment targets in the Xcode project are macOS 26.0 and iOS/iPadOS 26.0.
-
-Useful local commands:
-
-```bash
-bash scripts/codex-build.sh
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
-```
-
-The Codex build helper writes derived data to `.deriveddata-codex` and is intended to keep generated build output out of source control.
-
 ## Sparkle Updates
 
 Sparkle update support is kept as dormant macOS infrastructure, but update checking is currently disabled. The app does not expose a **Check for Updates...** command, does not show an update button in About settings, does not start the Sparkle updater at launch, and does not link `Sparkle.framework` unless `ENABLE_SPARKLE_UPDATES` is added and the Sparkle package product is linked back into the app target. The package reference, appcast metadata, and sandbox support are kept in place so the feature can be enabled later without reworking the core integration.
-
-Before shipping a Sparkle-enabled build, replace the placeholder `SUPublicEDKey` build setting in `AudioMator.xcodeproj` with the public key printed by Sparkle's `generate_keys` tool. Publish the appcast at:
-
-`https://chrislloydme.github.io/AudioMator/appcast.xml`
-
-Sparkle's SPM tools are available under Xcode's package artifacts directory after dependency resolution, typically in `SourcePackages/artifacts/sparkle/Sparkle/bin/`. Use `generate_appcast` on the folder containing signed and notarized update archives, then upload the generated appcast and archives to the update host.
 
 ## TagLib Bridge Smoke Testing
 
@@ -229,32 +193,3 @@ This tool is intended for bridge-level debugging, especially around:
   Network/privacy notes and third-party acknowledgements.
 - `THIRD_PARTY_NOTICES.md`
   Third-party license notices.
-
-## Repository Hygiene
-
-Generated Xcode build output and personal IDE state should not be committed. The repository ignores common build and local-state paths, including:
-
-- `build/`
-- `DerivedData/`
-- `.DerivedData/`
-- `.deriveddata*/`
-- `.build/`
-- `.tmp/`
-- `*.xcresult`
-- `*.xcuserstate`
-- `xcuserdata/`
-- `*.xcarchive`
-- `*.dSYM`
-- `*.ipa`
-- `*.app`
-
-If a generated file has already been committed, remove it from tracking with `git rm --cached` and keep the ignore rules in place so it does not come back. If large build artifacts have already been pushed and repository size matters, the permanent cleanup is a history rewrite with `git filter-repo` or an equivalent tool, followed by a coordinated force push. That operation rewrites published commit IDs and should be treated as a release-management task, not a normal cleanup commit.
-
-## Current Design Constraints
-
-- macOS and iPadOS intentionally do not expose identical file-management workflows.
-- Watched folders remain macOS-only by design.
-- iPadOS keeps the app session-scoped instead of simulating desktop folder persistence.
-- Some containers normalize number formatting on save; AudioMator reports that as a warning when numeric values round-trip correctly.
-- Erase-all metadata remains best-effort because the available metadata surfaces differ by container.
-- Online lookup features stay explicit and user initiated.

@@ -26,6 +26,13 @@ AudioMator relies on this package instead of vendoring TagLib source directly in
 
 AudioMator's current artwork lookup implementation is written in Swift in this repository. It does not require keeping a copied `.tmp` source tree in source control.
 
+### Apple iTunes Search API
+
+- Documentation: <https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/>
+- Role in AudioMator: optional Apple catalog search for album and track metadata, link/UPC/store-ID lookup, metadata comparison, selected tag writing, and artwork candidate discovery.
+
+The iTunes Search API is an Apple web service, not source code bundled with AudioMator. AudioMator uses it only when you explicitly start iTunes metadata or artwork lookup features.
+
 ### Sparkle
 
 - Project: <https://github.com/sparkle-project/Sparkle>
@@ -75,12 +82,12 @@ AudioMator only uses the network for optional features that you explicitly invok
 - Typical data sent: query terms derived from metadata fields or user input, such as title, artist, album, album artist, track/disc information, duration, release identifiers, ISRC, barcode, pasted MusicBrainz links, or manually entered search text.
 - Typical data received: recordings, releases, release groups, media/track listings, artist credits, identifiers, dates, labels, catalog numbers, countries, genres, tags, ratings, and relationship metadata.
 
-### iTunes artwork lookup
+### iTunes Search API and artwork lookup
 
 - Hosts: `itunes.apple.com`, `is5-ssl.mzstatic.com`, `a5.mzstatic.com`, and related Apple artwork endpoints.
-- Purpose: search for and download album artwork candidates.
-- Typical data sent: lookup terms such as album name, artist name, title, iTunes Album ID, or manually entered artwork search terms.
-- Typical data received: candidate artwork metadata and image files selected for preview or application.
+- Purpose: search Apple catalog metadata, inspect album and track results, prepare selected tag writes, and find/download album artwork candidates.
+- Typical data sent: lookup terms derived from metadata fields or user input, such as title, artist, album, album artist, track/disc information, duration, UPC/barcode, iTunes Album ID, iTunes Artist ID, iTunes track catalog ID, pasted Apple Music or iTunes links, storefront country, or manually entered search text.
+- Typical data received: album and track metadata, release dates, genres, explicit-content flags, copyright text, Apple/iTunes IDs, candidate artwork metadata, and image files selected for preview or application.
 
 ### Release notes
 
@@ -106,4 +113,4 @@ AudioMator only uses the network for optional features that you explicitly invok
 
 If you stay inside local editing features, AudioMator stays offline.
 
-If you use MusicBrainz, iTunes artwork lookup, release-note lookup, or a future software-update flow, only the request information needed for that feature is sent. The audio file contents themselves remain local.
+If you use MusicBrainz, iTunes metadata/artwork lookup, release-note lookup, or a future software-update flow, only the request information needed for that feature is sent. The audio file contents themselves remain local.

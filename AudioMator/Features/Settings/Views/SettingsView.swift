@@ -800,10 +800,18 @@ private struct AcknowledgementsSheet: View {
             ]
         ),
         (
+            title: "Apple iTunes Search API",
+            details: [
+                "Service documentation: https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/",
+                "AudioMator uses the public iTunes Search API to search Apple catalog metadata, inspect album/track results, and prepare selected tag values for local audio files.",
+                "AudioMator can also use iTunes lookup results to find and download album artwork candidates from Apple artwork CDN endpoints."
+            ]
+        ),
+        (
             title: "iTunes-Artwork-Finder by bendodson",
             details: [
                 "Project: https://github.com/bendodson/itunes-artwork-finder",
-                "AudioMator's current implementation is fully rewritten in Swift, but the artwork lookup method and approach are based on the ideas from this project."
+                "AudioMator's artwork implementation is fully rewritten in Swift, but the original artwork lookup method and approach were based on the ideas from this project."
             ]
         )
     ]
@@ -899,11 +907,11 @@ private struct PrivacySheet: View {
                 ]
             ),
             (
-                title: "iTunes artwork lookup",
+                title: "iTunes Search API and artwork lookup",
                 details: [
                     "Target hosts: \(NetworkServiceDisclosure.ITunesArtwork.domains.joined(separator: ", "))",
                     NetworkServiceDisclosure.ITunesArtwork.sentDataSummary,
-                    "Purpose: searching for, previewing, downloading, and applying album artwork."
+                    "Purpose: searching Apple catalog metadata, reviewing album and track results, preparing selected metadata writes, previewing artwork, downloading selected artwork, and applying chosen values locally."
                 ]
             ),
             (

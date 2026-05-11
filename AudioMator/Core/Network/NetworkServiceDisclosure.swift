@@ -12,7 +12,7 @@ enum NetworkServiceDisclosure {
             uncompressedArtworkHost
         ]
 
-        static let sentDataSummary = "Artwork lookup may send search terms derived from metadata or user input, such as iTunes Album ID, album, artist, title, and manually entered searches."
+        static let sentDataSummary = "iTunes lookup may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, UPC/barcode, iTunes store IDs, pasted Apple Music or iTunes links, and manually entered searches."
     }
 
     enum MusicBrainz {

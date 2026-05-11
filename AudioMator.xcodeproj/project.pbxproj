@@ -309,7 +309,7 @@
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd.";
 				"INFOPLIST_KEY_SUEnableAutomaticChecks[sdk=macosx*]" = NO;
 				"INFOPLIST_KEY_SUEnableInstallerLauncherService[sdk=macosx*]" = YES;
 				"INFOPLIST_KEY_SUFeedURL[sdk=macosx*]" = "https://chrislloydme.github.io/AudioMator/appcast.xml";
@@ -380,7 +380,7 @@
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd.";
 				"INFOPLIST_KEY_SUEnableAutomaticChecks[sdk=macosx*]" = NO;
 				"INFOPLIST_KEY_SUEnableInstallerLauncherService[sdk=macosx*]" = YES;
 				"INFOPLIST_KEY_SUFeedURL[sdk=macosx*]" = "https://chrislloydme.github.io/AudioMator/appcast.xml";

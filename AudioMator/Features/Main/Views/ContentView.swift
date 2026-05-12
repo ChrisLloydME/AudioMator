@@ -204,6 +204,7 @@ struct ContentView: View {
         #if os(macOS)
         NavigationSplitView {
             SidebarPane(viewModel: viewModel, state: state)
+                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
         } detail: {
             contentPane
                 .inspector(isPresented: $isInspectorVisible) {

@@ -271,11 +271,13 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .path:
             return file.url.path
         case .relativePath:
-            guard let relativeBasePath, file.url.path.hasPrefix(relativeBasePath) else {
+            guard
+                let relativeBasePath,
+                let relativePath = makeRelativePath(for: file.url, basePath: relativeBasePath)
+            else {
                 return file.url.lastPathComponent
             }
-            let suffix = String(file.url.path.dropFirst(relativeBasePath.count))
-            return suffix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return relativePath
         case .index:
             return "\(index + 1)"
         case .title:
@@ -340,6 +342,19 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
             break
         }
+    }
+
+    private func makeRelativePath(for url: URL, basePath: String) -> String? {
+        let filePath = url.standardizedFileURL.path
+        let normalizedBasePath = URL(fileURLWithPath: basePath).standardizedFileURL.path
+
+        if filePath == normalizedBasePath {
+            return url.lastPathComponent
+        }
+
+        let basePrefix = normalizedBasePath.hasSuffix("/") ? normalizedBasePath : normalizedBasePath + "/"
+        guard filePath.hasPrefix(basePrefix) else { return nil }
+        return String(filePath.dropFirst(basePrefix.count))
     }
 }
 
@@ -710,11 +725,22 @@ enum MetadataExchangePlanner {
             }
 
             var columns: [MetadataExchangeField] = []
+            var seenFields = Set<MetadataExchangeField>()
             for cell in row {
                 guard let field = MetadataExchangeField.field(forExactToken: cell) else {
                     return (columns, "Each CSV template column must be one supported field token, such as {{title}}.")
                 }
+
+                if field != .ignore, seenFields.contains(field) {
+                    return (columns, "Use each CSV field at most once so imported values cannot conflict.")
+                }
+
+                seenFields.insert(field)
                 columns.append(field)
+            }
+
+            if columns.contains(.fileName), columns.contains(.baseName) {
+                return (columns, "Use either {{fileName}} or {{baseName}} for matching, not both.")
             }
 
             guard columns.contains(where: { $0 != .ignore }) else {
@@ -860,9 +886,11 @@ enum MetadataExchangePlanner {
         clearBlankImportedValues: Bool
     ) -> [MetadataExchangeImportPreviewRow] {
         let filesByKey = Dictionary(grouping: targetFiles) { file in
-            matchingField == .fileName
-                ? file.url.lastPathComponent
-                : file.url.deletingPathExtension().lastPathComponent
+            matchingKey(
+                matchingField == .fileName
+                    ? file.url.lastPathComponent
+                    : file.url.deletingPathExtension().lastPathComponent
+            )
         }
         var matchedFileIDs = Set<AudioFile.ID>()
         var rows: [MetadataExchangeImportPreviewRow] = []
@@ -872,7 +900,7 @@ enum MetadataExchangePlanner {
             case .failure(let message):
                 rows.append(parseErrorRow(record: record, message: message))
             case .success(let captures):
-                guard let key = captures[matchingField], !key.isEmpty else {
+                guard let rawKey = captures[matchingField], !rawKey.isEmpty else {
                     rows.append(
                         MetadataExchangeImportPreviewRow(
                             id: UUID(),
@@ -888,6 +916,7 @@ enum MetadataExchangePlanner {
                     continue
                 }
 
+                let key = matchingKey(rawKey)
                 let matches = filesByKey[key] ?? []
                 if matches.isEmpty {
                     rows.append(
@@ -916,6 +945,22 @@ enum MetadataExchangePlanner {
                         )
                     )
                 } else if let file = matches.first {
+                    guard !matchedFileIDs.contains(file.id) else {
+                        rows.append(
+                            MetadataExchangeImportPreviewRow(
+                                id: UUID(),
+                                fileID: file.id,
+                                fileName: file.url.lastPathComponent,
+                                externalRecord: record.displayText,
+                                status: .ambiguousMatch,
+                                changes: [],
+                                issueMessage: L10n.string("Another external record already matched this selected file."),
+                                writeEntry: nil
+                            )
+                        )
+                        continue
+                    }
+
                     matchedFileIDs.insert(file.id)
                     rows.append(
                         makeImportRow(
@@ -944,6 +989,10 @@ enum MetadataExchangePlanner {
         }
 
         return rows
+    }
+
+    private static func matchingKey(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func makeImportRow(
@@ -1175,6 +1224,7 @@ enum MetadataExchangeCSV {
         var field = ""
         var index = text.startIndex
         var isQuoted = false
+        var didCloseQuotedField = false
         var fieldHasContent = false
 
         while index < text.endIndex {
@@ -1189,6 +1239,7 @@ enum MetadataExchangeCSV {
                         index = text.index(after: nextIndex)
                     } else {
                         isQuoted = false
+                        didCloseQuotedField = true
                         index = nextIndex
                     }
                 } else {
@@ -1210,11 +1261,13 @@ enum MetadataExchangeCSV {
                 }
                 isQuoted = true
                 fieldHasContent = true
+                didCloseQuotedField = false
                 index = text.index(after: index)
             case ",":
                 row.append(field)
                 field = ""
                 fieldHasContent = false
+                didCloseQuotedField = false
                 index = text.index(after: index)
             case "\n":
                 row.append(field)
@@ -1222,6 +1275,7 @@ enum MetadataExchangeCSV {
                 row = []
                 field = ""
                 fieldHasContent = false
+                didCloseQuotedField = false
                 index = text.index(after: index)
             case "\r":
                 row.append(field)
@@ -1229,6 +1283,7 @@ enum MetadataExchangeCSV {
                 row = []
                 field = ""
                 fieldHasContent = false
+                didCloseQuotedField = false
                 let nextIndex = text.index(after: index)
                 if nextIndex < text.endIndex, text[nextIndex] == "\n" {
                     index = text.index(after: nextIndex)
@@ -1236,6 +1291,18 @@ enum MetadataExchangeCSV {
                     index = nextIndex
                 }
             default:
+                if didCloseQuotedField {
+                    guard character.isWhitespace else {
+                        throw NSError(
+                            domain: "MetadataExchangeCSV",
+                            code: 3,
+                            userInfo: [NSLocalizedDescriptionKey: "Unexpected text after a closing CSV quote."]
+                        )
+                    }
+                    index = text.index(after: index)
+                    continue
+                }
+
                 field.append(character)
                 fieldHasContent = true
                 index = text.index(after: index)

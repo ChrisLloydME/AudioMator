@@ -48,6 +48,7 @@ struct AudioMatorApp: App {
                 metadataPipeline: metadataPipeline
             )
                 .frame(minWidth: 900, minHeight: 600)
+                .audiomatorMacWindowChrome()
         }
         .commands {
             AppInfoCommands()
@@ -67,6 +68,7 @@ struct AudioMatorApp: App {
 
         Settings {
             SettingsView(sharedState: sharedState)
+                .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 700, height: 480)
 
@@ -75,6 +77,7 @@ struct AudioMatorApp: App {
                 store: musicBrainzBrowserStore,
                 viewModel: viewModel
             )
+            .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 980, height: 700)
 
@@ -83,6 +86,7 @@ struct AudioMatorApp: App {
                 viewModel: viewModel,
                 store: metadataFilenameToolStore
             )
+            .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 860, height: 720)
 
@@ -91,6 +95,7 @@ struct AudioMatorApp: App {
                 viewModel: viewModel,
                 store: metadataEditorStore
             )
+            .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 920, height: 640)
         .windowToolbarStyle(.expanded)

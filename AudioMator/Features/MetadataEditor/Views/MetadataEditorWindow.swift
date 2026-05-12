@@ -272,7 +272,6 @@ struct MetadataEditorWindowView: View {
             .frame(minWidth: 820, idealWidth: 920, maxWidth: 1040, minHeight: 540, idealHeight: 640)
             .background(Color(nsColor: .windowBackgroundColor))
             .navigationTitle("Metadata Editor")
-            .background(MetadataEditorWindowChromeConfigurator())
         }
         .sheet(item: $editorContext) { context in
             MetadataFieldEntrySheet(context: context) { key, value in
@@ -1524,59 +1523,6 @@ private struct MetadataFieldValueTextEditor: NSViewRepresentable {
             guard text != textView.string else { return }
             text = textView.string
         }
-    }
-}
-
-private struct MetadataEditorWindowChromeConfigurator: NSViewRepresentable {
-    func makeNSView(context: Context) -> MetadataEditorWindowObserverView {
-        let view = MetadataEditorWindowObserverView()
-        view.configure = applyConfiguration(to:)
-        return view
-    }
-
-    func updateNSView(_ nsView: MetadataEditorWindowObserverView, context: Context) {
-        nsView.configure = applyConfiguration(to:)
-        DispatchQueue.main.async {
-            applyConfiguration(to: nsView.window)
-        }
-    }
-
-    private func applyConfiguration(to window: NSWindow?) {
-        guard let window else { return }
-
-        let requiredMasks: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
-        if !window.styleMask.isSuperset(of: requiredMasks) {
-            window.styleMask.formUnion(requiredMasks)
-        }
-
-        // Use standard titled window chrome instead of full-size content blending.
-        if window.styleMask.contains(.fullSizeContentView) {
-            window.styleMask.remove(.fullSizeContentView)
-        }
-
-        if window.toolbar == nil {
-            let toolbar = NSToolbar(identifier: "metadata-editor-toolbar")
-            toolbar.displayMode = .iconOnly
-            window.toolbar = toolbar
-        }
-
-        if window.toolbarStyle != .unified {
-            window.toolbarStyle = .unified
-        }
-
-        window.titlebarAppearsTransparent = false
-        window.titleVisibility = .visible
-        window.isOpaque = true
-        window.backgroundColor = .windowBackgroundColor
-    }
-}
-
-private final class MetadataEditorWindowObserverView: NSView {
-    var configure: ((NSWindow?) -> Void)?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        configure?(window)
     }
 }
 

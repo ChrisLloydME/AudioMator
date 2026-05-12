@@ -48,7 +48,6 @@ struct AudioMatorApp: App {
                 metadataPipeline: metadataPipeline
             )
                 .frame(minWidth: 900, minHeight: 600)
-                .audiomatorMacWindowChrome()
         }
         .commands {
             AppInfoCommands()

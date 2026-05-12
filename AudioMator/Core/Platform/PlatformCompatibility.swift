@@ -60,6 +60,50 @@ extension PlatformColor {
     static var audiomatorSecondaryLabel: PlatformColor { .secondaryLabelColor }
     static var audiomatorTertiaryLabel: PlatformColor { .tertiaryLabelColor }
 }
+
+extension View {
+    func audiomatorMacWindowChrome() -> some View {
+        background(AudiomatorMacWindowChromeConfigurator())
+    }
+}
+
+private struct AudiomatorMacWindowChromeConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> AudiomatorMacWindowChromeObserverView {
+        let view = AudiomatorMacWindowChromeObserverView()
+        view.configure = applyConfiguration(to:)
+        return view
+    }
+
+    func updateNSView(_ nsView: AudiomatorMacWindowChromeObserverView, context: Context) {
+        nsView.configure = applyConfiguration(to:)
+        DispatchQueue.main.async {
+            applyConfiguration(to: nsView.window)
+        }
+    }
+
+    private func applyConfiguration(to window: NSWindow?) {
+        guard let window else { return }
+
+        let requiredMasks: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        if !window.styleMask.isSuperset(of: requiredMasks) {
+            window.styleMask.formUnion(requiredMasks)
+        }
+
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .visible
+        window.isOpaque = true
+        window.backgroundColor = .windowBackgroundColor
+    }
+}
+
+private final class AudiomatorMacWindowChromeObserverView: NSView {
+    var configure: ((NSWindow?) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configure?(window)
+    }
+}
 #else
 import UIKit
 
@@ -96,6 +140,10 @@ extension PlatformColor {
 }
 
 extension View {
+    func audiomatorMacWindowChrome() -> some View {
+        self
+    }
+
     @ViewBuilder
     func iPadRoundedGroupedListStyle() -> some View {
         self

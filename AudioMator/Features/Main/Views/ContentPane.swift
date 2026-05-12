@@ -43,7 +43,7 @@ struct ContentPane: View {
     }
 
     var body: some View {
-        contentBody
+        mainContent
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     if visibleToolbarButtons.contains(.addFiles) {
@@ -161,20 +161,6 @@ struct ContentPane: View {
     }
 
     @ViewBuilder
-    private var contentBody: some View {
-        #if os(macOS)
-        ZStack {
-            detailBackgroundExtension
-
-            mainContent
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #else
-        mainContent
-        #endif
-    }
-
-    @ViewBuilder
     private var mainContent: some View {
         Group {
             if viewModel.files.isEmpty {
@@ -228,40 +214,6 @@ struct ContentPane: View {
             }
         }
     }
-
-    #if os(macOS)
-    @ViewBuilder
-    private var detailBackgroundExtension: some View {
-        if let artwork = selectedBackgroundArtwork {
-            GeometryReader { proxy in
-                ZStack {
-                    Image(platformImage: artwork)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                        .clipped()
-                        .saturation(0.9)
-                        .opacity(0.16)
-                        .audiomatorBackgroundExtensionEffect()
-
-                    Color(platformColor: .audiomatorWindowBackground)
-                        .opacity(0.82)
-                }
-            }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        } else {
-            Color(platformColor: .audiomatorWindowBackground)
-                .audiomatorBackgroundExtensionEffect()
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
-    }
-
-    private var selectedBackgroundArtwork: PlatformImage? {
-        selectedFiles.first(where: { $0.artwork != nil })?.artwork
-    }
-    #endif
 
     private var emptyStateTitle: String {
         switch currentSidebarSelection {

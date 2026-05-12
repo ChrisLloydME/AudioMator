@@ -8,15 +8,6 @@ extension View {
     ) -> some View {
         scrollEdgeEffectStyle(style, for: edges)
     }
-
-    @ViewBuilder
-    func audiomatorBackgroundExtensionEffect() -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            backgroundExtensionEffect()
-        } else {
-            self
-        }
-    }
 }
 
 #if os(macOS)

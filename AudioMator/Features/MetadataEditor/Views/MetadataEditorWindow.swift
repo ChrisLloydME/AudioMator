@@ -272,6 +272,13 @@ struct MetadataEditorWindowView: View {
             .frame(minWidth: 820, idealWidth: 920, maxWidth: 1040, minHeight: 540, idealHeight: 640)
             .background(Color(nsColor: .windowBackgroundColor))
             .navigationTitle("Metadata Editor")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Color.clear
+                        .frame(width: 0, height: 0)
+                        .accessibilityHidden(true)
+                }
+            }
         }
         .sheet(item: $editorContext) { context in
             MetadataFieldEntrySheet(context: context) { key, value in

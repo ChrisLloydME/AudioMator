@@ -7,8 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6EAA000C2FB00000000000C /* TagLibAudioMetadata in Frameworks */ = {isa = PBXBuildFile; productRef = 6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */; };
 		6EC21B342F9D0EE60020DADE /* TagLibAudioMetadata in Frameworks */ = {isa = PBXBuildFile; productRef = 6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6EAA000B2FB00000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6ED09D0E2ED1ED550031CDAD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6ED09D152ED1ED550031CDAD;
+			remoteInfo = AudioMator;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		6EAA00012FB0000000000001 /* AudioMatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioMatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -33,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6EAA000C2FB00000000000C /* TagLibAudioMetadata in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,16 +87,6 @@
 		};
 /* End PBXGroup section */
 
-/* Begin PBXContainerItemProxy section */
-		6EAA000B2FB00000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 6ED09D0E2ED1ED550031CDAD /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 6ED09D152ED1ED550031CDAD;
-			remoteInfo = AudioMator;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXNativeTarget section */
 		6EAA00062FB0000000000006 /* AudioMatorTests */ = {
 			isa = PBXNativeTarget;
@@ -104,6 +106,7 @@
 			);
 			name = AudioMatorTests;
 			packageProductDependencies = (
+				6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */,
 			);
 			productName = AudioMatorTests;
 			productReference = 6EAA00012FB0000000000001 /* AudioMatorTests.xctest */;

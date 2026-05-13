@@ -4,10 +4,11 @@ struct MetadataSourcePickerView: View {
     let onSelect: (MetadataBrowserSource) -> Void
 
     private let rowRadius: CGFloat = 12
+    private let rowMaxWidth: CGFloat = 690
 
     var body: some View {
-        VStack(spacing: 8) {
-            VStack(spacing: 8) {
+        VStack(spacing: 10) {
+            VStack(spacing: 10) {
                 ForEach(MetadataBrowserSource.allCases) { source in
                     Button {
                         onSelect(source)
@@ -17,15 +18,16 @@ struct MetadataSourcePickerView: View {
                     .buttonStyle(.plain)
                     .background(
                         RoundedRectangle(cornerRadius: rowRadius)
-                            .fill(Color.secondary.opacity(0.06))
+                            .fill(Color.secondary.opacity(0.075))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: rowRadius)
-                            .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
+                            .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
                     )
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
                 }
             }
-            .frame(maxWidth: 620)
+            .frame(maxWidth: rowMaxWidth)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
@@ -35,19 +37,19 @@ private struct MetadataSourceRow: View {
     let source: MetadataBrowserSource
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 18) {
             Image(systemName: source.symbolName)
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: 24, weight: .medium))
                 .foregroundStyle(Color.accentColor)
-                .frame(width: 28)
+                .frame(width: 38)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(source.title)
-                    .font(.headline)
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
 
                 Text(source.subtitle)
-                    .font(.caption)
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -55,11 +57,11 @@ private struct MetadataSourceRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
         .contentShape(Rectangle())
     }
 }

@@ -97,7 +97,6 @@ struct AudioMatorApp: App {
             .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 920, height: 640)
-        .windowToolbarStyle(.expanded)
         #else
         WindowGroup {
             ContentView(

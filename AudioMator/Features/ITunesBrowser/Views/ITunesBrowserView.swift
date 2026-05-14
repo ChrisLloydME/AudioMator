@@ -16,6 +16,7 @@ struct ITunesBrowserView: View {
                 Divider()
                 content
             }
+            .audiomatorMacTitlebarScrollEdgeBar()
             .navigationTitle("iTunes")
             .navigationDestination(for: ITunesBrowserDestination.self) { destination in
                 switch destination {
@@ -753,6 +754,7 @@ private struct ITunesTrackDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -960,6 +962,7 @@ private struct ITunesAlbumDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -1519,6 +1522,7 @@ private struct ITunesMatchedFilesDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -1657,6 +1661,7 @@ private struct ITunesMetadataComparisonDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))

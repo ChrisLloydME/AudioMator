@@ -80,6 +80,7 @@ struct MusicBrainzMetadataDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -1099,6 +1100,7 @@ private struct MatchedFilesDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -1129,6 +1131,7 @@ private struct MetadataComparisonDetailView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(platformColor: .audiomatorWindowBackground))

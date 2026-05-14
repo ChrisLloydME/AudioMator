@@ -56,6 +56,18 @@ extension View {
     func audiomatorMacWindowChrome() -> some View {
         background(AudiomatorMacWindowChromeConfigurator())
     }
+
+    func audiomatorMacTitlebarScrollEdgeBar(
+        minHeight: CGFloat = 0,
+        subtractsExistingSafeArea: Bool = true
+    ) -> some View {
+        modifier(
+            AudiomatorMacTitlebarScrollEdgeBarModifier(
+                minHeight: minHeight,
+                subtractsExistingSafeArea: subtractsExistingSafeArea
+            )
+        )
+    }
 }
 
 private struct AudiomatorMacWindowChromeConfigurator: NSViewRepresentable {
@@ -75,7 +87,7 @@ private struct AudiomatorMacWindowChromeConfigurator: NSViewRepresentable {
     private func applyConfiguration(to window: NSWindow?) {
         guard let window else { return }
 
-        let requiredMasks: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        let requiredMasks: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         if !window.styleMask.isSuperset(of: requiredMasks) {
             window.styleMask.formUnion(requiredMasks)
         }
@@ -93,6 +105,88 @@ private final class AudiomatorMacWindowChromeObserverView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         configure?(window)
+    }
+}
+
+private struct AudiomatorMacTitlebarScrollEdgeBarModifier: ViewModifier {
+    let minHeight: CGFloat
+    let subtractsExistingSafeArea: Bool
+    @State private var titlebarHeight: CGFloat = 0
+    @State private var safeAreaTop: CGFloat = 0
+
+    private var barHeight: CGFloat {
+        let baseHeight = max(titlebarHeight, minHeight)
+        let existingSafeArea = subtractsExistingSafeArea ? safeAreaTop : 0
+        return max(0, baseHeight - existingSafeArea)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(
+                            key: AudiomatorMacSafeAreaTopPreferenceKey.self,
+                            value: proxy.safeAreaInsets.top
+                        )
+                }
+            }
+            .onPreferenceChange(AudiomatorMacSafeAreaTopPreferenceKey.self) { safeAreaTop = $0 }
+            .safeAreaBar(edge: .top, spacing: 0) {
+                Color.clear
+                    .frame(height: barHeight)
+                    .background(AudiomatorMacTitlebarInsetReader(inset: $titlebarHeight))
+            }
+    }
+}
+
+private struct AudiomatorMacSafeAreaTopPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct AudiomatorMacTitlebarInsetReader: NSViewRepresentable {
+    @Binding var inset: CGFloat
+
+    func makeNSView(context: Context) -> AudiomatorMacTitlebarInsetObserverView {
+        let view = AudiomatorMacTitlebarInsetObserverView()
+        view.onUpdate = updateInset(from:)
+        return view
+    }
+
+    func updateNSView(_ nsView: AudiomatorMacTitlebarInsetObserverView, context: Context) {
+        nsView.onUpdate = updateInset(from:)
+        DispatchQueue.main.async {
+            updateInset(from: nsView)
+        }
+    }
+
+    private func updateInset(from view: NSView) {
+        guard let window = view.window, let contentView = window.contentView else { return }
+
+        let contentBounds = contentView.convert(contentView.bounds, to: nil)
+        let titlebarInset = max(0, contentBounds.maxY - window.contentLayoutRect.maxY)
+
+        if abs(inset - titlebarInset) > 0.5 {
+            inset = titlebarInset
+        }
+    }
+}
+
+private final class AudiomatorMacTitlebarInsetObserverView: NSView {
+    var onUpdate: ((NSView) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        onUpdate?(self)
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        onUpdate?(self)
     }
 }
 #else
@@ -132,6 +226,13 @@ extension PlatformColor {
 
 extension View {
     func audiomatorMacWindowChrome() -> some View {
+        self
+    }
+
+    func audiomatorMacTitlebarScrollEdgeBar(
+        minHeight: CGFloat = 0,
+        subtractsExistingSafeArea: Bool = true
+    ) -> some View {
         self
     }
 

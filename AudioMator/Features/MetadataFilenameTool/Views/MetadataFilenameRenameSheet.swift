@@ -424,6 +424,7 @@ struct MetadataFilenameWindowView: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .scrollBounceBehavior(.basedOnSize)
     }
@@ -601,6 +602,7 @@ struct MetadataFilenameWindowView: View {
         .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
+        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .scrollBounceBehavior(.basedOnSize)
     }

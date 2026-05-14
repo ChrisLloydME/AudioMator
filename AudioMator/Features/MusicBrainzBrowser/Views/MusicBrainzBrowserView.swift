@@ -59,6 +59,7 @@ struct MusicBrainzBrowserView: View {
 
                 content
             }
+            .audiomatorMacTitlebarScrollEdgeBar()
             #if os(iOS)
             .navigationTitle("MusicBrainz Browser")
             .navigationBarTitleDisplayMode(.inline)

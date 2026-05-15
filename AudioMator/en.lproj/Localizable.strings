@@ -111,8 +111,8 @@
 "File" = "File";
 "File Exists" = "File Exists";
 "Filename" = "Filename";
-"Filename & Metadata" = "Filename & Metadata";
-"Filename & Metadata…" = "Filename & Metadata…";
+"Filename & Metadata" = "Metadata Exchange";
+"Filename & Metadata…" = "Metadata Exchange…";
 "Filename stem: %@" = "Filename stem: %@";
 "Filename to Metadata" = "Filename to Metadata";
 "Find matching releases, then map the selected files to album tracks." = "Find matching releases, then map the selected files to album tracks.";

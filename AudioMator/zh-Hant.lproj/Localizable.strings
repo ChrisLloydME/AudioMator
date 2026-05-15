@@ -111,8 +111,8 @@
 "File" = "檔案";
 "File Exists" = "檔案已存在";
 "Filename" = "檔案名";
-"Filename & Metadata" = "檔案名與元資料";
-"Filename & Metadata…" = "檔案名與元資料…";
+"Filename & Metadata" = "元資料交換";
+"Filename & Metadata…" = "元資料交換…";
 "Filename stem: %@" = "檔案名主体：%@";
 "Filename to Metadata" = "檔案名到元資料";
 "Find matching releases, then map the selected files to album tracks." = "查找匹配的發行，并將所選檔案映射到專輯曲目。";

@@ -171,7 +171,7 @@ struct MetadataEditorWindowView: View {
         NavigationStack {
             VStack(spacing: 14) {
                 if store.isLoading {
-                    ProgressView("Loading metadata…")
+                    ProgressView("Loading metadata…".localizedUI)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(selection: $store.selectedFieldKey) {
@@ -220,7 +220,7 @@ struct MetadataEditorWindowView: View {
                 }
             }
             .padding(20)
-            .navigationTitle("Metadata Editor")
+            .navigationTitle(AppWindowTitle.metadataEditor)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {

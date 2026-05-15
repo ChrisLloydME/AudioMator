@@ -47,11 +47,6 @@
 "Changes apply immediately. At least one column must remain visible." = "更改会立即应用。至少必须保留一列可见。";
 "Changes apply to every selected file. Fields left untouched keep their current values." = "更改会应用到每个所选文件。未触碰的字段保留当前值。";
 "Channels" = "声道";
-"Chinese Comma (，)" = "中文逗号（，）";
-"Chinese Semicolon (；)" = "中文分号（；）";
-"Choose a text file to preview each imported value." = "选择文本文件以预览每个导入值。";
-"Choose a text file to preview how values map to the selected rows." = "选择文本文件以预览值如何映射到所选行。";
-"Choose a text file, split it into one value per row, then write the selected field in center-list order." = "选择文本文件，将其拆分为每行一个值，然后按中间列表顺序写入所选字段。";
 "Choose Artwork…" = "选择封面…";
 "Choose at least one field to write." = "请至少选择一个要写入的字段。";
 "Choose exactly which MusicBrainz values should overwrite the current file tags." = "选择要覆盖当前文件标签的 MusicBrainz 值。";
@@ -77,7 +72,6 @@
 "Copy Path" = "复制路径";
 "Copy raw metadata" = "复制原始元数据";
 "Copyright" = "版权";
-"Counts match. Applying will overwrite only the selected field." = "数量匹配。应用后只会覆盖所选字段。";
 "Credits" = "制作名单";
 "Current list" = "当前列表";
 "Current Name" = "当前名称";
@@ -99,6 +93,7 @@
 "E" = "E";
 "Each MusicBrainz track can only be assigned once before writing." = "写入前每个 MusicBrainz 音轨只能分配一次。";
 "Edit %@" = "编辑 %@";
+"Edit…" = "编辑…";
 "Edit Metadata Field" = "编辑元数据字段";
 "Edit the original text on the left. Preview hidden characters on the right." = "在左侧编辑原始文本，在右侧预览隐藏字符。";
 "Edit the selected metadata fields in a separate window" = "在单独窗口中编辑所选元数据字段";
@@ -106,8 +101,6 @@
 "Empty Name" = "名称为空";
 "Engineer" = "录音师";
 "Engineer credits from the matched recording." = "匹配录音中的录音师署名。";
-"English Comma (,)" = "英文逗号 (,)";
-"English Semicolon (;)" = "英文分号 (;)";
 "Enter a matching template or drag metadata chips into the field." = "输入匹配模板，或将元数据标签拖入字段。";
 "Enter a template or drag metadata chips into the field." = "输入模板，或将元数据标签拖入字段。";
 "Enter the property-map field name and the value to write." = "输入属性映射字段名称和要写入的值。";
@@ -131,13 +124,10 @@
 "Identifiers" = "标识符";
 "If that's unexpected, make sure the file is an MP3 and TagLib can read it." = "如果这不符合预期，请确认文件是 MP3 且 TagLib 可以读取。";
 "Ignore" = "忽略";
-"Import Field" = "导入字段";
-"Import Field…" = "导入字段…";
 "Import from Clipboard" = "从剪贴板导入";
-"Import Metadata Field from Text" = "从文本导入元数据字段";
-"Import one field from a text file" = "从文本文件导入一个字段";
 "ISRC" = "ISRC";
 "ISRC codes from the matched track." = "匹配音轨的 ISRC 代码。";
+"iTunes" = "iTunes";
 "Keep Current Artwork" = "保留当前封面";
 "Keep Existing" = "保持现有";
 "Keeps the same width as numbers grow." = "数字增大时保持相同宽度。";
@@ -145,6 +135,7 @@
 "Leave As Is" = "保持不变";
 "Left List Metadata Fields" = "左侧列表元数据字段";
 "Loading MusicBrainz fields…" = "正在加载 MusicBrainz 字段…";
+"Loading metadata…" = "正在加载元数据…";
 "Loading recording details..." = "正在加载录音详情...";
 "Loading release notes…" = "正在加载发行说明…";
 "Lyricist" = "作词者";
@@ -169,7 +160,6 @@
 "Middle List Columns" = "中间列表列";
 "Missing Locally" = "本地缺失";
 "Missing on MusicBrainz" = "MusicBrainz 缺失";
-"Missing Value" = "缺少值";
 "Multiple selected files would end up with the same filename." = "多个所选文件会生成相同文件名。";
 "Multiple Values" = "多个值";
 "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value." = "多文件在线封面查找需要共享的 iTunes 专辑 ID 或专辑值。";
@@ -187,7 +177,6 @@
 "MusicBrainz Track ID" = "MusicBrainz 音轨 ID";
 "MusicBrainz track MBID." = "MusicBrainz 音轨 MBID。";
 "Network activity only happens when optional online features are used." = "仅在使用可选在线功能时才会发生网络活动。";
-"Newline" = "换行";
 "No albums matched this search." = "没有专辑匹配此次搜索。";
 "No artwork in the current selection" = "当前选择中没有封面";
 "No Audio Files Found" = "未找到音频文件";
@@ -212,6 +201,7 @@
 "Online artwork lookup for multiple files is only available when all selected tracks belong to the same album." = "只有所有所选音轨属于同一专辑时，才可进行多文件在线封面查找。";
 "Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file." = "只显示非空元数据字段。混合值会显示为“多个值”，更改会应用到每个所选文件。";
 "Open MusicBrainz Browser" = "打开 MusicBrainz 浏览器";
+"Open Online Metadata" = "打开在线元数据";
 "Pad with leading zeros" = "用前导零补齐";
 "People" = "人员";
 "People Roles" = "人员角色";
@@ -267,6 +257,8 @@
 "Saved with Issues" = "保存完成但有问题";
 "Score %@" = "评分 %@";
 "Search source: %@" = "搜索来源：%@";
+"Search iTunes catalog metadata from tags, filenames, UPCs, links, and store IDs." = "从标签、文件名、UPC、链接和商店 ID 搜索 iTunes 目录元数据。";
+"Search MusicBrainz metadata, release relationships, credits, and MusicBrainz IDs." = "搜索 MusicBrainz 元数据、发行关系、制作名单和 MusicBrainz ID。";
 "Select All" = "全选";
 "Select Current Session in the sidebar to add files" = "在边栏选择“当前会话”以添加文件";
 "Select files in AudioMator, then choose Find in MusicBrainz." = "在 AudioMator 中选择文件，然后选择“在 MusicBrainz 中查找”。";
@@ -277,15 +269,12 @@
 "Selection" = "选择";
 "Selection looks mixed. Check the file-to-track matches in the detail view." = "选择看起来不一致。请在详情视图中检查文件与音轨的匹配。";
 "Shared artwork across selected files" = "所选文件使用相同封面";
+"Settings" = "设置";
 "Show Inspector" = "显示检查器";
 "Show Welcome Screen" = "显示欢迎屏幕";
 "Some selected formats do not support embedded artwork writing yet." = "部分所选格式暂不支持写入内嵌封面。";
 "Sorting" = "排序";
 "Source" = "来源";
-"Split on the ASCII comma." = "按 ASCII 逗号拆分。";
-"Split on the ASCII semicolon." = "按 ASCII 分号拆分。";
-"Split on the full-width comma." = "按全角逗号拆分。";
-"Split on the full-width semicolon." = "按全角分号拆分。";
 "Status" = "状态";
 "Tag Inspector" = "标签检查器";
 "Technical" = "技术";
@@ -298,8 +287,6 @@
 "The filenames already match." = "文件名已匹配。";
 "The generated filename already matches the current file." = "生成的文件名已与当前文件一致。";
 "The template matched, but it did not extract any writable metadata fields." = "模板已匹配，但没有提取出任何可写元数据字段。";
-"The text file contains more values than the current selection." = "文本文件包含的值多于当前选择。";
-"The text file doesn't provide enough values for all selected files." = "文本文件没有为所有所选文件提供足够的值。";
 "This artwork will be applied to all selected files" = "此封面将应用到所有所选文件";
 "This file can be renamed." = "此文件可以重命名。";
 "This format does not support embedded artwork writing yet." = "此格式暂不支持写入内嵌封面。";
@@ -325,10 +312,7 @@
 "Unassigned" = "未分配";
 "Unchanged" = "未更改";
 "Unsaved Changes" = "未保存的更改";
-"Unsaved inspector edits aren't included." = "不包含未保存的检查器编辑。";
-"Unused Value" = "未使用的值";
 "Update the selected metadata field for every file in the current selection." = "更新当前选择中每个文件的所选元数据字段。";
-"Use one line per selected file." = "每个所选文件使用一行。";
 "Value" = "值";
 "Version %@" = "版本 %@";
 "View raw metadata" = "查看原始元数据";

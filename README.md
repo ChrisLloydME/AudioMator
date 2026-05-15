@@ -47,8 +47,6 @@ AudioMator is a local-first audio metadata workbench for inspecting, organizing,
 - Choose ascending or descending numbering.
 - Start from a custom number.
 - Preserve or add zero padding where appropriate.
-- Import one metadata field from a text file, using newline, English comma, Chinese comma, English semicolon, or Chinese semicolon delimiters.
-- Preview count mismatches before applying imported text values.
 - Rename files from metadata with a token-based template.
 - Extract metadata from filenames with a matching template.
 - Validate rename conflicts before moving files.

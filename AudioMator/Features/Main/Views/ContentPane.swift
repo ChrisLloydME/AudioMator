@@ -19,8 +19,6 @@ struct ContentPane: View {
 
     @State private var isEraseAllTagsConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
-    @State private var isTextMetadataImportPresented: Bool = false
-    @State private var textMetadataImportTargets: [AudioFile] = []
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -88,14 +86,6 @@ struct ContentPane: View {
                         .disabled(state.selectedAudioIDs.isEmpty)
                     }
 
-                    if visibleToolbarButtons.contains(.importField) {
-                        Button(action: openTextMetadataImportSheet) {
-                            Label("Import Field…", systemImage: ToolbarButtonOption.importField.systemImage)
-                        }
-                        .help("Import one field from a text file")
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    }
-
                     if visibleToolbarButtons.contains(.tagInspector) {
                         Button(action: onShowMetadataDump) {
                             Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
@@ -108,7 +98,7 @@ struct ContentPane: View {
                         Button(action: onOpenMusicBrainzBrowser) {
                             Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
                         }
-                        .help("Open Online Metadata")
+                        .help(L10n.string("Open Online Metadata"))
                     }
 
                     if visibleToolbarButtons.contains(.cancelEdits) {
@@ -138,13 +128,6 @@ struct ContentPane: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
-            }
-            .sheet(isPresented: $isTextMetadataImportPresented) {
-                TextMetadataImportSheet(
-                    viewModel: viewModel,
-                    targetFiles: textMetadataImportTargets,
-                    isPresented: $isTextMetadataImportPresented
-                )
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }
@@ -282,13 +265,6 @@ struct ContentPane: View {
         for id in ids where !existing.contains(id) {
             state.customOrder.append(id)
         }
-    }
-
-    private func openTextMetadataImportSheet() {
-        textMetadataImportTargets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
-
-        guard !textMetadataImportTargets.isEmpty else { return }
-        isTextMetadataImportPresented = true
     }
 
     private func openMetadataFilenameRenameSheet() {

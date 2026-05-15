@@ -19,8 +19,6 @@ struct IPadWorkspaceView: View {
     @State private var isSelectionMode: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isEraseAllTagsConfirmPresented: Bool = false
-    @State private var isTextMetadataImportPresented: Bool = false
-    @State private var textMetadataImportTargets: [AudioFile] = []
 
     private let inspectorWidthRatio: CGFloat = 0.42
     private let minimumInspectorWidth: CGFloat = 360
@@ -68,8 +66,6 @@ struct IPadWorkspaceView: View {
                             .disabled(state.selectedAudioIDs.isEmpty)
                         Button(ToolbarButtonOption.metadataEditor.displayName + "...", action: openMetadataEditorWindow)
                             .disabled(state.selectedAudioIDs.isEmpty)
-                        Button("Import Field...", action: openTextMetadataImportSheet)
-                            .disabled(state.selectedAudioIDs.isEmpty)
                         Button("Renumber Tracks...", action: onOpenTrackRenumber)
                             .disabled(orderedFiles.isEmpty)
                         Divider()
@@ -87,15 +83,6 @@ struct IPadWorkspaceView: View {
                         Label("More", systemImage: "ellipsis.circle")
                     }
                 }
-            }
-        }
-        .sheet(isPresented: $isTextMetadataImportPresented) {
-            IPadDismissibleSheet(title: "Import Metadata Field") {
-                TextMetadataImportSheet(
-                    viewModel: viewModel,
-                    targetFiles: textMetadataImportTargets,
-                    isPresented: $isTextMetadataImportPresented
-                )
             }
         }
         .confirmationDialog(
@@ -331,12 +318,6 @@ private extension IPadWorkspaceView {
         for id in ids where !existing.contains(id) {
             state.customOrder.append(id)
         }
-    }
-
-    func openTextMetadataImportSheet() {
-        textMetadataImportTargets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
-        guard !textMetadataImportTargets.isEmpty else { return }
-        isTextMetadataImportPresented = true
     }
 
     func openMetadataFilenameRenameSheet() {

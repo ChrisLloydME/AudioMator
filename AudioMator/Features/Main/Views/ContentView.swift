@@ -63,7 +63,7 @@ struct ContentView: View {
         rootContent
             .sheet(isPresented: $isMetadataDumpPresented) {
                 #if os(iOS)
-                IPadDismissibleSheet(title: "Raw Metadata") {
+                IPadDismissibleSheet(title: AppWindowTitle.rawMetadata) {
                     MetadataDumpSheet(
                         metadataDumpText: metadataDumpText,
                         onClose: { isMetadataDumpPresented = false }
@@ -78,7 +78,7 @@ struct ContentView: View {
             }
             .sheet(isPresented: $isTrackRenumberPresented) {
                 #if os(iOS)
-                IPadDismissibleSheet(title: "Renumber Tracks", isCloseDisabled: isTrackRenumberRunning) {
+                IPadDismissibleSheet(title: AppWindowTitle.renumberTracks, isCloseDisabled: isTrackRenumberRunning) {
                     TrackRenumberSheet(
                         viewModel: viewModel,
                         state: state,
@@ -127,7 +127,7 @@ struct ContentView: View {
                 )
             }
             .sheet(isPresented: $isSettingsPresented) {
-                IPadDismissibleSheet(title: "Settings") {
+                IPadDismissibleSheet(title: AppWindowTitle.settings) {
                     IPadSettingsView(sharedState: state)
                 }
             }

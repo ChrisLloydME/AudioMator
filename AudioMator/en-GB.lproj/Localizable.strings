@@ -47,11 +47,6 @@
 "Changes apply immediately. At least one column must remain visible." = "Changes apply immediately. At least one column must remain visible.";
 "Changes apply to every selected file. Fields left untouched keep their current values." = "Changes apply to every selected file. Fields left untouched keep their current values.";
 "Channels" = "Channels";
-"Chinese Comma (，)" = "Chinese Comma (，)";
-"Chinese Semicolon (；)" = "Chinese Semicolon (；)";
-"Choose a text file to preview each imported value." = "Choose a text file to preview each imported value.";
-"Choose a text file to preview how values map to the selected rows." = "Choose a text file to preview how values map to the selected rows.";
-"Choose a text file, split it into one value per row, then write the selected field in center-list order." = "Choose a text file, split it into one value per row, then write the selected field in centre-list order.";
 "Choose Artwork…" = "Choose Artwork…";
 "Choose at least one field to write." = "Choose at least one field to write.";
 "Choose exactly which MusicBrainz values should overwrite the current file tags." = "Choose exactly which MusicBrainz values should overwrite the current file tags.";
@@ -77,7 +72,6 @@
 "Copy Path" = "Copy Path";
 "Copy raw metadata" = "Copy raw metadata";
 "Copyright" = "Copyright";
-"Counts match. Applying will overwrite only the selected field." = "Counts match. Applying will overwrite only the selected field.";
 "Credits" = "Credits";
 "Current list" = "Current list";
 "Current Name" = "Current Name";
@@ -99,6 +93,7 @@
 "E" = "E";
 "Each MusicBrainz track can only be assigned once before writing." = "Each MusicBrainz track can only be assigned once before writing.";
 "Edit %@" = "Edit %@";
+"Edit…" = "Edit…";
 "Edit Metadata Field" = "Edit Metadata Field";
 "Edit the original text on the left. Preview hidden characters on the right." = "Edit the original text on the left. Preview hidden characters on the right.";
 "Edit the selected metadata fields in a separate window" = "Edit the selected metadata fields in a separate window";
@@ -106,8 +101,6 @@
 "Empty Name" = "Empty Name";
 "Engineer" = "Engineer";
 "Engineer credits from the matched recording." = "Engineer credits from the matched recording.";
-"English Comma (,)" = "English Comma (,)";
-"English Semicolon (;)" = "English Semicolon (;)";
 "Enter a matching template or drag metadata chips into the field." = "Enter a matching template or drag metadata chips into the field.";
 "Enter a template or drag metadata chips into the field." = "Enter a template or drag metadata chips into the field.";
 "Enter the property-map field name and the value to write." = "Enter the property-map field name and the value to write.";
@@ -131,13 +124,10 @@
 "Identifiers" = "Identifiers";
 "If that's unexpected, make sure the file is an MP3 and TagLib can read it." = "If that's unexpected, make sure the file is an MP3 and TagLib can read it.";
 "Ignore" = "Ignore";
-"Import Field" = "Import Field";
-"Import Field…" = "Import Field…";
 "Import from Clipboard" = "Import from Clipboard";
-"Import Metadata Field from Text" = "Import Metadata Field from Text";
-"Import one field from a text file" = "Import one field from a text file";
 "ISRC" = "ISRC";
 "ISRC codes from the matched track." = "ISRC codes from the matched track.";
+"iTunes" = "iTunes";
 "Keep Current Artwork" = "Keep Current Artwork";
 "Keep Existing" = "Keep Existing";
 "Keeps the same width as numbers grow." = "Keeps the same width as numbers grow.";
@@ -145,6 +135,7 @@
 "Leave As Is" = "Leave As Is";
 "Left List Metadata Fields" = "Left List Metadata Fields";
 "Loading MusicBrainz fields…" = "Loading MusicBrainz fields…";
+"Loading metadata…" = "Loading metadata…";
 "Loading recording details..." = "Loading recording details...";
 "Loading release notes…" = "Loading release notes…";
 "Lyricist" = "Lyricist";
@@ -169,7 +160,6 @@
 "Middle List Columns" = "Middle List Columns";
 "Missing Locally" = "Missing Locally";
 "Missing on MusicBrainz" = "Missing on MusicBrainz";
-"Missing Value" = "Missing Value";
 "Multiple selected files would end up with the same filename." = "Multiple selected files would end up with the same filename.";
 "Multiple Values" = "Multiple Values";
 "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value." = "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value.";
@@ -187,7 +177,6 @@
 "MusicBrainz Track ID" = "MusicBrainz Track ID";
 "MusicBrainz track MBID." = "MusicBrainz track MBID.";
 "Network activity only happens when optional online features are used." = "Network activity only happens when optional online features are used.";
-"Newline" = "Newline";
 "No albums matched this search." = "No albums matched this search.";
 "No artwork in the current selection" = "No artwork in the current selection";
 "No Audio Files Found" = "No Audio Files Found";
@@ -212,6 +201,7 @@
 "Online artwork lookup for multiple files is only available when all selected tracks belong to the same album." = "Online artwork lookup for multiple files is only available when all selected tracks belong to the same album.";
 "Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file." = "Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file.";
 "Open MusicBrainz Browser" = "Open MusicBrainz Browser";
+"Open Online Metadata" = "Open Online Metadata";
 "Pad with leading zeros" = "Pad with leading zeros";
 "People" = "People";
 "People Roles" = "People Roles";
@@ -267,6 +257,8 @@
 "Saved with Issues" = "Saved with Issues";
 "Score %@" = "Score %@";
 "Search source: %@" = "Search source: %@";
+"Search iTunes catalog metadata from tags, filenames, UPCs, links, and store IDs." = "Search iTunes catalog metadata from tags, filenames, UPCs, links, and store IDs.";
+"Search MusicBrainz metadata, release relationships, credits, and MusicBrainz IDs." = "Search MusicBrainz metadata, release relationships, credits, and MusicBrainz IDs.";
 "Select All" = "Select All";
 "Select Current Session in the sidebar to add files" = "Select Current Session in the sidebar to add files";
 "Select files in AudioMator, then choose Find in MusicBrainz." = "Select files in AudioMator, then choose Find in MusicBrainz.";
@@ -277,15 +269,12 @@
 "Selection" = "Selection";
 "Selection looks mixed. Check the file-to-track matches in the detail view." = "Selection looks mixed. Check the file-to-track matches in the detail view.";
 "Shared artwork across selected files" = "Shared artwork across selected files";
+"Settings" = "Settings";
 "Show Inspector" = "Show Inspector";
 "Show Welcome Screen" = "Show Welcome Screen";
 "Some selected formats do not support embedded artwork writing yet." = "Some selected formats do not support embedded artwork writing yet.";
 "Sorting" = "Sorting";
 "Source" = "Source";
-"Split on the ASCII comma." = "Split on the ASCII comma.";
-"Split on the ASCII semicolon." = "Split on the ASCII semicolon.";
-"Split on the full-width comma." = "Split on the full-width comma.";
-"Split on the full-width semicolon." = "Split on the full-width semicolon.";
 "Status" = "Status";
 "Tag Inspector" = "Tag Inspector";
 "Technical" = "Technical";
@@ -298,8 +287,6 @@
 "The filenames already match." = "The filenames already match.";
 "The generated filename already matches the current file." = "The generated filename already matches the current file.";
 "The template matched, but it did not extract any writable metadata fields." = "The template matched, but it did not extract any writable metadata fields.";
-"The text file contains more values than the current selection." = "The text file contains more values than the current selection.";
-"The text file doesn't provide enough values for all selected files." = "The text file doesn't provide enough values for all selected files.";
 "This artwork will be applied to all selected files" = "This artwork will be applied to all selected files";
 "This file can be renamed." = "This file can be renamed.";
 "This format does not support embedded artwork writing yet." = "This format does not support embedded artwork writing yet.";
@@ -325,10 +312,7 @@
 "Unassigned" = "Unassigned";
 "Unchanged" = "Unchanged";
 "Unsaved Changes" = "Unsaved Changes";
-"Unsaved inspector edits aren't included." = "Unsaved inspector edits aren't included.";
-"Unused Value" = "Unused Value";
 "Update the selected metadata field for every file in the current selection." = "Update the selected metadata field for every file in the current selection.";
-"Use one line per selected file." = "Use one line per selected file.";
 "Value" = "Value";
 "Version %@" = "Version %@";
 "View raw metadata" = "View raw metadata";

@@ -271,7 +271,7 @@ struct MetadataEditorWindowView: View {
             .padding(20)
             .frame(minWidth: 820, idealWidth: 920, maxWidth: 1040, minHeight: 540, idealHeight: 640)
             .background(Color(nsColor: .windowBackgroundColor))
-            .navigationTitle("Metadata Editor")
+            .navigationTitle(AppWindowTitle.metadataEditor)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Color.clear
@@ -322,7 +322,7 @@ struct MetadataEditorWindowView: View {
         if store.isLoading {
             VStack(spacing: 10) {
                 Spacer()
-                ProgressView("Loading metadata…")
+                ProgressView("Loading metadata…".localizedUI)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1305,7 +1305,7 @@ extension MetadataEditorTable {
         private func configureColumns(on tableView: NSTableView) {
             if tableView.tableColumn(withIdentifier: fieldColumnIdentifier) == nil {
                 let fieldColumn = NSTableColumn(identifier: fieldColumnIdentifier)
-                fieldColumn.title = "Field"
+                fieldColumn.title = L10n.string("Field")
                 fieldColumn.width = 230
                 fieldColumn.minWidth = 180
                 fieldColumn.maxWidth = 320
@@ -1315,7 +1315,7 @@ extension MetadataEditorTable {
 
             if tableView.tableColumn(withIdentifier: valueColumnIdentifier) == nil {
                 let valueColumn = NSTableColumn(identifier: valueColumnIdentifier)
-                valueColumn.title = "Value"
+                valueColumn.title = L10n.string("Value")
                 valueColumn.width = 520
                 valueColumn.minWidth = 240
                 valueColumn.resizingMask = .autoresizingMask
@@ -1330,11 +1330,11 @@ extension MetadataEditorTable {
         }
 
         private func makeRowMenu() -> NSMenu {
-            let menu = NSMenu(title: "Metadata")
+            let menu = NSMenu(title: L10n.string("Metadata"))
             menu.autoenablesItems = false
             menu.delegate = self
-            menu.addItem(makeMenuItem(title: "Edit…", action: #selector(editSelectedFieldAction)))
-            menu.addItem(makeMenuItem(title: "Delete Field", action: #selector(deleteSelectedFieldAction)))
+            menu.addItem(makeMenuItem(title: L10n.string("Edit…"), action: #selector(editSelectedFieldAction)))
+            menu.addItem(makeMenuItem(title: L10n.string("Delete Field"), action: #selector(deleteSelectedFieldAction)))
             return menu
         }
 

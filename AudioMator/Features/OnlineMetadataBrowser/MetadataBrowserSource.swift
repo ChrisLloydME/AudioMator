@@ -8,17 +8,17 @@ enum MetadataBrowserSource: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .musicBrainz: return "MusicBrainz"
-        case .iTunes: return "iTunes"
+        case .musicBrainz: return L10n.string("MusicBrainz")
+        case .iTunes: return L10n.string("iTunes")
         }
     }
 
     var subtitle: String {
         switch self {
         case .musicBrainz:
-            return "Search rich community metadata, release relationships, credits, and MusicBrainz IDs."
+            return L10n.string("Search MusicBrainz metadata, release relationships, credits, and MusicBrainz IDs.")
         case .iTunes:
-            return "Search Apple iTunes catalog text metadata from tags, filenames, UPCs, links, and store IDs."
+            return L10n.string("Search iTunes catalog metadata from tags, filenames, UPCs, links, and store IDs.")
         }
     }
 

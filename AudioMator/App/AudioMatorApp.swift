@@ -71,7 +71,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 700, height: 480)
 
-        Window("Online Metadata", id: MusicBrainzBrowserView.windowID) {
+        Window(AppWindowTitle.onlineMetadataKey, id: MusicBrainzBrowserView.windowID) {
             MusicBrainzBrowserView(
                 store: musicBrainzBrowserStore,
                 viewModel: viewModel
@@ -80,7 +80,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 980, height: 700)
 
-        Window("Filename & Metadata", id: MetadataFilenameWindowView.windowID) {
+        Window(AppWindowTitle.filenameMetadataKey, id: MetadataFilenameWindowView.windowID) {
             MetadataFilenameWindowView(
                 viewModel: viewModel,
                 store: metadataFilenameToolStore
@@ -89,7 +89,7 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 860, height: 720)
 
-        Window("Metadata Editor", id: MetadataEditorWindowView.windowID) {
+        Window(AppWindowTitle.metadataEditorKey, id: MetadataEditorWindowView.windowID) {
             MetadataEditorWindowView(
                 viewModel: viewModel,
                 store: metadataEditorStore

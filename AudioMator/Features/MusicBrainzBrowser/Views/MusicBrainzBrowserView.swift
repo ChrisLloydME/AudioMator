@@ -27,7 +27,7 @@ struct MusicBrainzBrowserView: View {
                     MetadataSourcePickerView { source in
                         selectMetadataSource(source)
                     }
-                    .navigationTitle("Online Metadata")
+                    .navigationTitle(AppWindowTitle.onlineMetadata)
                     #if os(macOS)
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
@@ -61,7 +61,7 @@ struct MusicBrainzBrowserView: View {
             }
             .audiomatorMacTitlebarScrollEdgeBar()
             #if os(iOS)
-            .navigationTitle("MusicBrainz Browser")
+            .navigationTitle(AppWindowTitle.onlineMetadata)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

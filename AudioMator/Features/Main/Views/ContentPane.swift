@@ -36,6 +36,22 @@ struct ContentPane: View {
         state.visibleToolbarButtons
     }
 
+    private var shouldShowFileListToolbarGroup: Bool {
+        isQuickImportMode &&
+            (visibleToolbarButtons.contains(.addFiles) || visibleToolbarButtons.contains(.clearList))
+    }
+
+    private var shouldShowMetadataWorkflowToolbarGroup: Bool {
+        visibleToolbarButtons.contains(.renumberTracks) ||
+            visibleToolbarButtons.contains(.renameFiles) ||
+            visibleToolbarButtons.contains(.musicBrainzBrowser)
+    }
+
+    private var shouldShowMetadataToolsToolbarGroup: Bool {
+        visibleToolbarButtons.contains(.tagInspector) ||
+            visibleToolbarButtons.contains(.metadataEditor)
+    }
+
     private var orderedFiles: [AudioFile] {
         state.orderedMiddleListFiles(from: viewModel.files)
     }
@@ -44,61 +60,9 @@ struct ContentPane: View {
         mainContent
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    if isQuickImportMode, visibleToolbarButtons.contains(.addFiles) {
-                        Button(action: onAddFiles) {
-                            Image(systemName: "plus")
-                        }
-                        .help("Add files to this session")
-                    }
-
-                    if isQuickImportMode, visibleToolbarButtons.contains(.clearList) {
-                        Button(role: .destructive) {
-                            isClearListConfirmPresented = true
-                        } label: {
-                            Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
-                        }
-                        .help("Clear this session list")
-                        .disabled(viewModel.files.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.renumberTracks) {
-                        Button(action: onOpenTrackRenumber) {
-                            Label("Renumber Tracks…", systemImage: ToolbarButtonOption.renumberTracks.systemImage)
-                        }
-                        .help("Renumber tracks in list order")
-                        .disabled(viewModel.files.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.renameFiles) {
-                        Button(action: openMetadataFilenameRenameSheet) {
-                            Label(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
-                        }
-                        .help("Convert between filenames and metadata for the selected files")
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.metadataEditor) {
-                        Button(action: openMetadataEditorWindow) {
-                            Label(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
-                        }
-                        .help("Edit the selected metadata fields in a separate window")
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.tagInspector) {
-                        Button(action: onShowMetadataDump) {
-                            Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
-                        }
-                        .help("View raw metadata")
-                        .disabled(state.selectedAudioIDs.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.musicBrainzBrowser) {
-                        Button(action: onOpenMusicBrainzBrowser) {
-                            Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
-                        }
-                        .help(L10n.string("Open Online Metadata"))
-                    }
+                    fileListToolbarGroup
+                    metadataWorkflowToolbarGroup
+                    metadataToolsToolbarGroup
 
                     if visibleToolbarButtons.contains(.cancelEdits) {
                         Button("Cancel", action: onCancelEdits)
@@ -192,6 +156,83 @@ struct ContentPane: View {
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("Removes metadata from the selected files. This can't be undone.")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var fileListToolbarGroup: some View {
+        if shouldShowFileListToolbarGroup {
+            ControlGroup {
+                if visibleToolbarButtons.contains(.addFiles) {
+                    Button(action: onAddFiles) {
+                        Image(systemName: "plus")
+                    }
+                    .help("Add files to this session")
+                }
+
+                if visibleToolbarButtons.contains(.clearList) {
+                    Button(role: .destructive) {
+                        isClearListConfirmPresented = true
+                    } label: {
+                        Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
+                    }
+                    .help("Clear this session list")
+                    .disabled(viewModel.files.isEmpty)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var metadataWorkflowToolbarGroup: some View {
+        if shouldShowMetadataWorkflowToolbarGroup {
+            ControlGroup {
+                if visibleToolbarButtons.contains(.renumberTracks) {
+                    Button(action: onOpenTrackRenumber) {
+                        Label("Renumber Tracks…", systemImage: ToolbarButtonOption.renumberTracks.systemImage)
+                    }
+                    .help("Renumber tracks in list order")
+                    .disabled(viewModel.files.isEmpty)
+                }
+
+                if visibleToolbarButtons.contains(.renameFiles) {
+                    Button(action: openMetadataFilenameRenameSheet) {
+                        Label(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+                    }
+                    .help("Convert between filenames and metadata for the selected files")
+                    .disabled(state.selectedAudioIDs.isEmpty)
+                }
+
+                if visibleToolbarButtons.contains(.musicBrainzBrowser) {
+                    Button(action: onOpenMusicBrainzBrowser) {
+                        Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
+                    }
+                    .help(L10n.string("Open Online Metadata"))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var metadataToolsToolbarGroup: some View {
+        if shouldShowMetadataToolsToolbarGroup {
+            ControlGroup {
+                if visibleToolbarButtons.contains(.tagInspector) {
+                    Button(action: onShowMetadataDump) {
+                        Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
+                    }
+                    .help("View raw metadata")
+                    .disabled(state.selectedAudioIDs.isEmpty)
+                }
+
+                if visibleToolbarButtons.contains(.metadataEditor) {
+                    Button(action: openMetadataEditorWindow) {
+                        Label(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
+                    }
+                    .help("Edit the selected metadata fields in a separate window")
+                    .disabled(state.selectedAudioIDs.isEmpty)
                 }
             }
         }

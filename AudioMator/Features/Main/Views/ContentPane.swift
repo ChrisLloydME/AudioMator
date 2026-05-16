@@ -59,25 +59,26 @@ struct ContentPane: View {
     var body: some View {
         mainContent
             .toolbar {
+                if shouldShowFileListToolbarGroup {
+                    ToolbarItem(placement: .primaryAction) {
+                        fileListToolbarGroup
+                    }
+                }
+
+                if shouldShowMetadataWorkflowToolbarGroup {
+                    ToolbarItem(placement: .primaryAction) {
+                        metadataWorkflowToolbarGroup
+                    }
+                }
+
+                if shouldShowMetadataToolsToolbarGroup {
+                    ToolbarItem(placement: .primaryAction) {
+                        metadataToolsToolbarGroup
+                    }
+                }
+
                 ToolbarItemGroup(placement: .primaryAction) {
-                    fileListToolbarGroup
-                    metadataWorkflowToolbarGroup
-                    metadataToolsToolbarGroup
-
-                    if visibleToolbarButtons.contains(.cancelEdits) {
-                        Button("Cancel", action: onCancelEdits)
-                            .disabled(state.selectedAudioIDs.isEmpty)
-                    }
-
-                    if visibleToolbarButtons.contains(.saveEdits) {
-                        Button("Save", action: onSaveEdits)
-                            .disabled(state.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
-                    }
-
-                    Button(action: onToggleInspector) {
-                        Image(systemName: "sidebar.right")
-                    }
-                    .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
+                    trailingToolbarButtons
                 }
             }
             .confirmationDialog(
@@ -104,6 +105,24 @@ struct ContentPane: View {
                 guard !state.selectedAudioIDs.isEmpty else { return }
                 openMetadataEditorWindow()
             }
+    }
+
+    @ViewBuilder
+    private var trailingToolbarButtons: some View {
+        if visibleToolbarButtons.contains(.cancelEdits) {
+            Button("Cancel", action: onCancelEdits)
+                .disabled(state.selectedAudioIDs.isEmpty)
+        }
+
+        if visibleToolbarButtons.contains(.saveEdits) {
+            Button("Save", action: onSaveEdits)
+                .disabled(state.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+        }
+
+        Button(action: onToggleInspector) {
+            Image(systemName: "sidebar.right")
+        }
+        .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
     }
 
     @ViewBuilder
@@ -163,79 +182,83 @@ struct ContentPane: View {
 
     @ViewBuilder
     private var fileListToolbarGroup: some View {
-        if shouldShowFileListToolbarGroup {
-            ControlGroup {
-                if visibleToolbarButtons.contains(.addFiles) {
-                    Button(action: onAddFiles) {
-                        Image(systemName: "plus")
-                    }
-                    .help("Add files to this session")
+        ControlGroup {
+            if visibleToolbarButtons.contains(.addFiles) {
+                Button(action: onAddFiles) {
+                    toolbarIconLabel(ToolbarButtonOption.addFiles.displayName, systemImage: ToolbarButtonOption.addFiles.systemImage)
                 }
-
-                if visibleToolbarButtons.contains(.clearList) {
-                    Button(role: .destructive) {
-                        isClearListConfirmPresented = true
-                    } label: {
-                        Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
-                    }
-                    .help("Clear this session list")
-                    .disabled(viewModel.files.isEmpty)
-                }
+                .help("Add files to this session")
             }
+
+            if visibleToolbarButtons.contains(.clearList) {
+                Button(role: .destructive) {
+                    isClearListConfirmPresented = true
+                } label: {
+                    toolbarIconLabel(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
+                }
+                .help("Clear this session list")
+                .disabled(viewModel.files.isEmpty)
+            }
+        } label: {
+            Label("File List", systemImage: ToolbarButtonOption.addFiles.systemImage)
         }
     }
 
     @ViewBuilder
     private var metadataWorkflowToolbarGroup: some View {
-        if shouldShowMetadataWorkflowToolbarGroup {
-            ControlGroup {
-                if visibleToolbarButtons.contains(.renumberTracks) {
-                    Button(action: onOpenTrackRenumber) {
-                        Label("Renumber Tracks…", systemImage: ToolbarButtonOption.renumberTracks.systemImage)
-                    }
-                    .help("Renumber tracks in list order")
-                    .disabled(viewModel.files.isEmpty)
+        ControlGroup {
+            if visibleToolbarButtons.contains(.renumberTracks) {
+                Button(action: onOpenTrackRenumber) {
+                    toolbarIconLabel("Renumber Tracks…", systemImage: ToolbarButtonOption.renumberTracks.systemImage)
                 }
-
-                if visibleToolbarButtons.contains(.renameFiles) {
-                    Button(action: openMetadataFilenameRenameSheet) {
-                        Label(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
-                    }
-                    .help("Convert between filenames and metadata for the selected files")
-                    .disabled(state.selectedAudioIDs.isEmpty)
-                }
-
-                if visibleToolbarButtons.contains(.musicBrainzBrowser) {
-                    Button(action: onOpenMusicBrainzBrowser) {
-                        Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
-                    }
-                    .help(L10n.string("Open Online Metadata"))
-                }
+                .help("Renumber tracks in list order")
+                .disabled(viewModel.files.isEmpty)
             }
+
+            if visibleToolbarButtons.contains(.renameFiles) {
+                Button(action: openMetadataFilenameRenameSheet) {
+                    toolbarIconLabel(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
+                }
+                .help("Convert between filenames and metadata for the selected files")
+                .disabled(state.selectedAudioIDs.isEmpty)
+            }
+
+            if visibleToolbarButtons.contains(.musicBrainzBrowser) {
+                Button(action: onOpenMusicBrainzBrowser) {
+                    toolbarIconLabel(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
+                }
+                .help(L10n.string("Open Online Metadata"))
+            }
+        } label: {
+            Label("Metadata Tools", systemImage: ToolbarButtonOption.renameFiles.systemImage)
         }
     }
 
     @ViewBuilder
     private var metadataToolsToolbarGroup: some View {
-        if shouldShowMetadataToolsToolbarGroup {
-            ControlGroup {
-                if visibleToolbarButtons.contains(.tagInspector) {
-                    Button(action: onShowMetadataDump) {
-                        Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
-                    }
-                    .help("View raw metadata")
-                    .disabled(state.selectedAudioIDs.isEmpty)
+        ControlGroup {
+            if visibleToolbarButtons.contains(.tagInspector) {
+                Button(action: onShowMetadataDump) {
+                    toolbarIconLabel(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
                 }
-
-                if visibleToolbarButtons.contains(.metadataEditor) {
-                    Button(action: openMetadataEditorWindow) {
-                        Label(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
-                    }
-                    .help("Edit the selected metadata fields in a separate window")
-                    .disabled(state.selectedAudioIDs.isEmpty)
-                }
+                .help("View raw metadata")
+                .disabled(state.selectedAudioIDs.isEmpty)
             }
+
+            if visibleToolbarButtons.contains(.metadataEditor) {
+                Button(action: openMetadataEditorWindow) {
+                    toolbarIconLabel(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
+                }
+                .help("Edit the selected metadata fields in a separate window")
+                .disabled(state.selectedAudioIDs.isEmpty)
+            }
+        } label: {
+            Label("Metadata Inspectors", systemImage: ToolbarButtonOption.tagInspector.systemImage)
         }
+    }
+
+    private func toolbarIconLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
     }
 
     private var emptyStateTitle: String {

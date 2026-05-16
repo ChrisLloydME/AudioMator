@@ -45,11 +45,11 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         case .renumberTracks:
             return "list.number.badge.ellipsis"
         case .musicBrainzBrowser:
-            return "icloud.and.arrow.down"
+            return "globe"
         case .renameFiles:
-            return "character.textbox"
+            return "arrow.trianglehead.2.clockwise"
         case .metadataEditor:
-            return "tag"
+            return "long.text.page.and.pencil"
         case .clearList:
             return "text.badge.minus"
         case .cancelEdits:

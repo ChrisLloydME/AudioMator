@@ -44,22 +44,21 @@ struct ContentPane: View {
         mainContent
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    if visibleToolbarButtons.contains(.addFiles) {
+                    if isQuickImportMode, visibleToolbarButtons.contains(.addFiles) {
                         Button(action: onAddFiles) {
                             Image(systemName: "plus")
                         }
-                        .help(isQuickImportMode ? "Add files to this session" : "Select Current Session in the sidebar to add files")
-                        .disabled(!isQuickImportMode)
+                        .help("Add files to this session")
                     }
 
-                    if visibleToolbarButtons.contains(.clearList) {
+                    if isQuickImportMode, visibleToolbarButtons.contains(.clearList) {
                         Button(role: .destructive) {
                             isClearListConfirmPresented = true
                         } label: {
                             Label(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
                         }
-                        .help(isQuickImportMode ? "Clear this session list" : "Manage watched folders in the sidebar")
-                        .disabled(!isQuickImportMode || viewModel.files.isEmpty)
+                        .help("Clear this session list")
+                        .disabled(viewModel.files.isEmpty)
                     }
 
                     if visibleToolbarButtons.contains(.renumberTracks) {

@@ -67,11 +67,17 @@ Useful commands:
 
 ```bash
 bash scripts/codex-build.sh
+bash scripts/codex-build.sh --force
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
 
-Prefer `bash scripts/codex-build.sh` for Codex validation. All Agent-triggered Xcode builds should write derived data to the repository-local `.deriveddata-codex` directory. Do not create alternate local build roots such as `.DerivedData`, `.deriveddata-codex-ios`, `.deriveddata-ios-codex`, or `.deriveddata-macos-codex`; reuse `.deriveddata-codex` and let the existing `.gitignore` keep it out of source control.
+Prefer `bash scripts/codex-build.sh` for Codex validation. The script uses a two-stage strategy:
+
+- It skips `xcodebuild` entirely when the current working tree has no build-relevant changes.
+- When build-relevant files did change, it reuses the repository-local `.deriveddata-codex` directory so `xcodebuild build` can behave incrementally like Xcode instead of forcing a clean build.
+
+Use `bash scripts/codex-build.sh --force` when you want to run a full validation build regardless of the changed-file filter. All Agent-triggered Xcode builds should write derived data to the repository-local `.deriveddata-codex` directory. Do not create alternate local build roots such as `.DerivedData`, `.deriveddata-codex-ios`, `.deriveddata-ios-codex`, or `.deriveddata-macos-codex`; reuse `.deriveddata-codex` and let the existing `.gitignore` keep it out of source control.
 
 For bridge/package debugging:
 

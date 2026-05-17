@@ -25,7 +25,7 @@ enum MetadataBrowserSource: String, CaseIterable, Identifiable {
     var symbolName: String {
         switch self {
         case .musicBrainz: return "brain.head.profile"
-        case .iTunes: return "music.note.list"
+        case .iTunes: return "music.pages"
         }
     }
 }

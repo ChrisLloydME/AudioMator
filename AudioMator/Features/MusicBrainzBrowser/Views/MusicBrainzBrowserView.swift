@@ -102,11 +102,13 @@ struct MusicBrainzBrowserView: View {
         }
         #if os(macOS)
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    selectedMetadataSource = nil
-                } label: {
-                    Label("Sources", systemImage: "chevron.left")
+            if navigationPath.isEmpty {
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        selectedMetadataSource = nil
+                    } label: {
+                        Label("Sources", systemImage: "chevron.left")
+                    }
                 }
             }
 

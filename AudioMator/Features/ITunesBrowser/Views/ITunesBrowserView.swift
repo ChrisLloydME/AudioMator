@@ -28,11 +28,13 @@ struct ITunesBrowserView: View {
             }
             #if os(macOS)
             .toolbar {
-                ToolbarItem(placement: .navigation) {
-                    Button {
-                        onBackToSources()
-                    } label: {
-                        Label("Sources", systemImage: "chevron.left")
+                if navigationPath.isEmpty {
+                    ToolbarItem(placement: .navigation) {
+                        Button {
+                            onBackToSources()
+                        } label: {
+                            Label("Sources", systemImage: "chevron.left")
+                        }
                     }
                 }
 

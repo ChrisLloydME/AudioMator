@@ -47,13 +47,13 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
     var symbolName: String {
         switch self {
         case .metadataToFilename:
-            return "music.note"
+            return "character.cursor.ibeam"
         case .filenameToMetadata:
-            return "doc.text.magnifyingglass"
+            return "character.textbox.badge.sparkles"
         case .metadataToText:
-            return "text.alignleft"
+            return "text.page"
         case .textToMetadata:
-            return "square.and.pencil"
+            return "long.text.page.and.pencil"
         case .metadataToCSV:
             return "tablecells"
         case .csvToMetadata:

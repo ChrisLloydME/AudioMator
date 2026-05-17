@@ -5,8 +5,76 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED_DATA_PATH="${ROOT_DIR}/.deriveddata-codex"
 LOG_PATH="${DERIVED_DATA_PATH}/xcodebuild.log"
+FORCE_BUILD=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force|--full)
+      FORCE_BUILD=1
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      echo "Usage: bash scripts/codex-build.sh [--force|--full]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 mkdir -p "${DERIVED_DATA_PATH}"
+
+is_build_relevant_file() {
+  local path="$1"
+
+  case "${path}" in
+    AudioMator.xcodeproj/*|AudioMator/*.xcconfig|Config/*|scripts/codex-build.sh)
+      return 0
+      ;;
+    AudioMator/*)
+      case "${path}" in
+        *.swift|*.m|*.mm|*.c|*.cc|*.cpp|*.h|*.hpp|*.plist|*.strings|*.xcassets/*|*.icon/*|*.entitlements)
+          return 0
+          ;;
+      esac
+      ;;
+    AudioMatorTests/*)
+      case "${path}" in
+        *.swift|*.m|*.mm|*.c|*.cc|*.cpp|*.h|*.hpp|*.plist|*.strings)
+          return 0
+          ;;
+      esac
+      ;;
+  esac
+
+  return 1
+}
+
+collect_changed_files() {
+  (
+    cd "${ROOT_DIR}" || exit 1
+    git diff --name-only --relative HEAD
+    git ls-files --others --exclude-standard
+  ) | awk 'NF && !seen[$0]++'
+}
+
+if [[ ${FORCE_BUILD} -ne 1 ]]; then
+  BUILD_RELEVANT_CHANGES=()
+  while IFS= read -r path; do
+    [[ -z "${path}" ]] && continue
+    if is_build_relevant_file "${path}"; then
+      BUILD_RELEVANT_CHANGES+=("${path}")
+    fi
+  done < <(collect_changed_files)
+
+  if [[ ${#BUILD_RELEVANT_CHANGES[@]} -eq 0 ]]; then
+    echo "No build-relevant changes detected; skipping xcodebuild."
+    echo "Pass --force to run a full validation build anyway."
+    exit 0
+  fi
+
+  echo "Build-relevant changes detected:"
+  printf '  %s\n' "${BUILD_RELEVANT_CHANGES[@]}"
+fi
 
 COMMAND=(
   xcodebuild

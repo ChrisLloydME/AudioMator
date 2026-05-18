@@ -1,23 +1,24 @@
 <p align="center">
-  <img src="AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="320">
+  <img src="AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="240">
 </p>
 
-<h1 align="center">AudioMator</h1>
+<h1 align="center" style="font-size: 36px;">AudioMator</h1>
 
 <p align="center">
-  <strong>Native audio metadata editing for macOS and iPadOS.</strong><br>
-  Inspect tags, batch edit fields, manage artwork, rename files from metadata, extract metadata from filenames, renumber tracks, and tag releases with MusicBrainz.
+  <strong style="font-size: 24px;">Your Audio Library’s Best Mate</strong><br>
+  Native Audio Metadata Editor
 </p>
 
 <p align="center">
   <a href="#building">
-    <img alt="Build for macOS Tahoe" src="https://img.shields.io/badge/Build%20app%20for-macOS-black?style=for-the-badge&logo=apple">
+    <img alt="Build for macOS Tahoe" src="https://img.shields.io/badge/Build%20for-macOS-black?style=for-the-badge&logo=apple">
   </a>
 </p>
 
+
 ## Overview
 
-AudioMator is a local-first audio metadata workbench for inspecting, organizing, and editing music libraries. It supports workflows such as bulk tag editing, artwork replacement, filename-based metadata import/export, raw metadata inspection, and retrieving metadata from online sources for automatic tagging. Built as a native SwiftUI application, AudioMator adopts platform-specific behavior where appropriate: on macOS, it provides a desktop-style workflow with watched folders, a multi-pane interface, and Finder-style file actions, while on iPadOS it follows a document-based workflow designed around sandboxed file access and touch interaction. AudioMator uses TagLib for audio metadata reading, writing, artwork handling, raw property inspection, and format capability discovery, with metadata changes flowing through a shared pipeline so the inspector, batch tools, online tagging workflows, filename operations, and raw metadata editor remain behaviorally consistent.
+AudioMator is a local-first audio metadata workbench for inspecting, organizing, and editing music libraries. It supports workflows such as bulk tag editing, artwork replacement, filename-based metadata import/export, raw metadata inspection, and retrieving metadata from online sources for automatic tagging. Built as a native application, AudioMator adopts platform-specific behavior where appropriate: on macOS, it provides a desktop-style workflow with watched folders, a multi-pane interface, and Finder-style file actions, while on iPadOS it follows a document-based workflow designed around sandboxed file access and touch interaction. AudioMator uses TagLib for audio metadata reading, writing, artwork handling, raw property inspection, and format capability discovery, with metadata changes flowing through a shared pipeline so the inspector, batch tools, online tagging workflows, filename operations, and raw metadata editor remain behaviorally consistent.
 
 ## Screenshot
 
@@ -166,6 +167,10 @@ This tool is intended for bridge-level debugging, especially around:
 - MP4 `trkn` / `disk` behavior
 - text-preservation vs numeric readback
 - raw property-map inspection
+
+## Contact
+
+E-mail: AudioMator@lloydME.com
 
 ## Repository Layout
 

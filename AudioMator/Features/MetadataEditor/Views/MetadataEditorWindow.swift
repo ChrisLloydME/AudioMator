@@ -260,7 +260,7 @@ final class MetadataEditorStore: ObservableObject {
 
             for key in fieldKeys {
                 guard let currentValue = propertyMap[key] else { continue }
-                let nextValue = Self.normalizedFieldValue(pipeline.applying(to: currentValue))
+                let nextValue = pipeline.applying(to: currentValue)
 
                 if nextValue.isEmpty {
                     propertyMap.removeValue(forKey: key)

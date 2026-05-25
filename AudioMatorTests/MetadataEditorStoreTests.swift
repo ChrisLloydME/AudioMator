@@ -140,6 +140,30 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    func testTextUtilityApplyPreservesInsertedLeadingAndTrailingSpaces() async throws {
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let store = MetadataEditorStore(
+            metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
+                file.url: ["TITLE": "Title", "ARTIST": "Artist"]
+            ])
+        )
+
+        store.present(targetFiles: [file])
+        try await waitUntilLoaded(store)
+
+        store.applyTextUtility(
+            pipeline: TextEditPipeline(steps: [.insertText("  ", position: .prefix)]),
+            fieldKeys: ["TITLE"]
+        )
+        store.applyTextUtility(
+            pipeline: TextEditPipeline(steps: [.insertText("  ", position: .suffix)]),
+            fieldKeys: ["ARTIST"]
+        )
+
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], "  Title")
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], "Artist  ")
+    }
+
     func testDiscardChangesRestoresOriginalMaps() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
         let originalMap = ["TITLE": "Original"]

@@ -33,6 +33,22 @@ private struct MetadataEditorRow: Identifiable, Hashable {
     }
 }
 
+struct MetadataTextUtilityPreviewRow: Identifiable, Hashable {
+    let targetID: AudioFile.ID
+    let fileName: String
+    let fieldKey: String
+    let currentValue: String
+    let previewValue: String
+
+    var id: String {
+        "\(targetID.uuidString):\(fieldKey)"
+    }
+
+    var changed: Bool {
+        currentValue != previewValue
+    }
+}
+
 private enum MetadataFieldEditorMode {
     case add
     case edit
@@ -54,6 +70,14 @@ private struct MetadataFieldEditorContext: Identifiable {
     }
 }
 
+private struct MetadataTextUtilitiesContext: Identifiable {
+    let fieldKeys: Set<String>
+
+    var id: String {
+        fieldKeys.sorted().joined(separator: "\u{1F}")
+    }
+}
+
 @MainActor
 final class MetadataEditorStore: ObservableObject {
     private struct LoadedState {
@@ -66,7 +90,7 @@ final class MetadataEditorStore: ObservableObject {
     @Published private(set) var draftPropertyMaps: [AudioFile.ID: [String: String]] = [:]
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var loadErrorMessage: String?
-    @Published var selectedFieldKey: String?
+    @Published var selectedFieldKeys: Set<String> = []
 
     private let metadataPipeline: any AudioMetadataPipeline
     private var loadToken = UUID()
@@ -107,6 +131,21 @@ final class MetadataEditorStore: ObservableObject {
         return "\(targets.count) selected files"
     }
 
+    var selectedFieldKey: String? {
+        get {
+            selectedFieldKeys.sorted {
+                $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+            }.first
+        }
+        set {
+            if let newValue {
+                selectedFieldKeys = [newValue]
+            } else {
+                selectedFieldKeys = []
+            }
+        }
+    }
+
     var selectionDetailText: String {
         if targets.count == 1, let target = targets.first {
             return target.url.path
@@ -123,7 +162,7 @@ final class MetadataEditorStore: ObservableObject {
         self.originalPropertyMaps = [:]
         self.draftPropertyMaps = [:]
         self.loadErrorMessage = nil
-        self.selectedFieldKey = nil
+        self.selectedFieldKeys = []
         self.isLoading = true
         self.loadToken = token
         let metadataPipeline = self.metadataPipeline
@@ -186,12 +225,67 @@ final class MetadataEditorStore: ObservableObject {
         selectedFieldKey = normalizedKey
     }
 
-    func deleteSelectedField() {
-        guard let selectedFieldKey else { return }
-        deleteField(named: selectedFieldKey)
+    func previewTextUtility(
+        pipeline: TextEditPipeline,
+        fieldKeys: Set<String>
+    ) -> [MetadataTextUtilityPreviewRow] {
+        guard !fieldKeys.isEmpty else { return [] }
+
+        let sortedKeys = fieldKeys.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+
+        return targets.flatMap { target in
+            sortedKeys.compactMap { key in
+                guard let currentValue = draftPropertyMaps[target.id]?[key] else { return nil }
+                return MetadataTextUtilityPreviewRow(
+                    targetID: target.id,
+                    fileName: target.fileName,
+                    fieldKey: key,
+                    currentValue: currentValue,
+                    previewValue: pipeline.applying(to: currentValue)
+                )
+            }
+        }
     }
 
-    func deleteField(named key: String) {
+    func applyTextUtility(
+        pipeline: TextEditPipeline,
+        fieldKeys: Set<String>
+    ) {
+        guard !fieldKeys.isEmpty else { return }
+
+        for target in targets {
+            var propertyMap = draftPropertyMaps[target.id] ?? [:]
+
+            for key in fieldKeys {
+                guard let currentValue = propertyMap[key] else { continue }
+                let nextValue = Self.normalizedFieldValue(pipeline.applying(to: currentValue))
+
+                if nextValue.isEmpty {
+                    propertyMap.removeValue(forKey: key)
+                } else {
+                    propertyMap[key] = nextValue
+                }
+            }
+
+            draftPropertyMaps[target.id] = propertyMap
+        }
+
+        realignSelection(preferred: selectedFieldKey)
+    }
+
+    func deleteSelectedField() {
+        guard !selectedFieldKeys.isEmpty else { return }
+
+        for key in selectedFieldKeys {
+            deleteField(named: key, realignAfterDelete: false)
+        }
+
+        realignSelection(preferred: nil)
+    }
+
+    func deleteField(named key: String, realignAfterDelete: Bool = true) {
         guard !key.isEmpty else { return }
 
         for target in targets {
@@ -200,16 +294,24 @@ final class MetadataEditorStore: ObservableObject {
             draftPropertyMaps[target.id] = propertyMap
         }
 
-        realignSelection(preferred: nil)
+        if realignAfterDelete {
+            realignSelection(preferred: nil)
+        }
     }
 
     private func realignSelection(preferred: String?) {
         let validKeys = Set(rows.map(\.key))
 
-        if let preferred, validKeys.contains(preferred) {
-            selectedFieldKey = preferred
+        let validSelection = selectedFieldKeys.intersection(validKeys)
+
+        if !validSelection.isEmpty {
+            selectedFieldKeys = validSelection
+        } else if let preferred, validKeys.contains(preferred) {
+            selectedFieldKeys = [preferred]
+        } else if let firstKey = rows.first?.key {
+            selectedFieldKeys = [firstKey]
         } else {
-            selectedFieldKey = rows.first?.key
+            selectedFieldKeys = []
         }
     }
 
@@ -259,6 +361,7 @@ struct MetadataEditorWindowView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var editorContext: MetadataFieldEditorContext?
+    @State private var utilityContext: MetadataTextUtilitiesContext?
     @State private var isApplyingChanges: Bool = false
 
     var body: some View {
@@ -283,6 +386,11 @@ struct MetadataEditorWindowView: View {
         .sheet(item: $editorContext) { context in
             MetadataFieldEntrySheet(context: context) { key, value in
                 store.upsertField(key: key, value: value)
+            }
+        }
+        .sheet(item: $utilityContext) { context in
+            MetadataTextUtilitiesSheet(store: store, fieldKeys: context.fieldKeys) {
+                utilityContext = nil
             }
         }
         .onDisappear {
@@ -345,7 +453,7 @@ struct MetadataEditorWindowView: View {
         } else {
             MetadataEditorTable(
                 rows: store.rows,
-                selectedFieldKey: $store.selectedFieldKey,
+                selectedFieldKeys: $store.selectedFieldKeys,
                 onEditField: {
                     editorContext = store.makeEditFieldContext()
                 },
@@ -370,7 +478,7 @@ struct MetadataEditorWindowView: View {
             Button("Edit Selected…") {
                 editorContext = store.makeEditFieldContext()
             }
-            .disabled(store.selectedFieldKey == nil || store.isLoading || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.count != 1 || store.isLoading || isApplyingChanges)
 
             Button("Add Field…") {
                 editorContext = store.makeAddFieldContext()
@@ -380,7 +488,12 @@ struct MetadataEditorWindowView: View {
             Button("Delete Field", role: .destructive) {
                 store.deleteSelectedField()
             }
-            .disabled(store.selectedFieldKey == nil || store.isLoading || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.isEmpty || store.isLoading || isApplyingChanges)
+
+            Button("Utilities…") {
+                utilityContext = MetadataTextUtilitiesContext(fieldKeys: store.selectedFieldKeys)
+            }
+            .disabled(store.selectedFieldKeys.isEmpty || store.isLoading || isApplyingChanges)
 
             Spacer()
 
@@ -417,6 +530,335 @@ struct MetadataEditorWindowView: View {
         await viewModel.applyRawMetadataPropertyMaps(store.draftPropertyMaps, to: store.targets)
         isApplyingChanges = false
         dismiss()
+    }
+}
+
+private enum MetadataTextUtilityOperation: String, CaseIterable, Identifiable {
+    case trimWhitespaceAndNewlines
+    case uppercase
+    case lowercase
+    case titleCase
+    case capitalizeFirstLetter
+    case sentenceCase
+    case addPrefix
+    case addSuffix
+    case findAndReplace
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .trimWhitespaceAndNewlines:
+            return "Trim Whitespace"
+        case .uppercase:
+            return "Uppercase"
+        case .lowercase:
+            return "Lowercase"
+        case .titleCase:
+            return "Title Case"
+        case .capitalizeFirstLetter:
+            return "Capitalize First Letter"
+        case .sentenceCase:
+            return "Sentence Case"
+        case .addPrefix:
+            return "Add Prefix"
+        case .addSuffix:
+            return "Add Suffix"
+        case .findAndReplace:
+            return "Find & Replace"
+        }
+    }
+}
+
+private struct MetadataTextUtilitiesSheet: View {
+    @ObservedObject var store: MetadataEditorStore
+
+    let fieldKeys: Set<String>
+    let onClose: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var operation: MetadataTextUtilityOperation = .trimWhitespaceAndNewlines
+    @State private var insertionText: String = ""
+    @State private var findText: String = ""
+    @State private var replacementText: String = ""
+    @State private var matchesCase: Bool = false
+    @State private var matchesWholeText: Bool = false
+
+    private var sortedFieldKeys: [String] {
+        fieldKeys.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+    }
+
+    private var pipeline: TextEditPipeline? {
+        switch operation {
+        case .trimWhitespaceAndNewlines:
+            return TextEditPipeline(steps: [.trimEdges(.whitespacesAndNewlines)])
+        case .uppercase:
+            return TextEditPipeline(steps: [.transformCase(.uppercase)])
+        case .lowercase:
+            return TextEditPipeline(steps: [.transformCase(.lowercase)])
+        case .titleCase:
+            return TextEditPipeline(steps: [.transformCase(.titleCase)])
+        case .capitalizeFirstLetter:
+            return TextEditPipeline(steps: [.transformCase(.capitalizeFirstLetter)])
+        case .sentenceCase:
+            return TextEditPipeline(steps: [.transformCase(.sentenceCase)])
+        case .addPrefix:
+            guard !insertionText.isEmpty else { return nil }
+            return TextEditPipeline(steps: [.insertText(insertionText, position: .prefix)])
+        case .addSuffix:
+            guard !insertionText.isEmpty else { return nil }
+            return TextEditPipeline(steps: [.insertText(insertionText, position: .suffix)])
+        case .findAndReplace:
+            guard !findText.isEmpty else { return nil }
+            return TextEditPipeline(steps: [
+                .replaceText(
+                    TextFindReplacement(
+                        findText: findText,
+                        replacementText: replacementText,
+                        options: TextFindReplacementOptions(
+                            matchesCase: matchesCase,
+                            matchesWholeText: matchesWholeText
+                        )
+                    )
+                )
+            ])
+        }
+    }
+
+    private var previewRows: [MetadataTextUtilityPreviewRow] {
+        guard let pipeline else { return [] }
+        return store.previewTextUtility(pipeline: pipeline, fieldKeys: fieldKeys)
+    }
+
+    private var changedPreviewRows: [MetadataTextUtilityPreviewRow] {
+        previewRows.filter(\.changed)
+    }
+
+    private var canApply: Bool {
+        pipeline != nil && !changedPreviewRows.isEmpty
+    }
+
+    private var previewSummary: String {
+        let fileCount = Set(previewRows.map(\.targetID)).count
+        let fieldCount = sortedFieldKeys.count
+        let changeCount = changedPreviewRows.count
+
+        return "\(changeCount) changes across \(fileCount) files and \(fieldCount) fields"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            header
+
+            HStack(alignment: .top, spacing: 18) {
+                controls
+                    .frame(width: 270, alignment: .topLeading)
+
+                preview
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            footer
+        }
+        .padding(20)
+        .frame(width: 980, height: 620)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Metadata Utilities")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Text("Apply a text utility to selected metadata fields. Fields missing from a file are skipped.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Operation")
+                    .font(.headline)
+
+                Picker("Operation", selection: $operation) {
+                    ForEach(MetadataTextUtilityOperation.allCases) { operation in
+                        Text(operation.title).tag(operation)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            operationFields
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Fields")
+                    .font(.headline)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(sortedFieldKeys, id: \.self) { key in
+                            Text(key)
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(10)
+                }
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+                )
+                .frame(minHeight: 110, maxHeight: 160)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var operationFields: some View {
+        switch operation {
+        case .addPrefix, .addSuffix:
+            VStack(alignment: .leading, spacing: 8) {
+                Text(operation == .addPrefix ? "Prefix" : "Suffix")
+                    .font(.headline)
+
+                TextField(operation == .addPrefix ? "Text to insert before value" : "Text to insert after value", text: $insertionText)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+        case .findAndReplace:
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Find")
+                        .font(.headline)
+                    TextField("Text to find", text: $findText)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Replace With")
+                        .font(.headline)
+                    TextField("Replacement text", text: $replacementText)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                Toggle("Match case", isOn: $matchesCase)
+                Toggle("Match whole value", isOn: $matchesWholeText)
+            }
+
+        default:
+            EmptyView()
+        }
+    }
+
+    private var preview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Preview")
+                    .font(.headline)
+
+                Spacer()
+
+                Text(previewSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    previewHeader
+
+                    ForEach(previewRows) { row in
+                        MetadataTextUtilityPreviewRowView(row: row)
+                    }
+                }
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+            )
+        }
+    }
+
+    private var previewHeader: some View {
+        Grid(horizontalSpacing: 10, verticalSpacing: 0) {
+            GridRow {
+                Text("File")
+                Text("Field")
+                Text("Current")
+                Text("Preview")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private var footer: some View {
+        HStack {
+            Spacer()
+
+            Button("Cancel") {
+                dismiss()
+                onClose()
+            }
+
+            Button("Apply") {
+                if let pipeline {
+                    store.applyTextUtility(pipeline: pipeline, fieldKeys: fieldKeys)
+                }
+                dismiss()
+                onClose()
+            }
+            .keyboardShortcut(.defaultAction)
+            .disabled(!canApply)
+        }
+    }
+}
+
+private struct MetadataTextUtilityPreviewRowView: View {
+    let row: MetadataTextUtilityPreviewRow
+
+    var body: some View {
+        Grid(horizontalSpacing: 10, verticalSpacing: 0) {
+            GridRow {
+                previewCell(row.fileName, font: .body, color: .primary)
+                previewCell(row.fieldKey, font: .system(size: 12, weight: .medium, design: .monospaced), color: .primary)
+                previewCell(row.currentValue, font: .system(size: 12, design: .monospaced), color: .secondary)
+                previewCell(row.previewValue, font: .system(size: 12, design: .monospaced), color: row.changed ? .primary : .secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(row.changed ? Color.clear : Color(nsColor: .controlBackgroundColor).opacity(0.35))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor).opacity(0.35))
+                .frame(height: 1)
+        }
+    }
+
+    private func previewCell(_ text: String, font: Font, color: Color) -> some View {
+        Text(text.isEmpty ? " " : text)
+            .font(font)
+            .foregroundStyle(color)
+            .lineLimit(3)
+            .truncationMode(.tail)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -1070,7 +1512,7 @@ private final class MetadataFieldSuggestionCellView: NSTableCellView {
 
 private struct MetadataEditorTable: NSViewRepresentable {
     let rows: [MetadataEditorRow]
-    @Binding var selectedFieldKey: String?
+    @Binding var selectedFieldKeys: Set<String>
     let onEditField: () -> Void
     let onDeleteField: (String) -> Void
 
@@ -1127,7 +1569,7 @@ extension MetadataEditorTable {
             tableView.dataSource = self
             tableView.headerView = NSTableHeaderView()
             tableView.usesAlternatingRowBackgroundColors = false
-            tableView.allowsMultipleSelection = false
+            tableView.allowsMultipleSelection = true
             tableView.allowsEmptySelection = true
             tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
             tableView.selectionHighlightStyle = .regular
@@ -1210,16 +1652,12 @@ extension MetadataEditorTable {
         func tableViewSelectionDidChange(_ notification: Notification) {
             guard !isApplyingSelection, let tableView else { return }
 
-            let selectedRow = tableView.selectedRow
-            let newSelection: String?
-            if selectedRow >= 0, selectedRow < currentRows.count {
-                newSelection = currentRows[selectedRow].key
-            } else {
-                newSelection = nil
-            }
+            let newSelection = Set(tableView.selectedRowIndexes.compactMap { row in
+                row >= 0 && row < currentRows.count ? currentRows[row].key : nil
+            })
 
-            if parent.selectedFieldKey != newSelection {
-                parent.selectedFieldKey = newSelection
+            if parent.selectedFieldKeys != newSelection {
+                parent.selectedFieldKeys = newSelection
             }
         }
 
@@ -1260,8 +1698,8 @@ extension MetadataEditorTable {
             }
 
             let key = currentRows[tableView.clickedRow].key
-            if parent.selectedFieldKey != key {
-                parent.selectedFieldKey = key
+            if parent.selectedFieldKeys != [key] {
+                parent.selectedFieldKeys = [key]
                 syncSelection(on: tableView)
             }
             parent.onEditField()
@@ -1271,9 +1709,9 @@ extension MetadataEditorTable {
             guard row >= 0, row < currentRows.count else { return }
 
             let key = currentRows[row].key
-            guard parent.selectedFieldKey != key else { return }
+            guard !parent.selectedFieldKeys.contains(key) else { return }
 
-            parent.selectedFieldKey = key
+            parent.selectedFieldKeys = [key]
             if let tableView {
                 syncSelection(on: tableView)
             }
@@ -1286,16 +1724,16 @@ extension MetadataEditorTable {
 
         @objc
         private func deleteSelectedFieldAction() {
-            guard let key = parent.selectedFieldKey else { return }
+            guard let key = parent.selectedFieldKeys.sorted().first else { return }
             parent.onDeleteField(key)
         }
 
         func menuNeedsUpdate(_ menu: NSMenu) {
-            let hasSelection = parent.selectedFieldKey != nil
+            let hasSingleSelection = parent.selectedFieldKeys.count == 1
             for item in menu.items {
                 switch item.action {
                 case #selector(editSelectedFieldAction), #selector(deleteSelectedFieldAction):
-                    item.isEnabled = hasSelection
+                    item.isEnabled = hasSingleSelection
                 default:
                     break
                 }
@@ -1347,7 +1785,7 @@ extension MetadataEditorTable {
         private func syncSelection(on tableView: NSTableView) {
             let selectedIndexes = IndexSet(
                 currentRows.enumerated().compactMap { index, row in
-                    row.key == parent.selectedFieldKey ? index : nil
+                    parent.selectedFieldKeys.contains(row.key) ? index : nil
                 }
             )
 

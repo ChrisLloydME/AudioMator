@@ -91,6 +91,55 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    func testDeleteSelectedFieldRemovesMultipleSelectedFields() async throws {
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let store = MetadataEditorStore(
+            metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
+                file.url: ["ALBUM": "Album", "ARTIST": "Artist", "TITLE": "Title"]
+            ])
+        )
+
+        store.present(targetFiles: [file])
+        try await waitUntilLoaded(store)
+        store.selectedFieldKeys = ["ALBUM", "ARTIST"]
+
+        store.deleteSelectedField()
+
+        XCTAssertEqual(store.draftPropertyMaps[file.id], ["TITLE": "Title"])
+        XCTAssertEqual(store.selectedFieldKey, "TITLE")
+        XCTAssertTrue(store.hasUnsavedChanges)
+    }
+
+    func testTextUtilityPreviewAndApplySupportMultipleFilesAndFields() async throws {
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let store = MetadataEditorStore(
+            metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
+                firstFile.url: ["TITLE": " first ", "ARTIST": " artist "],
+                secondFile.url: ["TITLE": " second ", "ARTIST": " artist "]
+            ])
+        )
+        let pipeline = TextEditPipeline(steps: [
+            .trimEdges(.whitespacesAndNewlines),
+            .transformCase(.titleCase)
+        ])
+
+        store.present(targetFiles: [firstFile, secondFile])
+        try await waitUntilLoaded(store)
+
+        let preview = store.previewTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
+        XCTAssertEqual(preview.count, 4)
+        XCTAssertTrue(preview.contains { $0.fieldKey == "TITLE" && $0.currentValue == " first " && $0.previewValue == "First" })
+
+        store.applyTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
+
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["TITLE"], "First")
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["ARTIST"], "Artist")
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["TITLE"], "Second")
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["ARTIST"], "Artist")
+        XCTAssertTrue(store.hasUnsavedChanges)
+    }
+
     func testDiscardChangesRestoresOriginalMaps() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
         let originalMap = ["TITLE": "Original"]

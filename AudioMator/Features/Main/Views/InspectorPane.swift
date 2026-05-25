@@ -39,48 +39,6 @@ struct InspectorPane: View {
         viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
     }
 
-    private var inspectorQuickPreview: String {
-        renderedPreview(from: inspectorQuickText)
-    }
-
-    private var inspectorQuickCharacterCount: Int {
-        inspectorQuickText.count
-    }
-
-    private var inspectorQuickLineCount: Int {
-        max(inspectorQuickText.split(separator: "\n", omittingEmptySubsequences: false).count, 1)
-    }
-
-    private var previewFont: PlatformFont {
-        PlatformFont(name: "Menlo-Regular", size: 13) ??
-            PlatformFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-    }
-
-    private func renderedPreview(from text: String) -> String {
-        guard !text.isEmpty else { return "" }
-
-        var rendered = ""
-        for scalar in text.unicodeScalars {
-            switch scalar {
-            case " ":
-                rendered.append("·")
-            case "\t":
-                rendered.append("⇥")
-            case "\n":
-                rendered.append("↩")
-                rendered.append("\n")
-            case "\r":
-                rendered.append("␍")
-            case "\u{00A0}":
-                rendered.append("⍽")
-            default:
-                rendered.unicodeScalars.append(scalar)
-            }
-        }
-
-        return rendered
-    }
-
     private func binding(
         for file: AudioFile,
         keyPath: WritableKeyPath<SingleFileEditModel, String>
@@ -289,104 +247,43 @@ struct InspectorPane: View {
         .sheet(isPresented: $isInspectorQuickPresented) {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Edit \(inspectorQuickLabel)")
-                        .font(.title2)
+                    Text("Edit Metadata Field")
+                        .font(.title3)
                         .fontWeight(.semibold)
 
-                    Text("Edit the original text on the left. Preview hidden characters on the right.")
+                    Text("Update the selected metadata field for every file in the current selection.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label("Source", systemImage: "square.and.pencil")
-                                .font(.headline)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Field")
+                        .font(.headline)
 
-                            Spacer()
-
-                            Text("\(inspectorQuickCharacterCount) chars · \(inspectorQuickLineCount) lines")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        ZStack(alignment: .topLeading) {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color.primary.opacity(0.035))
-
-                            TextEditor(text: $inspectorQuickText)
-                                .scrollContentBackground(.hidden)
-                                .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-                                .font(.system(size: 14, weight: .regular, design: .monospaced))
-                                .foregroundStyle(.primary.opacity(0.82))
-                                .padding(10)
-
-                            if inspectorQuickText.isEmpty {
-                                Text("Type or paste text")
-                                    .foregroundStyle(.secondary)
-                                    .font(.system(size: 14, weight: .regular, design: .monospaced))
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 18)
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-                        )
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label("Preview", systemImage: "text.magnifyingglass")
-                                .font(.headline)
-
-                            Spacer()
-
-                            Text("· space  ⇥ tab  ↩ newline  ⍽ nbsp")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        ZStack(alignment: .topLeading) {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.accentColor.opacity(0.12),
-                                            Color.primary.opacity(0.06)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-
-                            ReadOnlyMonospacedTextView(
-                                text: inspectorQuickPreview,
-                                font: previewFont,
-                                textColor: .audiomatorLabel
-                            )
-                            .padding(1)
-
-                            if inspectorQuickText.isEmpty {
-                                Text("Preview updates as you type.")
-                                    .foregroundStyle(.secondary)
-                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 14)
-                                    .allowsHitTesting(false)
-                            }
-                        }
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
-                        )
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    Text(inspectorQuickLabel)
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxHeight: .infinity)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text("Value")
+                            .font(.headline)
+
+                        Spacer()
+
+                        Text("Hidden characters are shown while editing.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    MetadataFieldValueEditor(
+                        text: $inspectorQuickText,
+                        placeholder: "Enter the metadata value"
+                    )
+                }
 
                 HStack {
                     Spacer()
@@ -401,7 +298,7 @@ struct InspectorPane: View {
                 }
             }
             .padding(20)
-            .frame(width: 860, height: 420)
+            .frame(width: 860, height: 540)
         }
         .sheet(item: artworkLookupSessionBinding) { _ in
             AlbumArtworkLookupSheet(viewModel: viewModel)

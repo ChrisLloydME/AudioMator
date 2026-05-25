@@ -555,9 +555,9 @@ private enum MetadataTextUtilityOperation: String, CaseIterable, Identifiable {
         case .lowercase:
             return "Lowercase"
         case .titleCase:
-            return "Title Case"
+            return "Capitalize Each Word"
         case .capitalizeFirstLetter:
-            return "Capitalize First Letter"
+            return "Capitalize Value Start"
         case .sentenceCase:
             return "Sentence Case"
         case .addPrefix:
@@ -566,6 +566,29 @@ private enum MetadataTextUtilityOperation: String, CaseIterable, Identifiable {
             return "Add Suffix"
         case .findAndReplace:
             return "Find & Replace"
+        }
+    }
+
+    var detailText: String {
+        switch self {
+        case .trimWhitespaceAndNewlines:
+            return "Remove whitespace and newlines from the beginning and end of each selected value."
+        case .uppercase:
+            return "Convert all letters in each selected value to uppercase."
+        case .lowercase:
+            return "Convert all letters in each selected value to lowercase."
+        case .titleCase:
+            return "Capitalize the first letter of every word. This does not apply special title-style rules for articles or prepositions."
+        case .capitalizeFirstLetter:
+            return "Capitalize only the first letter found in the value and leave the rest unchanged."
+        case .sentenceCase:
+            return "Lowercase the value, then capitalize only the first letter found in it."
+        case .addPrefix:
+            return "Insert text before each selected value."
+        case .addSuffix:
+            return "Insert text after each selected value."
+        case .findAndReplace:
+            return "Replace matching text inside each selected value."
         }
     }
 }
@@ -649,38 +672,37 @@ private struct MetadataTextUtilitiesSheet: View {
         return "\(changeCount) changes across \(fileCount) files and \(fieldCount) fields"
     }
 
+    private var selectedFieldsText: String {
+        sortedFieldKeys.joined(separator: ", ")
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             header
-
-            HStack(alignment: .top, spacing: 18) {
-                controls
-                    .frame(width: 270, alignment: .topLeading)
-
-                preview
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-
+            controls
+            selectedFields
+            preview
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             footer
         }
         .padding(20)
-        .frame(width: 980, height: 620)
+        .frame(width: 900, height: 640)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Metadata Utilities")
+            Text("Text Transform")
                 .font(.title3)
                 .fontWeight(.semibold)
 
-            Text("Apply a text utility to selected metadata fields. Fields missing from a file are skipped.")
+            Text("Apply a text transform to selected metadata values. Fields missing from a file are skipped.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }
 
     private var controls: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Operation")
                     .font(.headline)
@@ -695,31 +717,31 @@ private struct MetadataTextUtilitiesSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
+            Text(operation.detailText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             operationFields
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Fields")
-                    .font(.headline)
+    private var selectedFields: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Selected Fields")
+                .font(.headline)
 
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(sortedFieldKeys, id: \.self) { key in
-                            Text(key)
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(10)
-                }
-                .background(Color(nsColor: .textBackgroundColor))
+            Text(selectedFieldsText)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(Color(nsColor: .controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
-                )
-                .frame(minHeight: 110, maxHeight: 160)
-            }
         }
     }
 
@@ -773,12 +795,28 @@ private struct MetadataTextUtilitiesSheet: View {
                     .foregroundStyle(.secondary)
             }
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    previewHeader
+            ScrollView([.vertical, .horizontal]) {
+                Grid(horizontalSpacing: 10, verticalSpacing: 0) {
+                    GridRow {
+                        previewHeaderCell("File")
+                            .gridColumnAlignment(.leading)
+                            .frame(width: 150, alignment: .leading)
+                        previewHeaderCell("Field")
+                            .gridColumnAlignment(.leading)
+                            .frame(width: 150, alignment: .leading)
+                        previewHeaderCell("Current")
+                            .gridColumnAlignment(.leading)
+                            .frame(width: 230, alignment: .leading)
+                        previewHeaderCell("Preview")
+                            .gridColumnAlignment(.leading)
+                            .frame(width: 230, alignment: .leading)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(nsColor: .controlBackgroundColor))
 
                     ForEach(previewRows) { row in
-                        MetadataTextUtilityPreviewRowView(row: row)
+                        MetadataTextUtilityPreviewGridRow(row: row)
                     }
                 }
             }
@@ -791,20 +829,10 @@ private struct MetadataTextUtilitiesSheet: View {
         }
     }
 
-    private var previewHeader: some View {
-        Grid(horizontalSpacing: 10, verticalSpacing: 0) {
-            GridRow {
-                Text("File")
-                Text("Field")
-                Text("Current")
-                Text("Preview")
-            }
+    private func previewHeaderCell(_ text: String) -> some View {
+        Text(text)
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private var footer: some View {
@@ -829,17 +857,19 @@ private struct MetadataTextUtilitiesSheet: View {
     }
 }
 
-private struct MetadataTextUtilityPreviewRowView: View {
+private struct MetadataTextUtilityPreviewGridRow: View {
     let row: MetadataTextUtilityPreviewRow
 
     var body: some View {
-        Grid(horizontalSpacing: 10, verticalSpacing: 0) {
-            GridRow {
-                previewCell(row.fileName, font: .body, color: .primary)
-                previewCell(row.fieldKey, font: .system(size: 12, weight: .medium, design: .monospaced), color: .primary)
-                previewCell(row.currentValue, font: .system(size: 12, design: .monospaced), color: .secondary)
-                previewCell(row.previewValue, font: .system(size: 12, design: .monospaced), color: row.changed ? .primary : .secondary)
-            }
+        GridRow {
+            previewCell(row.fileName, font: .body, color: .primary)
+                .frame(width: 150, alignment: .leading)
+            previewCell(row.fieldKey, font: .system(size: 12, weight: .medium, design: .monospaced), color: .primary)
+                .frame(width: 150, alignment: .leading)
+            previewCell(row.currentValue, font: .system(size: 12, design: .monospaced), color: .secondary)
+                .frame(width: 230, alignment: .leading)
+            previewCell(row.previewValue, font: .system(size: 12, design: .monospaced), color: row.changed ? .primary : .secondary)
+                .frame(width: 230, alignment: .leading)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

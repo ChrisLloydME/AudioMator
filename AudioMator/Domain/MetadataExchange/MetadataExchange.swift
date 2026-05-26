@@ -651,8 +651,7 @@ enum MetadataExchangePlanner {
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
         let matcher = MetadataExchangeTextMatcher(document: document)
         let parsedRecords = records.enumerated().map { index, record in
@@ -696,12 +695,41 @@ enum MetadataExchangePlanner {
         }
 
         let dataRows = firstRowIsHeader && !parsedCSV.isEmpty ? Array(parsedCSV.dropFirst()) : parsedCSV
+        guard !dataRows.isEmpty else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("Add at least one CSV data row to import."),
+                rows: []
+            )
+        }
+
+        guard dataRows.contains(where: isUsableCSVDataRow) else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("Add at least one CSV data row with values to import."),
+                rows: []
+            )
+        }
+
         let parsedRecords = dataRows.enumerated().map { index, cells in
-            let captures = captures(from: cells, columns: result.columns)
-            let extraCount = max(0, cells.count - result.columns.count)
             let displayText = cells.map { $0.replacingOccurrences(of: "\n", with: " ") }.joined(separator: " | ")
-            let issue = extraCount > 0 ? "\(extraCount) extra CSV column(s) ignored." : nil
-            return ParsedExternalRecord(index: index, displayText: displayText, captures: .success(captures), warning: issue)
+            if cells.count < result.columns.count {
+                let missingCount = result.columns.count - cells.count
+                return ParsedExternalRecord(
+                    index: index,
+                    displayText: displayText,
+                    captures: .failure("\(missingCount) missing CSV column(s).")
+                )
+            }
+            if cells.count > result.columns.count {
+                let extraCount = cells.count - result.columns.count
+                return ParsedExternalRecord(
+                    index: index,
+                    displayText: displayText,
+                    captures: .failure("\(extraCount) extra CSV column(s).")
+                )
+            }
+
+            let captures = captures(from: cells, columns: result.columns)
+            return ParsedExternalRecord(index: index, displayText: displayText, captures: .success(captures))
         }
 
         return makeImportPlan(
@@ -797,14 +825,13 @@ enum MetadataExchangePlanner {
         var captures: [MetadataExchangeField: String] = [:]
         for (index, field) in columns.enumerated() {
             guard field != .ignore else { continue }
-            let value = index < cells.count ? cells[index].trimmingCharacters(in: .whitespacesAndNewlines) : ""
-            if let existing = captures[field], existing != value {
-                captures[field] = value
-            } else {
-                captures[field] = value
-            }
+            captures[field] = cells[index].trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return captures
+    }
+
+    nonisolated private static func isUsableCSVDataRow(_ cells: [String]) -> Bool {
+        cells.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private static func makeImportPlan(
@@ -992,7 +1019,9 @@ enum MetadataExchangePlanner {
     }
 
     private static func matchingKey(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
     private static func makeImportRow(
@@ -1269,7 +1298,7 @@ enum MetadataExchangeCSV {
                 fieldHasContent = false
                 didCloseQuotedField = false
                 index = text.index(after: index)
-            case "\n":
+            case "\n", "\r\n":
                 row.append(field)
                 rows.append(row)
                 row = []

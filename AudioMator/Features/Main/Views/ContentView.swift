@@ -583,37 +583,42 @@ private struct MetadataWriteHUDView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let hud: MetadataWriteHUD
+    private let cornerRadius: CGFloat = 26
 
     var body: some View {
-        GlassEffectContainer(spacing: 14) {
-            VStack(spacing: 12) {
-                MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
+        VStack(spacing: 12) {
+            MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
 
-                VStack(spacing: 4) {
-                    Text(hud.title)
-                        .font(.system(size: 19, weight: .semibold))
-                        .foregroundStyle(.primary)
+            VStack(spacing: 4) {
+                Text(hud.title)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(.primary)
 
-                    Text(hud.subtitle)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(4)
-                        .multilineTextAlignment(.center)
-                }
+                Text(hud.subtitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(4)
+                    .multilineTextAlignment(.center)
             }
-            .frame(width: 320)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 18)
-            .glassEffect(.regular, in: .rect(cornerRadius: 26.0))
-            .shadow(color: shadowColor, radius: 22, x: 0, y: 14)
+        }
+        .frame(width: 320)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 18)
+        .background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.regularMaterial)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(borderColor, lineWidth: 1)
         }
         .allowsHitTesting(false)
     }
 
-    private var shadowColor: Color {
+    private var borderColor: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.30)
-            : Color.black.opacity(0.14)
+            ? Color.white.opacity(0.10)
+            : Color.white.opacity(0.55)
     }
 }
 
@@ -671,6 +676,8 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
         private func createPanel() {
             let hostingController = NSHostingController(rootView: MetadataWriteHUDScreenRoot.empty)
             hostingController.view.wantsLayer = true
+            hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
+            hostingController.view.layer?.isOpaque = false
 
             let panel = NSPanel(
                 contentRect: .zero,
@@ -752,6 +759,7 @@ private struct MetadataWriteHUDScreenRoot: View {
             }
         }
         .fixedSize()
+        .background(Color.clear)
     }
 }
 #endif

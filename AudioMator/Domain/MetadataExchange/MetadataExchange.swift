@@ -468,6 +468,7 @@ struct MetadataCSVExportPlan {
     let columns: [MetadataExchangeField]
     let rows: [[String]]
     let includeHeaderRow: Bool
+    let delimiter: Character
 
     var outputText: String {
         var outputRows: [[String]] = []
@@ -475,7 +476,7 @@ struct MetadataCSVExportPlan {
             outputRows.append(columns.map(\.displayName))
         }
         outputRows.append(contentsOf: rows)
-        return MetadataExchangeCSV.serialize(outputRows)
+        return MetadataExchangeCSV.serialize(outputRows, delimiter: delimiter)
     }
 
     var canExport: Bool {
@@ -617,7 +618,8 @@ enum MetadataExchangePlanner {
                 validationMessage: validationMessage,
                 columns: result.columns,
                 rows: [],
-                includeHeaderRow: includeHeaderRow
+                includeHeaderRow: includeHeaderRow,
+                delimiter: result.delimiter
             )
         }
 
@@ -632,7 +634,8 @@ enum MetadataExchangePlanner {
             validationMessage: nil,
             columns: result.columns,
             rows: rows,
-            includeHeaderRow: includeHeaderRow
+            includeHeaderRow: includeHeaderRow,
+            delimiter: result.delimiter
         )
     }
 
@@ -686,7 +689,7 @@ enum MetadataExchangePlanner {
 
         let parsedCSV: [[String]]
         do {
-            parsedCSV = try MetadataExchangeCSV.parse(sourceText)
+            parsedCSV = try MetadataExchangeCSV.parse(sourceText, delimiter: result.delimiter)
         } catch {
             return MetadataExchangeImportPlan(
                 validationMessage: (error as NSError).localizedDescription,
@@ -740,27 +743,28 @@ enum MetadataExchangePlanner {
         )
     }
 
-    static func parseCSVColumnTemplate(_ template: String) -> (columns: [MetadataExchangeField], validationMessage: String?) {
+    static func parseCSVColumnTemplate(_ template: String) -> (columns: [MetadataExchangeField], delimiter: Character, validationMessage: String?) {
         let trimmed = template.trimmingCharacters(in: .whitespacesAndNewlines)
+        let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         guard !trimmed.isEmpty else {
-            return ([], L10n.string("Enter a comma-separated column template."))
+            return ([], delimiter, L10n.string("Enter a comma- or tab-separated column template."))
         }
 
         do {
-            let rows = try MetadataExchangeCSV.parse(trimmed)
+            let rows = try MetadataExchangeCSV.parse(trimmed, delimiter: delimiter)
             guard rows.count == 1, let row = rows.first, !row.isEmpty else {
-                return ([], L10n.string("Enter a single CSV template row."))
+                return ([], delimiter, L10n.string("Enter a single CSV template row."))
             }
 
             var columns: [MetadataExchangeField] = []
             var seenFields = Set<MetadataExchangeField>()
             for cell in row {
                 guard let field = MetadataExchangeField.field(forExactToken: cell) else {
-                    return (columns, "Each CSV template column must be one supported field token, such as {{title}}.")
+                    return (columns, delimiter, "Each CSV template column must be one supported field token, such as {{title}}.")
                 }
 
                 if field != .ignore, seenFields.contains(field) {
-                    return (columns, "Use each CSV field at most once so imported values cannot conflict.")
+                    return (columns, delimiter, "Use each CSV field at most once so imported values cannot conflict.")
                 }
 
                 seenFields.insert(field)
@@ -768,16 +772,16 @@ enum MetadataExchangePlanner {
             }
 
             if columns.contains(.fileName), columns.contains(.baseName) {
-                return (columns, "Use either {{fileName}} or {{baseName}} for matching, not both.")
+                return (columns, delimiter, "Use either {{fileName}} or {{baseName}} for matching, not both.")
             }
 
             guard columns.contains(where: { $0 != .ignore }) else {
-                return (columns, L10n.string("Add at least one output field to the CSV template."))
+                return (columns, delimiter, L10n.string("Add at least one output field to the CSV template."))
             }
 
-            return (columns, nil)
+            return (columns, delimiter, nil)
         } catch {
-            return ([], (error as NSError).localizedDescription)
+            return ([], delimiter, (error as NSError).localizedDescription)
         }
     }
 
@@ -1241,7 +1245,11 @@ private struct MetadataExchangeTextMatcher {
 }
 
 enum MetadataExchangeCSV {
-    static func parse(_ source: String) throws -> [[String]] {
+    static func detectDelimiter(in source: String) -> Character {
+        source.contains("\t") ? "\t" : ","
+    }
+
+    static func parse(_ source: String, delimiter: Character = ",") throws -> [[String]] {
         var text = source
         if text.hasPrefix("\u{FEFF}") {
             text.removeFirst()
@@ -1292,7 +1300,7 @@ enum MetadataExchangeCSV {
                 fieldHasContent = true
                 didCloseQuotedField = false
                 index = text.index(after: index)
-            case ",":
+            case delimiter:
                 row.append(field)
                 field = ""
                 fieldHasContent = false
@@ -1354,14 +1362,14 @@ enum MetadataExchangeCSV {
         return rows
     }
 
-    nonisolated static func serialize(_ rows: [[String]]) -> String {
+    nonisolated static func serialize(_ rows: [[String]], delimiter: Character = ",") -> String {
         rows
-            .map { row in row.map(escape).joined(separator: ",") }
+            .map { row in row.map { escape($0, delimiter: delimiter) }.joined(separator: String(delimiter)) }
             .joined(separator: "\r\n")
     }
 
-    nonisolated private static func escape(_ value: String) -> String {
-        guard value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") else {
+    nonisolated private static func escape(_ value: String, delimiter: Character) -> String {
+        guard value.contains(delimiter) || value.contains("\"") || value.contains("\n") || value.contains("\r") else {
             return value
         }
 

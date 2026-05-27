@@ -64,6 +64,21 @@ final class MetadataExchangeTests: XCTestCase {
         )
     }
 
+    func testDelimitedParserHandlesTabSeparatedMusicStyleExport() throws {
+        let source = [
+            "Name\tArtist\tComposer\tAlbum\tGrouping\tGenre\tDisc Number\tDisc Count\tTrack Number\tTrack Count\tYear\tComments",
+            "Example Song\tExample Artist\tExample Composer\tExample Album\t\tPop\t1\t2\t3\t12\t2026\tExample Comment"
+        ].joined(separator: "\r")
+
+        XCTAssertEqual(
+            try MetadataExchangeCSV.parse(source, delimiter: "\t"),
+            [
+                ["Name", "Artist", "Composer", "Album", "Grouping", "Genre", "Disc Number", "Disc Count", "Track Number", "Track Count", "Year", "Comments"],
+                ["Example Song", "Example Artist", "Example Composer", "Example Album", "", "Pop", "1", "2", "3", "12", "2026", "Example Comment"]
+            ]
+        )
+    }
+
     func testCSVParserHandlesEmptyInputAndTrailingEmptyFields() throws {
         XCTAssertEqual(try MetadataExchangeCSV.parse(""), [])
         XCTAssertEqual(try MetadataExchangeCSV.parse(","), [["", ""]])
@@ -80,6 +95,11 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(
             MetadataExchangeCSV.serialize([["Plain", "A, B", "C\"D", "Line\nBreak"]]),
             "Plain,\"A, B\",\"C\"\"D\",\"Line\nBreak\""
+        )
+
+        XCTAssertEqual(
+            MetadataExchangeCSV.serialize([["Plain", "A\tB"]], delimiter: "\t"),
+            "Plain\t\"A\tB\""
         )
     }
 
@@ -131,6 +151,51 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertNil(extraPlan.validationMessage)
         XCTAssertEqual(extraPlan.rows[0].status, .parseError)
         XCTAssertNil(extraPlan.rows[0].writeEntry)
+    }
+
+    func testCSVImportSupportsTabDelimitedTemplatesWithIgnoredColumns() throws {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/example.m4a")
+        )
+        let template = [
+            "{{title}}",
+            "{{artist}}",
+            "{{composer}}",
+            "{{album}}",
+            "{{_ignore}}",
+            "{{genre}}",
+            "{{discNumber}}",
+            "{{_ignore}}",
+            "{{trackNumber}}",
+            "{{_ignore}}",
+            "{{year}}",
+            "{{comment}}"
+        ].joined(separator: "\t")
+        let source = [
+            "Name\tArtist\tComposer\tAlbum\tGrouping\tGenre\tDisc Number\tDisc Count\tTrack Number\tTrack Count\tYear\tComments",
+            "Example Song\tExample Artist\tExample Composer\tExample Album\t\tPop\t1\t2\t3\t12\t2026\tExample Comment"
+        ].joined(separator: "\r")
+
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: template,
+            sourceText: source,
+            firstRowIsHeader: true,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertEqual(plan.rows[0].status, .ready)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        XCTAssertEqual(values[.title], "Example Song")
+        XCTAssertEqual(values[.artist], "Example Artist")
+        XCTAssertEqual(values[.composer], "Example Composer")
+        XCTAssertEqual(values[.album], "Example Album")
+        XCTAssertEqual(values[.genre], "Pop")
+        XCTAssertEqual(values[.discNumber], "1")
+        XCTAssertEqual(values[.trackNumber], "3")
+        XCTAssertEqual(values[.year], "2026")
+        XCTAssertEqual(values[.comment], "Example Comment")
     }
 
     func testCSVImportBlankCellsOnlyClearWhenEnabled() throws {

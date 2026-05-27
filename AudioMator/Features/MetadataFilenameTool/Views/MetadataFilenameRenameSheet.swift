@@ -800,9 +800,9 @@ struct MetadataFilenameWindowView: View {
         case .textToMetadata:
             return L10n.string("Each non-empty text line is parsed as one record. Include fileName or baseName to match by filename, otherwise records map in selection order.")
         case .metadataToCSV:
-            return L10n.string("The column template is one CSV row of field tokens. AudioMator escapes commas, quotes, newlines, and empty fields.")
+            return L10n.string("The column template is one delimited row of field tokens. Use commas for CSV or tabs for tab-delimited text.")
         case .csvToMetadata:
-            return L10n.string("The column template maps CSV cells to fields. Include fileName or baseName to match rows by filename, otherwise rows map in selection order.")
+            return L10n.string("The column template maps delimited cells to fields. Include fileName or baseName to match rows by filename, otherwise rows map in selection order.")
         case .metadataToFilename, .filenameToMetadata:
             return ""
         }

@@ -51,6 +51,14 @@ enum NetworkServiceDisclosure {
     }
 
     enum SoftwareUpdates {
-        static let host = "chrislloydme.github.io"
+        static let host = "api.github.com"
+        static let releasesPageHost = "github.com"
+
+        static let domains = [
+            host,
+            releasesPageHost
+        ]
+
+        static let sentDataSummary = "Update checks request AudioMator release/version metadata from GitHub Releases. No audio file content is sent."
     }
 }

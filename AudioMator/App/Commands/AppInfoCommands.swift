@@ -13,6 +13,14 @@ struct AppInfoCommands: Commands {
                 Label("About AudioMator", systemImage: "info.circle")
             }
         }
+
+        CommandGroup(after: .appInfo) {
+            Button {
+                UpdateCheckPresenter.shared.checkForUpdates()
+            } label: {
+                Label("Check for Updates…", systemImage: "arrow.down.circle")
+            }
+        }
     }
 }
 #endif

@@ -19,6 +19,7 @@ struct AudioMatorApp: App {
     @StateObject private var viewModel: AudioViewModel
     @StateObject private var sharedState: SharedState
     @StateObject private var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @StateObject private var lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore
     @StateObject private var metadataFilenameToolStore: MetadataFilenameToolStore
     @StateObject private var metadataEditorStore: MetadataEditorStore
 
@@ -30,6 +31,7 @@ struct AudioMatorApp: App {
         )
         _sharedState = StateObject(wrappedValue: SharedState())
         _musicBrainzBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
+        _lrclibLyricsBrowserStore = StateObject(wrappedValue: LRCLIBLyricsBrowserStore())
         _metadataFilenameToolStore = StateObject(wrappedValue: MetadataFilenameToolStore())
         _metadataEditorStore = StateObject(
             wrappedValue: MetadataEditorStore(metadataPipeline: metadataPipeline)
@@ -43,6 +45,7 @@ struct AudioMatorApp: App {
                 viewModel: viewModel,
                 state: sharedState,
                 musicBrainzBrowserStore: musicBrainzBrowserStore,
+                lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
                 metadataFilenameToolStore: metadataFilenameToolStore,
                 metadataEditorStore: metadataEditorStore,
                 metadataPipeline: metadataPipeline
@@ -74,6 +77,7 @@ struct AudioMatorApp: App {
         Window(AppWindowTitle.onlineMetadataKey, id: MusicBrainzBrowserView.windowID) {
             MusicBrainzBrowserView(
                 store: musicBrainzBrowserStore,
+                lrclibStore: lrclibLyricsBrowserStore,
                 viewModel: viewModel
             )
             .audiomatorMacWindowChrome()
@@ -103,6 +107,7 @@ struct AudioMatorApp: App {
                 viewModel: viewModel,
                 state: sharedState,
                 musicBrainzBrowserStore: musicBrainzBrowserStore,
+                lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
                 metadataFilenameToolStore: metadataFilenameToolStore,
                 metadataEditorStore: metadataEditorStore,
                 metadataPipeline: metadataPipeline

@@ -138,6 +138,7 @@ Network access happens only when you explicitly use an online feature:
 
 - MusicBrainz lookup and tagging contacts `musicbrainz.org`.
 - iTunes metadata and artwork lookup contacts the Apple iTunes Search API at `itunes.apple.com` and Apple artwork CDN hosts.
+- LRCLIB synced lyrics lookup contacts `lrclib.net`.
 - Release-note lookup may contact `api.github.com`.
 - Sparkle update infrastructure is present for macOS, but update checking is currently disabled.
 

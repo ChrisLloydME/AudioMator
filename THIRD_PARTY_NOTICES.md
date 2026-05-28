@@ -62,6 +62,16 @@ The referenced project is released under The Unlicense. Where recognized, the wo
 
 The iTunes Search API is an Apple web service, not third-party source code bundled into AudioMator. Keep privacy disclosures current when changing the iTunes lookup flow, because queries may include metadata-derived search terms, storefront country, UPC/barcode values, Apple Music or iTunes links, and Apple/iTunes catalog IDs.
 
+## LRCLIB
+
+- **Project / service**: LRCLIB
+- **Source**: https://github.com/tranxuanthang/lrclib
+- **Usage in this repository**: optional web-service lookup for synced lyrics candidates. AudioMator's LRCLIB client implementation is written in Swift in this repository.
+
+### Service Notice
+
+LRCLIB is a public lyrics service, not third-party source code bundled into AudioMator. Keep privacy disclosures current when changing the LRCLIB lookup flow, because queries may include metadata-derived title, artist, album, and duration values.
+
 ## Sparkle
 
 - **Project**: Sparkle

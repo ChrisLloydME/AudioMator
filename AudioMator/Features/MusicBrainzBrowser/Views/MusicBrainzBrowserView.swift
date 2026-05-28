@@ -4,6 +4,7 @@ struct MusicBrainzBrowserView: View {
     static let windowID = "musicbrainz-browser"
 
     @ObservedObject var store: MusicBrainzBrowserStore
+    @ObservedObject var lrclibStore: LRCLIBLyricsBrowserStore
     @ObservedObject var viewModel: AudioViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var selectedMetadataSource: MetadataBrowserSource?
@@ -18,6 +19,12 @@ struct MusicBrainzBrowserView: View {
                     musicBrainzContent
                 case .iTunes:
                     ITunesBrowserView(
+                        viewModel: viewModel,
+                        onBackToSources: { self.selectedMetadataSource = nil }
+                    )
+                case .lrclib:
+                    LRCLIBLyricsBrowserView(
+                        store: lrclibStore,
                         viewModel: viewModel,
                         onBackToSources: { self.selectedMetadataSource = nil }
                     )
@@ -47,6 +54,7 @@ struct MusicBrainzBrowserView: View {
             selectedMetadataSource = nil
             navigationPath.removeAll()
             store.closeWindowSession()
+            lrclibStore.closeWindowSession()
         }
     }
 
@@ -136,8 +144,11 @@ struct MusicBrainzBrowserView: View {
 
     private func selectMetadataSource(_ source: MetadataBrowserSource) {
         selectedMetadataSource = source
-        if source == .musicBrainz, store.hasSearchText {
+        switch source {
+        case .musicBrainz where store.hasSearchText:
             store.search()
+        default:
+            break
         }
     }
 

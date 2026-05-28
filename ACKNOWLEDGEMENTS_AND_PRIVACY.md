@@ -41,6 +41,13 @@ The iTunes Search API is an Apple web service, not source code bundled with Audi
 
 Sparkle update checking is currently disabled in the app. The package reference and appcast-related project settings are kept in place, but the app target does not link Sparkle by default.
 
+### GitHub Releases
+
+- Releases: <https://github.com/ChrisLloydME/AudioMator/releases>
+- Role in AudioMator: source of truth for published AudioMator release metadata and manual macOS update checks.
+
+On macOS, AudioMator can ask GitHub Releases for the latest release tag, compare it with the current app version, and open the GitHub Releases page when you choose to download an update. AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.3B26512`. The update check compares only the version part before `B`; the build number is not used to decide whether an update exists.
+
 ## Local-First Behavior
 
 AudioMator is designed to work directly on local files.
@@ -104,9 +111,10 @@ AudioMator only uses the network for optional features that you explicitly invok
 
 ### Software updates
 
-- Host: `chrislloydme.github.io`
-- Purpose: reserved for Sparkle appcast and update archives if macOS update checking is enabled later.
-- Typical data sent: none while Sparkle update checking remains disabled.
+- Hosts: `api.github.com`, `github.com`
+- Purpose: check GitHub Releases for the latest published AudioMator version and open the GitHub Releases page for manual download.
+- Typical data sent: a standard latest-release request for the repository, not your media files.
+- Installation behavior: AudioMator does not silently install updates, download update archives in the background, or use Sparkle automatic installation in this lightweight flow.
 
 ## What AudioMator Does Not Send
 
@@ -114,10 +122,10 @@ AudioMator only uses the network for optional features that you explicitly invok
 - It does not upload embedded album artwork from your files as part of routine editing.
 - It does not require network access for local editing, raw inspection, renaming, track/disc number maintenance, or text-file metadata import.
 - It does not use watched folders on iPadOS.
-- It does not run Sparkle update checks while the current update flow remains disabled.
+- It does not run Sparkle update checks or install updates automatically.
 
 ## Practical Privacy Summary
 
 If you stay inside local editing features, AudioMator stays offline.
 
-If you use MusicBrainz, iTunes metadata/artwork lookup, LRCLIB lyrics lookup, release-note lookup, or a future software-update flow, only the request information needed for that feature is sent. The audio file contents themselves remain local.
+If you use MusicBrainz, iTunes metadata/artwork lookup, LRCLIB lyrics lookup, release-note lookup, or the manual macOS update check, only the request information needed for that feature is sent. The audio file contents themselves remain local.

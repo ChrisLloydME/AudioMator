@@ -20,6 +20,7 @@ struct ContentView: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
     @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @ObservedObject var lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @ObservedObject var metadataEditorStore: MetadataEditorStore
     let metadataPipeline: any AudioMetadataPipeline
@@ -111,6 +112,7 @@ struct ContentView: View {
             .sheet(isPresented: $isMusicBrainzBrowserPresented) {
                 MusicBrainzBrowserView(
                     store: musicBrainzBrowserStore,
+                    lrclibStore: lrclibLyricsBrowserStore,
                     viewModel: viewModel
                 )
             }
@@ -265,6 +267,7 @@ struct ContentView: View {
     private func openMusicBrainzBrowser() {
         let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
         musicBrainzBrowserStore.apply(seed: seed)
+        seedLRCLIBLyricsBrowser()
         #if os(macOS)
         openWindow(id: MusicBrainzBrowserView.windowID)
         #else
@@ -280,6 +283,7 @@ struct ContentView: View {
         guard let seed = currentMusicBrainzMatchSeed() else { return }
 
         musicBrainzBrowserStore.apply(seed: seed)
+        seedLRCLIBLyricsBrowser()
         #if os(macOS)
         openWindow(id: MusicBrainzBrowserView.windowID)
         #else
@@ -501,6 +505,11 @@ struct ContentView: View {
 
     private func musicBrainzFileInputs(from files: [AudioFile]) -> [MusicBrainzFileSearchInput] {
         files.map { MusicBrainzFilenameFallbackResolver.makeSearchInput(for: $0) }
+    }
+
+    private func seedLRCLIBLyricsBrowser() {
+        let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        lrclibLyricsBrowserStore.seed(from: selectedFiles)
     }
 
     private func preferredMusicBrainzSeedValue(_ primary: String, fallback: String) -> String {
@@ -804,6 +813,7 @@ struct ContentView_Previews: PreviewProvider {
             viewModel: AudioViewModel(),
             state: SharedState(),
             musicBrainzBrowserStore: MusicBrainzBrowserStore(),
+            lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore(),
             metadataFilenameToolStore: MetadataFilenameToolStore(),
             metadataEditorStore: MetadataEditorStore(metadataPipeline: TagLibAudioMetadataPipeline()),
             metadataPipeline: TagLibAudioMetadataPipeline()

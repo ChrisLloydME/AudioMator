@@ -79,6 +79,14 @@ final class MetadataExchangeTests: XCTestCase {
         )
     }
 
+    func testCSVDelimiterDetectionSupportsSemicolonPipeAndQuotedDelimiterNoise() {
+        XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}};{{title}};{{artist}}"), ";")
+        XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}}|{{title}}|{{artist}}"), "|")
+        XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}}\t{{title}}\t{{artist}}"), "\t")
+        XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}},\"{{title}}; live\" ,{{artist}}"), ",")
+        XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{title}}"), ",")
+    }
+
     func testCSVParserHandlesEmptyInputAndTrailingEmptyFields() throws {
         XCTAssertEqual(try MetadataExchangeCSV.parse(""), [])
         XCTAssertEqual(try MetadataExchangeCSV.parse(","), [["", ""]])
@@ -89,6 +97,40 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertThrowsError(try MetadataExchangeCSV.parse("\"unterminated"))
         XCTAssertThrowsError(try MetadataExchangeCSV.parse("a\"b,c"))
         XCTAssertThrowsError(try MetadataExchangeCSV.parse("\"a\"b,c"))
+    }
+
+    func testCSVImportStillRejectsMalformedCommaCSVQuotes() {
+        let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
+
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{fileName}},{{title}}",
+            sourceText: "song.flac,Room 404: \"Do Not Wake\"",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertTrue(plan.rows.isEmpty)
+        XCTAssertFalse(plan.canApply)
+    }
+
+    func testPlainDelimitedImportsAllowLiteralQuotesInUnquotedFields() throws {
+        for delimiter in ["\t", "|"] {
+            let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
+            let plan = MetadataExchangePlanner.makeCSVImportPlan(
+                template: ["{{fileName}}", "{{title}}"].joined(separator: delimiter),
+                sourceText: ["song.flac", "Room 404: \"Do Not Wake\""].joined(separator: delimiter),
+                firstRowIsHeader: false,
+                targetFiles: [file],
+                clearBlankImportedValues: false
+            )
+
+            XCTAssertNil(plan.validationMessage, delimiter)
+            XCTAssertEqual(plan.rows.first?.status, .ready, delimiter)
+            let values = try XCTUnwrap(plan.rows.first?.writeEntry?.values, delimiter)
+            XCTAssertEqual(values[.title], "Room 404: \"Do Not Wake\"", delimiter)
+        }
     }
 
     func testCSVSerializeEscapesSpecialValues() {

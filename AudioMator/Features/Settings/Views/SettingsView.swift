@@ -643,6 +643,13 @@ private struct AboutSettingsTab: View {
                         Label(contactEmail, systemImage: "envelope")
                             .font(.headline)
                     }
+
+                    Button {
+                        UpdateCheckPresenter.shared.checkForUpdates()
+                    } label: {
+                        Label("Check for Updates…", systemImage: "arrow.down.circle")
+                    }
+                    .controlSize(.large)
                 }
             }
             .frame(maxWidth: 820, alignment: .leading)
@@ -814,6 +821,14 @@ private struct AcknowledgementsSheet: View {
             ]
         ),
         (
+            title: "GitHub Releases",
+            details: [
+                "Project releases: https://github.com/ChrisLloydME/AudioMator/releases",
+                "On macOS, AudioMator can check GitHub Releases for the latest published version and open the releases page for manual download.",
+                "This lightweight update flow does not silently install updates."
+            ]
+        ),
+        (
             title: "Apple iTunes Search API",
             details: [
                 "Service documentation: https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/",
@@ -942,6 +957,15 @@ private struct PrivacySheet: View {
                     "Target host: \(NetworkServiceDisclosure.ReleaseNotes.host)",
                     "Sent data: request headers and the release list request only. No audio file content is sent.",
                     "Purpose: loading published release notes for AudioMator."
+                ]
+            ),
+            (
+                title: "Software update checks",
+                details: [
+                    "Target hosts: \(NetworkServiceDisclosure.SoftwareUpdates.domains.joined(separator: ", "))",
+                    NetworkServiceDisclosure.SoftwareUpdates.sentDataSummary,
+                    "Purpose: detecting whether a newer AudioMator release exists and opening GitHub Releases when you choose to download it manually.",
+                    "AudioMator does not silently install updates in this lightweight update flow."
                 ]
             )
         ]

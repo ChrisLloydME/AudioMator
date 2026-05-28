@@ -575,6 +575,19 @@ struct MetadataExchangeImportPlan {
     }
 }
 
+fileprivate struct MetadataExchangeCSVField {
+    let value: String
+    let wasQuoted: Bool
+
+    nonisolated var importedValue: String {
+        wasQuoted ? value : value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated var hasImportContent: Bool {
+        wasQuoted ? !value.isEmpty : !importedValue.isEmpty
+    }
+}
+
 enum MetadataExchangePlanner {
     static func makeTextExportPlan(
         template: String,
@@ -687,9 +700,13 @@ enum MetadataExchangePlanner {
             )
         }
 
-        let parsedCSV: [[String]]
+        let parsedCSV: [[MetadataExchangeCSVField]]
         do {
-            parsedCSV = try MetadataExchangeCSV.parse(sourceText, delimiter: result.delimiter)
+            parsedCSV = try MetadataExchangeCSV.parseFields(
+                sourceText,
+                delimiter: result.delimiter,
+                allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: result.delimiter)
+            )
         } catch {
             return MetadataExchangeImportPlan(
                 validationMessage: (error as NSError).localizedDescription,
@@ -713,7 +730,7 @@ enum MetadataExchangePlanner {
         }
 
         let parsedRecords = dataRows.enumerated().map { index, cells in
-            let displayText = cells.map { $0.replacingOccurrences(of: "\n", with: " ") }.joined(separator: " | ")
+            let displayText = cells.map { $0.value.replacingOccurrences(of: "\n", with: " ") }.joined(separator: " | ")
             if cells.count < result.columns.count {
                 let missingCount = result.columns.count - cells.count
                 return ParsedExternalRecord(
@@ -747,7 +764,7 @@ enum MetadataExchangePlanner {
         let trimmed = template.trimmingCharacters(in: .whitespacesAndNewlines)
         let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         guard !trimmed.isEmpty else {
-            return ([], delimiter, L10n.string("Enter a comma- or tab-separated column template."))
+            return ([], delimiter, L10n.string("Enter a comma-, semicolon-, pipe-, or tab-delimited column template."))
         }
 
         do {
@@ -823,19 +840,19 @@ enum MetadataExchangePlanner {
     }
 
     private static func captures(
-        from cells: [String],
+        from cells: [MetadataExchangeCSVField],
         columns: [MetadataExchangeField]
     ) -> [MetadataExchangeField: String] {
         var captures: [MetadataExchangeField: String] = [:]
         for (index, field) in columns.enumerated() {
             guard field != .ignore else { continue }
-            captures[field] = cells[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            captures[field] = cells[index].importedValue
         }
         return captures
     }
 
-    nonisolated private static func isUsableCSVDataRow(_ cells: [String]) -> Bool {
-        cells.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    nonisolated private static func isUsableCSVDataRow(_ cells: [MetadataExchangeCSVField]) -> Bool {
+        cells.contains(where: \.hasImportContent)
     }
 
     private static func makeImportPlan(
@@ -1245,24 +1262,68 @@ private struct MetadataExchangeTextMatcher {
 }
 
 enum MetadataExchangeCSV {
+    private static let delimiterCandidates: [Character] = ["\t", ",", ";", "|"]
+
+    nonisolated static func allowsBareQuotesInUnquotedFields(for delimiter: Character) -> Bool {
+        delimiter == "\t" || delimiter == "|"
+    }
+
     static func detectDelimiter(in source: String) -> Character {
-        source.contains("\t") ? "\t" : ","
+        let counts = delimiterCountsOutsideQuotes(in: source)
+        let bestCandidate = delimiterCandidates.max { lhs, rhs in
+            let lhsCount = counts[lhs, default: 0]
+            let rhsCount = counts[rhs, default: 0]
+            if lhsCount == rhsCount {
+                return delimiterCandidates.firstIndex(of: lhs)! > delimiterCandidates.firstIndex(of: rhs)!
+            }
+            return lhsCount < rhsCount
+        }
+
+        guard let bestCandidate, counts[bestCandidate, default: 0] > 0 else {
+            return ","
+        }
+        return bestCandidate
     }
 
     static func parse(_ source: String, delimiter: Character = ",") throws -> [[String]] {
+        try parseFields(source, delimiter: delimiter).map { row in
+            row.map(\.value)
+        }
+    }
+
+    fileprivate static func parseFields(
+        _ source: String,
+        delimiter: Character = ",",
+        allowsBareQuotesInUnquotedFields: Bool = false
+    ) throws -> [[MetadataExchangeCSVField]] {
         var text = source
         if text.hasPrefix("\u{FEFF}") {
             text.removeFirst()
         }
         guard !text.isEmpty else { return [] }
 
-        var rows: [[String]] = []
-        var row: [String] = []
+        var rows: [[MetadataExchangeCSVField]] = []
+        var row: [MetadataExchangeCSVField] = []
         var field = ""
         var index = text.startIndex
         var isQuoted = false
         var didCloseQuotedField = false
         var fieldHasContent = false
+        var fieldWasQuoted = false
+
+        func appendField() {
+            row.append(MetadataExchangeCSVField(value: field, wasQuoted: fieldWasQuoted))
+            field = ""
+            fieldHasContent = false
+            fieldWasQuoted = false
+            didCloseQuotedField = false
+        }
+
+        func appendRow() {
+            appendField()
+            rows.append(row)
+            row = []
+        }
 
         while index < text.endIndex {
             let character = text[index]
@@ -1290,6 +1351,11 @@ enum MetadataExchangeCSV {
             switch character {
             case "\"":
                 if fieldHasContent {
+                    if allowsBareQuotesInUnquotedFields {
+                        field.append(character)
+                        index = text.index(after: index)
+                        continue
+                    }
                     throw NSError(
                         domain: "MetadataExchangeCSV",
                         code: 1,
@@ -1298,29 +1364,17 @@ enum MetadataExchangeCSV {
                 }
                 isQuoted = true
                 fieldHasContent = true
+                fieldWasQuoted = true
                 didCloseQuotedField = false
                 index = text.index(after: index)
             case delimiter:
-                row.append(field)
-                field = ""
-                fieldHasContent = false
-                didCloseQuotedField = false
+                appendField()
                 index = text.index(after: index)
             case "\n", "\r\n":
-                row.append(field)
-                rows.append(row)
-                row = []
-                field = ""
-                fieldHasContent = false
-                didCloseQuotedField = false
+                appendRow()
                 index = text.index(after: index)
             case "\r":
-                row.append(field)
-                rows.append(row)
-                row = []
-                field = ""
-                fieldHasContent = false
-                didCloseQuotedField = false
+                appendRow()
                 let nextIndex = text.index(after: index)
                 if nextIndex < text.endIndex, text[nextIndex] == "\n" {
                     index = text.index(after: nextIndex)
@@ -1355,8 +1409,7 @@ enum MetadataExchangeCSV {
         }
 
         if fieldHasContent || !field.isEmpty || !row.isEmpty {
-            row.append(field)
-            rows.append(row)
+            appendRow()
         }
 
         return rows
@@ -1374,5 +1427,34 @@ enum MetadataExchangeCSV {
         }
 
         return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+
+    private static func delimiterCountsOutsideQuotes(in source: String) -> [Character: Int] {
+        var counts: [Character: Int] = [:]
+        var index = source.startIndex
+        var isQuoted = false
+
+        while index < source.endIndex {
+            let character = source[index]
+
+            if character == "\"" {
+                let nextIndex = source.index(after: index)
+                if isQuoted, nextIndex < source.endIndex, source[nextIndex] == "\"" {
+                    index = source.index(after: nextIndex)
+                } else {
+                    isQuoted.toggle()
+                    index = nextIndex
+                }
+                continue
+            }
+
+            if !isQuoted, delimiterCandidates.contains(character) {
+                counts[character, default: 0] += 1
+            }
+
+            index = source.index(after: index)
+        }
+
+        return counts
     }
 }

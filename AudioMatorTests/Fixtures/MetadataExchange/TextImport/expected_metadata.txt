@@ -1,0 +1,69 @@
+aurora-01.flac
+TITLE=Glass Garden (Live at North Pier, 2024)
+ARTIST=Mira Vale & The Low Clouds
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Mira Vale / Noam Kestrel
+COMMENT=Live performance; crowd noise retained.
+
+aurora-02.flac
+TITLE=Paper Moon, Neon Sea
+ARTIST=Juniper Static
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Juniper Static; Elian Rowe
+COMMENT=Studio version.
+
+aurora-03.flac
+TITLE=Signal.No.7: After Midnight
+ARTIST=The Atlas Room
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=R. Vale / K. Orson / L. Finch
+COMMENT=Contains dots, colon, and numeric title marker.
+
+aurora-04.flac
+TITLE=Blue Lanterns (Acoustic Session)
+ARTIST=Nora Glass feat. Elio Park
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Nora Glass / Elio Park
+COMMENT=Acoustic session take.
+
+aurora-05.flac
+TITLE=[Interlude] Static Birds
+ARTIST=Northline Assembly
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Northline Assembly
+COMMENT=Bracketed title prefix.
+
+aurora-06.flac
+TITLE=Velvet, Thunder; Rain
+ARTIST=Kite Harbor
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Kite Harbor / Sera Wynn
+COMMENT=Title includes comma and semicolon.
+
+aurora-07.flac
+TITLE=Echoes — West Hall Reprise
+ARTIST=Orrin Vale with Glass Choir
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Orrin Vale; Glass Choir
+COMMENT=Uses em dash and with-credit.
+
+aurora-08.flac
+TITLE=One Last Window (Demo Ver.)
+ARTIST=The Paper Satellites
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=The Paper Satellites
+COMMENT=Demo version.
+
+aurora-09.flac
+TITLE=The Clockmaker's Waltz
+ARTIST=Iris Bell
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Iris Bell / Mateo Quill
+COMMENT=Apostrophe in title.
+
+aurora-10.flac
+TITLE=Room 404: "Do Not Wake"
+ARTIST=Fable Circuit
+ALBUM=Imaginary Broadcasts: Volume 1 [Deluxe Edition]
+COMPOSER=Fable Circuit
+COMMENT=Quoted phrase inside title.

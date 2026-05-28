@@ -89,6 +89,13 @@ AudioMator only uses the network for optional features that you explicitly invok
 - Typical data sent: lookup terms derived from metadata fields or user input, such as title, artist, album, album artist, track/disc information, duration, UPC/barcode, iTunes Album ID, iTunes Artist ID, iTunes track catalog ID, pasted Apple Music or iTunes links, storefront country, or manually entered search text.
 - Typical data received: album and track metadata, release dates, genres, explicit-content flags, copyright text, Apple/iTunes IDs, candidate artwork metadata, and image files selected for preview or application.
 
+### LRCLIB
+
+- Host: `lrclib.net`
+- Purpose: search and preview candidate synced lyrics for a selected track.
+- Typical data sent: lookup terms derived from metadata fields or filename fallback, such as title, artist, album, and duration.
+- Typical data received: candidate track, artist, album, duration, plain lyrics availability, and synced lyrics text selected for preview or application.
+
 ### Release notes
 
 - Host: `api.github.com`
@@ -113,4 +120,4 @@ AudioMator only uses the network for optional features that you explicitly invok
 
 If you stay inside local editing features, AudioMator stays offline.
 
-If you use MusicBrainz, iTunes metadata/artwork lookup, release-note lookup, or a future software-update flow, only the request information needed for that feature is sent. The audio file contents themselves remain local.
+If you use MusicBrainz, iTunes metadata/artwork lookup, LRCLIB lyrics lookup, release-note lookup, or a future software-update flow, only the request information needed for that feature is sent. The audio file contents themselves remain local.

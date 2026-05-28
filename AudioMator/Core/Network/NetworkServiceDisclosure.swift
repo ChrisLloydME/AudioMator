@@ -36,6 +36,16 @@ enum NetworkServiceDisclosure {
         }
     }
 
+    enum LRCLIB {
+        static let host = "lrclib.net"
+
+        static let domains = [
+            host
+        ]
+
+        static let sentDataSummary = "LRCLIB lookup may send metadata-derived queries, including title, artist, album, and duration, to search for synced lyrics."
+    }
+
     enum ReleaseNotes {
         static let host = "api.github.com"
     }

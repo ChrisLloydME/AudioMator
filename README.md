@@ -55,10 +55,12 @@ AudioMator is a local-first audio metadata workbench for inspecting, organizing,
 
 ### Online tagging
 
-- Search online metadata sources through MusicBrainz and iTunes.
+- Search online metadata sources through MusicBrainz, iTunes, and LRCLIB.
 - Search from selected files using existing tags and filename fallback.
 - Review recordings, releases, media, track lists, identifiers, dates, artist credits, labels, catalog numbers, countries, genres, tags, ratings, and relationships before applying.
 - Use the tagging workbench to map selected files to release tracks.
+- Search LRCLIB for synced lyrics candidates from selected track metadata.
+- Review LRCLIB candidates one track at a time, with synced/plain-only state shown before applying lyrics.
 - Apply chosen fields back to local files through the same metadata write path used by the inspector.
 
 ### Inspection and raw metadata tools
@@ -81,7 +83,7 @@ The macOS build is the full desktop workflow:
 - Current Session import for one-off work.
 - Persistent watched folders with automatic rescans.
 - Sidebar, middle list, and inspector in a native three-pane window.
-- Dedicated windows for MusicBrainz Browser, Filename & Metadata, and Metadata Editor.
+- Dedicated windows for Online Metadata, Filename & Metadata, and Metadata Editor.
 - File-path display in the inspector.
 - Finder-style actions such as reveal in Finder, open with the default app, and copy path.
 - Configurable toolbar buttons.
@@ -138,6 +140,7 @@ Network access happens only when you explicitly use an online feature:
 
 - MusicBrainz lookup and tagging contacts `musicbrainz.org`.
 - iTunes metadata and artwork lookup contacts the Apple iTunes Search API at `itunes.apple.com` and Apple artwork CDN hosts.
+- LRCLIB synced lyrics lookup contacts `lrclib.net`.
 - Release-note lookup may contact `api.github.com`.
 - Sparkle update infrastructure is present for macOS, but update checking is currently disabled.
 
@@ -183,9 +186,9 @@ E-mail: AudioMator@lloydME.com
 - `AudioMator/Domain/`
   Metadata pipeline models, audio-file models, rename templates, file sources, track renumbering, and UI state.
 - `AudioMator/Features/`
-  SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
+  SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata and lyrics browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
 - `AudioMator/Infrastructure/`
-  File-system monitoring, MusicBrainz, iTunes Search API/artwork, and GitHub release-note services.
+  File-system monitoring, MusicBrainz, iTunes Search API/artwork, LRCLIB lyrics lookup, and GitHub release-note services.
 - `Config/`
   Project configuration inputs, including the app Info.plist.
 - `scripts/`

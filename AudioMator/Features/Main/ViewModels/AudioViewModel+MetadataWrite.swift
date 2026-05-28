@@ -573,6 +573,83 @@ extension AudioViewModel {
         presentBatchMetadataWriteSummary(summary)
     }
 
+    func applyLRCLIBSyncedLyrics(_ syncedLyrics: String, to fileID: AudioFile.ID) async -> Bool {
+        guard metadataSaveProgress == nil else { return false }
+        let normalizedLyrics = syncedLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedLyrics.isEmpty else { return false }
+
+        guard let file = files.first(where: { $0.id == fileID }) else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Apply Lyrics Failed",
+                subtitle: "The file is no longer loaded in AudioMator."
+            )
+            return false
+        }
+
+        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Apply Lyrics Failed",
+                subtitle: "This format does not support metadata writing yet."
+            )
+            return false
+        }
+
+        beginMetadataSaveProgress(
+            title: "Applying LRCLIB Lyrics",
+            subtitle: file.url.lastPathComponent,
+            totalUnitCount: 1
+        )
+
+        do {
+            var propertyMap = try await rawMetadataPropertyMapOffMainActor(for: file.url)
+            propertyMap["LYRICS"] = normalizedLyrics
+
+            let writeResult = try await writeRawMetadataPropertyMapOffMainActor(propertyMap, to: file.url)
+            var warnings = writeResult.warnings
+            let refreshWarning = await reloadEditedFile(file, syncInspectorAfterReload: true)
+            if let refreshWarning {
+                warnings.append(refreshWarning)
+            }
+
+            updateMetadataSaveProgress(
+                subtitle: file.url.lastPathComponent,
+                completedUnitCount: 1
+            )
+            endMetadataSaveProgress()
+
+            if warnings.isEmpty {
+                presentMetadataWriteHUD(
+                    style: .success,
+                    title: "LRCLIB Lyrics Applied",
+                    subtitle: file.url.lastPathComponent
+                )
+            } else {
+                presentMetadataWriteWarning(
+                    title: "Lyrics Applied with Issues",
+                    subtitle: ([file.url.lastPathComponent] + warnings).joined(separator: "\n")
+                )
+            }
+
+            return true
+        } catch {
+            updateMetadataSaveProgress(
+                subtitle: file.url.lastPathComponent,
+                completedUnitCount: 1
+            )
+            endMetadataSaveProgress()
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Apply Lyrics Failed",
+                subtitle: [file.url.lastPathComponent, (error as NSError).localizedDescription]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n")
+            )
+            return false
+        }
+    }
+
     func applyRawMetadataPropertyMaps(
         _ propertyMaps: [AudioFile.ID: [String: String]],
         to targets: [MetadataEditorTarget]
@@ -943,6 +1020,14 @@ extension AudioViewModel {
 
         return try await Task.detached(priority: .userInitiated) {
             try metadataPipeline.writeMetadata(edit, to: url)
+        }.value
+    }
+
+    private func rawMetadataPropertyMapOffMainActor(for url: URL) async throws -> [String: String] {
+        let metadataPipeline = self.metadataPipeline
+
+        return try await Task.detached(priority: .userInitiated) {
+            try metadataPipeline.rawMetadataPropertyMap(for: url)
         }.value
     }
 

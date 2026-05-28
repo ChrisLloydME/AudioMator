@@ -402,13 +402,13 @@ private struct NetworkPrivacyPage: View {
                     PrivacyRow(
                         symbol: "text.magnifyingglass",
                         title: "Lookup sends search details",
-                        description: "MusicBrainz and iTunes searches may use metadata such as title, artist, album, track number, duration, identifiers, links, or text you enter."
+                        description: "MusicBrainz, iTunes, and LRCLIB searches may use metadata such as title, artist, album, track number, duration, identifiers, links, or text you enter."
                     )
 
                     PrivacyRow(
                         symbol: "network",
                         title: "External services",
-                        description: "Lookups may contact MusicBrainz, Apple iTunes Search API, Apple artwork CDN, or related services."
+                        description: "Lookups may contact MusicBrainz, Apple iTunes Search API, Apple artwork CDN, LRCLIB, or related services."
                     )
 
                     Text(domainSummary)
@@ -425,7 +425,8 @@ private struct NetworkPrivacyPage: View {
 
     private var domainSummary: String {
         (NetworkServiceDisclosure.MusicBrainz.domains +
-            NetworkServiceDisclosure.ITunesArtwork.domains)
+            NetworkServiceDisclosure.ITunesArtwork.domains +
+            NetworkServiceDisclosure.LRCLIB.domains)
             .joined(separator: "  ")
     }
 }

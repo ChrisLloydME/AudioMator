@@ -145,15 +145,19 @@ Network access happens only when you explicitly use an online feature:
 - iTunes metadata and artwork lookup contacts the Apple iTunes Search API at `itunes.apple.com` and Apple artwork CDN hosts.
 - LRCLIB synced lyrics lookup contacts `lrclib.net`.
 - Release-note lookup may contact `api.github.com`.
-- Sparkle update infrastructure is present for macOS, but update checking is currently disabled.
+- Manual update checks on macOS contact GitHub Releases through `api.github.com` to read the latest AudioMator release tag and version metadata.
 
 AudioMator does not upload the audio file contents for ordinary metadata editing. Online lookup features may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, ISRC, barcode/UPC, iTunes album/artist/track IDs, MusicBrainz identifiers, pasted MusicBrainz/Apple Music/iTunes links, storefront country, or manually entered queries.
 
 See `ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
 
-## Sparkle Updates
+## Manual Update Checks
 
-Sparkle update support is kept as dormant macOS infrastructure, but update checking is currently disabled. The app does not expose a **Check for Updates...** command, does not show an update button in About settings, does not start the Sparkle updater at launch, and does not link `Sparkle.framework` unless `ENABLE_SPARKLE_UPDATES` is added and the Sparkle package product is linked back into the app target. The package reference, appcast metadata, and sandbox support are kept in place so the feature can be enabled later without reworking the core integration.
+The macOS app includes a lightweight **Check for Updates...** flow. AudioMator asks the GitHub Releases API for the latest published release, compares the release tag with the app's current version, and opens the GitHub Releases page when you choose to download an update.
+
+AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`. The update checker compares only the version part before `B`; the build number is ignored. Version parts are compared as integer segments, so `2.10` is newer than `2.9`, and `2.2` is newer than `2.1.20`.
+
+This flow does not install updates, download archives in the background, perform delta updates, or require code signing or notarization. Sparkle infrastructure remains dormant for macOS. The app does not start Sparkle at launch and does not link `Sparkle.framework` unless `ENABLE_SPARKLE_UPDATES` is added and the Sparkle package product is linked back into the app target.
 
 ## TagLib Bridge Smoke Testing
 
@@ -191,7 +195,7 @@ E-mail: AudioMator@lloydME.com
 - `AudioMator/Features/`
   SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata and lyrics browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
 - `AudioMator/Infrastructure/`
-  File-system monitoring, MusicBrainz, iTunes Search API/artwork, LRCLIB lyrics lookup, and GitHub release-note services.
+  File-system monitoring, MusicBrainz, iTunes Search API/artwork, LRCLIB lyrics lookup, GitHub release-note services, and macOS manual update checks.
 - `Config/`
   Project configuration inputs, including the app Info.plist.
 - `scripts/`

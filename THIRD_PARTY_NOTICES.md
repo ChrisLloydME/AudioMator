@@ -72,12 +72,22 @@ The iTunes Search API is an Apple web service, not third-party source code bundl
 
 LRCLIB is a public lyrics service, not third-party source code bundled into AudioMator. Keep privacy disclosures current when changing the LRCLIB lookup flow, because queries may include metadata-derived title, artist, album, and duration values.
 
+## GitHub Releases
+
+- **Service**: GitHub Releases
+- **Repository**: https://github.com/ChrisLloydME/AudioMator/releases
+- **Usage in this repository**: source of truth for AudioMator release metadata, release notes, and the lightweight macOS manual update check.
+
+### Service Notice
+
+GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag with the local app version, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`; the update checker ignores the build part after `B` when comparing versions.
+
 ## Sparkle
 
 - **Project**: Sparkle
 - **Website**: https://sparkle-project.org/
 - **Source**: https://github.com/sparkle-project/Sparkle
-- **Usage in this repository**: AudioMator keeps dormant macOS Sparkle update infrastructure available, but update checking is currently disabled and the app target does not link Sparkle by default.
+- **Usage in this repository**: AudioMator keeps dormant macOS Sparkle update infrastructure available, but the current update flow uses GitHub Releases for manual download and does not use Sparkle automatic installation.
 - **Current resolution**: pinned by `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 
 ### Licensing

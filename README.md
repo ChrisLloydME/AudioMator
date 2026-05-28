@@ -103,7 +103,10 @@ The iPadOS build intentionally avoids pretending to be macOS:
 - File-path presentation is hidden where it does not fit iPadOS.
 - Settings focus on iPad-specific list metadata and About information.
 
-`At the moment, I do not have an Apple Developer Program membership and there are currently no plans to commercialize AudioMator. The iPadOS version is being developed separately from the macOS release cycle and should be considered more of a personal side project and platform experiment rather than a feature-parity target.`
+> [!IMPORTANT]
+> #### About iPadOS Support
+>
+> I do not have an Apple Developer Program membership and there are currently no plans to commercialize AudioMator. The iPadOS version is being developed separately from the macOS release cycle and should be considered more of a personal side project and platform experiment rather than a feature-parity target.
 
 ## Track And Disc Number Handling
 

@@ -151,7 +151,7 @@ enum WelcomeSplashPage: Int, CaseIterable {
             WelcomeSplashPageContent(
                 page: self,
                 title: "Privacy & Network Access",
-                subtitle: "AudioMator edits files locally. Online services are contacted only when you use lookup features.",
+                subtitle: "AudioMator edits files locally. Online services are contacted only when you use lookup or update-checking features.",
                 rows: [
                     WelcomeSplashRowContent(
                         symbol: "internaldrive",
@@ -166,7 +166,7 @@ enum WelcomeSplashPage: Int, CaseIterable {
                     WelcomeSplashRowContent(
                         symbol: "network",
                         title: "External services",
-                        description: "Lookups may contact MusicBrainz, Apple iTunes Search API, Apple artwork CDN, LRCLIB, or related services."
+                        description: "Lookups may contact MusicBrainz, Apple iTunes Search API, Apple artwork CDN, LRCLIB, or related services. Manual update checks may contact GitHub Releases for AudioMator release/version information."
                     )
                 ]
             )
@@ -176,7 +176,8 @@ enum WelcomeSplashPage: Int, CaseIterable {
     static var domainSummary: String {
         (NetworkServiceDisclosure.MusicBrainz.domains +
             NetworkServiceDisclosure.ITunesArtwork.domains +
-            NetworkServiceDisclosure.LRCLIB.domains)
+            NetworkServiceDisclosure.LRCLIB.domains +
+            NetworkServiceDisclosure.SoftwareUpdates.domains)
             .joined(separator: "  ")
     }
 

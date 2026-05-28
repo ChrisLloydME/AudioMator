@@ -10,6 +10,17 @@ enum AppSettingsTab: String, Hashable {
     case about
 }
 
+private func formattedAboutDescription(copyright: String) -> String {
+    let trimmedCopyright = copyright.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if !trimmedCopyright.isEmpty {
+        let copyrightSentence = trimmedCopyright.hasSuffix(".") ? trimmedCopyright : "\(trimmedCopyright)."
+        return "\(copyrightSentence) AudioMator includes third-party open-source software. See Acknowledgements."
+    }
+
+    return "Copyright © 2025-2026 Christopher Lloyd. AudioMator includes third-party open-source software. See Acknowledgements."
+}
+
 struct SettingsView: View {
     @ObservedObject var sharedState: SharedState
 
@@ -124,11 +135,7 @@ struct SettingsView: View {
         let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-        if !copyright.isEmpty {
-            return "\(copyright) AudioMator includes third-party open-source software. See Acknowledgements."
-        }
-
-        return "Copyright © 2025-2026 Christopher Lloyd. AudioMator includes third-party open-source software. See Acknowledgements."
+        return formattedAboutDescription(copyright: copyright)
     }
 
     private func columnVisibilityBinding(for column: MiddleListColumn) -> Binding<Bool> {
@@ -251,11 +258,7 @@ struct IPadSettingsView: View {
         let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-        if !copyright.isEmpty {
-            return "\(copyright) AudioMator includes third-party open-source software. See Acknowledgements."
-        }
-
-        return "Copyright © 2025-2026 Christopher Lloyd. AudioMator includes third-party open-source software. See Acknowledgements."
+        return formattedAboutDescription(copyright: copyright)
     }
 }
 
@@ -604,36 +607,47 @@ private struct AboutSettingsTab: View {
             }
         }
         #else
-        VStack(alignment: .leading, spacing: 34) {
-            HStack(alignment: .center, spacing: 36) {
-                AboutAppIconView()
+        VStack(spacing: 0) {
+            Spacer(minLength: 28)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(appDisplayName)
-                        .font(.system(size: 48, weight: .regular))
+            HStack(alignment: .center, spacing: 34) {
+                AboutAppIconView(size: 164)
 
-                    Text("Version \(shortVersionString)")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(appDisplayName)
+                            .font(.system(size: 52, weight: .medium))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
 
-                    Text("Build \(buildNumber)")
+                        HStack(spacing: 14) {
+                            Text("Version \(shortVersionString)")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            Text("Build \(buildNumber)")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    Text(aboutDescription)
                         .font(.headline)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: 560, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Link(destination: URL(string: "mailto:\(contactEmail)")!) {
+                        Label(contactEmail, systemImage: "envelope")
+                            .font(.headline)
+                    }
                 }
-
-                Spacer(minLength: 0)
             }
-
-            Text(aboutDescription)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Link(destination: URL(string: "mailto:\(contactEmail)")!) {
-                Label(contactEmail, systemImage: "envelope")
-                    .font(.headline)
-            }
+            .frame(maxWidth: 820, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .offset(y: -36)
 
             Spacer()
 

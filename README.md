@@ -18,7 +18,7 @@
 
 ## Overview
 
-AudioMator is a local-first audio metadata workbench for inspecting, organizing, and editing music libraries. It supports workflows such as bulk tag editing, artwork replacement, filename-based metadata import/export, raw metadata inspection, and retrieving metadata from online sources for automatic tagging. Built as a native application, AudioMator adopts platform-specific behavior where appropriate: on macOS, it provides a desktop-style workflow with watched folders, a multi-pane interface, and Finder-style file actions, while on iPadOS it follows a document-based workflow designed around sandboxed file access and touch interaction. AudioMator uses TagLib for audio metadata reading, writing, artwork handling, raw property inspection, and format capability discovery, with metadata changes flowing through a shared pipeline so the inspector, batch tools, online tagging workflows, filename operations, and raw metadata editor remain behaviorally consistent.
+AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps users inspect, organize, and edit music files through common tagging workflows, including metadata editing, artwork replacement, automatic track numbering, filename-based metadata conversion, raw metadata inspection, and online metadata lookup. For more detailed feature information, see [AudioMator Feature Overview](#audiomator-feature-overview).
 
 ## Screenshot
 
@@ -26,53 +26,39 @@ AudioMator is a local-first audio metadata workbench for inspecting, organizing,
   <img src="Screenshot.png" alt="Screenshot">
 </p>
 
-## Product Capabilities
+## AudioMator Feature Overview
 
-### Local metadata editing
+- ### Metadata Editing
 
-- Open audio files directly into the current session.
-- Edit a single file in the inspector.
-- Select multiple files and apply only the fields you intentionally change.
-- Save title, artist, album, album artist, composer, genre, year, release date, publisher, copyright, explicit status, track/disc numbering, and other supported fields.
+  AudioMator provides two metadata editing interfaces for different levels of control.
 
-### Artwork management
+  **Inspector** offers a more approachable editing experience for common metadata fields. It is designed for everyday metadata editing, with a simpler interface and a focus on frequently used fields.
 
-- Preview embedded artwork in the inspector.
-- Import artwork from clipboard / Photo Library / Finder.
-- Clear artwork from one file or from a selected group.
-- Search online artwork through the iTunes artwork workflow when you explicitly ask for it.
+  **Metadata Editor** is a more advanced editing interface. It allows users to add, remove, and edit all available metadata fields, making it suitable for more detailed or professional metadata workflows.
 
-### Batch utilities
+- ### Automatic Track Number Assignment
 
-- Renumber track numbers using the visible list order.
-- Choose ascending or descending numbering.
-- Start from a custom number.
-- Preserve or add zero padding where appropriate.
-- Rename files from metadata with a token-based template.
-- Extract metadata from filenames with a matching template.
-- Validate rename conflicts before moving files.
-- Keep file extensions unchanged when generating new filenames.
+  AudioMator allows users to reorder audio files by dragging them into the desired sequence, then automatically regenerate track numbers based on that order. This is useful for organizing albums, live recordings, or any group of files where track order needs to be corrected or standardized.
 
-### Online tagging
+- ### Metadata and Text Conversion
 
-- Search online metadata sources through MusicBrainz, iTunes, and LRCLIB.
-- Search from selected files using existing tags and filename fallback.
-- Review recordings, releases, media, track lists, identifiers, dates, artist credits, labels, catalog numbers, countries, genres, tags, ratings, and relationships before applying.
-- Use the tagging workbench to map selected files to release tracks.
-- Search LRCLIB for synced lyrics candidates from selected track metadata.
-- Review LRCLIB candidates one track at a time, with synced/plain-only state shown before applying lyrics.
-- Apply chosen fields back to local files through the same metadata write path used by the inspector.
+  AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Users can extract metadata from filenames or structured text files, and they can also generate filenames or text-based metadata records from existing file metadata.
 
-### Inspection and raw metadata tools
+  > [!CAUTION]
+  >
+  > Metadata and Text Conversion is still under active refinement. Some behavior may require further improvement, especially when working with complex filenames, inconsistent TXT/CSV structures, or unusual metadata values. Please use this feature carefully, and manually review the results after applying changes to ensure that the metadata has been interpreted and written correctly.
 
-- View normalized tags in the main list and inspector.
-- Configure visible middle-list columns.
-- Sort columns while preserving manual order fallback.
-- View duration, bitrate, sample rate, channel count, and detected format.
-- Open a raw metadata dump for detailed inspection.
-- Use the Metadata Editor to inspect and edit raw TagLib property-map keys for one file or a selection.
-- Add fields from known metadata suggestions in the raw editor.
-- See mixed values in multi-file raw metadata editing.
+- ### Online Metadata Lookup
+
+  AudioMator can search for and apply metadata from online sources, including MusicBrainz, iTunes Search, and LRCLIB. MusicBrainz and iTunes Search are used for general music metadata lookup, while LRCLIB is mainly used for finding and applying lyrics metadata.
+
+- ### Tag Inspector
+
+  Tag Inspector provides a read-only view of the raw tags and file properties stored in the selected file. It is designed for inspection and troubleshooting, allowing users to review the actual metadata values detected by AudioMator without modifying them.
+
+- ### Metadata Editor Utilities
+
+  The Metadata Editor includes text-processing utilities for both single-file and multi-file workflows. These tools support case conversion, find and replace, prefix and suffix insertion, and trimming leading or trailing whitespace. They are intended to make large-scale metadata cleanup and normalization more efficient.
 
 ## Platform Model
 

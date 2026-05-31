@@ -14,7 +14,10 @@ struct MiddleListTable: NSViewRepresentable {
     let onCopySelectedFilePaths: () -> Void
     let onCopySelectedFileNames: () -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
+    let onRequestCreateMuseAmpIDs: () -> Void
     let onRequestEraseAllTags: () -> Void
+    let isMuseAmpSupportEnabled: Bool
+    let isMuseAmpIDCreationEnabled: Bool
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -262,6 +265,8 @@ extension MiddleListTable {
                     item.isEnabled = hasSelection
                 case #selector(findSelectedFilesInMusicBrainzAction):
                     item.isEnabled = hasSelection
+                case #selector(requestCreateMuseAmpIDsAction):
+                    item.isEnabled = hasSelection && parent.isMuseAmpIDCreationEnabled
                 case #selector(requestEraseAllTagsAction):
                     item.isEnabled = hasSelection
                 default:
@@ -293,6 +298,11 @@ extension MiddleListTable {
         @objc
         private func findSelectedFilesInMusicBrainzAction() {
             parent.onFindSelectedFileInMusicBrainz()
+        }
+
+        @objc
+        private func requestCreateMuseAmpIDsAction() {
+            parent.onRequestCreateMuseAmpIDs()
         }
 
         @objc
@@ -474,6 +484,9 @@ extension MiddleListTable {
             menu.addItem(makeMenuItem(title: "Copy Filename", action: #selector(copySelectedFileNamesAction)))
             menu.addItem(.separator())
             menu.addItem(makeMenuItem(title: "Find in MusicBrainz", action: #selector(findSelectedFilesInMusicBrainzAction)))
+            if parent.isMuseAmpSupportEnabled {
+                menu.addItem(makeMenuItem(title: "Create MuseAmp IDs…", action: #selector(requestCreateMuseAmpIDsAction)))
+            }
             menu.addItem(.separator())
             menu.addItem(makeMenuItem(title: "Erase All Tags…", action: #selector(requestEraseAllTagsAction)))
 
@@ -548,7 +561,10 @@ struct MiddleListTable: View {
     let onCopySelectedFilePaths: () -> Void
     let onCopySelectedFileNames: () -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
+    let onRequestCreateMuseAmpIDs: () -> Void
     let onRequestEraseAllTags: () -> Void
+    let isMuseAmpSupportEnabled: Bool
+    let isMuseAmpIDCreationEnabled: Bool
 
     var body: some View {
         List {
@@ -579,6 +595,13 @@ struct MiddleListTable: View {
                         Button("Find in MusicBrainz") {
                             selection = [file.id]
                             onFindSelectedFileInMusicBrainz()
+                        }
+                        if isMuseAmpSupportEnabled {
+                            Button("Create MuseAmp IDs") {
+                                selection = [file.id]
+                                onRequestCreateMuseAmpIDs()
+                            }
+                            .disabled(!isMuseAmpIDCreationEnabled)
                         }
                         Button("Erase All Tags", role: .destructive) {
                             selection = [file.id]

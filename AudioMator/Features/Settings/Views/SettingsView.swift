@@ -27,6 +27,7 @@ struct SettingsView: View {
     @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
     @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
+    @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
     @AppStorage(settingsSelectedTabDefaultsKey) private var selectedTabRawValue: String = AppSettingsTab.general.rawValue
 
     var body: some View {
@@ -34,6 +35,7 @@ struct SettingsView: View {
             GeneralSettingsTab(
                 showWelcomeScreenOnLaunch: showWelcomeScreenOnLaunchBinding,
                 warnBeforeDiscardingInspectorEdits: warnBeforeDiscardingInspectorEditsBinding,
+                isMuseAmpSupportEnabled: $isMuseAmpSupportEnabled,
                 onShowWelcomeScreen: showWelcomeScreen
             )
             .tabItem {
@@ -386,6 +388,7 @@ private struct IPadLeftListMetadataPreviewRow: View {
 private struct GeneralSettingsTab: View {
     @Binding var showWelcomeScreenOnLaunch: Bool
     @Binding var warnBeforeDiscardingInspectorEdits: Bool
+    @Binding var isMuseAmpSupportEnabled: Bool
     let onShowWelcomeScreen: () -> Void
 
     var body: some View {
@@ -401,6 +404,10 @@ private struct GeneralSettingsTab: View {
                     "Warn Before Discarding Unsaved Inspector Edits",
                     isOn: $warnBeforeDiscardingInspectorEdits
                 )
+            }
+
+            Section("Integrations") {
+                Toggle("Enable MuseAmp Compatibility", isOn: $isMuseAmpSupportEnabled)
             }
         }
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)

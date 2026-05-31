@@ -68,7 +68,7 @@ Useful commands:
 ```bash
 bash scripts/codex-build.sh
 bash scripts/codex-build.sh --force
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
 

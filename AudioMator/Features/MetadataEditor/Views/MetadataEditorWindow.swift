@@ -225,6 +225,27 @@ final class MetadataEditorStore: ObservableObject {
         selectedFieldKey = normalizedKey
     }
 
+    fileprivate func commitFieldEntry(
+        context: MetadataFieldEditorContext,
+        key: String,
+        value: String
+    ) {
+        let normalizedValue = Self.normalizedFieldValue(value)
+
+        switch context.mode {
+        case .add:
+            upsertField(key: key, value: normalizedValue)
+        case .edit:
+            guard let originalKey = context.key else { return }
+
+            if normalizedValue.isEmpty {
+                deleteField(named: originalKey)
+            } else {
+                upsertField(key: originalKey, value: normalizedValue)
+            }
+        }
+    }
+
     func previewTextUtility(
         pipeline: TextEditPipeline,
         fieldKeys: Set<String>
@@ -385,7 +406,7 @@ struct MetadataEditorWindowView: View {
         }
         .sheet(item: $editorContext) { context in
             MetadataFieldEntrySheet(context: context) { key, value in
-                store.upsertField(key: key, value: value)
+                store.commitFieldEntry(context: context, key: key, value: value)
             }
         }
         .sheet(item: $utilityContext) { context in
@@ -920,7 +941,12 @@ private struct MetadataFieldEntrySheet: View {
     }
 
     private var canSave: Bool {
-        !trimmedFieldKey.isEmpty && !trimmedFieldValue.isEmpty
+        switch context.mode {
+        case .add:
+            return !trimmedFieldKey.isEmpty && !trimmedFieldValue.isEmpty
+        case .edit:
+            return !trimmedFieldKey.isEmpty
+        }
     }
 
     private var titleText: String {

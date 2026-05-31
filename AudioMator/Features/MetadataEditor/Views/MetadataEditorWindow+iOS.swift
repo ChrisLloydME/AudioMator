@@ -123,13 +123,34 @@ final class MetadataEditorStore: ObservableObject {
         selectedFieldKey = normalizedKey
     }
 
+    fileprivate func commitFieldEntry(context: MetadataFieldEditorContext, key: String, value: String) {
+        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let existingKey = context.key {
+            if normalizedValue.isEmpty {
+                deleteField(named: existingKey)
+            } else {
+                upsertField(key: existingKey, value: normalizedValue)
+            }
+        } else {
+            upsertField(key: key, value: normalizedValue)
+        }
+    }
+
     func deleteSelectedField() {
         guard let selectedFieldKey else { return }
+        deleteField(named: selectedFieldKey)
+    }
+
+    private func deleteField(named key: String) {
+        guard !key.isEmpty else { return }
+
         for target in targets {
             var propertyMap = draftPropertyMaps[target.id] ?? [:]
-            propertyMap.removeValue(forKey: selectedFieldKey)
+            propertyMap.removeValue(forKey: key)
             draftPropertyMaps[target.id] = propertyMap
         }
+
         self.selectedFieldKey = rows.first?.key
     }
 
@@ -260,9 +281,10 @@ struct MetadataEditorWindowView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
                             let key = context.key ?? fieldKeyDraft
-                            store.upsertField(key: key, value: fieldValueDraft)
+                            store.commitFieldEntry(context: context, key: key, value: fieldValueDraft)
                             editorContext = nil
                         }
+                        .disabled(context.key == nil && fieldValueDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }

@@ -185,6 +185,82 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertNil(readBack["TOTALTRACKS"])
     }
 
+    func testInspectorStyleMetadataWriteClearsTrackTotalWithoutDroppingTrackNumber() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var edit = SingleFileEditModel()
+        edit.setTrackNumberFieldText("7")
+        edit.setTrackTotalFieldText("12")
+
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        var readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+        XCTAssertEqual(readBack.track, 7)
+        XCTAssertEqual(readBack.trackTotal, 12)
+
+        edit.setTrackTotalFieldText("")
+
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+        XCTAssertEqual(readBack.track, 7)
+        XCTAssertEqual(readBack.trackTotal, 0)
+        XCTAssertEqual(readBack.trackNumberText, "7")
+    }
+
+    func testInspectorStyleMetadataWriteClearsEditableTextFields() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var edit = SingleFileEditModel()
+        edit.title = "Title To Clear"
+        edit.artist = "Artist To Clear"
+        edit.album = "Album To Clear"
+        edit.composer = "Composer To Clear"
+        edit.genre = "Genre To Clear"
+        edit.comment = "Comment To Clear"
+        edit.albumArtist = "Album Artist To Clear"
+        edit.releaseDate = "2026-05-31"
+        edit.publisher = "Label To Clear"
+        edit.copyright = "Copyright To Clear"
+        edit.isrc = "USRC17607839"
+        edit.barcode = "123456789012"
+
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        var rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(rawMap["TITLE"], "Title To Clear")
+        XCTAssertEqual(rawMap["ARTIST"], "Artist To Clear")
+        XCTAssertEqual(rawMap["ALBUM"], "Album To Clear")
+
+        edit.title = ""
+        edit.artist = ""
+        edit.album = ""
+        edit.composer = ""
+        edit.genre = ""
+        edit.comment = ""
+        edit.albumArtist = ""
+        edit.releaseDate = ""
+        edit.publisher = ""
+        edit.copyright = ""
+        edit.isrc = ""
+        edit.barcode = ""
+
+        let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL).warnings
+        XCTAssertFalse(warnings.contains { $0.contains("expected to be removed") }, warnings.joined(separator: "\n"))
+
+        rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        for key in [
+            "TITLE", "ARTIST", "ARTISTS", "ALBUM", "COMPOSER", "GENRE", "COMMENT",
+            "ALBUMARTIST", "ALBUM ARTIST", "RELEASEDATE", "DATE", "LABEL", "PUBLISHER",
+            "COPYRIGHT", "ISRC", "BARCODE", "UPC", "EAN"
+        ] {
+            XCTAssertNil(rawMap[key], "\(key) should be cleared")
+        }
+    }
+
     private func bundledAudioFixtureURL(named fileName: String) throws -> URL {
         try bundledFixtureURL(named: fileName, preferredSubdirectory: "Fixtures/Audio")
     }

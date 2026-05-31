@@ -482,9 +482,8 @@ extension MiddleListTable {
             menu.addItem(.separator())
             menu.addItem(makeMenuItem(title: "Copy Path", action: #selector(copySelectedFilePathsAction)))
             menu.addItem(makeMenuItem(title: "Copy Filename", action: #selector(copySelectedFileNamesAction)))
-            menu.addItem(.separator())
-            menu.addItem(makeMenuItem(title: "Find in MusicBrainz", action: #selector(findSelectedFilesInMusicBrainzAction)))
             if parent.isMuseAmpSupportEnabled {
+                menu.addItem(.separator())
                 menu.addItem(makeMenuItem(title: "Create MuseAmp IDs…", action: #selector(requestCreateMuseAmpIDsAction)))
             }
             menu.addItem(.separator())
@@ -591,10 +590,6 @@ struct MiddleListTable: View {
                         Button("Copy Filename") {
                             selection = [file.id]
                             onCopySelectedFileNames()
-                        }
-                        Button("Find in MusicBrainz") {
-                            selection = [file.id]
-                            onFindSelectedFileInMusicBrainz()
                         }
                         if isMuseAmpSupportEnabled {
                             Button("Create MuseAmp IDs") {

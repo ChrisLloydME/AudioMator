@@ -17,7 +17,10 @@ struct ContentPane: View {
     let isInspectorVisible: Bool
     let onToggleInspector: () -> Void
 
+    @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
+
     @State private var isEraseAllTagsConfirmPresented: Bool = false
+    @State private var isMuseAmpIDConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
 
     private var currentSidebarSelection: SidebarSelection {
@@ -146,7 +149,10 @@ struct ContentPane: View {
                     onCopySelectedFilePaths: copySelectedFilePaths,
                     onCopySelectedFileNames: copySelectedFileNames,
                     onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
-                    onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true }
+                    onRequestCreateMuseAmpIDs: { isMuseAmpIDConfirmPresented = true },
+                    onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true },
+                    isMuseAmpSupportEnabled: isMuseAmpSupportEnabled,
+                    isMuseAmpIDCreationEnabled: viewModel.metadataSaveProgress == nil
                 )
                 .onChange(of: state.selectedAudioIDs) { _, newSelection in
                     viewModel.selectedAudioIDs = newSelection
@@ -163,6 +169,18 @@ struct ContentPane: View {
                     viewModel.selectedAudioIDs = state.selectedAudioIDs
                     viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
+                }
+                .confirmationDialog(
+                    "Create MuseAmp IDs?",
+                    isPresented: $isMuseAmpIDConfirmPresented,
+                    titleVisibility: .visible
+                ) {
+                    Button("Create IDs", role: .destructive) {
+                        createMuseAmpIDsForSelectedFiles()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This replaces the Comment field on the selected files with MuseAmp ID data, then saves the files.")
                 }
                 .confirmationDialog(
                     "Erase all metadata tags?",
@@ -376,6 +394,10 @@ struct ContentPane: View {
 
     private func clearAllMetadataForSelectedFiles() {
         viewModel.eraseAllMetadata(selectedFiles)
+    }
+
+    private func createMuseAmpIDsForSelectedFiles() {
+        viewModel.createMuseAmpIDs(for: selectedFiles)
     }
 
     private func clearFileList() {

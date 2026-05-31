@@ -392,27 +392,160 @@ private struct GeneralSettingsTab: View {
     let onShowWelcomeScreen: () -> Void
 
     var body: some View {
-        Form {
-            Section("Startup") {
-                Toggle("Show Welcome Screen on Launch", isOn: $showWelcomeScreenOnLaunch)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("General Settings")
+                        .font(.title3.weight(.semibold))
 
-                Button("Show Welcome Screen Now", action: onShowWelcomeScreen)
-            }
+                    Text("Control launch behavior, editing protection, and compatibility features.")
+                        .foregroundStyle(.secondary)
+                }
 
-            Section("Editing") {
-                Toggle(
-                    "Warn Before Discarding Unsaved Inspector Edits",
-                    isOn: $warnBeforeDiscardingInspectorEdits
-                )
-            }
+                VStack(alignment: .leading, spacing: 20) {
+                    MacSettingsSection(title: "Startup") {
+                        MacSettingsRow(
+                            title: "Show Welcome Screen on Launch",
+                            detail: "Show the guided introduction the next time AudioMator opens.",
+                            systemImage: "sparkles.rectangle.stack"
+                        ) {
+                            Toggle("Show Welcome Screen on Launch", isOn: $showWelcomeScreenOnLaunch)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .accessibilityLabel("Show Welcome Screen on Launch")
+                        }
 
-            Section("Integrations") {
-                Toggle("Enable MuseAmp Compatibility", isOn: $isMuseAmpSupportEnabled)
+                        MacSettingsDivider()
+
+                        MacSettingsRow(
+                            title: "Welcome Screen",
+                            systemImage: "play.rectangle"
+                        ) {
+                            Button(action: onShowWelcomeScreen) {
+                                Text("Show Now")
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+
+                    MacSettingsSection(title: "Editing") {
+                        MacSettingsRow(
+                            title: "Warn Before Discarding Inspector Edits",
+                            detail: "Ask for confirmation before unsaved inspector changes are thrown away.",
+                            systemImage: "exclamationmark.triangle"
+                        ) {
+                            Toggle(
+                                "Warn Before Discarding Inspector Edits",
+                                isOn: $warnBeforeDiscardingInspectorEdits
+                            )
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .accessibilityLabel("Warn Before Discarding Inspector Edits")
+                        }
+                    }
+
+                    MacSettingsSection(title: "Integrations") {
+                        MacSettingsRow(
+                            title: "MuseAmp Compatibility",
+                            detail: "Enable MuseAmp ID actions in track list context menus.",
+                            systemImage: "music.note.list"
+                        ) {
+                            Toggle("MuseAmp Compatibility", isOn: $isMuseAmpSupportEnabled)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .accessibilityLabel("Enable MuseAmp Compatibility")
+                        }
+                    }
+                }
             }
+            .padding(20)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct MacSettingsSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.secondary.opacity(0.09))
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct MacSettingsRow<Accessory: View>: View {
+    let title: String
+    let detail: String?
+    let systemImage: String
+    @ViewBuilder let accessory: Accessory
+
+    init(
+        title: String,
+        detail: String? = nil,
+        systemImage: String,
+        @ViewBuilder accessory: () -> Accessory
+    ) {
+        self.title = title
+        self.detail = detail
+        self.systemImage = systemImage
+        self.accessory = accessory()
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.body)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+
+                if let detail {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: 24)
+
+            accessory
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, detail == nil ? 10 : 8)
+        .frame(minHeight: detail == nil ? 40 : 52)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct MacSettingsDivider: View {
+    var body: some View {
+        Divider()
+            .padding(.leading, 56)
+            .padding(.trailing, 18)
+            .overlay(Color(platformColor: .audiomatorSeparator).opacity(0.28))
     }
 }
 

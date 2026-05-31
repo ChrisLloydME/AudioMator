@@ -784,12 +784,6 @@ private struct AboutSettingsTab: View {
                             .font(.headline)
                     }
 
-                    Button {
-                        UpdateCheckPresenter.shared.checkForUpdates()
-                    } label: {
-                        Label("Check for Updates…", systemImage: "arrow.down.circle")
-                    }
-                    .controlSize(.large)
                 }
             }
             .frame(maxWidth: 820, alignment: .leading)
@@ -800,6 +794,13 @@ private struct AboutSettingsTab: View {
 
             HStack {
                 Spacer()
+
+                Button {
+                    UpdateCheckPresenter.shared.checkForUpdates()
+                } label: {
+                    Label("Check for Updates…", systemImage: "arrow.down.circle")
+                }
+                .controlSize(.large)
 
                 Button("Release Notes…") {
                     isReleaseNotesPresented = true

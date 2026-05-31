@@ -132,7 +132,16 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             )
         )
 
-        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+        var warnings = writeResult.warnings
+        let clearedKeys = MetadataPipelineSupport.clearedPropertyMapKeys(from: edit)
+        if !clearedKeys.isEmpty {
+            warnings.append(contentsOf: MetadataPipelineSupport.cleanupRemovedPropertyMapKeys(
+                clearedKeys,
+                from: url
+            ))
+        }
+
+        return AudioMetadataWriteResult(warnings: warnings)
     }
 
     nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
@@ -380,6 +389,36 @@ private enum MetadataPipelineSupport {
             .map { "Raw key \"\($0)\" was expected to be removed after save." }
     }
 
+    nonisolated static func cleanupRemovedPropertyMapKeys(
+        _ removedKeys: Set<String>,
+        from url: URL
+    ) -> [String] {
+        guard !removedKeys.isEmpty else { return [] }
+
+        var warnings: [String] = []
+        if isMP4Like(url) {
+            warnings.append(contentsOf: removeMP4Atoms(matching: removedKeys, from: url))
+        }
+
+        let currentPropertyMap = (try? TagLibAudioMetadataPipeline().rawMetadataPropertyMap(for: url)) ?? [:]
+        let filteredPropertyMap = currentPropertyMap.filter { entry in
+            removedKeys.intersection(propertyMapKeyAliases(entry.key)).isEmpty
+        }
+
+        if filteredPropertyMap.count != currentPropertyMap.count {
+            do {
+                let valueMap = rawPropertyMapValues(from: filteredPropertyMap)
+                let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapValuesWithVerification(valueMap, to: url)
+                warnings.append(contentsOf: writeResult.warnings)
+            } catch {
+                warnings.append("Could not remove cleared raw metadata after save: \((error as NSError).localizedDescription)")
+            }
+        }
+
+        warnings.append(contentsOf: rawPropertyRemovalWarnings(removedKeys: removedKeys, for: url))
+        return warnings
+    }
+
     nonisolated static func removeMP4Atoms(
         matching removedKeys: Set<String>,
         from url: URL
@@ -414,6 +453,68 @@ private enum MetadataPipelineSupport {
         }
     }
 
+    nonisolated static func clearedPropertyMapKeys(from edit: MetadataEditPayload) -> Set<String> {
+        var cleared: Set<MetadataFieldKey> = []
+        var populated: Set<MetadataFieldKey> = []
+
+        func record(_ key: MetadataFieldKey, isPopulated: Bool) {
+            if isPopulated {
+                populated.insert(key)
+            } else {
+                cleared.insert(key)
+            }
+        }
+
+        record(.title, isPopulated: !normalizedFieldComponent(edit.title).isEmpty)
+        record(.artist, isPopulated: !normalizedFieldComponent(edit.artist).isEmpty)
+        record(.album, isPopulated: !normalizedFieldComponent(edit.album).isEmpty)
+        record(.composer, isPopulated: !normalizedFieldComponent(edit.composer).isEmpty)
+        record(.genre, isPopulated: !normalizedFieldComponent(edit.genre).isEmpty)
+        record(.comment, isPopulated: !normalizedFieldComponent(edit.comment).isEmpty)
+        record(.albumArtist, isPopulated: !normalizedFieldComponent(edit.albumArtist).isEmpty)
+        record(.publisher, isPopulated: !normalizedFieldComponent(edit.publisher).isEmpty)
+        record(.isrc, isPopulated: !normalizedFieldComponent(edit.isrc).isEmpty)
+        record(.barcode, isPopulated: !normalizedFieldComponent(edit.barcode).isEmpty)
+        record(.musicBrainzAlbumID, isPopulated: !normalizedFieldComponent(edit.musicBrainzAlbumID).isEmpty)
+        record(.musicBrainzTrackID, isPopulated: !normalizedFieldComponent(edit.musicBrainzTrackID).isEmpty)
+        record(.musicBrainzReleaseGroupID, isPopulated: !normalizedFieldComponent(edit.musicBrainzReleaseGroupID).isEmpty)
+        record(.lyricist, isPopulated: !normalizedFieldComponent(edit.lyricist).isEmpty)
+        record(.remixer, isPopulated: !normalizedFieldComponent(edit.remixer).isEmpty)
+        record(.producer, isPopulated: !normalizedFieldComponent(edit.producer).isEmpty)
+        record(.engineer, isPopulated: !normalizedFieldComponent(edit.engineer).isEmpty)
+        record(.language, isPopulated: !normalizedFieldComponent(edit.language).isEmpty)
+        record(.mediaType, isPopulated: !normalizedFieldComponent(edit.mediaType).isEmpty)
+        record(.releaseType, isPopulated: !normalizedFieldComponent(edit.releaseType).isEmpty)
+        record(.catalogNumber, isPopulated: !normalizedFieldComponent(edit.catalogNumber).isEmpty)
+        record(.releaseCountry, isPopulated: !normalizedFieldComponent(edit.releaseCountry).isEmpty)
+        record(.copyright, isPopulated: !normalizedFieldComponent(edit.copyright).isEmpty)
+        record(.itunesAlbumID, isPopulated: !normalizedFieldComponent(edit.itunesAlbumID).isEmpty)
+        record(.itunesArtistID, isPopulated: !normalizedFieldComponent(edit.itunesArtistID).isEmpty)
+        record(.itunesCatalogID, isPopulated: !normalizedFieldComponent(edit.itunesCatalogID).isEmpty)
+
+        let trackText = normalizedFieldComponent(edit.trackNumberText)
+        let discText = normalizedFieldComponent(edit.discNumberText)
+        let parsedTrack = parseNumberTextForMetadataWrite(trackText)
+        let parsedDisc = parseNumberTextForMetadataWrite(discText)
+        record(.track, isPopulated: max(edit.trackNumber, parsedTrack.number) > 0 || !trackText.isEmpty)
+        record(.trackTotal, isPopulated: max(edit.trackTotal, parsedTrack.total) > 0)
+        record(.disc, isPopulated: max(edit.discNumber, parsedDisc.number) > 0 || !discText.isEmpty)
+        record(.discTotal, isPopulated: max(edit.discTotal, parsedDisc.total) > 0)
+
+        let clearedKeys = cleared.flatMap(propertyMapKeyAliases)
+        let populatedKeys = populated.flatMap(propertyMapKeyAliases)
+        return Set(clearedKeys).subtracting(populatedKeys)
+    }
+
+    nonisolated private static func isMP4Like(_ url: URL) -> Bool {
+        switch url.pathExtension.lowercased() {
+        case "m4a", "m4b", "m4p", "m4r", "mp4", "aac":
+            return true
+        default:
+            return false
+        }
+    }
+
     nonisolated private static func propertyMapKeyAliases(_ key: String) -> Set<String> {
         let normalized = normalizedPropertyMapKey(key)
         guard !normalized.isEmpty else { return [] }
@@ -424,6 +525,11 @@ private enum MetadataPipelineSupport {
         }
 
         return aliases
+    }
+
+    nonisolated private static func propertyMapKeyAliases(_ key: MetadataFieldKey) -> Set<String> {
+        guard let schema = MetadataFieldRegistry.schema(for: key) else { return [] }
+        return Set(schema.propertyMapKeys.flatMap(propertyMapKeyAliases))
     }
 
     nonisolated private static func normalizedMP4AtomKeys(_ atom: StructuredMP4Atom) -> Set<String> {

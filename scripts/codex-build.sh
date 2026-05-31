@@ -81,6 +81,7 @@ COMMAND=(
   -project "${ROOT_DIR}/AudioMator.xcodeproj"
   -scheme AudioMator
   -configuration Debug
+  -destination "generic/platform=macOS"
   -derivedDataPath "${DERIVED_DATA_PATH}"
   CODE_SIGNING_ALLOWED=NO
   build

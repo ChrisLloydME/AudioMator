@@ -138,6 +138,53 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testRawPropertyMapWriteRemovesDeletedMP4FreeformFields() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var propertyMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        propertyMap["TITLE"] = "Raw Delete Regression"
+        propertyMap["ITUNSMPB"] = "00000000 00000840 00000210 00000000003F5AB0 00000000 0003A5E0 00000000 00000000 00000000 00000000 00000000 00000000"
+
+        let writeWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        XCTAssertFalse(writeWarnings.contains { $0.contains("ITUNSMPB") }, writeWarnings.joined(separator: "\n"))
+        XCTAssertEqual(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNSMPB"], propertyMap["ITUNSMPB"])
+
+        propertyMap.removeValue(forKey: "ITUNSMPB")
+
+        let removalWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        XCTAssertFalse(removalWarnings.contains { $0.contains("ITUNSMPB") }, removalWarnings.joined(separator: "\n"))
+        XCTAssertNil(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNSMPB"])
+    }
+
+    func testRawPropertyMapWriteRemovesTrackTotalWithoutDroppingTrackNumber() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var propertyMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        propertyMap["TRACKNUMBER"] = "7"
+        propertyMap["TRACKTOTAL"] = "12"
+
+        let writeWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        XCTAssertFalse(writeWarnings.contains { $0.contains("TRACKTOTAL") || $0.contains("TOTALTRACKS") }, writeWarnings.joined(separator: "\n"))
+        var readBack = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(readBack["TRACKNUMBER"], "7")
+        XCTAssertEqual(readBack["TRACKTOTAL"], "12")
+
+        propertyMap.removeValue(forKey: "TRACKTOTAL")
+
+        let removalWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        XCTAssertFalse(removalWarnings.contains { $0.contains("TRACKTOTAL") || $0.contains("TOTALTRACKS") }, removalWarnings.joined(separator: "\n"))
+        readBack = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(readBack["TRACKNUMBER"], "7")
+        XCTAssertNil(readBack["TRACKTOTAL"])
+        XCTAssertNil(readBack["TOTALTRACKS"])
+    }
+
     private func bundledAudioFixtureURL(named fileName: String) throws -> URL {
         try bundledFixtureURL(named: fileName, preferredSubdirectory: "Fixtures/Audio")
     }

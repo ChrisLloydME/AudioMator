@@ -136,9 +136,32 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+        let originalPropertyMap = (try? rawMetadataPropertyMap(for: url)) ?? [:]
+        let removedKeys = MetadataPipelineSupport.removedPropertyMapKeys(
+            original: originalPropertyMap,
+            replacement: propertyMap
+        )
         let valueMap = MetadataPipelineSupport.rawPropertyMapValues(from: propertyMap)
         let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapValuesWithVerification(valueMap, to: url)
-        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+        var warnings = writeResult.warnings
+
+        if !removedKeys.isEmpty {
+            if url.pathExtension.localizedCaseInsensitiveCompare("m4a") == .orderedSame ||
+                url.pathExtension.localizedCaseInsensitiveCompare("mp4") == .orderedSame ||
+                url.pathExtension.localizedCaseInsensitiveCompare("m4b") == .orderedSame {
+                warnings.append(contentsOf: MetadataPipelineSupport.removeMP4Atoms(
+                    matching: removedKeys,
+                    from: url
+                ))
+            }
+
+            warnings.append(contentsOf: MetadataPipelineSupport.rawPropertyRemovalWarnings(
+                removedKeys: removedKeys,
+                for: url
+            ))
+        }
+
+        return AudioMetadataWriteResult(warnings: warnings)
     }
 
     nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
@@ -327,6 +350,95 @@ private enum MetadataPipelineSupport {
                     .filter { !$0.isEmpty }
             } else {
                 result[key] = [value]
+            }
+        }
+    }
+
+    nonisolated static func removedPropertyMapKeys(
+        original: [String: String],
+        replacement: [String: String]
+    ) -> Set<String> {
+        let replacementKeys = Set(replacement.keys.flatMap(propertyMapKeyAliases))
+        return Set(original.keys.flatMap(propertyMapKeyAliases)).subtracting(replacementKeys)
+    }
+
+    nonisolated static func rawPropertyRemovalWarnings(
+        removedKeys: Set<String>,
+        for url: URL
+    ) -> [String] {
+        guard !removedKeys.isEmpty else { return [] }
+
+        let persistedKeys = Set(((try? TagLibAudioMetadataPipeline().rawMetadataPropertyMap(for: url)) ?? [:])
+            .keys
+            .flatMap(propertyMapKeyAliases))
+
+        let remainingKeys = removedKeys.intersection(persistedKeys)
+        guard !remainingKeys.isEmpty else { return [] }
+
+        return remainingKeys
+            .sorted()
+            .map { "Raw key \"\($0)\" was expected to be removed after save." }
+    }
+
+    nonisolated static func removeMP4Atoms(
+        matching removedKeys: Set<String>,
+        from url: URL
+    ) -> [String] {
+        do {
+            let structured = try TagLibMetadataManager.readStructuredMetadataResult(from: url)
+            let atomsToRemove = structured.mp4Atoms
+                .filter { atom in
+                    !removedKeys.intersection(normalizedMP4AtomKeys(atom)).isEmpty
+                }
+                .map { atom in
+                    StructuredMP4Atom(
+                        key: atom.key,
+                        type: "stringList",
+                        values: [],
+                        freeformDescription: atom.freeformDescription
+                    )
+                }
+
+            guard !atomsToRemove.isEmpty else { return [] }
+
+            let removalPayload = StructuredMetadata(mp4Atoms: atomsToRemove)
+            try TagLibMetadataManager.writeStructuredMetadataWithVerification(
+                removalPayload,
+                to: url,
+                includeProperties: false,
+                verifyAfterWrite: false
+            )
+            return []
+        } catch {
+            return ["Could not remove MP4 atom metadata after raw save: \((error as NSError).localizedDescription)"]
+        }
+    }
+
+    nonisolated private static func propertyMapKeyAliases(_ key: String) -> Set<String> {
+        let normalized = normalizedPropertyMapKey(key)
+        guard !normalized.isEmpty else { return [] }
+
+        var aliases: Set<String> = [normalized]
+        if let schema = MetadataFieldRegistry.schema(forPropertyMapKey: normalized) {
+            aliases.formUnion(schema.propertyMapKeys.map(normalizedPropertyMapKey))
+        }
+
+        return aliases
+    }
+
+    nonisolated private static func normalizedMP4AtomKeys(_ atom: StructuredMP4Atom) -> Set<String> {
+        let prefix = "----:COM.APPLE.ITUNES:"
+        let rawKeys = [
+            atom.key,
+            atom.freeformDescription ?? ""
+        ]
+
+        return rawKeys.reduce(into: Set<String>()) { keys, rawKey in
+            for key in propertyMapKeyAliases(rawKey) {
+                keys.insert(key)
+                if key.hasPrefix(prefix) {
+                    keys.formUnion(propertyMapKeyAliases(String(key.dropFirst(prefix.count))))
+                }
             }
         }
     }

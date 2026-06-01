@@ -119,14 +119,7 @@ struct ITunesFileSearchInput: Identifiable, Equatable, Hashable {
     }
 
     private static func normalizedIndex(_ rawValue: String) -> Int? {
-        let normalized = rawValue
-            .split(separator: "/")
-            .first
-            .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? rawValue
-        guard !normalized.isEmpty else { return nil }
-        let stripped = String(normalized.drop(while: { $0 == "0" }))
-        return Int(stripped.isEmpty ? normalized : stripped).flatMap { $0 > 0 ? $0 : nil }
+        AudioTagNumberText.positiveIndex(from: rawValue)
     }
 }
 

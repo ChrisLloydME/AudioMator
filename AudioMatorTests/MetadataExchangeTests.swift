@@ -84,6 +84,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}}|{{title}}|{{artist}}"), "|")
         XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}}\t{{title}}\t{{artist}}"), "\t")
         XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{fileName}},\"{{title}}; live\" ,{{artist}}"), ",")
+        XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{title}},{{artist}};{{album}}"), ",")
         XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{title}}"), ",")
     }
 

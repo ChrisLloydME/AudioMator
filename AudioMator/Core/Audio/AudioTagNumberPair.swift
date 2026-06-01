@@ -16,13 +16,7 @@ struct AudioTagNumberPair: Equatable {
     }
 
     private var rawComponents: (number: String, total: String?) {
-        let parts = trimmedRawText.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
-        let left = parts.first.map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let right = parts.count > 1
-            ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            : nil
-        return (left, right)
+        AudioTagNumberText.components(from: trimmedRawText)
     }
 
     var displayedNumberText: String {
@@ -73,8 +67,8 @@ struct AudioTagNumberPair: Equatable {
 
         return AudioTagNumberPair(
             rawText: rawText,
-            number: Int(normalizedNumberText) ?? 0,
-            total: Int(normalizedTotalText) ?? 0
+            number: AudioTagNumberText.clampedInteger(fromComponent: normalizedNumberText),
+            total: AudioTagNumberText.clampedInteger(fromComponent: normalizedTotalText)
         )
     }
 }

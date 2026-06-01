@@ -1274,7 +1274,7 @@ enum MetadataExchangeCSV {
             let lhsCount = counts[lhs, default: 0]
             let rhsCount = counts[rhs, default: 0]
             if lhsCount == rhsCount {
-                return delimiterCandidates.firstIndex(of: lhs)! > delimiterCandidates.firstIndex(of: rhs)!
+                return delimiterPriority(lhs) > delimiterPriority(rhs)
             }
             return lhsCount < rhsCount
         }
@@ -1283,6 +1283,10 @@ enum MetadataExchangeCSV {
             return ","
         }
         return bestCandidate
+    }
+
+    nonisolated private static func delimiterPriority(_ delimiter: Character) -> Int {
+        delimiterCandidates.firstIndex(of: delimiter) ?? delimiterCandidates.count
     }
 
     static func parse(_ source: String, delimiter: Character = ",") throws -> [[String]] {

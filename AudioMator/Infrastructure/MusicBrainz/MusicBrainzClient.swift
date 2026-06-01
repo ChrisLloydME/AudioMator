@@ -104,24 +104,7 @@ struct MusicBrainzFileSearchInput: Identifiable, Equatable, Hashable {
     }
 
     private static func normalizedIndex(_ rawValue: String) -> Int? {
-        let normalized = rawValue
-            .split(separator: "/")
-            .first
-            .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? rawValue
-
-        guard !normalized.isEmpty else { return nil }
-
-        let stripped = String(normalized.drop(while: { $0 == "0" }))
-        if let value = Int(stripped), value > 0 {
-            return value
-        }
-
-        if let value = Int(normalized), value > 0 {
-            return value
-        }
-
-        return nil
+        AudioTagNumberText.positiveIndex(from: rawValue)
     }
 }
 
@@ -3306,24 +3289,7 @@ private enum MusicBrainzFileSelectionMatcher {
     }
 
     private static func normalizedIndex(_ rawValue: String) -> Int? {
-        let normalized = rawValue
-            .split(separator: "/")
-            .first
-            .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? rawValue
-
-        guard !normalized.isEmpty else { return nil }
-
-        let stripped = String(normalized.drop(while: { $0 == "0" }))
-        if let value = Int(stripped), value > 0 {
-            return value
-        }
-
-        if let value = Int(normalized), value > 0 {
-            return value
-        }
-
-        return nil
+        AudioTagNumberText.positiveIndex(from: rawValue)
     }
 }
 

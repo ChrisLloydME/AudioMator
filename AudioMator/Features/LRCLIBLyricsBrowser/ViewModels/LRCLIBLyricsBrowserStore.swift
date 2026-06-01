@@ -180,14 +180,21 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
         }
     }
 
-    func autoSyncedLyricsMatchesForAllFiles() async -> [LRCLIBSyncedLyricsAutoMatch] {
+    func autoSyncedLyricsMatchesForAllFiles(
+        progress: @MainActor (_ completedCount: Int, _ totalCount: Int, _ currentFileName: String) -> Void
+    ) async -> [LRCLIBSyncedLyricsAutoMatch] {
         guard hasFiles else { return [] }
 
         searchTask?.cancel()
         var matches: [LRCLIBSyncedLyricsAutoMatch] = []
+        let totalCount = fileInputs.count
 
-        for file in fileInputs {
+        progress(0, totalCount, fileInputs.first?.fileName ?? "")
+
+        for (index, file) in fileInputs.enumerated() {
             guard !Task.isCancelled else { break }
+
+            progress(index, totalCount, file.fileName)
 
             let query = file.query
             guard !query.isEmpty else {
@@ -196,6 +203,7 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
                     state.rankedCandidates = []
                     state.selectedCandidateID = nil
                 }
+                progress(index + 1, totalCount, file.fileName)
                 continue
             }
 
@@ -217,6 +225,7 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
                     state.rankedCandidates = rankedCandidates
                     state.selectedCandidateID = bestSyncedCandidate?.id ?? rankedCandidates.first?.id
                 }
+                progress(index + 1, totalCount, file.fileName)
 
                 guard
                     let bestSyncedCandidate,
@@ -246,6 +255,7 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
                     state.rankedCandidates = []
                     state.selectedCandidateID = nil
                 }
+                progress(index + 1, totalCount, file.fileName)
             }
         }
 

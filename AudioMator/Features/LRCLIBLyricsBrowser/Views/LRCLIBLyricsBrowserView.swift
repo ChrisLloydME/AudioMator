@@ -176,7 +176,7 @@ struct LRCLIBLyricsBrowserView: View {
     private var resultsStateContent: some View {
         switch store.searchState {
         case .idle:
-            ContentUnavailableView(
+            paneUnavailableContent(
                 "Search LRCLIB",
                 systemImage: "text.magnifyingglass",
                 description: Text("Search uses this file's title, artist, album, and duration when available.")
@@ -189,20 +189,20 @@ struct LRCLIBLyricsBrowserView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .cancelled:
-            ContentUnavailableView(
+            paneUnavailableContent(
                 "Search Cancelled",
                 systemImage: "xmark.circle",
                 description: Text("Start a new search when you are ready.")
             )
         case .failed(let message):
-            ContentUnavailableView(
+            paneUnavailableContent(
                 "Unable to Search LRCLIB",
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
             )
         case .loaded:
             if store.rankedCandidates.isEmpty {
-                ContentUnavailableView(
+                paneUnavailableContent(
                     "No Results",
                     systemImage: "text.magnifyingglass",
                     description: Text("LRCLIB did not return lyrics candidates for this track.")
@@ -250,13 +250,13 @@ struct LRCLIBLyricsBrowserView: View {
 
             if let candidate = store.selectedCandidate {
                 selectedCandidatePreview(candidate)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
-                ContentUnavailableView(
+                paneUnavailableContent(
                     "No Candidate Selected",
                     systemImage: "text.line.first.and.arrowtriangle.forward",
                     description: Text("Choose a result to preview the lyrics before applying.")
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .padding(16)
@@ -276,13 +276,30 @@ struct LRCLIBLyricsBrowserView: View {
                     lyricsPreview(text: plainLyrics)
                 }
             } else {
-                ContentUnavailableView(
+                paneUnavailableContent(
                     candidate.instrumental ? "Instrumental Result" : "No Lyrics Text",
                     systemImage: "music.note",
                     description: Text("Choose another candidate with synced lyrics.")
                 )
             }
         }
+    }
+
+    private func paneUnavailableContent(
+        _ title: String,
+        systemImage: String,
+        description: Text
+    ) -> some View {
+        VStack(spacing: 0) {
+            ContentUnavailableView(
+                title,
+                systemImage: systemImage,
+                description: description
+            )
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 64)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func lyricsPreview(text: String) -> some View {

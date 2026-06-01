@@ -51,6 +51,36 @@
             "state" : "new",
             "value" : "AudioMator"
           }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator"
+          }
         }
       }
     },
@@ -61,6 +91,36 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
+            "value" : "Copyright © 2025-2026 Christopher Lloyd"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copyright © 2025-2026 Christopher Lloyd"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copyright © 2025-2026 Christopher Lloyd"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copyright © 2025-2026 Christopher Lloyd"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copyright © 2025-2026 Christopher Lloyd"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
             "value" : "Copyright © 2025-2026 Christopher Lloyd"
           }
         }

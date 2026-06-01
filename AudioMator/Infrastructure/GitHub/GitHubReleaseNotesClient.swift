@@ -64,10 +64,7 @@ struct GitHubReleaseNotesClient {
             throw GitHubReleaseNotesClientError.invalidResponse
         }
 
-        var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-        request.setValue("AudioMator", forHTTPHeaderField: "User-Agent")
+        let request = GitHubAPIRequest.make(url: url)
 
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {

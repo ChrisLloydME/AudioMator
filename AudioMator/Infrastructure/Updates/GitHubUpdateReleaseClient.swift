@@ -12,10 +12,7 @@ struct GitHubUpdateReleaseClient: UpdateReleaseProviding {
     }
 
     func fetchLatestRelease() async throws -> UpdateReleaseMetadata {
-        var request = URLRequest(url: Self.latestReleaseEndpoint)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-        request.setValue("AudioMator", forHTTPHeaderField: "User-Agent")
+        let request = GitHubAPIRequest.make(url: Self.latestReleaseEndpoint)
 
         let (data, response) = try await session.data(for: request)
 

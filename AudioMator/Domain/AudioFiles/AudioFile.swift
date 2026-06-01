@@ -335,16 +335,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     }
 
     private static func parseNumberText(_ rawText: String) -> (number: Int, total: Int) {
-        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return (0, 0) }
-
-        let parts = trimmed.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
-        let number = parts.first.flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
-        let total = parts.count > 1
-            ? Int(parts[1].trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-            : 0
-
-        return (max(0, number), max(0, total))
+        AudioTagNumberText.parsedPair(from: rawText)
     }
 
     // Shared helper for reading metadata values.

@@ -7,6 +7,7 @@ struct LRCLIBLyricsBrowserView: View {
 
     @State private var isApplyingLyrics = false
     @State private var isAutoApplyingLyrics = false
+    @State private var autoApplyProgress: MetadataSaveProgress?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,6 +110,8 @@ struct LRCLIBLyricsBrowserView: View {
                 description: Text("Select one or more audio files in AudioMator, then open LRCLIB from Online Metadata.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if isAutoApplyingLyrics {
+            autoApplyProgressView
         } else {
             HStack(spacing: 0) {
                 resultsPane
@@ -118,6 +121,37 @@ struct LRCLIBLyricsBrowserView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+    }
+
+    private var autoApplyProgressView: some View {
+        let progress = viewModel.metadataSaveProgress ?? autoApplyProgress
+
+        return VStack(spacing: 16) {
+            ProgressView()
+
+            VStack(spacing: 4) {
+                Text(progress?.title ?? "Finding LRCLIB Best Matches")
+                    .font(.headline)
+                Text(progress?.subtitle ?? "Preparing selected files...")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            if let progress {
+                VStack(alignment: .trailing, spacing: 7) {
+                    ProgressView(value: progress.fractionCompleted)
+                        .progressViewStyle(.linear)
+                        .tint(.accentColor)
+
+                    Text(progress.progressLabel)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: 360, alignment: .trailing)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var resultsPane: some View {
@@ -336,9 +370,23 @@ struct LRCLIBLyricsBrowserView: View {
         guard !isApplyingLyrics, !isAutoApplyingLyrics else { return }
 
         isAutoApplyingLyrics = true
-        let matches = await store.autoSyncedLyricsMatchesForAllFiles()
+        autoApplyProgress = MetadataSaveProgress(
+            title: "Finding LRCLIB Best Matches",
+            subtitle: "Preparing selected files...",
+            completedUnitCount: 0,
+            totalUnitCount: max(store.fileInputs.count, 1)
+        )
+        let matches = await store.autoSyncedLyricsMatchesForAllFiles { completedCount, totalCount, currentFileName in
+            autoApplyProgress = MetadataSaveProgress(
+                title: "Finding LRCLIB Best Matches",
+                subtitle: currentFileName.isEmpty ? "Preparing selected files..." : currentFileName,
+                completedUnitCount: completedCount,
+                totalUnitCount: max(totalCount, 1)
+            )
+        }
         let appliedFileIDs = await viewModel.applyLRCLIBSyncedLyricsAutoMatches(matches)
         store.markFilesApplied(matches, appliedFileIDs: appliedFileIDs)
+        autoApplyProgress = nil
         isAutoApplyingLyrics = false
     }
 }

@@ -6,6 +6,7 @@ struct LRCLIBLyricsBrowserView: View {
     let onBackToSources: () -> Void
 
     @State private var isApplyingLyrics = false
+    @State private var isAutoApplyingLyrics = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,7 +41,7 @@ struct LRCLIBLyricsBrowserView: View {
             }
 
             ToolbarItemGroup(placement: .primaryAction) {
-                if store.searchState == .searching {
+                if store.searchState == .searching && !isAutoApplyingLyrics {
                     Button("Cancel") {
                         store.cancelSearch()
                     }
@@ -49,7 +50,7 @@ struct LRCLIBLyricsBrowserView: View {
                         store.searchCurrentFile()
                     }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!store.hasFiles)
+                    .disabled(!store.hasFiles || isAutoApplyingLyrics)
                 }
             }
         }
@@ -275,20 +276,29 @@ struct LRCLIBLyricsBrowserView: View {
             } label: {
                 Label("Previous", systemImage: "chevron.left")
             }
-            .disabled(!store.canMovePrevious || isApplyingLyrics)
+            .disabled(!store.canMovePrevious || isApplyingLyrics || isAutoApplyingLyrics)
 
             Button {
                 store.moveNext()
             } label: {
                 Label("Next", systemImage: "chevron.right")
             }
-            .disabled(!store.canMoveNext || isApplyingLyrics)
+            .disabled(!store.canMoveNext || isApplyingLyrics || isAutoApplyingLyrics)
 
             Spacer()
 
-            if isApplyingLyrics {
+            if isApplyingLyrics || isAutoApplyingLyrics {
                 ProgressView()
                     .controlSize(.small)
+            }
+
+            if store.hasMultipleFiles {
+                Button("Auto Apply Best Matches") {
+                    Task {
+                        await autoApplyBestSyncedLyrics()
+                    }
+                }
+                .disabled(isApplyingLyrics || isAutoApplyingLyrics || store.searchState == .searching)
             }
 
             Button("Apply Synced Lyrics") {
@@ -297,7 +307,7 @@ struct LRCLIBLyricsBrowserView: View {
                 }
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(!store.canApplySelectedCandidate || isApplyingLyrics)
+            .disabled(!store.canApplySelectedCandidate || isApplyingLyrics || isAutoApplyingLyrics)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -320,6 +330,16 @@ struct LRCLIBLyricsBrowserView: View {
             store.markCurrentFileApplied(candidateID: candidate.id)
         }
         isApplyingLyrics = false
+    }
+
+    private func autoApplyBestSyncedLyrics() async {
+        guard !isApplyingLyrics, !isAutoApplyingLyrics else { return }
+
+        isAutoApplyingLyrics = true
+        let matches = await store.autoSyncedLyricsMatchesForAllFiles()
+        let appliedFileIDs = await viewModel.applyLRCLIBSyncedLyricsAutoMatches(matches)
+        store.markFilesApplied(matches, appliedFileIDs: appliedFileIDs)
+        isAutoApplyingLyrics = false
     }
 }
 

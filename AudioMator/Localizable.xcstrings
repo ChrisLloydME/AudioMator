@@ -513,7 +513,14 @@
       }
     },
     "About" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        }
+      }
     },
     "About AudioMator" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/App/Commands/AppInfoCommands.swift:13.",
@@ -598,7 +605,14 @@
       }
     },
     "Acknowledgements…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "致谢…"
+          }
+        }
+      }
     },
     "Add" : {
 
@@ -856,7 +870,14 @@
       }
     },
     "Add Folder…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加文件夹…"
+          }
+        }
+      }
     },
     "Add literal filename parts and metadata fields to preview the extracted tags." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:57.",
@@ -1619,6 +1640,9 @@
           }
         }
       }
+    },
+    "Auto Apply Best Matches" : {
+
     },
     "Auto-match: %@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",

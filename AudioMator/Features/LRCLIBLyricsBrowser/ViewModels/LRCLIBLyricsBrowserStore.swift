@@ -9,6 +9,15 @@ enum LRCLIBLyricsSearchState: Equatable {
     case failed(String)
 }
 
+struct LRCLIBSyncedLyricsAutoMatch: Identifiable, Equatable, Sendable {
+    var id: AudioFile.ID { fileID }
+
+    let fileID: AudioFile.ID
+    let fileName: String
+    let candidateID: LRCLIBLyricsCandidate.ID
+    let syncedLyrics: String
+}
+
 @MainActor
 final class LRCLIBLyricsBrowserStore: ObservableObject {
     private struct FileState {
@@ -79,6 +88,10 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
 
     var canMoveNext: Bool {
         currentIndex + 1 < fileInputs.count
+    }
+
+    var hasMultipleFiles: Bool {
+        fileInputs.count > 1
     }
 
     var queuePositionText: String {
@@ -167,6 +180,78 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
         }
     }
 
+    func autoSyncedLyricsMatchesForAllFiles() async -> [LRCLIBSyncedLyricsAutoMatch] {
+        guard hasFiles else { return [] }
+
+        searchTask?.cancel()
+        var matches: [LRCLIBSyncedLyricsAutoMatch] = []
+
+        for file in fileInputs {
+            guard !Task.isCancelled else { break }
+
+            let query = file.query
+            guard !query.isEmpty else {
+                updateState(for: file.id) { state in
+                    state.searchState = .failed(LRCLIBClientError.emptyQuery.localizedDescription)
+                    state.rankedCandidates = []
+                    state.selectedCandidateID = nil
+                }
+                continue
+            }
+
+            updateState(for: file.id) { state in
+                state.searchState = .searching
+                state.rankedCandidates = []
+                state.selectedCandidateID = nil
+            }
+
+            do {
+                let candidates = try await client.search(matching: query, limit: 20)
+                guard !Task.isCancelled else { break }
+
+                let rankedCandidates = LRCLIBCandidateRanker.rankedCandidates(candidates, for: query)
+                let bestSyncedCandidate = rankedCandidates.first { $0.candidate.hasSyncedLyrics }?.candidate
+
+                updateState(for: file.id) { state in
+                    state.searchState = .loaded
+                    state.rankedCandidates = rankedCandidates
+                    state.selectedCandidateID = bestSyncedCandidate?.id ?? rankedCandidates.first?.id
+                }
+
+                guard
+                    let bestSyncedCandidate,
+                    let syncedLyrics = bestSyncedCandidate.syncedLyrics,
+                    bestSyncedCandidate.hasSyncedLyrics
+                else {
+                    continue
+                }
+
+                matches.append(
+                    LRCLIBSyncedLyricsAutoMatch(
+                        fileID: file.id,
+                        fileName: file.fileName,
+                        candidateID: bestSyncedCandidate.id,
+                        syncedLyrics: syncedLyrics
+                    )
+                )
+            } catch is CancellationError {
+                updateState(for: file.id) { state in
+                    state.searchState = .cancelled
+                }
+                break
+            } catch {
+                guard !Task.isCancelled else { break }
+                updateState(for: file.id) { state in
+                    state.searchState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+                    state.rankedCandidates = []
+                    state.selectedCandidateID = nil
+                }
+            }
+        }
+
+        return matches
+    }
+
     func cancelSearch() {
         guard searchState == .searching else { return }
         searchTask?.cancel()
@@ -202,6 +287,14 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
         guard let currentFile else { return }
         updateState(for: currentFile.id) { state in
             state.appliedCandidateID = candidateID
+        }
+    }
+
+    func markFilesApplied(_ matches: [LRCLIBSyncedLyricsAutoMatch], appliedFileIDs: Set<AudioFile.ID>) {
+        for match in matches where appliedFileIDs.contains(match.fileID) {
+            updateState(for: match.fileID) { state in
+                state.appliedCandidateID = match.candidateID
+            }
         }
     }
 

@@ -650,6 +650,112 @@ extension AudioViewModel {
         }
     }
 
+    func applyLRCLIBSyncedLyricsAutoMatches(_ matches: [LRCLIBSyncedLyricsAutoMatch]) async -> Set<AudioFile.ID> {
+        guard metadataSaveProgress == nil else { return [] }
+        guard !matches.isEmpty else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "No Synced Lyrics Found",
+                subtitle: "LRCLIB did not return synced lyrics for the selected files."
+            )
+            return []
+        }
+
+        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        var summary = BatchMetadataWriteSummary(totalTargets: matches.count)
+        var appliedFileIDs = Set<AudioFile.ID>()
+
+        beginMetadataSaveProgress(
+            title: "Applying LRCLIB Lyrics",
+            subtitle: "Preparing \(matches.count) files...",
+            totalUnitCount: matches.count
+        )
+
+        for (index, match) in matches.enumerated() {
+            updateMetadataSaveProgress(
+                subtitle: match.fileName,
+                completedUnitCount: index
+            )
+
+            let normalizedLyrics = match.syncedLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !normalizedLyrics.isEmpty else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: match.fileName,
+                        messages: ["LRCLIB returned empty synced lyrics."]
+                    )
+                )
+                continue
+            }
+
+            guard let file = filesByID[match.fileID] else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: match.fileName,
+                        messages: ["The file is no longer loaded in AudioMator."]
+                    )
+                )
+                continue
+            }
+
+            guard isTagWriteSupportedExtension(file.url.pathExtension) else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: file.url.lastPathComponent,
+                        messages: ["This format does not support metadata writing yet."]
+                    )
+                )
+                continue
+            }
+
+            do {
+                var propertyMap = try await rawMetadataPropertyMapOffMainActor(for: file.url)
+                propertyMap["LYRICS"] = normalizedLyrics
+
+                let writeResult = try await writeRawMetadataPropertyMapOffMainActor(propertyMap, to: file.url)
+                var warningMessages = writeResult.warnings
+                let refreshWarning = await reloadEditedFile(file, syncInspectorAfterReload: false)
+
+                if let refreshWarning {
+                    warningMessages.append(refreshWarning)
+                    summary.allSuccessfulFilesRefreshed = false
+                }
+
+                summary.succeeded += 1
+                appliedFileIDs.insert(file.id)
+
+                if !warningMessages.isEmpty {
+                    summary.warningIssues.append(
+                        BatchMetadataWriteIssue(
+                            fileName: file.url.lastPathComponent,
+                            messages: warningMessages
+                        )
+                    )
+                }
+            } catch {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: file.url.lastPathComponent,
+                        messages: [(error as NSError).localizedDescription]
+                    )
+                )
+            }
+        }
+
+        updateMetadataSaveProgress(
+            subtitle: "Finishing...",
+            completedUnitCount: matches.count
+        )
+        endMetadataSaveProgress()
+
+        if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
+            updateEditForSelection()
+        }
+
+        presentBatchMetadataWriteSummary(summary)
+        return appliedFileIDs
+    }
+
     func applyRawMetadataPropertyMaps(
         _ propertyMaps: [AudioFile.ID: [String: String]],
         to targets: [MetadataEditorTarget]

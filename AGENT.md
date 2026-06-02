@@ -73,7 +73,7 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
 
-Use `swift test --filter AudioMatorCoreLogicTests` for the fastest local regression sensors around pure domain logic. This SwiftPM target intentionally includes only selected non-UI source files and should stay free of AppKit, SwiftUI, TagLib, and network-dependent tests.
+Use `swift test --filter AudioMatorCoreLogicTests` for the fastest local regression sensors around pure domain logic. This SwiftPM target intentionally includes only selected non-UI source files and should stay free of AppKit, SwiftUI, TagLib, and network-dependent tests. See `Tests/FAST_TEST_GAPS.md` before broad refactors so known app-hosted coverage gaps are not mistaken for covered behavior.
 
 Prefer `bash scripts/codex-build.sh` for Codex validation. The script uses a two-stage strategy:
 

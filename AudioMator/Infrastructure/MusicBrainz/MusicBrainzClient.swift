@@ -90,21 +90,15 @@ struct MusicBrainzFileSearchInput: Identifiable, Equatable, Hashable {
     }
 
     var normalizedTrackNumber: Int? {
-        Self.normalizedIndex(trackNumber)
+        OnlineMetadataSelectionCore.normalizedPositiveIndex(trackNumber)
     }
 
     var normalizedDiscNumber: Int? {
-        Self.normalizedIndex(discNumber)
+        OnlineMetadataSelectionCore.normalizedPositiveIndex(discNumber)
     }
 
     var normalizedReleaseYear: String {
-        let digits = releaseDate.filter(\.isNumber)
-        guard digits.count >= 4 else { return "" }
-        return String(digits.prefix(4))
-    }
-
-    private static func normalizedIndex(_ rawValue: String) -> Int? {
-        AudioTagNumberText.positiveIndex(from: rawValue)
+        OnlineMetadataSelectionCore.normalizedReleaseYear(releaseDate)
     }
 }
 
@@ -124,28 +118,27 @@ struct MusicBrainzFileSelectionSummary: Equatable, Hashable {
     init(files: [MusicBrainzFileSearchInput]) {
         let normalizedFiles = files
         self.files = normalizedFiles
-        self.totalSelectedFiles = normalizedFiles.count
-        self.albumCandidate = Self.majorityValue(from: normalizedFiles.map(\.album))
-        self.albumArtistCandidate = Self.majorityValue(
-            from: normalizedFiles.map { file in
+        let summary = OnlineMetadataSelectionCore.summary(
+            albums: normalizedFiles.map(\.album),
+            albumArtists: normalizedFiles.map { file in
                 file.albumArtist.isEmpty ? file.artist : file.albumArtist
-            }
+            },
+            primaryArtists: normalizedFiles.map(\.artist),
+            trackTotals: normalizedFiles.map(\.trackTotal),
+            releaseDates: normalizedFiles.map(\.releaseDate),
+            barcodes: normalizedFiles.map(\.barcode),
+            providerAlbumIDs: normalizedFiles.map(\.musicBrainzAlbumID)
         )
-        self.primaryArtistCandidate = Self.majorityValue(from: normalizedFiles.map(\.artist))
-
-        let explicitTrackTotal = Self.majorityInt(
-            from: normalizedFiles.map(\.trackTotal).filter { $0 > 0 }
-        )
-        self.releaseTrackCountCandidate = max(explicitTrackTotal ?? 0, normalizedFiles.count)
-        self.releaseYearCandidate = Self.majorityValue(from: normalizedFiles.map(\.normalizedReleaseYear))
-        self.barcodeCandidate = Self.majorityValue(from: normalizedFiles.map(\.barcode))
-        self.musicBrainzAlbumIDCandidate = Self.majorityValue(from: normalizedFiles.map(\.musicBrainzAlbumID))
-        self.distinctAlbumCount = Self.distinctValueCount(normalizedFiles.map(\.album))
-        self.distinctArtistCount = Self.distinctValueCount(
-            normalizedFiles.map { file in
-                file.albumArtist.isEmpty ? file.artist : file.albumArtist
-            }
-        )
+        self.totalSelectedFiles = summary.totalSelectedFiles
+        self.albumCandidate = summary.albumCandidate
+        self.albumArtistCandidate = summary.albumArtistCandidate
+        self.primaryArtistCandidate = summary.primaryArtistCandidate
+        self.releaseTrackCountCandidate = summary.trackCountCandidate
+        self.releaseYearCandidate = summary.releaseYearCandidate
+        self.barcodeCandidate = summary.barcodeCandidate
+        self.musicBrainzAlbumIDCandidate = summary.providerAlbumIDCandidate
+        self.distinctAlbumCount = summary.distinctAlbumCount
+        self.distinctArtistCount = summary.distinctArtistCount
     }
 
     var isMultiFile: Bool {
@@ -156,57 +149,6 @@ struct MusicBrainzFileSelectionSummary: Equatable, Hashable {
         distinctAlbumCount > 1 || distinctArtistCount > 1
     }
 
-    private static func majorityValue(from values: [String]) -> String {
-        let cleanedValues = values
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        guard !cleanedValues.isEmpty else { return "" }
-
-        var counts: [String: Int] = [:]
-        var bestValue = cleanedValues[0]
-        var bestCount = 0
-
-        for value in cleanedValues {
-            let count = (counts[value] ?? 0) + 1
-            counts[value] = count
-
-            if count > bestCount {
-                bestValue = value
-                bestCount = count
-            }
-        }
-
-        return bestValue
-    }
-
-    private static func majorityInt(from values: [Int]) -> Int? {
-        guard !values.isEmpty else { return nil }
-
-        var counts: [Int: Int] = [:]
-        var bestValue = values[0]
-        var bestCount = 0
-
-        for value in values {
-            let count = (counts[value] ?? 0) + 1
-            counts[value] = count
-
-            if count > bestCount {
-                bestValue = value
-                bestCount = count
-            }
-        }
-
-        return bestValue
-    }
-
-    private static func distinctValueCount(_ values: [String]) -> Int {
-        Set(
-            values
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-        ).count
-    }
 }
 
 struct MusicBrainzReleaseMatchTrack: Identifiable, Equatable, Hashable {

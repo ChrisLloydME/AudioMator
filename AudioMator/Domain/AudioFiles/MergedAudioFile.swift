@@ -18,8 +18,7 @@ struct MergedAudioFile {
 
     init(files: [AudioFile]) {
         func merge(_ values: [String]) -> String {
-            guard let first = values.first else { return "—" }
-            return values.allSatisfy { $0 == first } ? first : "—"
+            AudioMetadataMergeCore.mergedValue(values, mixedPlaceholder: "—")
         }
 
         title = merge(files.map { $0.title })

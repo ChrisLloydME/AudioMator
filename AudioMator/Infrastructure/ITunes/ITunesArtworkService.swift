@@ -114,12 +114,15 @@ struct ITunesArtworkService: Sendable {
             throw ITunesArtworkServiceError.invalidLimit
         }
 
-        guard let url = buildSearchURL(
-            query: trimmedQuery,
-            entity: request.entity,
-            country: normalizedCountry.lowercased(),
-            limit: request.limit
-        ) else {
+        let url: URL
+        do {
+            url = try ITunesArtworkCoreRequest(
+                query: trimmedQuery,
+                entity: ITunesArtworkCoreEntity(entity: request.entity),
+                country: normalizedCountry,
+                limit: request.limit
+            ).searchURL()
+        } catch {
             throw ITunesArtworkServiceError.failedToBuildURL
         }
 
@@ -176,119 +179,44 @@ struct ITunesArtworkService: Sendable {
         )
     }
 
-    private func buildSearchURL(
-        query: String,
-        entity: ITunesArtworkSearchEntity,
-        country: String,
-        limit: Int
-    ) -> URL? {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = NetworkServiceDisclosure.ITunesArtwork.searchHost
-
-        switch entity {
-        case .idAlbum:
-            components.path = "/lookup"
-            components.queryItems = [
-                URLQueryItem(name: "id", value: query),
-                URLQueryItem(name: "country", value: country),
-                URLQueryItem(name: "limit", value: String(limit))
-            ]
-        case .album:
-            components.path = "/search"
-            components.queryItems = [
-                URLQueryItem(name: "term", value: query),
-                URLQueryItem(name: "country", value: country),
-                URLQueryItem(name: "entity", value: entity.rawValue),
-                URLQueryItem(name: "limit", value: String(limit))
-            ]
-        }
-
-        return components.url
-    }
-
     private func transformResults(
         from jsonData: Data,
         entity: ITunesArtworkSearchEntity
     ) throws -> [ITunesArtworkSearchResult] {
-        guard
-            let rootObject = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-            let rawResults = rootObject["results"] as? [[String: Any]]
-        else {
+        do {
+            return try ITunesArtworkCore.transformResults(
+                from: jsonData,
+                entity: ITunesArtworkCoreEntity(entity: entity)
+            ).map(ITunesArtworkSearchResult.init(coreResult:))
+        } catch {
             throw ITunesArtworkServiceError.invalidResponseBody
         }
+    }
+}
 
-        var transformed: [ITunesArtworkSearchResult] = []
-        transformed.reserveCapacity(rawResults.count)
-
-        var seenIDs = Set<String>()
-
-        for rawResult in rawResults {
-            if entity == .idAlbum,
-               (rawResult["collectionType"] as? String) != "Album" {
-                continue
-            }
-
-            guard let artworkURL100 = rawResult["artworkUrl100"] as? String else {
-                continue
-            }
-
-            let thumbnailURLString = artworkURL100
-            let standardURLString = artworkURL100.replacingOccurrences(of: "100x100", with: "600x600")
-            let hiresCandidate = artworkURL100.replacingOccurrences(of: "100x100bb", with: "100000x100000-999")
-            let hiresURLString = normalizedHiresURL(from: hiresCandidate)
-            let uncompressedURLString = normalizedUncompressedURL(from: hiresURLString)
-
-            let title = [rawResult["collectionName"] as? String, rawResult["artistName"] as? String]
-                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-                .joined(separator: " • ")
-
-            guard !title.isEmpty else { continue }
-
-            let subtitle = rawResult["primaryGenreName"] as? String
-            let resultID = [
-                uncompressedURLString,
-                hiresURLString,
-                standardURLString,
-                title
-            ]
-            .compactMap { $0 }
-            .joined(separator: "|")
-            guard seenIDs.insert(resultID).inserted else { continue }
-
-            transformed.append(
-                ITunesArtworkSearchResult(
-                    id: resultID,
-                    title: title,
-                    subtitle: subtitle,
-                    thumbnailURL: URL(string: thumbnailURLString),
-                    standardURL: URL(string: standardURLString),
-                    hiresURL: hiresURLString.flatMap(URL.init(string:)),
-                    uncompressedURL: uncompressedURLString.flatMap(URL.init(string:)),
-                    pixelWidth: uncompressedURLString == nil ? 600 : 3000,
-                    pixelHeight: uncompressedURLString == nil ? 600 : 3000
-                )
-            )
+private extension ITunesArtworkCoreEntity {
+    init(entity: ITunesArtworkSearchEntity) {
+        switch entity {
+        case .album:
+            self = .album
+        case .idAlbum:
+            self = .idAlbum
         }
-
-        return transformed
     }
+}
 
-    private func normalizedHiresURL(from hiresCandidate: String) -> String? {
-        guard let path = URL(string: hiresCandidate)?.path else { return nil }
-        return "https://\(NetworkServiceDisclosure.ITunesArtwork.highResolutionArtworkHost)\(path)"
-    }
-
-    private func normalizedUncompressedURL(from hiresURL: String?) -> String? {
-        guard let hiresURL else { return nil }
-
-        let parts = hiresURL.components(separatedBy: "/image/thumb/")
-        guard parts.count == 2 else { return nil }
-
-        var imageParts = parts[1].components(separatedBy: "/")
-        guard !imageParts.isEmpty else { return nil }
-        imageParts.removeLast()
-        return "https://\(NetworkServiceDisclosure.ITunesArtwork.uncompressedArtworkHost)/us/r1000/0/\(imageParts.joined(separator: "/"))"
+private extension ITunesArtworkSearchResult {
+    init(coreResult: ITunesArtworkCoreResult) {
+        self.init(
+            id: coreResult.id,
+            title: coreResult.title,
+            subtitle: coreResult.subtitle,
+            thumbnailURL: coreResult.thumbnailURL,
+            standardURL: coreResult.standardURL,
+            hiresURL: coreResult.hiresURL,
+            uncompressedURL: coreResult.uncompressedURL,
+            pixelWidth: coreResult.pixelWidth,
+            pixelHeight: coreResult.pixelHeight
+        )
     }
 }

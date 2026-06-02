@@ -21,18 +21,6 @@ struct MetadataEditorTarget: Identifiable, Hashable {
     }
 }
 
-private struct MetadataEditorRow: Identifiable, Hashable {
-    let key: String
-    let value: String
-    let isMixed: Bool
-
-    var id: String { key }
-
-    var displayValue: String {
-        isMixed ? "Multiple Values" : value
-    }
-}
-
 struct MetadataTextUtilityPreviewRow: Identifiable, Hashable {
     let targetID: AudioFile.ID
     let fileName: String
@@ -104,23 +92,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     fileprivate var rows: [MetadataEditorRow] {
-        let allKeys = Set(draftPropertyMaps.values.flatMap(\.keys))
-
-        return allKeys
-            .map { key in
-                let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
-                let firstValue = values.first ?? ""
-                let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
-
-                return MetadataEditorRow(
-                    key: key,
-                    value: firstValue,
-                    isMixed: !isUniform
-                )
-            }
-            .sorted { lhs, rhs in
-                lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending
-            }
+        MetadataEditorDraftRows.makeRows(targets: targets, draftPropertyMaps: draftPropertyMaps)
     }
 
     var selectionSummaryText: String {
@@ -321,19 +293,11 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     private func realignSelection(preferred: String?) {
-        let validKeys = Set(rows.map(\.key))
-
-        let validSelection = selectedFieldKeys.intersection(validKeys)
-
-        if !validSelection.isEmpty {
-            selectedFieldKeys = validSelection
-        } else if let preferred, validKeys.contains(preferred) {
-            selectedFieldKeys = [preferred]
-        } else if let firstKey = rows.first?.key {
-            selectedFieldKeys = [firstKey]
-        } else {
-            selectedFieldKeys = []
-        }
+        selectedFieldKeys = MetadataEditorDraftRows.realignedSelection(
+            currentSelection: selectedFieldKeys,
+            preferred: preferred,
+            rows: rows
+        )
     }
 
     nonisolated private static func loadState(

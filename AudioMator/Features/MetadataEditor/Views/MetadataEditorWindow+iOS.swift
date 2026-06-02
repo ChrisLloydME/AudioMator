@@ -16,7 +16,7 @@ struct MetadataEditorTarget: Identifiable, Hashable {
     }
 }
 
-private struct MetadataEditorRow: Identifiable, Hashable {
+private struct IOSMetadataEditorRow: Identifiable, Hashable {
     let key: String
     let value: String
     let isMixed: Bool
@@ -56,13 +56,13 @@ final class MetadataEditorStore: ObservableObject {
         draftPropertyMaps != originalPropertyMaps
     }
 
-    fileprivate var rows: [MetadataEditorRow] {
+    fileprivate var rows: [IOSMetadataEditorRow] {
         let allKeys = Set(draftPropertyMaps.values.flatMap(\.keys))
         return allKeys.sorted().map { key in
             let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
             let firstValue = values.first ?? ""
             let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
-            return MetadataEditorRow(key: key, value: firstValue, isMixed: !isUniform)
+            return IOSMetadataEditorRow(key: key, value: firstValue, isMixed: !isUniform)
         }
     }
 

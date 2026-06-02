@@ -46,11 +46,11 @@ struct MusicBrainzProviderReleaseFilters: Equatable, Hashable {
         self.statuses = statuses
     }
 
-    var isEmpty: Bool {
+    nonisolated var isEmpty: Bool {
         mediaFormats.isEmpty && releaseYear.isEmpty && countries.isEmpty && statuses.isEmpty
     }
 
-    func matches(date: String, country: String, status: String, candidateMediaFormats: [String]) -> Bool {
+    nonisolated func matches(date: String, country: String, status: String, candidateMediaFormats: [String]) -> Bool {
         if !releaseYear.isEmpty {
             guard Self.normalizedYear(date) == releaseYear else { return false }
         }
@@ -74,17 +74,17 @@ struct MusicBrainzProviderReleaseFilters: Equatable, Hashable {
         return true
     }
 
-    static func normalizedYear(_ rawValue: String) -> String {
+    nonisolated static func normalizedYear(_ rawValue: String) -> String {
         OnlineMetadataSelectionCore.normalizedReleaseYear(rawValue)
     }
 
-    static func normalizedCountryCode(_ rawValue: String) -> String? {
+    nonisolated static func normalizedCountryCode(_ rawValue: String) -> String? {
         let letters = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).filter(\.isLetter).uppercased()
         guard letters.count == 2 else { return nil }
         return letters
     }
 
-    private static func normalizedFormat(_ rawValue: String) -> String {
+    nonisolated private static func normalizedFormat(_ rawValue: String) -> String {
         rawValue.lowercased().filter { $0.isLetter || $0.isNumber }
     }
 }

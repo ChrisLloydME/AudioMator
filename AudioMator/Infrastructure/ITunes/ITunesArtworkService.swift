@@ -195,7 +195,7 @@ struct ITunesArtworkService: Sendable {
 }
 
 private extension ITunesArtworkCoreEntity {
-    init(entity: ITunesArtworkSearchEntity) {
+    nonisolated init(entity: ITunesArtworkSearchEntity) {
         switch entity {
         case .album:
             self = .album
@@ -206,7 +206,7 @@ private extension ITunesArtworkCoreEntity {
 }
 
 private extension ITunesArtworkSearchResult {
-    init(coreResult: ITunesArtworkCoreResult) {
+    nonisolated init(coreResult: ITunesArtworkCoreResult) {
         self.init(
             id: coreResult.id,
             title: coreResult.title,

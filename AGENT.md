@@ -66,11 +66,14 @@ The app source is attached to the target through Xcode's file-system synchronize
 Useful commands:
 
 ```bash
+swift test --filter AudioMatorCoreLogicTests
 bash scripts/codex-build.sh
 bash scripts/codex-build.sh --force
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
+
+Use `swift test --filter AudioMatorCoreLogicTests` for the fastest local regression sensors around pure domain logic. This SwiftPM target intentionally includes only selected non-UI source files and should stay free of AppKit, SwiftUI, TagLib, and network-dependent tests.
 
 Prefer `bash scripts/codex-build.sh` for Codex validation. The script uses a two-stage strategy:
 

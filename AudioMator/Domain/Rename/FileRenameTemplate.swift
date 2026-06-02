@@ -265,9 +265,17 @@ private struct FileRenamePlanBuilder {
             )
         }
 
-        let duplicateKeySet = duplicateDestinationKeys(in: drafts)
-        let activeReadyIDs = resolveReadyIDs(from: drafts, duplicateKeySet: duplicateKeySet)
-        let rows = finalizeRows(from: drafts, duplicateKeySet: duplicateKeySet, activeReadyIDs: activeReadyIDs)
+        let coreDrafts = drafts.map { draft in
+            FileRenameCoreDraft(
+                id: draft.row.id,
+                sourceKey: draft.sourceKey,
+                destinationKey: draft.destinationKey,
+                destinationExists: draft.destinationExists,
+                initialStatus: FileRenameCoreStatus(status: draft.row.status)
+            )
+        }
+        let finalizedStatuses = FileRenameCollisionPolicy.finalizedStatuses(for: coreDrafts)
+        let rows = finalizeRows(from: drafts, finalizedStatuses: finalizedStatuses)
         let operations = rows.compactMap { row -> FileRenameOperation? in
             guard row.status == .ready, let destinationURL = row.destinationURL else {
                 return nil
@@ -283,99 +291,61 @@ private struct FileRenamePlanBuilder {
         return FileRenamePlan(template: document.rawValue, rows: rows, operations: operations)
     }
 
-    private func duplicateDestinationKeys(in drafts: [FileRenameDraftRow]) -> Set<String> {
-        var destinationCounts: [String: Int] = [:]
-
-        for draft in drafts {
-            guard draft.row.status == .ready, let destinationKey = draft.destinationKey else { continue }
-            destinationCounts[destinationKey, default: 0] += 1
-        }
-
-        return Set(
-            destinationCounts.compactMap { entry in
-                entry.value > 1 ? entry.key : nil
-            }
-        )
-    }
-
-    private func resolveReadyIDs(
-        from drafts: [FileRenameDraftRow],
-        duplicateKeySet: Set<String>
-    ) -> Set<AudioFile.ID> {
-        let renamableDrafts = drafts.filter { draft in
-            guard draft.row.status == .ready, let destinationKey = draft.destinationKey else { return false }
-            return !duplicateKeySet.contains(destinationKey)
-        }
-
-        var activeReadyIDs = Set(renamableDrafts.map { $0.row.id })
-        var didChange = true
-
-        while didChange {
-            didChange = false
-
-            let readySourceKeys = Set(
-                renamableDrafts.compactMap { draft in
-                    activeReadyIDs.contains(draft.row.id) ? draft.sourceKey : nil
-                }
-            )
-
-            for draft in renamableDrafts {
-                guard activeReadyIDs.contains(draft.row.id) else { continue }
-                guard
-                    let sourceKey = draft.sourceKey,
-                    let destinationKey = draft.destinationKey
-                else {
-                    continue
-                }
-
-                let isBlockedByExistingFile =
-                    draft.destinationExists &&
-                    destinationKey != sourceKey &&
-                    !readySourceKeys.contains(destinationKey)
-
-                if isBlockedByExistingFile {
-                    activeReadyIDs.remove(draft.row.id)
-                    didChange = true
-                }
-            }
-        }
-
-        return activeReadyIDs
-    }
-
     private func finalizeRows(
         from drafts: [FileRenameDraftRow],
-        duplicateKeySet: Set<String>,
-        activeReadyIDs: Set<AudioFile.ID>
+        finalizedStatuses: [AudioFile.ID: FileRenameCoreStatus]
     ) -> [FileRenamePreviewRow] {
         drafts.map { draft in
-            if
-                draft.row.status == .ready,
-                let destinationKey = draft.destinationKey,
-                duplicateKeySet.contains(destinationKey)
-            {
-                return FileRenamePreviewRow(
-                    id: draft.row.id,
-                    currentName: draft.row.currentName,
-                    previewName: draft.row.previewName,
-                    sourceURL: draft.row.sourceURL,
-                    destinationURL: draft.row.destinationURL,
-                    status: .duplicateTarget
-                )
+            guard
+                let coreStatus = finalizedStatuses[draft.row.id],
+                let status = FileRenamePreviewStatus(coreStatus: coreStatus),
+                status != draft.row.status
+            else {
+                return draft.row
             }
 
-            if draft.row.status == .ready, !activeReadyIDs.contains(draft.row.id) {
-                return FileRenamePreviewRow(
-                    id: draft.row.id,
-                    currentName: draft.row.currentName,
-                    previewName: draft.row.previewName,
-                    sourceURL: draft.row.sourceURL,
-                    destinationURL: draft.row.destinationURL,
-                    status: .existingFile
-                )
-            }
+            return FileRenamePreviewRow(
+                id: draft.row.id,
+                currentName: draft.row.currentName,
+                previewName: draft.row.previewName,
+                sourceURL: draft.row.sourceURL,
+                destinationURL: draft.row.destinationURL,
+                status: status
+            )
+        }
+    }
+}
 
-            return draft.row
+private extension FileRenameCoreStatus {
+    init(status: FileRenamePreviewStatus) {
+        switch status {
+        case .ready:
+            self = .ready
+        case .unchanged:
+            self = .unchanged
+        case .emptyName:
+            self = .emptyName
+        case .duplicateTarget:
+            self = .duplicateTarget
+        case .existingFile:
+            self = .existingFile
+        }
+    }
+}
+
+private extension FileRenamePreviewStatus {
+    init?(coreStatus: FileRenameCoreStatus) {
+        switch coreStatus {
+        case .ready:
+            self = .ready
+        case .unchanged:
+            self = .unchanged
+        case .emptyName:
+            self = .emptyName
+        case .duplicateTarget:
+            self = .duplicateTarget
+        case .existingFile:
+            self = .existingFile
         }
     }
 }

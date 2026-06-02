@@ -97,17 +97,15 @@ struct ITunesFileSearchInput: Identifiable, Equatable, Hashable {
     }
 
     var normalizedTrackNumber: Int? {
-        Self.normalizedIndex(trackNumber)
+        OnlineMetadataSelectionCore.normalizedPositiveIndex(trackNumber)
     }
 
     var normalizedDiscNumber: Int? {
-        Self.normalizedIndex(discNumber)
+        OnlineMetadataSelectionCore.normalizedPositiveIndex(discNumber)
     }
 
     var normalizedReleaseYear: String {
-        let digits = releaseDate.filter(\.isNumber)
-        guard digits.count >= 4 else { return "" }
-        return String(digits.prefix(4))
+        OnlineMetadataSelectionCore.normalizedReleaseYear(releaseDate)
     }
 
     var artistCandidates: [String] {
@@ -116,10 +114,6 @@ struct ITunesFileSearchInput: Identifiable, Equatable, Hashable {
             .filter { !$0.isEmpty }
 
         return (Array(NSOrderedSet(array: values)) as? [String]) ?? values
-    }
-
-    private static func normalizedIndex(_ rawValue: String) -> Int? {
-        AudioTagNumberText.positiveIndex(from: rawValue)
     }
 }
 
@@ -138,65 +132,30 @@ struct ITunesFileSelectionSummary: Equatable, Hashable {
 
     init(files: [ITunesFileSearchInput]) {
         self.files = files
-        self.totalSelectedFiles = files.count
-        self.albumCandidate = Self.majorityValue(files.map(\.album))
-        self.albumArtistCandidate = Self.majorityValue(
-            files.map { $0.albumArtist.isEmpty ? $0.artist : $0.albumArtist }
+        let summary = OnlineMetadataSelectionCore.summary(
+            albums: files.map(\.album),
+            albumArtists: files.map { $0.albumArtist.isEmpty ? $0.artist : $0.albumArtist },
+            primaryArtists: files.map(\.artist),
+            trackTotals: files.map(\.trackTotal),
+            releaseDates: files.map(\.releaseDate),
+            barcodes: files.map(\.barcode),
+            providerAlbumIDs: files.map(\.itunesAlbumID)
         )
-        self.primaryArtistCandidate = Self.majorityValue(files.map(\.artist))
-        self.trackCountCandidate = max(Self.majorityInt(files.map(\.trackTotal).filter { $0 > 0 }) ?? 0, files.count)
-        self.releaseYearCandidate = Self.majorityValue(files.map(\.normalizedReleaseYear))
-        self.barcodeCandidate = Self.majorityValue(files.map(\.barcode))
-        self.itunesAlbumIDCandidate = Self.majorityValue(files.map(\.itunesAlbumID))
-        self.distinctAlbumCount = Self.distinctValueCount(files.map(\.album))
-        self.distinctArtistCount = Self.distinctValueCount(
-            files.map { $0.albumArtist.isEmpty ? $0.artist : $0.albumArtist }
-        )
+        self.totalSelectedFiles = summary.totalSelectedFiles
+        self.albumCandidate = summary.albumCandidate
+        self.albumArtistCandidate = summary.albumArtistCandidate
+        self.primaryArtistCandidate = summary.primaryArtistCandidate
+        self.trackCountCandidate = summary.trackCountCandidate
+        self.releaseYearCandidate = summary.releaseYearCandidate
+        self.barcodeCandidate = summary.barcodeCandidate
+        self.itunesAlbumIDCandidate = summary.providerAlbumIDCandidate
+        self.distinctAlbumCount = summary.distinctAlbumCount
+        self.distinctArtistCount = summary.distinctArtistCount
     }
 
     var isMultiFile: Bool { files.count > 1 }
     var selectionLooksMixed: Bool { distinctAlbumCount > 1 || distinctArtistCount > 1 }
 
-    private static func majorityValue(_ values: [String]) -> String {
-        let cleaned = values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        guard !cleaned.isEmpty else { return "" }
-        var counts: [String: Int] = [:]
-        var best = cleaned[0]
-        var bestCount = 0
-        for value in cleaned {
-            let count = (counts[value] ?? 0) + 1
-            counts[value] = count
-            if count > bestCount {
-                best = value
-                bestCount = count
-            }
-        }
-        return best
-    }
-
-    private static func majorityInt(_ values: [Int]) -> Int? {
-        guard !values.isEmpty else { return nil }
-        var counts: [Int: Int] = [:]
-        var best = values[0]
-        var bestCount = 0
-        for value in values {
-            let count = (counts[value] ?? 0) + 1
-            counts[value] = count
-            if count > bestCount {
-                best = value
-                bestCount = count
-            }
-        }
-        return best
-    }
-
-    private static func distinctValueCount(_ values: [String]) -> Int {
-        Set(
-            values
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-        ).count
-    }
 }
 
 struct ITunesSearchQuery: Equatable {

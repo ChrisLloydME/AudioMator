@@ -3,26 +3,30 @@ import TagLibAudioMetadata
 import UniformTypeIdentifiers
 
 enum AudioFormatSupport {
+    nonisolated private static let supportSnapshot: AudioFormatSupportSnapshot = {
+        AudioFormatSupportCore.snapshot(
+            readableExtensions: TagLibMetadataManager.readableExtensions,
+            writableExtensions: TagLibMetadataManager.writableExtensions,
+            capabilities: TagLibMetadataManager.formatCapabilities.map { capability in
+                AudioFormatCapabilityCore(
+                    extensions: capability.extensions,
+                    isWritable: capability.isWritable,
+                    canWriteArtwork: capability.canWriteArtwork
+                )
+            }
+        )
+    }()
+
     nonisolated private static let orderedSupportedExtensions: [String] = {
-        TagLibMetadataManager.readableExtensions.map { $0.lowercased() }
+        supportSnapshot.orderedReadableExtensions
     }()
 
     nonisolated private static let orderedWritableExtensions: [String] = {
-        TagLibMetadataManager.writableExtensions.map { $0.lowercased() }
+        Array(supportSnapshot.metadataWritableExtensions)
     }()
 
     nonisolated private static let orderedArtworkWritableExtensions: [String] = {
-        var seenExtensions = Set<String>()
-
-        return TagLibMetadataManager.formatCapabilities.flatMap { capability in
-            guard capability.isWritable, capability.canWriteArtwork else { return [String]() }
-
-            return capability.extensions.compactMap { ext in
-                let normalized = ext.lowercased()
-                guard seenExtensions.insert(normalized).inserted else { return nil }
-                return normalized
-            }
-        }
+        Array(supportSnapshot.artworkWritableExtensions)
     }()
 
     nonisolated static let readableExtensions: Set<String> = Set(orderedSupportedExtensions)

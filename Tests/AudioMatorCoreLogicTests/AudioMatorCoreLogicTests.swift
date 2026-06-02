@@ -276,6 +276,307 @@ final class AudioMatorCoreLogicTests: XCTestCase {
             "{\"albumID\":\"13868407145376506873\",\"trackID\":\"4906269179403622017\",\"v\":1}"
         )
     }
+
+    func testFileRenameCollisionPolicyFlagsDuplicateTargetsAndExistingFileBlockers() {
+        let duplicateStatuses = FileRenameCollisionPolicy.finalizedStatuses(for: [
+            FileRenameCoreDraft(id: "a", sourceKey: "/music/a.flac", destinationKey: "/music/target.flac", destinationExists: false, initialStatus: .ready),
+            FileRenameCoreDraft(id: "b", sourceKey: "/music/b.flac", destinationKey: "/music/target.flac", destinationExists: false, initialStatus: .ready),
+            FileRenameCoreDraft(id: "c", sourceKey: "/music/c.flac", destinationKey: "/music/c.flac", destinationExists: true, initialStatus: .unchanged)
+        ])
+
+        XCTAssertEqual(duplicateStatuses["a"], .duplicateTarget)
+        XCTAssertEqual(duplicateStatuses["b"], .duplicateTarget)
+        XCTAssertEqual(duplicateStatuses["c"], .unchanged)
+
+        let existingStatuses = FileRenameCollisionPolicy.finalizedStatuses(for: [
+            FileRenameCoreDraft(id: "blocked", sourceKey: "/music/a.flac", destinationKey: "/music/existing.flac", destinationExists: true, initialStatus: .ready),
+            FileRenameCoreDraft(id: "ready", sourceKey: "/music/b.flac", destinationKey: "/music/c.flac", destinationExists: false, initialStatus: .ready)
+        ])
+
+        XCTAssertEqual(existingStatuses["blocked"], .existingFile)
+        XCTAssertEqual(existingStatuses["ready"], .ready)
+    }
+
+    func testFileRenameCollisionPolicyAllowsRenameCyclesWhenSourcesWillMove() {
+        let statuses = FileRenameCollisionPolicy.finalizedStatuses(for: [
+            FileRenameCoreDraft(id: "a", sourceKey: "/music/a.flac", destinationKey: "/music/b.flac", destinationExists: true, initialStatus: .ready),
+            FileRenameCoreDraft(id: "b", sourceKey: "/music/b.flac", destinationKey: "/music/a.flac", destinationExists: true, initialStatus: .ready)
+        ])
+
+        XCTAssertEqual(statuses["a"], .ready)
+        XCTAssertEqual(statuses["b"], .ready)
+    }
+
+    func testMetadataExchangeCoreValidatesCSVColumnTemplatesAndConflicts() {
+        let valid = CoreMetadataExchange.parseCSVColumnTemplate("{{fileName}},{{title}},{{_ignore}},{{artist}}")
+        XCTAssertNil(valid.validationMessage)
+        XCTAssertEqual(valid.columns, [.fileName, .title, .ignore, .artist])
+
+        let duplicate = CoreMetadataExchange.parseCSVColumnTemplate("{{fileName}},{{title}},{{title}}")
+        XCTAssertNotNil(duplicate.validationMessage)
+
+        let conflictingLocator = CoreMetadataExchange.parseCSVColumnTemplate("{{fileName}},{{baseName}},{{title}}")
+        XCTAssertNotNil(conflictingLocator.validationMessage)
+    }
+
+    func testMetadataExchangeCoreExportsRelativePathsAndSelectionIndexes() {
+        let files = [
+            coreMetadataFile(id: "1", path: "/Volumes/Library/Album/01.flac", values: [.title: "One"]),
+            coreMetadataFile(id: "2", path: "/Volumes/Library/Album/02.flac", values: [.title: "Two"])
+        ]
+
+        let rows = CoreMetadataExchange.textExportRows(
+            fields: [.index, .relativePath, .title],
+            files: files,
+            separator: "|"
+        )
+
+        XCTAssertEqual(rows, ["1|01.flac|One", "2|02.flac|Two"])
+        XCTAssertEqual(CoreMetadataExchange.relativePath(path: "/a/b/c.flac", basePath: "/a"), "b/c.flac")
+        XCTAssertNil(CoreMetadataExchange.relativePath(path: "/x/b/c.flac", basePath: "/a"))
+    }
+
+    func testMetadataExchangeCoreCSVImportHandlesMatchingMissingExtraAndBlankClearing() {
+        let files = [
+            coreMetadataFile(id: "1", fileName: "A.flac", values: [.title: "Old A", .artist: "Artist"]),
+            coreMetadataFile(id: "2", fileName: "B.flac", values: [.title: "Old B", .artist: "Artist"])
+        ]
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.fileName, .title, .artist],
+            sourceText: "file,title,artist\nA.flac,New A,\nC.flac,New C,Someone",
+            firstRowIsHeader: true,
+            targetFiles: files,
+            clearBlankImportedValues: true
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.ready, .noMatch, .missingExternalRecord])
+        XCTAssertEqual(rows[0].writeValues[.title], "New A")
+        XCTAssertEqual(rows[0].writeValues[.artist], "")
+    }
+
+    func testMetadataExchangeCoreSelectionOrderReportsExtraAndMissingRows() {
+        let files = [
+            coreMetadataFile(id: "1", fileName: "A.flac", values: [.title: "Old A"])
+        ]
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.title],
+            sourceText: "New A\nNew B",
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.ready, .extraExternalRecord])
+    }
+
+    func testOnlineMetadataSelectionCoreComputesMajoritiesMixedStateAndRepresentatives() {
+        let summary = OnlineMetadataSelectionCore.summary(
+            albums: [" Album ", "Album", "Other"],
+            albumArtists: ["Artist", "Artist", "Other"],
+            primaryArtists: ["Singer", "Singer", "Guest"],
+            trackTotals: [10, 10, 0],
+            releaseDates: ["2026-06-02", "2026", "2025"],
+            barcodes: ["123", "123", ""],
+            providerAlbumIDs: ["abc", "abc", ""]
+        )
+
+        XCTAssertEqual(summary.albumCandidate, "Album")
+        XCTAssertEqual(summary.trackCountCandidate, 10)
+        XCTAssertEqual(summary.releaseYearCandidate, "2026")
+        XCTAssertTrue(summary.selectionLooksMixed)
+
+        let representatives = OnlineMetadataSelectionCore.representativeFiles(
+            [
+                providerFile("4", title: "Four", track: "04"),
+                providerFile("1", title: "One", track: "01"),
+                providerFile("2", title: "Two", track: "02"),
+                providerFile("3", title: "Three", track: "03"),
+                providerFile("5", title: "Five", track: "05")
+            ],
+            title: \.title,
+            discNumber: { _ in 1 },
+            trackNumber: { OnlineMetadataSelectionCore.normalizedPositiveIndex($0.trackNumber) }
+        )
+
+        XCTAssertEqual(representatives.map(\.id), ["1", "3", "5"])
+    }
+
+    func testITunesProviderCoreBuildsSearchLookupQueriesAndParsesLinks() throws {
+        let query = ITunesProviderSearchQuery(
+            mode: .file,
+            fileInputs: [
+                itunesFile("1", title: "Track One", artist: "Artist", album: "Album", trackNumber: "01/10"),
+                itunesFile("2", title: "Track Two", artist: "Artist", album: "Album", trackNumber: "02/10")
+            ]
+        )
+
+        XCTAssertEqual(query.searchTerm, "Album Artist")
+        let searchURL = try query.searchURL(entity: "album", limit: 500)
+        let searchComponents = try XCTUnwrap(URLComponents(url: searchURL, resolvingAgainstBaseURL: false))
+        let searchItems = Dictionary(uniqueKeysWithValues: (searchComponents.queryItems ?? []).compactMap { item in item.value.map { (item.name, $0) } })
+
+        XCTAssertEqual(searchComponents.host, "itunes.apple.com")
+        XCTAssertEqual(searchComponents.path, "/search")
+        XCTAssertEqual(searchItems["entity"], "album")
+        XCTAssertEqual(searchItems["limit"], "200")
+        XCTAssertEqual(searchItems["country"], "us")
+
+        let lookupURL = try query.lookupURL(idName: "upc", idValue: "123456", country: " GB ", includeSongs: true)
+        let lookupItems = Dictionary(uniqueKeysWithValues: (URLComponents(url: lookupURL, resolvingAgainstBaseURL: false)?.queryItems ?? []).compactMap { item in item.value.map { (item.name, $0) } })
+        XCTAssertEqual(lookupItems["upc"], "123456")
+        XCTAssertEqual(lookupItems["country"], "gb")
+        XCTAssertEqual(lookupItems["entity"], "song")
+
+        XCTAssertEqual(try ITunesProviderLinkParser.parse("1440857781"), .album(1_440_857_781))
+        XCTAssertEqual(try ITunesProviderLinkParser.parse("https://music.apple.com/us/album/demo/id1440857781?i=1440857783"), .track(1_440_857_783))
+        XCTAssertEqual(try ITunesProviderLinkParser.parse("https://music.apple.com/us/album/demo/id1440857781"), .album(1_440_857_781))
+    }
+
+    func testITunesArtworkCoreBuildsRequestsTransformsJSONAndOrdersDownloadURLs() throws {
+        let requestURL = try ITunesArtworkCoreRequest(
+            query: "  Vespertine ",
+            entity: .album,
+            country: " US ",
+            limit: 24
+        ).searchURL()
+        let requestItems = Dictionary(uniqueKeysWithValues: (URLComponents(url: requestURL, resolvingAgainstBaseURL: false)?.queryItems ?? []).compactMap { item in item.value.map { (item.name, $0) } })
+
+        XCTAssertEqual(requestURL.host, "itunes.apple.com")
+        XCTAssertEqual(requestURL.path, "/search")
+        XCTAssertEqual(requestItems["term"], "Vespertine")
+        XCTAssertEqual(requestItems["country"], "us")
+
+        let json = """
+        {
+          "results": [
+            {"collectionType":"Album","collectionName":"Vespertine","artistName":"Bjork","primaryGenreName":"Electronic","artworkUrl100":"https://is5-ssl.mzstatic.com/image/thumb/Music115/v4/aa/bb/cc/source/100x100bb.jpg"},
+            {"collectionType":"Song","collectionName":"Hidden Place","artistName":"Bjork","artworkUrl100":"https://is5-ssl.mzstatic.com/image/thumb/Music115/v4/dd/ee/ff/source/100x100bb.jpg"},
+            {"collectionType":"Album","collectionName":"Vespertine","artistName":"Bjork","artworkUrl100":"https://is5-ssl.mzstatic.com/image/thumb/Music115/v4/aa/bb/cc/source/100x100bb.jpg"}
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let results = try ITunesArtworkCore.transformResults(from: json, entity: .idAlbum)
+
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].title, "Vespertine • Bjork")
+        XCTAssertEqual(results[0].pixelWidth, 3000)
+        XCTAssertEqual(results[0].preferredDownloadURLs.first?.host, "a5.mzstatic.com")
+        XCTAssertEqual(results[0].preferredPreviewURLs.first?.host, "is5-ssl.mzstatic.com")
+    }
+
+    func testMusicBrainzProviderCoreNormalizesFiltersQueriesLinksAndRepresentatives() throws {
+        let filters = MusicBrainzProviderReleaseFilters(
+            mediaFormats: [.digitalMedia],
+            releaseYear: "released 2026-06-02",
+            countries: [" us ", "ZZZ"],
+            statuses: [.official]
+        )
+
+        XCTAssertTrue(filters.matches(date: "2026-01-01", country: "US", status: "official", candidateMediaFormats: ["Digital-Media"]))
+        XCTAssertFalse(filters.matches(date: "2025-01-01", country: "US", status: "official", candidateMediaFormats: ["Digital Media"]))
+        XCTAssertFalse(filters.matches(date: "2026-01-01", country: "GB", status: "official", candidateMediaFormats: ["Digital Media"]))
+
+        let query = MusicBrainzProviderSearchQuery(
+            mode: .file,
+            title: "  Track  ",
+            artist: "Artist",
+            albumArtist: "Artist",
+            album: "Album",
+            trackNumber: "03/10",
+            trackTotal: 10,
+            durationMilliseconds: 5_100,
+            releaseDate: "2026-06-02",
+            isrc: "US-ABC-26-00001",
+            barcode: "123",
+            albumID: "550e8400-e29b-41d4-a716-446655440000",
+            trackID: "",
+            releaseFilters: filters
+        )
+
+        XCTAssertEqual(query.normalizedTrackNumber, 3)
+        XCTAssertEqual(query.quantizedDuration, 2)
+        XCTAssertEqual(query.selectionReleaseQuery.album, "Album")
+        XCTAssertEqual(query.selectionReleaseQuery.artist, "Artist")
+        XCTAssertEqual(query.selectionReleaseQuery.trackTotal, 10)
+        XCTAssertEqual(query.artistCandidates, ["Artist"])
+
+        XCTAssertEqual(
+            try MusicBrainzProviderLinkParser.parse("musicbrainz.org/release/550e8400-e29b-41d4-a716-446655440000"),
+            .release("550e8400-e29b-41d4-a716-446655440000")
+        )
+        XCTAssertThrowsError(try MusicBrainzProviderLinkParser.parse("musicbrainz.org/artist/550e8400-e29b-41d4-a716-446655440000"))
+
+        let representatives = MusicBrainzProviderCore.representativeFilesForReleaseLookup(from: [
+            mbFile("5", title: "Five", track: "05"),
+            mbFile("1", title: "One", track: "01"),
+            mbFile("3", title: "Three", track: "03"),
+            mbFile("2", title: "Two", track: "02"),
+            mbFile("4", title: "Four", track: "04")
+        ])
+        XCTAssertEqual(representatives.map(\.id), ["1", "3", "5"])
+    }
+
+    func testAudioFormatSupportCoreNormalizesWritableAndArtworkExtensions() {
+        let snapshot = AudioFormatSupportCore.snapshot(
+            readableExtensions: ["MP3", "Flac", "MP3"],
+            writableExtensions: ["MP3", "M4A"],
+            capabilities: [
+                AudioFormatCapabilityCore(extensions: ["MP3", "mp3"], isWritable: true, canWriteArtwork: true),
+                AudioFormatCapabilityCore(extensions: ["WAV"], isWritable: true, canWriteArtwork: false),
+                AudioFormatCapabilityCore(extensions: ["FLAC"], isWritable: false, canWriteArtwork: true),
+                AudioFormatCapabilityCore(extensions: ["M4A"], isWritable: true, canWriteArtwork: true)
+            ]
+        )
+
+        XCTAssertEqual(snapshot.readableExtensions, ["mp3", "flac"])
+        XCTAssertEqual(snapshot.metadataWritableExtensions, ["mp3", "m4a"])
+        XCTAssertEqual(snapshot.artworkWritableExtensions, ["mp3", "m4a"])
+        XCTAssertEqual(snapshot.orderedReadableExtensions, ["mp3", "flac", "mp3"])
+    }
+
+    func testMetadataModelCoreMergesDuplicatesAndArtworkDecisions() {
+        XCTAssertEqual(AudioMetadataMergeCore.mergedValue(["Same", "Same"], mixedPlaceholder: "mixed"), "Same")
+        XCTAssertEqual(AudioMetadataMergeCore.mergedValue(["Same", "Other"], mixedPlaceholder: "mixed"), "mixed")
+        XCTAssertEqual(
+            AudioMetadataMergeCore.duplicateKeys(in: ["A.flac", "a.FLAC", "B.flac"]) { $0 },
+            ["a.flac"]
+        )
+
+        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: true, requestedReplacementDataIsEmpty: false, shouldRemove: false), .replace)
+        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: true, requestedReplacementDataIsEmpty: true, shouldRemove: true), .remove)
+        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: false, requestedReplacementDataIsEmpty: true, shouldRemove: true), .removeNoop)
+        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: true, requestedReplacementDataIsEmpty: true, shouldRemove: false), .keepExisting)
+    }
+
+    func testFileCollectionCoreSortsMergesGroupsAndDetectsDuplicatePaths() {
+        let sorted = FileCollectionCore.sortedImportURLs([
+            URL(fileURLWithPath: "/tmp/10.flac"),
+            URL(fileURLWithPath: "/tmp/2.flac"),
+            URL(fileURLWithPath: "/tmp/1.flac")
+        ])
+        XCTAssertEqual(sorted.map(\.lastPathComponent), ["1.flac", "2.flac", "10.flac"])
+
+        let existing = [CoreAudioFileReference(id: "1", path: "/Music/A.flac", displayName: "A")]
+        let merged = FileCollectionCore.mergePreservingExistingOrder(
+            existing: existing,
+            incoming: [
+                CoreAudioFileReference(id: "2", path: "/music/a.flac", displayName: "A copy"),
+                CoreAudioFileReference(id: "3", path: "/Music/B.flac", displayName: "B")
+            ]
+        )
+        XCTAssertEqual(merged.map(\.id), ["1", "3"])
+
+        let grouped = FileCollectionCore.groupedByAlbum(
+            files: merged,
+            album: { $0.id == "1" ? "Album" : "Album" },
+            albumArtist: { $0.id == "1" ? "Artist" : "" },
+            compilationKey: { _ in "Compilation" }
+        )
+
+        XCTAssertEqual(grouped["Album|Artist"]?.map { $0.id }, ["1"])
+        XCTAssertEqual(grouped["Album|Compilation"]?.map { $0.id }, ["3"])
+    }
 }
 
 private func makeCandidate(
@@ -298,5 +599,77 @@ private func makeCandidate(
         instrumental: instrumental,
         plainLyrics: plainLyrics,
         syncedLyrics: syncedLyrics
+    )
+}
+
+private struct ProviderFileFixture: Equatable, Hashable {
+    let id: String
+    let title: String
+    let trackNumber: String
+}
+
+private func providerFile(_ id: String, title: String, track: String) -> ProviderFileFixture {
+    ProviderFileFixture(id: id, title: title, trackNumber: track)
+}
+
+private func coreMetadataFile(
+    id: String,
+    fileName: String? = nil,
+    path: String = "",
+    values: [CoreMetadataExchangeField: String]
+) -> CoreMetadataExchangeFile {
+    let resolvedPath = path.isEmpty ? "/tmp/\(fileName ?? "\(id).flac")" : path
+    let url = URL(fileURLWithPath: resolvedPath)
+    let resolvedFileName = fileName ?? url.lastPathComponent
+    return CoreMetadataExchangeFile(
+        id: id,
+        fileName: resolvedFileName,
+        baseName: URL(fileURLWithPath: resolvedFileName).deletingPathExtension().lastPathComponent,
+        path: resolvedPath,
+        values: values
+    )
+}
+
+private func itunesFile(
+    _ id: String,
+    title: String,
+    artist: String,
+    album: String,
+    trackNumber: String
+) -> ITunesProviderFileInput {
+    ITunesProviderFileInput(
+        id: id,
+        displayTitle: title,
+        title: title,
+        artist: artist,
+        albumArtist: "",
+        album: album,
+        trackNumber: trackNumber,
+        discNumber: "1",
+        trackTotal: 10,
+        durationMilliseconds: nil,
+        releaseDate: "2026-06-02",
+        barcode: "",
+        albumID: ""
+    )
+}
+
+private func mbFile(_ id: String, title: String, track: String) -> MusicBrainzProviderFileInput {
+    MusicBrainzProviderFileInput(
+        id: id,
+        displayTitle: title,
+        title: title,
+        artist: "Artist",
+        albumArtist: "Artist",
+        album: "Album",
+        trackNumber: track,
+        discNumber: "1",
+        trackTotal: 5,
+        durationMilliseconds: nil,
+        releaseDate: "2026",
+        isrc: "",
+        barcode: "",
+        albumID: "",
+        trackID: ""
     )
 }

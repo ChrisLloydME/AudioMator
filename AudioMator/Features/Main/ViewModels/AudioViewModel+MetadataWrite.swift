@@ -22,153 +22,6 @@ private enum MetadataWriteExecutionResult {
     case failure(String)
 }
 
-private struct BatchMetadataWriteIssue {
-    let fileName: String
-    let messages: [String]
-}
-
-private struct BatchMetadataWriteSummary {
-    let totalTargets: Int
-    var succeeded: Int = 0
-    var warningIssues: [BatchMetadataWriteIssue] = []
-    var failureIssues: [BatchMetadataWriteIssue] = []
-    var allSuccessfulFilesRefreshed = true
-
-    var hudStyle: MetadataWriteHUDStyle {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
-            return .success
-        }
-
-        if failureIssues.isEmpty {
-            return .warning
-        }
-
-        return succeeded > 0 ? .warning : .failure
-    }
-
-    var hudTitle: String {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
-            return L10n.string("Saved to Disk")
-        }
-
-        if failureIssues.isEmpty {
-            return L10n.string("Saved with Issues")
-        }
-
-        return succeeded > 0 ? "Partially Saved" : "Save Failed"
-    }
-
-    var hudSubtitle: String {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
-            return fileCountLabel(succeeded)
-        }
-
-        var lines: [String] = [summaryLine]
-
-        if !warningIssues.isEmpty {
-            lines.append("\(warningIssues.count) file(s) saved with issues")
-        }
-
-        if !failureIssues.isEmpty {
-            lines.append("\(failureIssues.count) file(s) failed")
-        }
-
-        let detailSource = failureIssues.isEmpty ? warningIssues : failureIssues
-        for issue in detailSource.prefix(2) {
-            let detail = issue.messages.joined(separator: " ")
-            lines.append("\(issue.fileName): \(detail)")
-        }
-
-        if detailSource.count > 2 {
-            lines.append("...and \(detailSource.count - 2) more")
-        }
-
-        return lines.joined(separator: "\n")
-    }
-
-    private var summaryLine: String {
-        switch succeeded {
-        case totalTargets:
-            return "\(totalTargets) of \(totalTargets) files saved"
-        case 0:
-            return L10n.string("No files were saved")
-        default:
-            return "\(succeeded) of \(totalTargets) files saved"
-        }
-    }
-}
-
-private struct BatchMetadataClearSummary {
-    let totalTargets: Int
-    var succeeded: Int = 0
-    var warningIssues: [BatchMetadataWriteIssue] = []
-    var failureIssues: [BatchMetadataWriteIssue] = []
-    var allSuccessfulFilesRefreshed = true
-
-    var hudStyle: MetadataWriteHUDStyle {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
-            return .success
-        }
-
-        if failureIssues.isEmpty {
-            return .warning
-        }
-
-        return succeeded > 0 ? .warning : .failure
-    }
-
-    var hudTitle: String {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
-            return L10n.string("Metadata Cleared")
-        }
-
-        if failureIssues.isEmpty {
-            return L10n.string("Cleared with Issues")
-        }
-
-        return succeeded > 0 ? "Partially Cleared" : "Clear Failed"
-    }
-
-    var hudSubtitle: String {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
-            return fileCountLabel(succeeded)
-        }
-
-        var lines: [String] = [summaryLine]
-
-        if !warningIssues.isEmpty {
-            lines.append("\(warningIssues.count) file(s) cleared with issues")
-        }
-
-        if !failureIssues.isEmpty {
-            lines.append("\(failureIssues.count) file(s) failed")
-        }
-
-        let detailSource = failureIssues.isEmpty ? warningIssues : failureIssues
-        for issue in detailSource.prefix(2) {
-            let detail = issue.messages.joined(separator: " ")
-            lines.append("\(issue.fileName): \(detail)")
-        }
-
-        if detailSource.count > 2 {
-            lines.append("...and \(detailSource.count - 2) more")
-        }
-
-        return lines.joined(separator: "\n")
-    }
-
-    private var summaryLine: String {
-        switch succeeded {
-        case totalTargets:
-            return "\(totalTargets) of \(totalTargets) files cleared"
-        case 0:
-            return L10n.string("No files were cleared")
-        default:
-            return "\(succeeded) of \(totalTargets) files cleared"
-        }
-    }
-}
-
 func fileCountLabel(_ count: Int) -> String {
     count == 1 ? "1 file" : "\(count) files"
 }
@@ -1105,7 +958,7 @@ extension AudioViewModel {
         )
 
         Task(priority: .userInitiated) {
-            var summary = BatchMetadataClearSummary(totalTargets: targetFiles.count)
+            var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count, operation: .clear)
 
             for (index, file) in targetFiles.enumerated() {
                 self.updateMetadataSaveProgress(
@@ -1188,7 +1041,7 @@ extension AudioViewModel {
         }
     }
 
-    private func presentBatchMetadataClearSummary(_ summary: BatchMetadataClearSummary) {
+    private func presentBatchMetadataClearSummary(_ summary: BatchMetadataOperationSummary) {
         guard summary.totalTargets > 0 else { return }
 
         presentMetadataWriteHUD(

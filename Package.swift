@@ -26,9 +26,9 @@ let package = Package(
                 "Core/Audio/AudioFormatSupport.swift",
                 "Domain/AudioFiles",
                 "Domain/FileSources",
-                "Domain/MetadataExchange",
-                "Domain/MuseAmp",
-                "Domain/Rename",
+                "Domain/MetadataExchange/MetadataExchange.swift",
+                "Domain/Rename/FileRenameTemplate.swift",
+                "Domain/Rename/FilenameMetadataTemplate.swift",
                 "Domain/UIState",
                 "Domain/MetadataEditing/AudioMetadataPipeline.swift",
                 "Infrastructure/FileSystem",
@@ -43,9 +43,14 @@ let package = Package(
                 "Core/Audio/AudioTagNumberText.swift",
                 "Core/Text/FuzzyStringSimilarity.swift",
                 "Domain/MetadataEditing/TextEditPipeline.swift",
+                "Domain/MetadataExchange/MetadataExchangeCSV.swift",
+                "Domain/MuseAmp/MuseAmpCommentIDGenerator.swift",
+                "Domain/Rename/FileRenameTemplateCore.swift",
+                "Domain/Rename/FilenameMetadataExtractionCore.swift",
                 "Domain/TrackRenumber/TrackRenumber.swift",
                 "Infrastructure/LRCLIB/LRCLIBCandidateRanker.swift",
-                "Infrastructure/LRCLIB/LRCLIBModels.swift"
+                "Infrastructure/LRCLIB/LRCLIBModels.swift",
+                "Infrastructure/LRCLIB/LRCLIBRequestBuilder.swift"
             ]
         ),
         .testTarget(

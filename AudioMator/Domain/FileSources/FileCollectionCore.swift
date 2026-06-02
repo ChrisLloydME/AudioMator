@@ -43,7 +43,7 @@ enum FileCollectionCore {
         }
     }
 
-    private static func normalizedPath(_ file: CoreAudioFileReference) -> String {
+    nonisolated private static func normalizedPath(_ file: CoreAudioFileReference) -> String {
         URL(fileURLWithPath: file.path).standardizedFileURL.path.lowercased()
     }
 }

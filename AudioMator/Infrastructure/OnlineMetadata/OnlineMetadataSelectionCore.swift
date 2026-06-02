@@ -17,17 +17,17 @@ struct OnlineMetadataFileSelectionSummary: Equatable, Hashable {
 }
 
 enum OnlineMetadataSelectionCore {
-    static func normalizedPositiveIndex(_ rawValue: String) -> Int? {
+    nonisolated static func normalizedPositiveIndex(_ rawValue: String) -> Int? {
         AudioTagNumberText.positiveIndex(from: rawValue)
     }
 
-    static func normalizedReleaseYear(_ rawValue: String) -> String {
+    nonisolated static func normalizedReleaseYear(_ rawValue: String) -> String {
         let digits = rawValue.filter(\.isNumber)
         guard digits.count >= 4 else { return "" }
         return String(digits.prefix(4))
     }
 
-    static func deduplicatedTrimmedValues(_ values: [String]) -> [String] {
+    nonisolated static func deduplicatedTrimmedValues(_ values: [String]) -> [String] {
         var seen = Set<String>()
         var result: [String] = []
 
@@ -40,7 +40,7 @@ enum OnlineMetadataSelectionCore {
         return result
     }
 
-    static func summary(
+    nonisolated static func summary(
         albums: [String],
         albumArtists: [String],
         primaryArtists: [String],
@@ -73,7 +73,7 @@ enum OnlineMetadataSelectionCore {
         )
     }
 
-    static func representativeFiles<T>(
+    nonisolated static func representativeFiles<T>(
         _ files: [T],
         title: (T) -> String,
         discNumber: (T) -> Int?,
@@ -99,7 +99,7 @@ enum OnlineMetadataSelectionCore {
         }
     }
 
-    private static func majorityValue(_ values: [String]) -> String {
+    nonisolated private static func majorityValue(_ values: [String]) -> String {
         let cleaned = values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         guard !cleaned.isEmpty else { return "" }
 
@@ -117,7 +117,7 @@ enum OnlineMetadataSelectionCore {
         return best
     }
 
-    private static func majorityInt(_ values: [Int]) -> Int? {
+    nonisolated private static func majorityInt(_ values: [Int]) -> Int? {
         guard !values.isEmpty else { return nil }
 
         var counts: [Int: Int] = [:]
@@ -134,7 +134,7 @@ enum OnlineMetadataSelectionCore {
         return best
     }
 
-    private static func distinctValueCount(_ values: [String]) -> Int {
+    nonisolated private static func distinctValueCount(_ values: [String]) -> Int {
         Set(values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }).count
     }
 }

@@ -43,7 +43,19 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 
   **Inspector** offers a more approachable editing experience for common metadata fields. It is designed for everyday metadata editing, with a simpler interface and a focus on frequently used fields.
 
+  
+
+  <img src="Docs/Images/AudioMator Inspector Panel.png" width="300">
+
+  
+
   **Metadata Editor** is a more advanced editing interface. It allows users to add, remove, and edit all available metadata fields, making it suitable for more detailed or professional metadata workflows.
+
+  
+
+  <img src="Docs/Images/AudioMator Metadata Editor.png">
+
+  
 
 - ### Automatic Track Number Assignment
 

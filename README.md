@@ -20,6 +20,15 @@
 
 AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps users inspect, organize, and edit music files through common tagging workflows, including metadata editing, artwork replacement, automatic track numbering, filename-based metadata conversion, raw metadata inspection, and online metadata lookup. For more detailed feature information, see [AudioMator Feature Overview](#audiomator-feature-overview).
 
+> [!CAUTION]
+>
+> #### macOS 27 Golden Gate Compatibility Issues
+>
+> * Toolbar buttons may appear incorrectly.
+> * Tag Inspector: [TagLib Properties] are not displayed correctly.
+
+
+
 ## Screenshot
 
 <p align="center">
@@ -44,9 +53,10 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 
   AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Users can extract metadata from filenames or structured text files, and they can also generate filenames or text-based metadata records from existing file metadata.
 
-  > [!CAUTION]
-  >
-  > Metadata and Text Conversion is still under active refinement. Some behavior may require further improvement, especially when working with complex filenames, inconsistent TXT/CSV structures, or unusual metadata values. Please use this feature carefully, and manually review the results after applying changes to ensure that the metadata has been interpreted and written correctly.
+
+> [!CAUTION]
+>
+> Metadata and Text Conversion is still under active refinement. Some behavior may require further improvement, especially when working with complex filenames, inconsistent TXT/CSV structures, or unusual metadata values. Please use this feature carefully, and manually review the results after applying changes to ensure that the metadata has been interpreted and written correctly.
 
 - ### Online Metadata Lookup
 
@@ -90,6 +100,7 @@ The iPadOS build intentionally avoids pretending to be macOS:
 - Settings focus on iPad-specific list metadata and About information.
 
 > [!IMPORTANT]
+>
 > #### About iPadOS Support
 >
 > I do not have an Apple Developer Program membership and there are currently no plans to commercialize AudioMator. The iPadOS version is being developed separately from the macOS release cycle and should be considered more of a personal side project and platform experiment rather than a feature-parity target.

@@ -50,8 +50,8 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 - ### Automatic Track Number Assignment
 
   AudioMator allows users to reorder audio files by dragging them into the desired sequence, then automatically regenerate track numbers based on that order. This is useful for organizing albums, live recordings, or any group of files where track order needs to be corrected or standardized.
- 
- <img src="Docs/Images/Renumber Track Numbers.png">
+  
+   <img src="Docs/Images/Renumber Track Numbers.png">
  
 - ### Metadata and Text Conversion
 

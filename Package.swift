@@ -43,6 +43,7 @@ let package = Package(
                 "Infrastructure/MusicBrainz/MusicBrainzFilenameFallback.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzLinkParser.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzLuceneQueryBuilder.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzMatching.swift",
                 "Infrastructure/Updates"
             ],
             sources: [

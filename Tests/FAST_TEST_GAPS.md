@@ -4,7 +4,7 @@ The SwiftPM `AudioMatorCoreLogicTests` target is intentionally limited to determ
 
 App-hosted Xcode coverage now includes TagLib read/write round trips, artwork writes, raw property-map removal, inspector-style clearing, and track/disc number normalization across the committed audio fixtures.
 
-Large-file split progress: `AudioViewModel+MetadataWrite.swift` has started moving unrelated operations out; batch track renumbering now lives in a dedicated `AudioViewModel+TrackRenumbering.swift` extension while preserving the existing write path.
+Large-file split progress: `AudioViewModel+MetadataWrite.swift` has started moving unrelated operations out; batch track renumbering now lives in a dedicated `AudioViewModel+TrackRenumbering.swift` extension while preserving the existing write path. `MetadataFilenameRenameSheet.swift` has started moving the converter picker into `MetadataConverterModePickerView.swift`, preview-only SwiftUI components into `MetadataFilenamePreviewLists.swift`, metadata exchange previews into `MetadataExchangePreviewLists.swift`, and AppKit token editors into `MetadataFilenameTemplateEditors.swift`; rename, filename-to-metadata, and metadata exchange behavior remains covered by fast planning tests plus app build checks.
 
 Remaining behavior that still needs app-hosted Xcode tests or future small helper extraction:
 

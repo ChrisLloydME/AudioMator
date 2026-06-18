@@ -244,7 +244,7 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        AudioFileTestFactory.make(id: id, url: url)
+        await AudioFileTestFactory.make(id: id, url: url)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {

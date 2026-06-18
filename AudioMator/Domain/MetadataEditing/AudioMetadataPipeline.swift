@@ -190,7 +190,13 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             to: url,
             verifyAfterWrite: verifyAfterWrite
         )
-        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+        let warnings = MetadataPipelineSupport.numberTextWriteWarnings(
+            writeResult.warnings,
+            expectedTrackNumberText: trackNumberText,
+            expectedDiscNumberText: discNumberText,
+            for: url
+        )
+        return AudioMetadataWriteResult(warnings: warnings)
     }
 }
 
@@ -202,6 +208,63 @@ private enum MetadataPipelineSupport {
         let noteText = (["[AudioMator Compatibility Notes]"] + notes.map { "- \($0)" })
             .joined(separator: "\n")
         return [rawText, noteText].joined(separator: "\n\n")
+    }
+
+    nonisolated static func numberTextWriteWarnings(
+        _ warnings: [String],
+        expectedTrackNumberText: String,
+        expectedDiscNumberText: String?,
+        for url: URL
+    ) -> [String] {
+        guard !warnings.isEmpty else { return warnings }
+        guard let readBack = try? TagLibMetadataManager.readMetadataResult(from: url) else {
+            return warnings
+        }
+
+        return warnings.map { warning in
+            if warning.hasPrefix("Track number text differs after save") {
+                return normalizedNumberTextWarning(
+                    warning,
+                    label: "Track number",
+                    expectedText: expectedTrackNumberText,
+                    actualText: readBack.trackNumberText,
+                    actualNumber: readBack.track,
+                    actualTotal: readBack.trackTotal
+                )
+            }
+
+            if warning.hasPrefix("Disc number text differs after save") {
+                return normalizedNumberTextWarning(
+                    warning,
+                    label: "Disc number",
+                    expectedText: expectedDiscNumberText ?? "",
+                    actualText: readBack.discNumberText,
+                    actualNumber: readBack.disc,
+                    actualTotal: readBack.discTotal
+                )
+            }
+
+            return warning
+        }
+    }
+
+    nonisolated private static func normalizedNumberTextWarning(
+        _ warning: String,
+        label: String,
+        expectedText: String,
+        actualText: String,
+        actualNumber: Int,
+        actualTotal: Int
+    ) -> String {
+        let normalizedExpected = normalizedFieldComponent(expectedText)
+        guard !normalizedExpected.isEmpty else { return warning }
+
+        let expected = AudioTagNumberText.parsedPair(from: normalizedExpected)
+        guard expected.number == actualNumber, expected.total == actualTotal else {
+            return warning
+        }
+
+        return "\(label) formatting was normalized by the container (\(normalizedExpected) -> \(actualText))."
     }
 
     nonisolated private static func legacyTagCompatibilityNotes(for rawText: String) -> [String] {

@@ -279,12 +279,17 @@ private final class MockLRCLIBSearchClient: LRCLIBLyricsSearching, @unchecked Se
             try await Task.sleep(nanoseconds: delayNanoseconds)
         }
 
-        let match = results.first { _, candidates in
-            candidates.contains { candidate in
-                candidate.trackName == query.trackName
+        let queryTrackName = await MainActor.run { query.trackName }
+        for (_, candidates) in results {
+            for candidate in candidates {
+                let candidateTrackName = await MainActor.run { candidate.trackName }
+                if candidateTrackName == queryTrackName {
+                    return candidates
+                }
             }
         }
-        return match?.value ?? []
+
+        return []
     }
 }
 

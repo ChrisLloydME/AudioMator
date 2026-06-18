@@ -517,6 +517,65 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(representatives.map(\.id), ["1", "3", "5"])
     }
 
+    func testMusicBrainzProviderLuceneQueriesEscapeReservedCharactersAndLimitPreferredClauses() {
+        let query = MusicBrainzProviderSearchQuery(
+            mode: .track,
+            title: "A+B",
+            artist: "C:D",
+            album: "The (Album)",
+            trackNumber: "03/10",
+            trackTotal: 10
+        )
+
+        let queries = MusicBrainzProviderLuceneQueryBuilder.recordingSearchQueries(from: query)
+        let joinedQueries = queries.joined(separator: "\n")
+
+        XCTAssertTrue(joinedQueries.contains("recording:\"A\\+B\""))
+        XCTAssertTrue(joinedQueries.contains("artist:\"C\\:D\""))
+        XCTAssertTrue(joinedQueries.contains("release:\"The \\(Album\\)\""))
+        XCTAssertTrue(joinedQueries.contains("tnum:3"))
+        XCTAssertLessThanOrEqual(queries.count, 6)
+    }
+
+    func testMusicBrainzProviderLuceneQueriesApplyReleaseFiltersToEveryPreferredClause() {
+        let query = MusicBrainzProviderSearchQuery(
+            mode: .album,
+            artist: "Artist",
+            album: "Album",
+            releaseFilters: MusicBrainzProviderReleaseFilters(
+                mediaFormats: [.digitalMedia, .cd],
+                releaseYear: "2024-01-01",
+                countries: ["us", "GB", "ignored"],
+                statuses: [.official]
+            )
+        )
+
+        let queries = MusicBrainzProviderLuceneQueryBuilder.releaseSearchQueries(from: query)
+
+        XCTAssertFalse(queries.isEmpty)
+        for query in queries {
+            XCTAssertTrue(query.contains("date:\"2024\""))
+            XCTAssertTrue(query.contains("(country:\"gb\" OR country:\"us\")"))
+            XCTAssertTrue(query.contains("status:\"official\""))
+            XCTAssertTrue(query.contains("format:\"CD\""))
+            XCTAssertTrue(query.contains("format:\"Digital Media\""))
+        }
+    }
+
+    func testMusicBrainzProviderLuceneQueriesDeduplicateAndLimitPreferredClauses() {
+        let query = MusicBrainzProviderSearchQuery(
+            mode: .album,
+            title: "Shared",
+            artist: "Shared",
+            album: "Shared"
+        )
+
+        let queries = MusicBrainzProviderLuceneQueryBuilder.releaseSearchQueries(from: query)
+
+        XCTAssertEqual(queries, Array(NSOrderedSet(array: queries)) as? [String])
+        XCTAssertLessThanOrEqual(queries.count, 6)
+    }
+
     func testAudioFormatSupportCoreNormalizesWritableAndArtworkExtensions() {
         let snapshot = AudioFormatSupportCore.snapshot(
             readableExtensions: ["MP3", "Flac", "MP3"],

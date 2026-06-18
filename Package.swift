@@ -41,6 +41,8 @@ let package = Package(
                 "Infrastructure/LRCLIB/LRCLIBClient.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzClient.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzFilenameFallback.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzLinkParser.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzLuceneQueryBuilder.swift",
                 "Infrastructure/Updates"
             ],
             sources: [
@@ -63,6 +65,7 @@ let package = Package(
                 "Infrastructure/LRCLIB/LRCLIBCandidateRanker.swift",
                 "Infrastructure/LRCLIB/LRCLIBModels.swift",
                 "Infrastructure/LRCLIB/LRCLIBRequestBuilder.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzProviderLuceneQueryBuilder.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzProviderCore.swift",
                 "Infrastructure/OnlineMetadata/OnlineMetadataSelectionCore.swift"
             ]

@@ -18,6 +18,15 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.flac"
     ]
 
+    private static let expectedNumberTextAfterTrackTextWrite = [
+        "testAudioFile.mp3": ("07/12", "2/3", false),
+        "testAudioFile.m4a": ("07/12", "2/3", false),
+        "testAudioFile.flac": ("07", "2", true),
+        "testAudioFile.aac": ("07", "2", true),
+        "testAudioFile.ogg": ("07", "2", true),
+        "testAudioFile.wav": ("07", "2", true)
+    ]
+
     func testAudioFixturesAreReadableByTagLib() throws {
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
@@ -73,6 +82,65 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(readBack.trackTotal, metadata.trackTotal, fixtureName)
             XCTAssertEqual(readBack.disc, metadata.disc, fixtureName)
             XCTAssertEqual(readBack.discTotal, metadata.discTotal, fixtureName)
+        }
+    }
+
+    func testTrackAndDiscTextWritesRoundTripNumericValuesAcrossWritableAudioFixtures() throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+
+        for fixtureName in Self.audioFixtureNames {
+            let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
+            guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
+                continue
+            }
+
+            let workingURL = try makeWritableCopy(of: fixtureURL)
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+            let result = try pipeline.writeTrackNumberText(
+                "07/12",
+                discNumberText: "2/3",
+                to: workingURL,
+                verifyAfterWrite: true
+            )
+
+            XCTAssertFalse(
+                result.warnings.contains { $0.contains("differs after save") },
+                "\(fixtureName) should not report numeric write mismatches: \(result.warnings.joined(separator: "\n"))"
+            )
+
+            let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+            XCTAssertEqual(readBack.track, 7, fixtureName)
+            XCTAssertEqual(readBack.trackTotal, 12, fixtureName)
+            XCTAssertEqual(readBack.disc, 2, fixtureName)
+            XCTAssertEqual(readBack.discTotal, 3, fixtureName)
+
+            let expected = try XCTUnwrap(Self.expectedNumberTextAfterTrackTextWrite[fixtureName])
+            XCTAssertEqual(readBack.trackNumberText, expected.0, fixtureName)
+            XCTAssertEqual(readBack.discNumberText, expected.1, fixtureName)
+            XCTAssertEqual(
+                AudioTagNumberPair(
+                    rawText: readBack.trackNumberText,
+                    number: readBack.track,
+                    total: readBack.trackTotal
+                ).displayedTotalText,
+                "12",
+                "\(fixtureName) should preserve the user-facing track total even when container text is normalized."
+            )
+            XCTAssertEqual(
+                AudioTagNumberPair(
+                    rawText: readBack.discNumberText,
+                    number: readBack.disc,
+                    total: readBack.discTotal
+                ).displayedTotalText,
+                "3",
+                "\(fixtureName) should preserve the user-facing disc total even when container text is normalized."
+            )
+
+            let didNormalizeFormatting = result.warnings.contains {
+                $0.contains("formatting was normalized by the container")
+            }
+            XCTAssertEqual(didNormalizeFormatting, expected.2, fixtureName)
         }
     }
 

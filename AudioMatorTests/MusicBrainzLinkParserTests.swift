@@ -14,6 +14,10 @@ final class MusicBrainzLinkParserTests: XCTestCase {
             try MusicBrainzLinkParser.parse("musicbrainz.org/release/\(releaseID)?inc=recordings"),
             .release(releaseID)
         )
+        XCTAssertEqual(
+            try MusicBrainzLinkParser.parse("www.musicbrainz.org/release/\(releaseID)"),
+            .release(releaseID)
+        )
     }
 
     func testParseRejectsUnsupportedHostsInvalidIDsAndUnsupportedEntities() {

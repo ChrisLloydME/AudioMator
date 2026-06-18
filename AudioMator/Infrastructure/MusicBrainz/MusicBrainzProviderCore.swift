@@ -264,7 +264,10 @@ enum MusicBrainzProviderLinkTarget: Equatable {
 enum MusicBrainzProviderLinkParser {
     static let supportedHosts = Set(["musicbrainz.org", "www.musicbrainz.org"])
 
-    static func parse(_ rawValue: String) throws -> MusicBrainzProviderLinkTarget {
+    static func parse(
+        _ rawValue: String,
+        supportedHosts: Set<String> = supportedHosts
+    ) throws -> MusicBrainzProviderLinkTarget {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw CoreProviderRequestError.invalidLink }
 

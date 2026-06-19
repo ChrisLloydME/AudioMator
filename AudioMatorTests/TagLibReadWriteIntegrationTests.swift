@@ -144,6 +144,68 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+
+        for fixtureName in Self.audioFixtureNames {
+            let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
+            guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
+                continue
+            }
+
+            let workingURL = try makeWritableCopy(of: fixtureURL)
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+            var edit = SingleFileEditModel()
+            edit.title = "Title To Erase"
+            edit.artist = "Artist To Erase"
+            edit.album = "Album To Erase"
+            edit.albumArtist = "Album Artist To Erase"
+            edit.composer = "Composer To Erase"
+            edit.genre = "Genre To Erase"
+            edit.comment = "Comment To Erase"
+            edit.releaseDate = "2026-06-19"
+            edit.publisher = "Label To Erase"
+            edit.isrc = "USRC17607839"
+            edit.barcode = "123456789012"
+            edit.setTrackNumberFieldText("7")
+            edit.setTrackTotalFieldText("12")
+            edit.setDiscNumberFieldText("2")
+            edit.setDiscTotalFieldText("3")
+
+            _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+            let written = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+            XCTAssertEqual(written.title, "Title To Erase", fixtureName)
+            XCTAssertEqual(written.track, 7, fixtureName)
+            XCTAssertEqual(written.trackTotal, 12, fixtureName)
+            XCTAssertEqual(written.disc, 2, fixtureName)
+            XCTAssertEqual(written.discTotal, 3, fixtureName)
+
+            let eraseWarnings = try pipeline.eraseAllMetadata(at: workingURL).warnings
+            XCTAssertFalse(
+                eraseWarnings.contains { $0.contains("Title To Erase") || $0.contains("Track") },
+                "\(fixtureName) should not report common-field erase mismatches: \(eraseWarnings.joined(separator: "\n"))"
+            )
+
+            let erased = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+            XCTAssertTrue(erased.title.isEmpty, fixtureName)
+            XCTAssertTrue(erased.artist.isEmpty, fixtureName)
+            XCTAssertTrue(erased.album.isEmpty, fixtureName)
+            XCTAssertTrue(erased.albumArtist.isEmpty, fixtureName)
+            XCTAssertTrue(erased.genre.isEmpty, fixtureName)
+            XCTAssertTrue(erased.comment.isEmpty, fixtureName)
+            XCTAssertEqual(erased.track, 0, fixtureName)
+            XCTAssertEqual(erased.trackTotal, 0, fixtureName)
+            XCTAssertEqual(erased.disc, 0, fixtureName)
+            XCTAssertEqual(erased.discTotal, 0, fixtureName)
+
+            let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+            for key in ["TITLE", "ARTIST", "ALBUM", "ALBUMARTIST", "TRACKNUMBER", "TRACKTOTAL", "DISCNUMBER", "DISCTOTAL"] {
+                XCTAssertNil(rawMap[key], "\(fixtureName) should clear \(key)")
+            }
+        }
+    }
+
     func testArtworkCanBeWrittenAndClearedForPrimaryFormats() throws {
         let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
         XCTAssertGreaterThan(artworkData.count, 0)

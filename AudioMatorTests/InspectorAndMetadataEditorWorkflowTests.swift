@@ -145,6 +145,72 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Raw First")
     }
 
+    func testCreateMuseAmpIDsWritesDeterministicCommentPayloadsAndRefreshesLoadedFiles() async throws {
+        let firstID = UUID()
+        let secondID = UUID()
+        let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
+        let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
+        let first = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "First",
+            album: "Shared Album",
+            comment: "Old First",
+            albumArtist: "Shared Artist"
+        )
+        let second = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Second",
+            album: "Shared Album",
+            comment: "Old Second",
+            albumArtist: "Shared Artist"
+        )
+        let expectedAssignments = MuseAmpCommentIDGenerator.assignments(for: [
+            MuseAmpTrackIdentity(album: first.album, albumArtist: first.albumArtist, trackKey: firstURL.path),
+            MuseAmpTrackIdentity(album: second.album, albumArtist: second.albumArtist, trackKey: secondURL.path)
+        ])
+        let firstReloaded = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "First",
+            album: "Shared Album",
+            comment: expectedAssignments[0].commentText,
+            albumArtist: "Shared Artist"
+        )
+        let secondReloaded = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Second",
+            album: "Shared Album",
+            comment: expectedAssignments[1].commentText,
+            albumArtist: "Shared Artist"
+        )
+        let pipeline = RecordingMetadataPipeline(
+            reloadedFilesByURL: [
+                firstURL: firstReloaded,
+                secondURL: secondReloaded
+            ]
+        )
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([first, second])
+        viewModel.selectedAudioIDs = [firstID]
+        viewModel.updateEditForSelection()
+
+        viewModel.createMuseAmpIDs(for: [first, second])
+
+        try await pipeline.waitForMetadataWriteCount(2)
+        try await waitUntil(viewModel.metadataSaveProgress == nil)
+
+        let writesByURL = Dictionary(uniqueKeysWithValues: pipeline.metadataWrites.map { ($0.url, $0.payload) })
+        XCTAssertEqual(writesByURL[firstURL]?.comment, expectedAssignments[0].commentText)
+        XCTAssertEqual(writesByURL[secondURL]?.comment, expectedAssignments[1].commentText)
+        XCTAssertEqual(expectedAssignments[0].albumID, expectedAssignments[1].albumID)
+        XCTAssertNotEqual(expectedAssignments[0].trackID, expectedAssignments[1].trackID)
+        XCTAssertEqual(viewModel.files.map(\.comment), expectedAssignments.map(\.commentText))
+        XCTAssertEqual(viewModel.edit?.comment, expectedAssignments[0].commentText)
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

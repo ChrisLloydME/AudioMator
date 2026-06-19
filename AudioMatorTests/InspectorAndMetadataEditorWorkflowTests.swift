@@ -211,6 +211,41 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.comment, expectedAssignments[0].commentText)
     }
 
+    func testImportMetadataFieldValuesWritesChosenFieldInTargetOrderAndRefreshesLoadedFiles() async throws {
+        let firstID = UUID()
+        let secondID = UUID()
+        let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
+        let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
+        let first = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "Old First", album: "Keep Album")
+        let second = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Old Second", album: "Keep Album")
+        let firstReloaded = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "Imported First", album: "Keep Album")
+        let secondReloaded = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Imported Second", album: "Keep Album")
+        let pipeline = RecordingMetadataPipeline(
+            reloadedFilesByURL: [
+                firstURL: firstReloaded,
+                secondURL: secondReloaded
+            ]
+        )
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([first, second])
+        viewModel.selectedAudioIDs = [firstID]
+        viewModel.updateEditForSelection()
+
+        await viewModel.importMetadataFieldValues(
+            ["Imported First", "Imported Second"],
+            to: .title,
+            for: [first, second]
+        )
+
+        let writesByURL = Dictionary(uniqueKeysWithValues: pipeline.metadataWrites.map { ($0.url, $0.payload) })
+        XCTAssertEqual(writesByURL[firstURL]?.title, "Imported First")
+        XCTAssertEqual(writesByURL[firstURL]?.album, "Keep Album")
+        XCTAssertEqual(writesByURL[secondURL]?.title, "Imported Second")
+        XCTAssertEqual(writesByURL[secondURL]?.album, "Keep Album")
+        XCTAssertEqual(viewModel.files.map(\.title), ["Imported First", "Imported Second"])
+        XCTAssertEqual(viewModel.edit?.title, "Imported First")
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

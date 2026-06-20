@@ -42,6 +42,25 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testRawMetadataInspectionLoadsAcrossAudioFixtures() throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+
+        for fixtureName in Self.audioFixtureNames {
+            let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
+            let rawText = try XCTUnwrap(
+                pipeline.rawMetadataDumpText(for: fixtureURL),
+                "\(fixtureName) should expose a raw metadata dump."
+            )
+
+            XCTAssertTrue(rawText.contains("File: \(fixtureName)"), fixtureName)
+            XCTAssertTrue(rawText.contains("[TagLib Properties]"), fixtureName)
+            XCTAssertNoThrow(
+                try pipeline.rawMetadataPropertyMap(for: fixtureURL),
+                "\(fixtureName) should expose a normalized raw property map, even when it is empty."
+            )
+        }
+    }
+
     func testCoreMetadataRoundTripsForWritableAudioFixtures() throws {
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)

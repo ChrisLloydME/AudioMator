@@ -44,19 +44,19 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
   **Inspector** offers a more approachable editing experience for common metadata fields. It is designed for everyday metadata editing, with a simpler interface and a focus on frequently used fields.
 
   **Metadata Editor** is a more advanced editing interface. It allows users to add, remove, and edit all available metadata fields, making it suitable for more detailed or professional metadata workflows.
- 
+
   <img src="Docs/Images/AudioMator Metadata Editor.png">
- 
+
 - ### Automatic Track Number Assignment
 
   AudioMator allows users to reorder audio files by dragging them into the desired sequence, then automatically regenerate track numbers based on that order. This is useful for organizing albums, live recordings, or any group of files where track order needs to be corrected or standardized.
-  
+
    <img src="Docs/Images/Renumber Track Numbers.png">
- 
+
 - ### Metadata and Text Conversion
 
   AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Users can extract metadata from filenames or structured text files, and they can also generate filenames or text-based metadata records from existing file metadata.
-  
+
 
 > [!CAUTION]
 >
@@ -65,7 +65,7 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 - ### Online Metadata Lookup
 
   AudioMator can search for and apply metadata from online sources, including MusicBrainz, iTunes Search, and LRCLIB. MusicBrainz and iTunes Search are used for general music metadata lookup, while LRCLIB is mainly used for finding and applying lyrics metadata.
-  
+
   <img src="Docs/Images/Online Metadata Lookup.png">
 
 - ### Tag Inspector
@@ -75,7 +75,7 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 - ### Metadata Editor Utilities
 
   The Metadata Editor includes text-processing utilities for both single-file and multi-file workflows. These tools support case conversion, find and replace, prefix and suffix insertion, and trimming leading or trailing whitespace. They are intended to make large-scale metadata cleanup and normalization more efficient.
-  
+
   <img src="Docs/Images/Metadata Editor Utilities.png">
 
 ## Platform Model

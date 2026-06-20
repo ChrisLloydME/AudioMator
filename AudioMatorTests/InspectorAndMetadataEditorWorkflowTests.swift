@@ -340,6 +340,111 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.comment, "Imported Comment")
     }
 
+    func testApplyMusicBrainzTaggingPlanPreservesFieldOrderAndRefreshesSelection() async throws {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/musicbrainz.flac")
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Old Title",
+            album: "Keep Album",
+            trackNumberText: "1/9",
+            discNumberText: "1/1"
+        )
+        let reloaded = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "MusicBrainz Title",
+            album: "Keep Album",
+            trackNumberText: "7/12",
+            discNumberText: "2/3"
+        )
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+
+        await viewModel.applyMusicBrainzTaggingPlan([
+            MusicBrainzTaggingWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [
+                    .title: "MusicBrainz Title",
+                    .trackNumber: "7",
+                    .trackTotal: "12",
+                    .discNumber: "2",
+                    .discTotal: "3",
+                    .musicBrainzAlbumID: "release-id"
+                ]
+            )
+        ])
+
+        let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
+        XCTAssertEqual(pipeline.metadataWrites.map(\.url), [url])
+        XCTAssertEqual(payload.title, "MusicBrainz Title")
+        XCTAssertEqual(payload.album, "Keep Album")
+        XCTAssertEqual(payload.trackNumberText, "7/12")
+        XCTAssertEqual(payload.discNumberText, "2/3")
+        XCTAssertEqual(payload.musicBrainzAlbumID, "release-id")
+        XCTAssertNil(viewModel.metadataSaveProgress)
+        XCTAssertEqual(viewModel.files.first?.title, "MusicBrainz Title")
+        XCTAssertEqual(viewModel.edit?.title, "MusicBrainz Title")
+    }
+
+    func testApplyITunesTaggingPlanWritesProviderFieldsAndRefreshesSelection() async throws {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/itunes.m4a")
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Old Title",
+            album: "Keep Album",
+            trackNumberText: "1/9"
+        )
+        let reloaded = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "iTunes Title",
+            album: "Keep Album",
+            trackNumberText: "7/12"
+        )
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+
+        await viewModel.applyITunesTaggingPlan([
+            ITunesTaggingWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [
+                    .title: "iTunes Title",
+                    .trackNumber: "7",
+                    .trackTotal: "12",
+                    .itunesAlbumID: "album-id",
+                    .itunesArtistID: "artist-id",
+                    .itunesCatalogID: "track-id",
+                    .isExplicit: "Yes"
+                ]
+            )
+        ])
+
+        let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
+        XCTAssertEqual(pipeline.metadataWrites.map(\.url), [url])
+        XCTAssertEqual(payload.title, "iTunes Title")
+        XCTAssertEqual(payload.album, "Keep Album")
+        XCTAssertEqual(payload.trackNumberText, "7/12")
+        XCTAssertEqual(payload.itunesAlbumID, "album-id")
+        XCTAssertEqual(payload.itunesArtistID, "artist-id")
+        XCTAssertEqual(payload.itunesCatalogID, "track-id")
+        XCTAssertTrue(payload.isExplicit)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+        XCTAssertEqual(viewModel.files.first?.title, "iTunes Title")
+        XCTAssertEqual(viewModel.edit?.title, "iTunes Title")
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

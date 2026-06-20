@@ -246,6 +246,100 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Imported First")
     }
 
+    func testApplyFilenameMetadataPlanWritesExtractedFieldsAndRefreshesSelection() async throws {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/07 - Old Artist - Old Title.mp3")
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Old Title",
+            artist: "Old Artist",
+            album: "Keep Album",
+            trackNumberText: "01"
+        )
+        let reloaded = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Parsed Title",
+            artist: "Parsed Artist",
+            album: "Keep Album",
+            trackNumberText: "07"
+        )
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+
+        await viewModel.applyFilenameMetadataPlan([
+            FilenameMetadataWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [
+                    .title: "Parsed Title",
+                    .artist: "Parsed Artist",
+                    .trackNumberText: "07"
+                ]
+            )
+        ])
+
+        let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
+        XCTAssertEqual(pipeline.metadataWrites.map(\.url), [url])
+        XCTAssertEqual(payload.title, "Parsed Title")
+        XCTAssertEqual(payload.artist, "Parsed Artist")
+        XCTAssertEqual(payload.trackNumberText, "07")
+        XCTAssertEqual(payload.album, "Keep Album")
+        XCTAssertEqual(viewModel.files.first?.title, "Parsed Title")
+        XCTAssertEqual(viewModel.edit?.title, "Parsed Title")
+    }
+
+    func testApplyMetadataExchangeWriteEntriesWritesImportedFieldsAndRefreshesSelection() async throws {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/exchange.flac")
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Old Title",
+            album: "Keep Album",
+            comment: "Old Comment",
+            discNumberText: "1/2"
+        )
+        let reloaded = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Imported Title",
+            album: "Keep Album",
+            comment: "Imported Comment",
+            discNumberText: "2/2"
+        )
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+
+        await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [
+                    .title: "Imported Title",
+                    .comment: "Imported Comment",
+                    .discNumber: "2/2"
+                ]
+            )
+        ])
+
+        let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
+        XCTAssertEqual(pipeline.metadataWrites.map(\.url), [url])
+        XCTAssertEqual(payload.title, "Imported Title")
+        XCTAssertEqual(payload.comment, "Imported Comment")
+        XCTAssertEqual(payload.discNumberText, "2/2")
+        XCTAssertEqual(payload.album, "Keep Album")
+        XCTAssertEqual(viewModel.files.first?.comment, "Imported Comment")
+        XCTAssertEqual(viewModel.edit?.comment, "Imported Comment")
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

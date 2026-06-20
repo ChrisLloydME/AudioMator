@@ -275,85 +275,19 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var metadataToFilenameStatusMessage: String {
-        if targetFiles.isEmpty {
-            return L10n.string("Select files in the center list first.")
-        }
-
-        if metadataToFilenameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return L10n.string("Enter a template or drag metadata chips into the field.")
-        }
-
-        if renamePlan.hasIssues {
-            return "\(renamePlan.readyCount) file(s) are ready. \(renameIssueSummaryText)"
-        }
-
-        if renamePlan.readyCount == 0 {
-            return L10n.string("The filenames already match.")
-        }
-
-        return "\(renamePlan.readyCount) file(s) will be renamed. File extensions stay the same."
-    }
-
-    private var renameIssueSummaryText: String {
-        let issueRows = renamePlan.rows.filter { $0.status.isError }
-        guard !issueRows.isEmpty else { return L10n.string("No conflicts.") }
-
-        var countsByTitle: [String: Int] = [:]
-        for row in issueRows {
-            countsByTitle[row.status.title, default: 0] += 1
-        }
-
-        let summary = countsByTitle
-            .sorted { $0.key < $1.key }
-            .map { "\($0.value) \($0.key.lowercased())" }
-            .joined(separator: ", ")
-
-        return "\(issueRows.count) file(s) will be skipped: \(summary)."
+        MetadataFilenameStatusPresentation.renameMessage(
+            targetCount: targetFiles.count,
+            template: metadataToFilenameTemplate,
+            plan: renamePlan
+        )
     }
 
     private var filenameToMetadataStatusMessage: String {
-        if targetFiles.isEmpty {
-            return L10n.string("Select files in the center list first.")
-        }
-
-        if filenameToMetadataTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return L10n.string("Enter a matching template or drag metadata chips into the field.")
-        }
-
-        if let validationMessage = filenameMetadataPlan.validationMessage {
-            return validationMessage
-        }
-
-        if filenameMetadataPlan.hasIssues {
-            return "\(filenameMetadataPlan.readyCount) file(s) are ready. \(filenameMetadataIssueSummaryText)"
-        }
-
-        if filenameMetadataPlan.readyCount > 0 {
-            return "\(filenameMetadataPlan.readyCount) file(s) will have metadata updated from their filenames."
-        }
-
-        if filenameMetadataPlan.noWritableCount > 0 {
-            return L10n.string("The template matched, but it did not extract any writable metadata fields.")
-        }
-
-        return "The extracted metadata already matches the current tags."
-    }
-
-    private var filenameMetadataIssueSummaryText: String {
-        let issueRows = filenameMetadataPlan.rows.filter { $0.status.isError }
-        guard !issueRows.isEmpty else { return L10n.string("No filename matching issues.") }
-
-        var countsByTitle: [String: Int] = [:]
-        for row in issueRows {
-            countsByTitle[row.status.title, default: 0] += 1
-        }
-
-        let summary = countsByTitle
-            .sorted { $0.key < $1.key }
-            .map { "\($0.value) \($0.key.lowercased())" }
-            .joined(separator: ", ")
-
-        return "\(issueRows.count) file(s) could not be parsed: \(summary)."
+        MetadataFilenameStatusPresentation.filenameMetadataMessage(
+            targetCount: targetFiles.count,
+            template: filenameToMetadataTemplate,
+            plan: filenameMetadataPlan
+        )
     }
 
     var body: some View {
@@ -588,246 +522,33 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func metadataExchangeDetail(for selectedMode: MetadataConverterMode) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                metadataExchangeHeader(for: selectedMode)
-                metadataExchangeSetupSection(for: selectedMode)
-                metadataExchangePreviewSection(for: selectedMode)
+        MetadataExchangeDetailView(
+            selectedMode: selectedMode,
+            targetCount: targetFiles.count,
+            selectionSummaryText: selectionSummaryText,
+            isApplying: isApplying,
+            template: metadataExchangeTemplateBinding(for: selectedMode),
+            pendingInsertion: $pendingExchangeFieldInsertion,
+            externalSource: externalSourceBinding(for: selectedMode),
+            externalSourceURL: externalSourceURL(for: selectedMode),
+            externalFileError: externalFileError,
+            includeCSVHeaderRow: $includeCSVHeaderRow,
+            firstCSVRowIsHeader: $firstCSVRowIsHeader,
+            clearBlankImportedValues: $clearBlankImportedValues,
+            metadataTextExportPlan: metadataTextExportPlan,
+            textMetadataImportPlan: textMetadataImportPlan,
+            metadataCSVExportPlan: metadataCSVExportPlan,
+            csvMetadataImportPlan: csvMetadataImportPlan,
+            chooseExternalFile: {
+                chooseExternalTextFile(for: selectedMode)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, contentInset)
-            .padding(.top, contentInset)
-            .padding(.bottom, contentInset)
-        }
+        )
         .safeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .scrollBounceBehavior(.basedOnSize)
-    }
-
-    private func metadataExchangeHeader(for selectedMode: MetadataConverterMode) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(selectedMode.title)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-
-                Spacer()
-
-                if isApplying {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
-
-            Text(selectedMode.subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Label(selectionSummaryText, systemImage: "checkmark.circle")
-                .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(Color.secondary.opacity(0.12)))
-        }
-    }
-
-    private func metadataExchangeSetupSection(for selectedMode: MetadataConverterMode) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Setup", systemImage: "slider.horizontal.3")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text(metadataExchangeSetupDescription(for: selectedMode))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                if selectedMode == .textToMetadata || selectedMode == .csvToMetadata {
-                    externalSourceControls(for: selectedMode)
-                    Toggle("Clear blank imported values", isOn: $clearBlankImportedValues)
-                        .toggleStyle(.checkbox)
-                        .disabled(isApplying)
-                }
-
-                if selectedMode == .metadataToCSV {
-                    Toggle("Include header row", isOn: $includeCSVHeaderRow)
-                        .toggleStyle(.checkbox)
-                        .disabled(isApplying)
-                }
-
-                if selectedMode == .csvToMetadata {
-                    Toggle("First row is header", isOn: $firstCSVRowIsHeader)
-                        .toggleStyle(.checkbox)
-                        .disabled(isApplying)
-                }
-
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 120), spacing: 8, alignment: .leading)],
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    ForEach(metadataExchangePalette(for: selectedMode)) { field in
-                        metadataExchangeChip(field, for: selectedMode)
-                    }
-                }
-
-                metadataExchangeTemplateEditor(for: selectedMode)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(sectionInset)
-            .background(
-                RoundedRectangle(cornerRadius: sectionRadius)
-                    .fill(Color.secondary.opacity(0.06))
-            )
-        }
-    }
-
-    private func externalSourceControls(for selectedMode: MetadataConverterMode) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 10) {
-                Button(externalSourceURL(for: selectedMode) == nil ? "Choose File…" : "Change File…") {
-                    chooseExternalTextFile(for: selectedMode)
-                }
-                .disabled(isApplying)
-
-                if let url = externalSourceURL(for: selectedMode) {
-                    Text(url.lastPathComponent)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-            }
-
-            if let externalFileError {
-                Label(externalFileError, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-
-            TextEditor(text: externalSourceBinding(for: selectedMode))
-                .font(.system(size: 12, design: .monospaced))
-                .frame(minHeight: 96)
-                .padding(8)
-                .scrollContentBackground(.hidden)
-                .background(
-                    RoundedRectangle(cornerRadius: controlRadius)
-                        .fill(Color(nsColor: .textBackgroundColor))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: controlRadius)
-                        .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
-                )
-                .disabled(isApplying)
-        }
-    }
-
-    private func metadataExchangeTemplateEditor(for selectedMode: MetadataConverterMode) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(metadataExchangeTemplateTitle(for: selectedMode))
-                .font(.headline)
-
-            MetadataExchangeTemplateEditor(
-                template: metadataExchangeTemplateBinding(for: selectedMode),
-                pendingInsertion: $pendingExchangeFieldInsertion,
-                isEnabled: !isApplying
-            )
-            .frame(minHeight: 86)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: controlRadius)
-                    .fill(Color(nsColor: .textBackgroundColor))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: controlRadius)
-                    .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
-            )
-            .disabled(isApplying)
-        }
-    }
-
-    private func metadataExchangePreviewSection(for selectedMode: MetadataConverterMode) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Preview", systemImage: "list.bullet.rectangle.portrait")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 14) {
-                Label(
-                    metadataExchangeStatusMessage(for: selectedMode),
-                    systemImage: metadataExchangeStatusSymbol(for: selectedMode)
-                )
-                .font(.subheadline)
-                .foregroundStyle(metadataExchangeStatusTint(for: selectedMode))
-
-                metadataExchangePreviewContent(for: selectedMode)
-                    .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(sectionInset)
-            .background(
-                RoundedRectangle(cornerRadius: sectionRadius)
-                    .fill(Color.secondary.opacity(0.06))
-            )
-        }
-    }
-
-    @ViewBuilder
-    private func metadataExchangePreviewContent(for selectedMode: MetadataConverterMode) -> some View {
-        switch selectedMode {
-        case .metadataToText:
-            MetadataTextExportPreviewList(plan: metadataTextExportPlan)
-        case .textToMetadata:
-            MetadataExchangeImportPreviewList(plan: textMetadataImportPlan)
-        case .metadataToCSV:
-            MetadataCSVExportPreviewList(plan: metadataCSVExportPlan)
-        case .csvToMetadata:
-            MetadataExchangeImportPreviewList(plan: csvMetadataImportPlan)
-        case .metadataToFilename, .filenameToMetadata:
-            EmptyView()
-        }
-    }
-
-    private func metadataExchangeSetupDescription(for selectedMode: MetadataConverterMode) -> String {
-        switch selectedMode {
-        case .metadataToText:
-            return L10n.string("Each selected file renders one line from the text template.")
-        case .textToMetadata:
-            return L10n.string("Each non-empty text line is parsed as one record. Include fileName or baseName to match by filename, otherwise records map in selection order.")
-        case .metadataToCSV:
-            return L10n.string("The column template is one delimited row of field tokens. Use commas, semicolons, pipes, or tabs.")
-        case .csvToMetadata:
-            return L10n.string("The column template maps delimited cells to fields. Include fileName or baseName to match rows by filename, otherwise rows map in selection order.")
-        case .metadataToFilename, .filenameToMetadata:
-            return ""
-        }
-    }
-
-    private func metadataExchangeTemplateTitle(for selectedMode: MetadataConverterMode) -> String {
-        switch selectedMode {
-        case .metadataToCSV, .csvToMetadata:
-            return L10n.string("Column template")
-        case .metadataToText, .textToMetadata:
-            return L10n.string("Text template")
-        case .metadataToFilename, .filenameToMetadata:
-            return L10n.string("Template")
-        }
-    }
-
-    private func metadataExchangePalette(for selectedMode: MetadataConverterMode) -> [MetadataExchangeField] {
-        switch selectedMode {
-        case .metadataToText, .metadataToCSV:
-            return MetadataExchangeField.exportPalette
-        case .textToMetadata, .csvToMetadata:
-            return MetadataExchangeField.importPalette
-        case .metadataToFilename, .filenameToMetadata:
-            return []
-        }
     }
 
     private func metadataExchangeTemplateBinding(for selectedMode: MetadataConverterMode) -> Binding<String> {
@@ -878,97 +599,6 @@ struct MetadataFilenameWindowView: View {
 
     private func externalSourceURL(for selectedMode: MetadataConverterMode) -> URL? {
         selectedMode == .csvToMetadata ? selectedCSVImportURL : selectedTextImportURL
-    }
-
-    private func metadataExchangeChip(_ field: MetadataExchangeField, for selectedMode: MetadataConverterMode) -> some View {
-        Button {
-            guard !isApplying else { return }
-            pendingExchangeFieldInsertion = MetadataExchangeTemplateEditorInsertion(field: field)
-        } label: {
-            Text(field.displayName)
-                .font(.subheadline.weight(.medium))
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .background(Capsule().fill(Color.accentColor.opacity(0.12)))
-                .overlay(Capsule().stroke(Color.accentColor.opacity(0.22), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .contentShape(Capsule())
-        .help("Click to insert at the caret, or drag into the template")
-        .onDrag {
-            NSItemProvider(object: field.token as NSString)
-        }
-    }
-
-    private func metadataExchangeStatusMessage(for selectedMode: MetadataConverterMode) -> String {
-        if targetFiles.isEmpty {
-            return L10n.string("Select files in the center list first.")
-        }
-
-        switch selectedMode {
-        case .metadataToText:
-            if let validationMessage = metadataTextExportPlan.validationMessage { return validationMessage }
-            return "\(metadataTextExportPlan.rows.count) line(s) will be exported."
-        case .textToMetadata:
-            if let validationMessage = textMetadataImportPlan.validationMessage { return validationMessage }
-            return metadataExchangeImportStatusMessage(for: textMetadataImportPlan)
-        case .metadataToCSV:
-            if let validationMessage = metadataCSVExportPlan.validationMessage { return validationMessage }
-            return "\(metadataCSVExportPlan.rows.count) row(s), \(metadataCSVExportPlan.columns.count) column(s) will be exported."
-        case .csvToMetadata:
-            if let validationMessage = csvMetadataImportPlan.validationMessage { return validationMessage }
-            return metadataExchangeImportStatusMessage(for: csvMetadataImportPlan)
-        case .metadataToFilename, .filenameToMetadata:
-            return ""
-        }
-    }
-
-    private func metadataExchangeImportStatusMessage(for plan: MetadataExchangeImportPlan) -> String {
-        if plan.readyCount > 0, plan.issueCount > 0 {
-            return "\(plan.readyCount) file(s) are ready. \(plan.issueCount) issue(s) need review."
-        }
-
-        if plan.readyCount > 0 {
-            return "\(plan.readyCount) file(s) will have metadata updated."
-        }
-
-        if plan.issueCount > 0 {
-            return "\(plan.issueCount) issue(s) need review before writing."
-        }
-
-        return L10n.string("No metadata changes to write.")
-    }
-
-    private func metadataExchangeStatusSymbol(for selectedMode: MetadataConverterMode) -> String {
-        switch selectedMode {
-        case .metadataToText:
-            return metadataTextExportPlan.canExport ? "checkmark.circle.fill" : "info.circle.fill"
-        case .metadataToCSV:
-            return metadataCSVExportPlan.canExport ? "checkmark.circle.fill" : "info.circle.fill"
-        case .textToMetadata:
-            return textMetadataImportPlan.issueCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
-        case .csvToMetadata:
-            return csvMetadataImportPlan.issueCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
-        case .metadataToFilename, .filenameToMetadata:
-            return "info.circle.fill"
-        }
-    }
-
-    private func metadataExchangeStatusTint(for selectedMode: MetadataConverterMode) -> Color {
-        switch selectedMode {
-        case .metadataToText:
-            return metadataTextExportPlan.canExport ? .green : .secondary
-        case .metadataToCSV:
-            return metadataCSVExportPlan.canExport ? .green : .secondary
-        case .textToMetadata:
-            return textMetadataImportPlan.issueCount > 0 ? .orange : .green
-        case .csvToMetadata:
-            return csvMetadataImportPlan.issueCount > 0 ? .orange : .green
-        case .metadataToFilename, .filenameToMetadata:
-            return .secondary
-        }
     }
 
     private var footer: some View {

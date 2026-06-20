@@ -44,6 +44,9 @@ let package = Package(
                 "Infrastructure/MusicBrainz/MusicBrainzLinkParser.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzLuceneQueryBuilder.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzMatching.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzResultModels.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzSearchModels.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzSearchQuery.swift",
                 "Infrastructure/Updates"
             ],
             sources: [

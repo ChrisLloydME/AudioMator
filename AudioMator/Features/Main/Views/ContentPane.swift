@@ -220,6 +220,7 @@ struct ContentPane: View {
         } label: {
             Label("File List", systemImage: ToolbarButtonOption.addFiles.systemImage)
         }
+        .toolbarControlGroupCompatibilityStyle()
     }
 
     @ViewBuilder
@@ -250,6 +251,7 @@ struct ContentPane: View {
         } label: {
             Label("Metadata Tools", systemImage: ToolbarButtonOption.renameFiles.systemImage)
         }
+        .toolbarControlGroupCompatibilityStyle()
     }
 
     @ViewBuilder
@@ -273,6 +275,7 @@ struct ContentPane: View {
         } label: {
             Label("Metadata Inspectors", systemImage: ToolbarButtonOption.tagInspector.systemImage)
         }
+        .toolbarControlGroupCompatibilityStyle()
     }
 
     private func toolbarIconLabel(_ title: String, systemImage: String) -> some View {
@@ -405,5 +408,20 @@ struct ContentPane: View {
         viewModel.clearList()
         state.selectedAudioIDs.removeAll()
         state.customOrder.removeAll()
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func toolbarControlGroupCompatibilityStyle() -> some View {
+        #if os(macOS)
+        if #available(macOS 27.0, *) {
+            controlGroupStyle(.navigation)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
     }
 }

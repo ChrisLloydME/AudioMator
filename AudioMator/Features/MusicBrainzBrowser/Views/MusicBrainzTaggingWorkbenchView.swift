@@ -359,16 +359,12 @@ private struct AssignmentEditorRow: View {
 
                 Spacer(minLength: 12)
 
-                Picker("Track", selection: selection) {
-                    Text("Unassigned").tag(String?.none)
-
-                    ForEach(tracks) { track in
-                        Text(trackOptionTitle(track))
-                            .tag(String?.some(track.id))
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
+                DeferredSelectionMenu(
+                    options: tracks,
+                    selection: selection,
+                    selectionValue: \.id,
+                    optionTitle: trackOptionTitle
+                )
                 .frame(width: 380, alignment: .trailing)
             }
 
@@ -421,7 +417,7 @@ private struct PlanRowView: View {
     let recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(row.file?.url.lastPathComponent ?? row.fileInput.preferredDisplayTitle)

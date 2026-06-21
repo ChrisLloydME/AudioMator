@@ -8,13 +8,15 @@ struct MusicBrainzTaggingWorkbenchView: View {
     @State private var isApplying: Bool = false
 
     var body: some View {
+        let plan = store.plan
+
         VStack(spacing: 0) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    summarySection
+                    summarySection(plan: plan)
                     fieldSelectionSection
                     assignmentSection
-                    diffSection
+                    diffSection(plan: plan)
                 }
                 .frame(maxWidth: 980, alignment: .leading)
                 .padding(.horizontal, 24)
@@ -24,7 +26,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
 
             Divider()
 
-            actionBar
+            actionBar(plan: plan)
         }
         .modifier(MusicBrainzWorkbenchFrameModifier())
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -42,7 +44,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
         }
     }
 
-    private var summarySection: some View {
+    private func summarySection(plan: MusicBrainzTaggingPlan) -> some View {
         MetadataSectionCard(title: "Summary", symbolName: "text.badge.checkmark") {
             SummaryRow(
                 title: "Release",
@@ -56,15 +58,15 @@ struct MusicBrainzTaggingWorkbenchView: View {
             MetadataCardDivider()
             SummaryRow(
                 title: "Files With Changes",
-                value: "\(store.plan.filesWithChangesCount)"
+                value: "\(plan.filesWithChangesCount)"
             )
             MetadataCardDivider()
             SummaryRow(
                 title: "Pending Writes",
-                value: "\(store.plan.changeCount)"
+                value: "\(plan.changeCount)"
             )
 
-            if store.plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments || store.hasPendingRecordingLoads || store.recordingFailureCount > 0 {
+            if plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments || store.hasPendingRecordingLoads || store.recordingFailureCount > 0 {
                 MetadataCardDivider()
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -86,9 +88,9 @@ struct MusicBrainzTaggingWorkbenchView: View {
                         )
                     }
 
-                    if store.plan.unresolvedIssueCount > 0 {
+                    if plan.unresolvedIssueCount > 0 {
                         WarningLabel(
-                            text: "\(store.plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to a MusicBrainz track and remain loaded."
+                            text: "\(plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to a MusicBrainz track and remain loaded."
                         )
                     }
                 }
@@ -159,7 +161,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
     }
 
     private var assignmentSection: some View {
-        MetadataSectionCard(title: "Assignments", symbolName: "link") {
+        MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 AssignmentEditorRow(
                     assignment: assignment,
@@ -178,9 +180,9 @@ struct MusicBrainzTaggingWorkbenchView: View {
     }
 
     @ViewBuilder
-    private var diffSection: some View {
-        MetadataSectionCard(title: "Diff Preview", symbolName: "arrow.left.arrow.right") {
-            if store.plan.rows.isEmpty {
+    private func diffSection(plan: MusicBrainzTaggingPlan) -> some View {
+        MetadataSectionCard(title: "Diff Preview", symbolName: "arrow.left.arrow.right", lazyContent: true) {
+            if plan.rows.isEmpty {
                 ContentUnavailableView(
                     "Nothing to Preview",
                     systemImage: "arrow.left.arrow.right",
@@ -189,13 +191,13 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 36)
             } else {
-                ForEach(Array(store.plan.rows.enumerated()), id: \.element.id) { index, row in
+                ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     PlanRowView(
                         row: row,
                         recordingState: recordingState(for: row)
                     )
 
-                    if index < store.plan.rows.count - 1 {
+                    if index < plan.rows.count - 1 {
                         MetadataCardDivider()
                     }
                 }
@@ -203,9 +205,9 @@ struct MusicBrainzTaggingWorkbenchView: View {
         }
     }
 
-    private var actionBar: some View {
+    private func actionBar(plan: MusicBrainzTaggingPlan) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            if let reason = store.applyDisabledReason {
+            if let reason = store.applyDisabledReason(using: plan) {
                 Text(reason)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -233,7 +235,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
-            .disabled(isApplying || viewModel.metadataSaveProgress != nil || !store.canApply)
+            .disabled(isApplying || viewModel.metadataSaveProgress != nil || !store.canApply(using: plan))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

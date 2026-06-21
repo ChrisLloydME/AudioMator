@@ -216,7 +216,17 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var availableFields: [ITunesTagWriteField] {
-        ITunesTagWriteField.allCases.filter(isFieldAvailable)
+        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.trackID, $0) })
+        let selectedTracks = assignments.compactMap { assignment in
+            assignment.selectedTrackID.flatMap { tracksByID[$0] }
+        }
+        return ITunesTagWriteField.allCases.filter { field in
+            selectedTracks.contains {
+                !remoteValue(for: field, selectedTrack: $0)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty
+            }
+        }
     }
 
     var selectedAvailableFields: Set<ITunesTagWriteField> {
@@ -224,7 +234,17 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var plan: ITunesTaggingPlan {
-        ITunesTaggingPlan(rows: assignments.map(buildPlanRow))
+        let selectedFields = selectedAvailableFields
+        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.trackID, $0) })
+        return ITunesTaggingPlan(
+            rows: assignments.map { assignment in
+                buildPlanRow(
+                    for: assignment,
+                    selectedFields: selectedFields,
+                    selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
+                )
+            }
+        )
     }
 
     var hasDuplicateTrackAssignments: Bool {
@@ -242,10 +262,18 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var canApply: Bool {
+        canApply(using: plan)
+    }
+
+    func canApply(using plan: ITunesTaggingPlan) -> Bool {
         !selectedAvailableFields.isEmpty && !hasDuplicateTrackAssignments && !plan.writeEntries.isEmpty
     }
 
     var applyDisabledReason: String? {
+        applyDisabledReason(using: plan)
+    }
+
+    func applyDisabledReason(using plan: ITunesTaggingPlan) -> String? {
         if selectedAvailableFields.isEmpty { return L10n.string("Choose at least one field to write.") }
         if hasDuplicateTrackAssignments { return L10n.string("Each iTunes track can only be assigned once before writing.") }
         if plan.writeEntries.isEmpty { return L10n.string("No selected fields would change any loaded files.") }
@@ -292,9 +320,12 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         return duplicateTrackIDs.contains(id)
     }
 
-    private func buildPlanRow(for assignment: AssignmentDraft) -> ITunesTaggingPlanRow {
+    private func buildPlanRow(
+        for assignment: AssignmentDraft,
+        selectedFields: Set<ITunesTagWriteField>,
+        selectedTrack: ITunesTrackResult?
+    ) -> ITunesTaggingPlanRow {
         let file = loadedFilesByInputID[assignment.fileInput.id]
-        let selectedTrack = track(for: assignment)
 
         let issueMessage: String?
         if file == nil {
@@ -305,7 +336,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
             issueMessage = nil
         }
 
-        let changes: [ITunesTaggingFieldChange] = selectedAvailableFields.compactMap { field in
+        let changes: [ITunesTaggingFieldChange] = selectedFields.compactMap { field in
             guard let file else { return nil }
             let localValue = field.localValue(from: file)
             let remoteValue = remoteValue(for: field, selectedTrack: selectedTrack)
@@ -328,12 +359,6 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
             changes: changes,
             issueMessage: issueMessage
         )
-    }
-
-    private func isFieldAvailable(_ field: ITunesTagWriteField) -> Bool {
-        assignments.compactMap(track).contains {
-            !remoteValue(for: field, selectedTrack: $0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
     }
 
     private func remoteValue(for field: ITunesTagWriteField, selectedTrack: ITunesTrackResult?) -> String {

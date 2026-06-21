@@ -8,13 +8,15 @@ struct ITunesTaggingWorkbenchView: View {
     @State private var isApplying = false
 
     var body: some View {
+        let plan = store.plan
+
         VStack(spacing: 0) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    summarySection
+                    summarySection(plan: plan)
                     fieldSelectionSection
                     assignmentSection
-                    diffSection
+                    diffSection(plan: plan)
                 }
                 .frame(maxWidth: 980, alignment: .leading)
                 .padding(.horizontal, 24)
@@ -23,7 +25,7 @@ struct ITunesTaggingWorkbenchView: View {
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
 
             Divider()
-            actionBar
+            actionBar(plan: plan)
         }
         .modifier(ITunesWorkbenchFrameModifier())
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -41,17 +43,17 @@ struct ITunesTaggingWorkbenchView: View {
         }
     }
 
-    private var summarySection: some View {
+    private func summarySection(plan: ITunesTaggingPlan) -> some View {
         MetadataSectionCard(title: "Summary", symbolName: "text.badge.checkmark") {
             ITunesSummaryRow(title: "Release", value: summaryAlbumLine)
             MetadataCardDivider()
             ITunesSummaryRow(title: "Selected Fields", value: "\(store.selectedAvailableFields.count)")
             MetadataCardDivider()
-            ITunesSummaryRow(title: "Files With Changes", value: "\(store.plan.filesWithChangesCount)")
+            ITunesSummaryRow(title: "Files With Changes", value: "\(plan.filesWithChangesCount)")
             MetadataCardDivider()
-            ITunesSummaryRow(title: "Pending Writes", value: "\(store.plan.changeCount)")
+            ITunesSummaryRow(title: "Pending Writes", value: "\(plan.changeCount)")
 
-            if store.plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments {
+            if plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments {
                 MetadataCardDivider()
                 VStack(alignment: .leading, spacing: 8) {
                     if store.hasDuplicateTrackAssignments {
@@ -59,9 +61,9 @@ struct ITunesTaggingWorkbenchView: View {
                             text: "Some iTunes tracks are assigned to more than one file."
                         )
                     }
-                    if store.plan.unresolvedIssueCount > 0 {
+                    if plan.unresolvedIssueCount > 0 {
                         ITunesWarningLabel(
-                            text: "\(store.plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to an iTunes track and remain loaded."
+                            text: "\(plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to an iTunes track and remain loaded."
                         )
                     }
                 }
@@ -107,7 +109,7 @@ struct ITunesTaggingWorkbenchView: View {
     }
 
     private var assignmentSection: some View {
-        MetadataSectionCard(title: "Assignments", symbolName: "link") {
+        MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 ITunesAssignmentRow(
                     assignment: assignment,
@@ -125,9 +127,9 @@ struct ITunesTaggingWorkbenchView: View {
         }
     }
 
-    private var diffSection: some View {
-        MetadataSectionCard(title: "Diff Preview", symbolName: "arrow.left.arrow.right") {
-            if store.plan.rows.isEmpty {
+    private func diffSection(plan: ITunesTaggingPlan) -> some View {
+        MetadataSectionCard(title: "Diff Preview", symbolName: "arrow.left.arrow.right", lazyContent: true) {
+            if plan.rows.isEmpty {
                 ContentUnavailableView(
                     "Nothing to Preview",
                     systemImage: "arrow.left.arrow.right",
@@ -136,10 +138,10 @@ struct ITunesTaggingWorkbenchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 36)
             } else {
-                ForEach(Array(store.plan.rows.enumerated()), id: \.element.id) { index, row in
+                ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     ITunesPlanRow(row: row)
 
-                    if index < store.plan.rows.count - 1 {
+                    if index < plan.rows.count - 1 {
                         MetadataCardDivider()
                     }
                 }
@@ -147,9 +149,9 @@ struct ITunesTaggingWorkbenchView: View {
         }
     }
 
-    private var actionBar: some View {
+    private func actionBar(plan: ITunesTaggingPlan) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            if let reason = store.applyDisabledReason {
+            if let reason = store.applyDisabledReason(using: plan) {
                 Text(reason)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -177,7 +179,7 @@ struct ITunesTaggingWorkbenchView: View {
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
-            .disabled(isApplying || viewModel.metadataSaveProgress != nil || !store.canApply)
+            .disabled(isApplying || viewModel.metadataSaveProgress != nil || !store.canApply(using: plan))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)

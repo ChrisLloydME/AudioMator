@@ -488,13 +488,31 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var plan: MusicBrainzTaggingPlan {
-        MusicBrainzTaggingPlan(rows: assignments.map(buildPlanRow))
+        let selectedFields = selectedAvailableFields
+        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.id, $0) })
+        return MusicBrainzTaggingPlan(
+            rows: assignments.map { assignment in
+                buildPlanRow(
+                    for: assignment,
+                    selectedFields: selectedFields,
+                    selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
+                )
+            }
+        )
     }
 
     var availableFields: [MusicBrainzTagWriteField] {
         guard !isLoadingFieldAvailability else { return [] }
 
-        return MusicBrainzTagWriteField.allCases.filter(isFieldAvailable)
+        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.id, $0) })
+        let selectedTracks = assignments.compactMap { assignment in
+            assignment.selectedTrackID.flatMap { tracksByID[$0] }
+        }
+        return MusicBrainzTagWriteField.allCases.filter { field in
+            selectedTracks.contains { track in
+                hasRemoteValue(for: field, selectedTrack: track)
+            }
+        }
     }
 
     var selectedAvailableFields: Set<MusicBrainzTagWriteField> {
@@ -569,6 +587,10 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var canApply: Bool {
+        canApply(using: plan)
+    }
+
+    func canApply(using plan: MusicBrainzTaggingPlan) -> Bool {
         !selectedAvailableFields.isEmpty &&
         !hasDuplicateTrackAssignments &&
         !hasPendingRecordingLoads &&
@@ -576,6 +598,10 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var applyDisabledReason: String? {
+        applyDisabledReason(using: plan)
+    }
+
+    func applyDisabledReason(using plan: MusicBrainzTaggingPlan) -> String? {
         if selectedAvailableFields.isEmpty {
             return L10n.string("Choose at least one field to write.")
         }
@@ -709,9 +735,12 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
     }
 
-    private func buildPlanRow(for assignment: AssignmentDraft) -> MusicBrainzTaggingPlanRow {
+    private func buildPlanRow(
+        for assignment: AssignmentDraft,
+        selectedFields: Set<MusicBrainzTagWriteField>,
+        selectedTrack: MusicBrainzReleaseMatchTrack?
+    ) -> MusicBrainzTaggingPlanRow {
         let file = loadedFilesByInputID[assignment.fileInput.id]
-        let selectedTrack = track(for: assignment)
 
         let issueMessage: String?
         if file == nil {
@@ -722,7 +751,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             issueMessage = nil
         }
 
-        let changes: [MusicBrainzTaggingFieldChange] = selectedAvailableFields.compactMap { field in
+        let changes: [MusicBrainzTaggingFieldChange] = selectedFields.compactMap { field in
             guard let file else { return nil }
             let localValue = field.localValue(from: file)
             let remoteValue = remoteValue(
@@ -749,17 +778,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
             changes: changes,
             issueMessage: issueMessage
         )
-    }
-
-    private func isFieldAvailable(_ field: MusicBrainzTagWriteField) -> Bool {
-        let selectedTracks = assignments.compactMap(track)
-
-        return selectedTracks.contains { track in
-            hasRemoteValue(
-                for: field,
-                selectedTrack: track
-            )
-        }
     }
 
     private func hasRemoteValue(

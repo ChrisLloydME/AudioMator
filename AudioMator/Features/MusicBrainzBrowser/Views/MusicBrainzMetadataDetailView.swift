@@ -740,6 +740,61 @@ struct MetadataSectionCard<Content: View>: View {
     }
 }
 
+struct DeferredSelectionMenu<Option: Identifiable, SelectionValue: Hashable>: View {
+    let options: [Option]
+    @Binding var selection: SelectionValue?
+    let selectionValue: (Option) -> SelectionValue
+    let optionTitle: (Option) -> String
+
+    private var selectedTitle: String {
+        guard
+            let selection,
+            let option = options.first(where: { selectionValue($0) == selection })
+        else {
+            return L10n.string("Unassigned")
+        }
+        return optionTitle(option)
+    }
+
+    var body: some View {
+        Menu {
+            menuButton(
+                title: L10n.string("Unassigned"),
+                value: nil
+            )
+
+            Divider()
+
+            ForEach(options) { option in
+                let value = selectionValue(option)
+                menuButton(
+                    title: optionTitle(option),
+                    value: value
+                )
+            }
+        } label: {
+            Text(selectedTitle)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .menuStyle(.button)
+        .accessibilityLabel(L10n.string("Track"))
+    }
+
+    @ViewBuilder
+    private func menuButton(title: String, value: SelectionValue?) -> some View {
+        Button {
+            selection = value
+        } label: {
+            if selection == value {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
+    }
+}
+
 private struct MetadataInfoRows: View {
     let items: [MetadataInfoItem]
 

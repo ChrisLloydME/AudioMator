@@ -293,14 +293,12 @@ private struct ITunesAssignmentRow: View {
 
                 Spacer(minLength: 12)
 
-                Picker("Track", selection: selection) {
-                    Text("Unassigned").tag(Int?.none)
-                    ForEach(tracks) { track in
-                        Text(trackOptionTitle(track)).tag(Int?.some(track.trackID))
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
+                DeferredSelectionMenu(
+                    options: tracks,
+                    selection: selection,
+                    selectionValue: \.trackID,
+                    optionTitle: trackOptionTitle
+                )
                 .frame(width: 380, alignment: .trailing)
             }
 
@@ -345,7 +343,7 @@ private struct ITunesPlanRow: View {
     let row: ITunesTaggingPlanRow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(row.file?.url.lastPathComponent ?? row.fileInput.preferredDisplayTitle)

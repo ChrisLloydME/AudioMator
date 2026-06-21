@@ -684,11 +684,18 @@ private enum MetadataComparisonStatus {
 struct MetadataSectionCard<Content: View>: View {
     let title: String
     let symbolName: String?
+    let lazyContent: Bool
     @ViewBuilder let content: Content
 
-    init(title: String, symbolName: String? = nil, @ViewBuilder content: () -> Content) {
+    init(
+        title: String,
+        symbolName: String? = nil,
+        lazyContent: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) {
         self.title = title
         self.symbolName = symbolName
+        self.lazyContent = lazyContent
         self.content = content()
     }
 
@@ -707,9 +714,7 @@ struct MetadataSectionCard<Content: View>: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 6)
 
-            VStack(spacing: 0) {
-                content
-            }
+            contentContainer
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color(platformColor: .audiomatorControlBackground))
@@ -718,6 +723,19 @@ struct MetadataSectionCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
             )
+        }
+    }
+
+    @ViewBuilder
+    private var contentContainer: some View {
+        if lazyContent {
+            LazyVStack(spacing: 0) {
+                content
+            }
+        } else {
+            VStack(spacing: 0) {
+                content
+            }
         }
     }
 }

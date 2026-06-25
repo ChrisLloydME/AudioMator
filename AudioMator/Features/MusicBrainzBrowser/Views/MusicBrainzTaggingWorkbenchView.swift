@@ -222,7 +222,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
             .keyboardShortcut(.cancelAction)
 
             Button {
-                applyTags()
+                applyTags(plan: plan)
             } label: {
                 if isApplying {
                     ProgressView()
@@ -271,8 +271,8 @@ struct MusicBrainzTaggingWorkbenchView: View {
         return store.recordingState(for: track.recordingID)
     }
 
-    private func applyTags() {
-        let entries = store.plan.writeEntries
+    private func applyTags(plan: MusicBrainzTaggingPlan) {
+        let entries = plan.writeEntries
         guard !entries.isEmpty, viewModel.metadataSaveProgress == nil else { return }
 
         Task {

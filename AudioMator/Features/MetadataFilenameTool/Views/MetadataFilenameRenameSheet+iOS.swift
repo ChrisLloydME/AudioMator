@@ -49,6 +49,7 @@ struct MetadataFilenameWindowView: View {
     @State private var filenameToMetadataTemplate: String = ""
     @State private var replaceUnderscoresWithSpaces: Bool = false
     @State private var isApplying: Bool = false
+    @State private var renameFailureMessage: String?
 
     private var targetFiles: [AudioFile] {
         let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
@@ -169,6 +170,19 @@ struct MetadataFilenameWindowView: View {
                 }
             }
         }
+        .alert(
+            "Rename Failed",
+            isPresented: Binding(
+                get: { renameFailureMessage != nil },
+                set: { if !$0 { renameFailureMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                renameFailureMessage = nil
+            }
+        } message: {
+            Text(renameFailureMessage ?? "")
+        }
     }
 
     @ViewBuilder
@@ -238,7 +252,12 @@ struct MetadataFilenameWindowView: View {
 
         switch mode {
         case .metadataToFilename:
-            _ = await viewModel.renameFiles(using: renamePlan)
+            let result = await viewModel.renameFiles(using: renamePlan)
+            if let failureMessage = result.failureMessage {
+                renameFailureMessage = failureMessage
+                isApplying = false
+                return
+            }
         case .filenameToMetadata:
             await viewModel.applyFilenameMetadataPlan(filenameMetadataPlan.writeEntries)
         }

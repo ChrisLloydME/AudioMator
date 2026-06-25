@@ -319,6 +319,19 @@ struct MusicBrainzTaggingWriteEntry: Identifiable {
     let fileID: UUID
     let fileName: String
     let values: [MusicBrainzTagWriteField: String]
+    let expectedFileFingerprint: AudioFileFingerprint?
+
+    init(
+        fileID: UUID,
+        fileName: String,
+        values: [MusicBrainzTagWriteField: String],
+        expectedFileFingerprint: AudioFileFingerprint? = nil
+    ) {
+        self.fileID = fileID
+        self.fileName = fileName
+        self.values = values
+        self.expectedFileFingerprint = expectedFileFingerprint
+    }
 
     var id: UUID { fileID }
 }
@@ -350,7 +363,7 @@ struct MusicBrainzTaggingPlanRow: Identifiable {
     var id: String { fileInput.id }
 
     var writeEntry: MusicBrainzTaggingWriteEntry? {
-        guard let file else { return nil }
+        guard let file, let fileFingerprint = file.fileFingerprint else { return nil }
 
         let values = Dictionary(
             uniqueKeysWithValues: changes
@@ -363,7 +376,8 @@ struct MusicBrainzTaggingPlanRow: Identifiable {
         return MusicBrainzTaggingWriteEntry(
             fileID: file.id,
             fileName: file.url.lastPathComponent,
-            values: values
+            values: values,
+            expectedFileFingerprint: fileFingerprint
         )
     }
 }
@@ -745,6 +759,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         let issueMessage: String?
         if file == nil {
             issueMessage = "The file is no longer loaded in AudioMator."
+        } else if file?.fileFingerprint == nil {
+            issueMessage = "The file version could not be captured. Reload the file before applying tags."
         } else if selectedTrack == nil {
             issueMessage = "No MusicBrainz track is assigned."
         } else {

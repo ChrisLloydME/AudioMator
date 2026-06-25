@@ -107,6 +107,7 @@ struct MetadataFilenameWindowView: View {
     @State private var isApplying: Bool = false
     @State private var pendingFieldInsertion: FileRenameTemplateEditorInsertion?
     @State private var pendingExchangeFieldInsertion: MetadataExchangeTemplateEditorInsertion?
+    @State private var renameFailureMessage: String?
 
     private let sectionInset: CGFloat = 12
     private let sectionRadius: CGFloat = 18
@@ -330,6 +331,20 @@ struct MetadataFilenameWindowView: View {
             pendingFieldInsertion = nil
             pendingExchangeFieldInsertion = nil
             externalFileError = nil
+            renameFailureMessage = nil
+        }
+        .alert(
+            "Rename Failed",
+            isPresented: Binding(
+                get: { renameFailureMessage != nil },
+                set: { if !$0 { renameFailureMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                renameFailureMessage = nil
+            }
+        } message: {
+            Text(renameFailureMessage ?? "")
         }
     }
 
@@ -684,7 +699,9 @@ struct MetadataFilenameWindowView: View {
             let result = await viewModel.renameFiles(using: plan)
             isApplying = false
 
-            if result.didSucceed && renamePlan.issueCount == 0 {
+            if let failureMessage = result.failureMessage {
+                renameFailureMessage = failureMessage
+            } else if renamePlan.issueCount == 0 {
                 dismiss()
             }
         }

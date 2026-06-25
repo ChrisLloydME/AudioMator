@@ -19,7 +19,8 @@ enum AudioFileTestFactory {
         discNumberText: String = "",
         year: String = "",
         albumArtist: String = "",
-        releaseDate: String = ""
+        releaseDate: String = "",
+        fileFingerprint: AudioFileFingerprint? = nil
     ) -> AudioFile {
         AudioFile(
             id: id,
@@ -67,7 +68,8 @@ enum AudioFileTestFactory {
             channels: 0,
             format: "",
             artwork: nil,
-            artworkFingerprint: nil
+            artworkFingerprint: nil,
+            fileFingerprint: fileFingerprint
         )
     }
 }

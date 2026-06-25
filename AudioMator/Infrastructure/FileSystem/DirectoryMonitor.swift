@@ -1,6 +1,69 @@
 import Foundation
 import Darwin
 
+struct DirectoryMonitoringPlan: Equatable, Sendable {
+    let monitoredURLs: [URL]
+    let totalDirectoryCount: Int
+    let omittedByLimitCount: Int
+
+    nonisolated static func make(
+        directories: [URL],
+        rootURL: URL,
+        limit: Int
+    ) -> DirectoryMonitoringPlan {
+        let boundedLimit = max(1, limit)
+        var urlsByPath: [String: URL] = [:]
+
+        for url in directories + [rootURL] {
+            let normalizedURL = url.standardizedFileURL
+            let path = normalizedURL.resolvingSymlinksInPath().path
+            urlsByPath[path] = normalizedURL
+        }
+
+        let normalizedRootURL = rootURL.standardizedFileURL
+        let normalizedRootPath = normalizedRootURL.resolvingSymlinksInPath().path
+        let nestedURLs = urlsByPath
+            .filter { $0.key != normalizedRootPath }
+            .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+            .map(\.value)
+        let orderedURLs = [urlsByPath[normalizedRootPath] ?? normalizedRootURL] + nestedURLs
+        let monitoredURLs = Array(orderedURLs.prefix(boundedLimit))
+
+        return DirectoryMonitoringPlan(
+            monitoredURLs: monitoredURLs,
+            totalDirectoryCount: orderedURLs.count,
+            omittedByLimitCount: max(0, orderedURLs.count - monitoredURLs.count)
+        )
+    }
+}
+
+struct DirectoryMonitoringStatus: Equatable, Sendable {
+    let totalDirectoryCount: Int
+    let monitoredDirectoryCount: Int
+    let omittedByLimitCount: Int
+    let failedToOpenCount: Int
+
+    var isDegraded: Bool {
+        omittedByLimitCount > 0 || failedToOpenCount > 0
+    }
+
+    var message: String {
+        guard isDegraded else {
+            return "Automatic refresh is monitoring all \(monitoredDirectoryCount) directories."
+        }
+
+        var reasons: [String] = []
+        if omittedByLimitCount > 0 {
+            reasons.append("\(omittedByLimitCount) omitted by the safety limit")
+        }
+        if failedToOpenCount > 0 {
+            reasons.append("\(failedToOpenCount) could not be opened")
+        }
+
+        return "Automatic refresh is monitoring \(monitoredDirectoryCount) of \(totalDirectoryCount) directories (\(reasons.joined(separator: ", "))). Some nested changes may not refresh immediately."
+    }
+}
+
 final class DirectoryMonitor {
     private let queue: DispatchQueue
     private let eventHandler: @Sendable () -> Void

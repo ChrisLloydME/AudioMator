@@ -73,11 +73,13 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
-        guard let rawText = TagLibMetadataManager.rawMetadataText(from: url) else {
-            return nil
+        if let dump = try? TagLibMetadataManager.rawMetadataResult(from: url) {
+            let rawText = MetadataPipelineSupport.rawMetadataDumpText(from: dump, url: url)
+            return MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes(rawText)
         }
 
-        return MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes(rawText)
+        return TagLibMetadataManager.rawMetadataText(from: url)
+            .map(MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes)
     }
 
     nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
@@ -200,6 +202,57 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 }
 
 private enum MetadataPipelineSupport {
+    nonisolated static func rawMetadataDumpText(from dump: RawMetadataDump, url: URL) -> String {
+        var lines: [String] = [
+            "File: \(url.lastPathComponent)",
+            "Path: \(url.path)",
+            "",
+            "[TagLib Properties]"
+        ]
+
+        if dump.properties.isEmpty {
+            lines.append("(none)")
+        } else {
+            for property in dump.properties {
+                let values = property.values.isEmpty ? [property.value] : property.values
+                let value = values
+                    .map(normalizedFieldComponent)
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "; ")
+
+                if value.isEmpty {
+                    lines.append("\(property.key) =")
+                } else {
+                    lines.append("\(property.key) = \(value)")
+                }
+            }
+        }
+
+        lines.append("")
+        lines.append("[ID3v2 Frames]")
+
+        if dump.id3v2Frames.isEmpty {
+            lines.append("(none)")
+        } else {
+            for frame in dump.id3v2Frames {
+                let value = frame.value.trimmingCharacters(in: .whitespacesAndNewlines)
+                var label = frame.frameID
+
+                if let language = frame.language, !language.isEmpty {
+                    label += " [\(language)]"
+                }
+
+                if let description = frame.description, !description.isEmpty {
+                    label += " (\(description))"
+                }
+
+                lines.append("\(label) = \(value)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
     nonisolated static func rawMetadataDumpTextWithCompatibilityNotes(_ rawText: String) -> String {
         let notes = legacyTagCompatibilityNotes(for: rawText)
         guard !notes.isEmpty else { return rawText }

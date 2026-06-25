@@ -54,6 +54,22 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
             XCTAssertTrue(rawText.contains("File: \(fixtureName)"), fixtureName)
             XCTAssertTrue(rawText.contains("[TagLib Properties]"), fixtureName)
+
+            let rawDump = try TagLibMetadataManager.rawMetadataResult(from: fixtureURL)
+            for property in rawDump.properties {
+                let values = property.values.isEmpty ? [property.value] : property.values
+                let value = values
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "; ")
+
+                guard !value.isEmpty else { continue }
+                XCTAssertTrue(
+                    rawText.contains("\(property.key) = \(value)"),
+                    "\(fixtureName) dump should include TagLib property \(property.key)."
+                )
+            }
+
             XCTAssertNoThrow(
                 try pipeline.rawMetadataPropertyMap(for: fixtureURL),
                 "\(fixtureName) should expose a normalized raw property map, even when it is empty."

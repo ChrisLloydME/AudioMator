@@ -73,13 +73,18 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
+        let bridgeText = TagLibMetadataManager.rawMetadataText(from: url)
+
         if let dump = try? TagLibMetadataManager.rawMetadataResult(from: url) {
-            let rawText = MetadataPipelineSupport.rawMetadataDumpText(from: dump, url: url)
+            let rawText = MetadataPipelineSupport.rawMetadataDumpText(
+                from: dump,
+                url: url,
+                preservingSectionsFrom: bridgeText
+            )
             return MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes(rawText)
         }
 
-        return TagLibMetadataManager.rawMetadataText(from: url)
-            .map(MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes)
+        return bridgeText.map(MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes)
     }
 
     nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
@@ -202,7 +207,11 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 }
 
 private enum MetadataPipelineSupport {
-    nonisolated static func rawMetadataDumpText(from dump: RawMetadataDump, url: URL) -> String {
+    nonisolated static func rawMetadataDumpText(
+        from dump: RawMetadataDump,
+        url: URL,
+        preservingSectionsFrom bridgeText: String?
+    ) -> String {
         var lines: [String] = [
             "File: \(url.lastPathComponent)",
             "Path: \(url.path)",
@@ -228,6 +237,10 @@ private enum MetadataPipelineSupport {
             }
         }
 
+        if let preservedSections = metadataDumpSectionsAfterTagLibProperties(from: bridgeText) {
+            return (lines + [""] + preservedSections).joined(separator: "\n")
+        }
+
         lines.append("")
         lines.append("[ID3v2 Frames]")
 
@@ -251,6 +264,25 @@ private enum MetadataPipelineSupport {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    nonisolated private static func metadataDumpSectionsAfterTagLibProperties(from rawText: String?) -> [String]? {
+        guard let rawText else { return nil }
+
+        let lines = rawText.components(separatedBy: .newlines)
+        guard let propertyHeaderIndex = lines.firstIndex(where: { line in
+            line.trimmingCharacters(in: .whitespacesAndNewlines) == "[TagLib Properties]"
+        }) else {
+            return nil
+        }
+
+        let sectionStartIndex = lines[(propertyHeaderIndex + 1)...].firstIndex(where: { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.hasPrefix("[") && trimmed.hasSuffix("]")
+        })
+
+        guard let sectionStartIndex else { return nil }
+        return Array(lines[sectionStartIndex...])
     }
 
     nonisolated static func rawMetadataDumpTextWithCompatibilityNotes(_ rawText: String) -> String {

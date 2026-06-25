@@ -55,6 +55,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertTrue(rawText.contains("File: \(fixtureName)"), fixtureName)
             XCTAssertTrue(rawText.contains("[TagLib Properties]"), fixtureName)
 
+            let bridgeText = try XCTUnwrap(TagLibMetadataManager.rawMetadataText(from: fixtureURL))
+            for sectionHeader in Self.sectionHeaders(after: "TagLib Properties", in: bridgeText) {
+                XCTAssertTrue(
+                    rawText.contains("[\(sectionHeader)]"),
+                    "\(fixtureName) dump should preserve bridge section [\(sectionHeader)]."
+                )
+            }
+
             let rawDump = try TagLibMetadataManager.rawMetadataResult(from: fixtureURL)
             for property in rawDump.properties {
                 let values = property.values.isEmpty ? [property.value] : property.values
@@ -75,6 +83,25 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 "\(fixtureName) should expose a normalized raw property map, even when it is empty."
             )
         }
+    }
+
+    private static func sectionHeaders(after precedingHeader: String, in text: String) -> [String] {
+        var hasSeenPrecedingHeader = false
+        var headers: [String] = []
+
+        for line in text.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("["), trimmed.hasSuffix("]") else { continue }
+
+            let header = String(trimmed.dropFirst().dropLast())
+            if hasSeenPrecedingHeader {
+                headers.append(header)
+            } else if header == precedingHeader {
+                hasSeenPrecedingHeader = true
+            }
+        }
+
+        return headers
     }
 
     func testCoreMetadataRoundTripsForWritableAudioFixtures() throws {

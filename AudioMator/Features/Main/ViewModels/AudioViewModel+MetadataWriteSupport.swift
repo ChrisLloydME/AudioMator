@@ -59,21 +59,34 @@ extension AudioViewModel {
 
     func writeMetadataOffMainActor(
         _ edit: MetadataEditPayload,
-        to url: URL
+        to url: URL,
+        expectedFileFingerprint: AudioFileFingerprint? = nil
     ) async throws -> AudioMetadataWriteResult {
         let metadataPipeline = self.metadataPipeline
+        let fileMutationCoordinator = self.fileMutationCoordinator
 
-        return try await Task.detached(priority: .userInitiated) {
-            try metadataPipeline.writeMetadata(edit, to: url)
-        }.value
-    }
+        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
+            try await Task.detached(priority: .userInitiated) {
+                if let expectedFileFingerprint {
+                    let currentFingerprint: AudioFileFingerprint
+                    do {
+                        currentFingerprint = try AudioFileFingerprint.capture(at: url)
+                    } catch {
+                        throw AudioFileFingerprintValidationError.unavailable(
+                            fileName: url.lastPathComponent
+                        )
+                    }
 
-    func rawMetadataPropertyMapOffMainActor(for url: URL) async throws -> [String: String] {
-        let metadataPipeline = self.metadataPipeline
+                    guard currentFingerprint == expectedFileFingerprint else {
+                        throw AudioFileFingerprintValidationError.changedSincePreview(
+                            fileName: url.lastPathComponent
+                        )
+                    }
+                }
 
-        return try await Task.detached(priority: .userInitiated) {
-            try metadataPipeline.rawMetadataPropertyMap(for: url)
-        }.value
+                return try metadataPipeline.writeMetadata(edit, to: url)
+            }.value
+        }
     }
 
     func writeRawMetadataPropertyMapOffMainActor(
@@ -81,17 +94,40 @@ extension AudioViewModel {
         to url: URL
     ) async throws -> AudioMetadataWriteResult {
         let metadataPipeline = self.metadataPipeline
+        let fileMutationCoordinator = self.fileMutationCoordinator
 
-        return try await Task.detached(priority: .userInitiated) {
-            try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
-        }.value
+        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
+            try await Task.detached(priority: .userInitiated) {
+                try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+            }.value
+        }
     }
 
     func eraseAllMetadataOffMainActor(at url: URL) async throws -> AudioMetadataWriteResult {
         let metadataPipeline = self.metadataPipeline
+        let fileMutationCoordinator = self.fileMutationCoordinator
 
-        return try await Task.detached(priority: .userInitiated) {
-            try metadataPipeline.eraseAllMetadata(at: url)
-        }.value
+        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
+            try await Task.detached(priority: .userInitiated) {
+                try metadataPipeline.eraseAllMetadata(at: url)
+            }.value
+        }
     }
+
+    func updateRawMetadataPropertyMapOffMainActor(
+        at url: URL,
+        transform: @escaping @Sendable (inout [String: String]) -> Void
+    ) async throws -> AudioMetadataWriteResult {
+        let metadataPipeline = self.metadataPipeline
+        let fileMutationCoordinator = self.fileMutationCoordinator
+
+        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
+            try await Task.detached(priority: .userInitiated) {
+                var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
+                transform(&propertyMap)
+                return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+            }.value
+        }
+    }
+
 }

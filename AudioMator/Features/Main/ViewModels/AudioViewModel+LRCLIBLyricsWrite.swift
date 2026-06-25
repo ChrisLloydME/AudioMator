@@ -31,10 +31,9 @@ extension AudioViewModel {
         )
 
         do {
-            var propertyMap = try await rawMetadataPropertyMapOffMainActor(for: file.url)
-            propertyMap["LYRICS"] = normalizedLyrics
-
-            let writeResult = try await writeRawMetadataPropertyMapOffMainActor(propertyMap, to: file.url)
+            let writeResult = try await updateRawMetadataPropertyMapOffMainActor(at: file.url) {
+                $0["LYRICS"] = normalizedLyrics
+            }
             var warnings = writeResult.warnings
             let refreshWarning = await reloadEditedFile(file, syncInspectorAfterReload: true)
             if let refreshWarning {
@@ -137,10 +136,9 @@ extension AudioViewModel {
             }
 
             do {
-                var propertyMap = try await rawMetadataPropertyMapOffMainActor(for: file.url)
-                propertyMap["LYRICS"] = normalizedLyrics
-
-                let writeResult = try await writeRawMetadataPropertyMapOffMainActor(propertyMap, to: file.url)
+                let writeResult = try await updateRawMetadataPropertyMapOffMainActor(at: file.url) {
+                    $0["LYRICS"] = normalizedLyrics
+                }
                 var warningMessages = writeResult.warnings
                 let refreshWarning = await reloadEditedFile(file, syncInspectorAfterReload: false)
 

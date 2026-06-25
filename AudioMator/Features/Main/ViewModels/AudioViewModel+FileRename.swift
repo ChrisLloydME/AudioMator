@@ -7,6 +7,7 @@ struct FileRenameResult {
     let skippedIssues: Int
     let warnings: [String]
     let failureMessage: String?
+    let recoveryItems: [FileRenameRecoveryItem]
 
     static let empty = FileRenameResult(
         totalTargets: 0,
@@ -14,7 +15,8 @@ struct FileRenameResult {
         unchanged: 0,
         skippedIssues: 0,
         warnings: [],
-        failureMessage: nil
+        failureMessage: nil,
+        recoveryItems: []
     )
 
     var didSucceed: Bool {
@@ -27,9 +29,46 @@ private struct PreparedFileRenameOperation: Sendable {
     let temporaryURL: URL
 }
 
-private enum FileRenameExecutionResult: Sendable {
+struct FileRenameRecoveryItem: Equatable, Sendable {
+    let originalURL: URL
+    let intendedURL: URL
+    let finalLocations: [URL]
+    let rollbackErrors: [String]
+
+    var finalURL: URL? {
+        finalLocations.count == 1 ? finalLocations[0] : nil
+    }
+
+    var rollbackError: String? {
+        rollbackErrors.isEmpty ? nil : rollbackErrors.joined(separator: "\n")
+    }
+}
+
+struct FileRenameTransactionFailure: Sendable {
+    let message: String
+    let recoveryItems: [FileRenameRecoveryItem]
+}
+
+enum FileRenameExecutionResult: Sendable {
     case success([FileRenameOperation])
-    case failure(String)
+    case failure(FileRenameTransactionFailure)
+}
+
+protocol FileRenameFileSystem: Sendable {
+    nonisolated func fileExists(at url: URL) -> Bool
+    nonisolated func moveItem(at sourceURL: URL, to destinationURL: URL) throws
+}
+
+struct LocalFileRenameFileSystem: FileRenameFileSystem {
+    nonisolated init() {}
+
+    nonisolated func fileExists(at url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path)
+    }
+
+    nonisolated func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
+        try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+    }
 }
 
 extension AudioViewModel {
@@ -40,10 +79,6 @@ extension AudioViewModel {
         let issueWarnings = fileRenameIssueWarnings(from: plan.rows)
         let operations = plan.operations
 
-        for warning in issueWarnings {
-            print("[AudioMator] Rename issue: \(warning)")
-        }
-
         guard !operations.isEmpty else {
             return FileRenameResult(
                 totalTargets: totalTargets,
@@ -51,39 +86,46 @@ extension AudioViewModel {
                 unchanged: unchangedCount,
                 skippedIssues: skippedIssues,
                 warnings: issueWarnings,
-                failureMessage: nil
+                failureMessage: nil,
+                recoveryItems: []
             )
         }
 
         let scopedURLs = operations.map(\.sourceURL)
         if let accessFailure = ensureRenameDirectoryAccess(for: scopedURLs) {
-            print("[AudioMator] Rename failed: \(accessFailure)")
             let result = FileRenameResult(
                 totalTargets: totalTargets,
                 renamed: 0,
                 unchanged: unchangedCount,
                 skippedIssues: skippedIssues,
                 warnings: [],
-                failureMessage: accessFailure
+                failureMessage: accessFailure,
+                recoveryItems: []
             )
             presentFileRenameSummary(result)
             return result
         }
 
-        let execution = withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
-            executeFileRenameTransaction(operations)
+        let mutationURLs = operations.flatMap { [$0.sourceURL, $0.destinationURL] }
+        let fileMutationCoordinator = self.fileMutationCoordinator
+        let execution = await withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
+            await fileMutationCoordinator.withExclusiveAccess(to: mutationURLs) {
+                await Task.detached(priority: .userInitiated) {
+                    executeFileRenameTransaction(operations)
+                }.value
+            }
         }
 
         switch execution {
-        case .failure(let reason):
-            print("[AudioMator] Rename failed: \(reason)")
+        case .failure(let failure):
             let result = FileRenameResult(
                 totalTargets: totalTargets,
                 renamed: 0,
                 unchanged: unchangedCount,
                 skippedIssues: skippedIssues,
                 warnings: issueWarnings,
-                failureMessage: reason
+                failureMessage: failure.message,
+                recoveryItems: failure.recoveryItems
             )
             presentFileRenameSummary(result)
             return result
@@ -106,7 +148,8 @@ extension AudioViewModel {
                 unchanged: unchangedCount,
                 skippedIssues: skippedIssues,
                 warnings: issueWarnings,
-                failureMessage: nil
+                failureMessage: nil,
+                recoveryItems: []
             )
             presentFileRenameSummary(result)
             return result
@@ -162,17 +205,19 @@ extension AudioViewModel {
     }
 }
 
-private func executeFileRenameTransaction(_ operations: [FileRenameOperation]) -> FileRenameExecutionResult {
+nonisolated func executeFileRenameTransaction(
+    _ operations: [FileRenameOperation],
+    fileSystem: any FileRenameFileSystem = LocalFileRenameFileSystem()
+) -> FileRenameExecutionResult {
     let actionableOperations = operations.filter { $0.sourceURL.path != $0.destinationURL.path }
     guard !actionableOperations.isEmpty else {
         return .success([])
     }
 
-    let fileManager = FileManager.default
     let preparedOperations = actionableOperations.map { operation in
         PreparedFileRenameOperation(
             operation: operation,
-            temporaryURL: uniqueTemporaryRenameURL(for: operation.sourceURL)
+            temporaryURL: uniqueTemporaryRenameURL(for: operation.sourceURL, using: fileSystem)
         )
     }
 
@@ -181,11 +226,18 @@ private func executeFileRenameTransaction(_ operations: [FileRenameOperation]) -
 
     for prepared in preparedOperations {
         do {
-            try fileManager.moveItem(at: prepared.operation.sourceURL, to: prepared.temporaryURL)
+            try fileSystem.moveItem(at: prepared.operation.sourceURL, to: prepared.temporaryURL)
             stagedOperations.append(prepared)
         } catch {
-            rollbackStagedRenameOperations(stagedOperations, using: fileManager)
-            return .failure(renameFailureMessage(for: prepared.operation.sourceURL, error: error))
+            let rollbackErrors = rollbackStagedRenameOperations(stagedOperations, using: fileSystem)
+            return .failure(
+                makeRenameTransactionFailure(
+                    primaryMessage: renameFailureMessage(for: prepared.operation.sourceURL, error: error),
+                    operations: preparedOperations,
+                    rollbackErrors: rollbackErrors,
+                    fileSystem: fileSystem
+                )
+            )
         }
     }
 
@@ -194,22 +246,34 @@ private func executeFileRenameTransaction(_ operations: [FileRenameOperation]) -
 
     for prepared in preparedOperations {
         do {
-            try fileManager.moveItem(at: prepared.temporaryURL, to: prepared.operation.destinationURL)
+            try fileSystem.moveItem(at: prepared.temporaryURL, to: prepared.operation.destinationURL)
             finalizedOperations.append(prepared)
         } catch {
-            rollbackFinalizedRenameOperations(finalizedOperations, using: fileManager)
-            rollbackStagedRenameOperations(preparedOperations, using: fileManager)
-            return .failure(renameFailureMessage(for: prepared.operation.sourceURL, error: error))
+            var rollbackErrors = rollbackFinalizedRenameOperations(finalizedOperations, using: fileSystem)
+            mergeRollbackErrors(
+                rollbackStagedRenameOperations(preparedOperations, using: fileSystem),
+                into: &rollbackErrors
+            )
+            return .failure(
+                makeRenameTransactionFailure(
+                    primaryMessage: renameFailureMessage(for: prepared.operation.sourceURL, error: error),
+                    operations: preparedOperations,
+                    rollbackErrors: rollbackErrors,
+                    fileSystem: fileSystem
+                )
+            )
         }
     }
 
     return .success(actionableOperations)
 }
 
-private func uniqueTemporaryRenameURL(for sourceURL: URL) -> URL {
+nonisolated private func uniqueTemporaryRenameURL(
+    for sourceURL: URL,
+    using fileSystem: any FileRenameFileSystem
+) -> URL {
     let directoryURL = sourceURL.deletingLastPathComponent()
     let extensionText = sourceURL.pathExtension
-    let fileManager = FileManager.default
 
     while true {
         let candidateBaseName = ".audiomator-rename-\(UUID().uuidString)"
@@ -223,33 +287,131 @@ private func uniqueTemporaryRenameURL(for sourceURL: URL) -> URL {
                 .appendingPathExtension(extensionText)
         }
 
-        if !fileManager.fileExists(atPath: candidateURL.path) {
+        if !fileSystem.fileExists(at: candidateURL) {
             return candidateURL
         }
     }
 }
 
-private func rollbackFinalizedRenameOperations(
+nonisolated private func rollbackFinalizedRenameOperations(
     _ operations: [PreparedFileRenameOperation],
-    using fileManager: FileManager
-) {
+    using fileSystem: any FileRenameFileSystem
+) -> [UUID: [String]] {
+    var errorsByOperationID: [UUID: [String]] = [:]
+
     for prepared in operations.reversed() {
-        guard fileManager.fileExists(atPath: prepared.operation.destinationURL.path) else { continue }
-        try? fileManager.moveItem(at: prepared.operation.destinationURL, to: prepared.temporaryURL)
+        guard fileSystem.fileExists(at: prepared.operation.destinationURL) else { continue }
+        do {
+            try fileSystem.moveItem(at: prepared.operation.destinationURL, to: prepared.temporaryURL)
+        } catch {
+            errorsByOperationID[prepared.operation.id, default: []].append(
+                rollbackFailureMessage(
+                    from: prepared.operation.destinationURL,
+                    to: prepared.temporaryURL,
+                    error: error
+                )
+            )
+        }
+    }
+
+    return errorsByOperationID
+}
+
+nonisolated private func rollbackStagedRenameOperations(
+    _ operations: [PreparedFileRenameOperation],
+    using fileSystem: any FileRenameFileSystem
+) -> [UUID: [String]] {
+    var errorsByOperationID: [UUID: [String]] = [:]
+
+    for prepared in operations.reversed() {
+        guard fileSystem.fileExists(at: prepared.temporaryURL) else { continue }
+        do {
+            try fileSystem.moveItem(at: prepared.temporaryURL, to: prepared.operation.sourceURL)
+        } catch {
+            errorsByOperationID[prepared.operation.id, default: []].append(
+                rollbackFailureMessage(
+                    from: prepared.temporaryURL,
+                    to: prepared.operation.sourceURL,
+                    error: error
+                )
+            )
+        }
+    }
+
+    return errorsByOperationID
+}
+
+nonisolated private func mergeRollbackErrors(
+    _ incoming: [UUID: [String]],
+    into accumulated: inout [UUID: [String]]
+) {
+    for (operationID, messages) in incoming {
+        accumulated[operationID, default: []].append(contentsOf: messages)
     }
 }
 
-private func rollbackStagedRenameOperations(
-    _ operations: [PreparedFileRenameOperation],
-    using fileManager: FileManager
-) {
-    for prepared in operations.reversed() {
-        guard fileManager.fileExists(atPath: prepared.temporaryURL.path) else { continue }
-        try? fileManager.moveItem(at: prepared.temporaryURL, to: prepared.operation.sourceURL)
+nonisolated private func makeRenameTransactionFailure(
+    primaryMessage: String,
+    operations: [PreparedFileRenameOperation],
+    rollbackErrors: [UUID: [String]],
+    fileSystem: any FileRenameFileSystem
+) -> FileRenameTransactionFailure {
+    let recoveryItems = operations.compactMap { prepared -> FileRenameRecoveryItem? in
+        var finalLocations: [URL] = []
+        let candidates = [
+            prepared.operation.sourceURL,
+            prepared.temporaryURL,
+            prepared.operation.destinationURL
+        ]
+
+        for candidate in candidates where fileSystem.fileExists(at: candidate) {
+            if !finalLocations.contains(candidate) {
+                finalLocations.append(candidate)
+            }
+        }
+
+        let restoredOnlyToOriginal =
+            finalLocations.count == 1 && finalLocations[0] == prepared.operation.sourceURL
+        guard !restoredOnlyToOriginal else { return nil }
+
+        return FileRenameRecoveryItem(
+            originalURL: prepared.operation.sourceURL,
+            intendedURL: prepared.operation.destinationURL,
+            finalLocations: finalLocations,
+            rollbackErrors: rollbackErrors[prepared.operation.id] ?? []
+        )
     }
+
+    guard !recoveryItems.isEmpty else {
+        return FileRenameTransactionFailure(message: primaryMessage, recoveryItems: [])
+    }
+
+    let recoveryCountLabel = recoveryItems.count == 1
+        ? "1 file"
+        : "\(recoveryItems.count) files"
+    var lines = [primaryMessage, "Recovery required for \(recoveryCountLabel):"]
+    for item in recoveryItems {
+        let locations = item.finalLocations.isEmpty
+            ? "location unknown"
+            : item.finalLocations.map(\.path).joined(separator: ", ")
+        lines.append("\(item.originalURL.lastPathComponent) is at \(locations)")
+        lines.append(contentsOf: item.rollbackErrors)
+    }
+
+    lines.append("Move each listed file back to its original path before retrying.")
+
+    return FileRenameTransactionFailure(
+        message: lines.joined(separator: "\n"),
+        recoveryItems: recoveryItems
+    )
 }
 
-private func renameFailureMessage(for sourceURL: URL, error: Error) -> String {
+nonisolated private func rollbackFailureMessage(from sourceURL: URL, to destinationURL: URL, error: Error) -> String {
+    "Rollback failed (\(sourceURL.lastPathComponent) → \(destinationURL.lastPathComponent)): "
+        + (error as NSError).localizedDescription
+}
+
+nonisolated private func renameFailureMessage(for sourceURL: URL, error: Error) -> String {
     "\(sourceURL.lastPathComponent): \((error as NSError).localizedDescription)"
 }
 

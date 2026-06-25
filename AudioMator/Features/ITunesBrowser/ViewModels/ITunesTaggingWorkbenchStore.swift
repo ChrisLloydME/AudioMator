@@ -125,6 +125,19 @@ struct ITunesTaggingWriteEntry: Identifiable {
     let fileID: UUID
     let fileName: String
     let values: [ITunesTagWriteField: String]
+    let expectedFileFingerprint: AudioFileFingerprint?
+
+    init(
+        fileID: UUID,
+        fileName: String,
+        values: [ITunesTagWriteField: String],
+        expectedFileFingerprint: AudioFileFingerprint? = nil
+    ) {
+        self.fileID = fileID
+        self.fileName = fileName
+        self.values = values
+        self.expectedFileFingerprint = expectedFileFingerprint
+    }
 
     var id: UUID { fileID }
 }
@@ -156,10 +169,15 @@ struct ITunesTaggingPlanRow: Identifiable {
     var id: String { fileInput.id }
 
     var writeEntry: ITunesTaggingWriteEntry? {
-        guard let file else { return nil }
+        guard let file, let fileFingerprint = file.fileFingerprint else { return nil }
         let values = Dictionary(uniqueKeysWithValues: changes.filter(\.willWrite).map { ($0.field, $0.remoteValue) })
         guard !values.isEmpty else { return nil }
-        return ITunesTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent, values: values)
+        return ITunesTaggingWriteEntry(
+            fileID: file.id,
+            fileName: file.url.lastPathComponent,
+            values: values,
+            expectedFileFingerprint: fileFingerprint
+        )
     }
 }
 
@@ -330,6 +348,8 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         let issueMessage: String?
         if file == nil {
             issueMessage = "The file is no longer loaded in AudioMator."
+        } else if file?.fileFingerprint == nil {
+            issueMessage = "The file version could not be captured. Reload the file before applying tags."
         } else if selectedTrack == nil {
             issueMessage = "No iTunes track is assigned."
         } else {

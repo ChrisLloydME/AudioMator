@@ -86,6 +86,14 @@ struct SidebarPane: View {
 
             Spacer(minLength: 0)
 
+            if let status = viewModel.directoryMonitoringStatuses[folder.id], status.isDegraded {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .help(status.message)
+                    .accessibilityLabel("Folder monitoring degraded")
+                    .accessibilityValue(status.message)
+            }
+
             if state.selectedSidebarItem == .watchedFolder(folder.id) {
                 Button {
                     removeWatchedFolder(folder)

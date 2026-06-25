@@ -103,7 +103,8 @@ struct TrackRenumberSheet: View {
     private var hasResult: Bool {
         trackRenumberResult.totalTargets > 0 ||
             trackRenumberResult.failed > 0 ||
-            trackRenumberResult.skippedUnsupported > 0
+            trackRenumberResult.skippedUnsupported > 0 ||
+            !trackRenumberResult.warnings.isEmpty
     }
 
     var body: some View {
@@ -363,6 +364,38 @@ struct TrackRenumberSheet: View {
                         }
                         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
                         .frame(maxHeight: 150)
+                    }
+                }
+
+                if !trackRenumberResult.warnings.isEmpty {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Warnings", systemImage: "exclamationmark.triangle.fill")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(trackRenumberResult.warnings) { warning in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(warning.fileName)
+                                    .font(.system(.body, design: .monospaced))
+                                ForEach(warning.messages, id: \.self) { message in
+                                    Text(message)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(cardInset)
+                            #if os(iOS)
+                            .iPadRoundedGroupedSurface()
+                            #else
+                            .background(
+                                RoundedRectangle(cornerRadius: previewInnerRadius)
+                                    .fill(Color.secondary.opacity(0.08))
+                            )
+                            #endif
+                        }
                     }
                 }
             }

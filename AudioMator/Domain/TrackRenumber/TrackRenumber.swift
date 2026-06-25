@@ -24,18 +24,26 @@ struct TrackRenumberFailure: Identifiable, Equatable {
     let reason: String
 }
 
+struct TrackRenumberWarning: Identifiable, Equatable {
+    let id = UUID()
+    let fileName: String
+    let messages: [String]
+}
+
 struct TrackRenumberResult: Equatable {
     var totalTargets: Int
     var succeeded: Int
     var skippedUnsupported: Int
     var failed: Int
     var failures: [TrackRenumberFailure]
+    var warnings: [TrackRenumberWarning]
 
     static let empty = TrackRenumberResult(
         totalTargets: 0,
         succeeded: 0,
         skippedUnsupported: 0,
         failed: 0,
-        failures: []
+        failures: [],
+        warnings: []
     )
 }

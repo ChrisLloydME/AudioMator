@@ -133,7 +133,8 @@ extension AudioViewModel {
     func persistMetadataEdit(
         _ edit: SingleFileEditModel,
         to file: AudioFile,
-        syncInspectorAfterReload: Bool = true
+        syncInspectorAfterReload: Bool = true,
+        expectedFileFingerprint: AudioFileFingerprint? = nil
     ) async -> MetadataWriteExecutionResult {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             print("Skip unsupported write format for: \(file.url.lastPathComponent)")
@@ -143,7 +144,11 @@ extension AudioViewModel {
         let editPayload = MetadataEditPayload(edit)
 
         do {
-            let writeResult = try await writeMetadataOffMainActor(editPayload, to: file.url)
+            let writeResult = try await writeMetadataOffMainActor(
+                editPayload,
+                to: file.url,
+                expectedFileFingerprint: expectedFileFingerprint
+            )
             var warnings: [String] = writeResult.warnings
 
             let refreshWarning = await reloadEditedFile(
@@ -152,13 +157,6 @@ extension AudioViewModel {
             )
             if let refreshWarning {
                 warnings.append(refreshWarning)
-            }
-
-            if !warnings.isEmpty {
-                print("""
-                [AudioMator] Metadata write completed with warning(s) for \(file.url.lastPathComponent)
-                \(warnings.map { "  - \($0)" }.joined(separator: "\n"))
-                """)
             }
 
             return .success(

@@ -166,7 +166,7 @@ struct ITunesTaggingWorkbenchView: View {
             .keyboardShortcut(.cancelAction)
 
             Button {
-                applyTags()
+                applyTags(plan: plan)
             } label: {
                 if isApplying {
                     ProgressView()
@@ -205,8 +205,8 @@ struct ITunesTaggingWorkbenchView: View {
         )
     }
 
-    private func applyTags() {
-        let entries = store.plan.writeEntries
+    private func applyTags(plan: ITunesTaggingPlan) {
+        let entries = plan.writeEntries
         guard !entries.isEmpty, viewModel.metadataSaveProgress == nil else { return }
 
         Task {

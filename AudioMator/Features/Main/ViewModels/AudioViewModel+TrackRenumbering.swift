@@ -50,6 +50,7 @@ extension AudioViewModel {
         let padWidth = trackRenumberPadWidth(maxNumber: maxNumber, padWithZeros: options.padWithZeros)
         let writableExtensions = AudioFormatSupport.metadataWritableExtensions
         let metadataPipeline = self.metadataPipeline
+        let fileMutationCoordinator = self.fileMutationCoordinator
 
         let writeOutcome = await Task.detached(
             priority: .userInitiated
@@ -59,9 +60,10 @@ extension AudioViewModel {
                 succeeded: 0,
                 skippedUnsupported: 0,
                 failed: 0,
-                failures: []
+                failures: [],
+                warnings: []
             )
-            var successfulTargets: [(id: UUID, url: URL, trackNumberText: String)] = []
+            var reloadedFiles: [AudioFile] = []
 
             for (idx, target) in writeTargets.enumerated() {
                 let newNumber = numbers[idx]
@@ -78,14 +80,49 @@ extension AudioViewModel {
                         ? String(format: "%0*d", padWidth, newNumber)
                         : String(newNumber)
 
-                    _ = try metadataPipeline.writeTrackNumberText(
-                        formattedTrackNumber,
-                        discNumberText: nil,
-                        to: target.url,
-                        verifyAfterWrite: false
-                    )
+                    let targetOutcome: (
+                        writeResult: AudioMetadataWriteResult,
+                        reloadedFile: AudioFile?,
+                        refreshWarning: String?
+                    ) = try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) {
+                        try await Task.detached(priority: .userInitiated) {
+                            let writeResult = try metadataPipeline.writeTrackNumberText(
+                                formattedTrackNumber,
+                                discNumberText: nil,
+                                to: target.url,
+                                verifyAfterWrite: true
+                            )
+
+                            do {
+                                let reloadedFile = try await metadataPipeline.loadAudioFile(
+                                    at: target.url,
+                                    id: target.id
+                                )
+                                return (writeResult, reloadedFile, nil)
+                            } catch {
+                                let warning = "Saved to disk, but the file could not be refreshed: "
+                                    + (error as NSError).localizedDescription
+                                return (writeResult, nil, warning)
+                            }
+                        }.value
+                    }
                     result.succeeded += 1
-                    successfulTargets.append((id: target.id, url: target.url, trackNumberText: formattedTrackNumber))
+                    if let reloadedFile = targetOutcome.reloadedFile {
+                        reloadedFiles.append(reloadedFile)
+                    }
+
+                    var warningMessages = targetOutcome.writeResult.warnings
+                    if let refreshWarning = targetOutcome.refreshWarning {
+                        warningMessages.append(refreshWarning)
+                    }
+                    if !warningMessages.isEmpty {
+                        result.warnings.append(
+                            TrackRenumberWarning(
+                                fileName: target.url.lastPathComponent,
+                                messages: warningMessages
+                            )
+                        )
+                    }
                 } catch {
                     result.failed += 1
                     let reason = (error as NSError).localizedDescription
@@ -93,15 +130,11 @@ extension AudioViewModel {
                 }
             }
 
-            return (result, successfulTargets)
+            return (result, reloadedFiles)
         }.value
 
-        let updatedFiles = writeOutcome.1.compactMap { target in
-            filesByID[target.id]?.withUpdatedTrackNumberText(target.trackNumberText)
-        }
-
-        if !updatedFiles.isEmpty {
-            replaceLoadedFiles(updatedFiles)
+        if !writeOutcome.1.isEmpty {
+            replaceLoadedFiles(writeOutcome.1)
             updateEditForSelection()
         }
 

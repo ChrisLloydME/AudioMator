@@ -103,9 +103,16 @@ struct MusicBrainzTaggingWorkbenchView: View {
     private var fieldSelectionSection: some View {
         MetadataSectionCard(title: "Fields", symbolName: "checklist.checked") {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Choose exactly which MusicBrainz values should overwrite the current file tags.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Choose exactly which MusicBrainz values should overwrite the current file tags.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 12)
+
+                    fieldSelectionActions
+                }
 
                 if store.isLoadingFieldAvailability {
                     VStack(alignment: .leading, spacing: 10) {
@@ -158,6 +165,22 @@ struct MusicBrainzTaggingWorkbenchView: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
         }
+    }
+
+    private var fieldSelectionActions: some View {
+        HStack(spacing: 8) {
+            Button("Select All") {
+                store.selectAllAvailableFields()
+            }
+            .disabled(isApplying || store.isLoadingFieldAvailability || store.availableFields.isEmpty || store.selectedAvailableFields.count == store.availableFields.count)
+
+            Button("Deselect All") {
+                store.deselectAllFields()
+            }
+            .disabled(isApplying || store.selectedAvailableFields.isEmpty)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 
     private var assignmentSection: some View {

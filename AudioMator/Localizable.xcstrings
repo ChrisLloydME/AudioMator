@@ -3722,6 +3722,9 @@
         }
       }
     },
+    "Deselect All" : {
+
+    },
     "Different" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:1268, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:675.",
       "localizations" : {

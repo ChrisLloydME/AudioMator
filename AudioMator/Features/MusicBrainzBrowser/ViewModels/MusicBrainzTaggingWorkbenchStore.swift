@@ -656,6 +656,18 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
     }
 
+    func selectAllAvailableFields() {
+        selectedFields = Set(availableFields)
+
+        if selectedAvailableFields.contains(where: \.requiresRecordingDetail) {
+            ensureRecordingDataIfNeeded()
+        }
+    }
+
+    func deselectAllFields() {
+        selectedFields.removeAll()
+    }
+
     func selectedTrackID(for assignmentID: String) -> String? {
         assignments.first(where: { $0.id == assignmentID })?.selectedTrackID
     }

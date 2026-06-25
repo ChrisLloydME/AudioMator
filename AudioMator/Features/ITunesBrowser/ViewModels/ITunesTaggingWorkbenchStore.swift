@@ -314,6 +314,14 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
     }
 
+    func selectAllAvailableFields() {
+        selectedFields = Set(availableFields)
+    }
+
+    func deselectAllFields() {
+        selectedFields.removeAll()
+    }
+
     func selectedTrackID(for assignmentID: String) -> Int? {
         assignments.first(where: { $0.id == assignmentID })?.selectedTrackID
     }

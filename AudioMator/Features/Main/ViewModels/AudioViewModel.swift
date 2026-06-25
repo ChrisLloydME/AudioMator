@@ -45,6 +45,7 @@ struct MetadataSaveProgress: Equatable {
 @MainActor
 final class AudioViewModel: ObservableObject {
     nonisolated private static let readableAudioExtensions = AudioFormatSupport.readableExtensions
+    nonisolated private static let maximumDirectoryMonitorsPerFolder = 128
 
     // All audio files currently loaded into the middle list.
     @Published var files: [AudioFile] = []
@@ -57,14 +58,19 @@ final class AudioViewModel: ObservableObject {
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
+    @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
 
     private let watchedFolderStore: WatchedFolderStore
     let metadataPipeline: any AudioMetadataPipeline
+    let fileMutationCoordinator = FileMutationCoordinator()
     let iTunesArtworkService = ITunesArtworkService()
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
     var artworkLookupTask: Task<Void, Never>?
     private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []
     private var quickImportFiles: [AudioFile] = []
+    private var quickImportGeneration: UInt64 = 0
+    private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
+    private var quickImportLoadingURLs: [UUID: [URL]] = [:]
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
     private var activeSidebarSelection: SidebarSelection = .quickImport
     private var fileIDsByKey: [String: UUID] = [:]
@@ -114,6 +120,7 @@ final class AudioViewModel: ObservableObject {
     deinit {
         artworkLookupTask?.cancel()
         metadataWriteHUDDismissTask?.cancel()
+        quickImportTasks.values.forEach { $0.cancel() }
         folderRescanTasks.values.forEach { $0.cancel() }
         folderDirectoryMonitors.removeAll()
         securityScopedFolderURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
@@ -349,33 +356,53 @@ final class AudioViewModel: ObservableObject {
 
     func importQuickFiles(from urls: [URL]) {
         let candidateURLs = Self.uniqueSortedURLs(urls)
+        guard !candidateURLs.isEmpty else { return }
+
+        let taskID = UUID()
+        let generation = quickImportGeneration
+        quickImportLoadingURLs[taskID] = candidateURLs
         beginAccessingQuickImportResources(for: candidateURLs)
 
-        Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return }
-
-            let fileIDsByKey = await MainActor.run {
-                self.prepareStableIDs(for: candidateURLs)
+        let task = Task.detached(priority: .userInitiated) { [weak self] in
+            let context: (fileIDsByKey: [String: UUID], metadataPipeline: any AudioMetadataPipeline)? = await MainActor.run { [weak self] in
+                guard let self, self.quickImportGeneration == generation else { return nil }
+                return (
+                    fileIDsByKey: self.prepareStableIDs(for: candidateURLs),
+                    metadataPipeline: self.metadataPipeline
+                )
             }
-            let metadataPipeline = await MainActor.run {
-                self.metadataPipeline
+
+            guard let context, !Task.isCancelled else {
+                await MainActor.run { [weak self] in
+                    self?.finishQuickImportTask(taskID)
+                }
+                return
             }
 
             _ = await Self.loadAudioFiles(
                 from: candidateURLs,
-                fileIDsByKey: fileIDsByKey,
-                metadataPipeline: metadataPipeline,
-                onBatchLoaded: { batch in
-                    guard !batch.isEmpty else { return }
-                    await MainActor.run {
+                fileIDsByKey: context.fileIDsByKey,
+                metadataPipeline: context.metadataPipeline,
+                onBatchLoaded: { [weak self] batch in
+                    guard !batch.isEmpty, !Task.isCancelled else { return }
+                    await MainActor.run { [weak self] in
+                        guard let self, self.quickImportGeneration == generation else { return }
                         self.mergeQuickImportFiles(batch)
                     }
                 }
             )
+
+            await MainActor.run { [weak self] in
+                self?.finishQuickImportTask(taskID)
+            }
         }
+        quickImportTasks[taskID] = task
     }
 
     func clearQuickImportFiles() {
+        quickImportGeneration &+= 1
+        quickImportTasks.values.forEach { $0.cancel() }
+        quickImportTasks.removeAll()
         quickImportFiles.removeAll()
         syncQuickImportSecurityScopedResources()
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
@@ -442,8 +469,8 @@ final class AudioViewModel: ObservableObject {
 
     func withSecurityScopedAccessForQuickImportURLs<T>(
         _ urls: [URL],
-        perform body: () throws -> T
-    ) rethrows -> T {
+        perform body: () async throws -> T
+    ) async rethrows -> T {
         var accessedURLs: [URL] = []
         let fileURLs = Self.urlsByKey(urls).values
         let directoryURLs = Self.parentDirectoryURLsByKey(for: urls).values
@@ -466,7 +493,7 @@ final class AudioViewModel: ObservableObject {
             }
         }
 
-        return try body()
+        return try await body()
     }
 
     func ensureRenameDirectoryAccess(for urls: [URL]) -> String? {
@@ -643,12 +670,13 @@ final class AudioViewModel: ObservableObject {
 
         folderDirectoryMonitors[id]?.values.forEach { $0.stop() }
         folderDirectoryMonitors[id] = nil
+        directoryMonitoringStatuses[id] = nil
 
         stopAccessingWatchedFolder(id)
     }
 
     private func syncQuickImportSecurityScopedResources() {
-        let quickImportURLs = quickImportFiles.map(\.url)
+        let quickImportURLs = quickImportFiles.map(\.url) + quickImportLoadingURLs.values.flatMap { $0 }
         let desiredFileURLsByKey = Self.urlsByKey(quickImportURLs)
         let desiredDirectoryURLsByKey = Self.parentDirectoryURLsByKey(for: quickImportURLs)
 
@@ -690,6 +718,12 @@ final class AudioViewModel: ObservableObject {
                 securityScopedQuickImportDirectoryURLs[key] = url
             }
         }
+    }
+
+    private func finishQuickImportTask(_ taskID: UUID) {
+        quickImportTasks[taskID] = nil
+        quickImportLoadingURLs[taskID] = nil
+        syncQuickImportSecurityScopedResources()
     }
 
     private func hasRenameDirectoryAccess(for directoryURL: URL) -> Bool {
@@ -747,9 +781,16 @@ final class AudioViewModel: ObservableObject {
     }
 
     private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {
-        let normalizedDirectories = Self.urlsByKey(directories)
+        guard let rootURL = watchedFolders.first(where: { $0.id == folderID })?.url else { return }
+        let plan = DirectoryMonitoringPlan.make(
+            directories: directories,
+            rootURL: rootURL,
+            limit: Self.maximumDirectoryMonitorsPerFolder
+        )
+        let normalizedDirectories = Self.urlsByKey(plan.monitoredURLs)
 
         var monitors = folderDirectoryMonitors[folderID] ?? [:]
+        var failedToOpenCount = 0
 
         for key in Array(monitors.keys) where normalizedDirectories[key] == nil {
             monitors[key]?.stop()
@@ -761,13 +802,22 @@ final class AudioViewModel: ObservableObject {
                 Task { @MainActor [weak self] in
                     self?.scheduleWatchedFolderRescan(for: folderID)
                 }
-            }) else { continue }
+            }) else {
+                failedToOpenCount += 1
+                continue
+            }
 
             monitor.start()
             monitors[key] = monitor
         }
 
         folderDirectoryMonitors[folderID] = monitors
+        directoryMonitoringStatuses[folderID] = DirectoryMonitoringStatus(
+            totalDirectoryCount: plan.totalDirectoryCount,
+            monitoredDirectoryCount: monitors.count,
+            omittedByLimitCount: plan.omittedByLimitCount,
+            failedToOpenCount: failedToOpenCount
+        )
     }
 
     private func persistWatchedFolders() {
@@ -787,6 +837,7 @@ final class AudioViewModel: ObservableObject {
         }
 
         guard !inputs.isEmpty else { return [] }
+        guard !Task.isCancelled else { return [] }
 
         // Audio metadata reads are mostly I/O-bound. Allow higher parallelism than the
         // earlier fixed value so first import becomes interactive faster on larger drops.
@@ -810,7 +861,8 @@ final class AudioViewModel: ObservableObject {
         await withTaskGroup(of: (Int, AudioFile?).self) { group in
             for input in inputs.prefix(maxConcurrentLoads) {
                 group.addTask {
-                    (
+                    guard !Task.isCancelled else { return (input.index, nil) }
+                    return (
                         input.index,
                         try? await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
                     )
@@ -818,6 +870,11 @@ final class AudioViewModel: ObservableObject {
             }
 
             while let (index, file) = await group.next() {
+                if Task.isCancelled {
+                    group.cancelAll()
+                    break
+                }
+
                 if let file {
                     completedByIndex[index] = file
                     loadedByIndex.append((index, file))
@@ -834,7 +891,7 @@ final class AudioViewModel: ObservableObject {
                                 now - lastFlushTime >= minimumFlushInterval
                             )
 
-                        if shouldFlush, let onBatchLoaded {
+                        if shouldFlush, let onBatchLoaded, !Task.isCancelled {
                             await onBatchLoaded(pendingBatch)
                             pendingBatch.removeAll(keepingCapacity: true)
                             lastFlushTime = now
@@ -843,11 +900,16 @@ final class AudioViewModel: ObservableObject {
                 }
 
                 guard nextInputIndex < inputs.count else { continue }
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    break
+                }
                 let input = inputs[nextInputIndex]
                 nextInputIndex += 1
 
                 group.addTask {
-                    (
+                    guard !Task.isCancelled else { return (input.index, nil) }
+                    return (
                         input.index,
                         try? await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
                     )
@@ -855,7 +917,7 @@ final class AudioViewModel: ObservableObject {
             }
         }
 
-        if !pendingBatch.isEmpty, let onBatchLoaded {
+        if !pendingBatch.isEmpty, let onBatchLoaded, !Task.isCancelled {
             await onBatchLoaded(pendingBatch)
         }
 

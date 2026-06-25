@@ -105,7 +105,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 
     nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
         let metadata = MetadataPipelineSupport.makeTagLibMetadata(from: edit, url: url)
-        MetadataPipelineSupport.logMetadataWrite(metadata, edit: edit, url: url)
 
         let writeResult = try TagLibMetadataManager.writeTagMetadata(
             metadata,
@@ -728,46 +727,6 @@ private enum MetadataPipelineSupport {
         return metadata
     }
 
-    nonisolated static func logMetadataWrite(
-        _ metadata: TagLibAudioMetadata,
-        edit: MetadataEditPayload,
-        url: URL
-    ) {
-        print("""
-        [AudioMator] Will write metadata for \(url.lastPathComponent)
-          title       = \(metadata.title ?? "<nil>")
-          artist      = \(metadata.artist ?? "<nil>")
-          album       = \(metadata.album ?? "<nil>")
-          composer    = \(metadata.composer ?? "<nil>")
-          genre       = \(metadata.genre ?? "<nil>")
-          comment     = \(metadata.comment ?? "<nil>")
-          albumArtist = \(metadata.albumArtist ?? "<nil>")
-          releaseDate = \(metadata.releaseDate ?? "<nil>")
-          publisher   = \(metadata.label ?? "<nil>")
-          isrc        = \(metadata.isrc ?? "<nil>")
-          barcode     = \(metadata.barcode ?? "<nil>")
-          itAlbumID   = \(metadata.itunesAlbumId ?? "<nil>")
-          itArtistID  = \(metadata.itunesArtistId ?? "<nil>")
-          itCatalogID = \(metadata.itunesCatalogId ?? "<nil>")
-          mbAlbumID   = \(metadata.musicBrainzAlbumId ?? "<nil>")
-          mbTrackID   = \(metadata.musicBrainzTrackId ?? "<nil>")
-          mbRGID      = \(metadata.musicBrainzReleaseGroupId ?? "<nil>")
-          lyricist    = \(metadata.lyricist ?? "<nil>")
-          remixer     = \(metadata.remixer ?? "<nil>")
-          producer    = \(metadata.producer ?? "<nil>")
-          engineer    = \(metadata.engineer ?? "<nil>")
-          language    = \(metadata.language ?? "<nil>")
-          mediaType   = \(metadata.mediaType ?? "<nil>")
-          releaseType = \(metadata.releaseType ?? "<nil>")
-          catalogNo   = \(metadata.catalogNumber ?? "<nil>")
-          relCountry  = \(metadata.releaseCountry ?? "<nil>")
-          copyright   = \(metadata.copyright ?? "<nil>")
-          explicit    = \(metadata.explicitContent ? "YES" : "NO")
-          year        = \(metadata.year ?? "<nil>")
-          trackText   = \(edit.trackNumberText.isEmpty ? "<empty>" : edit.trackNumberText)
-          discText    = \(edit.discNumberText.isEmpty ? "<empty>" : edit.discNumberText)
-        """)
-    }
 }
 
 private struct LegacyTagComparisonField {

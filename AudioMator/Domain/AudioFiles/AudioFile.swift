@@ -71,6 +71,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     // MARK: – Artwork
     let artwork: PlatformImage?
     let artworkFingerprint: Int?
+    let fileFingerprint: AudioFileFingerprint?
 
     // Stable content fingerprint for middle-list row refresh decisions.
     var middleListContentFingerprint: Int {
@@ -112,6 +113,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         hasher.combine(sampleRate)
         hasher.combine(channels)
         hasher.combine(format)
+        hasher.combine(fileFingerprint)
         return hasher.finalize()
     }
 
@@ -161,7 +163,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         channels: Int,
         format: String,
         artwork: PlatformImage?,
-        artworkFingerprint: Int?
+        artworkFingerprint: Int?,
+        fileFingerprint: AudioFileFingerprint? = nil
     ) {
         self.id = id
         self.url = url
@@ -209,6 +212,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.format = format
         self.artwork = artwork
         self.artworkFingerprint = artworkFingerprint
+        self.fileFingerprint = fileFingerprint
     }
 
     func withUpdatedURL(_ url: URL) -> AudioFile {
@@ -258,7 +262,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             channels: channels,
             format: format,
             artwork: artwork,
-            artworkFingerprint: artworkFingerprint
+            artworkFingerprint: artworkFingerprint,
+            fileFingerprint: try? AudioFileFingerprint.capture(at: url)
         )
     }
 
@@ -316,7 +321,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             channels: channels,
             format: format,
             artwork: artwork,
-            artworkFingerprint: artworkFingerprint
+            artworkFingerprint: artworkFingerprint,
+            fileFingerprint: try? AudioFileFingerprint.capture(at: url)
         )
     }
 
@@ -580,5 +586,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             self.artwork = nil
             self.artworkFingerprint = nil
         }
+
+        self.fileFingerprint = try? AudioFileFingerprint.capture(at: url)
     }
 }

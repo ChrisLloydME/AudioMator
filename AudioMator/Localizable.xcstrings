@@ -5196,6 +5196,9 @@
     "First row is header" : {
 
     },
+    "Folder monitoring degraded" : {
+
+    },
     "Format" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:71, AudioMator/Domain/AudioFiles/AudioFile.swift:556, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:232, AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:3.",
       "localizations" : {
@@ -8637,6 +8640,9 @@
     "Official Only" : {
 
     },
+    "OK" : {
+
+    },
     "Online Album Artwork" : {
       "comment" : "Screen, sheet, section, or navigation title. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/Main/Views/AlbumArtworkLookupSheet.swift:50, AudioMator/Features/iPad/Views/IPadInspectorView.swift:53.",
       "localizations" : {
@@ -10431,6 +10437,9 @@
           }
         }
       }
+    },
+    "Rename Failed" : {
+
     },
     "Rename template" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:37.",
@@ -13796,6 +13805,9 @@
       }
     },
     "Warn Before Discarding Inspector Edits" : {
+
+    },
+    "Warnings" : {
 
     },
     "Watched Folders" : {

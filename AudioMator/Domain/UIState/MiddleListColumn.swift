@@ -117,7 +117,7 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
         case .credits:
             return file.credits
         case .explicit:
-            return file.isExplicit ? "Yes" : "No"
+            return file.contentAdvisory?.displayName ?? ""
         case .duration:
             return formatDuration(file.duration)
         case .bitrate:
@@ -178,7 +178,7 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
         case .credits:
             return compareText(lhs.credits, rhs.credits)
         case .explicit:
-            return compareBool(lhs.isExplicit, rhs.isExplicit)
+            return compareInt(lhs.contentAdvisory?.rawValue ?? -1, rhs.contentAdvisory?.rawValue ?? -1)
         case .duration:
             return compareDouble(lhs.duration, rhs.duration)
         case .bitrate:
@@ -401,7 +401,7 @@ enum IPadLeftListMetadataField: String, CaseIterable, Identifiable {
         case .credits:
             text = file.credits
         case .explicit:
-            text = file.isExplicit ? "Explicit" : ""
+            text = file.contentAdvisory?.displayName ?? ""
         case .duration:
             text = file.duration > 0 ? formatDuration(file.duration) : ""
         case .bitrate:

@@ -401,6 +401,39 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack.trackNumberText, "7")
     }
 
+    func testInspectorStyleAdvisoryWriteDoesNotReplaceTheWholePropertyMap() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var edit = SingleFileEditModel()
+        edit.title = "Advisory Regression Title"
+        edit.artist = "Advisory Regression Artist"
+        edit.album = "Advisory Regression Album"
+        edit.albumArtist = "Advisory Regression Album Artist"
+        edit.genre = "Regression"
+        edit.comment = "Advisory should not erase sibling metadata"
+        edit.contentAdvisory = .clean
+
+        let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL).warnings
+        XCTAssertFalse(warnings.contains { $0.contains("Could not write iTunes advisory") }, warnings.joined(separator: "\n"))
+
+        let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+        XCTAssertEqual(readBack.title, edit.title)
+        XCTAssertEqual(readBack.artist, edit.artist)
+        XCTAssertEqual(readBack.album, edit.album)
+        XCTAssertEqual(readBack.albumArtist, edit.albumArtist)
+        XCTAssertEqual(readBack.genre, edit.genre)
+        XCTAssertEqual(readBack.comment, edit.comment)
+
+        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(rawMap["ITUNESADVISORY"], "2")
+        XCTAssertEqual(rawMap["TITLE"], edit.title)
+        XCTAssertEqual(rawMap["ARTIST"], edit.artist)
+        XCTAssertEqual(rawMap["ALBUM"], edit.album)
+    }
+
     func testInspectorStyleMetadataWriteClearsEditableTextFields() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)

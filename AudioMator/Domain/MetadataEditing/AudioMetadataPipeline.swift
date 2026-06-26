@@ -42,7 +42,8 @@ struct MetadataEditPayload: Sendable {
     var catalogNumber: String
     var releaseCountry: String
     var copyright: String
-    var isExplicit: Bool
+    var contentAdvisory: ContentAdvisory?
+    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
     var artwork: MetadataArtworkChange
 }
 
@@ -139,6 +140,10 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         )
 
         var warnings = writeResult.warnings
+        warnings.append(contentsOf: MetadataPipelineSupport.writeContentAdvisory(
+            edit.contentAdvisory,
+            to: url
+        ))
         let clearedKeys = MetadataPipelineSupport.clearedPropertyMapKeys(from: edit)
         if !clearedKeys.isEmpty {
             warnings.append(contentsOf: MetadataPipelineSupport.cleanupRemovedPropertyMapKeys(
@@ -508,6 +513,33 @@ private enum MetadataPipelineSupport {
                 result[key] = [value]
             }
         }
+    }
+
+    nonisolated static func writeContentAdvisory(
+        _ advisory: ContentAdvisory?,
+        to url: URL
+    ) -> [String] {
+        let key = "ITUNESADVISORY"
+        var warnings: [String] = []
+
+        do {
+            let writeResult = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
+                [key: advisory.map { String($0.rawValue) } ?? ""],
+                to: url,
+                mode: .merge,
+                verifyAfterWrite: false
+            )
+            warnings.append(contentsOf: writeResult.warnings)
+        } catch {
+            warnings.append("Could not write iTunes advisory metadata after save: \((error as NSError).localizedDescription)")
+        }
+
+        if advisory == nil {
+            warnings.append(contentsOf: removeMP4Atoms(matching: propertyMapKeyAliases(key), from: url))
+            warnings.append(contentsOf: rawPropertyRemovalWarnings(removedKeys: propertyMapKeyAliases(key), for: url))
+        }
+
+        return warnings
     }
 
     nonisolated static func removedPropertyMapKeys(

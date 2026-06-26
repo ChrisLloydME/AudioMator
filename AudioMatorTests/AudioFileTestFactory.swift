@@ -20,6 +20,7 @@ enum AudioFileTestFactory {
         year: String = "",
         albumArtist: String = "",
         releaseDate: String = "",
+        contentAdvisory: ContentAdvisory? = nil,
         fileFingerprint: AudioFileFingerprint? = nil
     ) -> AudioFile {
         AudioFile(
@@ -61,7 +62,7 @@ enum AudioFileTestFactory {
             releaseType: "",
             catalogNumber: "",
             releaseCountry: "",
-            isExplicit: false,
+            contentAdvisory: contentAdvisory,
             duration: 0,
             bitrate: 0,
             sampleRate: 0,

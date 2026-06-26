@@ -59,7 +59,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let releaseType: String
     let catalogNumber: String
     let releaseCountry: String
-    let isExplicit: Bool
+    let contentAdvisory: ContentAdvisory?
+    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
 
     // MARK: – Technical
     let duration: Double
@@ -107,7 +108,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         hasher.combine(releaseType)
         hasher.combine(catalogNumber)
         hasher.combine(releaseCountry)
-        hasher.combine(isExplicit)
+        hasher.combine(contentAdvisory)
         hasher.combine(duration)
         hasher.combine(bitrate)
         hasher.combine(sampleRate)
@@ -156,7 +157,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         releaseType: String,
         catalogNumber: String,
         releaseCountry: String,
-        isExplicit: Bool,
+        contentAdvisory: ContentAdvisory?,
         duration: Double,
         bitrate: Int,
         sampleRate: Double,
@@ -204,7 +205,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.releaseType = releaseType
         self.catalogNumber = catalogNumber
         self.releaseCountry = releaseCountry
-        self.isExplicit = isExplicit
+        self.contentAdvisory = contentAdvisory
         self.duration = duration
         self.bitrate = bitrate
         self.sampleRate = sampleRate
@@ -255,7 +256,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             releaseType: releaseType,
             catalogNumber: catalogNumber,
             releaseCountry: releaseCountry,
-            isExplicit: isExplicit,
+            contentAdvisory: contentAdvisory,
             duration: duration,
             bitrate: bitrate,
             sampleRate: sampleRate,
@@ -314,7 +315,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             releaseType: releaseType,
             catalogNumber: catalogNumber,
             releaseCountry: releaseCountry,
-            isExplicit: isExplicit,
+            contentAdvisory: contentAdvisory,
             duration: duration,
             bitrate: bitrate,
             sampleRate: sampleRate,
@@ -434,6 +435,62 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         return nil
     }
 
+    private static func contentAdvisory(from url: URL, fallbackExplicit: Bool) -> ContentAdvisory? {
+        guard let dump = try? TagLibMetadataManager.rawMetadataResult(from: url) else {
+            return fallbackExplicit ? .explicit : nil
+        }
+
+        for property in dump.properties {
+            let key = property.key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let values = property.values.isEmpty ? [property.value] : property.values
+            for value in values {
+                if let advisory = contentAdvisory(rawValue: value, key: key) {
+                    return advisory
+                }
+            }
+        }
+
+        for frame in dump.id3v2Frames {
+            let frameID = frame.frameID.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let description = frame.description?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
+            guard frameID == "TXXX", description == "ITUNESADVISORY" || description == "EXPLICIT" else { continue }
+            if let advisory = contentAdvisory(rawValue: frame.value, key: "ITUNESADVISORY") {
+                return advisory
+            }
+        }
+
+        return fallbackExplicit ? .explicit : nil
+    }
+
+    private static func contentAdvisory(rawValue: String, key: String) -> ContentAdvisory? {
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+
+        if key == "RTNG" {
+            switch normalized {
+            case "0", "none", "not explicit", "notexplicit":
+                return .notExplicit
+            case "2", "clean":
+                return .clean
+            case "4", "explicit", "1", "true", "yes":
+                return .explicit
+            default:
+                return nil
+            }
+        }
+
+        switch normalized {
+        case "0", "none", "not explicit", "notexplicit", "false", "no":
+            return .notExplicit
+        case "1", "explicit", "true", "yes":
+            return .explicit
+        case "2", "clean":
+            return .clean
+        default:
+            return nil
+        }
+    }
+
     init(url: URL, id: UUID = UUID()) async throws {
         self.id = id
         self.url = url
@@ -488,7 +545,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.releaseType = tag.releaseType
         self.catalogNumber = tag.catalogNumber
         self.releaseCountry = tag.releaseCountry
-        self.isExplicit  = tag.isExplicit
+        self.contentAdvisory = AudioFile.contentAdvisory(from: url, fallbackExplicit: tag.isExplicit)
 
         let asset = AVURLAsset(url: url)
 

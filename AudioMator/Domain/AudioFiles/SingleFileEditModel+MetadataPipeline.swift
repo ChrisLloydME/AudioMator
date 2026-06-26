@@ -36,7 +36,7 @@ extension MetadataEditPayload {
         self.catalogNumber = edit.catalogNumber
         self.releaseCountry = edit.releaseCountry
         self.copyright = edit.copyright
-        self.isExplicit = edit.isExplicit
+        self.contentAdvisory = edit.contentAdvisory
 
         switch edit.artworkEditAction {
         case .unchanged:

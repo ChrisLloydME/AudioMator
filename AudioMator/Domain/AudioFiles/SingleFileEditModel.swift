@@ -12,6 +12,38 @@ enum ArtworkEditAction {
     case remove
 }
 
+enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
+    case notExplicit = 0
+    case explicit = 1
+    case clean = 2
+
+    var id: Int { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .notExplicit:
+            return L10n.string("Not Explicit")
+        case .explicit:
+            return L10n.string("Explicit")
+        case .clean:
+            return L10n.string("Clean")
+        }
+    }
+
+    var currentValueDescription: String {
+        switch self {
+        case .notExplicit:
+            return L10n.string("Current value: Not Explicit")
+        case .explicit:
+            return L10n.string("Current value: Explicit")
+        case .clean:
+            return L10n.string("Current value: Clean")
+        }
+    }
+
+    var isExplicit: Bool { self == .explicit }
+}
+
 struct SingleFileEditModel {
     var title: String
     var artist: String
@@ -47,8 +79,13 @@ struct SingleFileEditModel {
     var catalogNumber: String
     var releaseCountry: String
     var copyright: String
-    var isExplicit: Bool
+    var contentAdvisory: ContentAdvisory?
     var artworkEditAction: ArtworkEditAction
+
+    var isExplicit: Bool {
+        get { contentAdvisory?.isExplicit ?? false }
+        set { contentAdvisory = newValue ? .explicit : .notExplicit }
+    }
 
     init(
         title: String = "",
@@ -85,7 +122,7 @@ struct SingleFileEditModel {
         catalogNumber: String = "",
         releaseCountry: String = "",
         copyright: String = "",
-        isExplicit: Bool = false,
+        contentAdvisory: ContentAdvisory? = nil,
         artworkEditAction: ArtworkEditAction = .unchanged
     ) {
         self.title = title
@@ -122,7 +159,7 @@ struct SingleFileEditModel {
         self.catalogNumber = catalogNumber
         self.releaseCountry = releaseCountry
         self.copyright = copyright
-        self.isExplicit = isExplicit
+        self.contentAdvisory = contentAdvisory
         self.artworkEditAction = artworkEditAction
     }
 
@@ -162,7 +199,7 @@ struct SingleFileEditModel {
             catalogNumber: file.catalogNumber,
             releaseCountry: file.releaseCountry,
             copyright: file.copyright,
-            isExplicit: file.isExplicit
+            contentAdvisory: file.contentAdvisory
         )
     }
 
@@ -204,7 +241,7 @@ struct SingleFileEditModel {
             catalogNumber != baseline.catalogNumber ||
             releaseCountry != baseline.releaseCountry ||
             copyright != baseline.copyright ||
-            isExplicit != baseline.isExplicit
+            contentAdvisory != baseline.contentAdvisory
 
         switch artworkEditAction {
         case .unchanged:
@@ -435,12 +472,31 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
     }
 }
 
-enum MultiFileExplicitEditState: String, CaseIterable, Identifiable {
+enum MultiFileExplicitEditState: Hashable, Identifiable {
     case keepExisting
-    case markExplicit
-    case markClean
+    case set(ContentAdvisory?)
 
-    var id: String { rawValue }
+    var id: String {
+        switch self {
+        case .keepExisting:
+            return "keepExisting"
+        case .set(.none):
+            return "unset"
+        case .set(.some(let advisory)):
+            return "set-\(advisory.rawValue)"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .keepExisting:
+            return L10n.string("Keep Existing")
+        case .set(.none):
+            return L10n.string("Unset")
+        case .set(.some(let advisory)):
+            return advisory.displayName
+        }
+    }
 }
 
 enum MultiFileArtworkState {
@@ -453,7 +509,7 @@ struct MultiFileEditModel {
     var values: SingleFileEditModel
     private(set) var modifiedTextFields: Set<MultiFileEditableTextField>
     let mixedTextFields: Set<MultiFileEditableTextField>
-    let initialExplicitValue: Bool?
+    let initialContentAdvisory: ContentAdvisory??
     let initialArtworkState: MultiFileArtworkState
     var explicitEditState: MultiFileExplicitEditState
     var artworkEditAction: ArtworkEditAction
@@ -478,17 +534,19 @@ struct MultiFileEditModel {
             }
         }
 
-        let initialExplicitValue: Bool?
-        if let first = files.first?.isExplicit, files.dropFirst().allSatisfy({ $0.isExplicit == first }) {
-            initialExplicitValue = first
+        let initialContentAdvisory: ContentAdvisory??
+        if let first = files.first?.contentAdvisory, files.dropFirst().allSatisfy({ $0.contentAdvisory == first }) {
+            initialContentAdvisory = .some(first)
+        } else if files.allSatisfy({ $0.contentAdvisory == nil }) {
+            initialContentAdvisory = .some(nil)
         } else {
-            initialExplicitValue = nil
+            initialContentAdvisory = nil
         }
 
         self.values = values
         self.modifiedTextFields = []
         self.mixedTextFields = mixedTextFields
-        self.initialExplicitValue = initialExplicitValue
+        self.initialContentAdvisory = initialContentAdvisory
         self.initialArtworkState = MultiFileEditModel.resolveArtworkState(for: files)
         self.explicitEditState = .keepExisting
         self.artworkEditAction = .unchanged
@@ -508,11 +566,11 @@ struct MultiFileEditModel {
     }
 
     var explicitCurrentValueDescription: String {
-        switch initialExplicitValue {
-        case .some(true):
-            return L10n.string("Current value: Explicit")
-        case .some(false):
-            return L10n.string("Current value: Clean")
+        switch initialContentAdvisory {
+        case .some(.some(let advisory)):
+            return advisory.currentValueDescription
+        case .some(.none):
+            return L10n.string("Current value: Unset")
         case .none:
             return L10n.string("Current values differ")
         }
@@ -614,10 +672,8 @@ struct MultiFileEditModel {
         switch explicitEditState {
         case .keepExisting:
             break
-        case .markExplicit:
-            result.isExplicit = true
-        case .markClean:
-            result.isExplicit = false
+        case .set(let advisory):
+            result.contentAdvisory = advisory
         }
 
         result.artworkEditAction = artworkEditAction

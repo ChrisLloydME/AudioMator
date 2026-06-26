@@ -81,6 +81,24 @@ struct InspectorPane: View {
         )
     }
 
+    private func contentAdvisoryBinding(for file: AudioFile) -> Binding<ContentAdvisory?> {
+        Binding<ContentAdvisory?>(
+            get: {
+                viewModel.edit?.contentAdvisory ?? file.contentAdvisory
+            },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current.contentAdvisory = newValue
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model.contentAdvisory = newValue
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
+
     private func trackNumberFieldBinding(for file: AudioFile) -> Binding<String> {
         Binding(
             get: { viewModel.edit?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText },
@@ -710,7 +728,7 @@ struct InspectorPane: View {
         case .copyright:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.copyright))
         case .explicit:
-            explicitRow(label: field.displayName, isOn: boolBinding(for: file, keyPath: \.isExplicit))
+            explicitRow(label: field.displayName, selection: contentAdvisoryBinding(for: file))
         case .credits:
             metadataRow(label: field.displayName, value: file.credits)
         }
@@ -917,9 +935,11 @@ struct InspectorPane: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Picker("", selection: selection) {
-                    Text("Leave As Is").tag(MultiFileExplicitEditState.keepExisting)
-                    Text("Mark Explicit").tag(MultiFileExplicitEditState.markExplicit)
-                    Text("Mark Clean").tag(MultiFileExplicitEditState.markClean)
+                    Text(MultiFileExplicitEditState.keepExisting.displayName).tag(MultiFileExplicitEditState.keepExisting)
+                    Text(L10n.string("Unset")).tag(MultiFileExplicitEditState.set(nil))
+                    Text(ContentAdvisory.notExplicit.displayName).tag(MultiFileExplicitEditState.set(.notExplicit))
+                    Text(ContentAdvisory.explicit.displayName).tag(MultiFileExplicitEditState.set(.explicit))
+                    Text(ContentAdvisory.clean.displayName).tag(MultiFileExplicitEditState.set(.clean))
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
@@ -933,13 +953,19 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
-    private func explicitRow(label: String, isOn: Binding<Bool>) -> some View {
+    private func explicitRow(label: String, selection: Binding<ContentAdvisory?>) -> some View {
         HStack {
             Text(label)
                 .font(.headline)
             Spacer()
-            Toggle("", isOn: isOn)
-                .toggleStyle(.switch)
+            Picker("", selection: selection) {
+                Text(L10n.string("Unset")).tag(nil as ContentAdvisory?)
+                Text(ContentAdvisory.notExplicit.displayName).tag(ContentAdvisory.notExplicit as ContentAdvisory?)
+                Text(ContentAdvisory.explicit.displayName).tag(ContentAdvisory.explicit as ContentAdvisory?)
+                Text(ContentAdvisory.clean.displayName).tag(ContentAdvisory.clean as ContentAdvisory?)
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
         }
         .padding(.vertical, inspectorRowVerticalPadding)
     }

@@ -5932,6 +5932,7 @@
     },
     "Leave As Is" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:920.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6399,6 +6400,7 @@
     },
     "Mark Clean" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:922.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6440,6 +6442,7 @@
     },
     "Mark Explicit" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:921.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -142,7 +142,13 @@ struct IPadInspectorView: View {
             Section("Publishing") {
                 fieldRow("Publisher", text: binding(for: file, keyPath: \.publisher))
                 fieldRow("Copyright", text: binding(for: file, keyPath: \.copyright))
-                Toggle("Explicit", isOn: boolBinding(for: file, keyPath: \.isExplicit))
+                Picker("Explicit", selection: contentAdvisoryBinding(for: file)) {
+                    Text("Unset").tag(nil as ContentAdvisory?)
+                    Text(ContentAdvisory.notExplicit.displayName).tag(ContentAdvisory.notExplicit as ContentAdvisory?)
+                    Text(ContentAdvisory.explicit.displayName).tag(ContentAdvisory.explicit as ContentAdvisory?)
+                    Text(ContentAdvisory.clean.displayName).tag(ContentAdvisory.clean as ContentAdvisory?)
+                }
+                .pickerStyle(.menu)
             }
 
             Section("Comment") {
@@ -207,9 +213,11 @@ struct IPadInspectorView: View {
                 multiFieldRow("Publisher", field: .publisher)
                 multiFieldRow("Copyright", field: .copyright)
                 Picker("Explicit", selection: multiExplicitBinding) {
-                    Text("Keep Existing").tag(MultiFileExplicitEditState.keepExisting)
-                    Text("Explicit").tag(MultiFileExplicitEditState.markExplicit)
-                    Text("Clean").tag(MultiFileExplicitEditState.markClean)
+                    Text(MultiFileExplicitEditState.keepExisting.displayName).tag(MultiFileExplicitEditState.keepExisting)
+                    Text("Unset").tag(MultiFileExplicitEditState.set(nil))
+                    Text(ContentAdvisory.notExplicit.displayName).tag(MultiFileExplicitEditState.set(.notExplicit))
+                    Text(ContentAdvisory.explicit.displayName).tag(MultiFileExplicitEditState.set(.explicit))
+                    Text(ContentAdvisory.clean.displayName).tag(MultiFileExplicitEditState.set(.clean))
                 }
                 .pickerStyle(.menu)
 
@@ -304,6 +312,22 @@ private extension IPadInspectorView {
                 } else {
                     var model = SingleFileEditModel(from: file)
                     model[keyPath: keyPath] = newValue
+                    viewModel.edit = model
+                }
+            }
+        )
+    }
+
+    func contentAdvisoryBinding(for file: AudioFile) -> Binding<ContentAdvisory?> {
+        Binding(
+            get: { viewModel.edit?.contentAdvisory ?? file.contentAdvisory },
+            set: { newValue in
+                if var current = viewModel.edit {
+                    current.contentAdvisory = newValue
+                    viewModel.edit = current
+                } else {
+                    var model = SingleFileEditModel(from: file)
+                    model.contentAdvisory = newValue
                     viewModel.edit = model
                 }
             }

@@ -206,6 +206,37 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testTrackNumberOnlyWriteDoesNotWarnWhenExistingTotalIsPreserved() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.mp3")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+
+        _ = try pipeline.writeTrackNumberText(
+            "01/12",
+            discNumberText: nil,
+            to: workingURL,
+            verifyAfterWrite: true
+        )
+
+        let result = try pipeline.writeTrackNumberText(
+            "07",
+            discNumberText: nil,
+            to: workingURL,
+            verifyAfterWrite: true
+        )
+
+        XCTAssertFalse(
+            result.warnings.contains { $0.contains("Track number") },
+            result.warnings.joined(separator: "\n")
+        )
+
+        let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+        XCTAssertEqual(readBack.track, 7)
+        XCTAssertEqual(readBack.trackTotal, 12)
+    }
+
     func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
 

@@ -18,6 +18,7 @@ struct AudioMatorApp: App {
     private let metadataPipeline: any AudioMetadataPipeline
     @StateObject private var viewModel: AudioViewModel
     @StateObject private var sharedState: SharedState
+    @StateObject private var saveIssueLogStore: SaveIssueLogStore
     @StateObject private var musicBrainzBrowserStore: MusicBrainzBrowserStore
     @StateObject private var lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore
     @StateObject private var metadataFilenameToolStore: MetadataFilenameToolStore
@@ -25,11 +26,16 @@ struct AudioMatorApp: App {
 
     init() {
         let metadataPipeline = TagLibAudioMetadataPipeline()
+        let saveIssueLogStore = SaveIssueLogStore()
         self.metadataPipeline = metadataPipeline
         _viewModel = StateObject(
-            wrappedValue: AudioViewModel(metadataPipeline: metadataPipeline)
+            wrappedValue: AudioViewModel(
+                metadataPipeline: metadataPipeline,
+                saveIssueLogStore: saveIssueLogStore
+            )
         )
         _sharedState = StateObject(wrappedValue: SharedState())
+        _saveIssueLogStore = StateObject(wrappedValue: saveIssueLogStore)
         _musicBrainzBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
         _lrclibLyricsBrowserStore = StateObject(wrappedValue: LRCLIBLyricsBrowserStore())
         _metadataFilenameToolStore = StateObject(wrappedValue: MetadataFilenameToolStore())
@@ -69,7 +75,7 @@ struct AudioMatorApp: App {
         .defaultSize(width: 900, height: 600)
 
         Settings {
-            SettingsView(sharedState: sharedState)
+            SettingsView(sharedState: sharedState, saveIssueLogStore: saveIssueLogStore)
                 .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 700, height: 480)

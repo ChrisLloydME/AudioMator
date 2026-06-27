@@ -36,7 +36,21 @@ struct InspectorPane: View {
     }
 
     private var selectedFiles: [AudioFile] {
-        viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
+    }
+
+    private func currentEdit(for file: AudioFile) -> SingleFileEditModel? {
+        viewModel.editSourceFileID == file.id ? viewModel.edit : nil
+    }
+
+    private func updateEdit(
+        for file: AudioFile,
+        mutate: (inout SingleFileEditModel) -> Void
+    ) {
+        var model = currentEdit(for: file) ?? SingleFileEditModel(from: file)
+        mutate(&model)
+        viewModel.edit = model
+        viewModel.editSourceFileID = file.id
     }
 
     private func binding(
@@ -45,17 +59,10 @@ struct InspectorPane: View {
     ) -> Binding<String> {
         Binding<String>(
             get: {
-                viewModel.edit?[keyPath: keyPath] ?? ""
+                currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
             },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current[keyPath: keyPath] = newValue
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model[keyPath: keyPath] = newValue
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0[keyPath: keyPath] = newValue }
             }
         )
     }
@@ -66,99 +73,60 @@ struct InspectorPane: View {
     ) -> Binding<Bool> {
         Binding<Bool>(
             get: {
-                viewModel.edit?[keyPath: keyPath] ?? false
+                currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
             },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current[keyPath: keyPath] = newValue
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model[keyPath: keyPath] = newValue
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0[keyPath: keyPath] = newValue }
             }
         )
     }
 
-    private func contentAdvisoryBinding(for file: AudioFile) -> Binding<ContentAdvisory?> {
-        Binding<ContentAdvisory?>(
+    private func explicitSelectionBinding(for file: AudioFile) -> Binding<ExplicitInspectorSelection> {
+        Binding<ExplicitInspectorSelection>(
             get: {
-                viewModel.edit?.contentAdvisory ?? file.contentAdvisory
+                if let edit = currentEdit(for: file) {
+                    return ExplicitInspectorSelection(contentAdvisory: edit.contentAdvisory)
+                }
+                return ExplicitInspectorSelection(contentAdvisory: file.contentAdvisory)
             },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current.contentAdvisory = newValue
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model.contentAdvisory = newValue
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0.contentAdvisory = newValue.contentAdvisory }
             }
         )
     }
 
     private func trackNumberFieldBinding(for file: AudioFile) -> Binding<String> {
         Binding(
-            get: { viewModel.edit?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText },
+            get: { currentEdit(for: file)?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current.setTrackNumberFieldText(newValue)
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model.setTrackNumberFieldText(newValue)
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0.setTrackNumberFieldText(newValue) }
             }
         )
     }
 
     private func trackTotalFieldBinding(for file: AudioFile) -> Binding<String> {
         Binding(
-            get: { viewModel.edit?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText },
+            get: { currentEdit(for: file)?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current.setTrackTotalFieldText(newValue)
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model.setTrackTotalFieldText(newValue)
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0.setTrackTotalFieldText(newValue) }
             }
         )
     }
 
     private func discNumberFieldBinding(for file: AudioFile) -> Binding<String> {
         Binding(
-            get: { viewModel.edit?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText },
+            get: { currentEdit(for: file)?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current.setDiscNumberFieldText(newValue)
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model.setDiscNumberFieldText(newValue)
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0.setDiscNumberFieldText(newValue) }
             }
         )
     }
 
     private func discTotalFieldBinding(for file: AudioFile) -> Binding<String> {
         Binding(
-            get: { viewModel.edit?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText },
+            get: { currentEdit(for: file)?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText },
             set: { newValue in
-                if var current = viewModel.edit {
-                    current.setDiscTotalFieldText(newValue)
-                    viewModel.edit = current
-                } else {
-                    var model = SingleFileEditModel(from: file)
-                    model.setDiscTotalFieldText(newValue)
-                    viewModel.edit = model
-                }
+                updateEdit(for: file) { $0.setDiscTotalFieldText(newValue) }
             }
         )
     }
@@ -190,7 +158,7 @@ struct InspectorPane: View {
     }
 
     private func displayedArtwork(for file: AudioFile) -> PlatformImage? {
-        switch viewModel.edit?.artworkEditAction ?? .unchanged {
+        switch currentEdit(for: file)?.artworkEditAction ?? .unchanged {
         case .unchanged:
             return file.artwork
         case .replace(let artwork):
@@ -728,7 +696,11 @@ struct InspectorPane: View {
         case .copyright:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.copyright))
         case .explicit:
-            explicitRow(label: field.displayName, selection: contentAdvisoryBinding(for: file))
+            explicitRow(
+                label: field.displayName,
+                selection: explicitSelectionBinding(for: file),
+                identity: file.id
+            )
         case .credits:
             metadataRow(label: field.displayName, value: file.credits)
         }
@@ -933,16 +905,21 @@ struct InspectorPane: View {
             Text(label)
                 .font(.headline)
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Picker("", selection: selection) {
-                    Text(MultiFileExplicitEditState.keepExisting.displayName).tag(MultiFileExplicitEditState.keepExisting)
-                    Text(L10n.string("Unset")).tag(MultiFileExplicitEditState.set(nil))
-                    Text(ContentAdvisory.notExplicit.displayName).tag(MultiFileExplicitEditState.set(.notExplicit))
-                    Text(ContentAdvisory.explicit.displayName).tag(MultiFileExplicitEditState.set(.explicit))
-                    Text(ContentAdvisory.clean.displayName).tag(MultiFileExplicitEditState.set(.clean))
+                    Text(keepExistingExplicitDisplayName(currentValueDescription))
+                        .tag(MultiFileExplicitEditState.keepExisting)
+                    Text(L10n.string("Unset"))
+                        .tag(MultiFileExplicitEditState.set(nil))
+                    ForEach(ContentAdvisory.inspectorSelectionOrder) { advisory in
+                        Text(advisory.displayName)
+                            .tag(MultiFileExplicitEditState.set(advisory))
+                    }
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
+                .frame(minWidth: 120, alignment: .trailing)
+                .id("multi-explicit-\(selection.wrappedValue.id)-\(currentValueDescription)")
 
                 Text(currentValueDescription)
                     .font(.caption)
@@ -952,20 +929,36 @@ struct InspectorPane: View {
         .padding(.vertical, inspectorRowVerticalPadding)
     }
 
+    private func keepExistingExplicitDisplayName(_ currentValueDescription: String) -> String {
+        for advisory in ContentAdvisory.allCases where currentValueDescription == advisory.currentValueDescription {
+            return advisory.displayName
+        }
+        if currentValueDescription == L10n.string("Current value: Unset") {
+            return L10n.string("Unset")
+        }
+        return currentValueDescription
+    }
+
     @ViewBuilder
-    private func explicitRow(label: String, selection: Binding<ContentAdvisory?>) -> some View {
+    private func explicitRow(
+        label: String,
+        selection: Binding<ExplicitInspectorSelection>,
+        identity: AudioFile.ID
+    ) -> some View {
         HStack {
             Text(label)
                 .font(.headline)
             Spacer()
             Picker("", selection: selection) {
-                Text(L10n.string("Unset")).tag(nil as ContentAdvisory?)
-                Text(ContentAdvisory.notExplicit.displayName).tag(ContentAdvisory.notExplicit as ContentAdvisory?)
-                Text(ContentAdvisory.explicit.displayName).tag(ContentAdvisory.explicit as ContentAdvisory?)
-                Text(ContentAdvisory.clean.displayName).tag(ContentAdvisory.clean as ContentAdvisory?)
+                ForEach(ExplicitInspectorSelection.inspectorSelectionOrder) { option in
+                    Text(option.displayName)
+                        .tag(option)
+                }
             }
             .labelsHidden()
             .pickerStyle(.menu)
+            .frame(minWidth: 120, alignment: .trailing)
+            .id("explicit-\(identity)-\(selection.wrappedValue.id)")
         }
         .padding(.vertical, inspectorRowVerticalPadding)
     }

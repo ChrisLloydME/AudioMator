@@ -4,6 +4,54 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    func testExplicitInspectorSelectionOrderMatchesInspectorControl() {
+        XCTAssertEqual(
+            ExplicitInspectorSelection.inspectorSelectionOrder.map(\.displayName),
+            ["Unset", "Explicit", "Clean", "Not Explicit"]
+        )
+    }
+
+    func testExplicitInspectorSelectionRoundTripsAllFourStates() {
+        let cases: [(ContentAdvisory?, String)] = [
+            (nil, "Unset"),
+            (.explicit, "Explicit"),
+            (.clean, "Clean"),
+            (.notExplicit, "Not Explicit")
+        ]
+
+        for (advisory, displayName) in cases {
+            let selection = ExplicitInspectorSelection(contentAdvisory: advisory)
+            XCTAssertEqual(selection.contentAdvisory, advisory)
+            XCTAssertEqual(selection.displayName, displayName)
+        }
+    }
+
+    func testInspectorSelectionSyncPreservesAllExplicitStates() {
+        let cases: [ContentAdvisory?] = [nil, .explicit, .clean, .notExplicit]
+        let files = cases.enumerated().map { index, advisory in
+            AudioFileTestFactory.make(
+                id: UUID(),
+                url: URL(fileURLWithPath: "/tmp/\(index).m4a"),
+                title: "\(index)",
+                contentAdvisory: advisory
+            )
+        }
+        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        viewModel.mergeQuickImportFiles(files)
+
+        for file in files {
+            viewModel.selectedAudioIDs = [file.id]
+            viewModel.updateEditForSelection()
+
+            XCTAssertEqual(viewModel.editSourceFileID, file.id)
+            XCTAssertEqual(viewModel.edit?.contentAdvisory, file.contentAdvisory)
+            XCTAssertEqual(
+                ExplicitInspectorSelection(contentAdvisory: viewModel.edit?.contentAdvisory).displayName,
+                file.contentAdvisory?.displayName ?? "Unset"
+            )
+        }
+    }
+
     func testInspectorSelectionSyncCreatesSingleAndMultiEditModels() {
         let firstID = UUID()
         let secondID = UUID()
@@ -26,6 +74,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.updateEditForSelection()
 
         XCTAssertEqual(viewModel.edit?.title, "First")
+        XCTAssertEqual(viewModel.editSourceFileID, firstID)
         XCTAssertNil(viewModel.multiEdit)
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
 
@@ -36,6 +85,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.updateEditForSelection()
 
         XCTAssertNil(viewModel.edit)
+        XCTAssertNil(viewModel.editSourceFileID)
         XCTAssertEqual(viewModel.multiEdit?.text(for: .album), "Shared Album")
         XCTAssertEqual(viewModel.multiEdit?.text(for: .title), "")
         XCTAssertEqual(viewModel.multiEdit?.placeholder(for: .title), "Multiple Values")
@@ -47,6 +97,30 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.cancelEditing()
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
         XCTAssertEqual(viewModel.multiEdit?.text(for: .album), "Shared Album")
+    }
+
+    func testSaveInspectorEditsIgnoresStaleSingleFileEditSnapshot() async throws {
+        let firstID = UUID()
+        let secondID = UUID()
+        let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
+        let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
+        let first = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "First", contentAdvisory: .explicit)
+        let second = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Second", contentAdvisory: .notExplicit)
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([first, second])
+
+        viewModel.selectedAudioIDs = [firstID]
+        viewModel.updateEditForSelection()
+        XCTAssertEqual(viewModel.edit?.contentAdvisory, .explicit)
+        XCTAssertEqual(viewModel.editSourceFileID, firstID)
+
+        viewModel.selectedAudioIDs = [secondID]
+        viewModel.saveInspectorEdits()
+
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertEqual(viewModel.edit?.contentAdvisory, .notExplicit)
+        XCTAssertEqual(viewModel.editSourceFileID, secondID)
     }
 
     func testSaveInspectorEditsWritesSingleSelectionAndRefreshesEditModel() async throws {
@@ -426,7 +500,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                     .itunesAlbumID: "album-id",
                     .itunesArtistID: "artist-id",
                     .itunesCatalogID: "track-id",
-                    .isExplicit: "Yes"
+                    .isExplicit: ContentAdvisory.explicit.displayName
                 ]
             )
         ])
@@ -439,7 +513,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(payload.itunesAlbumID, "album-id")
         XCTAssertEqual(payload.itunesArtistID, "artist-id")
         XCTAssertEqual(payload.itunesCatalogID, "track-id")
-        XCTAssertTrue(payload.isExplicit)
+        XCTAssertEqual(payload.contentAdvisory, .explicit)
         XCTAssertNil(viewModel.metadataSaveProgress)
         XCTAssertEqual(viewModel.files.first?.title, "iTunes Title")
         XCTAssertEqual(viewModel.edit?.title, "iTunes Title")

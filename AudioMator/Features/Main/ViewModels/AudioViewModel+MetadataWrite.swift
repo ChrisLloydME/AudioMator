@@ -23,6 +23,11 @@ extension AudioViewModel {
             return
         }
 
+        guard editSourceFileID == id else {
+            updateEditForSelection()
+            return
+        }
+
         beginMetadataSaveProgress(
             title: "Saving Metadata",
             subtitle: file.url.lastPathComponent,

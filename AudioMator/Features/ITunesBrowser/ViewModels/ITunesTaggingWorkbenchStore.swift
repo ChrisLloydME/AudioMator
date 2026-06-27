@@ -95,7 +95,7 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .itunesAlbumID: return file.itunesAlbumID
         case .itunesArtistID: return file.itunesArtistID
         case .itunesCatalogID: return file.itunesCatalogID
-        case .isExplicit: return file.isExplicit ? "Yes" : "No"
+        case .isExplicit: return file.contentAdvisory?.displayName ?? L10n.string("Unset")
         }
     }
 
@@ -116,7 +116,7 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         case .itunesAlbumID: edit.itunesAlbumID = value
         case .itunesArtistID: edit.itunesArtistID = value
         case .itunesCatalogID: edit.itunesCatalogID = value
-        case .isExplicit: edit.isExplicit = value == "Yes"
+        case .isExplicit: edit.contentAdvisory = ContentAdvisory.fromDisplayName(value)
         }
     }
 }
@@ -407,7 +407,8 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         case .itunesAlbumID: return String(detail.album.collectionID)
         case .itunesArtistID: return selectedTrack.artistID.map(String.init) ?? detail.album.artistID.map(String.init) ?? ""
         case .itunesCatalogID: return String(selectedTrack.trackID)
-        case .isExplicit: return selectedTrack.isExplicit || detail.album.isExplicit ? "Yes" : "No"
+        case .isExplicit:
+            return (selectedTrack.contentAdvisory ?? detail.album.contentAdvisory)?.displayName ?? L10n.string("Unset")
         }
     }
 

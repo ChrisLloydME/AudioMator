@@ -207,13 +207,14 @@ extension AudioViewModel {
     }
 
     func applyArtworkEditAction(_ action: ArtworkEditAction, to file: AudioFile) {
-        if var current = edit {
+        if editSourceFileID == file.id, var current = edit {
             current.artworkEditAction = action
             edit = current
         } else {
             var model = SingleFileEditModel(from: file)
             model.artworkEditAction = action
             edit = model
+            editSourceFileID = file.id
         }
     }
 

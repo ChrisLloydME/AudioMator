@@ -426,7 +426,10 @@ struct ContentView: View {
         let fileInputs = musicBrainzFileInputs(from: selectedFiles)
         guard let selectedInput = fileInputs.first else { return nil }
 
-        if selectedFiles.count == 1, let edit = viewModel.edit {
+        if selectedFiles.count == 1,
+           let selectedFile = selectedFiles.first,
+           viewModel.editSourceFileID == selectedFile.id,
+           let edit = viewModel.edit {
             return MusicBrainzSearchSeed(
                 mode: .track,
                 title: preferredMusicBrainzSeedValue(edit.title, fallback: selectedInput.title),

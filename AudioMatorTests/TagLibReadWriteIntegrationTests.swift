@@ -434,6 +434,112 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(rawMap["ALBUM"], edit.album)
     }
 
+    func testInspectorStyleExplicitAdvisoryWritesITunesExplicitValue() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var edit = SingleFileEditModel()
+        edit.title = "Explicit Advisory Value"
+        edit.contentAdvisory = .explicit
+
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+
+        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(rawMap["ITUNESADVISORY"], "1")
+    }
+
+    func testInspectorStyleNotExplicitAdvisoryDoesNotBecomeExplicitAfterSave() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var edit = SingleFileEditModel()
+        edit.title = "Not Explicit Advisory Value"
+        edit.contentAdvisory = .notExplicit
+
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+
+        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(rawMap["ITUNESADVISORY"], "0")
+
+        let reloaded = try await AudioFile(url: workingURL)
+        XCTAssertEqual(reloaded.contentAdvisory, .notExplicit)
+        XCTAssertFalse(reloaded.isExplicit)
+    }
+
+    func testInspectorStyleUnsetAdvisoryDoesNotBecomeExplicitAfterSave() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var edit = SingleFileEditModel()
+        edit.title = "Unset Advisory Value"
+        edit.contentAdvisory = nil
+
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+
+        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertNil(rawMap["ITUNESADVISORY"])
+
+        let reloaded = try await AudioFile(url: workingURL)
+        XCTAssertNil(reloaded.contentAdvisory)
+        XCTAssertFalse(reloaded.isExplicit)
+    }
+
+    func testAudioFileReadsITunesExplicitAdvisoryValue() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        _ = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
+            ["ITUNESADVISORY": "1"],
+            to: workingURL,
+            mode: .merge,
+            verifyAfterWrite: false
+        )
+
+        let file = try await AudioFile(url: workingURL)
+        XCTAssertEqual(file.contentAdvisory, .explicit)
+        XCTAssertTrue(file.isExplicit)
+
+        let model = SingleFileEditModel(from: file)
+        XCTAssertEqual(model.contentAdvisory, .explicit)
+        XCTAssertTrue(model.isExplicit)
+
+        XCTAssertEqual(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNESADVISORY"], "1")
+    }
+
+    func testAudioFileIgnoresNonAdvisoryRawValuesWhenReadingContentAdvisory() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        _ = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
+            [
+                "COMPILATION": "1",
+                "DISCNUMBER": "1",
+                "TRACKNUMBER": "4"
+            ],
+            to: workingURL,
+            mode: .merge,
+            verifyAfterWrite: false
+        )
+
+        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertEqual(rawMap["COMPILATION"], "1")
+        XCTAssertNil(rawMap["ITUNESADVISORY"])
+
+        let file = try await AudioFile(url: workingURL)
+        XCTAssertNil(file.contentAdvisory)
+        XCTAssertFalse(file.isExplicit)
+    }
+
     func testInspectorStyleMetadataWriteClearsEditableTextFields() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)

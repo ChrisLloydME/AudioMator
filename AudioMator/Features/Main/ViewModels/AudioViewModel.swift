@@ -53,7 +53,14 @@ final class AudioViewModel: ObservableObject {
     // Current selection in the middle list. Single-file and multi-file inspector editing both use this selection.
     @Published var selectedAudioIDs: Set<UUID> = []
     // Inspector edit models bound to the right-side inspector.
-    @Published var edit: SingleFileEditModel?
+    @Published var editSourceFileID: UUID?
+    @Published var edit: SingleFileEditModel? {
+        didSet {
+            if edit == nil {
+                editSourceFileID = nil
+            }
+        }
+    }
     @Published var multiEdit: MultiFileEditModel?
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
@@ -142,7 +149,8 @@ final class AudioViewModel: ObservableObject {
             selectedAudioIDs.count == 1,
             let id = selectedAudioIDs.first,
             let file = files.first(where: { $0.id == id }),
-            let edit
+            let edit,
+            editSourceFileID == id
         else {
             return false
         }
@@ -161,6 +169,7 @@ final class AudioViewModel: ObservableObject {
     func updateEditForSelection() {
         guard !selectedAudioIDs.isEmpty else {
             edit = nil
+            editSourceFileID = nil
             multiEdit = nil
             return
         }
@@ -169,6 +178,7 @@ final class AudioViewModel: ObservableObject {
            let selectedID = selectedAudioIDs.first,
            let selectedFile = files.first(where: { $0.id == selectedID }) {
             edit = SingleFileEditModel(from: selectedFile)
+            editSourceFileID = selectedID
             multiEdit = nil
             return
         }
@@ -176,11 +186,13 @@ final class AudioViewModel: ObservableObject {
         let selectedFiles = files.filter { selectedAudioIDs.contains($0.id) }
         guard !selectedFiles.isEmpty else {
             edit = nil
+            editSourceFileID = nil
             multiEdit = nil
             return
         }
 
         edit = nil
+        editSourceFileID = nil
         multiEdit = MultiFileEditModel(files: selectedFiles)
     }
 

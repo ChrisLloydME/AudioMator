@@ -463,16 +463,29 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     }
 
     private static func contentAdvisory(rawValue: String, key: String) -> ContentAdvisory? {
+        let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let advisoryKey: String?
+        switch normalizedKey {
+        case "ITUNESADVISORY", "ADVISORY", "EXPLICITCONTENT", "EXPLICIT", "RTNG":
+            advisoryKey = normalizedKey
+        case let key where key.hasSuffix(":ITUNESADVISORY") || key.hasSuffix(".ITUNESADVISORY"):
+            advisoryKey = "ITUNESADVISORY"
+        default:
+            advisoryKey = nil
+        }
+
+        guard let advisoryKey else { return nil }
+
         let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty else { return nil }
 
-        if key == "RTNG" {
+        if advisoryKey == "RTNG" {
             switch normalized {
             case "0", "none", "not explicit", "notexplicit":
                 return .notExplicit
             case "2", "clean":
                 return .clean
-            case "4", "explicit", "1", "true", "yes":
+            case "1", "explicit", "true", "yes":
                 return .explicit
             default:
                 return nil

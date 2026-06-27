@@ -93,7 +93,40 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         )
         XCTAssertEqual(
             ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
-            "Yes"
+            ContentAdvisory.notExplicit.displayName
+        )
+    }
+
+    func testRemoteExplicitValuePrefersTrackExplicitnessOverAlbumExplicitness() {
+        let track = Self.makeTrack(trackExplicitness: "notExplicit")
+        let assignment = makeAssignment(track: track)
+        let detail = makeAlbumDetail(albumExplicitness: "explicit", track: track)
+
+        XCTAssertEqual(
+            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            ContentAdvisory.notExplicit.displayName
+        )
+    }
+
+    func testRemoteExplicitValueMapsCleanTrackExplicitness() {
+        let track = Self.makeTrack(trackExplicitness: "cleaned")
+        let assignment = makeAssignment(track: track)
+        let detail = makeAlbumDetail(albumExplicitness: "explicit", track: track)
+
+        XCTAssertEqual(
+            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            ContentAdvisory.clean.displayName
+        )
+    }
+
+    func testRemoteExplicitValueFallsBackToAlbumOnlyWhenTrackExplicitnessIsMissing() {
+        let track = Self.makeTrack(trackExplicitness: "")
+        let assignment = makeAssignment(track: track)
+        let detail = makeAlbumDetail(albumExplicitness: "explicit", track: track)
+
+        XCTAssertEqual(
+            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            ContentAdvisory.explicit.displayName
         )
     }
 

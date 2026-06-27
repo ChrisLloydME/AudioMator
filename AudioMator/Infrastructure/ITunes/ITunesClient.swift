@@ -253,7 +253,10 @@ struct ITunesTrackResult: Identifiable, Equatable, Hashable {
     let artistViewURL: URL?
 
     var id: Int { trackID }
-    var isExplicit: Bool { trackExplicitness == "explicit" || collectionExplicitness == "explicit" }
+    var isExplicit: Bool { contentAdvisory == .explicit }
+    var contentAdvisory: ContentAdvisory? {
+        ContentAdvisory.fromITunesExplicitness(trackExplicitness)
+    }
 }
 
 struct ITunesAlbumResult: Identifiable, Equatable, Hashable {
@@ -277,6 +280,9 @@ struct ITunesAlbumResult: Identifiable, Equatable, Hashable {
 
     var id: Int { collectionID }
     var isExplicit: Bool { collectionExplicitness == "explicit" }
+    var contentAdvisory: ContentAdvisory? {
+        ContentAdvisory.fromITunesExplicitness(collectionExplicitness)
+    }
 }
 
 struct ITunesAlbumDetail: Equatable, Hashable {

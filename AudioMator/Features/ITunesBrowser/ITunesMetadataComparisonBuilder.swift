@@ -115,7 +115,8 @@ enum ITunesMetadataComparisonBuilder {
         case .itunesAlbumID: return String(detail.album.collectionID)
         case .itunesArtistID: return track.artistID.map(String.init) ?? detail.album.artistID.map(String.init) ?? ""
         case .itunesCatalogID: return String(track.trackID)
-        case .isExplicit: return track.isExplicit || detail.album.isExplicit ? "Yes" : "No"
+        case .isExplicit:
+            return (track.contentAdvisory ?? detail.album.contentAdvisory)?.displayName ?? L10n.string("Unset")
         }
     }
 

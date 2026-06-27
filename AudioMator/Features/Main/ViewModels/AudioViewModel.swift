@@ -69,6 +69,7 @@ final class AudioViewModel: ObservableObject {
 
     private let watchedFolderStore: WatchedFolderStore
     let metadataPipeline: any AudioMetadataPipeline
+    let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
     let iTunesArtworkService = ITunesArtworkService()
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
@@ -92,23 +93,38 @@ final class AudioViewModel: ObservableObject {
     convenience init() {
         self.init(
             watchedFolderStore: WatchedFolderStore(),
-            metadataPipeline: TagLibAudioMetadataPipeline()
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            saveIssueLogStore: SaveIssueLogStore()
         )
     }
 
     convenience init(metadataPipeline: any AudioMetadataPipeline) {
         self.init(
             watchedFolderStore: WatchedFolderStore(),
-            metadataPipeline: metadataPipeline
+            metadataPipeline: metadataPipeline,
+            saveIssueLogStore: SaveIssueLogStore()
+        )
+    }
+
+    convenience init(
+        metadataPipeline: any AudioMetadataPipeline,
+        saveIssueLogStore: SaveIssueLogStore
+    ) {
+        self.init(
+            watchedFolderStore: WatchedFolderStore(),
+            metadataPipeline: metadataPipeline,
+            saveIssueLogStore: saveIssueLogStore
         )
     }
 
     init(
         watchedFolderStore: WatchedFolderStore,
-        metadataPipeline: any AudioMetadataPipeline
+        metadataPipeline: any AudioMetadataPipeline,
+        saveIssueLogStore: SaveIssueLogStore
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.metadataPipeline = metadataPipeline
+        self.saveIssueLogStore = saveIssueLogStore
 
         let restoredFolders = PlatformApplication.supportsWatchedFolders
             ? watchedFolderStore.loadFolders()
@@ -222,6 +238,17 @@ final class AudioViewModel: ObservableObject {
     }
 
     func presentMetadataWriteWarning(title: String, subtitle: String) {
+        let lines = subtitle.components(separatedBy: .newlines)
+        let fileName = lines.first ?? ""
+        let messages = Array(lines.dropFirst())
+        saveIssueLogStore.recordSingleIssue(
+            title: title,
+            subtitle: subtitle,
+            fileName: fileName,
+            messages: messages.isEmpty ? [subtitle] : messages,
+            severity: .warning
+        )
+
         presentMetadataWriteHUD(
             style: .warning,
             title: title,
@@ -230,12 +257,21 @@ final class AudioViewModel: ObservableObject {
     }
 
     func presentMetadataWriteFailure(for fileName: String, reason: String) {
+        let subtitle = [fileName, reason]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        saveIssueLogStore.recordSingleIssue(
+            title: "Save Failed",
+            subtitle: subtitle,
+            fileName: fileName,
+            messages: [reason],
+            severity: .failure
+        )
+
         presentMetadataWriteHUD(
             style: .failure,
             title: "Save Failed",
-            subtitle: [fileName, reason]
-                .filter { !$0.isEmpty }
-                .joined(separator: "\n")
+            subtitle: subtitle
         )
     }
 

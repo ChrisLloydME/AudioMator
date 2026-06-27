@@ -421,6 +421,16 @@
         }
       }
     },
+    "%lld saved issue%@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld saved issue%2$@."
+          }
+        }
+      }
+    },
     "%lld%%" : {
 
     },
@@ -2828,6 +2838,9 @@
         }
       }
     },
+    "Clear Logs" : {
+
+    },
     "Clear this list?" : {
 
     },
@@ -3173,6 +3186,9 @@
           }
         }
       }
+    },
+    "Copy All" : {
+
     },
     "Copy Link" : {
 
@@ -6180,6 +6196,9 @@
         }
       }
     },
+    "Logs" : {
+
+    },
     "Low confidence match. Check the file-to-track matches in the detail view." : {
 
     },
@@ -8389,6 +8408,9 @@
 
     },
     "No Results" : {
+
+    },
+    "No save issues logged" : {
 
     },
     "No selected fields would change any loaded files." : {
@@ -10922,6 +10944,9 @@
         }
       }
     },
+    "Review recent save warnings and failures shown by the save status HUD." : {
+
+    },
     "Same" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/UIState/SharedState.swift:159, AudioMator/Domain/UIState/MiddleListColumn.swift:206, AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift:158, AudioMator/Domain/MetadataEditing/TextEditPipeline.swift:89.",
       "localizations" : {
@@ -11085,6 +11110,9 @@
           }
         }
       }
+    },
+    "Save Logs" : {
+
     },
     "Saved to Disk" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:51, AudioMator/Features/Main/ViewModels/AudioViewModel.swift:200.",
@@ -13814,6 +13842,9 @@
 
     },
     "Warnings" : {
+
+    },
+    "Warnings and failures are recorded here after they appear during save." : {
 
     },
     "Watched Folders" : {

@@ -5,7 +5,7 @@ struct BatchMetadataWriteIssue: Equatable {
     let messages: [String]
 }
 
-enum BatchMetadataOperationKind: Equatable {
+enum BatchMetadataOperationKind: String, Codable, Equatable {
     case write
     case clear
 

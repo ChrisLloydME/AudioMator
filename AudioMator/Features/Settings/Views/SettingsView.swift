@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 let settingsSelectedTabDefaultsKey = "settings.selectedTab"
 
@@ -7,6 +10,7 @@ enum AppSettingsTab: String, Hashable {
     case toolbar
     case columns
     case inspector
+    case logs
     case about
 }
 
@@ -23,6 +27,7 @@ private func formattedAboutDescription(copyright: String) -> String {
 
 struct SettingsView: View {
     @ObservedObject var sharedState: SharedState
+    @ObservedObject var saveIssueLogStore: SaveIssueLogStore
 
     @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
     @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
@@ -71,6 +76,12 @@ struct SettingsView: View {
                 Label("Inspector", systemImage: "sidebar.right")
             }
             .tag(AppSettingsTab.inspector)
+
+            SaveIssueLogSettingsTab(store: saveIssueLogStore)
+                .tabItem {
+                    Label("Logs", systemImage: "doc.text.magnifyingglass")
+                }
+                .tag(AppSettingsTab.logs)
 
             AboutSettingsTab(
                 appDisplayName: appDisplayName,
@@ -688,6 +699,194 @@ private struct InspectorSettingsTab: View {
         }
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct SaveIssueLogSettingsTab: View {
+    @ObservedObject var store: SaveIssueLogStore
+
+    private static let entryDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        return formatter
+    }()
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Save Logs")
+                        .font(.title3.weight(.semibold))
+
+                    Text("Review recent save warnings and failures shown by the save status HUD.")
+                        .foregroundStyle(.secondary)
+                }
+
+                MacSettingsSection(title: "Recent Save Issues") {
+                    if store.entries.isEmpty {
+                        emptyState
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(store.entries.enumerated()), id: \.element.id) { index, entry in
+                                SaveIssueLogEntryRow(entry: entry)
+
+                                if index < store.entries.count - 1 {
+                                    MacSettingsDivider()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Button("Copy All") {
+                        copyEntriesToPasteboard()
+                    }
+                    .disabled(store.entries.isEmpty)
+
+                    Button("Clear Logs", role: .destructive) {
+                        store.clear()
+                    }
+                    .disabled(store.entries.isEmpty)
+
+                    Text("\(store.entries.count) saved issue\(store.entries.count == 1 ? "" : "s").")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(20)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var emptyState: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("No save issues logged")
+                    .font(.body)
+
+                Text("Warnings and failures are recorded here after they appear during save.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func copyEntriesToPasteboard() {
+        let text = store.entries.map { renderEntryForCopy($0) }.joined(separator: "\n\n")
+
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #endif
+    }
+
+    private func renderEntryForCopy(_ entry: SaveIssueLogEntry) -> String {
+        let issueLines = entry.issues.flatMap { issue in
+            issue.messages.map { message in
+                "- \(issue.fileName): \(message)"
+            }
+        }
+
+        return ([
+            "\(entry.title) (\(entry.severity.displayName))",
+            Self.entryDateFormatter.string(from: entry.date),
+            entry.summary
+        ] + issueLines).joined(separator: "\n")
+    }
+}
+
+private struct SaveIssueLogEntryRow: View {
+    let entry: SaveIssueLogEntry
+
+    private static let entryDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Label(entry.title, systemImage: entry.severity.systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(entry.severity.tint)
+
+                Spacer(minLength: 12)
+
+                Text(Self.entryDateFormatter.string(from: entry.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(entry.summary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(entry.issues) { issue in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(issue.fileName)
+                            .font(.caption.weight(.semibold))
+
+                        ForEach(issue.messages, id: \.self) { message in
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension SaveIssueLogEntry.Severity {
+    var displayName: String {
+        switch self {
+        case .warning:
+            return "Warning"
+        case .failure:
+            return "Failure"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .warning:
+            return "exclamationmark.triangle.fill"
+        case .failure:
+            return "xmark.circle.fill"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .warning:
+            return .orange
+        case .failure:
+            return .red
+        }
     }
 }
 
@@ -1429,6 +1628,6 @@ private struct ReleaseMarkdownText: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        SettingsView(sharedState: SharedState())
+        SettingsView(sharedState: SharedState(), saveIssueLogStore: SaveIssueLogStore())
     }
 }

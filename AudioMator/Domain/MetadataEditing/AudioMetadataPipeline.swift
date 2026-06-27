@@ -310,7 +310,7 @@ private enum MetadataPipelineSupport {
             return warnings
         }
 
-        return warnings.map { warning in
+        return warnings.compactMap { warning in
             if warning.hasPrefix("Track number text differs after save") {
                 return normalizedNumberTextWarning(
                     warning,
@@ -344,13 +344,20 @@ private enum MetadataPipelineSupport {
         actualText: String,
         actualNumber: Int,
         actualTotal: Int
-    ) -> String {
+    ) -> String? {
         let normalizedExpected = normalizedFieldComponent(expectedText)
         guard !normalizedExpected.isEmpty else { return warning }
 
-        let expected = AudioTagNumberText.parsedPair(from: normalizedExpected)
-        guard expected.number == actualNumber, expected.total == actualTotal else {
+        guard AudioTagNumberText.writeExpectationMatches(
+            expectedText: normalizedExpected,
+            actualNumber: actualNumber,
+            actualTotal: actualTotal
+        ) else {
             return warning
+        }
+
+        if AudioTagNumberText.components(from: normalizedExpected).total == nil, actualTotal > 0 {
+            return nil
         }
 
         return "\(label) formatting was normalized by the container (\(normalizedExpected) -> \(actualText))."

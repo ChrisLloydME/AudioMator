@@ -37,4 +37,23 @@ enum AudioTagNumberText {
 
         return value.flatMap { $0 > 0 ? $0 : nil }
     }
+
+    nonisolated static func writeExpectationMatches(
+        expectedText: String,
+        actualNumber: Int,
+        actualTotal: Int
+    ) -> Bool {
+        let normalizedExpected = expectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedExpected.isEmpty else { return false }
+
+        let expectedComponents = components(from: normalizedExpected)
+        let expectedNumber = clampedInteger(fromComponent: expectedComponents.number)
+        guard expectedNumber == actualNumber else { return false }
+
+        if let expectedTotalText = expectedComponents.total {
+            return clampedInteger(fromComponent: expectedTotalText) == actualTotal
+        }
+
+        return true
+    }
 }

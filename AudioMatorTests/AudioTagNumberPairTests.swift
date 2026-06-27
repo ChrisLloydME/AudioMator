@@ -56,4 +56,28 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(pair.total, 11)
         XCTAssertEqual(pair.canonicalRawText, "")
     }
+
+    func testWriteExpectationWithoutTotalAcceptsPreservedTotal() {
+        XCTAssertTrue(
+            AudioTagNumberText.writeExpectationMatches(
+                expectedText: "07",
+                actualNumber: 7,
+                actualTotal: 12
+            )
+        )
+        XCTAssertFalse(
+            AudioTagNumberText.writeExpectationMatches(
+                expectedText: "07/10",
+                actualNumber: 7,
+                actualTotal: 12
+            )
+        )
+        XCTAssertFalse(
+            AudioTagNumberText.writeExpectationMatches(
+                expectedText: "07",
+                actualNumber: 8,
+                actualTotal: 12
+            )
+        )
+    }
 }

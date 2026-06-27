@@ -5,6 +5,7 @@ set -u
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED_DATA_PATH="${ROOT_DIR}/.deriveddata-codex"
 LOG_PATH="${DERIVED_DATA_PATH}/xcodebuild.log"
+PRUNE_APP_BUNDLES="${ROOT_DIR}/scripts/prune-app-bundles.sh"
 FORCE_BUILD=0
 
 while [[ $# -gt 0 ]]; do
@@ -22,6 +23,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "${DERIVED_DATA_PATH}"
+
+prune_app_bundles() {
+  if ! "${PRUNE_APP_BUNDLES}"; then
+    echo "Failed to prune extra .app bundles." >&2
+    exit 1
+  fi
+}
+
+prune_app_bundles
 
 is_build_relevant_file() {
   local path="$1"
@@ -97,6 +107,7 @@ printf '\n'
 BUILD_EXIT=${PIPESTATUS[0]}
 
 if [[ ${BUILD_EXIT} -eq 0 ]]; then
+  prune_app_bundles
   echo "Build succeeded."
   exit 0
 fi
@@ -104,6 +115,7 @@ fi
 if grep -Fq 'The file “AppIcon.icon” couldn’t be opened.' "${LOG_PATH}" \
   && grep -Fq 'Exception while running actool' "${LOG_PATH}" \
   && grep -Fq 'CompileAssetCatalogVariant' "${LOG_PATH}"; then
+  prune_app_bundles
   echo
   echo "Known Codex CLI limitation detected:"
   echo "  actool/ibtoold crashed while compiling AudioMator/AppIcon.icon."

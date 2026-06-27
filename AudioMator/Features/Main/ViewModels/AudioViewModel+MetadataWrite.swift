@@ -179,6 +179,8 @@ extension AudioViewModel {
     func presentBatchMetadataWriteSummary(_ summary: BatchMetadataWriteSummary) {
         guard summary.totalTargets > 0 else { return }
 
+        saveIssueLogStore.record(summary: summary)
+
         presentMetadataWriteHUD(
             style: summary.hudStyle,
             title: summary.hudTitle,

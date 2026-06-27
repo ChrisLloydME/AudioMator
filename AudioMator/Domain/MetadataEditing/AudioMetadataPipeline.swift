@@ -43,7 +43,7 @@ struct MetadataEditPayload: Sendable {
     var releaseCountry: String
     var copyright: String
     var contentAdvisory: ContentAdvisory?
-    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
+    nonisolated var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
     var artwork: MetadataArtworkChange
 }
 

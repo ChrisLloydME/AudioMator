@@ -41,7 +41,81 @@ enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var isExplicit: Bool { self == .explicit }
+    nonisolated var isExplicit: Bool { self == .explicit }
+
+    static var inspectorSelectionOrder: [ContentAdvisory] { [.explicit, .clean, .notExplicit] }
+
+    static func fromDisplayName(_ value: String) -> ContentAdvisory? {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch normalized {
+        case "explicit", "yes", "true", "1":
+            return .explicit
+        case "clean", "cleaned", "2":
+            return .clean
+        case "not explicit", "notexplicit", "no", "false", "0":
+            return .notExplicit
+        default:
+            return nil
+        }
+    }
+
+    static func fromITunesExplicitness(_ explicitness: String) -> ContentAdvisory? {
+        let normalized = explicitness.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch normalized {
+        case "explicit":
+            return .explicit
+        case "clean", "cleaned":
+            return .clean
+        case "notexplicit", "not explicit":
+            return .notExplicit
+        default:
+            return nil
+        }
+    }
+}
+
+enum ExplicitInspectorSelection: Hashable, Identifiable {
+    case unset
+    case advisory(ContentAdvisory)
+
+    init(contentAdvisory: ContentAdvisory?) {
+        if let contentAdvisory {
+            self = .advisory(contentAdvisory)
+        } else {
+            self = .unset
+        }
+    }
+
+    var id: String {
+        switch self {
+        case .unset:
+            return "unset"
+        case .advisory(let advisory):
+            return "advisory-\(advisory.rawValue)"
+        }
+    }
+
+    var contentAdvisory: ContentAdvisory? {
+        switch self {
+        case .unset:
+            return nil
+        case .advisory(let advisory):
+            return advisory
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .unset:
+            return L10n.string("Unset")
+        case .advisory(let advisory):
+            return advisory.displayName
+        }
+    }
+
+    static var inspectorSelectionOrder: [ExplicitInspectorSelection] {
+        [.unset] + ContentAdvisory.inspectorSelectionOrder.map(ExplicitInspectorSelection.advisory)
+    }
 }
 
 struct SingleFileEditModel {
@@ -82,10 +156,7 @@ struct SingleFileEditModel {
     var contentAdvisory: ContentAdvisory?
     var artworkEditAction: ArtworkEditAction
 
-    var isExplicit: Bool {
-        get { contentAdvisory?.isExplicit ?? false }
-        set { contentAdvisory = newValue ? .explicit : .notExplicit }
-    }
+    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
 
     init(
         title: String = "",

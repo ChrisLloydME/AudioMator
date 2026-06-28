@@ -12,10 +12,13 @@ SwiftUI is used because it makes cross-platform migration convenient, not becaus
 
 - `AudioMator/App/`: app entry point, commands, notifications, and platform delegates.
 - `AudioMator/Core/`: shared platform, network disclosure, and audio-format support.
-- `AudioMator/Domain/`: metadata models, audio-file models, rename templates, file sources, and UI state.
-- `AudioMator/Features/`: SwiftUI feature areas for the main window, iPad workspace, online metadata browser, metadata editor, settings, and welcome flow.
-- `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes, and GitHub release-note services.
+- `AudioMator/Domain/`: metadata models, audio-file models, metadata editing, metadata exchange, rename templates, file sources, track renumbering, and UI state.
+- `AudioMator/Features/`: SwiftUI feature areas for the main window, iPad workspace, shared online metadata entry point, provider-specific metadata/lyrics browsers, metadata editor, filename tools, metadata inspector, settings, and welcome flow.
+- `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes, LRCLIB, shared online metadata, GitHub release-note, and update-check services.
 - `Config/`: project configuration files that should not be compiled or copied from the synchronized app source root.
+- `Docs/`: maintainer docs, README images, wiki pages, privacy acknowledgements, and third-party notices.
+- `Tests/`: SwiftPM fast core-logic tests and coverage notes.
+- `AudioMatorTests/`: app-hosted Xcode tests and fixtures.
 - `scripts/`: build and smoke-test helpers.
 
 The app source is attached to the target through Xcode's file-system synchronized `AudioMator/` root. Keep feature and infrastructure boundaries clear on disk; Xcode will mirror those folders automatically. Keep target configuration inputs such as `Config/Info.plist` outside that synchronized source root so Xcode processes them as build settings inputs instead of bundle resources.
@@ -31,8 +34,8 @@ The app source is attached to the target through Xcode's file-system synchronize
 
 - Keep domain logic in `AudioMator/Domain/` and service integrations in `AudioMator/Infrastructure/`.
 - Keep SwiftUI views and feature-specific view models under the closest `AudioMator/Features/*` folder.
-- Keep cross-provider online metadata selection under `AudioMator/Features/OnlineMetadataBrowser/`; provider-specific browser flows stay under `Features/MusicBrainzBrowser/` and `Features/ITunesBrowser/`.
-- Keep iTunes Store API clients and iTunes artwork lookup services together under `AudioMator/Infrastructure/ITunes/`.
+- Keep the shared online metadata window shell and source selection under `AudioMator/Features/OnlineMetadataBrowser/`; provider-specific browser flows stay under `Features/MusicBrainzBrowser/`, `Features/iTunesBrowser/`, and `Features/LRCLIBLyricsBrowser/`.
+- Keep iTunes Store API clients and iTunes artwork lookup services together under `AudioMator/Infrastructure/iTunes/`.
 - Avoid adding new top-level folders unless there is a clear architectural boundary.
 - Prefer small feature-owned helpers over broad shared abstractions until more than one feature actually needs the behavior.
 - Preserve the existing metadata write pipeline instead of writing container-specific metadata directly from UI code.
@@ -115,4 +118,4 @@ Do not launch the iPadOS simulator, boot virtual devices, or use simulator-only 
 - Do not rewrite unrelated UI or metadata pipeline code while touching nearby files.
 - Do not revert user changes in a dirty worktree.
 - When adding files, make sure they are included in the Xcode project target.
-- Update `README.md`, `ACKNOWLEDGEMENTS_AND_PRIVACY.md`, or `THIRD_PARTY_NOTICES.md` when behavior, privacy disclosures, or third-party usage changes.
+- Update `README.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, or `Docs/THIRD_PARTY_NOTICES.md` when behavior, privacy disclosures, or third-party usage changes.

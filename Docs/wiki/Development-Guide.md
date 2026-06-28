@@ -31,8 +31,8 @@ Network features must be user initiated. Current network boundaries include Musi
 When adding or modifying network behavior, check:
 
 - Does `NetworkServiceDisclosure` need an update?
-- Do `ACKNOWLEDGEMENTS_AND_PRIVACY.md` or `README.md` need updates?
-- Does `THIRD_PARTY_NOTICES.md` need a new service or license note?
+- Do `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` or `README.md` need updates?
+- Does `Docs/THIRD_PARTY_NOTICES.md` need a new service or license note?
 - Can deterministic helpers be tested for request construction, query normalization, candidate ranking, or error presentation?
 
 ## Swift Style

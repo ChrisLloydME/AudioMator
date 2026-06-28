@@ -1278,8 +1278,8 @@ private struct PrivacySheet: View {
             (
                 title: "iTunes Search API and artwork lookup",
                 details: [
-                    "Target hosts: \(NetworkServiceDisclosure.ITunesArtwork.domains.joined(separator: ", "))",
-                    NetworkServiceDisclosure.ITunesArtwork.sentDataSummary,
+                    "Target hosts: \(NetworkServiceDisclosure.iTunesArtwork.domains.joined(separator: ", "))",
+                    NetworkServiceDisclosure.iTunesArtwork.sentDataSummary,
                     "Purpose: searching Apple catalog metadata, reviewing album and track results, preparing selected metadata writes, previewing artwork, downloading selected artwork, and applying chosen values locally."
                 ]
             ),

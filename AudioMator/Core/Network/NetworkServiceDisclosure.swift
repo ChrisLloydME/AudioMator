@@ -1,7 +1,7 @@
 import Foundation
 
 enum NetworkServiceDisclosure {
-    enum ITunesArtwork {
+    enum iTunesArtwork {
         static let searchHost = "itunes.apple.com"
         static let highResolutionArtworkHost = "is5-ssl.mzstatic.com"
         static let uncompressedArtworkHost = "a5.mzstatic.com"

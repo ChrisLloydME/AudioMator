@@ -14,6 +14,10 @@ AudioMatorTests/
 Tests/
 scripts/
 AudioMator.xcodeproj/
+Docs/
+  Images/
+  ACKNOWLEDGEMENTS_AND_PRIVACY.md
+  THIRD_PARTY_NOTICES.md
 Docs/wiki/
 ```
 
@@ -41,11 +45,13 @@ Docs/wiki/
 
 ## Features
 
-`AudioMator/Features/` groups SwiftUI views and feature-owned view models by workflow. Current directories include `Main`, `MetadataEditor`, `MetadataFilenameTool`, `MusicBrainzBrowser`, `ITunesBrowser`, `LRCLIBLyricsBrowser`, `OnlineMetadataBrowser`, `MetadataInspector`, `Settings`, `Welcome`, and `iPad`.
+`AudioMator/Features/` groups SwiftUI views and feature-owned view models by workflow. Current directories include `Main`, `MetadataEditor`, `MetadataFilenameTool`, `OnlineMetadataBrowser`, `MusicBrainzBrowser`, `iTunesBrowser`, `LRCLIBLyricsBrowser`, `MetadataInspector`, `Settings`, `Welcome`, and `iPad`.
+
+`OnlineMetadataBrowser` owns the shared Online Metadata window shell and source picker. Provider-specific flows stay in their own browser folders so MusicBrainz, iTunes, and LRCLIB concerns do not become hidden dependencies of the shared entry point.
 
 ## Infrastructure
 
-`AudioMator/Infrastructure/` contains file-system, online service, and update-check integrations. Current directories include `FileSystem`, `GitHub`, `ITunes`, `LRCLIB`, `MusicBrainz`, `OnlineMetadata`, and `Updates`.
+`AudioMator/Infrastructure/` contains file-system, online service, and update-check integrations. Current directories include `FileSystem`, `GitHub`, `iTunes`, `LRCLIB`, `MusicBrainz`, `OnlineMetadata`, and `Updates`.
 
 ## Config
 
@@ -65,4 +71,4 @@ These configuration inputs stay outside the synchronized source root so Xcode tr
 
 ## Docs
 
-`Docs/Images/` contains images used by the README. `Docs/wiki/` contains the Wiki Markdown pages, with `Home.md` as the landing page.
+`Docs/Images/` contains images used by the README. `Docs/wiki/` contains the Wiki Markdown pages, with `Home.md` as the landing page. Privacy acknowledgements and third-party notices also live under `Docs/` so the repository root stays focused on source, configuration, tests, and project entry points.

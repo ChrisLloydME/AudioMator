@@ -438,7 +438,7 @@
 
     },
     "•" : {
-      "comment" : "Short UI label. Short UI token; keep compact and verify it still fits in tight controls. Used around: AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:348, AudioMator/Infrastructure/ITunes/ITunesArtworkService.swift:245, AudioMator/Features/ITunesBrowser/Views/ITunesTaggingWorkbenchView.swift:189, AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:1571.",
+      "comment" : "Short UI label. Short UI token; keep compact and verify it still fits in tight controls. Used around: AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:348, AudioMator/Infrastructure/iTunes/iTunesArtworkService.swift:245, AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:189, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:1571.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1195,7 +1195,7 @@
 
     },
     "Apply Tags" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesTaggingWorkbenchView.swift:30, AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:735, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:31, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:219.",
+      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:30, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:735, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:31, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:219.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1699,7 +1699,7 @@
 
     },
     "Barcode" : {
-      "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:345, AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:38, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:66, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzBrowserStore.swift:86.",
+      "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:345, AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:38, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:66, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzBrowserStore.swift:86.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2250,7 +2250,7 @@
       }
     },
     "Choose at least one field to write." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:249, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:580.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:249, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:580.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2335,7 +2335,7 @@
       }
     },
     "Choose fields and assignments to generate a write plan." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesTaggingWorkbenchView.swift:134, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:187.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:134, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:187.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3742,7 +3742,7 @@
 
     },
     "Different" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:1268, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:675.",
+      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:1268, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:675.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5122,7 +5122,7 @@
 
     },
     "Find matching releases, then map the selected files to album tracks." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:625.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:625.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5163,7 +5163,7 @@
       }
     },
     "Find the best recording match from the selected file's metadata." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:628.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:628.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5732,7 +5732,7 @@
       }
     },
     "iTunes" : {
-      "comment" : "Short UI label. Context: iTunes/Apple catalog metadata or artwork lookup workflow. Used around: AudioMator/Domain/AudioFiles/AudioFile.swift:402, AudioMator/Infrastructure/ITunes/ITunesArtworkService.swift:80, AudioMator/Infrastructure/ITunes/ITunesClient.swift:768, AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:135.",
+      "comment" : "Short UI label. Context: iTunes/Apple catalog metadata or artwork lookup workflow. Used around: AudioMator/Domain/AudioFiles/AudioFile.swift:402, AudioMator/Infrastructure/iTunes/iTunesArtworkService.swift:80, AudioMator/Infrastructure/iTunes/iTunesClient.swift:768, AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:135.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6600,7 +6600,7 @@
       }
     },
     "Matched disc index." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: disc-number metadata context. Used around: AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:55, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:115.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: disc-number metadata context. Used around: AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:55, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:115.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6644,7 +6644,7 @@
 
     },
     "Matched track index." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: track-level audio metadata context. Used around: AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:53, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:111.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: track-level audio metadata context. Used around: AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:53, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:111.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7112,7 +7112,7 @@
       }
     },
     "Missing Locally" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:1270, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:677.",
+      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:1270, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:677.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7819,7 +7819,7 @@
 
     },
     "No albums matched this search." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:299, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:401.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:299, AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:401.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8071,7 +8071,7 @@
       }
     },
     "No Files Selected" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:1292, AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:378, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:615, AudioMator/Features/LRCLIBLyricsBrowser/Views/LRCLIBLyricsBrowserView.swift:106.",
+      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:1292, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:378, AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:615, AudioMator/Features/LRCLIBLyricsBrowser/Views/LRCLIBLyricsBrowserView.swift:106.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8364,7 +8364,7 @@
       }
     },
     "No release filters" : {
-      "comment" : "Short UI label. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:228.",
+      "comment" : "Short UI label. Context: music release metadata context. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:228.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8414,7 +8414,7 @@
 
     },
     "No selected fields would change any loaded files." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:251, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:592.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:251, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:592.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8458,7 +8458,7 @@
 
     },
     "No tracks matched this search." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: track-level audio metadata context. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:297, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:399.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: track-level audio metadata context. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:297, AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:399.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9301,7 +9301,7 @@
       }
     },
     "Primary release" : {
-      "comment" : "Short UI label. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:816.",
+      "comment" : "Short UI label. Context: music release metadata context. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:816.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9922,7 +9922,7 @@
       }
     },
     "Release Filters" : {
-      "comment" : "Short UI label. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:447.",
+      "comment" : "Short UI label. Context: music release metadata context. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:447.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10863,7 +10863,7 @@
       }
     },
     "Review & Apply Tags" : {
-      "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesTaggingWorkbenchView.swift:30, AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:735, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:31, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:219.",
+      "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:30, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:735, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:31, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:219.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11486,7 +11486,7 @@
       }
     },
     "Select files in AudioMator, then choose Find in MusicBrainz." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:621.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:621.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11747,7 +11747,7 @@
 
     },
     "Selection looks mixed. Check the file-to-track matches in the detail view." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: track-level audio metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:934.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: track-level audio metadata context. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:934.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12317,7 +12317,7 @@
 
     },
     "That link didn't resolve to a supported MusicBrainz result." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzBrowserView.swift:407.",
+      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:407.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12997,7 +12997,7 @@
       }
     },
     "Total Discs" : {
-      "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: disc-number metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:45, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:318, AudioMator/Features/iPad/Views/IPadInspectorView.swift:588, AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:35.",
+      "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: disc-number metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:45, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:318, AudioMator/Features/iPad/Views/IPadInspectorView.swift:588, AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:35.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13079,7 +13079,7 @@
       }
     },
     "Total Tracks" : {
-      "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: track-level audio metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:41, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:314, AudioMator/Features/iPad/Views/IPadInspectorView.swift:586, AudioMator/Features/ITunesBrowser/ViewModels/ITunesTaggingWorkbenchStore.swift:33.",
+      "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: track-level audio metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:41, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:314, AudioMator/Features/iPad/Views/IPadInspectorView.swift:586, AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:33.",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13543,7 +13543,7 @@
 
     },
     "Unassigned" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/ITunesBrowser/Views/ITunesTaggingWorkbenchView.swift:295, AudioMator/Features/ITunesBrowser/Views/ITunesBrowserView.swift:986, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:361, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:195.",
+      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:295, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:986, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:361, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:195.",
       "localizations" : {
         "en" : {
           "stringUnit" : {

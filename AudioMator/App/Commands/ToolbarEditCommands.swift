@@ -59,9 +59,9 @@ struct ToolbarEditCommands: Commands {
             .disabled(sharedState.selectedAudioIDs.isEmpty)
 
             Button {
-                NotificationCenter.default.post(name: .requestMusicBrainzBrowser, object: nil)
+                NotificationCenter.default.post(name: .requestOnlineMetadataBrowser, object: nil)
             } label: {
-                Label(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
+                Label(ToolbarButtonOption.onlineMetadataBrowser.displayName, systemImage: ToolbarButtonOption.onlineMetadataBrowser.systemImage)
             }
 
             Button(role: .destructive) {

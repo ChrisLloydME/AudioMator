@@ -8,7 +8,7 @@ struct AlbumArtworkLookupSheet: View {
         viewModel.artworkLookupSession
     }
 
-    private var selectedResult: ITunesArtworkSearchResult? {
+    private var selectedResult: iTunesArtworkSearchResult? {
         session?.selectedResult
     }
 
@@ -209,7 +209,7 @@ struct AlbumArtworkLookupSheet: View {
 }
 
 private struct ArtworkLookupResultTile: View {
-    let result: ITunesArtworkSearchResult
+    let result: iTunesArtworkSearchResult
     let isSelected: Bool
     let onSelect: () -> Void
 

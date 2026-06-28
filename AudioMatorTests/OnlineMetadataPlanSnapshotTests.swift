@@ -10,7 +10,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let sourcePaths = [
-            "AudioMator/Features/ITunesBrowser/Views/ITunesTaggingWorkbenchView.swift",
+            "AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift",
             "AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift"
         ]
 
@@ -24,7 +24,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         }
     }
 
-    func testITunesWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
+    func testiTunesWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/itunes-store.mp3")
         let file = AudioFileTestFactory.make(
@@ -33,13 +33,13 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             title: "Local",
             fileFingerprint: fingerprint
         )
-        let input = makeITunesInput(id: fileID.uuidString)
-        let track = makeITunesTrack(title: "Remote")
-        let detail = makeITunesDetail(track: track)
-        let preview = ITunesAlbumMatchPreview(
+        let input = makeiTunesInput(id: fileID.uuidString)
+        let track = makeiTunesTrack(title: "Remote")
+        let detail = makeiTunesDetail(track: track)
+        let preview = iTunesAlbumMatchPreview(
             totalSelectedFiles: 1,
             matchedAssignments: [
-                ITunesAlbumMatchAssignment(
+                iTunesAlbumMatchAssignment(
                     id: "assignment",
                     file: input,
                     track: track,
@@ -51,7 +51,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             unassignedTracks: [],
             overallScore: 1
         )
-        let store = ITunesTaggingWorkbenchStore(
+        let store = iTunesTaggingWorkbenchStore(
             detail: detail,
             preview: preview,
             loadedFiles: [file]
@@ -134,13 +134,13 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             fileFingerprint: fixture.fingerprint
         )
 
-        let iTunesPlan = ITunesTaggingPlan(rows: [
-            ITunesTaggingPlanRow(
-                fileInput: makeITunesInput(id: fileID.uuidString),
+        let iTunesPlan = iTunesTaggingPlan(rows: [
+            iTunesTaggingPlanRow(
+                fileInput: makeiTunesInput(id: fileID.uuidString),
                 file: file,
                 track: nil,
                 changes: [
-                    ITunesTaggingFieldChange(
+                    iTunesTaggingFieldChange(
                         field: .title,
                         localValue: "Local",
                         remoteValue: "Displayed iTunes Value",
@@ -169,12 +169,12 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             )
         ])
 
-        let displayedITunesEntry = try XCTUnwrap(iTunesPlan.writeEntries.first)
+        let displayediTunesEntry = try XCTUnwrap(iTunesPlan.writeEntries.first)
         let displayedMusicBrainzEntry = try XCTUnwrap(musicBrainzPlan.writeEntries.first)
 
-        XCTAssertEqual(displayedITunesEntry.values[.title], "Displayed iTunes Value")
+        XCTAssertEqual(displayediTunesEntry.values[.title], "Displayed iTunes Value")
         XCTAssertEqual(displayedMusicBrainzEntry.values[.title], "Displayed MusicBrainz Value")
-        XCTAssertEqual(displayedITunesEntry.expectedFileFingerprint, fixture.fingerprint)
+        XCTAssertEqual(displayediTunesEntry.expectedFileFingerprint, fixture.fingerprint)
         XCTAssertEqual(displayedMusicBrainzEntry.expectedFileFingerprint, fixture.fingerprint)
     }
 
@@ -195,8 +195,8 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
 
         try Data(repeating: 0x42, count: 32).write(to: fixture.fileURL, options: .atomic)
 
-        await viewModel.applyITunesTaggingPlan([
-            ITunesTaggingWriteEntry(
+        await viewModel.applyiTunesTaggingPlan([
+            iTunesTaggingWriteEntry(
                 fileID: fileID,
                 fileName: fixture.fileURL.lastPathComponent,
                 values: [.title: "Displayed iTunes Value"],
@@ -208,8 +208,8 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Local")
     }
 
-    private func makeITunesInput(id: String) -> ITunesFileSearchInput {
-        ITunesFileSearchInput(
+    private func makeiTunesInput(id: String) -> iTunesFileSearchInput {
+        iTunesFileSearchInput(
             id: id,
             displayTitle: "Local",
             title: "Local",
@@ -240,8 +240,8 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
-    private func makeITunesTrack(title: String) -> ITunesTrackResult {
-        ITunesTrackResult(
+    private func makeiTunesTrack(title: String) -> iTunesTrackResult {
+        iTunesTrackResult(
             trackID: 300,
             collectionID: 100,
             artistID: 200,
@@ -270,9 +270,9 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
-    private func makeITunesDetail(track: ITunesTrackResult) -> ITunesAlbumDetail {
-        ITunesAlbumDetail(
-            album: ITunesAlbumResult(
+    private func makeiTunesDetail(track: iTunesTrackResult) -> iTunesAlbumDetail {
+        iTunesAlbumDetail(
+            album: iTunesAlbumResult(
                 collectionID: 100,
                 artistID: 200,
                 collectionArtistID: 201,

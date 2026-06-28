@@ -48,7 +48,7 @@ The online metadata source picker includes:
 - iTunes for catalog metadata from tags, filenames, UPCs, links, and store IDs.
 - LRCLIB for synced lyrics from selected track metadata.
 
-Implementations are under `AudioMator/Infrastructure/MusicBrainz/`, `AudioMator/Infrastructure/ITunes/`, and `AudioMator/Infrastructure/LRCLIB/`. UI flows are under `AudioMator/Features/MusicBrainzBrowser/`, `AudioMator/Features/ITunesBrowser/`, and `AudioMator/Features/LRCLIBLyricsBrowser/`.
+Implementations are under `AudioMator/Infrastructure/MusicBrainz/`, `AudioMator/Infrastructure/iTunes/`, and `AudioMator/Infrastructure/LRCLIB/`. The shared Online Metadata window shell and source picker live under `AudioMator/Features/OnlineMetadataBrowser/`; provider-specific UI flows live under `AudioMator/Features/MusicBrainzBrowser/`, `AudioMator/Features/iTunesBrowser/`, and `AudioMator/Features/LRCLIBLyricsBrowser/`.
 
 ## Tag Inspector and Raw Metadata
 

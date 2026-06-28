@@ -1,20 +1,20 @@
 import SwiftUI
 import WebKit
 
-struct ITunesTrackDetailView: View {
-    let track: ITunesTrackResult
-    @ObservedObject var store: ITunesBrowserStore
+struct iTunesTrackDetailView: View {
+    let track: iTunesTrackResult
+    @ObservedObject var store: iTunesBrowserStore
     @ObservedObject var viewModel: AudioViewModel
 
     @State private var isPreparingWorkbench = false
-    @State private var workbenchStore: ITunesTaggingWorkbenchStore?
+    @State private var workbenchStore: iTunesTaggingWorkbenchStore?
 
     var body: some View {
         detailContent
         .navigationTitle(track.trackName.isEmpty ? "iTunes Track" : track.trackName)
         .sheet(item: $workbenchStore) { store in
             NavigationStack {
-                ITunesTaggingWorkbenchView(store: store, viewModel: viewModel)
+                iTunesTaggingWorkbenchView(store: store, viewModel: viewModel)
             }
         }
     }
@@ -24,7 +24,7 @@ struct ITunesTrackDetailView: View {
             LazyVStack(alignment: .leading, spacing: 24) {
                 if store.seededFileInputs.count == 1 {
                     MetadataSectionCard(title: "Selected File Match", symbolName: "checklist") {
-                        ITunesMetadataButtonRow(
+                        iTunesMetadataButtonRow(
                             title: "Review & Apply Tags",
                             subtitle: "Adjust assignments and choose exactly which fields to write",
                             symbolName: "square.and.pencil",
@@ -37,11 +37,11 @@ struct ITunesTrackDetailView: View {
                 }
 
                 MetadataSectionCard(title: "Overview", symbolName: "info.circle") {
-                    ITunesMetadataInfoRows(items: overviewItems)
+                    iTunesMetadataInfoRows(items: overviewItems)
 
                     if let url = track.trackViewURL {
                         MetadataCardDivider()
-                        ITunesMetadataLinkRow(title: "Apple Music", destination: url)
+                        iTunesMetadataLinkRow(title: "Apple Music", destination: url)
                     }
                 }
             }
@@ -55,7 +55,7 @@ struct ITunesTrackDetailView: View {
         .background(Color(platformColor: .audiomatorWindowBackground))
     }
 
-    private var overviewItems: [ITunesMetadataInfoItem] {
+    private var overviewItems: [iTunesMetadataInfoItem] {
         [
             infoItem("title", "Title", track.trackName),
             infoItem("artist", "Artist", track.artistName),
@@ -64,7 +64,7 @@ struct ITunesTrackDetailView: View {
             infoItem("genre", "Genre", track.primaryGenreName),
             infoItem("track", "Track", numberPair(track.trackNumber, track.trackCount), monospaced: true),
             infoItem("disc", "Disc", numberPair(track.discNumber, track.discCount), monospaced: true),
-            infoItem("length", "Length", formattedITunesDuration(track.durationMilliseconds), monospaced: true),
+            infoItem("length", "Length", formattediTunesDuration(track.durationMilliseconds), monospaced: true),
             infoItem("release-date", "Release Date", track.releaseDate),
             infoItem("country", "Country", track.country),
             infoItem("explicit", "Explicit", track.contentAdvisory?.displayName ?? L10n.string("Unset")),
@@ -83,12 +83,12 @@ struct ITunesTrackDetailView: View {
 
         Task {
             isPreparingWorkbench = true
-            let detail: ITunesAlbumDetail
+            let detail: iTunesAlbumDetail
 
             if let collectionID = track.collectionID {
                 do {
                     detail = try await store.albumDetail(
-                        for: ITunesAlbumResult(
+                        for: iTunesAlbumResult(
                             collectionID: collectionID,
                             artistID: track.artistID,
                             collectionArtistID: track.collectionArtistID,
@@ -116,10 +116,10 @@ struct ITunesTrackDetailView: View {
             }
 
             let resolvedTrack = detail.tracks.first(where: { $0.trackID == track.trackID }) ?? track
-            let preview = ITunesAlbumMatchPreview(
+            let preview = iTunesAlbumMatchPreview(
                 totalSelectedFiles: 1,
                 matchedAssignments: [
-                    ITunesAlbumMatchAssignment(
+                    iTunesAlbumMatchAssignment(
                         id: "\(fileInput.id):\(resolvedTrack.trackID)",
                         file: fileInput,
                         track: resolvedTrack,
@@ -132,7 +132,7 @@ struct ITunesTrackDetailView: View {
                 overallScore: 1
             )
 
-            workbenchStore = ITunesTaggingWorkbenchStore(
+            workbenchStore = iTunesTaggingWorkbenchStore(
                 detail: detail,
                 preview: preview,
                 loadedFiles: viewModel.files
@@ -141,9 +141,9 @@ struct ITunesTrackDetailView: View {
         }
     }
 
-    private func infoItem(_ id: String, _ title: String, _ value: String, monospaced: Bool = false) -> ITunesMetadataInfoItem? {
+    private func infoItem(_ id: String, _ title: String, _ value: String, monospaced: Bool = false) -> iTunesMetadataInfoItem? {
         guard !value.isEmpty else { return nil }
-        return ITunesMetadataInfoItem(id: id, title: title, value: value, monospaced: monospaced)
+        return iTunesMetadataInfoItem(id: id, title: title, value: value, monospaced: monospaced)
     }
 
     private func numberPair(_ number: Int, _ total: Int) -> String {
@@ -151,9 +151,9 @@ struct ITunesTrackDetailView: View {
         return total > 0 ? "\(number)/\(total)" : String(number)
     }
 
-    private var fallbackDetail: ITunesAlbumDetail {
-        ITunesAlbumDetail(
-            album: ITunesAlbumResult(
+    private var fallbackDetail: iTunesAlbumDetail {
+        iTunesAlbumDetail(
+            album: iTunesAlbumResult(
                 collectionID: track.collectionID ?? track.trackID,
                 artistID: track.artistID,
                 collectionArtistID: track.collectionArtistID,
@@ -178,13 +178,13 @@ struct ITunesTrackDetailView: View {
     }
 }
 
-struct ITunesAlbumDetailView: View {
-    let album: ITunesAlbumResult
-    @ObservedObject var store: ITunesBrowserStore
+struct iTunesAlbumDetailView: View {
+    let album: iTunesAlbumResult
+    @ObservedObject var store: iTunesBrowserStore
     @ObservedObject var viewModel: AudioViewModel
 
     @State private var detailState: DetailState = .loading
-    @State private var workbenchStore: ITunesTaggingWorkbenchStore?
+    @State private var workbenchStore: iTunesTaggingWorkbenchStore?
 
     var body: some View {
         Group {
@@ -212,12 +212,12 @@ struct ITunesAlbumDetailView: View {
         }
         .sheet(item: $workbenchStore) { store in
             NavigationStack {
-                ITunesTaggingWorkbenchView(store: store, viewModel: viewModel)
+                iTunesTaggingWorkbenchView(store: store, viewModel: viewModel)
             }
         }
     }
 
-    private func albumContent(_ detail: ITunesAlbumDetail) -> some View {
+    private func albumContent(_ detail: iTunesAlbumDetail) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 if let preview = detail.selectionMatchPreview {
@@ -227,22 +227,22 @@ struct ITunesAlbumDetailView: View {
                 }
 
                 MetadataSectionCard(title: "Overview", symbolName: "info.circle") {
-                    ITunesMetadataInfoRows(items: albumOverviewItems(detail.album))
+                    iTunesMetadataInfoRows(items: albumOverviewItems(detail.album))
 
                     if let url = detail.album.collectionViewURL {
                         MetadataCardDivider()
-                        ITunesMetadataLinkRow(title: "Apple Music", destination: url)
+                        iTunesMetadataLinkRow(title: "Apple Music", destination: url)
                     }
                 }
 
                 MetadataSectionCard(title: "Tracks", symbolName: "music.note.list") {
                     ForEach(Array(detail.tracks.enumerated()), id: \.element.id) { index, track in
-                        NavigationLink(value: ITunesBrowserDestination.track(track)) {
-                            ITunesMetadataTrackRow(
+                        NavigationLink(value: iTunesBrowserDestination.track(track)) {
+                            iTunesMetadataTrackRow(
                                 number: track.trackNumber > 0 ? String(track.trackNumber) : "",
                                 title: track.trackName,
                                 subtitle: track.artistName,
-                                duration: formattedITunesDuration(track.durationMilliseconds)
+                                duration: formattediTunesDuration(track.durationMilliseconds)
                             )
                         }
                         .buttonStyle(.plain)
@@ -263,15 +263,15 @@ struct ITunesAlbumDetailView: View {
         .background(Color(platformColor: .audiomatorWindowBackground))
     }
 
-    private func matchPreviewSection(preview: ITunesAlbumMatchPreview, detail: ITunesAlbumDetail) -> some View {
-        let comparisonGroups = ITunesMetadataComparisonBuilder.groups(
+    private func matchPreviewSection(preview: iTunesAlbumMatchPreview, detail: iTunesAlbumDetail) -> some View {
+        let comparisonGroups = iTunesMetadataComparisonBuilder.groups(
             for: preview,
             detail: detail,
             loadedFiles: viewModel.files
         )
 
         return MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
-            ITunesMetadataInfoRows(items: [
+            iTunesMetadataInfoRows(items: [
                 infoItem("matched", "Matched Files", "\(preview.matchedAssignments.count)/\(preview.totalSelectedFiles)", monospaced: true),
                 infoItem("unmatched", "Unmatched Files", preview.unmatchedFiles.isEmpty ? "" : String(preview.unmatchedFiles.count), monospaced: true),
                 infoItem("missing", "Unassigned Tracks", preview.unassignedTracks.isEmpty ? "" : String(preview.unassignedTracks.count), monospaced: true),
@@ -281,13 +281,13 @@ struct ITunesAlbumDetailView: View {
             if preview.totalSelectedFiles > 0 {
                 MetadataCardDivider()
 
-                ITunesMetadataButtonRow(
+                iTunesMetadataButtonRow(
                     title: "Review & Apply Tags",
                     subtitle: "Adjust assignments and choose exactly which fields to write",
                     symbolName: "square.and.pencil",
                     isDisabled: preview.matchedAssignments.isEmpty
                 ) {
-                    workbenchStore = ITunesTaggingWorkbenchStore(
+                    workbenchStore = iTunesTaggingWorkbenchStore(
                         detail: detail,
                         preview: preview,
                         loadedFiles: viewModel.files
@@ -299,9 +299,9 @@ struct ITunesAlbumDetailView: View {
                 MetadataCardDivider()
 
                 NavigationLink {
-                    ITunesMatchedFilesDetailView(assignments: preview.matchedAssignments)
+                    iTunesMatchedFilesDetailView(assignments: preview.matchedAssignments)
                 } label: {
-                    ITunesMetadataNavigationRow(
+                    iTunesMetadataNavigationRow(
                         title: "Matched Files",
                         subtitle: "\(preview.matchedAssignments.count) file-to-track assignment\(preview.matchedAssignments.count == 1 ? "" : "s")",
                         symbolName: "link"
@@ -312,9 +312,9 @@ struct ITunesAlbumDetailView: View {
                 MetadataCardDivider()
 
                 NavigationLink {
-                    ITunesMetadataComparisonDetailView(groups: comparisonGroups)
+                    iTunesMetadataComparisonDetailView(groups: comparisonGroups)
                 } label: {
-                    ITunesMetadataNavigationRow(
+                    iTunesMetadataNavigationRow(
                         title: "Metadata Comparison",
                         subtitle: "Compare local file tags with iTunes metadata",
                         symbolName: "arrow.left.arrow.right"
@@ -326,11 +326,11 @@ struct ITunesAlbumDetailView: View {
     }
 
     @ViewBuilder
-    private func unmatchedFilesSection(preview: ITunesAlbumMatchPreview) -> some View {
+    private func unmatchedFilesSection(preview: iTunesAlbumMatchPreview) -> some View {
         if !preview.unmatchedFiles.isEmpty {
             MetadataSectionCard(title: "Unmatched Files", symbolName: "questionmark.circle") {
                 ForEach(Array(preview.unmatchedFiles.enumerated()), id: \.element.id) { index, file in
-                    ITunesMetadataFileSummaryRow(file: file)
+                    iTunesMetadataFileSummaryRow(file: file)
 
                     if index < preview.unmatchedFiles.count - 1 {
                         MetadataCardDivider()
@@ -341,11 +341,11 @@ struct ITunesAlbumDetailView: View {
     }
 
     @ViewBuilder
-    private func unassignedTracksSection(preview: ITunesAlbumMatchPreview) -> some View {
+    private func unassignedTracksSection(preview: iTunesAlbumMatchPreview) -> some View {
         if !preview.unassignedTracks.isEmpty {
             MetadataSectionCard(title: "Unassigned Album Tracks", symbolName: "music.note.list") {
                 ForEach(Array(preview.unassignedTracks.enumerated()), id: \.element.id) { index, track in
-                    ITunesMetadataReleaseTrackSummaryRow(track: track)
+                    iTunesMetadataReleaseTrackSummaryRow(track: track)
 
                     if index < preview.unassignedTracks.count - 1 {
                         MetadataCardDivider()
@@ -355,7 +355,7 @@ struct ITunesAlbumDetailView: View {
         }
     }
 
-    private func albumOverviewItems(_ album: ITunesAlbumResult) -> [ITunesMetadataInfoItem] {
+    private func albumOverviewItems(_ album: iTunesAlbumResult) -> [iTunesMetadataInfoItem] {
         [
             infoItem("title", "Title", album.collectionName),
             infoItem("artist", "Artist", album.artistName),
@@ -373,9 +373,9 @@ struct ITunesAlbumDetailView: View {
         ].compactMap { $0 }
     }
 
-    private func infoItem(_ id: String, _ title: String, _ value: String, monospaced: Bool = false) -> ITunesMetadataInfoItem? {
+    private func infoItem(_ id: String, _ title: String, _ value: String, monospaced: Bool = false) -> iTunesMetadataInfoItem? {
         guard !value.isEmpty else { return nil }
-        return ITunesMetadataInfoItem(id: id, title: title, value: value, monospaced: monospaced)
+        return iTunesMetadataInfoItem(id: id, title: title, value: value, monospaced: monospaced)
     }
 
     private func loadDetail() async {
@@ -389,19 +389,19 @@ struct ITunesAlbumDetailView: View {
 
     private enum DetailState {
         case loading
-        case loaded(ITunesAlbumDetail)
+        case loaded(iTunesAlbumDetail)
         case failed(String)
     }
 }
 
-private struct ITunesMetadataInfoItem: Identifiable {
+private struct iTunesMetadataInfoItem: Identifiable {
     let id: String
     let title: String
     let value: String
     var monospaced = false
 }
 
-private extension ITunesMetadataComparisonStatus {
+private extension iTunesMetadataComparisonStatus {
     var symbolName: String {
         switch self {
         case .same:
@@ -442,12 +442,12 @@ private extension ITunesMetadataComparisonStatus {
     }
 }
 
-private struct ITunesMetadataInfoRows: View {
-    let items: [ITunesMetadataInfoItem]
+private struct iTunesMetadataInfoRows: View {
+    let items: [iTunesMetadataInfoItem]
 
     var body: some View {
         ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-            ITunesMetadataInfoRow(item: item)
+            iTunesMetadataInfoRow(item: item)
 
             if index < items.count - 1 {
                 MetadataCardDivider()
@@ -456,8 +456,8 @@ private struct ITunesMetadataInfoRows: View {
     }
 }
 
-private struct ITunesMetadataInfoRow: View {
-    let item: ITunesMetadataInfoItem
+private struct iTunesMetadataInfoRow: View {
+    let item: iTunesMetadataInfoItem
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
@@ -479,7 +479,7 @@ private struct ITunesMetadataInfoRow: View {
     }
 }
 
-private struct ITunesMetadataButtonRow: View {
+private struct iTunesMetadataButtonRow: View {
     let title: String
     let subtitle: String
     let symbolName: String
@@ -530,7 +530,7 @@ private struct ITunesMetadataButtonRow: View {
     }
 }
 
-private struct ITunesMetadataNavigationRow: View {
+private struct iTunesMetadataNavigationRow: View {
     let title: String
     let subtitle: String
     let symbolName: String
@@ -567,13 +567,13 @@ private struct ITunesMetadataNavigationRow: View {
     }
 }
 
-private struct ITunesMetadataLinkRow: View {
+private struct iTunesMetadataLinkRow: View {
     let title: String
     let destination: URL
 
     var body: some View {
         NavigationLink {
-            ITunesEmbeddedWebPageView(
+            iTunesEmbeddedWebPageView(
                 title: title,
                 url: destination
             )
@@ -597,7 +597,7 @@ private struct ITunesMetadataLinkRow: View {
     }
 }
 
-private struct ITunesEmbeddedWebPageView: View {
+private struct iTunesEmbeddedWebPageView: View {
     let title: String
     let url: URL
 
@@ -630,7 +630,7 @@ private struct ITunesEmbeddedWebPageView: View {
     }
 }
 
-private struct ITunesMetadataTrackRow: View {
+private struct iTunesMetadataTrackRow: View {
     let number: String
     let title: String
     let subtitle: String
@@ -672,15 +672,15 @@ private struct ITunesMetadataTrackRow: View {
     }
 }
 
-private struct ITunesMatchedFilesDetailView: View {
-    let assignments: [ITunesAlbumMatchAssignment]
+private struct iTunesMatchedFilesDetailView: View {
+    let assignments: [iTunesAlbumMatchAssignment]
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 MetadataSectionCard(title: "Matched Files", symbolName: "link") {
                     ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
-                        ITunesMetadataMatchAssignmentRow(assignment: assignment)
+                        iTunesMetadataMatchAssignmentRow(assignment: assignment)
 
                         if index < assignments.count - 1 {
                             MetadataCardDivider()
@@ -700,8 +700,8 @@ private struct ITunesMatchedFilesDetailView: View {
     }
 }
 
-private struct ITunesMetadataMatchAssignmentRow: View {
-    let assignment: ITunesAlbumMatchAssignment
+private struct iTunesMetadataMatchAssignmentRow: View {
+    let assignment: iTunesAlbumMatchAssignment
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
@@ -745,8 +745,8 @@ private struct ITunesMetadataMatchAssignmentRow: View {
     }
 }
 
-private struct ITunesMetadataFileSummaryRow: View {
-    let file: ITunesFileSearchInput
+private struct iTunesMetadataFileSummaryRow: View {
+    let file: iTunesFileSearchInput
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
@@ -774,8 +774,8 @@ private struct ITunesMetadataFileSummaryRow: View {
     }
 }
 
-private struct ITunesMetadataReleaseTrackSummaryRow: View {
-    let track: ITunesTrackResult
+private struct iTunesMetadataReleaseTrackSummaryRow: View {
+    let track: iTunesTrackResult
 
     var body: some View {
         HStack(alignment: .top, spacing: 18) {
@@ -808,15 +808,15 @@ private struct ITunesMetadataReleaseTrackSummaryRow: View {
     }
 }
 
-private struct ITunesMetadataComparisonDetailView: View {
-    let groups: [ITunesMetadataComparisonGroup]
+private struct iTunesMetadataComparisonDetailView: View {
+    let groups: [iTunesMetadataComparisonGroup]
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                     ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
-                        ITunesMetadataComparisonGroupView(
+                        iTunesMetadataComparisonGroupView(
                             assignment: group.assignment,
                             rows: group.rows
                         )
@@ -839,9 +839,9 @@ private struct ITunesMetadataComparisonDetailView: View {
     }
 }
 
-private struct ITunesMetadataComparisonGroupView: View {
-    let assignment: ITunesAlbumMatchAssignment
-    let rows: [ITunesMetadataComparisonRow]
+private struct iTunesMetadataComparisonGroupView: View {
+    let assignment: iTunesAlbumMatchAssignment
+    let rows: [iTunesMetadataComparisonRow]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -878,10 +878,10 @@ private struct ITunesMetadataComparisonGroupView: View {
                 Divider()
                     .padding(.leading, 18)
 
-                ITunesMetadataComparisonTableHeader()
+                iTunesMetadataComparisonTableHeader()
 
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    ITunesMetadataComparisonRowView(row: row)
+                    iTunesMetadataComparisonRowView(row: row)
 
                     if index < rows.count - 1 {
                         Divider()
@@ -904,7 +904,7 @@ private struct ITunesMetadataComparisonGroupView: View {
     }
 }
 
-private struct ITunesMetadataComparisonTableHeader: View {
+private struct iTunesMetadataComparisonTableHeader: View {
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
             Text("Field")
@@ -932,8 +932,8 @@ private struct ITunesMetadataComparisonTableHeader: View {
     }
 }
 
-private struct ITunesMetadataComparisonRowView: View {
-    let row: ITunesMetadataComparisonRow
+private struct iTunesMetadataComparisonRowView: View {
+    let row: iTunesMetadataComparisonRow
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {

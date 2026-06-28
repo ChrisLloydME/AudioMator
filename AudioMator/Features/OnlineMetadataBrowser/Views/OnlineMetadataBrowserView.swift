@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MusicBrainzBrowserView: View {
+struct OnlineMetadataBrowserView: View {
     static let windowID = "musicbrainz-browser"
 
     @ObservedObject var store: MusicBrainzBrowserStore
@@ -18,7 +18,7 @@ struct MusicBrainzBrowserView: View {
                 case .musicBrainz:
                     musicBrainzContent
                 case .iTunes:
-                    ITunesBrowserView(
+                    iTunesBrowserView(
                         viewModel: viewModel,
                         onBackToSources: { self.selectedMetadataSource = nil }
                     )

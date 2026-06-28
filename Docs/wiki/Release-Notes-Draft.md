@@ -33,7 +33,7 @@ Only the version before `B` is used for update comparison. The build number is i
 - Run `bash scripts/codex-build.sh --force` for a generic macOS build.
 - If TagLib bridge or format-write behavior changed, run bridge smoke tests on temporary files.
 - Check whether `README.md` still matches platform, format, privacy, and network behavior.
-- Check whether `ACKNOWLEDGEMENTS_AND_PRIVACY.md` and `THIRD_PARTY_NOTICES.md` cover any new service or dependency.
+- Check whether `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` and `Docs/THIRD_PARTY_NOTICES.md` cover any new service or dependency.
 - Confirm that the release tag matches `V{version}B{build}`.
 - Confirm that the app bundle version and build number match the release tag.
 

@@ -30,7 +30,7 @@ When using TagLib in commercial or closed-source applications, at minimum:
 ### Local Project Status
 
 - This repository uses TagLib through a package dependency instead of checking a full TagLib source tree into the app repository.
-- This repository includes usage and licensing notices for TagLib in `README.md`, `ACKNOWLEDGEMENTS_AND_PRIVACY.md`, and this file.
+- This repository includes usage and licensing notices for TagLib in `README.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, and this file.
 - If future changes vendor TagLib source or modify TagLib itself, maintainers must update these notices and publish required TagLib changes according to the selected license path.
 
 ## TagLibAudioMetadata

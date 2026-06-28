@@ -19,7 +19,7 @@ struct ContentView: View {
 
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
-    @ObservedObject var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @ObservedObject var onlineMetadataBrowserStore: MusicBrainzBrowserStore
     @ObservedObject var lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @ObservedObject var metadataEditorStore: MetadataEditorStore
@@ -33,7 +33,7 @@ struct ContentView: View {
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
-    @State private var isMusicBrainzBrowserPresented: Bool = false
+    @State private var isOnlineMetadataBrowserPresented: Bool = false
     @State private var isMetadataFilenameToolPresented: Bool = false
     @State private var isMetadataEditorPresented: Bool = false
     @State private var isSettingsPresented: Bool = false
@@ -109,9 +109,9 @@ struct ContentView: View {
                 )
             }
             #if os(iOS)
-            .sheet(isPresented: $isMusicBrainzBrowserPresented) {
-                MusicBrainzBrowserView(
-                    store: musicBrainzBrowserStore,
+            .sheet(isPresented: $isOnlineMetadataBrowserPresented) {
+                OnlineMetadataBrowserView(
+                    store: onlineMetadataBrowserStore,
                     lrclibStore: lrclibLyricsBrowserStore,
                     viewModel: viewModel
                 )
@@ -190,8 +190,8 @@ struct ContentView: View {
                 guard !viewModel.files.isEmpty else { return }
                 openTrackRenumberSheet()
             }
-            .onReceive(NotificationCenter.default.publisher(for: .requestMusicBrainzBrowser)) { _ in
-                openMusicBrainzBrowser()
+            .onReceive(NotificationCenter.default.publisher(for: .requestOnlineMetadataBrowser)) { _ in
+                openOnlineMetadataBrowser()
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
                 attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
@@ -226,7 +226,7 @@ struct ContentView: View {
             selection: guardedSelection,
             onAddFiles: viewModel.addFiles,
             onShowMetadataDump: presentMetadataDump,
-            onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
+            onOpenOnlineMetadataBrowser: openOnlineMetadataBrowser,
             onOpenMetadataFilenameTool: openMetadataFilenameTool,
             onOpenMetadataEditor: openMetadataEditor,
             onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
@@ -245,7 +245,7 @@ struct ContentView: View {
             selection: guardedSelection,
             onAddFiles: viewModel.addFiles,
             onShowMetadataDump: presentMetadataDump,
-            onOpenMusicBrainzBrowser: openMusicBrainzBrowser,
+            onOpenOnlineMetadataBrowser: openOnlineMetadataBrowser,
             onOpenMetadataFilenameTool: openMetadataFilenameTool,
             onOpenMetadataEditor: openMetadataEditor,
             onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
@@ -264,32 +264,32 @@ struct ContentView: View {
         isTrackRenumberPresented = true
     }
 
-    private func openMusicBrainzBrowser() {
+    private func openOnlineMetadataBrowser() {
         let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
-        musicBrainzBrowserStore.apply(seed: seed)
+        onlineMetadataBrowserStore.apply(seed: seed)
         seedLRCLIBLyricsBrowser()
         #if os(macOS)
-        openWindow(id: MusicBrainzBrowserView.windowID)
+        openWindow(id: OnlineMetadataBrowserView.windowID)
         #else
-        isMusicBrainzBrowserPresented = true
+        isOnlineMetadataBrowserPresented = true
         #endif
 
-        if musicBrainzBrowserStore.hasSearchText {
-            musicBrainzBrowserStore.search()
+        if onlineMetadataBrowserStore.hasSearchText {
+            onlineMetadataBrowserStore.search()
         }
     }
 
     private func findSelectedFileInMusicBrainz() {
         guard let seed = currentMusicBrainzMatchSeed() else { return }
 
-        musicBrainzBrowserStore.apply(seed: seed)
+        onlineMetadataBrowserStore.apply(seed: seed)
         seedLRCLIBLyricsBrowser()
         #if os(macOS)
-        openWindow(id: MusicBrainzBrowserView.windowID)
+        openWindow(id: OnlineMetadataBrowserView.windowID)
         #else
-        isMusicBrainzBrowserPresented = true
+        isOnlineMetadataBrowserPresented = true
         #endif
-        musicBrainzBrowserStore.search()
+        onlineMetadataBrowserStore.search()
     }
 
     private func openMetadataFilenameTool(targetFileIDs: [AudioFile.ID]) {
@@ -815,7 +815,7 @@ struct ContentView_Previews: PreviewProvider {
         ContentView(
             viewModel: AudioViewModel(),
             state: SharedState(),
-            musicBrainzBrowserStore: MusicBrainzBrowserStore(),
+            onlineMetadataBrowserStore: MusicBrainzBrowserStore(),
             lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore(),
             metadataFilenameToolStore: MetadataFilenameToolStore(),
             metadataEditorStore: MetadataEditorStore(metadataPipeline: TagLibAudioMetadataPipeline()),

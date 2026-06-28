@@ -6,7 +6,7 @@ This record describes the completed behavior-preserving hardening work and the r
 
 ## Completed
 
-- Split the five identified mixed-responsibility files without changing their public workflows. Line counts changed from 2,595 to 817 for `MetadataFilenameRenameSheet.swift`, 1,909 to 484 for `MetadataEditorWindow.swift`, 1,821 to 317 for `ITunesBrowserView.swift`, 3,926 to 1,852 for `MusicBrainzClient.swift`, and 1,381 to 216 for `AudioViewModel+MetadataWrite.swift`.
+- Split the five identified mixed-responsibility files without changing their public workflows. Line counts changed from 2,595 to 817 for `MetadataFilenameRenameSheet.swift`, 1,909 to 484 for `MetadataEditorWindow.swift`, 1,821 to 317 for `iTunesBrowserView.swift`, 3,926 to 1,852 for `MusicBrainzClient.swift`, and 1,381 to 216 for `AudioViewModel+MetadataWrite.swift`.
 - Isolated deterministic rename, filename-to-metadata, metadata exchange, metadata editor, iTunes, MusicBrainz, online selection, text editing, track/disc, and metadata-write planning logic behind focused source files with fast or app-hosted characterization tests.
 - Covered TagLib structured reads, raw inspection, common metadata round trips, track/disc writes, artwork writes, complete erase, inspector clearing, and raw property-map removal against every committed audio fixture.
 - Covered `AudioViewModel` write orchestration for inspector edits, filename/metadata plans, metadata exchange, field imports, MuseAmp IDs, LRCLIB lyrics, and MusicBrainz/iTunes provider plans, including progress, reloads, unchanged fields, provider IDs, and track/disc pair composition.

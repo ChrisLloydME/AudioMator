@@ -5,20 +5,20 @@ import AppKit
 import UIKit
 #endif
 
-enum ITunesArtworkSearchEntity: String, Sendable {
+enum iTunesArtworkSearchEntity: String, Sendable {
     case album
     case idAlbum
 }
 
-struct ITunesArtworkSearchRequest: Sendable {
+struct iTunesArtworkSearchRequest: Sendable {
     let query: String
-    let entity: ITunesArtworkSearchEntity
+    let entity: iTunesArtworkSearchEntity
     let country: String
     let limit: Int
 
     init(
         query: String,
-        entity: ITunesArtworkSearchEntity,
+        entity: iTunesArtworkSearchEntity,
         country: String = "us",
         limit: Int = 24
     ) {
@@ -29,7 +29,7 @@ struct ITunesArtworkSearchRequest: Sendable {
     }
 }
 
-struct ITunesArtworkSearchResult: Identifiable, Sendable {
+struct iTunesArtworkSearchResult: Identifiable, Sendable {
     let id: String
     let title: String
     let subtitle: String?
@@ -57,7 +57,7 @@ struct ITunesArtworkSearchResult: Identifiable, Sendable {
     }
 }
 
-enum ITunesArtworkServiceError: LocalizedError {
+enum iTunesArtworkServiceError: LocalizedError {
     case emptyQuery
     case invalidCountry
     case invalidLimit
@@ -92,55 +92,55 @@ enum ITunesArtworkServiceError: LocalizedError {
     }
 }
 
-struct ITunesArtworkService: Sendable {
+struct iTunesArtworkService: Sendable {
     private let session: URLSession
 
     init(session: URLSession = .shared) {
         self.session = session
     }
 
-    func search(_ request: ITunesArtworkSearchRequest) async throws -> [ITunesArtworkSearchResult] {
+    func search(_ request: iTunesArtworkSearchRequest) async throws -> [iTunesArtworkSearchResult] {
         let trimmedQuery = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
-            throw ITunesArtworkServiceError.emptyQuery
+            throw iTunesArtworkServiceError.emptyQuery
         }
 
         let normalizedCountry = request.country.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedCountry.count == 2 else {
-            throw ITunesArtworkServiceError.invalidCountry
+            throw iTunesArtworkServiceError.invalidCountry
         }
 
         guard (1...200).contains(request.limit) else {
-            throw ITunesArtworkServiceError.invalidLimit
+            throw iTunesArtworkServiceError.invalidLimit
         }
 
         let url: URL
         do {
-            url = try ITunesArtworkCoreRequest(
+            url = try iTunesArtworkCoreRequest(
                 query: trimmedQuery,
-                entity: ITunesArtworkCoreEntity(entity: request.entity),
+                entity: iTunesArtworkCoreEntity(entity: request.entity),
                 country: normalizedCountry,
                 limit: request.limit
             ).searchURL()
         } catch {
-            throw ITunesArtworkServiceError.failedToBuildURL
+            throw iTunesArtworkServiceError.failedToBuildURL
         }
 
         let (data, response) = try await session.data(from: url)
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw ITunesArtworkServiceError.invalidResponseBody
+            throw iTunesArtworkServiceError.invalidResponseBody
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
-            throw ITunesArtworkServiceError.requestFailed(statusCode: httpResponse.statusCode)
+            throw iTunesArtworkServiceError.requestFailed(statusCode: httpResponse.statusCode)
         }
 
         return try transformResults(from: data, entity: request.entity)
     }
 
-    func downloadArtwork(for result: ITunesArtworkSearchResult) async throws -> PendingArtwork {
+    func downloadArtwork(for result: iTunesArtworkSearchResult) async throws -> PendingArtwork {
         guard !result.preferredDownloadURLs.isEmpty else {
-            throw ITunesArtworkServiceError.invalidArtworkData
+            throw iTunesArtworkServiceError.invalidArtworkData
         }
 
         var downloadedData: Data?
@@ -158,18 +158,18 @@ struct ITunesArtworkService: Sendable {
         }
 
         guard let downloadedData else {
-            throw ITunesArtworkServiceError.invalidArtworkData
+            throw iTunesArtworkServiceError.invalidArtworkData
         }
 
         guard let image = PlatformImage(data: downloadedData) else {
-            throw ITunesArtworkServiceError.imageDecodingFailed
+            throw iTunesArtworkServiceError.imageDecodingFailed
         }
 
         guard
             let pngData = image.audiomatorPNGData,
             let previewImage = PlatformImage(data: pngData)
         else {
-            throw ITunesArtworkServiceError.imageEncodingFailed
+            throw iTunesArtworkServiceError.imageEncodingFailed
         }
 
         return PendingArtwork(
@@ -181,21 +181,21 @@ struct ITunesArtworkService: Sendable {
 
     private func transformResults(
         from jsonData: Data,
-        entity: ITunesArtworkSearchEntity
-    ) throws -> [ITunesArtworkSearchResult] {
+        entity: iTunesArtworkSearchEntity
+    ) throws -> [iTunesArtworkSearchResult] {
         do {
-            return try ITunesArtworkCore.transformResults(
+            return try iTunesArtworkCore.transformResults(
                 from: jsonData,
-                entity: ITunesArtworkCoreEntity(entity: entity)
-            ).map(ITunesArtworkSearchResult.init(coreResult:))
+                entity: iTunesArtworkCoreEntity(entity: entity)
+            ).map(iTunesArtworkSearchResult.init(coreResult:))
         } catch {
-            throw ITunesArtworkServiceError.invalidResponseBody
+            throw iTunesArtworkServiceError.invalidResponseBody
         }
     }
 }
 
-private extension ITunesArtworkCoreEntity {
-    nonisolated init(entity: ITunesArtworkSearchEntity) {
+private extension iTunesArtworkCoreEntity {
+    nonisolated init(entity: iTunesArtworkSearchEntity) {
         switch entity {
         case .album:
             self = .album
@@ -205,8 +205,8 @@ private extension ITunesArtworkCoreEntity {
     }
 }
 
-private extension ITunesArtworkSearchResult {
-    nonisolated init(coreResult: ITunesArtworkCoreResult) {
+private extension iTunesArtworkSearchResult {
+    nonisolated init(coreResult: iTunesArtworkCoreResult) {
         self.init(
             id: coreResult.id,
             title: coreResult.title,

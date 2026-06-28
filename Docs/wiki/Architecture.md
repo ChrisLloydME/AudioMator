@@ -33,7 +33,7 @@ Track and disc values are structured, not just raw strings. `AudioTagNumberPair`
 
 - `FileSystem`: directory monitoring and watched-folder persistence.
 - `GitHub`: GitHub release-note request logic.
-- `ITunes`: iTunes Search API, artwork lookup, and provider core logic.
+- `iTunes`: iTunes Search API, artwork lookup, and provider core logic.
 - `LRCLIB`: lyrics request construction, models, and candidate ranking.
 - `MusicBrainz`: search, link parsing, query construction, result models, matching, and client code.
 - `OnlineMetadata`: cross-provider selection core.
@@ -48,8 +48,8 @@ Network-backed features should remain explicit and user initiated.
 - `Main`: main window, sidebar, center list, inspector, track renumbering, and main view model.
 - `MetadataEditor`: advanced metadata editor window and table views.
 - `MetadataFilenameTool`: filename/metadata conversion.
-- `MusicBrainzBrowser`, `ITunesBrowser`, `LRCLIBLyricsBrowser`: provider-specific online workflows.
-- `OnlineMetadataBrowser`: shared online metadata source picker.
+- `OnlineMetadataBrowser`: shared Online Metadata window shell and source picker.
+- `MusicBrainzBrowser`, `iTunesBrowser`, `LRCLIBLyricsBrowser`: provider-specific online workflows hosted by the shared entry point.
 - `MetadataInspector`, `Settings`, `Welcome`, and `iPad`: raw inspection, settings, welcome screens, and iPad workspace.
 
 ## File Mutation Coordination

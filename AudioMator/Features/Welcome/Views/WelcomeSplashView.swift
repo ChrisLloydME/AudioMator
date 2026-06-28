@@ -175,7 +175,7 @@ enum WelcomeSplashPage: Int, CaseIterable {
 
     static var domainSummary: String {
         (NetworkServiceDisclosure.MusicBrainz.domains +
-            NetworkServiceDisclosure.ITunesArtwork.domains +
+            NetworkServiceDisclosure.iTunesArtwork.domains +
             NetworkServiceDisclosure.LRCLIB.domains +
             NetworkServiceDisclosure.SoftwareUpdates.domains)
             .joined(separator: "  ")

@@ -71,7 +71,7 @@ final class AudioViewModel: ObservableObject {
     let metadataPipeline: any AudioMetadataPipeline
     let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
-    let iTunesArtworkService = ITunesArtworkService()
+    let artworkLookupService = iTunesArtworkService()
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
     var artworkLookupTask: Task<Void, Never>?
     private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []

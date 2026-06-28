@@ -1,10 +1,10 @@
 import XCTest
 @testable import AudioMator
 
-final class ITunesMetadataComparisonBuilderTests: XCTestCase {
+final class iTunesMetadataComparisonBuilderTests: XCTestCase {
     func testRowClassifiesTrimmedAndNormalizedValues() {
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.row(
+            iTunesMetadataComparisonBuilder.row(
                 id: "artist",
                 title: "Artist",
                 local: "  Beyonce  ",
@@ -15,7 +15,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.row(
+            iTunesMetadataComparisonBuilder.row(
                 id: "title",
                 title: "Title",
                 local: "Local",
@@ -25,7 +25,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.row(
+            iTunesMetadataComparisonBuilder.row(
                 id: "missing-local",
                 title: "Missing Local",
                 local: " ",
@@ -35,7 +35,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.row(
+            iTunesMetadataComparisonBuilder.row(
                 id: "missing-remote",
                 title: "Missing Remote",
                 local: "Local",
@@ -45,7 +45,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         )
 
         XCTAssertNil(
-            ITunesMetadataComparisonBuilder.row(
+            iTunesMetadataComparisonBuilder.row(
                 id: "blank",
                 title: "Blank",
                 local: " ",
@@ -72,7 +72,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         let assignment = makeAssignment(track: detail.tracks[0])
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(
+            iTunesMetadataComparisonBuilder.remoteValue(
                 for: .albumArtist,
                 assignment: assignment,
                 detail: detail
@@ -80,19 +80,19 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
             "Album Artist"
         )
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .genre, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .genre, assignment: assignment, detail: detail),
             "Album Genre"
         )
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .copyright, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .copyright, assignment: assignment, detail: detail),
             "Album Copyright"
         )
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .discTotal, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .discTotal, assignment: assignment, detail: detail),
             ""
         )
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
             ContentAdvisory.notExplicit.displayName
         )
     }
@@ -103,7 +103,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         let detail = makeAlbumDetail(albumExplicitness: "explicit", track: track)
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
             ContentAdvisory.notExplicit.displayName
         )
     }
@@ -114,7 +114,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         let detail = makeAlbumDetail(albumExplicitness: "explicit", track: track)
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
             ContentAdvisory.clean.displayName
         )
     }
@@ -125,7 +125,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         let detail = makeAlbumDetail(albumExplicitness: "explicit", track: track)
 
         XCTAssertEqual(
-            ITunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
+            iTunesMetadataComparisonBuilder.remoteValue(for: .isExplicit, assignment: assignment, detail: detail),
             ContentAdvisory.explicit.displayName
         )
     }
@@ -150,7 +150,7 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         )
         let track = Self.makeTrack(trackName: "Remote Title", artistName: "Remote Artist", trackNumber: 2, trackCount: 9)
         let detail = makeAlbumDetail(track: track)
-        let assignment = ITunesAlbumMatchAssignment(
+        let assignment = iTunesAlbumMatchAssignment(
             id: "assignment",
             file: fallback,
             track: track,
@@ -158,21 +158,21 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
             reason: "test"
         )
 
-        let rows = ITunesMetadataComparisonBuilder.rows(
+        let rows = iTunesMetadataComparisonBuilder.rows(
             for: assignment,
             detail: detail,
             loadedFiles: [loadedFile]
         )
 
-        XCTAssertEqual(rows.first { $0.id == ITunesTagWriteField.title.id }?.localValue, "Loaded Title")
-        XCTAssertEqual(rows.first { $0.id == ITunesTagWriteField.artist.id }?.localValue, "Loaded Artist")
-        XCTAssertEqual(rows.first { $0.id == ITunesTagWriteField.album.id }?.localValue, "Loaded Album")
-        XCTAssertEqual(rows.first { $0.id == ITunesTagWriteField.trackNumber.id }?.localValue, "2")
-        XCTAssertEqual(rows.first { $0.id == ITunesTagWriteField.trackTotal.id }?.localValue, "9")
+        XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.title.id }?.localValue, "Loaded Title")
+        XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.artist.id }?.localValue, "Loaded Artist")
+        XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.album.id }?.localValue, "Loaded Album")
+        XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.trackNumber.id }?.localValue, "2")
+        XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.trackTotal.id }?.localValue, "9")
     }
 
-    private func makeAssignment(track: ITunesTrackResult) -> ITunesAlbumMatchAssignment {
-        ITunesAlbumMatchAssignment(
+    private func makeAssignment(track: iTunesTrackResult) -> iTunesAlbumMatchAssignment {
+        iTunesAlbumMatchAssignment(
             id: "assignment",
             file: makeFileInput(),
             track: track,
@@ -188,8 +188,8 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         album: String = "Local Album",
         trackNumber: String = "1",
         trackTotal: Int = 10
-    ) -> ITunesFileSearchInput {
-        ITunesFileSearchInput(
+    ) -> iTunesFileSearchInput {
+        iTunesFileSearchInput(
             id: id,
             displayTitle: title,
             title: title,
@@ -213,12 +213,12 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         albumGenre: String = "Album Genre",
         albumCopyright: String = "",
         albumExplicitness: String = "notExplicit",
-        track: ITunesTrackResult? = nil
-    ) -> ITunesAlbumDetail {
+        track: iTunesTrackResult? = nil
+    ) -> iTunesAlbumDetail {
         let resolvedTrack = track ?? Self.makeTrack()
 
-        return ITunesAlbumDetail(
-            album: ITunesAlbumResult(
+        return iTunesAlbumDetail(
+            album: iTunesAlbumResult(
                 collectionID: 100,
                 artistID: 200,
                 collectionArtistID: 201,
@@ -253,8 +253,8 @@ final class ITunesMetadataComparisonBuilderTests: XCTestCase {
         trackNumber: Int = 1,
         trackCount: Int = 10,
         trackExplicitness: String = "notExplicit"
-    ) -> ITunesTrackResult {
-        ITunesTrackResult(
+    ) -> iTunesTrackResult {
+        iTunesTrackResult(
             trackID: 300,
             collectionID: 100,
             artistID: 200,

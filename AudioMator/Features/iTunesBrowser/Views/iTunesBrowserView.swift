@@ -1,13 +1,13 @@
 import SwiftUI
 import WebKit
 
-struct ITunesBrowserView: View {
-    @StateObject private var store = ITunesBrowserStore()
+struct iTunesBrowserView: View {
+    @StateObject private var store = iTunesBrowserStore()
     @ObservedObject var viewModel: AudioViewModel
     let onBackToSources: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var navigationPath: [ITunesBrowserDestination] = []
+    @State private var navigationPath: [iTunesBrowserDestination] = []
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -18,12 +18,12 @@ struct ITunesBrowserView: View {
             }
             .audiomatorMacTitlebarScrollEdgeBar()
             .navigationTitle("iTunes")
-            .navigationDestination(for: ITunesBrowserDestination.self) { destination in
+            .navigationDestination(for: iTunesBrowserDestination.self) { destination in
                 switch destination {
                 case .track(let track):
-                    ITunesTrackDetailView(track: track, store: store, viewModel: viewModel)
+                    iTunesTrackDetailView(track: track, store: store, viewModel: viewModel)
                 case .album(let album):
-                    ITunesAlbumDetailView(album: album, store: store, viewModel: viewModel)
+                    iTunesAlbumDetailView(album: album, store: store, viewModel: viewModel)
                 }
             }
             #if os(macOS)
@@ -139,7 +139,7 @@ struct ITunesBrowserView: View {
 
     private var modePicker: some View {
         Picker("Search Mode", selection: $store.mode) {
-            ForEach(ITunesSearchMode.allCases) { mode in
+            ForEach(iTunesSearchMode.allCases) { mode in
                 Text(mode.displayName).tag(mode)
             }
         }
@@ -149,7 +149,7 @@ struct ITunesBrowserView: View {
     private var storefrontBar: some View {
         HStack(spacing: 10) {
             Menu {
-                ForEach(ITunesStorefront.allCases) { storefront in
+                ForEach(iTunesStorefront.allCases) { storefront in
                     Button {
                         store.storefront = storefront
                     } label: {
@@ -164,7 +164,7 @@ struct ITunesBrowserView: View {
                 Label("Storefront", systemImage: "globe")
             }
 
-            ITunesStorefrontChip(title: "\(store.storefront.emoji) \(store.storefront.displayName)")
+            iTunesStorefrontChip(title: "\(store.storefront.emoji) \(store.storefront.displayName)")
 
             Spacer(minLength: 0)
         }
@@ -175,21 +175,21 @@ struct ITunesBrowserView: View {
         switch store.mode {
         case .track:
             HStack(alignment: .top, spacing: 12) {
-                ITunesQueryField(title: "Track", symbolName: "music.note", text: $store.titleQuery)
-                ITunesQueryField(title: "Artist", symbolName: "person", text: $store.artistQuery)
-                ITunesQueryField(title: "Album", symbolName: "opticaldisc", text: $store.albumQuery)
+                iTunesQueryField(title: "Track", symbolName: "music.note", text: $store.titleQuery)
+                iTunesQueryField(title: "Artist", symbolName: "person", text: $store.artistQuery)
+                iTunesQueryField(title: "Album", symbolName: "opticaldisc", text: $store.albumQuery)
             }
         case .album:
             HStack(alignment: .top, spacing: 12) {
-                ITunesQueryField(title: "Album", symbolName: "square.stack", text: $store.albumQuery)
-                ITunesQueryField(title: "Album Artist", symbolName: "person.2", text: $store.albumArtistQuery)
+                iTunesQueryField(title: "Album", symbolName: "square.stack", text: $store.albumQuery)
+                iTunesQueryField(title: "Album Artist", symbolName: "person.2", text: $store.albumArtistQuery)
             }
         case .file:
-            ITunesFileSelectionSummaryView(summary: store.fileSelectionSummary)
+            iTunesFileSelectionSummaryView(summary: store.fileSelectionSummary)
         case .link:
-            ITunesQueryField(title: "Apple Music or iTunes Album/Track Link", symbolName: "link", text: $store.linkQuery, minimumWidth: 520)
+            iTunesQueryField(title: "Apple Music or iTunes Album/Track Link", symbolName: "link", text: $store.linkQuery, minimumWidth: 520)
         case .upc:
-            ITunesQueryField(title: "UPC/EAN", symbolName: "barcode", text: $store.upcQuery, minimumWidth: 260)
+            iTunesQueryField(title: "UPC/EAN", symbolName: "barcode", text: $store.upcQuery, minimumWidth: 260)
         }
     }
 
@@ -249,15 +249,15 @@ struct ITunesBrowserView: View {
         switch store.results {
         case .tracks(let tracks):
             ForEach(tracks) { track in
-                NavigationLink(value: ITunesBrowserDestination.track(track)) {
-                    ITunesTrackRow(track: track)
+                NavigationLink(value: iTunesBrowserDestination.track(track)) {
+                    iTunesTrackRow(track: track)
                         .padding(.vertical, 6)
                 }
             }
         case .albums(let albums):
             ForEach(albums) { album in
-                NavigationLink(value: ITunesBrowserDestination.album(album)) {
-                    ITunesAlbumRow(album: album)
+                NavigationLink(value: iTunesBrowserDestination.album(album)) {
+                    iTunesAlbumRow(album: album)
                         .padding(.vertical, 6)
                 }
             }

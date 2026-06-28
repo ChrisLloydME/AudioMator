@@ -81,4 +81,4 @@ The current update presenter opens GitHub Releases for manual download. Sparkle 
 - Release notes and update checks: `api.github.com`
 - GitHub Releases page: `github.com`
 
-When adding or changing network behavior, update `NetworkServiceDisclosure`, `ACKNOWLEDGEMENTS_AND_PRIVACY.md`, and any user-facing documentation that describes privacy or network use.
+When adding or changing network behavior, update `NetworkServiceDisclosure`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, and any user-facing documentation that describes privacy or network use.

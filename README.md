@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="240">
+  <img src="Docs/Images/AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="240">
 </p>
 
 <h1 align="center" style="font-size: 36px;">AudioMator</h1>
@@ -34,7 +34,7 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 ## Screenshot
 
 <p align="center">
-  <img src="Screenshot.png" alt="Screenshot">
+  <img src="Docs/Images/Screenshot.png" alt="Screenshot">
 </p>
 
 ## AudioMator Feature Overview
@@ -160,7 +160,7 @@ Network access happens only when you explicitly use an online feature:
 
 AudioMator does not upload the audio file contents for ordinary metadata editing. Online lookup features may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, ISRC, barcode/UPC, iTunes album/artist/track IDs, MusicBrainz identifiers, pasted MusicBrainz/Apple Music/iTunes links, storefront country, or manually entered queries.
 
-See `ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
+See `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
 
 ## Manual Update Checks
 
@@ -209,11 +209,17 @@ E-mail: AudioMator@lloydME.com
   File-system monitoring, MusicBrainz, iTunes Search API/artwork, LRCLIB lyrics lookup, GitHub release-note services, and macOS manual update checks.
 - `Config/`
   Project configuration inputs, including the app Info.plist.
+- `Docs/`
+  Maintainer docs, README images, wiki pages, privacy acknowledgements, and third-party notices.
+- `Tests/`
+  SwiftPM fast core-logic tests and test coverage notes.
+- `AudioMatorTests/`
+  App-hosted Xcode tests and fixtures.
 - `scripts/`
   Build and smoke-test helpers.
 - `README.md`
   Product and developer overview.
-- `ACKNOWLEDGEMENTS_AND_PRIVACY.md`
+- `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`
   Network/privacy notes and third-party acknowledgements.
-- `THIRD_PARTY_NOTICES.md`
+- `Docs/THIRD_PARTY_NOTICES.md`
   Third-party license notices.

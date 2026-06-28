@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
+enum iTunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
     case title
     case artist
     case albumArtist
@@ -121,16 +121,16 @@ enum ITunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-struct ITunesTaggingWriteEntry: Identifiable {
+struct iTunesTaggingWriteEntry: Identifiable {
     let fileID: UUID
     let fileName: String
-    let values: [ITunesTagWriteField: String]
+    let values: [iTunesTagWriteField: String]
     let expectedFileFingerprint: AudioFileFingerprint?
 
     init(
         fileID: UUID,
         fileName: String,
-        values: [ITunesTagWriteField: String],
+        values: [iTunesTagWriteField: String],
         expectedFileFingerprint: AudioFileFingerprint? = nil
     ) {
         self.fileID = fileID
@@ -142,7 +142,7 @@ struct ITunesTaggingWriteEntry: Identifiable {
     var id: UUID { fileID }
 }
 
-struct ITunesTaggingFieldChange: Identifiable {
+struct iTunesTaggingFieldChange: Identifiable {
     enum Status: Equatable {
         case same
         case different
@@ -150,7 +150,7 @@ struct ITunesTaggingFieldChange: Identifiable {
         case missingRemote
     }
 
-    let field: ITunesTagWriteField
+    let field: iTunesTagWriteField
     let localValue: String
     let remoteValue: String
     let status: Status
@@ -159,20 +159,20 @@ struct ITunesTaggingFieldChange: Identifiable {
     var id: String { field.rawValue }
 }
 
-struct ITunesTaggingPlanRow: Identifiable {
-    let fileInput: ITunesFileSearchInput
+struct iTunesTaggingPlanRow: Identifiable {
+    let fileInput: iTunesFileSearchInput
     let file: AudioFile?
-    let track: ITunesTrackResult?
-    let changes: [ITunesTaggingFieldChange]
+    let track: iTunesTrackResult?
+    let changes: [iTunesTaggingFieldChange]
     let issueMessage: String?
 
     var id: String { fileInput.id }
 
-    var writeEntry: ITunesTaggingWriteEntry? {
+    var writeEntry: iTunesTaggingWriteEntry? {
         guard let file, let fileFingerprint = file.fileFingerprint else { return nil }
         let values = Dictionary(uniqueKeysWithValues: changes.filter(\.willWrite).map { ($0.field, $0.remoteValue) })
         guard !values.isEmpty else { return nil }
-        return ITunesTaggingWriteEntry(
+        return iTunesTaggingWriteEntry(
             fileID: file.id,
             fileName: file.url.lastPathComponent,
             values: values,
@@ -181,19 +181,19 @@ struct ITunesTaggingPlanRow: Identifiable {
     }
 }
 
-struct ITunesTaggingPlan {
-    let rows: [ITunesTaggingPlanRow]
+struct iTunesTaggingPlan {
+    let rows: [iTunesTaggingPlanRow]
 
-    var writeEntries: [ITunesTaggingWriteEntry] { rows.compactMap(\.writeEntry) }
+    var writeEntries: [iTunesTaggingWriteEntry] { rows.compactMap(\.writeEntry) }
     var changeCount: Int { rows.reduce(0) { $0 + $1.changes.filter(\.willWrite).count } }
     var filesWithChangesCount: Int { writeEntries.count }
     var unresolvedIssueCount: Int { rows.filter { $0.issueMessage != nil }.count }
 }
 
 @MainActor
-final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
+final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     struct AssignmentDraft: Identifiable, Hashable {
-        let fileInput: ITunesFileSearchInput
+        let fileInput: iTunesFileSearchInput
         let initialTrackID: Int?
         let initialReason: String?
         var selectedTrackID: Int?
@@ -202,20 +202,20 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     let id = UUID()
-    let detail: ITunesAlbumDetail
+    let detail: iTunesAlbumDetail
 
     @Published private(set) var assignments: [AssignmentDraft]
-    @Published private(set) var availableTracks: [ITunesTrackResult]
+    @Published private(set) var availableTracks: [iTunesTrackResult]
     @Published private(set) var loadedFilesByInputID: [String: AudioFile]
-    @Published var selectedFields: Set<ITunesTagWriteField>
+    @Published var selectedFields: Set<iTunesTagWriteField>
 
     private let barcodeValue: String
 
-    init(detail: ITunesAlbumDetail, preview: ITunesAlbumMatchPreview, loadedFiles: [AudioFile]) {
+    init(detail: iTunesAlbumDetail, preview: iTunesAlbumMatchPreview, loadedFiles: [AudioFile]) {
         self.detail = detail
         self.availableTracks = detail.tracks
         self.loadedFilesByInputID = Dictionary(uniqueKeysWithValues: loadedFiles.map { ($0.id.uuidString, $0) })
-        self.selectedFields = Set(ITunesTagWriteField.allCases.filter(\.isDefaultSelected))
+        self.selectedFields = Set(iTunesTagWriteField.allCases.filter(\.isDefaultSelected))
         self.barcodeValue = preview.matchedAssignments.first(where: { !$0.file.barcode.isEmpty })?.file.barcode ?? ""
 
         let autoAssignments = Dictionary(uniqueKeysWithValues: preview.matchedAssignments.map { ($0.file.id, $0) })
@@ -233,12 +233,12 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
     }
 
-    var availableFields: [ITunesTagWriteField] {
+    var availableFields: [iTunesTagWriteField] {
         let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.trackID, $0) })
         let selectedTracks = assignments.compactMap { assignment in
             assignment.selectedTrackID.flatMap { tracksByID[$0] }
         }
-        return ITunesTagWriteField.allCases.filter { field in
+        return iTunesTagWriteField.allCases.filter { field in
             selectedTracks.contains {
                 !remoteValue(for: field, selectedTrack: $0)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -247,14 +247,14 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
     }
 
-    var selectedAvailableFields: Set<ITunesTagWriteField> {
+    var selectedAvailableFields: Set<iTunesTagWriteField> {
         selectedFields.intersection(availableFields)
     }
 
-    var plan: ITunesTaggingPlan {
+    var plan: iTunesTaggingPlan {
         let selectedFields = selectedAvailableFields
         let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.trackID, $0) })
-        return ITunesTaggingPlan(
+        return iTunesTaggingPlan(
             rows: assignments.map { assignment in
                 buildPlanRow(
                     for: assignment,
@@ -283,7 +283,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         canApply(using: plan)
     }
 
-    func canApply(using plan: ITunesTaggingPlan) -> Bool {
+    func canApply(using plan: iTunesTaggingPlan) -> Bool {
         !selectedAvailableFields.isEmpty && !hasDuplicateTrackAssignments && !plan.writeEntries.isEmpty
     }
 
@@ -291,7 +291,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         applyDisabledReason(using: plan)
     }
 
-    func applyDisabledReason(using plan: ITunesTaggingPlan) -> String? {
+    func applyDisabledReason(using plan: iTunesTaggingPlan) -> String? {
         if selectedAvailableFields.isEmpty { return L10n.string("Choose at least one field to write.") }
         if hasDuplicateTrackAssignments { return L10n.string("Each iTunes track can only be assigned once before writing.") }
         if plan.writeEntries.isEmpty { return L10n.string("No selected fields would change any loaded files.") }
@@ -302,11 +302,11 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         loadedFilesByInputID = Dictionary(uniqueKeysWithValues: files.map { ($0.id.uuidString, $0) })
     }
 
-    func isFieldSelected(_ field: ITunesTagWriteField) -> Bool {
+    func isFieldSelected(_ field: iTunesTagWriteField) -> Bool {
         selectedFields.contains(field)
     }
 
-    func setFieldSelected(_ isSelected: Bool, for field: ITunesTagWriteField) {
+    func setFieldSelected(_ isSelected: Bool, for field: iTunesTagWriteField) {
         if isSelected {
             selectedFields.insert(field)
         } else {
@@ -336,7 +336,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         assignments[index].selectedTrackID = availableTracks.contains { $0.trackID == trackID } ? trackID : nil
     }
 
-    func track(for assignment: AssignmentDraft) -> ITunesTrackResult? {
+    func track(for assignment: AssignmentDraft) -> iTunesTrackResult? {
         guard let id = assignment.selectedTrackID else { return nil }
         return availableTracks.first(where: { $0.trackID == id })
     }
@@ -348,9 +348,9 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     private func buildPlanRow(
         for assignment: AssignmentDraft,
-        selectedFields: Set<ITunesTagWriteField>,
-        selectedTrack: ITunesTrackResult?
-    ) -> ITunesTaggingPlanRow {
+        selectedFields: Set<iTunesTagWriteField>,
+        selectedTrack: iTunesTrackResult?
+    ) -> iTunesTaggingPlanRow {
         let file = loadedFilesByInputID[assignment.fileInput.id]
 
         let issueMessage: String?
@@ -364,13 +364,13 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
             issueMessage = nil
         }
 
-        let changes: [ITunesTaggingFieldChange] = selectedFields.compactMap { field in
+        let changes: [iTunesTaggingFieldChange] = selectedFields.compactMap { field in
             guard let file else { return nil }
             let localValue = field.localValue(from: file)
             let remoteValue = remoteValue(for: field, selectedTrack: selectedTrack)
             let status = Self.changeStatus(localValue: localValue, remoteValue: remoteValue)
             let willWrite = !remoteValue.isEmpty && status != .same && selectedTrack != nil
-            return ITunesTaggingFieldChange(
+            return iTunesTaggingFieldChange(
                 field: field,
                 localValue: localValue,
                 remoteValue: remoteValue,
@@ -380,7 +380,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
         .sorted { $0.field.writeOrderIndex < $1.field.writeOrderIndex }
 
-        return ITunesTaggingPlanRow(
+        return iTunesTaggingPlanRow(
             fileInput: assignment.fileInput,
             file: file,
             track: selectedTrack,
@@ -389,7 +389,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         )
     }
 
-    private func remoteValue(for field: ITunesTagWriteField, selectedTrack: ITunesTrackResult?) -> String {
+    private func remoteValue(for field: iTunesTagWriteField, selectedTrack: iTunesTrackResult?) -> String {
         guard let selectedTrack else { return "" }
         switch field {
         case .title: return selectedTrack.trackName
@@ -412,7 +412,7 @@ final class ITunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         }
     }
 
-    private static func changeStatus(localValue: String, remoteValue: String) -> ITunesTaggingFieldChange.Status {
+    private static func changeStatus(localValue: String, remoteValue: String) -> iTunesTaggingFieldChange.Status {
         let local = localValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let remote = remoteValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if local.isEmpty && remote.isEmpty { return .same }

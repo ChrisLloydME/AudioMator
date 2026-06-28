@@ -7,7 +7,7 @@ struct ContentPane: View {
     let selection: Binding<Set<AudioFile.ID>>
     let onAddFiles: () -> Void
     let onShowMetadataDump: () -> Void
-    let onOpenMusicBrainzBrowser: () -> Void
+    let onOpenOnlineMetadataBrowser: () -> Void
     let onOpenMetadataFilenameTool: ([AudioFile.ID]) -> Void
     let onOpenMetadataEditor: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
@@ -47,7 +47,7 @@ struct ContentPane: View {
     private var shouldShowMetadataWorkflowToolbarGroup: Bool {
         visibleToolbarButtons.contains(.renumberTracks) ||
             visibleToolbarButtons.contains(.renameFiles) ||
-            visibleToolbarButtons.contains(.musicBrainzBrowser)
+            visibleToolbarButtons.contains(.onlineMetadataBrowser)
     }
 
     private var shouldShowMetadataToolsToolbarGroup: Bool {
@@ -242,9 +242,9 @@ struct ContentPane: View {
                 .disabled(state.selectedAudioIDs.isEmpty)
             }
 
-            if visibleToolbarButtons.contains(.musicBrainzBrowser) {
-                Button(action: onOpenMusicBrainzBrowser) {
-                    toolbarIconLabel(ToolbarButtonOption.musicBrainzBrowser.displayName, systemImage: ToolbarButtonOption.musicBrainzBrowser.systemImage)
+            if visibleToolbarButtons.contains(.onlineMetadataBrowser) {
+                Button(action: onOpenOnlineMetadataBrowser) {
+                    toolbarIconLabel(ToolbarButtonOption.onlineMetadataBrowser.displayName, systemImage: ToolbarButtonOption.onlineMetadataBrowser.systemImage)
                 }
                 .help(L10n.string("Open Online Metadata"))
             }

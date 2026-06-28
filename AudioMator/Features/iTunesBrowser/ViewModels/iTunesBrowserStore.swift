@@ -1,9 +1,9 @@
 import Foundation
 import Combine
 
-enum ITunesBrowserDestination: Hashable, Identifiable {
-    case track(ITunesTrackResult)
-    case album(ITunesAlbumResult)
+enum iTunesBrowserDestination: Hashable, Identifiable {
+    case track(iTunesTrackResult)
+    case album(iTunesAlbumResult)
 
     var id: String {
         switch self {
@@ -14,28 +14,28 @@ enum ITunesBrowserDestination: Hashable, Identifiable {
 }
 
 @MainActor
-final class ITunesBrowserStore: ObservableObject {
-    @Published var mode: ITunesSearchMode = .track
+final class iTunesBrowserStore: ObservableObject {
+    @Published var mode: iTunesSearchMode = .track
     @Published var titleQuery: String = ""
     @Published var artistQuery: String = ""
     @Published var albumArtistQuery: String = ""
     @Published var albumQuery: String = ""
     @Published var upcQuery: String = ""
     @Published var linkQuery: String = ""
-    @Published var storefront: ITunesStorefront = .us
+    @Published var storefront: iTunesStorefront = .us
     @Published private(set) var isSearching: Bool = false
     @Published private(set) var errorMessage: String?
-    @Published private(set) var results: ITunesSearchResults = .tracks([])
-    @Published private(set) var lastSubmittedQuery: ITunesSearchQuery?
+    @Published private(set) var results: iTunesSearchResults = .tracks([])
+    @Published private(set) var lastSubmittedQuery: iTunesSearchQuery?
     @Published private(set) var sourceDescription: String = "Seed iTunes from the current AudioMator selection or search manually."
     @Published private(set) var navigationResetToken = UUID()
 
-    private let client: ITunesClient
+    private let client: iTunesClient
     private var searchTask: Task<Void, Never>?
-    private var fileInputs: [ITunesFileSearchInput] = []
-    private var albumDetailsByID: [Int: ITunesAlbumDetail] = [:]
+    private var fileInputs: [iTunesFileSearchInput] = []
+    private var albumDetailsByID: [Int: iTunesAlbumDetail] = [:]
 
-    init(client: ITunesClient = ITunesClient()) {
+    init(client: iTunesClient = iTunesClient()) {
         self.client = client
     }
 
@@ -43,8 +43,8 @@ final class ITunesBrowserStore: ObservableObject {
         searchTask?.cancel()
     }
 
-    var currentQuery: ITunesSearchQuery {
-        ITunesSearchQuery(
+    var currentQuery: iTunesSearchQuery {
+        iTunesSearchQuery(
             mode: mode,
             title: titleQuery,
             artist: mode == .album ? albumArtistQuery : artistQuery,
@@ -58,8 +58,8 @@ final class ITunesBrowserStore: ObservableObject {
 
     var hasSearchText: Bool { !currentQuery.isEmpty }
     var hasFileSelection: Bool { !(fileSelectionSummary?.files.isEmpty ?? true) }
-    var fileSelectionSummary: ITunesFileSelectionSummary? { currentQuery.fileSelectionSummary }
-    var seededFileInputs: [ITunesFileSearchInput] { fileInputs }
+    var fileSelectionSummary: iTunesFileSelectionSummary? { currentQuery.fileSelectionSummary }
+    var seededFileInputs: [iTunesFileSearchInput] { fileInputs }
 
     func seed(from files: [AudioFile]) {
         searchTask?.cancel()
@@ -128,7 +128,7 @@ final class ITunesBrowserStore: ObservableObject {
             : "Seeded from the current AudioMator selection."
     }
 
-    func handleModeChange(from oldMode: ITunesSearchMode, to newMode: ITunesSearchMode) {
+    func handleModeChange(from oldMode: iTunesSearchMode, to newMode: iTunesSearchMode) {
         guard oldMode != newMode else { return }
         searchTask?.cancel()
         resetNavigation()
@@ -150,7 +150,7 @@ final class ITunesBrowserStore: ObservableObject {
     func search() {
         let query = currentQuery
         guard !query.isEmpty else {
-            errorMessage = ITunesClientError.emptyQuery.localizedDescription
+            errorMessage = iTunesClientError.emptyQuery.localizedDescription
             lastSubmittedQuery = nil
             isSearching = false
             results = Self.emptyResults(for: query)
@@ -185,7 +185,7 @@ final class ITunesBrowserStore: ObservableObject {
         }
     }
 
-    func albumDetail(for album: ITunesAlbumResult) async throws -> ITunesAlbumDetail {
+    func albumDetail(for album: iTunesAlbumResult) async throws -> iTunesAlbumDetail {
         if var cached = albumDetailsByID[album.collectionID] {
             cached = detailByResolvingSelectionPreview(for: cached, fallbackPreview: album.selectionMatchPreview)
             albumDetailsByID[album.collectionID] = cached
@@ -199,16 +199,16 @@ final class ITunesBrowserStore: ObservableObject {
     }
 
     private func detailByResolvingSelectionPreview(
-        for detail: ITunesAlbumDetail,
-        fallbackPreview: ITunesAlbumMatchPreview?
-    ) -> ITunesAlbumDetail {
+        for detail: iTunesAlbumDetail,
+        fallbackPreview: iTunesAlbumMatchPreview?
+    ) -> iTunesAlbumDetail {
         var resolved = detail
         if let fallbackPreview {
             resolved.selectionMatchPreview = fallbackPreview
             return resolved
         }
         guard let summary = fileSelectionSummary else { return resolved }
-        resolved.selectionMatchPreview = ITunesAlbumMatcher.match(selection: summary, detail: resolved)
+        resolved.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: resolved)
         return resolved
     }
 
@@ -216,7 +216,7 @@ final class ITunesBrowserStore: ObservableObject {
         navigationResetToken = UUID()
     }
 
-    private static func emptyResults(for query: ITunesSearchQuery) -> ITunesSearchResults {
+    private static func emptyResults(for query: iTunesSearchQuery) -> iTunesSearchResults {
         switch query.mode {
         case .album, .file, .upc:
             return .albums([])
@@ -225,9 +225,9 @@ final class ITunesBrowserStore: ObservableObject {
         }
     }
 
-    private static func fileInput(for file: AudioFile) -> ITunesFileSearchInput {
+    private static func fileInput(for file: AudioFile) -> iTunesFileSearchInput {
         let fallback = MusicBrainzFilenameFallbackResolver.makeSearchInput(for: file)
-        return ITunesFileSearchInput(
+        return iTunesFileSearchInput(
             id: file.id.uuidString,
             displayTitle: fallback.displayTitle,
             title: fallback.title,

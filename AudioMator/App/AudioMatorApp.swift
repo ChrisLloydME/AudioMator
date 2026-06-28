@@ -19,7 +19,7 @@ struct AudioMatorApp: App {
     @StateObject private var viewModel: AudioViewModel
     @StateObject private var sharedState: SharedState
     @StateObject private var saveIssueLogStore: SaveIssueLogStore
-    @StateObject private var musicBrainzBrowserStore: MusicBrainzBrowserStore
+    @StateObject private var onlineMetadataBrowserStore: MusicBrainzBrowserStore
     @StateObject private var lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore
     @StateObject private var metadataFilenameToolStore: MetadataFilenameToolStore
     @StateObject private var metadataEditorStore: MetadataEditorStore
@@ -36,7 +36,7 @@ struct AudioMatorApp: App {
         )
         _sharedState = StateObject(wrappedValue: SharedState())
         _saveIssueLogStore = StateObject(wrappedValue: saveIssueLogStore)
-        _musicBrainzBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
+        _onlineMetadataBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
         _lrclibLyricsBrowserStore = StateObject(wrappedValue: LRCLIBLyricsBrowserStore())
         _metadataFilenameToolStore = StateObject(wrappedValue: MetadataFilenameToolStore())
         _metadataEditorStore = StateObject(
@@ -50,7 +50,7 @@ struct AudioMatorApp: App {
             ContentView(
                 viewModel: viewModel,
                 state: sharedState,
-                musicBrainzBrowserStore: musicBrainzBrowserStore,
+                onlineMetadataBrowserStore: onlineMetadataBrowserStore,
                 lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
                 metadataFilenameToolStore: metadataFilenameToolStore,
                 metadataEditorStore: metadataEditorStore,
@@ -80,9 +80,9 @@ struct AudioMatorApp: App {
         }
         .defaultSize(width: 700, height: 480)
 
-        Window(AppWindowTitle.onlineMetadataKey, id: MusicBrainzBrowserView.windowID) {
-            MusicBrainzBrowserView(
-                store: musicBrainzBrowserStore,
+        Window(AppWindowTitle.onlineMetadataKey, id: OnlineMetadataBrowserView.windowID) {
+            OnlineMetadataBrowserView(
+                store: onlineMetadataBrowserStore,
                 lrclibStore: lrclibLyricsBrowserStore,
                 viewModel: viewModel
             )
@@ -112,7 +112,7 @@ struct AudioMatorApp: App {
             ContentView(
                 viewModel: viewModel,
                 state: sharedState,
-                musicBrainzBrowserStore: musicBrainzBrowserStore,
+                onlineMetadataBrowserStore: onlineMetadataBrowserStore,
                 lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
                 metadataFilenameToolStore: metadataFilenameToolStore,
                 metadataEditorStore: metadataEditorStore,

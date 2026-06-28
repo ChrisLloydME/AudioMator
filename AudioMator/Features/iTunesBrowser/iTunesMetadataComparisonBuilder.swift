@@ -1,35 +1,35 @@
 import Foundation
 
-struct ITunesMetadataComparisonRow: Identifiable, Equatable {
+struct iTunesMetadataComparisonRow: Identifiable, Equatable {
     let id: String
     let title: String
     let localValue: String
     let remoteValue: String
-    let status: ITunesMetadataComparisonStatus
+    let status: iTunesMetadataComparisonStatus
     let monospaced: Bool
 }
 
-struct ITunesMetadataComparisonGroup: Identifiable {
+struct iTunesMetadataComparisonGroup: Identifiable {
     let id: String
-    let assignment: ITunesAlbumMatchAssignment
-    let rows: [ITunesMetadataComparisonRow]
+    let assignment: iTunesAlbumMatchAssignment
+    let rows: [iTunesMetadataComparisonRow]
 }
 
-enum ITunesMetadataComparisonStatus: Equatable {
+enum iTunesMetadataComparisonStatus: Equatable {
     case same
     case different
     case missingLocal
     case missingRemote
 }
 
-enum ITunesMetadataComparisonBuilder {
+enum iTunesMetadataComparisonBuilder {
     static func groups(
-        for preview: ITunesAlbumMatchPreview,
-        detail: ITunesAlbumDetail,
+        for preview: iTunesAlbumMatchPreview,
+        detail: iTunesAlbumDetail,
         loadedFiles: [AudioFile]
-    ) -> [ITunesMetadataComparisonGroup] {
+    ) -> [iTunesMetadataComparisonGroup] {
         preview.matchedAssignments.map { assignment in
-            ITunesMetadataComparisonGroup(
+            iTunesMetadataComparisonGroup(
                 id: assignment.id,
                 assignment: assignment,
                 rows: rows(for: assignment, detail: detail, loadedFiles: loadedFiles)
@@ -38,11 +38,11 @@ enum ITunesMetadataComparisonBuilder {
     }
 
     static func rows(
-        for assignment: ITunesAlbumMatchAssignment,
-        detail: ITunesAlbumDetail,
+        for assignment: iTunesAlbumMatchAssignment,
+        detail: iTunesAlbumDetail,
         loadedFiles: [AudioFile]
-    ) -> [ITunesMetadataComparisonRow] {
-        ITunesTagWriteField.allCases.compactMap { field in
+    ) -> [iTunesMetadataComparisonRow] {
+        iTunesTagWriteField.allCases.compactMap { field in
             let localValue: String
             if let fileID = UUID(uuidString: assignment.file.id),
                let loadedFile = loadedFiles.first(where: { $0.id == fileID }) {
@@ -67,12 +67,12 @@ enum ITunesMetadataComparisonBuilder {
         local: String,
         remote: String,
         monospaced: Bool = false
-    ) -> ITunesMetadataComparisonRow? {
+    ) -> iTunesMetadataComparisonRow? {
         let localValue = local.trimmingCharacters(in: .whitespacesAndNewlines)
         let remoteValue = remote.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !localValue.isEmpty || !remoteValue.isEmpty else { return nil }
 
-        let status: ITunesMetadataComparisonStatus
+        let status: iTunesMetadataComparisonStatus
         if localValue.isEmpty {
             status = .missingLocal
         } else if remoteValue.isEmpty {
@@ -83,7 +83,7 @@ enum ITunesMetadataComparisonBuilder {
             status = .different
         }
 
-        return ITunesMetadataComparisonRow(
+        return iTunesMetadataComparisonRow(
             id: id,
             title: title,
             localValue: localValue,
@@ -94,9 +94,9 @@ enum ITunesMetadataComparisonBuilder {
     }
 
     static func remoteValue(
-        for field: ITunesTagWriteField,
-        assignment: ITunesAlbumMatchAssignment,
-        detail: ITunesAlbumDetail
+        for field: iTunesTagWriteField,
+        assignment: iTunesAlbumMatchAssignment,
+        detail: iTunesAlbumDetail
     ) -> String {
         let track = assignment.track
         switch field {
@@ -127,7 +127,7 @@ enum ITunesMetadataComparisonBuilder {
             .joined(separator: " ")
     }
 
-    private static func fallbackLocalValue(for field: ITunesTagWriteField, file: ITunesFileSearchInput) -> String {
+    private static func fallbackLocalValue(for field: iTunesTagWriteField, file: iTunesFileSearchInput) -> String {
         switch field {
         case .title: return file.title
         case .artist: return file.artist
@@ -146,7 +146,7 @@ enum ITunesMetadataComparisonBuilder {
     }
 }
 
-extension ITunesTagWriteField {
+extension iTunesTagWriteField {
     var usesMonospacedComparisonValue: Bool {
         switch self {
         case .trackNumber, .trackTotal, .discNumber, .discTotal, .barcode,

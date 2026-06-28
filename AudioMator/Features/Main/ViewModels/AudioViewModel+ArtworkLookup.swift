@@ -8,7 +8,7 @@ enum ArtworkLookupSource: String {
 
 struct ArtworkLookupRequestDescriptor {
     let query: String
-    let entity: ITunesArtworkSearchEntity
+    let entity: iTunesArtworkSearchEntity
     let source: ArtworkLookupSource
 
     var summary: String {
@@ -23,8 +23,8 @@ struct ArtworkLookupSession: Identifiable {
     let request: ArtworkLookupRequestDescriptor
     var isLoading: Bool = true
     var isApplying: Bool = false
-    var results: [ITunesArtworkSearchResult] = []
-    var selectedResultID: ITunesArtworkSearchResult.ID?
+    var results: [iTunesArtworkSearchResult] = []
+    var selectedResultID: iTunesArtworkSearchResult.ID?
     var errorMessage: String?
     var emptyMessage: String?
 
@@ -32,7 +32,7 @@ struct ArtworkLookupSession: Identifiable {
         fileIDs.count > 1
     }
 
-    var selectedResult: ITunesArtworkSearchResult? {
+    var selectedResult: iTunesArtworkSearchResult? {
         guard let selectedResultID else { return nil }
         return results.first { $0.id == selectedResultID }
     }
@@ -122,7 +122,7 @@ extension AudioViewModel {
         artworkLookupSession = nil
     }
 
-    func selectArtworkLookupResult(id: ITunesArtworkSearchResult.ID) {
+    func selectArtworkLookupResult(id: iTunesArtworkSearchResult.ID) {
         guard var session = artworkLookupSession else { return }
         session.selectedResultID = id
         artworkLookupSession = session
@@ -146,7 +146,7 @@ extension AudioViewModel {
             guard let self else { return }
 
             do {
-                let pendingArtwork = try await iTunesArtworkService.downloadArtwork(for: selectedResult)
+                let pendingArtwork = try await artworkLookupService.downloadArtwork(for: selectedResult)
                 guard !Task.isCancelled else { return }
 
                 let targetFiles = files.filter { targetFileIDs.contains($0.id) }
@@ -200,8 +200,8 @@ extension AudioViewModel {
             guard let self else { return }
 
             do {
-                let results = try await iTunesArtworkService.search(
-                    ITunesArtworkSearchRequest(
+                let results = try await artworkLookupService.search(
+                    iTunesArtworkSearchRequest(
                         query: request.query,
                         entity: request.entity
                     )
@@ -258,9 +258,9 @@ extension AudioViewModel {
     }
 
     private func makeArtworkLookupRequest(for files: [AudioFile]) -> ArtworkLookupRequestDescriptor? {
-        if let sharedITunesAlbumID = sharedNonEmptyValue(files.map(\.itunesAlbumID)) {
+        if let sharediTunesAlbumID = sharedNonEmptyValue(files.map(\.itunesAlbumID)) {
             return ArtworkLookupRequestDescriptor(
-                query: sharedITunesAlbumID,
+                query: sharediTunesAlbumID,
                 entity: .idAlbum,
                 source: .iTunesAlbumID
             )

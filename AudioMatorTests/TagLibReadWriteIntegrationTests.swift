@@ -465,7 +465,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(rawMap["ALBUM"], edit.album)
     }
 
-    func testInspectorStyleExplicitAdvisoryWritesITunesExplicitValue() throws {
+    func testInspectorStyleExplicitAdvisoryWritesiTunesExplicitValue() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -521,7 +521,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertFalse(reloaded.isExplicit)
     }
 
-    func testAudioFileReadsITunesExplicitAdvisoryValue() async throws {
+    func testAudioFileReadsiTunesExplicitAdvisoryValue() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }

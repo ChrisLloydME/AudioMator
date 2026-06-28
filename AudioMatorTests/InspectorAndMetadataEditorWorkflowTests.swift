@@ -466,7 +466,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "MusicBrainz Title")
     }
 
-    func testApplyITunesTaggingPlanWritesProviderFieldsAndRefreshesSelection() async throws {
+    func testApplyiTunesTaggingPlanWritesProviderFieldsAndRefreshesSelection() async throws {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/itunes.m4a")
         let original = AudioFileTestFactory.make(
@@ -489,8 +489,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.selectedAudioIDs = [id]
         viewModel.updateEditForSelection()
 
-        await viewModel.applyITunesTaggingPlan([
-            ITunesTaggingWriteEntry(
+        await viewModel.applyiTunesTaggingPlan([
+            iTunesTaggingWriteEntry(
                 fileID: id,
                 fileName: url.lastPathComponent,
                 values: [

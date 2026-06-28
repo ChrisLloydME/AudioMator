@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ITunesQueryField: View {
+struct iTunesQueryField: View {
     let title: String
     let symbolName: String
     @Binding var text: String
@@ -28,8 +28,8 @@ struct ITunesQueryField: View {
     }
 }
 
-struct ITunesFileSelectionSummaryView: View {
-    let summary: ITunesFileSelectionSummary?
+struct iTunesFileSelectionSummaryView: View {
+    let summary: iTunesFileSelectionSummary?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -47,7 +47,7 @@ struct ITunesFileSelectionSummaryView: View {
                 .foregroundStyle(.secondary)
 
             if let summary {
-                ITunesFileSelectionSummaryList(rows: summaryRows(for: summary))
+                iTunesFileSelectionSummaryList(rows: summaryRows(for: summary))
 
                 if summary.selectionLooksMixed {
                     Label("Selection looks mixed. Album matches may be less accurate.", systemImage: "exclamationmark.triangle")
@@ -75,18 +75,18 @@ struct ITunesFileSelectionSummaryView: View {
         return "Find the best iTunes track match from the selected file's metadata."
     }
 
-    private func summaryRows(for summary: ITunesFileSelectionSummary) -> [ITunesSelectionSummaryRow] {
-        var rows: [ITunesSelectionSummaryRow] = [
-            ITunesSelectionSummaryRow(id: "files", title: "Files", value: "\(summary.totalSelectedFiles)", symbolName: "music.note.list")
+    private func summaryRows(for summary: iTunesFileSelectionSummary) -> [iTunesSelectionSummaryRow] {
+        var rows: [iTunesSelectionSummaryRow] = [
+            iTunesSelectionSummaryRow(id: "files", title: "Files", value: "\(summary.totalSelectedFiles)", symbolName: "music.note.list")
         ]
 
         if !summary.albumCandidate.isEmpty {
-            rows.append(ITunesSelectionSummaryRow(id: "album", title: "Album", value: summary.albumCandidate, symbolName: "opticaldisc"))
+            rows.append(iTunesSelectionSummaryRow(id: "album", title: "Album", value: summary.albumCandidate, symbolName: "opticaldisc"))
         }
 
         if !summary.albumArtistCandidate.isEmpty {
             rows.append(
-                ITunesSelectionSummaryRow(
+                iTunesSelectionSummaryRow(
                     id: "album-artist",
                     title: "Album Artist",
                     value: summary.albumArtistCandidate,
@@ -95,7 +95,7 @@ struct ITunesFileSelectionSummaryView: View {
             )
         } else if !summary.primaryArtistCandidate.isEmpty {
             rows.append(
-                ITunesSelectionSummaryRow(
+                iTunesSelectionSummaryRow(
                     id: "artist",
                     title: "Artist",
                     value: summary.primaryArtistCandidate,
@@ -106,7 +106,7 @@ struct ITunesFileSelectionSummaryView: View {
 
         if summary.trackCountCandidate > 0 {
             rows.append(
-                ITunesSelectionSummaryRow(
+                iTunesSelectionSummaryRow(
                     id: "track-count",
                     title: "Track Count",
                     value: "\(summary.trackCountCandidate)",
@@ -117,7 +117,7 @@ struct ITunesFileSelectionSummaryView: View {
 
         if !summary.releaseYearCandidate.isEmpty {
             rows.append(
-                ITunesSelectionSummaryRow(
+                iTunesSelectionSummaryRow(
                     id: "year",
                     title: "Year",
                     value: summary.releaseYearCandidate,
@@ -128,7 +128,7 @@ struct ITunesFileSelectionSummaryView: View {
 
         if !summary.barcodeCandidate.isEmpty {
             rows.append(
-                ITunesSelectionSummaryRow(
+                iTunesSelectionSummaryRow(
                     id: "barcode",
                     title: "UPC/EAN",
                     value: summary.barcodeCandidate,
@@ -139,7 +139,7 @@ struct ITunesFileSelectionSummaryView: View {
 
         if !summary.itunesAlbumIDCandidate.isEmpty {
             rows.append(
-                ITunesSelectionSummaryRow(
+                iTunesSelectionSummaryRow(
                     id: "itunes-id",
                     title: "iTunes Album ID",
                     value: summary.itunesAlbumIDCandidate,
@@ -152,20 +152,20 @@ struct ITunesFileSelectionSummaryView: View {
     }
 }
 
-private struct ITunesSelectionSummaryRow: Identifiable {
+private struct iTunesSelectionSummaryRow: Identifiable {
     let id: String
     let title: String
     let value: String
     let symbolName: String
 }
 
-private struct ITunesFileSelectionSummaryList: View {
-    let rows: [ITunesSelectionSummaryRow]
+private struct iTunesFileSelectionSummaryList: View {
+    let rows: [iTunesSelectionSummaryRow]
 
     var body: some View {
         VStack(spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                ITunesFileSelectionRow(row: row)
+                iTunesFileSelectionRow(row: row)
 
                 if index < rows.count - 1 {
                     Divider()
@@ -184,8 +184,8 @@ private struct ITunesFileSelectionSummaryList: View {
     }
 }
 
-private struct ITunesFileSelectionRow: View {
-    let row: ITunesSelectionSummaryRow
+private struct iTunesFileSelectionRow: View {
+    let row: iTunesSelectionSummaryRow
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -215,8 +215,8 @@ private struct ITunesFileSelectionRow: View {
     }
 }
 
-struct ITunesTrackRow: View {
-    let track: ITunesTrackResult
+struct iTunesTrackRow: View {
+    let track: iTunesTrackResult
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -246,24 +246,24 @@ struct ITunesTrackRow: View {
 
             HStack(spacing: 12) {
                 if !track.collectionName.isEmpty {
-                    ITunesMetaPill(title: "Album", value: track.collectionName)
+                    iTunesMetaPill(title: "Album", value: track.collectionName)
                 }
 
                 if track.trackNumber > 0 {
-                    ITunesMetaPill(title: "Track", value: track.trackCount > 0 ? "\(track.trackNumber)/\(track.trackCount)" : "\(track.trackNumber)")
+                    iTunesMetaPill(title: "Track", value: track.trackCount > 0 ? "\(track.trackNumber)/\(track.trackCount)" : "\(track.trackNumber)")
                 }
 
-                let durationText = formattedITunesDuration(track.durationMilliseconds)
+                let durationText = formattediTunesDuration(track.durationMilliseconds)
                 if !durationText.isEmpty {
-                    ITunesMetaPill(title: "Length", value: durationText)
+                    iTunesMetaPill(title: "Length", value: durationText)
                 }
 
                 if !track.releaseDate.isEmpty {
-                    ITunesMetaPill(title: "Release Date", value: track.releaseDate)
+                    iTunesMetaPill(title: "Release Date", value: track.releaseDate)
                 }
 
                 if !track.country.isEmpty {
-                    ITunesMetaPill(title: "Country", value: track.country)
+                    iTunesMetaPill(title: "Country", value: track.country)
                 }
             }
 
@@ -276,8 +276,8 @@ struct ITunesTrackRow: View {
     }
 }
 
-struct ITunesAlbumRow: View {
-    let album: ITunesAlbumResult
+struct iTunesAlbumRow: View {
+    let album: iTunesAlbumResult
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -318,28 +318,28 @@ struct ITunesAlbumRow: View {
             HStack(spacing: 12) {
                 if let preview = album.selectionMatchPreview {
                     if !preview.unmatchedFiles.isEmpty {
-                        ITunesMetaPill(title: "Unmatched", value: "\(preview.unmatchedFiles.count)")
+                        iTunesMetaPill(title: "Unmatched", value: "\(preview.unmatchedFiles.count)")
                     }
 
                     if !preview.unassignedTracks.isEmpty {
-                        ITunesMetaPill(title: "Missing Tracks", value: "\(preview.unassignedTracks.count)")
+                        iTunesMetaPill(title: "Missing Tracks", value: "\(preview.unassignedTracks.count)")
                     }
                 }
 
                 if album.trackCount > 0 {
-                    ITunesMetaPill(title: "Tracks", value: "\(album.trackCount)")
+                    iTunesMetaPill(title: "Tracks", value: "\(album.trackCount)")
                 }
 
                 if !album.primaryGenreName.isEmpty {
-                    ITunesMetaPill(title: "Genre", value: album.primaryGenreName)
+                    iTunesMetaPill(title: "Genre", value: album.primaryGenreName)
                 }
 
                 if !album.releaseDate.isEmpty {
-                    ITunesMetaPill(title: "Release Date", value: album.releaseDate)
+                    iTunesMetaPill(title: "Release Date", value: album.releaseDate)
                 }
 
                 if !album.country.isEmpty {
-                    ITunesMetaPill(title: "Country", value: album.country)
+                    iTunesMetaPill(title: "Country", value: album.country)
                 }
             }
 
@@ -353,7 +353,7 @@ struct ITunesAlbumRow: View {
     }
 }
 
-struct ITunesStorefrontChip: View {
+struct iTunesStorefrontChip: View {
     let title: String
 
     var body: some View {
@@ -370,7 +370,7 @@ struct ITunesStorefrontChip: View {
     }
 }
 
-private struct ITunesMetaPill: View {
+private struct iTunesMetaPill: View {
     let title: String
     let value: String
 
@@ -392,7 +392,7 @@ private struct ITunesMetaPill: View {
     }
 }
 
-func formattedITunesDuration(_ milliseconds: Int?) -> String {
+func formattediTunesDuration(_ milliseconds: Int?) -> String {
     guard let milliseconds, milliseconds > 0 else { return "" }
     let totalSeconds = max(0, milliseconds / 1000)
     let minutes = totalSeconds / 60

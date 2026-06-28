@@ -4,7 +4,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
     case addFiles
     case tagInspector
     case renumberTracks
-    case musicBrainzBrowser
+    case onlineMetadataBrowser = "musicBrainzBrowser"
     case renameFiles
     case metadataEditor
     case clearList
@@ -21,7 +21,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
             return L10n.string("Tag Inspector")
         case .renumberTracks:
             return L10n.string("Renumber Tracks")
-        case .musicBrainzBrowser:
+        case .onlineMetadataBrowser:
             return L10n.string("Online Metadata")
         case .renameFiles:
             return L10n.string("Filename & Metadata")
@@ -44,7 +44,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
             return "doc.text.magnifyingglass"
         case .renumberTracks:
             return "list.number.badge.ellipsis"
-        case .musicBrainzBrowser:
+        case .onlineMetadataBrowser:
             return "globe"
         case .renameFiles:
             return "arrow.trianglehead.2.clockwise"

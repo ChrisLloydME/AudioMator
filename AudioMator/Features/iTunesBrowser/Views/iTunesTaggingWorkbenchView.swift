@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct ITunesTaggingWorkbenchView: View {
-    @ObservedObject var store: ITunesTaggingWorkbenchStore
+struct iTunesTaggingWorkbenchView: View {
+    @ObservedObject var store: iTunesTaggingWorkbenchStore
     @ObservedObject var viewModel: AudioViewModel
 
     @Environment(\.dismiss) private var dismiss
@@ -27,7 +27,7 @@ struct ITunesTaggingWorkbenchView: View {
             Divider()
             actionBar(plan: plan)
         }
-        .modifier(ITunesWorkbenchFrameModifier())
+        .modifier(iTunesWorkbenchFrameModifier())
         .background(Color(platformColor: .audiomatorWindowBackground))
         .navigationTitle("Review & Apply Tags")
         .task {
@@ -43,26 +43,26 @@ struct ITunesTaggingWorkbenchView: View {
         }
     }
 
-    private func summarySection(plan: ITunesTaggingPlan) -> some View {
+    private func summarySection(plan: iTunesTaggingPlan) -> some View {
         MetadataSectionCard(title: "Summary", symbolName: "text.badge.checkmark") {
-            ITunesSummaryRow(title: "Release", value: summaryAlbumLine)
+            iTunesSummaryRow(title: "Release", value: summaryAlbumLine)
             MetadataCardDivider()
-            ITunesSummaryRow(title: "Selected Fields", value: "\(store.selectedAvailableFields.count)")
+            iTunesSummaryRow(title: "Selected Fields", value: "\(store.selectedAvailableFields.count)")
             MetadataCardDivider()
-            ITunesSummaryRow(title: "Files With Changes", value: "\(plan.filesWithChangesCount)")
+            iTunesSummaryRow(title: "Files With Changes", value: "\(plan.filesWithChangesCount)")
             MetadataCardDivider()
-            ITunesSummaryRow(title: "Pending Writes", value: "\(plan.changeCount)")
+            iTunesSummaryRow(title: "Pending Writes", value: "\(plan.changeCount)")
 
             if plan.unresolvedIssueCount > 0 || store.hasDuplicateTrackAssignments {
                 MetadataCardDivider()
                 VStack(alignment: .leading, spacing: 8) {
                     if store.hasDuplicateTrackAssignments {
-                        ITunesWarningLabel(
+                        iTunesWarningLabel(
                             text: "Some iTunes tracks are assigned to more than one file."
                         )
                     }
                     if plan.unresolvedIssueCount > 0 {
-                        ITunesWarningLabel(
+                        iTunesWarningLabel(
                             text: "\(plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to an iTunes track and remain loaded."
                         )
                     }
@@ -134,7 +134,7 @@ struct ITunesTaggingWorkbenchView: View {
     private var assignmentSection: some View {
         MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
-                ITunesAssignmentRow(
+                iTunesAssignmentRow(
                     assignment: assignment,
                     tracks: store.availableTracks,
                     isDuplicate: store.isDuplicateAssignment(assignment),
@@ -150,7 +150,7 @@ struct ITunesTaggingWorkbenchView: View {
         }
     }
 
-    private func diffSection(plan: ITunesTaggingPlan) -> some View {
+    private func diffSection(plan: iTunesTaggingPlan) -> some View {
         MetadataSectionCard(title: "Diff Preview", symbolName: "arrow.left.arrow.right", lazyContent: true) {
             if plan.rows.isEmpty {
                 ContentUnavailableView(
@@ -162,7 +162,7 @@ struct ITunesTaggingWorkbenchView: View {
                 .padding(.vertical, 36)
             } else {
                 ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
-                    ITunesPlanRow(row: row)
+                    iTunesPlanRow(row: row)
 
                     if index < plan.rows.count - 1 {
                         MetadataCardDivider()
@@ -172,7 +172,7 @@ struct ITunesTaggingWorkbenchView: View {
         }
     }
 
-    private func actionBar(plan: ITunesTaggingPlan) -> some View {
+    private func actionBar(plan: iTunesTaggingPlan) -> some View {
         HStack(alignment: .center, spacing: 12) {
             if let reason = store.applyDisabledReason(using: plan) {
                 Text(reason)
@@ -214,34 +214,34 @@ struct ITunesTaggingWorkbenchView: View {
             .joined(separator: " • ")
     }
 
-    private func fieldBinding(_ field: ITunesTagWriteField) -> Binding<Bool> {
+    private func fieldBinding(_ field: iTunesTagWriteField) -> Binding<Bool> {
         Binding(
             get: { store.isFieldSelected(field) },
             set: { store.setFieldSelected($0, for: field) }
         )
     }
 
-    private func trackSelectionBinding(for assignment: ITunesTaggingWorkbenchStore.AssignmentDraft) -> Binding<Int?> {
+    private func trackSelectionBinding(for assignment: iTunesTaggingWorkbenchStore.AssignmentDraft) -> Binding<Int?> {
         Binding(
             get: { store.selectedTrackID(for: assignment.id) },
             set: { store.updateSelectedTrack($0, for: assignment.id) }
         )
     }
 
-    private func applyTags(plan: ITunesTaggingPlan) {
+    private func applyTags(plan: iTunesTaggingPlan) {
         let entries = plan.writeEntries
         guard !entries.isEmpty, viewModel.metadataSaveProgress == nil else { return }
 
         Task {
             isApplying = true
-            await viewModel.applyITunesTaggingPlan(entries)
+            await viewModel.applyiTunesTaggingPlan(entries)
             store.refreshLoadedFiles(viewModel.files)
             isApplying = false
         }
     }
 }
 
-private struct ITunesSummaryRow: View {
+private struct iTunesSummaryRow: View {
     let title: String
     let value: String
 
@@ -264,7 +264,7 @@ private struct ITunesSummaryRow: View {
     }
 }
 
-private struct ITunesWarningLabel: View {
+private struct iTunesWarningLabel: View {
     let text: String
 
     var body: some View {
@@ -274,7 +274,7 @@ private struct ITunesWarningLabel: View {
     }
 }
 
-private struct ITunesWorkbenchFrameModifier: ViewModifier {
+private struct iTunesWorkbenchFrameModifier: ViewModifier {
     func body(content: Content) -> some View {
         #if os(iOS)
         content
@@ -293,12 +293,12 @@ private struct ITunesWorkbenchFrameModifier: ViewModifier {
     }
 }
 
-private struct ITunesAssignmentRow: View {
-    let assignment: ITunesTaggingWorkbenchStore.AssignmentDraft
-    let tracks: [ITunesTrackResult]
+private struct iTunesAssignmentRow: View {
+    let assignment: iTunesTaggingWorkbenchStore.AssignmentDraft
+    let tracks: [iTunesTrackResult]
     let isDuplicate: Bool
     let selection: Binding<Int?>
-    let selectedTrack: ITunesTrackResult?
+    let selectedTrack: iTunesTrackResult?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -351,19 +351,19 @@ private struct ITunesAssignmentRow: View {
         [assignment.fileInput.artist, assignment.fileInput.album].filter { !$0.isEmpty }.joined(separator: " • ")
     }
 
-    private func trackOptionTitle(_ track: ITunesTrackResult) -> String {
+    private func trackOptionTitle(_ track: iTunesTrackResult) -> String {
         let number = track.trackNumber > 0 ? "\(track.trackNumber) " : ""
         let discPrefix = track.discCount > 1 ? "Disc \(track.discNumber) • " : ""
         return discPrefix + number + track.trackName
     }
 
-    private func trackDetailLine(for track: ITunesTrackResult) -> String {
+    private func trackDetailLine(for track: iTunesTrackResult) -> String {
         [track.artistName, track.primaryGenreName, track.releaseDate].filter { !$0.isEmpty }.joined(separator: " • ")
     }
 }
 
-private struct ITunesPlanRow: View {
-    let row: ITunesTaggingPlanRow
+private struct iTunesPlanRow: View {
+    let row: iTunesTaggingPlanRow
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
@@ -398,7 +398,7 @@ private struct ITunesPlanRow: View {
             if !row.changes.isEmpty {
                 Divider().padding(.leading, 18)
                 ForEach(Array(row.changes.enumerated()), id: \.element.id) { index, change in
-                    ITunesPlanChangeRow(change: change)
+                    iTunesPlanChangeRow(change: change)
                     if index < row.changes.count - 1 {
                         Divider().padding(.leading, 18)
                     }
@@ -408,8 +408,8 @@ private struct ITunesPlanRow: View {
     }
 }
 
-private struct ITunesPlanChangeRow: View {
-    let change: ITunesTaggingFieldChange
+private struct iTunesPlanChangeRow: View {
+    let change: iTunesTaggingFieldChange
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {

@@ -401,8 +401,8 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(representatives.map(\.id), ["1", "3", "5"])
     }
 
-    func testITunesProviderCoreBuildsSearchLookupQueriesAndParsesLinks() throws {
-        let query = ITunesProviderSearchQuery(
+    func testiTunesProviderCoreBuildsSearchLookupQueriesAndParsesLinks() throws {
+        let query = iTunesProviderSearchQuery(
             mode: .file,
             fileInputs: [
                 itunesFile("1", title: "Track One", artist: "Artist", album: "Album", trackNumber: "01/10"),
@@ -427,13 +427,13 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(lookupItems["country"], "gb")
         XCTAssertEqual(lookupItems["entity"], "song")
 
-        XCTAssertEqual(try ITunesProviderLinkParser.parse("1440857781"), .album(1_440_857_781))
-        XCTAssertEqual(try ITunesProviderLinkParser.parse("https://music.apple.com/us/album/demo/id1440857781?i=1440857783"), .track(1_440_857_783))
-        XCTAssertEqual(try ITunesProviderLinkParser.parse("https://music.apple.com/us/album/demo/id1440857781"), .album(1_440_857_781))
+        XCTAssertEqual(try iTunesProviderLinkParser.parse("1440857781"), .album(1_440_857_781))
+        XCTAssertEqual(try iTunesProviderLinkParser.parse("https://music.apple.com/us/album/demo/id1440857781?i=1440857783"), .track(1_440_857_783))
+        XCTAssertEqual(try iTunesProviderLinkParser.parse("https://music.apple.com/us/album/demo/id1440857781"), .album(1_440_857_781))
     }
 
-    func testITunesArtworkCoreBuildsRequestsTransformsJSONAndOrdersDownloadURLs() throws {
-        let requestURL = try ITunesArtworkCoreRequest(
+    func testiTunesArtworkCoreBuildsRequestsTransformsJSONAndOrdersDownloadURLs() throws {
+        let requestURL = try iTunesArtworkCoreRequest(
             query: "  Vespertine ",
             entity: .album,
             country: " US ",
@@ -456,7 +456,7 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let results = try ITunesArtworkCore.transformResults(from: json, entity: .idAlbum)
+        let results = try iTunesArtworkCore.transformResults(from: json, entity: .idAlbum)
 
         XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results[0].title, "Vespertine • Bjork")
@@ -695,8 +695,8 @@ private func itunesFile(
     artist: String,
     album: String,
     trackNumber: String
-) -> ITunesProviderFileInput {
-    ITunesProviderFileInput(
+) -> iTunesProviderFileInput {
+    iTunesProviderFileInput(
         id: id,
         displayTitle: title,
         title: title,

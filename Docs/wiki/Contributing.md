@@ -9,8 +9,8 @@ Changes should be small and placed in the owning layer or feature. Do not rewrit
 If a change affects user-visible behavior, privacy disclosure, or third-party usage, update the relevant documentation:
 
 - `README.md`
-- `ACKNOWLEDGEMENTS_AND_PRIVACY.md`
-- `THIRD_PARTY_NOTICES.md`
+- `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`
+- `Docs/THIRD_PARTY_NOTICES.md`
 - The matching Wiki page under `Docs/wiki/`
 
 ## Source Boundaries
@@ -63,6 +63,6 @@ Then update `NetworkServiceDisclosure`, privacy documentation, and relevant user
 
 ## Third-Party Licensing
 
-AudioMator uses TagLib, TagLibAudioMetadata, Sparkle, and user-triggered services such as Apple iTunes Search API, MusicBrainz, LRCLIB, and GitHub Releases. Before distribution, review upstream license and service obligations as described in `THIRD_PARTY_NOTICES.md`.
+AudioMator uses TagLib, TagLibAudioMetadata, Sparkle, and user-triggered services such as Apple iTunes Search API, MusicBrainz, LRCLIB, and GitHub Releases. Before distribution, review upstream license and service obligations as described in `Docs/THIRD_PARTY_NOTICES.md`.
 
 Do not describe commercial or legal compliance as complete unless the project has the required review material.

@@ -1,23 +1,23 @@
 import Foundation
 
-enum ITunesArtworkCoreEntity: String {
+enum iTunesArtworkCoreEntity: String {
     case album
     case idAlbum
 }
 
-struct ITunesArtworkCoreRequest: Equatable {
+struct iTunesArtworkCoreRequest: Equatable {
     let query: String
-    let entity: ITunesArtworkCoreEntity
+    let entity: iTunesArtworkCoreEntity
     let country: String
     let limit: Int
 
     func searchURL() throws -> URL {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else { throw ITunesArtworkCoreError.emptyQuery }
+        guard !trimmedQuery.isEmpty else { throw iTunesArtworkCoreError.emptyQuery }
 
         let normalizedCountry = country.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard normalizedCountry.count == 2 else { throw ITunesArtworkCoreError.invalidCountry }
-        guard (1...200).contains(limit) else { throw ITunesArtworkCoreError.invalidLimit }
+        guard normalizedCountry.count == 2 else { throw iTunesArtworkCoreError.invalidCountry }
+        guard (1...200).contains(limit) else { throw iTunesArtworkCoreError.invalidLimit }
 
         var components = URLComponents()
         components.scheme = "https"
@@ -41,12 +41,12 @@ struct ITunesArtworkCoreRequest: Equatable {
             ]
         }
 
-        guard let url = components.url else { throw ITunesArtworkCoreError.failedToBuildURL }
+        guard let url = components.url else { throw iTunesArtworkCoreError.failedToBuildURL }
         return url
     }
 }
 
-struct ITunesArtworkCoreResult: Equatable {
+struct iTunesArtworkCoreResult: Equatable {
     let id: String
     let title: String
     let subtitle: String?
@@ -74,7 +74,7 @@ struct ITunesArtworkCoreResult: Equatable {
     }
 }
 
-enum ITunesArtworkCoreError: Error, Equatable {
+enum iTunesArtworkCoreError: Error, Equatable {
     case emptyQuery
     case invalidCountry
     case invalidLimit
@@ -82,16 +82,16 @@ enum ITunesArtworkCoreError: Error, Equatable {
     case invalidResponseBody
 }
 
-enum ITunesArtworkCore {
-    static func transformResults(from jsonData: Data, entity: ITunesArtworkCoreEntity) throws -> [ITunesArtworkCoreResult] {
+enum iTunesArtworkCore {
+    static func transformResults(from jsonData: Data, entity: iTunesArtworkCoreEntity) throws -> [iTunesArtworkCoreResult] {
         guard
             let rootObject = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
             let rawResults = rootObject["results"] as? [[String: Any]]
         else {
-            throw ITunesArtworkCoreError.invalidResponseBody
+            throw iTunesArtworkCoreError.invalidResponseBody
         }
 
-        var transformed: [ITunesArtworkCoreResult] = []
+        var transformed: [iTunesArtworkCoreResult] = []
         var seenIDs = Set<String>()
 
         for rawResult in rawResults {
@@ -126,7 +126,7 @@ enum ITunesArtworkCore {
             guard seenIDs.insert(resultID).inserted else { continue }
 
             transformed.append(
-                ITunesArtworkCoreResult(
+                iTunesArtworkCoreResult(
                     id: resultID,
                     title: title,
                     subtitle: rawResult["primaryGenreName"] as? String,

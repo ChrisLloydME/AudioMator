@@ -7,7 +7,7 @@ struct IPadWorkspaceView: View {
     let selection: Binding<Set<AudioFile.ID>>
     let onAddFiles: () -> Void
     let onShowMetadataDump: () -> Void
-    let onOpenMusicBrainzBrowser: () -> Void
+    let onOpenOnlineMetadataBrowser: () -> Void
     let onOpenMetadataFilenameTool: ([AudioFile.ID]) -> Void
     let onOpenMetadataEditor: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
@@ -59,7 +59,7 @@ struct IPadWorkspaceView: View {
                     sortMenu
 
                     Menu {
-                        Button(ToolbarButtonOption.musicBrainzBrowser.displayName, action: onOpenMusicBrainzBrowser)
+                        Button(ToolbarButtonOption.onlineMetadataBrowser.displayName, action: onOpenOnlineMetadataBrowser)
                         Button(ToolbarButtonOption.tagInspector.displayName, action: onShowMetadataDump)
                             .disabled(state.selectedAudioIDs.isEmpty)
                         Button(ToolbarButtonOption.renameFiles.displayName + "...", action: openMetadataFilenameRenameSheet)

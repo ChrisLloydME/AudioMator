@@ -1,6 +1,6 @@
 import Foundation
 
-enum ITunesProviderSearchMode: String {
+enum iTunesProviderSearchMode: String {
     case track
     case album
     case file
@@ -8,7 +8,7 @@ enum ITunesProviderSearchMode: String {
     case upc
 }
 
-struct ITunesProviderFileInput: Equatable, Hashable {
+struct iTunesProviderFileInput: Equatable, Hashable {
     let id: String
     let displayTitle: String
     let title: String
@@ -46,28 +46,28 @@ struct ITunesProviderFileInput: Equatable, Hashable {
     }
 }
 
-struct ITunesProviderSearchQuery: Equatable {
-    var mode: ITunesProviderSearchMode = .track
+struct iTunesProviderSearchQuery: Equatable {
+    var mode: iTunesProviderSearchMode = .track
     var title: String = ""
     var artist: String = ""
     var album: String = ""
     var upc: String = ""
     var link: String = ""
     var country: String = "us"
-    var fileInputs: [ITunesProviderFileInput] = []
+    var fileInputs: [iTunesProviderFileInput] = []
 
     var isEmpty: Bool {
         switch mode {
         case .track:
-            return title.trimmedITunesCore.isEmpty && artist.trimmedITunesCore.isEmpty && album.trimmedITunesCore.isEmpty
+            return title.trimmediTunesCore.isEmpty && artist.trimmediTunesCore.isEmpty && album.trimmediTunesCore.isEmpty
         case .album:
-            return album.trimmedITunesCore.isEmpty && artist.trimmedITunesCore.isEmpty
+            return album.trimmediTunesCore.isEmpty && artist.trimmediTunesCore.isEmpty
         case .file:
             return fileInputs.isEmpty
         case .link:
-            return link.trimmedITunesCore.isEmpty
+            return link.trimmediTunesCore.isEmpty
         case .upc:
-            return upc.trimmedITunesCore.isEmpty
+            return upc.trimmediTunesCore.isEmpty
         }
     }
 
@@ -87,9 +87,9 @@ struct ITunesProviderSearchQuery: Equatable {
     var searchTerm: String {
         switch mode {
         case .track:
-            return [title, artist, album].map(\.trimmedITunesCore).filter { !$0.isEmpty }.joined(separator: " ")
+            return [title, artist, album].map(\.trimmediTunesCore).filter { !$0.isEmpty }.joined(separator: " ")
         case .album:
-            return [album, artist].map(\.trimmedITunesCore).filter { !$0.isEmpty }.joined(separator: " ")
+            return [album, artist].map(\.trimmediTunesCore).filter { !$0.isEmpty }.joined(separator: " ")
         case .file:
             guard let summary = selectionSummary else { return "" }
             if summary.isMultiFile {
@@ -145,13 +145,13 @@ struct ITunesProviderSearchQuery: Equatable {
     }
 }
 
-enum ITunesProviderLinkTarget: Equatable {
+enum iTunesProviderLinkTarget: Equatable {
     case album(Int)
     case track(Int)
 }
 
-enum ITunesProviderLinkParser {
-    static func parse(_ rawValue: String) throws -> ITunesProviderLinkTarget {
+enum iTunesProviderLinkParser {
+    static func parse(_ rawValue: String) throws -> iTunesProviderLinkTarget {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw CoreProviderRequestError.invalidLink }
         if let id = Int(trimmed) {
@@ -192,7 +192,7 @@ enum CoreProviderRequestError: Error, Equatable {
 }
 
 private extension String {
-    var trimmedITunesCore: String {
+    var trimmediTunesCore: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

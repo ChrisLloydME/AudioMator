@@ -79,7 +79,7 @@ extension AudioViewModel {
         presentBatchMetadataWriteSummary(summary)
     }
 
-    func applyITunesTaggingPlan(_ entries: [ITunesTaggingWriteEntry]) async {
+    func applyiTunesTaggingPlan(_ entries: [iTunesTaggingWriteEntry]) async {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })

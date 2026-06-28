@@ -1,7 +1,8 @@
-import AppKit
 import SwiftUI
 
 #if os(macOS)
+import AppKit
+
 struct MetadataExchangeTemplateEditorInsertion: Equatable {
     let id = UUID()
     let field: MetadataExchangeField

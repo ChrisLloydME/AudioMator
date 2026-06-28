@@ -352,9 +352,7 @@ final class AudioViewModel: ObservableObject {
             do {
                 let folder = try watchedFolderStore.makeFolder(from: url)
                 addedFolders.append(folder)
-            } catch {
-                print("Failed to create watched folder bookmark for \(url.path): \(error)")
-            }
+            } catch {}
         }
 
         guard !addedFolders.isEmpty else {

@@ -44,7 +44,6 @@ final class WatchedFolderStore {
 
             return folders
         } catch {
-            print("Failed to restore watched folders: \(error)")
             return []
         }
     }
@@ -61,9 +60,7 @@ final class WatchedFolderStore {
         do {
             let data = try JSONEncoder().encode(records)
             userDefaults.set(data, forKey: storageKey)
-        } catch {
-            print("Failed to save watched folders: \(error)")
-        }
+        } catch {}
     }
 
     func makeFolder(from url: URL) throws -> WatchedFolder {

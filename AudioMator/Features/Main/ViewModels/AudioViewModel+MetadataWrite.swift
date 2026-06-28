@@ -142,7 +142,6 @@ extension AudioViewModel {
         expectedFileFingerprint: AudioFileFingerprint? = nil
     ) async -> MetadataWriteExecutionResult {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            print("Skip unsupported write format for: \(file.url.lastPathComponent)")
             return .failure("This format does not support metadata writing yet.")
         }
 
@@ -171,7 +170,6 @@ extension AudioViewModel {
                 )
             )
         } catch {
-            print("Failed to write metadata via TagLib: \(error)")
             return .failure((error as NSError).localizedDescription)
         }
     }

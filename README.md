@@ -24,8 +24,10 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 >
 > #### macOS 27 Golden Gate Compatibility Issues
 >
-> * Toolbar buttons may appear incorrectly.
-> * Tag Inspector: [TagLib Properties] are not displayed correctly.
+> * ~~Toolbar buttons may appear incorrectly.~~
+> * ~~Tag Inspector: [TagLib Properties] are not displayed correctly.~~
+>
+> All compatibility issues with macOS 27 Golden Gate have been resolved.
 
 
 
@@ -56,6 +58,8 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 - ### Metadata and Text Conversion
 
   AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Users can extract metadata from filenames or structured text files, and they can also generate filenames or text-based metadata records from existing file metadata.
+  
+  <img src="Docs/Images/Metadata and Text Conversion.png">
 
 
 > [!CAUTION]
@@ -71,6 +75,8 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 - ### Tag Inspector
 
   Tag Inspector provides a read-only view of the raw tags and file properties stored in the selected file. It is designed for inspection and troubleshooting, allowing users to review the actual metadata values detected by AudioMator without modifying them.
+
+  <img src="Docs/Images/AudioMator Tag Inspector.png">
 
 - ### Metadata Editor Utilities
 

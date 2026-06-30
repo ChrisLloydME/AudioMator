@@ -552,11 +552,15 @@ private enum iTunesWorkbenchAppKitFactory {
     }
 
     private static func planChangeRow(_ change: iTunesTaggingFieldChange) -> NSView {
+        let localLabel = valueLabel(change.localValue.isEmpty ? "-" : change.localValue, color: change.localValue.isEmpty ? .secondaryLabelColor.withAlphaComponent(0.55) : .labelColor)
+        let remoteLabel = valueLabel(change.remoteValue.isEmpty ? "-" : change.remoteValue, color: change.remoteValue.isEmpty ? .secondaryLabelColor.withAlphaComponent(0.55) : .labelColor)
+        localLabel.widthAnchor.constraint(equalTo: remoteLabel.widthAnchor).isActive = true
+
         var rowViews: [NSView] = [
             label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
-            valueLabel(change.localValue.isEmpty ? "-" : change.localValue, color: change.localValue.isEmpty ? .secondaryLabelColor.withAlphaComponent(0.55) : .labelColor),
+            localLabel,
             symbol(change.status.symbolName, color: change.status.nsColor, width: 18),
-            valueLabel(change.remoteValue.isEmpty ? "-" : change.remoteValue, color: change.remoteValue.isEmpty ? .secondaryLabelColor.withAlphaComponent(0.55) : .labelColor)
+            remoteLabel
         ]
 
         if change.willWrite {

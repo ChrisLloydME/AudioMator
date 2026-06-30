@@ -226,12 +226,16 @@ private final class MetadataFilenamePreviewContainerView: NSView {
 
 private enum MetadataFilenameAppKitRowFactory {
     static func renameHeader() -> NSView {
-        padded(
+        let currentName = label("Current Name", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let previewName = label("Preview", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        currentName.widthAnchor.constraint(equalTo: previewName.widthAnchor).isActive = true
+
+        return padded(
             horizontalStack(spacing: 14, alignment: .centerY, views: [
                 label("Status", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
-                label("Current Name", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor),
+                currentName,
                 symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
-                label("Preview", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+                previewName
             ]),
             top: 9,
             left: 18,
@@ -249,13 +253,16 @@ private enum MetadataFilenameAppKitRowFactory {
 
         let icon = symbol(row.status.symbolName, color: row.status.nsTint, width: 18)
         icon.toolTip = row.status.message
+        let currentName = valueLabel(row.currentName, monospaced: true, emptyText: "—", color: .labelColor, emptyColor: .tertiaryLabelColor)
+        let previewName = valueLabel(row.previewName, monospaced: true, emptyText: "—", color: row.status.isError ? .systemOrange : .labelColor, emptyColor: .tertiaryLabelColor)
+        currentName.widthAnchor.constraint(equalTo: previewName.widthAnchor).isActive = true
 
         return padded(
             horizontalStack(spacing: 12, alignment: .top, views: [
                 status,
-                valueLabel(row.currentName, monospaced: true, emptyText: "—", color: .labelColor, emptyColor: .tertiaryLabelColor),
+                currentName,
                 icon,
-                valueLabel(row.previewName, monospaced: true, emptyText: "—", color: row.status.isError ? .systemOrange : .labelColor, emptyColor: .tertiaryLabelColor)
+                previewName
             ]),
             top: 10,
             left: 18,
@@ -337,12 +344,16 @@ private enum MetadataFilenameAppKitRowFactory {
     }
 
     private static func metadataHeader() -> NSView {
-        padded(
+        let metadata = label("Metadata", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let filename = label("Filename", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        metadata.widthAnchor.constraint(equalTo: filename.widthAnchor).isActive = true
+
+        return padded(
             horizontalStack(spacing: 14, alignment: .centerY, views: [
                 label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
-                label("Metadata", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor),
+                metadata,
                 symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
-                label("Filename", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+                filename
             ]),
             top: 9,
             left: 18,
@@ -354,13 +365,16 @@ private enum MetadataFilenameAppKitRowFactory {
     private static func metadataChangeRow(_ change: FilenameMetadataFieldChange) -> NSView {
         let icon = symbol(change.status.symbolName, color: change.status.nsTint, width: 18)
         icon.toolTip = change.willWrite ? "This value will be written to metadata." : "This field already matches."
+        let currentValue = valueLabel(change.currentValue, monospaced: change.field.usesMonospacedComparisonValue, emptyText: "—", color: .labelColor, emptyColor: .tertiaryLabelColor)
+        let extractedValue = valueLabel(change.extractedValue, monospaced: change.field.usesMonospacedComparisonValue, emptyText: "—", color: change.willWrite ? change.status.nsTint : .labelColor, emptyColor: .tertiaryLabelColor)
+        currentValue.widthAnchor.constraint(equalTo: extractedValue.widthAnchor).isActive = true
 
         return padded(
             horizontalStack(spacing: 14, alignment: .top, views: [
                 label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
-                valueLabel(change.currentValue, monospaced: change.field.usesMonospacedComparisonValue, emptyText: "—", color: .labelColor, emptyColor: .tertiaryLabelColor),
+                currentValue,
                 icon,
-                valueLabel(change.extractedValue, monospaced: change.field.usesMonospacedComparisonValue, emptyText: "—", color: change.willWrite ? change.status.nsTint : .labelColor, emptyColor: .tertiaryLabelColor)
+                extractedValue
             ]),
             top: 10,
             left: 18,

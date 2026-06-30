@@ -3,11 +3,56 @@ import SwiftUI
 #if os(macOS)
 import AppKit
 
+struct MetadataConverterPreviewCard<Content: View>: View {
+    let title: String
+    let symbolName: String
+    @ViewBuilder let content: Content
+
+    private let innerCardRadius: CGFloat = 12
+
+    init(
+        title: String,
+        symbolName: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.symbolName = symbolName
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: symbolName)
+                    .font(.system(size: 10, weight: .semibold))
+
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .kerning(0.5)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+
+            VStack(spacing: 0) {
+                content
+            }
+            .background(
+                RoundedRectangle(cornerRadius: innerCardRadius, style: .continuous)
+                    .fill(Color(platformColor: .audiomatorControlBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: innerCardRadius, style: .continuous)
+                    .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
+            )
+        }
+    }
+}
+
 struct MetadataFilenameRenamePreviewList: View {
     let rows: [FileRenamePreviewRow]
 
     var body: some View {
-        MetadataSectionCard(title: "Filename Comparison", symbolName: "arrow.left.arrow.right") {
+        MetadataConverterPreviewCard(title: "Filename Comparison", symbolName: "arrow.left.arrow.right") {
             MetadataFilenameRenameComparisonAppKitList(rows: rows)
         }
     }
@@ -107,7 +152,7 @@ struct FilenameMetadataPreviewList: View {
 
     var body: some View {
         if let validationMessage = plan.validationMessage {
-            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+            MetadataConverterPreviewCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 ContentUnavailableView(
                     "Template Needs More Structure",
                     systemImage: "exclamationmark.triangle",
@@ -118,7 +163,7 @@ struct FilenameMetadataPreviewList: View {
                 .padding(.vertical, 18)
             }
         } else if plan.rows.isEmpty {
-            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+            MetadataConverterPreviewCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 ContentUnavailableView(
                     "No Files Selected",
                     systemImage: "music.note.list",
@@ -129,7 +174,7 @@ struct FilenameMetadataPreviewList: View {
                 .padding(.vertical, 18)
             }
         } else {
-            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+            MetadataConverterPreviewCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 FilenameMetadataComparisonAppKitList(rows: plan.rows)
             }
         }

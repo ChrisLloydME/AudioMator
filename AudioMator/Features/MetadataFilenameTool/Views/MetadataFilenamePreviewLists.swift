@@ -9,7 +9,6 @@ struct MetadataFilenameRenamePreviewList: View {
     var body: some View {
         MetadataSectionCard(title: "Filename Comparison", symbolName: "arrow.left.arrow.right") {
             MetadataFilenameRenameComparisonAppKitList(rows: rows)
-                .metadataFilenameAppKitSurface()
         }
     }
 }
@@ -132,28 +131,8 @@ struct FilenameMetadataPreviewList: View {
         } else {
             MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 FilenameMetadataComparisonAppKitList(rows: plan.rows)
-                    .metadataFilenameAppKitSurface()
             }
         }
-    }
-}
-
-private enum MetadataFilenameAppKitChrome {
-    static let outerCornerRadius: CGFloat = 20
-    static let innerInset: CGFloat = 8
-    static let innerCornerRadius = outerCornerRadius - innerInset
-}
-
-private extension View {
-    func metadataFilenameAppKitSurface() -> some View {
-        background(
-            RoundedRectangle(cornerRadius: MetadataFilenameAppKitChrome.innerCornerRadius, style: .continuous)
-                .fill(Color(platformColor: .audiomatorWindowBackground))
-        )
-        .clipShape(
-            RoundedRectangle(cornerRadius: MetadataFilenameAppKitChrome.innerCornerRadius, style: .continuous)
-        )
-        .padding(MetadataFilenameAppKitChrome.innerInset)
     }
 }
 

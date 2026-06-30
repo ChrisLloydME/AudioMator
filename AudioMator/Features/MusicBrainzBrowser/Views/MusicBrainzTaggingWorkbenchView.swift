@@ -198,7 +198,6 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 isDuplicate: { assignment in store.isDuplicateAssignment(assignment) },
                 onSelectTrack: { trackID, assignmentID in store.updateSelectedTrack(trackID, for: assignmentID) }
             )
-            .musicBrainzWorkbenchAppKitSurface()
             #else
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 AssignmentEditorRow(
@@ -235,7 +234,6 @@ struct MusicBrainzTaggingWorkbenchView: View {
                     rows: plan.rows,
                     recordingState: recordingState(for:)
                 )
-                .musicBrainzWorkbenchAppKitSurface()
                 #else
                 ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     PlanRowView(
@@ -384,25 +382,6 @@ private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
 }
 
 #if os(macOS)
-private enum MusicBrainzWorkbenchAppKitChrome {
-    static let outerCornerRadius: CGFloat = 20
-    static let innerInset: CGFloat = 8
-    static let innerCornerRadius = outerCornerRadius - innerInset
-}
-
-private extension View {
-    func musicBrainzWorkbenchAppKitSurface() -> some View {
-        background(
-            RoundedRectangle(cornerRadius: MusicBrainzWorkbenchAppKitChrome.innerCornerRadius, style: .continuous)
-                .fill(Color(platformColor: .audiomatorWindowBackground))
-        )
-        .clipShape(
-            RoundedRectangle(cornerRadius: MusicBrainzWorkbenchAppKitChrome.innerCornerRadius, style: .continuous)
-        )
-        .padding(MusicBrainzWorkbenchAppKitChrome.innerInset)
-    }
-}
-
 private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
     let assignments: [MusicBrainzTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [MusicBrainzReleaseMatchTrack]

@@ -146,7 +146,6 @@ struct iTunesTaggingWorkbenchView: View {
                 isDuplicate: { assignment in store.isDuplicateAssignment(assignment) },
                 onSelectTrack: { trackID, assignmentID in store.updateSelectedTrack(trackID, for: assignmentID) }
             )
-            .iTunesWorkbenchAppKitSurface()
             #else
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 iTunesAssignmentRow(
@@ -179,7 +178,6 @@ struct iTunesTaggingWorkbenchView: View {
             } else {
                 #if os(macOS)
                 iTunesDiffPreviewAppKitList(rows: plan.rows)
-                    .iTunesWorkbenchAppKitSurface()
                 #else
                 ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     iTunesPlanRow(row: row)
@@ -315,25 +313,6 @@ private struct iTunesWorkbenchFrameModifier: ViewModifier {
 }
 
 #if os(macOS)
-private enum iTunesWorkbenchAppKitChrome {
-    static let outerCornerRadius: CGFloat = 20
-    static let innerInset: CGFloat = 8
-    static let innerCornerRadius = outerCornerRadius - innerInset
-}
-
-private extension View {
-    func iTunesWorkbenchAppKitSurface() -> some View {
-        background(
-            RoundedRectangle(cornerRadius: iTunesWorkbenchAppKitChrome.innerCornerRadius, style: .continuous)
-                .fill(Color(platformColor: .audiomatorWindowBackground))
-        )
-        .clipShape(
-            RoundedRectangle(cornerRadius: iTunesWorkbenchAppKitChrome.innerCornerRadius, style: .continuous)
-        )
-        .padding(iTunesWorkbenchAppKitChrome.innerInset)
-    }
-}
-
 private struct iTunesAssignmentsAppKitList: NSViewRepresentable {
     let assignments: [iTunesTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [iTunesTrackResult]

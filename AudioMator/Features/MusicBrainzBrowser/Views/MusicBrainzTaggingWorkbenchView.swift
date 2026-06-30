@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct MusicBrainzTaggingWorkbenchView: View {
     @ObservedObject var store: MusicBrainzTaggingWorkbenchStore
@@ -185,6 +188,17 @@ struct MusicBrainzTaggingWorkbenchView: View {
 
     private var assignmentSection: some View {
         MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
+            #if os(macOS)
+            MusicBrainzAssignmentsAppKitList(
+                assignments: store.assignments,
+                tracks: store.availableTracks,
+                isApplying: isApplying,
+                selectedTrackID: { assignment in store.selectedTrackID(for: assignment.id) },
+                selectedTrack: { assignment in store.track(for: assignment) },
+                isDuplicate: { assignment in store.isDuplicateAssignment(assignment) },
+                onSelectTrack: { trackID, assignmentID in store.updateSelectedTrack(trackID, for: assignmentID) }
+            )
+            #else
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 AssignmentEditorRow(
                     assignment: assignment,
@@ -199,6 +213,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                     MetadataCardDivider()
                 }
             }
+            #endif
         }
     }
 
@@ -214,6 +229,12 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 36)
             } else {
+                #if os(macOS)
+                MusicBrainzDiffPreviewAppKitList(
+                    rows: plan.rows,
+                    recordingState: recordingState(for:)
+                )
+                #else
                 ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     PlanRowView(
                         row: row,
@@ -224,6 +245,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                         MetadataCardDivider()
                     }
                 }
+                #endif
             }
         }
     }
@@ -358,6 +380,506 @@ private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
         #endif
     }
 }
+
+#if os(macOS)
+private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
+    let assignments: [MusicBrainzTaggingWorkbenchStore.AssignmentDraft]
+    let tracks: [MusicBrainzReleaseMatchTrack]
+    let isApplying: Bool
+    let selectedTrackID: (MusicBrainzTaggingWorkbenchStore.AssignmentDraft) -> String?
+    let selectedTrack: (MusicBrainzTaggingWorkbenchStore.AssignmentDraft) -> MusicBrainzReleaseMatchTrack?
+    let isDuplicate: (MusicBrainzTaggingWorkbenchStore.AssignmentDraft) -> Bool
+    let onSelectTrack: (String?, String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> MusicBrainzWorkbenchContainerView {
+        MusicBrainzWorkbenchContainerView()
+    }
+
+    func updateNSView(_ nsView: MusicBrainzWorkbenchContainerView, context: Context) {
+        context.coordinator.parent = self
+
+        var views: [NSView] = []
+        for (index, assignment) in assignments.enumerated() {
+            views.append(MusicBrainzWorkbenchAppKitFactory.assignmentRow(
+                assignment: assignment,
+                tracks: tracks,
+                isDuplicate: isDuplicate(assignment),
+                selectedTrackID: selectedTrackID(assignment),
+                selectedTrack: selectedTrack(assignment),
+                isApplying: isApplying,
+                target: context.coordinator,
+                action: #selector(Coordinator.selectTrack(_:))
+            ))
+            if index < assignments.count - 1 {
+                views.append(MusicBrainzWorkbenchAppKitFactory.divider())
+            }
+        }
+        nsView.replaceArrangedSubviews(with: views)
+    }
+
+    final class Coordinator: NSObject {
+        var parent: MusicBrainzAssignmentsAppKitList
+
+        init(parent: MusicBrainzAssignmentsAppKitList) {
+            self.parent = parent
+        }
+
+        @objc
+        func selectTrack(_ sender: MusicBrainzAssignmentPopUpButton) {
+            guard sender.indexOfSelectedItem >= 0, sender.indexOfSelectedItem < sender.selectionValues.count else { return }
+            parent.onSelectTrack(sender.selectionValues[sender.indexOfSelectedItem], sender.assignmentID)
+        }
+    }
+}
+
+private struct MusicBrainzDiffPreviewAppKitList: NSViewRepresentable {
+    let rows: [MusicBrainzTaggingPlanRow]
+    let recordingState: (MusicBrainzTaggingPlanRow) -> MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
+
+    func makeNSView(context: Context) -> MusicBrainzWorkbenchContainerView {
+        MusicBrainzWorkbenchContainerView()
+    }
+
+    func updateNSView(_ nsView: MusicBrainzWorkbenchContainerView, context: Context) {
+        var views: [NSView] = []
+        for (index, row) in rows.enumerated() {
+            views.append(MusicBrainzWorkbenchAppKitFactory.planRow(row, recordingState: recordingState(row)))
+            if index < rows.count - 1 {
+                views.append(MusicBrainzWorkbenchAppKitFactory.divider())
+            }
+        }
+        nsView.replaceArrangedSubviews(with: views)
+    }
+}
+
+private final class MusicBrainzWorkbenchContainerView: NSView {
+    private let stackView = NSStackView()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+
+        stackView.orientation = .vertical
+        stackView.alignment = .leading
+        stackView.distribution = .fill
+        stackView.spacing = 0
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(stackView)
+        NSLayoutConstraint.activate([
+            stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: topAnchor),
+            stackView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: stackView.fittingSize.height)
+    }
+
+    override func layout() {
+        super.layout()
+        invalidateIntrinsicContentSize()
+    }
+
+    func replaceArrangedSubviews(with views: [NSView]) {
+        for view in stackView.arrangedSubviews {
+            stackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        for view in views {
+            stackView.addArrangedSubview(view)
+            view.widthAnchor.constraint(equalTo: stackView.widthAnchor).isActive = true
+        }
+
+        invalidateIntrinsicContentSize()
+    }
+}
+
+private final class MusicBrainzAssignmentPopUpButton: NSPopUpButton {
+    let assignmentID: String
+    let selectionValues: [String?]
+
+    init(assignmentID: String, selectionValues: [String?]) {
+        self.assignmentID = assignmentID
+        self.selectionValues = selectionValues
+        super.init(frame: .zero, pullsDown: false)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+}
+
+private enum MusicBrainzWorkbenchAppKitFactory {
+    static func assignmentRow(
+        assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft,
+        tracks: [MusicBrainzReleaseMatchTrack],
+        isDuplicate: Bool,
+        selectedTrackID: String?,
+        selectedTrack: MusicBrainzReleaseMatchTrack?,
+        isApplying: Bool,
+        target: AnyObject,
+        action: Selector
+    ) -> NSView {
+        let titleStack = verticalStack(spacing: 4, views: [
+            label(assignment.fileInput.preferredDisplayTitle, font: .systemFont(ofSize: 13, weight: .medium), color: .labelColor),
+            fileSubtitle(for: assignment).isEmpty ? nil : label(fileSubtitle(for: assignment), font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
+        ].compactMap { $0 })
+
+        let popUp = assignmentPopUp(
+            assignmentID: assignment.id,
+            tracks: tracks,
+            selectedTrackID: selectedTrackID,
+            isEnabled: !isApplying,
+            target: target,
+            action: action
+        )
+        popUp.widthAnchor.constraint(equalToConstant: 380).isActive = true
+
+        let group = verticalStack(spacing: 10)
+        group.addArrangedSubview(horizontalStack(spacing: 18, alignment: .top, views: [
+            titleStack,
+            spacer(),
+            popUp
+        ]))
+
+        if let selectedTrack {
+            group.addArrangedSubview(label(trackDetailLine(for: selectedTrack), font: .systemFont(ofSize: 11), color: .secondaryLabelColor))
+        }
+
+        if let initialReason = assignment.initialReason, !initialReason.isEmpty {
+            group.addArrangedSubview(label("Auto-match: \(initialReason)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor))
+        }
+
+        if isDuplicate {
+            group.addArrangedSubview(iconText("This MusicBrainz track is assigned to more than one file.", symbolName: "exclamationmark.triangle.fill", color: .systemOrange))
+        }
+
+        return padded(group, top: 12, left: 18, bottom: 12, right: 18)
+    }
+
+    static func planRow(
+        _ row: MusicBrainzTaggingPlanRow,
+        recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
+    ) -> NSView {
+        let group = verticalStack(spacing: 0)
+        let titleViews: [NSView] = [
+            label(row.file?.url.lastPathComponent ?? row.fileInput.preferredDisplayTitle, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor),
+            subtitleView(for: row)
+        ].compactMap { $0 }
+        let titleStack = verticalStack(spacing: 4, views: titleViews)
+
+        var headerViews: [NSView] = [titleStack, spacer()]
+        if let writeEntry = row.writeEntry {
+            headerViews.append(label("\(writeEntry.values.count) change\(writeEntry.values.count == 1 ? "" : "s")", font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor))
+        }
+
+        group.addArrangedSubview(padded(
+            horizontalStack(spacing: 18, alignment: .top, views: headerViews),
+            top: 14,
+            left: 18,
+            bottom: row.changes.isEmpty ? 14 : 12,
+            right: 18
+        ))
+
+        if !row.changes.isEmpty {
+            group.addArrangedSubview(divider())
+            for (index, change) in row.changes.enumerated() {
+                group.addArrangedSubview(planChangeRow(
+                    change,
+                    recordingState: change.field.requiresRecordingDetail ? recordingState : nil
+                ))
+                if index < row.changes.count - 1 {
+                    group.addArrangedSubview(divider())
+                }
+            }
+        }
+
+        return group
+    }
+
+    static func divider() -> NSView {
+        let box = NSBox()
+        box.boxType = .separator
+        box.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(box)
+        NSLayoutConstraint.activate([
+            box.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 18),
+            box.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            box.topAnchor.constraint(equalTo: container.topAnchor),
+            box.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        return container
+    }
+
+    private static func planChangeRow(
+        _ change: MusicBrainzTaggingFieldChange,
+        recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
+    ) -> NSView {
+        let remoteValue = remoteDisplayValue(for: change, recordingState: recordingState)
+        var rowViews: [NSView] = [
+            label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
+            valueLabel(change.localValue.isEmpty ? "—" : change.localValue, color: change.localValue.isEmpty ? .secondaryLabelColor.withAlphaComponent(0.55) : .labelColor),
+            symbol(change.status.symbolName, color: change.status.nsColor, width: 18),
+            valueLabel(remoteValue, color: remoteColor(for: change, displayedValue: remoteValue, recordingState: recordingState))
+        ]
+
+        if change.willWrite {
+            rowViews.append(writeBadge())
+        }
+
+        return padded(horizontalStack(spacing: 14, alignment: .top, views: rowViews), top: 10, left: 18, bottom: 10, right: 18)
+    }
+
+    private static func subtitleView(for row: MusicBrainzTaggingPlanRow) -> NSView? {
+        if let issueMessage = row.issueMessage {
+            return label(issueMessage, font: .systemFont(ofSize: 11), color: .systemOrange)
+        }
+
+        guard let track = row.track else { return nil }
+        let number = track.number.isEmpty ? "" : "\(track.number) "
+        return label("MusicBrainz: \(number)\(track.title)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
+    }
+
+    private static func assignmentPopUp(
+        assignmentID: String,
+        tracks: [MusicBrainzReleaseMatchTrack],
+        selectedTrackID: String?,
+        isEnabled: Bool,
+        target: AnyObject,
+        action: Selector
+    ) -> MusicBrainzAssignmentPopUpButton {
+        let values: [String?] = [nil] + tracks.map(\.id)
+        let popUp = MusicBrainzAssignmentPopUpButton(assignmentID: assignmentID, selectionValues: values)
+        popUp.translatesAutoresizingMaskIntoConstraints = false
+        popUp.controlSize = .regular
+        popUp.isEnabled = isEnabled
+        popUp.addItem(withTitle: L10n.string("Unassigned"))
+        popUp.menu?.addItem(.separator())
+        for track in tracks {
+            popUp.addItem(withTitle: trackOptionTitle(track))
+        }
+        if let selectedTrackID, let index = values.firstIndex(of: selectedTrackID) {
+            popUp.selectItem(at: index)
+        } else {
+            popUp.selectItem(at: 0)
+        }
+        popUp.target = target
+        popUp.action = action
+        return popUp
+    }
+
+    private static func trackOptionTitle(_ track: MusicBrainzReleaseMatchTrack) -> String {
+        let number = track.number.isEmpty ? "" : "\(track.number) "
+        let discPrefix = track.releaseMediumCount > 1 ? "Disc \(track.mediumPosition) • " : ""
+        return discPrefix + number + track.title
+    }
+
+    private static func trackDetailLine(for track: MusicBrainzReleaseMatchTrack) -> String {
+        [
+            track.artistCredit,
+            track.mediumFormat.isEmpty ? track.mediumTitle : track.mediumFormat
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: " • ")
+    }
+
+    private static func fileSubtitle(for assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft) -> String {
+        [assignment.fileInput.artist, assignment.fileInput.album]
+            .filter { !$0.isEmpty }
+            .joined(separator: " • ")
+    }
+
+    private static func remoteDisplayValue(
+        for change: MusicBrainzTaggingFieldChange,
+        recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
+    ) -> String {
+        if change.field.requiresRecordingDetail, let recordingState {
+            switch recordingState {
+            case .loading, .idle:
+                return "Loading recording details..."
+            case .failed:
+                return "Recording lookup failed."
+            case .loaded:
+                return change.remoteValue.isEmpty ? "—" : change.remoteValue
+            }
+        }
+
+        return change.remoteValue.isEmpty ? "—" : change.remoteValue
+    }
+
+    private static func remoteColor(
+        for change: MusicBrainzTaggingFieldChange,
+        displayedValue: String,
+        recordingState: MusicBrainzTaggingWorkbenchStore.RecordingLookupState?
+    ) -> NSColor {
+        if displayedValue == "—" {
+            if change.field.requiresRecordingDetail, recordingState != nil {
+                return .secondaryLabelColor
+            }
+            return .secondaryLabelColor.withAlphaComponent(0.55)
+        }
+        return .labelColor
+    }
+
+    private static func valueLabel(_ text: String, color: NSColor) -> NSTextField {
+        let textField = label(text, font: .systemFont(ofSize: 12), color: color)
+        textField.isSelectable = true
+        return textField
+    }
+
+    private static func label(
+        _ text: String,
+        font: NSFont,
+        color: NSColor,
+        width: CGFloat? = nil
+    ) -> NSTextField {
+        let textField = NSTextField(labelWithString: text)
+        textField.font = font
+        textField.textColor = color
+        textField.backgroundColor = .clear
+        textField.lineBreakMode = .byWordWrapping
+        textField.maximumNumberOfLines = 0
+        textField.cell?.wraps = true
+        textField.cell?.isScrollable = false
+        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        if let width {
+            textField.widthAnchor.constraint(equalToConstant: width).isActive = true
+        }
+        return textField
+    }
+
+    private static func symbol(_ name: String, color: NSColor, width: CGFloat) -> NSImageView {
+        let imageView = NSImageView()
+        imageView.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        imageView.contentTintColor = color
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.widthAnchor.constraint(equalToConstant: width).isActive = true
+        imageView.heightAnchor.constraint(greaterThanOrEqualToConstant: 13).isActive = true
+        imageView.setContentHuggingPriority(.required, for: .horizontal)
+        imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return imageView
+    }
+
+    private static func iconText(_ text: String, symbolName: String, color: NSColor) -> NSView {
+        horizontalStack(spacing: 5, alignment: .centerY, views: [
+            symbol(symbolName, color: color, width: 12),
+            label(text, font: .systemFont(ofSize: 11), color: color)
+        ])
+    }
+
+    private static func writeBadge() -> NSView {
+        let badge = padded(
+            label("Write", font: .systemFont(ofSize: 10, weight: .semibold), color: .controlAccentColor),
+            top: 4,
+            left: 8,
+            bottom: 4,
+            right: 8
+        )
+        badge.wantsLayer = true
+        badge.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.12).cgColor
+        badge.layer?.cornerRadius = 9
+        return badge
+    }
+
+    private static func padded(
+        _ content: NSView,
+        top: CGFloat,
+        left: CGFloat,
+        bottom: CGFloat,
+        right: CGFloat
+    ) -> NSView {
+        let container = NSView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        content.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: left),
+            content.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -right),
+            content.topAnchor.constraint(equalTo: container.topAnchor, constant: top),
+            content.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottom)
+        ])
+        return container
+    }
+
+    private static func horizontalStack(
+        spacing: CGFloat,
+        alignment: NSLayoutConstraint.Attribute,
+        views: [NSView]
+    ) -> NSStackView {
+        let stack = NSStackView(views: views)
+        stack.orientation = .horizontal
+        stack.alignment = alignment
+        stack.distribution = .fill
+        stack.spacing = spacing
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }
+
+    private static func verticalStack(spacing: CGFloat, views: [NSView] = []) -> NSStackView {
+        let stack = NSStackView(views: views)
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.distribution = .fill
+        stack.spacing = spacing
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }
+
+    private static func spacer() -> NSView {
+        let view = NSView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        return view
+    }
+}
+
+private extension MusicBrainzTaggingFieldChange.Status {
+    var symbolName: String {
+        switch self {
+        case .same:
+            return "checkmark.circle.fill"
+        case .different:
+            return "arrow.left.arrow.right.circle.fill"
+        case .missingLocal:
+            return "square.and.arrow.down.fill"
+        case .missingRemote:
+            return "questionmark.circle.fill"
+        }
+    }
+
+    var nsColor: NSColor {
+        switch self {
+        case .same:
+            return .systemGreen
+        case .different:
+            return .systemOrange
+        case .missingLocal:
+            return .controlAccentColor
+        case .missingRemote:
+            return .secondaryLabelColor
+        }
+    }
+}
+#endif
 
 private struct AssignmentEditorRow: View {
     let assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft

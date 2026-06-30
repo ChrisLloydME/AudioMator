@@ -22,6 +22,7 @@ struct MetadataTextExportPreviewList: View {
         } else {
             MetadataSectionCard(title: "Text Lines", symbolName: "text.alignleft") {
                 MetadataTextExportPreviewAppKitList(rows: plan.rows)
+                    .metadataExchangeAppKitSurface()
             }
         }
     }
@@ -50,6 +51,7 @@ struct MetadataCSVExportPreviewList: View {
                     rows: Array(plan.rows.prefix(24))
                 )
                 .frame(height: MetadataCSVExportPreviewAppKitList.height(forRowCount: min(plan.rows.count, 24)))
+                .metadataExchangeAppKitSurface()
             }
         }
     }
@@ -84,8 +86,28 @@ struct MetadataExchangeImportPreviewList: View {
         } else {
             MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 MetadataExchangeImportPreviewAppKitList(rows: plan.rows)
+                    .metadataExchangeAppKitSurface()
             }
         }
+    }
+}
+
+private enum MetadataExchangeAppKitChrome {
+    static let outerCornerRadius: CGFloat = 20
+    static let innerInset: CGFloat = 8
+    static let innerCornerRadius = outerCornerRadius - innerInset
+}
+
+private extension View {
+    func metadataExchangeAppKitSurface() -> some View {
+        background(
+            RoundedRectangle(cornerRadius: MetadataExchangeAppKitChrome.innerCornerRadius, style: .continuous)
+                .fill(Color(platformColor: .audiomatorWindowBackground))
+        )
+        .clipShape(
+            RoundedRectangle(cornerRadius: MetadataExchangeAppKitChrome.innerCornerRadius, style: .continuous)
+        )
+        .padding(MetadataExchangeAppKitChrome.innerInset)
     }
 }
 
@@ -264,25 +286,25 @@ private enum MetadataExchangeAppKitRowFactory {
             badge(title: row.status.title, symbolName: row.status.symbolName, tint: row.status.nsTint)
         ])
 
-        group.addArrangedSubview(padded(heading, top: 12, left: 18, bottom: 12, right: 18))
+        addFullWidthArrangedSubview(padded(heading, top: 12, left: 18, bottom: 12, right: 18), to: group)
 
         if let issueMessage = row.issueMessage {
-            group.addArrangedSubview(padded(
+            addFullWidthArrangedSubview(padded(
                 label(issueMessage, font: .systemFont(ofSize: 11), color: row.status.isIssue ? row.status.nsTint : .secondaryLabelColor),
                 top: 0,
                 left: 18,
                 bottom: 10,
                 right: 18
-            ))
+            ), to: group)
         }
 
         if !row.changes.isEmpty {
-            group.addArrangedSubview(divider())
-            group.addArrangedSubview(importHeader())
+            addFullWidthArrangedSubview(divider(), to: group)
+            addFullWidthArrangedSubview(importHeader(), to: group)
             for (index, change) in row.changes.enumerated() {
-                group.addArrangedSubview(importChangeRow(change))
+                addFullWidthArrangedSubview(importChangeRow(change), to: group)
                 if index < row.changes.count - 1 {
-                    group.addArrangedSubview(divider())
+                    addFullWidthArrangedSubview(divider(), to: group)
                 }
             }
         }
@@ -310,15 +332,16 @@ private enum MetadataExchangeAppKitRowFactory {
     private static func importHeader() -> NSView {
         let current = label("Current", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
         let imported = label("Imported", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let content = horizontalStack(spacing: 14, alignment: .centerY, views: [
+            label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
+            current,
+            symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
+            imported
+        ])
         current.widthAnchor.constraint(equalTo: imported.widthAnchor).isActive = true
 
         return padded(
-            horizontalStack(spacing: 14, alignment: .centerY, views: [
-                label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
-                current,
-                symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
-                imported
-            ]),
+            content,
             top: 9,
             left: 18,
             bottom: 9,
@@ -329,15 +352,16 @@ private enum MetadataExchangeAppKitRowFactory {
     private static func importChangeRow(_ change: MetadataExchangeFieldChange) -> NSView {
         let currentValue = valueLabel(change.currentValue, emptyText: "Empty", monospaced: false, color: change.currentValue.isEmpty ? .secondaryLabelColor : .labelColor)
         let importedValue = valueLabel(change.importedValue, emptyText: "Empty", monospaced: false, color: change.importedValue.isEmpty ? .secondaryLabelColor : (change.willWrite ? .systemGreen : .labelColor))
+        let content = horizontalStack(spacing: 14, alignment: .top, views: [
+            label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
+            currentValue,
+            symbol(change.willWrite ? "pencil.circle.fill" : "equal.circle.fill", color: change.willWrite ? .systemGreen : .secondaryLabelColor, width: 18),
+            importedValue
+        ])
         currentValue.widthAnchor.constraint(equalTo: importedValue.widthAnchor).isActive = true
 
         return padded(
-            horizontalStack(spacing: 14, alignment: .top, views: [
-                label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
-                currentValue,
-                symbol(change.willWrite ? "pencil.circle.fill" : "equal.circle.fill", color: change.willWrite ? .systemGreen : .secondaryLabelColor, width: 18),
-                importedValue
-            ]),
+            content,
             top: 10,
             left: 18,
             bottom: 10,
@@ -455,6 +479,11 @@ private enum MetadataExchangeAppKitRowFactory {
         stack.spacing = spacing
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
+    }
+
+    private static func addFullWidthArrangedSubview(_ view: NSView, to stack: NSStackView) {
+        stack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
 
     private static func spacer() -> NSView {

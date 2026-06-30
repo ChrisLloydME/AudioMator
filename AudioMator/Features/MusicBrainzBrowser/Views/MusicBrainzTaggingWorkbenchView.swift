@@ -198,6 +198,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 isDuplicate: { assignment in store.isDuplicateAssignment(assignment) },
                 onSelectTrack: { trackID, assignmentID in store.updateSelectedTrack(trackID, for: assignmentID) }
             )
+            .musicBrainzWorkbenchAppKitSurface()
             #else
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 AssignmentEditorRow(
@@ -234,6 +235,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                     rows: plan.rows,
                     recordingState: recordingState(for:)
                 )
+                .musicBrainzWorkbenchAppKitSurface()
                 #else
                 ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     PlanRowView(
@@ -382,6 +384,25 @@ private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
 }
 
 #if os(macOS)
+private enum MusicBrainzWorkbenchAppKitChrome {
+    static let outerCornerRadius: CGFloat = 20
+    static let innerInset: CGFloat = 8
+    static let innerCornerRadius = outerCornerRadius - innerInset
+}
+
+private extension View {
+    func musicBrainzWorkbenchAppKitSurface() -> some View {
+        background(
+            RoundedRectangle(cornerRadius: MusicBrainzWorkbenchAppKitChrome.innerCornerRadius, style: .continuous)
+                .fill(Color(platformColor: .audiomatorWindowBackground))
+        )
+        .clipShape(
+            RoundedRectangle(cornerRadius: MusicBrainzWorkbenchAppKitChrome.innerCornerRadius, style: .continuous)
+        )
+        .padding(MusicBrainzWorkbenchAppKitChrome.innerInset)
+    }
+}
+
 private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
     let assignments: [MusicBrainzTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [MusicBrainzReleaseMatchTrack]
@@ -549,22 +570,22 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         popUp.widthAnchor.constraint(equalToConstant: 380).isActive = true
 
         let group = verticalStack(spacing: 10)
-        group.addArrangedSubview(horizontalStack(spacing: 18, alignment: .top, views: [
+        addFullWidthArrangedSubview(horizontalStack(spacing: 18, alignment: .top, views: [
             titleStack,
             spacer(),
             popUp
-        ]))
+        ]), to: group)
 
         if let selectedTrack {
-            group.addArrangedSubview(label(trackDetailLine(for: selectedTrack), font: .systemFont(ofSize: 11), color: .secondaryLabelColor))
+            addFullWidthArrangedSubview(label(trackDetailLine(for: selectedTrack), font: .systemFont(ofSize: 11), color: .secondaryLabelColor), to: group)
         }
 
         if let initialReason = assignment.initialReason, !initialReason.isEmpty {
-            group.addArrangedSubview(label("Auto-match: \(initialReason)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor))
+            addFullWidthArrangedSubview(label("Auto-match: \(initialReason)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor), to: group)
         }
 
         if isDuplicate {
-            group.addArrangedSubview(iconText("This MusicBrainz track is assigned to more than one file.", symbolName: "exclamationmark.triangle.fill", color: .systemOrange))
+            addFullWidthArrangedSubview(iconText("This MusicBrainz track is assigned to more than one file.", symbolName: "exclamationmark.triangle.fill", color: .systemOrange), to: group)
         }
 
         return padded(group, top: 12, left: 18, bottom: 12, right: 18)
@@ -586,23 +607,23 @@ private enum MusicBrainzWorkbenchAppKitFactory {
             headerViews.append(label("\(writeEntry.values.count) change\(writeEntry.values.count == 1 ? "" : "s")", font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor))
         }
 
-        group.addArrangedSubview(padded(
+        addFullWidthArrangedSubview(padded(
             horizontalStack(spacing: 18, alignment: .top, views: headerViews),
             top: 14,
             left: 18,
             bottom: row.changes.isEmpty ? 14 : 12,
             right: 18
-        ))
+        ), to: group)
 
         if !row.changes.isEmpty {
-            group.addArrangedSubview(divider())
+            addFullWidthArrangedSubview(divider(), to: group)
             for (index, change) in row.changes.enumerated() {
-                group.addArrangedSubview(planChangeRow(
+                addFullWidthArrangedSubview(planChangeRow(
                     change,
                     recordingState: change.field.requiresRecordingDetail ? recordingState : nil
-                ))
+                ), to: group)
                 if index < row.changes.count - 1 {
-                    group.addArrangedSubview(divider())
+                    addFullWidthArrangedSubview(divider(), to: group)
                 }
             }
         }
@@ -634,7 +655,6 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         let remoteValue = remoteDisplayValue(for: change, recordingState: recordingState)
         let localLabel = valueLabel(change.localValue.isEmpty ? "—" : change.localValue, color: change.localValue.isEmpty ? .secondaryLabelColor.withAlphaComponent(0.55) : .labelColor)
         let remoteLabel = valueLabel(remoteValue, color: remoteColor(for: change, displayedValue: remoteValue, recordingState: recordingState))
-        localLabel.widthAnchor.constraint(equalTo: remoteLabel.widthAnchor).isActive = true
 
         var rowViews: [NSView] = [
             label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
@@ -647,7 +667,10 @@ private enum MusicBrainzWorkbenchAppKitFactory {
             rowViews.append(writeBadge())
         }
 
-        return padded(horizontalStack(spacing: 14, alignment: .top, views: rowViews), top: 10, left: 18, bottom: 10, right: 18)
+        let content = horizontalStack(spacing: 14, alignment: .top, views: rowViews)
+        localLabel.widthAnchor.constraint(equalTo: remoteLabel.widthAnchor).isActive = true
+
+        return padded(content, top: 10, left: 18, bottom: 10, right: 18)
     }
 
     private static func subtitleView(for row: MusicBrainzTaggingPlanRow) -> NSView? {
@@ -846,6 +869,11 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         stack.spacing = spacing
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
+    }
+
+    private static func addFullWidthArrangedSubview(_ view: NSView, to stack: NSStackView) {
+        stack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
 
     private static func spacer() -> NSView {

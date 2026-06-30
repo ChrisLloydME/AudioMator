@@ -9,6 +9,7 @@ struct MetadataFilenameRenamePreviewList: View {
     var body: some View {
         MetadataSectionCard(title: "Filename Comparison", symbolName: "arrow.left.arrow.right") {
             MetadataFilenameRenameComparisonAppKitList(rows: rows)
+                .metadataFilenameAppKitSurface()
         }
     }
 }
@@ -131,8 +132,28 @@ struct FilenameMetadataPreviewList: View {
         } else {
             MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 FilenameMetadataComparisonAppKitList(rows: plan.rows)
+                    .metadataFilenameAppKitSurface()
             }
         }
+    }
+}
+
+private enum MetadataFilenameAppKitChrome {
+    static let outerCornerRadius: CGFloat = 20
+    static let innerInset: CGFloat = 8
+    static let innerCornerRadius = outerCornerRadius - innerInset
+}
+
+private extension View {
+    func metadataFilenameAppKitSurface() -> some View {
+        background(
+            RoundedRectangle(cornerRadius: MetadataFilenameAppKitChrome.innerCornerRadius, style: .continuous)
+                .fill(Color(platformColor: .audiomatorWindowBackground))
+        )
+        .clipShape(
+            RoundedRectangle(cornerRadius: MetadataFilenameAppKitChrome.innerCornerRadius, style: .continuous)
+        )
+        .padding(MetadataFilenameAppKitChrome.innerInset)
     }
 }
 
@@ -228,15 +249,16 @@ private enum MetadataFilenameAppKitRowFactory {
     static func renameHeader() -> NSView {
         let currentName = label("Current Name", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
         let previewName = label("Preview", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let content = horizontalStack(spacing: 14, alignment: .centerY, views: [
+            label("Status", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
+            currentName,
+            symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
+            previewName
+        ])
         currentName.widthAnchor.constraint(equalTo: previewName.widthAnchor).isActive = true
 
         return padded(
-            horizontalStack(spacing: 14, alignment: .centerY, views: [
-                label("Status", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
-                currentName,
-                symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
-                previewName
-            ]),
+            content,
             top: 9,
             left: 18,
             bottom: 9,
@@ -255,15 +277,16 @@ private enum MetadataFilenameAppKitRowFactory {
         icon.toolTip = row.status.message
         let currentName = valueLabel(row.currentName, monospaced: true, emptyText: "—", color: .labelColor, emptyColor: .tertiaryLabelColor)
         let previewName = valueLabel(row.previewName, monospaced: true, emptyText: "—", color: row.status.isError ? .systemOrange : .labelColor, emptyColor: .tertiaryLabelColor)
+        let content = horizontalStack(spacing: 12, alignment: .top, views: [
+            status,
+            currentName,
+            icon,
+            previewName
+        ])
         currentName.widthAnchor.constraint(equalTo: previewName.widthAnchor).isActive = true
 
         return padded(
-            horizontalStack(spacing: 12, alignment: .top, views: [
-                status,
-                currentName,
-                icon,
-                previewName
-            ]),
+            content,
             top: 10,
             left: 18,
             bottom: 10,
@@ -285,40 +308,40 @@ private enum MetadataFilenameAppKitRowFactory {
             badge(title: row.status.title, symbolName: row.status.symbolName, tint: row.status.nsTint)
         ])
 
-        group.addArrangedSubview(padded(
+        addFullWidthArrangedSubview(padded(
             heading,
             top: 14,
             left: 18,
             bottom: row.changes.isEmpty ? 8 : 12,
             right: 18
-        ))
+        ), to: group)
 
         if let issueMessage = row.issueMessage {
-            group.addArrangedSubview(padded(
+            addFullWidthArrangedSubview(padded(
                 label(issueMessage, font: .systemFont(ofSize: 11), color: row.status.nsTint),
                 top: 0,
                 left: 18,
                 bottom: row.changes.isEmpty ? 14 : 12,
                 right: 18
-            ))
+            ), to: group)
         }
 
         if row.changes.isEmpty {
-            group.addArrangedSubview(padded(
+            addFullWidthArrangedSubview(padded(
                 label(row.status.message, font: .systemFont(ofSize: 12), color: .secondaryLabelColor),
                 top: 14,
                 left: 18,
                 bottom: 14,
                 right: 18
-            ))
+            ), to: group)
         } else {
-            group.addArrangedSubview(divider())
-            group.addArrangedSubview(metadataHeader())
+            addFullWidthArrangedSubview(divider(), to: group)
+            addFullWidthArrangedSubview(metadataHeader(), to: group)
 
             for (index, change) in row.changes.enumerated() {
-                group.addArrangedSubview(metadataChangeRow(change))
+                addFullWidthArrangedSubview(metadataChangeRow(change), to: group)
                 if index < row.changes.count - 1 {
-                    group.addArrangedSubview(divider())
+                    addFullWidthArrangedSubview(divider(), to: group)
                 }
             }
         }
@@ -346,15 +369,16 @@ private enum MetadataFilenameAppKitRowFactory {
     private static func metadataHeader() -> NSView {
         let metadata = label("Metadata", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
         let filename = label("Filename", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let content = horizontalStack(spacing: 14, alignment: .centerY, views: [
+            label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
+            metadata,
+            symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
+            filename
+        ])
         metadata.widthAnchor.constraint(equalTo: filename.widthAnchor).isActive = true
 
         return padded(
-            horizontalStack(spacing: 14, alignment: .centerY, views: [
-                label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
-                metadata,
-                symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
-                filename
-            ]),
+            content,
             top: 9,
             left: 18,
             bottom: 9,
@@ -367,15 +391,16 @@ private enum MetadataFilenameAppKitRowFactory {
         icon.toolTip = change.willWrite ? "This value will be written to metadata." : "This field already matches."
         let currentValue = valueLabel(change.currentValue, monospaced: change.field.usesMonospacedComparisonValue, emptyText: "—", color: .labelColor, emptyColor: .tertiaryLabelColor)
         let extractedValue = valueLabel(change.extractedValue, monospaced: change.field.usesMonospacedComparisonValue, emptyText: "—", color: change.willWrite ? change.status.nsTint : .labelColor, emptyColor: .tertiaryLabelColor)
+        let content = horizontalStack(spacing: 14, alignment: .top, views: [
+            label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
+            currentValue,
+            icon,
+            extractedValue
+        ])
         currentValue.widthAnchor.constraint(equalTo: extractedValue.widthAnchor).isActive = true
 
         return padded(
-            horizontalStack(spacing: 14, alignment: .top, views: [
-                label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
-                currentValue,
-                icon,
-                extractedValue
-            ]),
+            content,
             top: 10,
             left: 18,
             bottom: 10,
@@ -492,6 +517,11 @@ private enum MetadataFilenameAppKitRowFactory {
         stack.spacing = spacing
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
+    }
+
+    private static func addFullWidthArrangedSubview(_ view: NSView, to stack: NSStackView) {
+        stack.addArrangedSubview(view)
+        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
 
     private static func spacer() -> NSView {

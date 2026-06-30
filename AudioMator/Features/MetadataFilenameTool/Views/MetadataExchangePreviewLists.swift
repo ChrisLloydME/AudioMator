@@ -22,7 +22,6 @@ struct MetadataTextExportPreviewList: View {
         } else {
             MetadataSectionCard(title: "Text Lines", symbolName: "text.alignleft") {
                 MetadataTextExportPreviewAppKitList(rows: plan.rows)
-                    .metadataExchangeAppKitSurface()
             }
         }
     }
@@ -51,7 +50,6 @@ struct MetadataCSVExportPreviewList: View {
                     rows: Array(plan.rows.prefix(24))
                 )
                 .frame(height: MetadataCSVExportPreviewAppKitList.height(forRowCount: min(plan.rows.count, 24)))
-                .metadataExchangeAppKitSurface()
             }
         }
     }
@@ -86,28 +84,8 @@ struct MetadataExchangeImportPreviewList: View {
         } else {
             MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 MetadataExchangeImportPreviewAppKitList(rows: plan.rows)
-                    .metadataExchangeAppKitSurface()
             }
         }
-    }
-}
-
-private enum MetadataExchangeAppKitChrome {
-    static let outerCornerRadius: CGFloat = 20
-    static let innerInset: CGFloat = 8
-    static let innerCornerRadius = outerCornerRadius - innerInset
-}
-
-private extension View {
-    func metadataExchangeAppKitSurface() -> some View {
-        background(
-            RoundedRectangle(cornerRadius: MetadataExchangeAppKitChrome.innerCornerRadius, style: .continuous)
-                .fill(Color(platformColor: .audiomatorWindowBackground))
-        )
-        .clipShape(
-            RoundedRectangle(cornerRadius: MetadataExchangeAppKitChrome.innerCornerRadius, style: .continuous)
-        )
-        .padding(MetadataExchangeAppKitChrome.innerInset)
     }
 }
 

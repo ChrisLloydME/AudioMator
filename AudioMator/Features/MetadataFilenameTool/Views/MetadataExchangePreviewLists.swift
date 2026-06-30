@@ -20,7 +20,7 @@ struct MetadataTextExportPreviewList: View {
                 description: Text("Select one or more files to preview text export.")
             )
         } else {
-            MetadataSectionCard(title: "Text Lines", symbolName: "text.alignleft") {
+            MetadataConverterPreviewCard(title: "Text Lines", symbolName: "text.alignleft") {
                 MetadataTextExportPreviewAppKitList(rows: plan.rows)
             }
         }
@@ -44,7 +44,7 @@ struct MetadataCSVExportPreviewList: View {
                 description: Text("Select one or more files to preview CSV export.")
             )
         } else {
-            MetadataSectionCard(title: "CSV Rows", symbolName: "tablecells") {
+            MetadataConverterPreviewCard(title: "CSV Rows", symbolName: "tablecells") {
                 MetadataCSVExportPreviewAppKitList(
                     columns: plan.columns,
                     rows: Array(plan.rows.prefix(24))
@@ -82,7 +82,7 @@ struct MetadataExchangeImportPreviewList: View {
                 description: Text("Choose or paste text to preview imported metadata.")
             )
         } else {
-            MetadataSectionCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
+            MetadataConverterPreviewCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
                 MetadataExchangeImportPreviewAppKitList(rows: plan.rows)
             }
         }

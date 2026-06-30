@@ -217,7 +217,7 @@ private final class MetadataExchangePreviewContainerView: NSView {
 
 private enum MetadataExchangeAppKitRowFactory {
     static func textExportRow(_ row: MetadataTextExportRow) -> NSView {
-        padded(
+        return padded(
             horizontalStack(spacing: 14, alignment: .top, views: [
                 label(row.fileName, font: .systemFont(ofSize: 12, weight: .semibold), color: .labelColor, width: 180, maximumLines: 2),
                 valueLabel(row.output, emptyText: "Empty", monospaced: true, color: row.output.isEmpty ? .secondaryLabelColor : .labelColor)
@@ -308,12 +308,16 @@ private enum MetadataExchangeAppKitRowFactory {
     }
 
     private static func importHeader() -> NSView {
-        padded(
+        let current = label("Current", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let imported = label("Imported", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        current.widthAnchor.constraint(equalTo: imported.widthAnchor).isActive = true
+
+        return padded(
             horizontalStack(spacing: 14, alignment: .centerY, views: [
                 label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
-                label("Current", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor),
+                current,
                 symbol("arrow.left.arrow.right", color: .tertiaryLabelColor, width: 18),
-                label("Imported", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+                imported
             ]),
             top: 9,
             left: 18,
@@ -323,12 +327,16 @@ private enum MetadataExchangeAppKitRowFactory {
     }
 
     private static func importChangeRow(_ change: MetadataExchangeFieldChange) -> NSView {
-        padded(
+        let currentValue = valueLabel(change.currentValue, emptyText: "Empty", monospaced: false, color: change.currentValue.isEmpty ? .secondaryLabelColor : .labelColor)
+        let importedValue = valueLabel(change.importedValue, emptyText: "Empty", monospaced: false, color: change.importedValue.isEmpty ? .secondaryLabelColor : (change.willWrite ? .systemGreen : .labelColor))
+        currentValue.widthAnchor.constraint(equalTo: importedValue.widthAnchor).isActive = true
+
+        return padded(
             horizontalStack(spacing: 14, alignment: .top, views: [
                 label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
-                valueLabel(change.currentValue, emptyText: "Empty", monospaced: false, color: change.currentValue.isEmpty ? .secondaryLabelColor : .labelColor),
+                currentValue,
                 symbol(change.willWrite ? "pencil.circle.fill" : "equal.circle.fill", color: change.willWrite ? .systemGreen : .secondaryLabelColor, width: 18),
-                valueLabel(change.importedValue, emptyText: "Empty", monospaced: false, color: change.importedValue.isEmpty ? .secondaryLabelColor : (change.willWrite ? .systemGreen : .labelColor))
+                importedValue
             ]),
             top: 10,
             left: 18,

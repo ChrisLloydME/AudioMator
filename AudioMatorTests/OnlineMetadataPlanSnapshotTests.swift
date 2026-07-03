@@ -122,6 +122,97 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertNil(store.plan.writeEntries.first?.values[.title])
     }
 
+    func testMusicBrainzSingleRecordingPreviewCreatesApplyPlanForTrackModeResult() throws {
+        let fileID = UUID()
+        let fingerprint = syntheticFingerprint(path: "/tmp/musicbrainz-track-mode.flac")
+        let file = AudioFileTestFactory.make(
+            id: fileID,
+            url: URL(fileURLWithPath: fingerprint.normalizedPath),
+            title: "Wrong Local Title",
+            track: 0,
+            fileFingerprint: fingerprint
+        )
+        let input = makeMusicBrainzInput(id: fileID.uuidString)
+        let release = makeMusicBrainzRelease()
+        let preview = try XCTUnwrap(
+            MusicBrainzTaggingPreviewBuilder.makeSingleTrackPreview(
+                file: input,
+                release: release,
+                recordingID: "track-id"
+            )
+        )
+        let store = MusicBrainzTaggingWorkbenchStore(
+            release: release,
+            preview: preview,
+            loadedFiles: [file],
+            browserStore: MusicBrainzBrowserStore()
+        )
+
+        let entry = try XCTUnwrap(store.plan.writeEntries.first)
+
+        XCTAssertEqual(entry.fileID, fileID)
+        XCTAssertEqual(entry.values[.title], "Remote")
+        XCTAssertEqual(entry.values[.trackNumber], "1")
+        XCTAssertEqual(entry.values[.musicBrainzTrackID], "track-id")
+        XCTAssertEqual(entry.expectedFileFingerprint, fingerprint)
+    }
+
+    func testMusicBrainzSingleRecordingPreviewCanMatchReleaseTrackByRecordingID() throws {
+        let input = makeMusicBrainzInput(id: UUID().uuidString)
+        let release = makeMusicBrainzRelease(recordingID: "recording-id")
+        let preview = try XCTUnwrap(
+            MusicBrainzTaggingPreviewBuilder.makeSingleTrackPreview(
+                file: input,
+                release: release,
+                recordingID: "recording-id"
+            )
+        )
+
+        XCTAssertEqual(preview.matchedAssignments.first?.track.id, "track-id")
+        XCTAssertEqual(preview.matchedAssignments.first?.track.recordingID, "recording-id")
+        XCTAssertEqual(preview.matchedAssignments.first?.reason, "selected MusicBrainz track")
+    }
+
+    func testMusicBrainzSingleRecordingPreviewCanApplyRecordingOnlyFieldsWithoutReleasePosition() throws {
+        let fileID = UUID()
+        let fingerprint = syntheticFingerprint(path: "/tmp/musicbrainz-recording-only.flac")
+        let file = AudioFileTestFactory.make(
+            id: fileID,
+            url: URL(fileURLWithPath: fingerprint.normalizedPath),
+            title: "Wrong Local Title",
+            fileFingerprint: fingerprint
+        )
+        let input = makeMusicBrainzInput(id: fileID.uuidString)
+        let release = makeMusicBrainzRelease(
+            id: "",
+            title: "",
+            date: "2006-10-26",
+            trackID: "recording-id",
+            trackNumber: "",
+            recordingID: "recording-id"
+        )
+        let preview = try XCTUnwrap(
+            MusicBrainzTaggingPreviewBuilder.makeSingleTrackPreview(
+                file: input,
+                release: release,
+                recordingID: "recording-id"
+            )
+        )
+        let store = MusicBrainzTaggingWorkbenchStore(
+            release: release,
+            preview: preview,
+            loadedFiles: [file],
+            browserStore: MusicBrainzBrowserStore()
+        )
+
+        let entry = try XCTUnwrap(store.plan.writeEntries.first)
+
+        XCTAssertEqual(entry.values[.title], "Remote")
+        XCTAssertEqual(entry.values[.releaseDate], "2006-10-26")
+        XCTAssertEqual(entry.values[.musicBrainzTrackID], "recording-id")
+        XCTAssertNil(entry.values[.trackNumber])
+    }
+
     func testProviderPlansCaptureDisplayedValuesAndFileFingerprint() throws {
         let fixture = try TemporaryFingerprintFixture()
         defer { fixture.remove() }
@@ -296,12 +387,19 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
-    private func makeMusicBrainzRelease() -> MusicBrainzReleaseDetail {
+    private func makeMusicBrainzRelease(
+        id: String = "release-id",
+        title: String = "Album",
+        date: String = "2024-01-01",
+        trackID: String = "track-id",
+        trackNumber: String = "1",
+        recordingID: String = ""
+    ) -> MusicBrainzReleaseDetail {
         MusicBrainzReleaseDetail(
-            id: "release-id",
-            title: "Album",
+            id: id,
+            title: title,
             artistCredit: "Artist",
-            date: "2024-01-01",
+            date: date,
             country: "US",
             status: "Official",
             barcode: "",
@@ -327,12 +425,12 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
                     discIDs: [],
                     tracks: [
                         MusicBrainzReleaseDetail.Medium.Track(
-                            id: "track-id",
-                            number: "1",
+                            id: trackID,
+                            number: trackNumber,
                             title: "Remote",
                             artistCredit: "Artist",
                             durationMilliseconds: nil,
-                            recordingID: "",
+                            recordingID: recordingID,
                             isrcs: []
                         )
                     ]

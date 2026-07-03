@@ -516,8 +516,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var availableFields: [MusicBrainzTagWriteField] {
-        guard !isLoadingFieldAvailability else { return [] }
-
         let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.id, $0) })
         let selectedTracks = assignments.compactMap { assignment in
             assignment.selectedTrackID.flatMap { tracksByID[$0] }
@@ -534,7 +532,9 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var isLoadingFieldAvailability: Bool {
-        fieldAvailabilityRecordingIDs.contains { recordingID in
+        guard selectedFields.contains(where: \.requiresRecordingDetail) else { return false }
+
+        return fieldAvailabilityRecordingIDs.contains { recordingID in
             switch recordingState(for: recordingID) {
             case .idle, .loading:
                 return true

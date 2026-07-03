@@ -11,6 +11,8 @@ struct MusicBrainzMetadataDetailView: View {
     @State private var workbenchStore: MusicBrainzTaggingWorkbenchStore?
     @State private var metadataLoadingMessage: String = "Loading metadata…"
     @State private var recordingPreloadProgress: (completedCount: Int, totalCount: Int)?
+    @State private var isPreparingRecordingWorkbench = false
+    @State private var recordingWorkbenchErrorMessage: String?
 
     var body: some View {
         Group {
@@ -113,6 +115,25 @@ struct MusicBrainzMetadataDetailView: View {
                     title: "MusicBrainz",
                     destination: url
                 )
+            }
+        }
+
+        if let selectedFile = selectedSingleFileInput {
+            MetadataSectionCard(title: "Selected File Match", symbolName: "checklist") {
+                MetadataButtonRow(
+                    title: "Review & Apply Tags",
+                    subtitle: recordingApplySubtitle(for: detail),
+                    symbolName: "square.and.pencil",
+                    isLoading: isPreparingRecordingWorkbench,
+                    isDisabled: isPreparingRecordingWorkbench
+                ) {
+                    prepareRecordingWorkbench(for: detail, selectedFile: selectedFile)
+                }
+
+                if let recordingWorkbenchErrorMessage {
+                    MetadataCardDivider()
+                    MetadataBodyRow(text: recordingWorkbenchErrorMessage)
+                }
             }
         }
 
@@ -462,6 +483,139 @@ struct MusicBrainzMetadataDetailView: View {
         [release.date, release.country, release.status]
             .filter { !$0.isEmpty }
             .joined(separator: " • ")
+    }
+
+    private var selectedSingleFileInput: MusicBrainzFileSearchInput? {
+        guard let files = store.fileSelectionSummary?.files, files.count == 1 else { return nil }
+        return files.first
+    }
+
+    private func prepareRecordingWorkbench(
+        for recording: MusicBrainzRecordingDetail,
+        selectedFile: MusicBrainzFileSearchInput
+    ) {
+        guard !isPreparingRecordingWorkbench else { return }
+
+        Task {
+            isPreparingRecordingWorkbench = true
+            recordingWorkbenchErrorMessage = nil
+
+            defer {
+                isPreparingRecordingWorkbench = false
+            }
+
+            do {
+                for releaseSummary in recording.releases {
+                    let release = try await releaseDetail(for: releaseSummary)
+                    guard let preview = MusicBrainzTaggingPreviewBuilder.makeSingleTrackPreview(
+                        file: selectedFile,
+                        release: release,
+                        recordingID: recording.id
+                    ) else {
+                        continue
+                    }
+
+                    workbenchStore = MusicBrainzTaggingWorkbenchStore(
+                        release: release,
+                        preview: preview,
+                        loadedFiles: viewModel.files,
+                        browserStore: store
+                    )
+                    return
+                }
+
+                let release = recordingOnlyRelease(for: recording)
+                guard let preview = MusicBrainzTaggingPreviewBuilder.makeSingleTrackPreview(
+                    file: selectedFile,
+                    release: release,
+                    recordingID: recording.id
+                ) else {
+                    recordingWorkbenchErrorMessage = L10n.string(
+                        "No MusicBrainz recording metadata could be prepared for this file."
+                    )
+                    return
+                }
+
+                workbenchStore = MusicBrainzTaggingWorkbenchStore(
+                    release: release,
+                    preview: preview,
+                    loadedFiles: viewModel.files,
+                    browserStore: store
+                )
+            } catch {
+                recordingWorkbenchErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
+
+    private func releaseDetail(
+        for release: MusicBrainzRecordingResult.Release
+    ) async throws -> MusicBrainzReleaseDetail {
+        let detail = try await store.metadataDetail(
+            for: .release(MusicBrainzReleaseSearchResult(recordingRelease: release))
+        )
+
+        guard case .release(let releaseDetail) = detail else {
+            throw MusicBrainzClientError.invalidResponse
+        }
+
+        return releaseDetail
+    }
+
+    private func recordingApplySubtitle(for recording: MusicBrainzRecordingDetail) -> String {
+        if recording.releases.isEmpty {
+            return L10n.string("Apply available recording fields; track/disc numbers need a release match")
+        }
+
+        return L10n.string("Apply this MusicBrainz track from one of its releases")
+    }
+
+    private func recordingOnlyRelease(
+        for recording: MusicBrainzRecordingDetail
+    ) -> MusicBrainzReleaseDetail {
+        MusicBrainzReleaseDetail(
+            id: "",
+            title: "",
+            artistCredit: recording.artistCredit,
+            date: recording.firstReleaseDate,
+            country: "",
+            status: "",
+            barcode: "",
+            packaging: "",
+            asin: "",
+            quality: "",
+            language: "",
+            script: "",
+            annotation: recording.annotation,
+            genres: recording.genres,
+            tags: recording.tags,
+            releaseGroupTitle: "",
+            releaseGroupID: "",
+            releaseGroupPrimaryType: "",
+            releaseGroupSecondaryTypes: [],
+            labels: [],
+            media: [
+                MusicBrainzReleaseDetail.Medium(
+                    id: "recording-only-medium",
+                    title: "",
+                    format: "",
+                    trackCount: 1,
+                    discIDs: [],
+                    tracks: [
+                        MusicBrainzReleaseDetail.Medium.Track(
+                            id: recording.id,
+                            number: "",
+                            title: recording.title,
+                            artistCredit: recording.artistCredit,
+                            durationMilliseconds: recording.durationMilliseconds,
+                            recordingID: recording.id,
+                            isrcs: recording.isrcs
+                        )
+                    ]
+                )
+            ],
+            selectionMatchPreview: nil
+        )
     }
 
     private func formattedTerms(_ terms: [MusicBrainzTerm]) -> String {
@@ -880,6 +1034,8 @@ private struct MetadataButtonRow: View {
     let title: String
     let subtitle: String
     let symbolName: String
+    var isLoading = false
+    var isDisabled = false
     let action: () -> Void
 
     var body: some View {
@@ -905,15 +1061,21 @@ private struct MetadataButtonRow: View {
 
                 Spacer(minLength: 12)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(isDisabled || isLoading)
     }
 }
 

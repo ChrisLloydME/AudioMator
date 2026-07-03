@@ -1,3 +1,5 @@
+import Foundation
+
 enum MusicBrainzTaggingPreviewBuilder {
     static func makePreview(
         files: [MusicBrainzFileSearchInput],
@@ -8,6 +10,18 @@ enum MusicBrainzTaggingPreviewBuilder {
         return MusicBrainzFileSelectionMatcher.match(
             selection: selection,
             release: release
+        )
+    }
+
+    static func makeSingleTrackPreview(
+        file: MusicBrainzFileSearchInput,
+        release: MusicBrainzReleaseDetail,
+        recordingID: String
+    ) -> MusicBrainzReleaseMatchPreview? {
+        MusicBrainzFileSelectionMatcher.matchSingleTrack(
+            file: file,
+            release: release,
+            recordingID: recordingID
         )
     }
 }
@@ -78,6 +92,41 @@ enum MusicBrainzFileSelectionMatcher {
             averageTrackScore: averageTrackScore,
             overallScore: max(0, overallScore),
             selectionLooksMixed: selection.selectionLooksMixed
+        )
+    }
+
+    static func matchSingleTrack(
+        file: MusicBrainzFileSearchInput,
+        release: MusicBrainzReleaseDetail,
+        recordingID: String
+    ) -> MusicBrainzReleaseMatchPreview? {
+        let normalizedRecordingID = recordingID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedRecordingID.isEmpty else { return nil }
+
+        let releaseTracks = flattenedTracks(from: release)
+        guard let selectedTrack = releaseTracks.first(where: {
+            $0.recordingID == normalizedRecordingID || $0.id == normalizedRecordingID
+        }) else {
+            return nil
+        }
+
+        let selection = MusicBrainzFileSelectionSummary(files: [file])
+        let assignment = MusicBrainzReleaseMatchAssignment(
+            id: "\(file.id)::\(selectedTrack.id)",
+            file: file,
+            track: selectedTrack,
+            score: 1,
+            reason: "selected MusicBrainz track"
+        )
+
+        return MusicBrainzReleaseMatchPreview(
+            totalSelectedFiles: 1,
+            matchedAssignments: [assignment],
+            unmatchedFiles: [],
+            unassignedTracks: releaseTracks.filter { $0.id != selectedTrack.id },
+            averageTrackScore: 1,
+            overallScore: releaseScore(selection: selection, release: release) + 760,
+            selectionLooksMixed: false
         )
     }
 

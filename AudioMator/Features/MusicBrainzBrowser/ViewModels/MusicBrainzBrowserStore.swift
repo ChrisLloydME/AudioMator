@@ -308,12 +308,12 @@ final class MusicBrainzBrowserStore: ObservableObject {
     func metadataDetail(for destination: MusicBrainzBrowserDestination) async throws -> MusicBrainzMetadataDetail {
         switch destination {
         case .recording(let result):
-            return .recording(
-                try await client.recordingDetail(
-                    id: result.id,
-                    fallbackReleases: result.releases
-                )
+            let detail = try await client.recordingDetail(
+                id: result.id,
+                fallbackReleases: result.releases
             )
+            recordingDetailsByID[result.id] = detail
+            return .recording(detail)
         case .release(let result):
             var detail = try await client.releaseDetail(id: result.id)
             detail.selectionMatchPreview = result.selectionMatchPreview

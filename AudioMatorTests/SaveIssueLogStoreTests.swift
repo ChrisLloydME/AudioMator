@@ -52,6 +52,45 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(store.entries[0].issues[0].messages, ["Permission denied."])
     }
 
+    func testMixedSummaryKeepsFailureAndWarningIssues() {
+        let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
+        var summary = BatchMetadataOperationSummary(totalTargets: 2)
+        summary.succeeded = 1
+        summary.failureIssues = [
+            BatchMetadataWriteIssue(fileName: "failed.flac", messages: ["Permission denied."])
+        ]
+        summary.warningIssues = [
+            BatchMetadataWriteIssue(fileName: "warning.flac", messages: ["Reload failed."])
+        ]
+
+        store.record(summary: summary)
+
+        XCTAssertEqual(store.entries.count, 1)
+        XCTAssertEqual(store.entries[0].severity, .failure)
+        XCTAssertEqual(
+            store.entries[0].issues.map(\.fileName),
+            ["failed.flac", "warning.flac"]
+        )
+    }
+
+    func testBatchClearSummaryPresentedByViewModelCreatesLogEntry() {
+        let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
+        let viewModel = AudioViewModel(
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            saveIssueLogStore: store
+        )
+        var summary = BatchMetadataOperationSummary(totalTargets: 1, operation: .clear)
+        summary.failureIssues = [
+            BatchMetadataWriteIssue(fileName: "bad.flac", messages: ["Permission denied."])
+        ]
+
+        viewModel.presentBatchMetadataClearSummary(summary)
+
+        XCTAssertEqual(store.entries.count, 1)
+        XCTAssertEqual(store.entries[0].operation, .clear)
+        XCTAssertEqual(store.entries[0].title, "Clear Failed")
+    }
+
     func testLogLimitKeepsNewestEntries() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 2)
 

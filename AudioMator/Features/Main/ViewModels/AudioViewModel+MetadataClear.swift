@@ -30,10 +30,21 @@ extension AudioViewModel {
                 } else {
                     self.presentMetadataWriteWarning(
                         title: "Cleared with Issues",
-                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
+                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n"),
+                        operation: .clear
                     )
                 }
             case .failure(let reason):
+                self.saveIssueLogStore.recordSingleIssue(
+                    title: "Clear Failed",
+                    subtitle: [file.url.lastPathComponent, reason]
+                        .filter { !$0.isEmpty }
+                        .joined(separator: "\n"),
+                    fileName: file.url.lastPathComponent,
+                    messages: [reason],
+                    severity: .failure,
+                    operation: .clear
+                )
                 self.presentMetadataWriteHUD(
                     style: .failure,
                     title: "Clear Failed",
@@ -147,6 +158,8 @@ extension AudioViewModel {
 
     func presentBatchMetadataClearSummary(_ summary: BatchMetadataOperationSummary) {
         guard summary.totalTargets > 0 else { return }
+
+        saveIssueLogStore.record(summary: summary)
 
         presentMetadataWriteHUD(
             style: summary.hudStyle,

@@ -237,7 +237,11 @@ final class AudioViewModel: ObservableObject {
         )
     }
 
-    func presentMetadataWriteWarning(title: String, subtitle: String) {
+    func presentMetadataWriteWarning(
+        title: String,
+        subtitle: String,
+        operation: BatchMetadataOperationKind = .write
+    ) {
         let lines = subtitle.components(separatedBy: .newlines)
         let fileName = lines.first ?? ""
         let messages = Array(lines.dropFirst())
@@ -246,7 +250,8 @@ final class AudioViewModel: ObservableObject {
             subtitle: subtitle,
             fileName: fileName,
             messages: messages.isEmpty ? [subtitle] : messages,
-            severity: .warning
+            severity: .warning,
+            operation: operation
         )
 
         presentMetadataWriteHUD(

@@ -61,15 +61,25 @@ extension AudioViewModel {
 
             return true
         } catch {
+            let reason = (error as NSError).localizedDescription
             updateMetadataSaveProgress(
                 subtitle: file.url.lastPathComponent,
                 completedUnitCount: 1
             )
             endMetadataSaveProgress()
+            saveIssueLogStore.recordSingleIssue(
+                title: "Apply Lyrics Failed",
+                subtitle: [file.url.lastPathComponent, reason]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "\n"),
+                fileName: file.url.lastPathComponent,
+                messages: [reason],
+                severity: .failure
+            )
             presentMetadataWriteHUD(
                 style: .failure,
                 title: "Apply Lyrics Failed",
-                subtitle: [file.url.lastPathComponent, (error as NSError).localizedDescription]
+                subtitle: [file.url.lastPathComponent, reason]
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n")
             )

@@ -401,6 +401,34 @@ private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
 
     func updateNSView(_ nsView: MusicBrainzWorkbenchContainerView, context: Context) {
         context.coordinator.parent = self
+        let snapshot = Snapshot(
+            assignments: assignments.map { assignment in
+                AssignmentSnapshot(
+                    id: assignment.id,
+                    displayTitle: assignment.fileInput.preferredDisplayTitle,
+                    artist: assignment.fileInput.artist,
+                    album: assignment.fileInput.album,
+                    initialReason: assignment.initialReason,
+                    selectedTrackID: selectedTrackID(assignment),
+                    isDuplicate: isDuplicate(assignment)
+                )
+            },
+            tracks: tracks.map { track in
+                TrackSnapshot(
+                    id: track.id,
+                    number: track.number,
+                    title: track.title,
+                    artistCredit: track.artistCredit,
+                    mediumTitle: track.mediumTitle,
+                    mediumFormat: track.mediumFormat,
+                    mediumPosition: track.mediumPosition,
+                    releaseMediumCount: track.releaseMediumCount
+                )
+            },
+            isApplying: isApplying
+        )
+        guard snapshot != context.coordinator.lastSnapshot else { return }
+        context.coordinator.lastSnapshot = snapshot
 
         var views: [NSView] = []
         for (index, assignment) in assignments.enumerated() {
@@ -421,8 +449,36 @@ private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
         nsView.replaceArrangedSubviews(with: views)
     }
 
+    struct Snapshot: Equatable {
+        let assignments: [AssignmentSnapshot]
+        let tracks: [TrackSnapshot]
+        let isApplying: Bool
+    }
+
+    struct AssignmentSnapshot: Equatable {
+        let id: String
+        let displayTitle: String
+        let artist: String
+        let album: String
+        let initialReason: String?
+        let selectedTrackID: String?
+        let isDuplicate: Bool
+    }
+
+    struct TrackSnapshot: Equatable {
+        let id: String
+        let number: String
+        let title: String
+        let artistCredit: String
+        let mediumTitle: String
+        let mediumFormat: String
+        let mediumPosition: Int
+        let releaseMediumCount: Int
+    }
+
     final class Coordinator: NSObject {
         var parent: MusicBrainzAssignmentsAppKitList
+        var lastSnapshot: Snapshot?
 
         init(parent: MusicBrainzAssignmentsAppKitList) {
             self.parent = parent

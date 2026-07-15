@@ -365,11 +365,32 @@ struct SingleFileEditModel {
     }
 
     mutating func setTrackNumberText(_ text: String) {
-        applyTrackPair(AudioTagNumberPair(rawText: text, number: track, total: trackTotal))
+        applyTrackPair(Self.replacementNumberPair(from: text, preservingTotal: trackTotal))
     }
 
     mutating func setDiscNumberText(_ text: String) {
-        applyDiscPair(AudioTagNumberPair(rawText: text, number: disc, total: discTotal))
+        applyDiscPair(Self.replacementNumberPair(from: text, preservingTotal: discTotal))
+    }
+
+    private static func replacementNumberPair(
+        from text: String,
+        preservingTotal existingTotal: Int
+    ) -> AudioTagNumberPair {
+        let normalizedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedText.isEmpty else {
+            return AudioTagNumberPair(rawText: "", number: 0, total: 0)
+        }
+
+        let components = AudioTagNumberText.components(from: normalizedText)
+        let number = AudioTagNumberText.clampedInteger(fromComponent: components.number)
+        let total = components.total.map(AudioTagNumberText.clampedInteger(fromComponent:))
+            ?? max(0, existingTotal)
+
+        return AudioTagNumberPair(
+            rawText: normalizedText,
+            number: number,
+            total: total
+        )
     }
 
     private mutating func applyTrackPair(_ pair: AudioTagNumberPair) {

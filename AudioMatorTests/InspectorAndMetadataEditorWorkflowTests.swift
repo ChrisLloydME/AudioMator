@@ -345,7 +345,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.selectedAudioIDs = [id]
         viewModel.updateEditForSelection()
 
-        await viewModel.applyFilenameMetadataPlan([
+        let summary = await viewModel.applyFilenameMetadataPlan([
             FilenameMetadataWriteEntry(
                 fileID: id,
                 fileName: url.lastPathComponent,
@@ -365,6 +365,9 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(payload.album, "Keep Album")
         XCTAssertEqual(viewModel.files.first?.title, "Parsed Title")
         XCTAssertEqual(viewModel.edit?.title, "Parsed Title")
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertTrue(summary?.failureIssues.isEmpty == true)
+        XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
     func testApplyMetadataExchangeWriteEntriesWritesImportedFieldsAndRefreshesSelection() async throws {
@@ -392,7 +395,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.selectedAudioIDs = [id]
         viewModel.updateEditForSelection()
 
-        await viewModel.applyMetadataExchangeWriteEntries([
+        let summary = await viewModel.applyMetadataExchangeWriteEntries([
             MetadataExchangeWriteEntry(
                 fileID: id,
                 fileName: url.lastPathComponent,
@@ -412,6 +415,177 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(payload.album, "Keep Album")
         XCTAssertEqual(viewModel.files.first?.comment, "Imported Comment")
         XCTAssertEqual(viewModel.edit?.comment, "Imported Comment")
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertTrue(summary?.failureIssues.isEmpty == true)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    func testMetadataPlanWritesRejectDuplicateFileEntries() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/duplicate-plan.flac")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let filenameEntry = FilenameMetadataWriteEntry(
+            fileID: id,
+            fileName: url.lastPathComponent,
+            values: [.title: "Filename Import"]
+        )
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan([filenameEntry, filenameEntry])
+
+        let exchangeEntry = MetadataExchangeWriteEntry(
+            fileID: id,
+            fileName: url.lastPathComponent,
+            values: [.title: "Exchange Import"]
+        )
+        let exchangeSummary = await viewModel.applyMetadataExchangeWriteEntries([exchangeEntry, exchangeEntry])
+
+        XCTAssertNil(filenameSummary)
+        XCTAssertNil(exchangeSummary)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Write Failed")
+    }
+
+    func testMetadataPlanWritesRejectInvalidFieldsAndValuesAtExecutionTime() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/invalid-plan.flac")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan([
+            FilenameMetadataWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.trackNumberText: "not-a-track"]
+            )
+        ])
+        let exchangeSummary = await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.fileName: "not-writable"]
+            )
+        ])
+
+        XCTAssertEqual(filenameSummary?.failureIssues.count, 1)
+        XCTAssertEqual(exchangeSummary?.failureIssues.count, 1)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    func testMetadataPlanWritesRespectGlobalSaveProgressExclusion() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/busy-plan.flac")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.beginMetadataSaveProgress(
+            title: "Existing Save",
+            subtitle: "Busy",
+            totalUnitCount: 3
+        )
+        let existingProgress = viewModel.metadataSaveProgress
+
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan([
+            FilenameMetadataWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Filename Import"]
+            )
+        ])
+        let exchangeSummary = await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Exchange Import"]
+            )
+        ])
+
+        XCTAssertNil(filenameSummary)
+        XCTAssertNil(exchangeSummary)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertEqual(viewModel.metadataSaveProgress, existingProgress)
+        viewModel.endMetadataSaveProgress()
+    }
+
+    func testMetadataPlanWritesDoNotDiscardUnsavedInspectorEdits() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/unsaved-plan.flac")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+        viewModel.edit?.title = "Pending Inspector Edit"
+
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan([
+            FilenameMetadataWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Filename Import"]
+            )
+        ])
+        let exchangeSummary = await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Exchange Import"]
+            )
+        ])
+
+        XCTAssertNil(filenameSummary)
+        XCTAssertNil(exchangeSummary)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertEqual(viewModel.edit?.title, "Pending Inspector Edit")
+        XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Unsaved Changes")
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    func testMetadataPlanWritesForwardExpectedFileFingerprint() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorMetadataPlanWriteTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("stale.flac")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+
+        try Data(repeating: 0x41, count: 16).write(to: fileURL)
+        let previewFingerprint = try AudioFileFingerprint.capture(at: fileURL)
+        try Data(repeating: 0x42, count: 32).write(to: fileURL)
+
+        let id = UUID()
+        let original = AudioFileTestFactory.make(id: id, url: fileURL, title: "Original")
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        await viewModel.applyFilenameMetadataPlan([
+            FilenameMetadataWriteEntry(
+                fileID: id,
+                fileName: fileURL.lastPathComponent,
+                values: [.title: "Stale Filename Import"],
+                expectedFileFingerprint: previewFingerprint
+            )
+        ])
+        await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: id,
+                fileName: fileURL.lastPathComponent,
+                values: [.title: "Stale Exchange Import"],
+                expectedFileFingerprint: previewFingerprint
+            )
+        ])
+
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
     func testApplyMusicBrainzTaggingPlanPreservesFieldOrderAndRefreshesSelection() async throws {

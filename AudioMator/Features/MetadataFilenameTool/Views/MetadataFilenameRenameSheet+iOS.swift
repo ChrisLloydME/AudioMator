@@ -197,6 +197,12 @@ struct MetadataFilenameWindowView: View {
                     systemImage: "music.note.list",
                     description: Text("Select files in the current session first.")
                 )
+            } else if let validationMessage = activeValidationMessage {
+                ContentUnavailableView(
+                    "Invalid Template",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(validationMessage)
+                )
             } else {
                 List {
                     Section {
@@ -246,6 +252,15 @@ struct MetadataFilenameWindowView: View {
         }
     }
 
+    private var activeValidationMessage: String? {
+        switch mode {
+        case .metadataToFilename:
+            return renamePlan.validationMessage
+        case .filenameToMetadata:
+            return filenameMetadataPlan.validationMessage
+        }
+    }
+
     private func applyCurrentPlan() async {
         guard !isApplying else { return }
         isApplying = true
@@ -259,7 +274,11 @@ struct MetadataFilenameWindowView: View {
                 return
             }
         case .filenameToMetadata:
-            await viewModel.applyFilenameMetadataPlan(filenameMetadataPlan.writeEntries)
+            guard let summary = await viewModel.applyFilenameMetadataPlan(filenameMetadataPlan.writeEntries),
+                  summary.failureIssues.isEmpty else {
+                isApplying = false
+                return
+            }
         }
 
         isApplying = false

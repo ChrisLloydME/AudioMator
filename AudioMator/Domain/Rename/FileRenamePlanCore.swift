@@ -4,6 +4,7 @@ enum FileRenameCoreStatus: Equatable {
     case ready
     case unchanged
     case emptyName
+    case nameTooLong
     case duplicateTarget
     case existingFile
 
@@ -11,7 +12,7 @@ enum FileRenameCoreStatus: Equatable {
         switch self {
         case .ready, .unchanged:
             return false
-        case .emptyName, .duplicateTarget, .existingFile:
+        case .emptyName, .nameTooLong, .duplicateTarget, .existingFile:
             return true
         }
     }

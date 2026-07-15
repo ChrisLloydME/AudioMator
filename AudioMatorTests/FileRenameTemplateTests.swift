@@ -18,7 +18,7 @@ final class FileRenameTemplateTests: XCTestCase {
         XCTAssertTrue(document.containsFieldSegments)
     }
 
-    func testUnknownPlaceholderRemainsLiteral() {
+    func testUnknownAndUnterminatedPlaceholdersAreReported() {
         let document = FileRenameTemplateDocument(rawValue: "{{artist}} - {{unknown}} - {{title}}")
 
         XCTAssertEqual(
@@ -29,6 +29,11 @@ final class FileRenameTemplateTests: XCTestCase {
                 .field(.title)
             ]
         )
+        XCTAssertEqual(document.unknownPlaceholderNames, ["unknown"])
+        XCTAssertFalse(document.hasUnterminatedPlaceholder)
+
+        let unterminated = FileRenameTemplateDocument(rawValue: "{{artist}} - {{title")
+        XCTAssertTrue(unterminated.hasUnterminatedPlaceholder)
     }
 
     func testRenamePlanSanitizesInvalidFilenameCharactersAndPreservesExtension() {
@@ -44,5 +49,28 @@ final class FileRenameTemplateTests: XCTestCase {
         XCTAssertEqual(plan.rows[0].previewName, "Artist - Track-Name- Mix.mp3")
         XCTAssertEqual(plan.rows[0].status, .ready)
         XCTAssertEqual(plan.operations.count, 1)
+    }
+
+    func testRenamePlanRejectsInvalidTemplatesAndOverlongNames() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/source.mp3"),
+            title: String(repeating: "a", count: 253)
+        )
+
+        let unknown = makeFileRenamePlan(template: "{{titel}}", targetFiles: [file])
+        XCTAssertNotNil(unknown.validationMessage)
+        XCTAssertFalse(unknown.canApply)
+
+        let oversizedTemplate = makeFileRenamePlan(
+            template: String(repeating: "a", count: maximumFileRenameTemplateUTF8ByteCount + 1),
+            targetFiles: [file]
+        )
+        XCTAssertNotNil(oversizedTemplate.validationMessage)
+        XCTAssertFalse(oversizedTemplate.canApply)
+
+        let overlongName = makeFileRenamePlan(template: "{{title}}", targetFiles: [file])
+        XCTAssertEqual(overlongName.rows.first?.status, .nameTooLong)
+        XCTAssertTrue(overlongName.operations.isEmpty)
+        XCTAssertFalse(overlongName.canApply)
     }
 }

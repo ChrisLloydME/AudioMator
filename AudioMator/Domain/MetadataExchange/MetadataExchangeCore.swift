@@ -14,7 +14,9 @@ enum CoreMetadataExchangeField: String, CaseIterable, Hashable {
     case genre
     case year
     case trackNumber
+    case trackTotal
     case discNumber
+    case discTotal
     case comment
     case releaseDate
     case publisher
@@ -26,9 +28,21 @@ enum CoreMetadataExchangeField: String, CaseIterable, Hashable {
     var isWritableMetadataField: Bool {
         switch self {
         case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
-                .trackNumber, .discNumber, .comment, .releaseDate, .publisher, .copyright:
+                .trackNumber, .trackTotal, .discNumber, .discTotal, .comment,
+                .releaseDate, .publisher, .copyright:
             return true
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
+            return false
+        }
+    }
+
+    var isLocatorField: Bool {
+        switch self {
+        case .fileName, .baseName, .path, .relativePath, .index:
+            return true
+        case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
+                .trackNumber, .trackTotal, .discNumber, .discTotal, .comment,
+                .releaseDate, .publisher, .copyright, .ignore:
             return false
         }
     }
@@ -67,7 +81,8 @@ struct CoreMetadataExchangeFile: Equatable, Hashable {
         case .ignore:
             return ""
         case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
-                .trackNumber, .discNumber, .comment, .releaseDate, .publisher, .copyright:
+                .trackNumber, .trackTotal, .discNumber, .discTotal, .comment,
+                .releaseDate, .publisher, .copyright:
             return values[field] ?? ""
         }
     }
@@ -123,10 +138,6 @@ enum CoreMetadataExchange {
                 columns.append(field)
             }
 
-            if columns.contains(.fileName), columns.contains(.baseName) {
-                return (columns, delimiter, "Use either {{fileName}} or {{baseName}} for matching, not both.")
-            }
-
             guard columns.contains(where: { $0 != .ignore }) else {
                 return (columns, delimiter, "Add at least one output field to the CSV template.")
             }
@@ -153,11 +164,11 @@ enum CoreMetadataExchange {
     static func csvImportRows(
         columns: [CoreMetadataExchangeField],
         sourceText: String,
+        delimiter: Character = ",",
         firstRowIsHeader: Bool,
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
-        let delimiter = MetadataExchangeCSV.detectDelimiter(in: columns.map(\.token).joined(separator: ","))
         let parsedCSV: [[MetadataExchangeCSVField]]
         do {
             parsedCSV = try MetadataExchangeCSV.parseFields(
@@ -221,10 +232,14 @@ enum CoreMetadataExchange {
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
-        if fields.contains(.fileName) || fields.contains(.baseName) {
+        var seenLocatorFields = Set<CoreMetadataExchangeField>()
+        let locatorFields = fields.filter { field in
+            field.isLocatorField && seenLocatorFields.insert(field).inserted
+        }
+        if !locatorFields.isEmpty {
             return matchedImportRows(
                 parsedRecords: parsedRecords,
-                matchingField: fields.contains(.fileName) ? .fileName : .baseName,
+                locatorFields: locatorFields,
                 targetFiles: targetFiles,
                 clearBlankImportedValues: clearBlankImportedValues
             )
@@ -247,37 +262,62 @@ enum CoreMetadataExchange {
 
     private static func matchedImportRows(
         parsedRecords: [ParsedRecord],
-        matchingField: CoreMetadataExchangeField,
+        locatorFields: [CoreMetadataExchangeField],
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
-        let filesByKey = Dictionary(grouping: targetFiles) { file in
-            matchingKey(matchingField == .fileName ? file.fileName : file.baseName)
+        let relativeBasePath = commonDirectoryPath(for: targetFiles)
+        let locatedRecords = parsedRecords.map { record -> LocatedRecord in
+            guard let captures = record.captures else {
+                return LocatedRecord(record: record, matches: [], locatorDescription: "-")
+            }
+
+            let matches = targetFiles.enumerated().compactMap { index, file in
+                matchesAllLocators(
+                    captures: captures,
+                    locatorFields: locatorFields,
+                    file: file,
+                    fileIndex: index,
+                    relativeBasePath: relativeBasePath
+                ) ? file : nil
+            }
+            return LocatedRecord(
+                record: record,
+                matches: matches,
+                locatorDescription: locatorDescription(
+                    captures: captures,
+                    locatorFields: locatorFields
+                )
+            )
+        }
+        let uniqueMatchCounts = locatedRecords.reduce(into: [String: Int]()) { counts, locatedRecord in
+            guard locatedRecord.record.captures != nil, locatedRecord.matches.count == 1,
+                  let fileID = locatedRecord.matches.first?.id
+            else {
+                return
+            }
+            counts[fileID, default: 0] += 1
         }
         var matchedFileIDs = Set<String>()
         var rows: [CoreMetadataExchangeImportRow] = []
 
-        for record in parsedRecords {
-            guard let captures = record.captures else {
+        for locatedRecord in locatedRecords {
+            let record = locatedRecord.record
+            guard record.captures != nil else {
                 rows.append(CoreMetadataExchangeImportRow(fileID: nil, fileName: "-", externalRecord: record.displayText, status: .parseError, writeValues: [:]))
                 continue
             }
-            guard let rawKey = captures[matchingField], !rawKey.isEmpty else {
-                rows.append(CoreMetadataExchangeImportRow(fileID: nil, fileName: "-", externalRecord: record.displayText, status: .noMatch, writeValues: [:]))
-                continue
-            }
-
-            let key = matchingKey(rawKey)
-            let matches = filesByKey[key] ?? []
-            if matches.isEmpty {
-                rows.append(CoreMetadataExchangeImportRow(fileID: nil, fileName: key, externalRecord: record.displayText, status: .noMatch, writeValues: [:]))
-            } else if matches.count > 1 {
-                rows.append(CoreMetadataExchangeImportRow(fileID: nil, fileName: key, externalRecord: record.displayText, status: .ambiguousMatch, writeValues: [:]))
-            } else if let file = matches.first {
-                guard matchedFileIDs.insert(file.id).inserted else {
+            if locatedRecord.matches.isEmpty {
+                rows.append(CoreMetadataExchangeImportRow(fileID: nil, fileName: locatedRecord.locatorDescription, externalRecord: record.displayText, status: .noMatch, writeValues: [:]))
+            } else if locatedRecord.matches.count > 1 {
+                rows.append(CoreMetadataExchangeImportRow(fileID: nil, fileName: locatedRecord.locatorDescription, externalRecord: record.displayText, status: .ambiguousMatch, writeValues: [:]))
+            } else if let file = locatedRecord.matches.first {
+                guard uniqueMatchCounts[file.id] == 1 else {
                     rows.append(CoreMetadataExchangeImportRow(fileID: file.id, fileName: file.fileName, externalRecord: record.displayText, status: .ambiguousMatch, writeValues: [:]))
                     continue
                 }
+
+                matchedFileIDs.insert(file.id)
                 rows.append(importRow(file: file, record: record, clearBlankImportedValues: clearBlankImportedValues))
             }
         }
@@ -287,6 +327,96 @@ enum CoreMetadataExchange {
         }
 
         return rows
+    }
+
+    private static func matchesAllLocators(
+        captures: [CoreMetadataExchangeField: String],
+        locatorFields: [CoreMetadataExchangeField],
+        file: CoreMetadataExchangeFile,
+        fileIndex: Int,
+        relativeBasePath: String?
+    ) -> Bool {
+        locatorFields.allSatisfy { field in
+            guard let importedValue = captures[field] else { return false }
+
+            switch field {
+            case .fileName:
+                return nonEmptyMatchingKey(importedValue) == nonEmptyMatchingKey(file.fileName)
+            case .baseName:
+                return nonEmptyMatchingKey(importedValue) == nonEmptyMatchingKey(file.baseName)
+            case .path:
+                guard let importedPath = normalizedAbsolutePath(importedValue) else { return false }
+                return importedPath == normalizedAbsolutePath(file.path)
+            case .relativePath:
+                guard
+                    let relativeBasePath,
+                    let importedPath = normalizedRelativePath(importedValue, basePath: relativeBasePath),
+                    let fileRelativePath = relativePath(path: file.path, basePath: relativeBasePath)
+                else {
+                    return false
+                }
+                return importedPath == nonEmptyMatchingKey(fileRelativePath)
+            case .index:
+                guard let importedIndex = positiveIndex(importedValue) else { return false }
+                return importedIndex == fileIndex + 1
+            case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
+                    .trackNumber, .trackTotal, .discNumber, .discTotal, .comment,
+                    .releaseDate, .publisher, .copyright, .ignore:
+                return false
+            }
+        }
+    }
+
+    private static func locatorDescription(
+        captures: [CoreMetadataExchangeField: String],
+        locatorFields: [CoreMetadataExchangeField]
+    ) -> String {
+        let values = locatorFields.compactMap { field -> String? in
+            guard let value = captures[field]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+                return nil
+            }
+            return value
+        }
+        return values.isEmpty ? "-" : values.joined(separator: " | ")
+    }
+
+    private static func positiveIndex(_ value: String) -> Int? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            !trimmed.isEmpty,
+            trimmed.unicodeScalars.allSatisfy({ (48...57).contains($0.value) }),
+            let index = Int(trimmed),
+            index > 0
+        else {
+            return nil
+        }
+        return index
+    }
+
+    private static func normalizedAbsolutePath(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, (trimmed as NSString).isAbsolutePath else { return nil }
+        return nonEmptyMatchingKey(URL(fileURLWithPath: trimmed).standardizedFileURL.path)
+    }
+
+    private static func normalizedRelativePath(_ value: String, basePath: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !(trimmed as NSString).isAbsolutePath else { return nil }
+
+        let normalizedBasePath = URL(fileURLWithPath: basePath).standardizedFileURL.path
+        let baseURL = URL(fileURLWithPath: normalizedBasePath, isDirectory: true)
+        let resolvedPath = URL(fileURLWithPath: trimmed, relativeTo: baseURL).standardizedFileURL.path
+        guard resolvedPath != normalizedBasePath,
+              let relative = relativePath(path: resolvedPath, basePath: normalizedBasePath)
+        else {
+            return nil
+        }
+        return nonEmptyMatchingKey(relative)
+    }
+
+    private static func nonEmptyMatchingKey(_ value: String) -> String? {
+        let key = matchingKey(value)
+        return key.isEmpty ? nil : key
     }
 
     private static func importRow(
@@ -326,15 +456,20 @@ enum CoreMetadataExchange {
     private static func matchingKey(_ value: String) -> String {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .precomposedStringWithCanonicalMapping
+            .folding(
+                options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .precomposedStringWithCanonicalMapping
     }
 
     private static func commonDirectoryPath(for files: [CoreMetadataExchangeFile]) -> String? {
         guard let first = files.first?.path else { return nil }
-        var components = URL(fileURLWithPath: first).deletingLastPathComponent().path.split(separator: "/").map(String.init)
+        var components = URL(fileURLWithPath: first).standardizedFileURL.deletingLastPathComponent().path.split(separator: "/").map(String.init)
 
         for file in files.dropFirst() {
-            let pathComponents = URL(fileURLWithPath: file.path).deletingLastPathComponent().path.split(separator: "/").map(String.init)
+            let pathComponents = URL(fileURLWithPath: file.path).standardizedFileURL.deletingLastPathComponent().path.split(separator: "/").map(String.init)
             let sharedCount = zip(components, pathComponents).prefix { $0 == $1 }.count
             components = Array(components.prefix(sharedCount))
         }
@@ -347,5 +482,11 @@ enum CoreMetadataExchange {
         let displayText: String
         let captures: [CoreMetadataExchangeField: String]?
         let parseError: String?
+    }
+
+    private struct LocatedRecord {
+        let record: ParsedRecord
+        let matches: [CoreMetadataExchangeFile]
+        let locatorDescription: String
     }
 }

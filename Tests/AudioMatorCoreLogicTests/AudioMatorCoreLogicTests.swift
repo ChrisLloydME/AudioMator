@@ -166,6 +166,14 @@ final class AudioMatorCoreLogicTests: XCTestCase {
             MetadataExchangeCSV.serialize([["Plain", "A\tB"]], delimiter: "\t"),
             "Plain\t\"A\tB\""
         )
+
+        let roundTripRows = [["  Leading and trailing  ", "Line\r\nBreak"]]
+        let serialized = MetadataExchangeCSV.serialize(roundTripRows)
+        XCTAssertEqual(serialized, "\"  Leading and trailing  \",\"Line\r\nBreak\"")
+        XCTAssertEqual(
+            try? MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            roundTripRows
+        )
     }
 
     func testLRCLIBQueryTreatsWhitespaceOnlyInputAsEmpty() {
@@ -315,8 +323,9 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         let duplicate = CoreMetadataExchange.parseCSVColumnTemplate("{{fileName}},{{title}},{{title}}")
         XCTAssertNotNil(duplicate.validationMessage)
 
-        let conflictingLocator = CoreMetadataExchange.parseCSVColumnTemplate("{{fileName}},{{baseName}},{{title}}")
-        XCTAssertNotNil(conflictingLocator.validationMessage)
+        let intersectingLocators = CoreMetadataExchange.parseCSVColumnTemplate("{{fileName}},{{baseName}},{{title}}")
+        XCTAssertNil(intersectingLocators.validationMessage)
+        XCTAssertEqual(intersectingLocators.columns, [.fileName, .baseName, .title])
     }
 
     func testMetadataExchangeCoreExportsRelativePathsAndSelectionIndexes() {
@@ -354,6 +363,58 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(rows[0].writeValues[.artist], "")
     }
 
+    func testMetadataExchangeCoreImportsStructuredTrackAndDiscTotals() {
+        let file = coreMetadataFile(
+            id: "1",
+            fileName: "A.flac",
+            values: [
+                .trackNumber: "1",
+                .trackTotal: "8",
+                .discNumber: "1",
+                .discTotal: "2"
+            ]
+        )
+
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.fileName, .trackNumber, .trackTotal, .discNumber, .discTotal],
+            sourceText: "A.flac,3,12,2,3",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.ready])
+        XCTAssertEqual(
+            rows[0].writeValues,
+            [.trackNumber: "3", .trackTotal: "12", .discNumber: "2", .discTotal: "3"]
+        )
+    }
+
+    func testMetadataExchangeCoreCSVImportSupportsTabAndPipeDelimiters() {
+        let file = coreMetadataFile(id: "1", fileName: "A.flac", values: [.title: "Old"])
+
+        for delimiter: Character in ["\t", "|"] {
+            let separator = String(delimiter)
+            let rows = CoreMetadataExchange.csvImportRows(
+                columns: [.fileName, .title],
+                sourceText: ["file", "title"].joined(separator: separator)
+                    + "\n"
+                    + ["A.flac", "New \(delimiter == "\t" ? "Tab" : "Pipe") Title"].joined(separator: separator),
+                delimiter: delimiter,
+                firstRowIsHeader: true,
+                targetFiles: [file],
+                clearBlankImportedValues: false
+            )
+
+            XCTAssertEqual(rows.map(\.status), [.ready], String(delimiter))
+            XCTAssertEqual(
+                rows[0].writeValues[.title],
+                delimiter == "\t" ? "New Tab Title" : "New Pipe Title",
+                String(delimiter)
+            )
+        }
+    }
+
     func testMetadataExchangeCoreSelectionOrderReportsExtraAndMissingRows() {
         let files = [
             coreMetadataFile(id: "1", fileName: "A.flac", values: [.title: "Old A"])
@@ -367,6 +428,79 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
 
         XCTAssertEqual(rows.map(\.status), [.ready, .extraExternalRecord])
+    }
+
+    func testMetadataExchangeCoreMatchesReorderedRowsBySelectionIndex() {
+        let files = [
+            coreMetadataFile(id: "1", fileName: "A.flac", values: [.title: "Old A"]),
+            coreMetadataFile(id: "2", fileName: "B.flac", values: [.title: "Old B"])
+        ]
+
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.index, .title],
+            sourceText: "2,New B\n1,New A",
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.ready, .ready])
+        XCTAssertEqual(rows.map(\.fileID), ["2", "1"])
+        XCTAssertEqual(rows.map { $0.writeValues[.title] }, ["New B", "New A"])
+    }
+
+    func testMetadataExchangeCoreIntersectsRelativePathToDisambiguateDuplicateFilenames() {
+        let files = [
+            coreMetadataFile(id: "disc-1", path: "/Library/Album/Disc 1/Song.flac", values: [.title: "Old One"]),
+            coreMetadataFile(id: "disc-2", path: "/Library/Album/Disc 2/Song.flac", values: [.title: "Old Two"])
+        ]
+
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.fileName, .relativePath, .title],
+            sourceText: "song.FLAC,Disc 2/Song.flac,New Two",
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.ready, .missingExternalRecord])
+        XCTAssertEqual(rows.first?.fileID, "disc-2")
+        XCTAssertEqual(rows.first?.writeValues[.title], "New Two")
+        XCTAssertEqual(rows.last?.fileID, "disc-1")
+    }
+
+    func testMetadataExchangeCoreRejectsContradictoryMultipleLocators() {
+        let files = [
+            coreMetadataFile(id: "1", fileName: "A.flac", values: [.title: "Old A"]),
+            coreMetadataFile(id: "2", fileName: "B.flac", values: [.title: "Old B"])
+        ]
+
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.fileName, .index, .title],
+            sourceText: "A.flac,2,Wrong Target",
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.noMatch, .missingExternalRecord, .missingExternalRecord])
+        XCTAssertTrue(rows.allSatisfy { $0.writeValues.isEmpty })
+    }
+
+    func testMetadataExchangeCoreMarksEveryDuplicateLocatorRecordAmbiguous() {
+        let file = coreMetadataFile(id: "1", fileName: "Song.flac", values: [.title: "Old"])
+
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.fileName, .title],
+            sourceText: "song.flac,First\nSONG.FLAC,Second",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.map(\.status), [.ambiguousMatch, .ambiguousMatch, .missingExternalRecord])
+        XCTAssertEqual(rows.map(\.fileID), ["1", "1", "1"])
+        XCTAssertTrue(rows.allSatisfy { $0.writeValues.isEmpty })
     }
 
     func testOnlineMetadataSelectionCoreComputesMajoritiesMixedStateAndRepresentatives() {

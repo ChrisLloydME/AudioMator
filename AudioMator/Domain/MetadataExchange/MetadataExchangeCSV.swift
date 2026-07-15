@@ -178,7 +178,12 @@ enum MetadataExchangeCSV {
     }
 
     nonisolated private static func escape(_ value: String, delimiter: Character) -> String {
-        guard value.contains(delimiter) || value.contains("\"") || value.contains("\n") || value.contains("\r") else {
+        let containsRecordSeparator = value.unicodeScalars.contains { scalar in
+            scalar.value == 0x0A || scalar.value == 0x0D
+        }
+        let hasBoundaryWhitespace = value.first?.isWhitespace == true || value.last?.isWhitespace == true
+
+        guard value.contains(delimiter) || value.contains("\"") || containsRecordSeparator || hasBoundaryWhitespace else {
             return value
         }
 

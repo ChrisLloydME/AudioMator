@@ -74,8 +74,162 @@ final class MetadataFilenameToolStore: ObservableObject {
     @Published private(set) var presentationID = UUID()
 
     func present(targetFileIDs: [AudioFile.ID]) {
-        self.targetFileIDs = targetFileIDs
+        var seenIDs: Set<AudioFile.ID> = []
+        self.targetFileIDs = targetFileIDs.filter { seenIDs.insert($0).inserted }
         self.presentationID = UUID()
+    }
+}
+
+private struct MetadataFilenameTargetResolution {
+    let files: [AudioFile]
+    let isComplete: Bool
+}
+
+enum MetadataExchangeExternalTextFileLoader {
+    nonisolated static let maximumByteCount = 32 * 1_024 * 1_024
+
+    enum LoadingError: LocalizedError, Equatable, Sendable {
+        case notRegularFile
+        case tooLarge(maximumByteCount: Int)
+        case unsupportedEncoding
+
+        nonisolated var errorDescription: String? {
+            switch self {
+            case .notRegularFile:
+                return String(localized: "AudioMator can only import a regular text file.")
+            case .tooLarge(let maximumByteCount):
+                let megabytes = maximumByteCount / (1_024 * 1_024)
+                return String(localized: "That file is too large to import. Choose a text file no larger than \(megabytes) MB.")
+            case .unsupportedEncoding:
+                return String(localized: "AudioMator couldn't read that file as UTF-8, UTF-16, Windows-1252, or Mac Roman text.")
+            }
+        }
+    }
+
+    nonisolated static func load(
+        from url: URL,
+        maximumByteCount: Int = maximumByteCount
+    ) async throws -> String {
+        try await Task.detached(priority: .userInitiated) {
+            guard maximumByteCount >= 0 else {
+                throw LoadingError.tooLarge(maximumByteCount: 0)
+            }
+            try Task.checkCancellation()
+
+            let didStartAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if didStartAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let resourceValues = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+            guard resourceValues.isRegularFile == true else {
+                throw LoadingError.notRegularFile
+            }
+
+            if let fileSize = resourceValues.fileSize, fileSize > maximumByteCount {
+                throw LoadingError.tooLarge(maximumByteCount: maximumByteCount)
+            }
+
+            let fileHandle = try FileHandle(forReadingFrom: url)
+            defer { try? fileHandle.close() }
+
+            var data = Data()
+            while data.count <= maximumByteCount {
+                try Task.checkCancellation()
+                let remainingByteCount = maximumByteCount + 1 - data.count
+                let chunk = try fileHandle.read(upToCount: min(64 * 1_024, remainingByteCount))
+                guard let chunk, !chunk.isEmpty else { break }
+                data.append(chunk)
+            }
+            guard data.count <= maximumByteCount else {
+                throw LoadingError.tooLarge(maximumByteCount: maximumByteCount)
+            }
+
+            try Task.checkCancellation()
+            return try decode(data)
+        }.value
+    }
+
+    nonisolated static func decode(_ data: Data) throws -> String {
+        if data.starts(with: [0xEF, 0xBB, 0xBF]) {
+            guard let text = decodedText(data.dropFirst(3), encoding: .utf8) else {
+                throw LoadingError.unsupportedEncoding
+            }
+            return text
+        }
+
+        if data.starts(with: [0xFF, 0xFE]) {
+            guard let text = decodedText(data.dropFirst(2), encoding: .utf16LittleEndian) else {
+                throw LoadingError.unsupportedEncoding
+            }
+            return text
+        }
+
+        if data.starts(with: [0xFE, 0xFF]) {
+            guard let text = decodedText(data.dropFirst(2), encoding: .utf16BigEndian) else {
+                throw LoadingError.unsupportedEncoding
+            }
+            return text
+        }
+
+        if data.count >= 2, data.count.isMultiple(of: 2) {
+            let bytes = [UInt8](data)
+            let pairCount = bytes.count / 2
+            let evenNullCount = stride(from: 0, to: bytes.count, by: 2).reduce(into: 0) { count, index in
+                if bytes[index] == 0 { count += 1 }
+            }
+            let oddNullCount = stride(from: 1, to: bytes.count, by: 2).reduce(into: 0) { count, index in
+                if bytes[index] == 0 { count += 1 }
+            }
+
+            if oddNullCount > 0, oddNullCount * 2 >= pairCount,
+               let text = decodedText(data, encoding: .utf16LittleEndian) {
+                return text
+            }
+
+            if evenNullCount > 0, evenNullCount * 2 >= pairCount,
+               let text = decodedText(data, encoding: .utf16BigEndian) {
+                return text
+            }
+        }
+
+        if let text = decodedText(data, encoding: .utf8) {
+            return text
+        }
+
+        for encoding in [String.Encoding.windowsCP1252, .macOSRoman] {
+            if let text = decodedText(data, encoding: encoding) {
+                return text
+            }
+        }
+
+        throw LoadingError.unsupportedEncoding
+    }
+
+    nonisolated private static func decodedText<D: DataProtocol>(
+        _ data: D,
+        encoding: String.Encoding
+    ) -> String? {
+        guard let text = String(data: Data(data), encoding: encoding) else { return nil }
+
+        for scalar in text.unicodeScalars {
+            if scalar.value == 0xFFFD || scalar.value == 0x7F {
+                return nil
+            }
+
+            if scalar.value < 0x20 {
+                switch scalar.value {
+                case 0x09, 0x0A, 0x0D:
+                    continue
+                default:
+                    return nil
+                }
+            }
+        }
+
+        return text
     }
 }
 
@@ -102,9 +256,11 @@ struct MetadataFilenameWindowView: View {
     @State private var externalFileError: String?
     @State private var includeCSVHeaderRow: Bool = true
     @State private var firstCSVRowIsHeader: Bool = true
-    @State private var clearBlankImportedValues: Bool = false
+    @State private var clearBlankTextImportedValues: Bool = false
+    @State private var clearBlankCSVImportedValues: Bool = false
     @State private var replaceUnderscoresWithSpaces: Bool = false
     @State private var isApplying: Bool = false
+    @State private var externalFileLoadID: UUID?
     @State private var pendingFieldInsertion: FileRenameTemplateEditorInsertion?
     @State private var pendingExchangeFieldInsertion: MetadataExchangeTemplateEditorInsertion?
     @State private var renameFailureMessage: String?
@@ -114,9 +270,23 @@ struct MetadataFilenameWindowView: View {
     private let controlRadius: CGFloat = 12
     private let contentInset: CGFloat = 20
 
+    private var targetResolution: MetadataFilenameTargetResolution {
+        let filesByID = Dictionary(grouping: viewModel.files, by: \.id)
+        var resolvedFiles: [AudioFile] = []
+        resolvedFiles.reserveCapacity(store.targetFileIDs.count)
+
+        for id in store.targetFileIDs {
+            guard let matches = filesByID[id], matches.count == 1, let file = matches.first else {
+                return MetadataFilenameTargetResolution(files: [], isComplete: false)
+            }
+            resolvedFiles.append(file)
+        }
+
+        return MetadataFilenameTargetResolution(files: resolvedFiles, isComplete: true)
+    }
+
     private var targetFiles: [AudioFile] {
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
-        return store.targetFileIDs.compactMap { filesByID[$0] }
+        targetResolution.files
     }
 
     private var renamePlan: FileRenamePlan {
@@ -143,7 +313,7 @@ struct MetadataFilenameWindowView: View {
             template: textToMetadataTemplate,
             sourceText: textImportSource,
             targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankImportedValues
+            clearBlankImportedValues: clearBlankTextImportedValues
         )
     }
 
@@ -161,7 +331,7 @@ struct MetadataFilenameWindowView: View {
             sourceText: csvImportSource,
             firstRowIsHeader: firstCSVRowIsHeader,
             targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankImportedValues
+            clearBlankImportedValues: clearBlankCSVImportedValues
         )
     }
 
@@ -255,23 +425,29 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var canApply: Bool {
-        guard let selectedConverterMode else {
+        guard
+            let selectedConverterMode,
+            targetResolution.isComplete,
+            !isApplying,
+            viewModel.metadataSaveProgress == nil,
+            !viewModel.hasUnsavedInspectorChanges
+        else {
             return false
         }
 
         switch selectedConverterMode {
         case .metadataToFilename:
-            return renamePlan.canApply && !isApplying
+            return renamePlan.canApply
         case .filenameToMetadata:
-            return filenameMetadataPlan.canApply && !isApplying
+            return filenameMetadataPlan.canApply
         case .metadataToText:
-            return metadataTextExportPlan.canExport && !isApplying
+            return metadataTextExportPlan.canExport
         case .textToMetadata:
-            return textMetadataImportPlan.canApply && !isApplying
+            return textMetadataImportPlan.canApply
         case .metadataToCSV:
-            return metadataCSVExportPlan.canExport && !isApplying
+            return metadataCSVExportPlan.canExport
         case .csvToMetadata:
-            return csvMetadataImportPlan.canApply && !isApplying
+            return csvMetadataImportPlan.canApply
         }
     }
 
@@ -325,13 +501,14 @@ struct MetadataFilenameWindowView: View {
                 }
             }
         }
-        .onChange(of: selectedConverterMode) { _, _ in pendingFieldInsertion = nil }
-        .onChange(of: store.presentationID) { _, _ in
-            selectedConverterMode = nil
+        .onChange(of: selectedConverterMode) { _, _ in
             pendingFieldInsertion = nil
             pendingExchangeFieldInsertion = nil
+            externalFileLoadID = nil
             externalFileError = nil
-            renameFailureMessage = nil
+        }
+        .onChange(of: store.presentationID) { _, _ in
+            resetForNewPresentation()
         }
         .alert(
             "Rename Failed",
@@ -549,7 +726,7 @@ struct MetadataFilenameWindowView: View {
             externalFileError: externalFileError,
             includeCSVHeaderRow: $includeCSVHeaderRow,
             firstCSVRowIsHeader: $firstCSVRowIsHeader,
-            clearBlankImportedValues: $clearBlankImportedValues,
+            clearBlankImportedValues: clearBlankImportedValuesBinding(for: selectedMode),
             metadataTextExportPlan: metadataTextExportPlan,
             textMetadataImportPlan: textMetadataImportPlan,
             metadataCSVExportPlan: metadataCSVExportPlan,
@@ -605,8 +782,29 @@ struct MetadataFilenameWindowView: View {
             set: { newValue in
                 if selectedMode == .csvToMetadata {
                     csvImportSource = newValue
+                    selectedCSVImportURL = nil
                 } else {
                     textImportSource = newValue
+                    selectedTextImportURL = nil
+                }
+                externalFileLoadID = nil
+                externalFileError = nil
+            }
+        )
+    }
+
+    private func clearBlankImportedValuesBinding(for selectedMode: MetadataConverterMode) -> Binding<Bool> {
+        Binding(
+            get: {
+                selectedMode == .csvToMetadata
+                    ? clearBlankCSVImportedValues
+                    : clearBlankTextImportedValues
+            },
+            set: { newValue in
+                if selectedMode == .csvToMetadata {
+                    clearBlankCSVImportedValues = newValue
+                } else if selectedMode == .textToMetadata {
+                    clearBlankTextImportedValues = newValue
                 }
             }
         )
@@ -691,7 +889,8 @@ struct MetadataFilenameWindowView: View {
 
     private func applyRename() {
         let plan = renamePlan
-        guard plan.canApply else { return }
+        guard canApply, plan.canApply else { return }
+        let presentationID = store.presentationID
 
         isApplying = true
 
@@ -699,9 +898,10 @@ struct MetadataFilenameWindowView: View {
             let result = await viewModel.renameFiles(using: plan)
             isApplying = false
 
+            guard store.presentationID == presentationID else { return }
             if let failureMessage = result.failureMessage {
                 renameFailureMessage = failureMessage
-            } else if renamePlan.issueCount == 0 {
+            } else if plan.issueCount == 0 {
                 dismiss()
             }
         }
@@ -709,15 +909,17 @@ struct MetadataFilenameWindowView: View {
 
     private func applyFilenameMetadata() {
         let plan = filenameMetadataPlan
-        guard plan.canApply else { return }
+        guard canApply, plan.canApply else { return }
+        let presentationID = store.presentationID
 
         isApplying = true
 
         Task { @MainActor in
-            await viewModel.applyFilenameMetadataPlan(plan.writeEntries)
+            let summary = await viewModel.applyFilenameMetadataPlan(plan.writeEntries)
             isApplying = false
 
-            if !plan.hasIssues {
+            guard store.presentationID == presentationID else { return }
+            if let summary, summary.failureIssues.isEmpty, !plan.hasIssues {
                 dismiss()
             }
         }
@@ -725,45 +927,60 @@ struct MetadataFilenameWindowView: View {
 
     private func applyTextMetadata() {
         let plan = textMetadataImportPlan
-        guard plan.canApply else { return }
+        guard canApply, plan.canApply else { return }
+        let presentationID = store.presentationID
 
         isApplying = true
         Task { @MainActor in
-            await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
             isApplying = false
+            guard store.presentationID == presentationID else { return }
         }
     }
 
     private func applyCSVMetadata() {
         let plan = csvMetadataImportPlan
-        guard plan.canApply else { return }
+        guard canApply, plan.canApply else { return }
+        let presentationID = store.presentationID
 
         isApplying = true
         Task { @MainActor in
-            await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
             isApplying = false
+            guard store.presentationID == presentationID else { return }
         }
     }
 
     private func exportMetadataText() {
         let plan = metadataTextExportPlan
-        guard plan.canExport else { return }
+        guard canApply, plan.canExport else { return }
         saveText(plan.outputText, defaultFileName: "AudioMator Metadata.txt", fileExtension: "txt")
     }
 
     private func exportMetadataCSV() {
         let plan = metadataCSVExportPlan
-        guard plan.canExport else { return }
+        guard canApply, plan.canExport else { return }
         saveText(plan.outputText, defaultFileName: "AudioMator Metadata.csv", fileExtension: "csv")
     }
 
     private func chooseExternalTextFile(for selectedMode: MetadataConverterMode) {
         PlatformDocumentPicker.pickTextFile { url in
             guard let url else { return }
+            guard selectedMode == .textToMetadata || selectedMode == .csvToMetadata else { return }
+
+            let presentationID = store.presentationID
+            let loadID = UUID()
+            externalFileLoadID = loadID
 
             Task { @MainActor in
                 do {
-                    let text = try loadExternalTextFile(from: url)
+                    let text = try await MetadataExchangeExternalTextFileLoader.load(from: url)
+                    guard
+                        store.presentationID == presentationID,
+                        selectedConverterMode == selectedMode,
+                        externalFileLoadID == loadID
+                    else { return }
+
                     switch selectedMode {
                     case .textToMetadata:
                         textImportSource = text
@@ -774,37 +991,38 @@ struct MetadataFilenameWindowView: View {
                     case .metadataToFilename, .filenameToMetadata, .metadataToText, .metadataToCSV:
                         break
                     }
+                    externalFileLoadID = nil
                     externalFileError = nil
                 } catch {
+                    guard
+                        store.presentationID == presentationID,
+                        selectedConverterMode == selectedMode,
+                        externalFileLoadID == loadID
+                    else { return }
+                    externalFileLoadID = nil
                     externalFileError = (error as NSError).localizedDescription
                 }
             }
         }
     }
 
-    private func loadExternalTextFile(from url: URL) throws -> String {
-        let data = try Data(contentsOf: url)
-        let encodings: [String.Encoding] = [
-            .utf8,
-            .utf16,
-            .utf16LittleEndian,
-            .utf16BigEndian,
-            .unicode,
-            .windowsCP1252,
-            .macOSRoman
-        ]
-
-        for encoding in encodings {
-            if let string = String(data: data, encoding: encoding) {
-                return string
-            }
-        }
-
-        throw NSError(
-            domain: "MetadataFilenameWindowView",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "AudioMator couldn't read that file as text."]
-        )
+    private func resetForNewPresentation() {
+        selectedConverterMode = nil
+        mode = .metadataToFilename
+        textImportSource = ""
+        csvImportSource = ""
+        selectedTextImportURL = nil
+        selectedCSVImportURL = nil
+        externalFileLoadID = nil
+        externalFileError = nil
+        includeCSVHeaderRow = true
+        firstCSVRowIsHeader = true
+        clearBlankTextImportedValues = false
+        clearBlankCSVImportedValues = false
+        replaceUnderscoresWithSpaces = false
+        pendingFieldInsertion = nil
+        pendingExchangeFieldInsertion = nil
+        renameFailureMessage = nil
     }
 
     private func saveText(_ text: String, defaultFileName: String, fileExtension: String) {

@@ -428,6 +428,7 @@ enum PlatformDocumentPicker {
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.canCreateDirectories = false
+        panel.allowedContentTypes = [.plainText, .utf8PlainText, .text]
         panel.title = "Choose a Text File"
         panel.prompt = "Choose"
         completion(panel.runModal() == .OK ? panel.url : nil)

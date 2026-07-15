@@ -42,6 +42,7 @@ enum FileRenamePreviewStatus: Equatable {
     case ready
     case unchanged
     case emptyName
+    case nameTooLong
     case duplicateTarget
     case existingFile
 
@@ -53,6 +54,8 @@ enum FileRenamePreviewStatus: Equatable {
             return L10n.string("Unchanged")
         case .emptyName:
             return L10n.string("Empty Name")
+        case .nameTooLong:
+            return L10n.string("Name Too Long")
         case .duplicateTarget:
             return L10n.string("Duplicate Target")
         case .existingFile:
@@ -68,6 +71,8 @@ enum FileRenamePreviewStatus: Equatable {
             return L10n.string("The generated filename already matches the current file.")
         case .emptyName:
             return L10n.string("This template resolves to an empty filename for the file.")
+        case .nameTooLong:
+            return L10n.string("The generated filename is too long for the destination file system.")
         case .duplicateTarget:
             return L10n.string("Multiple selected files would end up with the same filename.")
         case .existingFile:
@@ -79,7 +84,7 @@ enum FileRenamePreviewStatus: Equatable {
         switch self {
         case .ready, .unchanged:
             return false
-        case .emptyName, .duplicateTarget, .existingFile:
+        case .emptyName, .nameTooLong, .duplicateTarget, .existingFile:
             return true
         }
     }
@@ -102,6 +107,7 @@ struct FileRenameOperation: Identifiable, Sendable {
 
 struct FileRenamePlan {
     let template: String
+    let validationMessage: String?
     let rows: [FileRenamePreviewRow]
     let operations: [FileRenameOperation]
 
@@ -118,7 +124,7 @@ struct FileRenamePlan {
     }
 
     var issueCount: Int {
-        rows.filter { $0.status.isError }.count
+        rows.filter { $0.status.isError }.count + (validationMessage == nil ? 0 : 1)
     }
 
     var hasIssues: Bool {
@@ -126,15 +132,33 @@ struct FileRenamePlan {
     }
 
     var canApply: Bool {
-        readyCount > 0
+        validationMessage == nil && readyCount > 0
     }
 }
 
 func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenamePlan {
+    guard template.utf8.count <= maximumFileRenameTemplateUTF8ByteCount else {
+        return FileRenamePlan(
+            template: template,
+            validationMessage: L10n.string("The filename template is too large."),
+            rows: [],
+            operations: []
+        )
+    }
+
     let document = FileRenameTemplateDocument(rawValue: template)
 
     guard !document.isVisuallyEmpty, !targetFiles.isEmpty else {
-        return FileRenamePlan(template: template, rows: [], operations: [])
+        return FileRenamePlan(template: template, validationMessage: nil, rows: [], operations: [])
+    }
+
+    if let validationMessage = fileRenameTemplateSyntaxValidationMessage(document) {
+        return FileRenamePlan(
+            template: template,
+            validationMessage: validationMessage,
+            rows: [],
+            operations: []
+        )
     }
 
     let builder = FileRenamePlanBuilder()
@@ -247,7 +271,14 @@ private struct FileRenamePlanBuilder {
             let destinationKey = fileRenameCollisionKey(for: destinationURL)
             let destinationExists = fileManager.fileExists(atPath: destinationURL.path)
 
-            let status: FileRenamePreviewStatus = sourcePath == destinationPath ? .unchanged : .ready
+            let status: FileRenamePreviewStatus
+            if sourcePath == destinationPath {
+                status = .unchanged
+            } else if destinationURL.lastPathComponent.utf8.count > 255 {
+                status = .nameTooLong
+            } else {
+                status = .ready
+            }
             drafts.append(
                 FileRenameDraftRow(
                     row: FileRenamePreviewRow(
@@ -288,7 +319,12 @@ private struct FileRenamePlanBuilder {
             )
         }
 
-        return FileRenamePlan(template: document.rawValue, rows: rows, operations: operations)
+        return FileRenamePlan(
+            template: document.rawValue,
+            validationMessage: nil,
+            rows: rows,
+            operations: operations
+        )
     }
 
     private func finalizeRows(
@@ -325,6 +361,8 @@ private extension FileRenameCoreStatus {
             self = .unchanged
         case .emptyName:
             self = .emptyName
+        case .nameTooLong:
+            self = .nameTooLong
         case .duplicateTarget:
             self = .duplicateTarget
         case .existingFile:
@@ -342,12 +380,33 @@ private extension FileRenamePreviewStatus {
             self = .unchanged
         case .emptyName:
             self = .emptyName
+        case .nameTooLong:
+            self = .nameTooLong
         case .duplicateTarget:
             self = .duplicateTarget
         case .existingFile:
             self = .existingFile
         }
     }
+}
+
+let maximumFileRenameTemplateUTF8ByteCount = 16_384
+
+func fileRenameTemplateSyntaxValidationMessage(_ document: FileRenameTemplateDocument) -> String? {
+    if document.hasUnterminatedPlaceholder {
+        return L10n.string("Close every template field with }}.")
+    }
+
+    if let unknownPlaceholderName = document.unknownPlaceholderNames.first {
+        let name = unknownPlaceholderName.isEmpty ? "{{}}" : "{{\(unknownPlaceholderName)}}"
+        return "\(name) is not a supported metadata field."
+    }
+
+    if document.segments.count > 256 {
+        return L10n.string("The filename template contains too many segments.")
+    }
+
+    return nil
 }
 
 private func makeRenamedFileURL(from sourceURL: URL, baseName: String) -> URL {

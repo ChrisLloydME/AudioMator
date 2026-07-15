@@ -71,10 +71,15 @@ enum FileRenameTemplateSegment: Equatable {
 struct FileRenameTemplateDocument: Equatable {
     let rawValue: String
     let segments: [FileRenameTemplateSegment]
+    let unknownPlaceholderNames: [String]
+    let hasUnterminatedPlaceholder: Bool
 
     init(rawValue: String) {
+        let result = FileRenameTemplateParser.parse(rawValue)
         self.rawValue = rawValue
-        self.segments = FileRenameTemplateParser.parse(rawValue)
+        self.segments = result.segments
+        self.unknownPlaceholderNames = result.unknownPlaceholderNames
+        self.hasUnterminatedPlaceholder = result.hasUnterminatedPlaceholder
     }
 
     var isVisuallyEmpty: Bool {
@@ -92,11 +97,25 @@ struct FileRenameTemplateDocument: Equatable {
     }
 }
 
+struct FileRenameTemplateParseResult: Equatable {
+    let segments: [FileRenameTemplateSegment]
+    let unknownPlaceholderNames: [String]
+    let hasUnterminatedPlaceholder: Bool
+}
+
 enum FileRenameTemplateParser {
-    static func parse(_ rawValue: String) -> [FileRenameTemplateSegment] {
-        guard !rawValue.isEmpty else { return [] }
+    static func parse(_ rawValue: String) -> FileRenameTemplateParseResult {
+        guard !rawValue.isEmpty else {
+            return FileRenameTemplateParseResult(
+                segments: [],
+                unknownPlaceholderNames: [],
+                hasUnterminatedPlaceholder: false
+            )
+        }
 
         var segments: [FileRenameTemplateSegment] = []
+        var unknownPlaceholderNames: [String] = []
+        var hasUnterminatedPlaceholder = false
         var searchStart = rawValue.startIndex
         var literalStart = rawValue.startIndex
 
@@ -109,6 +128,7 @@ enum FileRenameTemplateParser {
             guard let closingRange = rawValue[openingRange.upperBound...].range(of: "}}") else {
                 literalStart = openingRange.lowerBound
                 searchStart = rawValue.endIndex
+                hasUnterminatedPlaceholder = true
                 break
             }
 
@@ -116,6 +136,7 @@ enum FileRenameTemplateParser {
             if let field = FileRenameMetadataField.field(forPlaceholderName: placeholderName) {
                 segments.append(.field(field))
             } else {
+                unknownPlaceholderNames.append(placeholderName)
                 let unmatchedPlaceholder = String(rawValue[openingRange.lowerBound..<closingRange.upperBound])
                 appendLiteral(unmatchedPlaceholder, to: &segments)
             }
@@ -128,7 +149,11 @@ enum FileRenameTemplateParser {
             appendLiteral(String(rawValue[literalStart...]), to: &segments)
         }
 
-        return segments
+        return FileRenameTemplateParseResult(
+            segments: segments,
+            unknownPlaceholderNames: unknownPlaceholderNames,
+            hasUnterminatedPlaceholder: hasUnterminatedPlaceholder
+        )
     }
 
     private static func appendLiteral(_ literal: String, to segments: inout [FileRenameTemplateSegment]) {

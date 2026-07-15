@@ -127,6 +127,19 @@ struct FilenameMetadataWriteEntry: Identifiable {
     let fileID: UUID
     let fileName: String
     let values: [FileRenameMetadataField: String]
+    let expectedFileFingerprint: AudioFileFingerprint?
+
+    init(
+        fileID: UUID,
+        fileName: String,
+        values: [FileRenameMetadataField: String],
+        expectedFileFingerprint: AudioFileFingerprint? = nil
+    ) {
+        self.fileID = fileID
+        self.fileName = fileName
+        self.values = values
+        self.expectedFileFingerprint = expectedFileFingerprint
+    }
 
     var id: UUID { fileID }
 }
@@ -186,6 +199,15 @@ func makeFilenameMetadataPlan(
     targetFiles: [AudioFile],
     replaceUnderscoresWithSpaces: Bool
 ) -> FilenameMetadataPlan {
+    guard template.utf8.count <= maximumFileRenameTemplateUTF8ByteCount else {
+        return FilenameMetadataPlan(
+            template: template,
+            replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
+            validationMessage: L10n.string("The filename template is too large."),
+            rows: []
+        )
+    }
+
     let document = FileRenameTemplateDocument(rawValue: template)
 
     guard !document.isVisuallyEmpty, !targetFiles.isEmpty else {
@@ -237,6 +259,10 @@ private struct FilenameMetadataPlanBuilder {
     }
 
     private func validate(document: FileRenameTemplateDocument) -> String? {
+        if let validationMessage = fileRenameTemplateSyntaxValidationMessage(document) {
+            return validationMessage
+        }
+
         let hasExtractionField = document.segments.contains { segment in
             guard case .field(let field) = segment else { return false }
             return !field.isHiddenExtractionField
@@ -318,7 +344,8 @@ private struct FilenameMetadataPlanBuilder {
             : FilenameMetadataWriteEntry(
                 fileID: file.id,
                 fileName: file.url.lastPathComponent,
-                values: writeValues
+                values: writeValues,
+                expectedFileFingerprint: file.fileFingerprint
             )
 
         return FilenameMetadataPreviewRow(

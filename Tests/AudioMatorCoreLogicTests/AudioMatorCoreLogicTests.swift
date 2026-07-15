@@ -67,6 +67,11 @@ final class AudioMatorCoreLogicTests: XCTestCase {
             ]
         )
         XCTAssertTrue(document.containsFieldSegments)
+        XCTAssertEqual(document.unknownPlaceholderNames, ["unknown"])
+        XCTAssertFalse(document.hasUnterminatedPlaceholder)
+
+        let unterminated = FileRenameTemplateDocument(rawValue: "{{trackNumber}} - {{title")
+        XCTAssertTrue(unterminated.hasUnterminatedPlaceholder)
     }
 
     func testRenameSanitizerReplacesPathUnsafeAndControlCharacters() {
@@ -77,16 +82,36 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertNil(sanitizer.sanitizeBaseName(" \u{0007}\n "))
     }
 
-    func testFilenameMetadataMatcherExtractsGreedyLiteralSeparatedFields() throws {
+    func testFilenameMetadataMatcherRejectsAmbiguousLiteralSeparatedFields() {
         let matcher = FilenameMetadataTemplateMatcher(
             document: FileRenameTemplateDocument(rawValue: "{{artist}} - {{title}}"),
             replaceUnderscoresWithSpaces: false
         )
 
-        let captures = try XCTUnwrap(matcher.match("Boards - Aquarius - Version"))
+        XCTAssertNil(matcher.match("Boards - Aquarius - Version"))
+    }
+
+    func testFilenameMetadataMatcherKeepsUniqueTypedBacktrackingMatch() throws {
+        let matcher = FilenameMetadataTemplateMatcher(
+            document: FileRenameTemplateDocument(rawValue: "{{artist}} - {{year}} - {{title}}"),
+            replaceUnderscoresWithSpaces: false
+        )
+
+        let captures = try XCTUnwrap(matcher.match("Boards - Aquarius - 2026 - Version"))
 
         XCTAssertEqual(captures[.artist], "Boards - Aquarius")
+        XCTAssertEqual(captures[.year], "2026")
         XCTAssertEqual(captures[.title], "Version")
+    }
+
+    func testFilenameMetadataMatcherFailsClosedWhenSearchBudgetIsExhausted() {
+        let matcher = FilenameMetadataTemplateMatcher(
+            document: FileRenameTemplateDocument(rawValue: "{{artist}} - {{title}}"),
+            replaceUnderscoresWithSpaces: false,
+            matchingStepLimit: 1
+        )
+
+        XCTAssertNil(matcher.match("Boards - Aquarius"))
     }
 
     func testFilenameMetadataMatcherRejectsConflictingRepeatedCaptures() {
@@ -467,6 +492,44 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(rows.first?.fileID, "disc-2")
         XCTAssertEqual(rows.first?.writeValues[.title], "New Two")
         XCTAssertEqual(rows.last?.fileID, "disc-1")
+    }
+
+    func testMetadataExchangeCoreUsesExactPathsAndSupportsRelativeSubsetImports() {
+        let file = coreMetadataFile(
+            id: "disc-1",
+            path: "/Library/Album/Disc 1/Song.flac",
+            values: [.title: "Old"]
+        )
+
+        let wrongCase = CoreMetadataExchange.csvImportRows(
+            columns: [.path, .title],
+            sourceText: "/library/album/disc 1/song.flac,Wrong",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(wrongCase.first?.status, .noMatch)
+        XCTAssertTrue(wrongCase.allSatisfy { $0.writeValues.isEmpty })
+
+        let remoteURL = CoreMetadataExchange.csvImportRows(
+            columns: [.path, .title],
+            sourceText: "file://example.com/Library/Album/Disc 1/Song.flac,Wrong",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(remoteURL.first?.status, .noMatch)
+        XCTAssertTrue(remoteURL.allSatisfy { $0.writeValues.isEmpty })
+
+        let subset = CoreMetadataExchange.csvImportRows(
+            columns: [.relativePath, .title],
+            sourceText: "Disc 1/Song.flac,Right",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(subset.map(\.status), [.ready])
+        XCTAssertEqual(subset.first?.writeValues[.title], "Right")
     }
 
     func testMetadataExchangeCoreRejectsContradictoryMultipleLocators() {

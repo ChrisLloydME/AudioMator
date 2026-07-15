@@ -108,6 +108,11 @@ struct CoreMetadataExchangeImportRow: Equatable {
 }
 
 enum CoreMetadataExchange {
+    private static let maximumTemplateUTF8ByteCount = 16_384
+    private static let maximumImportUTF8ByteCount = 32 * 1_024 * 1_024
+    private static let maximumImportRecordCount = 100_000
+    private static let maximumCSVFieldUTF8ByteCount = 1_048_576
+
     static func parseCSVColumnTemplate(
         _ template: String
     ) -> (columns: [CoreMetadataExchangeField], delimiter: Character, validationMessage: String?) {
@@ -115,6 +120,10 @@ enum CoreMetadataExchange {
         let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         guard !trimmed.isEmpty else {
             return ([], delimiter, "Enter a comma-, semicolon-, pipe-, or tab-delimited column template.")
+        }
+
+        guard trimmed.utf8.count <= maximumTemplateUTF8ByteCount else {
+            return ([], delimiter, "The column template is too large.")
         }
 
         do {
@@ -169,23 +178,22 @@ enum CoreMetadataExchange {
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
+        guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
+            return [parseErrorRow(sourceText)]
+        }
+
         let parsedCSV: [[MetadataExchangeCSVField]]
         do {
             parsedCSV = try MetadataExchangeCSV.parseFields(
                 sourceText,
                 delimiter: delimiter,
-                allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: delimiter)
+                allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: delimiter),
+                maximumRowCount: maximumImportRecordCount + (firstRowIsHeader ? 1 : 0),
+                maximumFieldCountPerRow: columns.count + 1,
+                maximumFieldUTF8ByteCount: maximumCSVFieldUTF8ByteCount
             )
         } catch {
-            return [
-                CoreMetadataExchangeImportRow(
-                    fileID: nil,
-                    fileName: "",
-                    externalRecord: sourceText,
-                    status: .parseError,
-                    writeValues: [:]
-                )
-            ]
+            return [parseErrorRow(sourceText)]
         }
 
         let dataRows = firstRowIsHeader && !parsedCSV.isEmpty ? Array(parsedCSV.dropFirst()) : parsedCSV
@@ -210,6 +218,16 @@ enum CoreMetadataExchange {
             fields: columns,
             targetFiles: targetFiles,
             clearBlankImportedValues: clearBlankImportedValues
+        )
+    }
+
+    private static func parseErrorRow(_ sourceText: String) -> CoreMetadataExchangeImportRow {
+        CoreMetadataExchangeImportRow(
+            fileID: nil,
+            fileName: "",
+            externalRecord: String(sourceText.prefix(4_096)),
+            status: .parseError,
+            writeValues: [:]
         )
     }
 
@@ -266,7 +284,6 @@ enum CoreMetadataExchange {
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
-        let relativeBasePath = commonDirectoryPath(for: targetFiles)
         let locatedRecords = parsedRecords.map { record -> LocatedRecord in
             guard let captures = record.captures else {
                 return LocatedRecord(record: record, matches: [], locatorDescription: "-")
@@ -277,8 +294,7 @@ enum CoreMetadataExchange {
                     captures: captures,
                     locatorFields: locatorFields,
                     file: file,
-                    fileIndex: index,
-                    relativeBasePath: relativeBasePath
+                    fileIndex: index
                 ) ? file : nil
             }
             return LocatedRecord(
@@ -333,8 +349,7 @@ enum CoreMetadataExchange {
         captures: [CoreMetadataExchangeField: String],
         locatorFields: [CoreMetadataExchangeField],
         file: CoreMetadataExchangeFile,
-        fileIndex: Int,
-        relativeBasePath: String?
+        fileIndex: Int
     ) -> Bool {
         locatorFields.allSatisfy { field in
             guard let importedValue = captures[field] else { return false }
@@ -349,13 +364,12 @@ enum CoreMetadataExchange {
                 return importedPath == normalizedAbsolutePath(file.path)
             case .relativePath:
                 guard
-                    let relativeBasePath,
-                    let importedPath = normalizedRelativePath(importedValue, basePath: relativeBasePath),
-                    let fileRelativePath = relativePath(path: file.path, basePath: relativeBasePath)
+                    let importedPath = normalizedRelativePath(importedValue),
+                    let filePath = normalizedAbsolutePath(file.path)
                 else {
                     return false
                 }
-                return importedPath == nonEmptyMatchingKey(fileRelativePath)
+                return filePath.hasSuffix("/\(importedPath)")
             case .index:
                 guard let importedIndex = positiveIndex(importedValue) else { return false }
                 return importedIndex == fileIndex + 1
@@ -395,23 +409,42 @@ enum CoreMetadataExchange {
 
     private static func normalizedAbsolutePath(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, (trimmed as NSString).isAbsolutePath else { return nil }
-        return nonEmptyMatchingKey(URL(fileURLWithPath: trimmed).standardizedFileURL.path)
+        guard !trimmed.isEmpty else { return nil }
+
+        let path: String
+        if trimmed.lowercased().hasPrefix("file:") {
+            guard let url = URL(string: trimmed), url.isFileURL else { return nil }
+            let host = url.host?.lowercased()
+            guard host == nil || host == "" || host == "localhost" else { return nil }
+            path = url.path
+        } else {
+            path = trimmed
+        }
+
+        guard (path as NSString).isAbsolutePath else { return nil }
+        let normalized = URL(fileURLWithPath: path).standardizedFileURL.path
+            .precomposedStringWithCanonicalMapping
+        return normalized.isEmpty ? nil : normalized
     }
 
-    private static func normalizedRelativePath(_ value: String, basePath: String) -> String? {
+    private static func normalizedRelativePath(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !(trimmed as NSString).isAbsolutePath else { return nil }
-
-        let normalizedBasePath = URL(fileURLWithPath: basePath).standardizedFileURL.path
-        let baseURL = URL(fileURLWithPath: normalizedBasePath, isDirectory: true)
-        let resolvedPath = URL(fileURLWithPath: trimmed, relativeTo: baseURL).standardizedFileURL.path
-        guard resolvedPath != normalizedBasePath,
-              let relative = relativePath(path: resolvedPath, basePath: normalizedBasePath)
+        guard
+            !trimmed.isEmpty,
+            !(trimmed as NSString).isAbsolutePath,
+            !trimmed.lowercased().hasPrefix("file:")
         else {
             return nil
         }
-        return nonEmptyMatchingKey(relative)
+
+        let normalizedBasePath = "/__AudioMatorRelativePathRoot__"
+        let baseURL = URL(fileURLWithPath: normalizedBasePath, isDirectory: true)
+        let resolvedPath = URL(fileURLWithPath: trimmed, relativeTo: baseURL).standardizedFileURL.path
+        let basePrefix = normalizedBasePath + "/"
+        guard resolvedPath.hasPrefix(basePrefix) else { return nil }
+        let relative = String(resolvedPath.dropFirst(basePrefix.count))
+            .precomposedStringWithCanonicalMapping
+        return relative.isEmpty ? nil : relative
     }
 
     private static func nonEmptyMatchingKey(_ value: String) -> String? {

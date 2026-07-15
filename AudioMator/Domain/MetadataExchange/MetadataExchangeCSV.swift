@@ -50,7 +50,10 @@ enum MetadataExchangeCSV {
     nonisolated static func parseFields(
         _ source: String,
         delimiter: Character = ",",
-        allowsBareQuotesInUnquotedFields: Bool = false
+        allowsBareQuotesInUnquotedFields: Bool = false,
+        maximumRowCount: Int? = nil,
+        maximumFieldCountPerRow: Int? = nil,
+        maximumFieldUTF8ByteCount: Int? = nil
     ) throws -> [[MetadataExchangeCSVField]] {
         var text = source
         if text.hasPrefix("\u{FEFF}") {
@@ -66,17 +69,45 @@ enum MetadataExchangeCSV {
         var didCloseQuotedField = false
         var fieldHasContent = false
         var fieldWasQuoted = false
+        var fieldUTF8ByteCount = 0
 
-        func appendField() {
+        func limitError(_ description: String) -> NSError {
+            NSError(
+                domain: "MetadataExchangeCSV",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: description]
+            )
+        }
+
+        func appendToField(_ character: Character) throws {
+            let additionalByteCount = String(character).utf8.count
+            if let maximumFieldUTF8ByteCount,
+               (additionalByteCount > maximumFieldUTF8ByteCount ||
+                fieldUTF8ByteCount > maximumFieldUTF8ByteCount - additionalByteCount) {
+                throw limitError("A CSV field exceeds the allowed size.")
+            }
+            field.append(character)
+            fieldUTF8ByteCount += additionalByteCount
+            fieldHasContent = true
+        }
+
+        func appendField() throws {
+            if let maximumFieldCountPerRow, row.count >= maximumFieldCountPerRow {
+                throw limitError("A CSV row contains more columns than the template.")
+            }
             row.append(MetadataExchangeCSVField(value: field, wasQuoted: fieldWasQuoted))
             field = ""
+            fieldUTF8ByteCount = 0
             fieldHasContent = false
             fieldWasQuoted = false
             didCloseQuotedField = false
         }
 
-        func appendRow() {
-            appendField()
+        func appendRow() throws {
+            if let maximumRowCount, rows.count >= maximumRowCount {
+                throw limitError("The CSV contains too many rows.")
+            }
+            try appendField()
             rows.append(row)
             row = []
         }
@@ -88,8 +119,7 @@ enum MetadataExchangeCSV {
                 if character == "\"" {
                     let nextIndex = text.index(after: index)
                     if nextIndex < text.endIndex, text[nextIndex] == "\"" {
-                        field.append("\"")
-                        fieldHasContent = true
+                        try appendToField("\"")
                         index = text.index(after: nextIndex)
                     } else {
                         isQuoted = false
@@ -97,8 +127,7 @@ enum MetadataExchangeCSV {
                         index = nextIndex
                     }
                 } else {
-                    field.append(character)
-                    fieldHasContent = true
+                    try appendToField(character)
                     index = text.index(after: index)
                 }
                 continue
@@ -108,7 +137,7 @@ enum MetadataExchangeCSV {
             case "\"":
                 if fieldHasContent {
                     if allowsBareQuotesInUnquotedFields {
-                        field.append(character)
+                        try appendToField(character)
                         index = text.index(after: index)
                         continue
                     }
@@ -124,13 +153,13 @@ enum MetadataExchangeCSV {
                 didCloseQuotedField = false
                 index = text.index(after: index)
             case delimiter:
-                appendField()
+                try appendField()
                 index = text.index(after: index)
             case "\n", "\r\n":
-                appendRow()
+                try appendRow()
                 index = text.index(after: index)
             case "\r":
-                appendRow()
+                try appendRow()
                 let nextIndex = text.index(after: index)
                 if nextIndex < text.endIndex, text[nextIndex] == "\n" {
                     index = text.index(after: nextIndex)
@@ -150,8 +179,7 @@ enum MetadataExchangeCSV {
                     continue
                 }
 
-                field.append(character)
-                fieldHasContent = true
+                try appendToField(character)
                 index = text.index(after: index)
             }
         }
@@ -165,7 +193,7 @@ enum MetadataExchangeCSV {
         }
 
         if fieldHasContent || !field.isEmpty || !row.isEmpty {
-            appendRow()
+            try appendRow()
         }
 
         return rows

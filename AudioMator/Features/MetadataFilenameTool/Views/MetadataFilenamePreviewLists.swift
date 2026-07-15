@@ -723,7 +723,7 @@ private extension FileRenamePreviewStatus {
             return .systemGreen
         case .unchanged:
             return .secondaryLabelColor
-        case .emptyName, .duplicateTarget, .existingFile:
+        case .emptyName, .nameTooLong, .duplicateTarget, .existingFile:
             return .systemOrange
         }
     }
@@ -734,7 +734,7 @@ private extension FileRenamePreviewStatus {
             return "checkmark.circle.fill"
         case .unchanged:
             return "minus.circle.fill"
-        case .emptyName, .duplicateTarget, .existingFile:
+        case .emptyName, .nameTooLong, .duplicateTarget, .existingFile:
             return "exclamationmark.triangle.fill"
         }
     }
@@ -745,7 +745,7 @@ private extension FileRenamePreviewStatus {
             return .green
         case .unchanged:
             return .secondary
-        case .emptyName, .duplicateTarget, .existingFile:
+        case .emptyName, .nameTooLong, .duplicateTarget, .existingFile:
             return .orange
         }
     }

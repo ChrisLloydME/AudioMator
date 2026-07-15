@@ -47,6 +47,12 @@ enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
 
     static func fromDisplayName(_ value: String) -> ContentAdvisory? {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if let localizedMatch = allCases.first(where: {
+            $0.displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
+        }) {
+            return localizedMatch
+        }
+
         switch normalized {
         case "explicit", "yes", "true", "1":
             return .explicit

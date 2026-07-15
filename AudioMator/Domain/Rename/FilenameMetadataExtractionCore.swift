@@ -90,38 +90,74 @@ extension FileRenameMetadataField {
 struct FilenameMetadataTemplateMatcher {
     let document: FileRenameTemplateDocument
     let replaceUnderscoresWithSpaces: Bool
+    private let matchingStepLimit: Int
+
+    private static let maximumSourceUTF8ByteCount = 4_096
+    private static let maximumTemplateSegmentCount = 256
+
+    init(
+        document: FileRenameTemplateDocument,
+        replaceUnderscoresWithSpaces: Bool,
+        matchingStepLimit: Int = 20_000
+    ) {
+        self.document = document
+        self.replaceUnderscoresWithSpaces = replaceUnderscoresWithSpaces
+        self.matchingStepLimit = matchingStepLimit
+    }
 
     func match(_ source: String) -> [FileRenameMetadataField: String]? {
-        matchSegments(
+        guard
+            matchingStepLimit > 0,
+            source.utf8.count <= Self.maximumSourceUTF8ByteCount,
+            document.segments.count <= Self.maximumTemplateSegmentCount
+        else {
+            return nil
+        }
+
+        var search = MatchSearch(remainingSteps: matchingStepLimit)
+        findMatches(
             document.segments,
             in: source,
             at: 0,
             sourceIndex: source.startIndex,
-            captures: [:]
+            captures: [:],
+            search: &search
         )
+
+        guard !search.didExhaustBudget, search.distinctMatches.count == 1 else {
+            return nil
+        }
+        return search.distinctMatches[0]
     }
 
-    private func matchSegments(
+    private func findMatches(
         _ segments: [FileRenameTemplateSegment],
         in source: String,
         at segmentIndex: Int,
         sourceIndex: String.Index,
-        captures: [FileRenameMetadataField: String]
-    ) -> [FileRenameMetadataField: String]? {
+        captures: [FileRenameMetadataField: String],
+        search: inout MatchSearch
+    ) {
+        guard !search.shouldStop, search.consumeStep() else { return }
+
         if segmentIndex >= segments.count {
-            return sourceIndex == source.endIndex ? captures : nil
+            if sourceIndex == source.endIndex {
+                search.recordDistinctMatch(captures)
+            }
+            return
         }
 
         switch segments[segmentIndex] {
         case .literal(let literal):
-            guard source[sourceIndex...].hasPrefix(literal) else { return nil }
+            guard source[sourceIndex...].hasPrefix(literal) else { return }
             let nextSourceIndex = source.index(sourceIndex, offsetBy: literal.count)
-            return matchSegments(
+            findMatches(
                 segments,
                 in: source,
                 at: segmentIndex + 1,
                 sourceIndex: nextSourceIndex,
-                captures: captures
+                captures: captures,
+                search: &search
             )
 
         case .field(let field):
@@ -134,14 +170,15 @@ struct FilenameMetadataTemplateMatcher {
                     for: field,
                     into: captures
                 ) else {
-                    return nil
+                    return
                 }
 
-                return updatedCaptures
+                search.recordDistinctMatch(updatedCaptures)
+                return
             }
 
             guard case .literal(let nextLiteral) = segments[nextSegmentIndex] else {
-                return nil
+                return
             }
 
             let literalPositions = findLiteralPositions(
@@ -151,6 +188,7 @@ struct FilenameMetadataTemplateMatcher {
             )
 
             for literalPosition in literalPositions.reversed() {
+                guard !search.shouldStop, search.consumeStep() else { return }
                 let rawCapture = String(source[sourceIndex..<literalPosition])
                 guard let updatedCaptures = captureValue(
                     rawCapture,
@@ -160,18 +198,15 @@ struct FilenameMetadataTemplateMatcher {
                     continue
                 }
 
-                if let match = matchSegments(
+                findMatches(
                     segments,
                     in: source,
                     at: nextSegmentIndex,
                     sourceIndex: literalPosition,
-                    captures: updatedCaptures
-                ) {
-                    return match
-                }
+                    captures: updatedCaptures,
+                    search: &search
+                )
             }
-
-            return nil
         }
     }
 
@@ -225,5 +260,30 @@ struct FilenameMetadataTemplateMatcher {
         }
 
         return positions
+    }
+
+    private struct MatchSearch {
+        var remainingSteps: Int
+        var didExhaustBudget = false
+        var distinctMatches: [[FileRenameMetadataField: String]] = []
+
+        var shouldStop: Bool {
+            didExhaustBudget || distinctMatches.count > 1
+        }
+
+        mutating func consumeStep() -> Bool {
+            guard remainingSteps > 0 else {
+                didExhaustBudget = true
+                return false
+            }
+
+            remainingSteps -= 1
+            return true
+        }
+
+        mutating func recordDistinctMatch(_ captures: [FileRenameMetadataField: String]) {
+            guard !distinctMatches.contains(where: { $0 == captures }) else { return }
+            distinctMatches.append(captures)
+        }
     }
 }

@@ -14,6 +14,10 @@ enum MetadataFilenameStatusPresentation {
             return L10n.string("Enter a template or drag metadata chips into the field.")
         }
 
+        if let validationMessage = plan.validationMessage {
+            return validationMessage
+        }
+
         if plan.hasIssues {
             return "\(plan.readyCount) file(s) are ready. \(renameIssueSummary(for: plan))"
         }

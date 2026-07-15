@@ -84,14 +84,34 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
     case album
     case albumArtist
     case composer
+    case lyricist
+    case producer
+    case engineer
+    case remixer
     case genre
     case year
     case trackNumber
+    case trackTotal
     case discNumber
+    case discTotal
     case comment
     case releaseDate
     case publisher
     case copyright
+    case isrc
+    case barcode
+    case language
+    case mediaType
+    case releaseType
+    case catalogNumber
+    case releaseCountry
+    case itunesAlbumID
+    case itunesArtistID
+    case itunesCatalogID
+    case musicBrainzAlbumID
+    case musicBrainzTrackID
+    case musicBrainzReleaseGroupID
+    case contentAdvisory
     case ignore
 
     var id: String { placeholderName }
@@ -118,14 +138,26 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return L10n.string("Album Artist")
         case .composer:
             return L10n.string("Composer")
+        case .lyricist:
+            return L10n.string("Lyricist")
+        case .producer:
+            return L10n.string("Producer")
+        case .engineer:
+            return L10n.string("Engineer")
+        case .remixer:
+            return L10n.string("Remixer")
         case .genre:
             return L10n.string("Genre")
         case .year:
             return L10n.string("Year")
         case .trackNumber:
             return L10n.string("Track Number")
+        case .trackTotal:
+            return L10n.string("Total Tracks")
         case .discNumber:
             return L10n.string("Disc Number")
+        case .discTotal:
+            return L10n.string("Total Discs")
         case .comment:
             return L10n.string("Comment")
         case .releaseDate:
@@ -134,6 +166,34 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return L10n.string("Publisher")
         case .copyright:
             return L10n.string("Copyright")
+        case .isrc:
+            return L10n.string("ISRC")
+        case .barcode:
+            return L10n.string("Barcode")
+        case .language:
+            return L10n.string("Language")
+        case .mediaType:
+            return L10n.string("Media Type")
+        case .releaseType:
+            return L10n.string("Release Type")
+        case .catalogNumber:
+            return L10n.string("Catalog Number")
+        case .releaseCountry:
+            return L10n.string("Release Country")
+        case .itunesAlbumID:
+            return L10n.string("iTunes Album ID")
+        case .itunesArtistID:
+            return L10n.string("iTunes Artist ID")
+        case .itunesCatalogID:
+            return L10n.string("iTunes Catalog ID")
+        case .musicBrainzAlbumID:
+            return L10n.string("MusicBrainz Release ID")
+        case .musicBrainzTrackID:
+            return L10n.string("MusicBrainz Track ID")
+        case .musicBrainzReleaseGroupID:
+            return L10n.string("MusicBrainz Release Group ID")
+        case .contentAdvisory:
+            return L10n.string("Content Advisory")
         case .ignore:
             return L10n.string("Ignore")
         }
@@ -161,14 +221,26 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return "albumArtist"
         case .composer:
             return "composer"
+        case .lyricist:
+            return "lyricist"
+        case .producer:
+            return "producer"
+        case .engineer:
+            return "engineer"
+        case .remixer:
+            return "remixer"
         case .genre:
             return "genre"
         case .year:
             return "year"
         case .trackNumber:
             return "trackNumber"
+        case .trackTotal:
+            return "trackTotal"
         case .discNumber:
             return "discNumber"
+        case .discTotal:
+            return "discTotal"
         case .comment:
             return "comment"
         case .releaseDate:
@@ -177,6 +249,34 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return "publisher"
         case .copyright:
             return "copyright"
+        case .isrc:
+            return "isrc"
+        case .barcode:
+            return "barcode"
+        case .language:
+            return "language"
+        case .mediaType:
+            return "mediaType"
+        case .releaseType:
+            return "releaseType"
+        case .catalogNumber:
+            return "catalogNumber"
+        case .releaseCountry:
+            return "releaseCountry"
+        case .itunesAlbumID:
+            return "itunesAlbumID"
+        case .itunesArtistID:
+            return "itunesArtistID"
+        case .itunesCatalogID:
+            return "itunesCatalogID"
+        case .musicBrainzAlbumID:
+            return "musicBrainzAlbumID"
+        case .musicBrainzTrackID:
+            return "musicBrainzTrackID"
+        case .musicBrainzReleaseGroupID:
+            return "musicBrainzReleaseGroupID"
+        case .contentAdvisory:
+            return "contentAdvisory"
         case .ignore:
             return "_ignore"
         }
@@ -188,8 +288,13 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
 
     var isWritableMetadataField: Bool {
         switch self {
-        case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
-                .trackNumber, .discNumber, .comment, .releaseDate, .publisher, .copyright:
+        case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .discNumber, .discTotal, .comment, .releaseDate, .publisher, .copyright,
+                .isrc, .barcode, .language, .mediaType, .releaseType, .catalogNumber,
+                .releaseCountry, .itunesAlbumID, .itunesArtistID, .itunesCatalogID,
+                .musicBrainzAlbumID, .musicBrainzTrackID, .musicBrainzReleaseGroupID,
+                .contentAdvisory:
             return true
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
             return false
@@ -200,11 +305,19 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         switch self {
         case .fileName, .baseName, .path, .relativePath, .index:
             return true
-        case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
-                .trackNumber, .discNumber, .comment, .releaseDate, .publisher,
-                .copyright, .ignore:
+        case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .discNumber, .discTotal, .comment, .releaseDate, .publisher, .copyright,
+                .isrc, .barcode, .language, .mediaType, .releaseType, .catalogNumber,
+                .releaseCountry, .itunesAlbumID, .itunesArtistID, .itunesCatalogID,
+                .musicBrainzAlbumID, .musicBrainzTrackID, .musicBrainzReleaseGroupID,
+                .contentAdvisory, .ignore:
             return false
         }
+    }
+
+    var writeOrderIndex: Int {
+        Self.allCases.firstIndex(of: self) ?? Int.max
     }
 
     var propertyMapKey: String? {
@@ -219,14 +332,26 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return "ALBUMARTIST"
         case .composer:
             return "COMPOSER"
+        case .lyricist:
+            return "LYRICIST"
+        case .producer:
+            return "PRODUCER"
+        case .engineer:
+            return "ENGINEER"
+        case .remixer:
+            return "REMIXER"
         case .genre:
             return "GENRE"
         case .year:
             return "DATE"
         case .trackNumber:
             return "TRACKNUMBER"
+        case .trackTotal:
+            return "TRACKTOTAL"
         case .discNumber:
             return "DISCNUMBER"
+        case .discTotal:
+            return "DISCTOTAL"
         case .comment:
             return "COMMENT"
         case .releaseDate:
@@ -235,6 +360,34 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return "PUBLISHER"
         case .copyright:
             return "COPYRIGHT"
+        case .isrc:
+            return "ISRC"
+        case .barcode:
+            return "BARCODE"
+        case .language:
+            return "LANGUAGE"
+        case .mediaType:
+            return "MEDIA"
+        case .releaseType:
+            return "RELEASETYPE"
+        case .catalogNumber:
+            return "CATALOGNUMBER"
+        case .releaseCountry:
+            return "RELEASECOUNTRY"
+        case .itunesAlbumID:
+            return "ITUNESALBUMID"
+        case .itunesArtistID:
+            return "ITUNESARTISTID"
+        case .itunesCatalogID:
+            return "ITUNESCATALOGID"
+        case .musicBrainzAlbumID:
+            return "MUSICBRAINZ_ALBUMID"
+        case .musicBrainzTrackID:
+            return "MUSICBRAINZ_TRACKID"
+        case .musicBrainzReleaseGroupID:
+            return "MUSICBRAINZ_RELEASEGROUPID"
+        case .contentAdvisory:
+            return "ITUNESADVISORY"
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
             return nil
         }
@@ -242,24 +395,39 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
 
     static let exportPalette: [Self] = [
         .fileName, .baseName, .path, .relativePath, .index,
-        .title, .artist, .album, .albumArtist, .composer, .genre, .year,
-        .trackNumber, .discNumber, .comment, .releaseDate, .publisher, .copyright
+        .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+        .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal, .discNumber,
+        .discTotal, .comment, .releaseDate, .publisher, .copyright, .isrc, .barcode,
+        .language, .mediaType, .releaseType, .catalogNumber, .releaseCountry,
+        .itunesAlbumID, .itunesArtistID, .itunesCatalogID, .musicBrainzAlbumID,
+        .musicBrainzTrackID, .musicBrainzReleaseGroupID, .contentAdvisory
     ]
 
     static let importPalette: [Self] = [
-        .fileName, .baseName, .index,
-        .title, .artist, .album, .albumArtist, .composer, .genre, .year,
-        .trackNumber, .discNumber, .comment, .releaseDate, .publisher, .copyright,
-        .ignore
+        .fileName, .baseName, .path, .relativePath, .index,
+        .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+        .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal, .discNumber,
+        .discTotal, .comment, .releaseDate, .publisher, .copyright, .isrc, .barcode,
+        .language, .mediaType, .releaseType, .catalogNumber, .releaseCountry,
+        .itunesAlbumID, .itunesArtistID, .itunesCatalogID, .musicBrainzAlbumID,
+        .musicBrainzTrackID, .musicBrainzReleaseGroupID, .contentAdvisory, .ignore
     ]
 
     static func field(forPlaceholderName placeholderName: String) -> Self? {
-        allCases.first { $0.placeholderName == placeholderName }
+        switch placeholderName {
+        case "totalTracks", "trackCount":
+            return .trackTotal
+        case "totalDiscs", "discCount":
+            return .discTotal
+        default:
+            return allCases.first { $0.placeholderName == placeholderName }
+        }
     }
 
     static func field(forExactToken token: String) -> Self? {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        return allCases.first { $0.token == trimmed }
+        guard trimmed.hasPrefix("{{"), trimmed.hasSuffix("}}"), trimmed.count >= 4 else { return nil }
+        return field(forPlaceholderName: String(trimmed.dropFirst(2).dropLast(2)))
     }
 
     func value(from file: AudioFile, index: Int, relativeBasePath: String?) -> String {
@@ -290,14 +458,42 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return file.albumArtist
         case .composer:
             return file.composer
+        case .lyricist:
+            return file.lyricist
+        case .producer:
+            return file.producer
+        case .engineer:
+            return file.engineer
+        case .remixer:
+            return file.remixer
         case .genre:
             return file.genre
         case .year:
             return file.year
         case .trackNumber:
-            return file.trackNumberText.isEmpty ? formatTrackIndex(file.track, total: file.trackTotal) : file.trackNumberText
+            return AudioTagNumberPair(
+                rawText: file.trackNumberText,
+                number: file.track,
+                total: file.trackTotal
+            ).displayedNumberText
+        case .trackTotal:
+            return AudioTagNumberPair(
+                rawText: file.trackNumberText,
+                number: file.track,
+                total: file.trackTotal
+            ).displayedTotalText
         case .discNumber:
-            return file.discNumberText.isEmpty ? formatTrackIndex(file.disc, total: file.discTotal) : file.discNumberText
+            return AudioTagNumberPair(
+                rawText: file.discNumberText,
+                number: file.disc,
+                total: file.discTotal
+            ).displayedNumberText
+        case .discTotal:
+            return AudioTagNumberPair(
+                rawText: file.discNumberText,
+                number: file.disc,
+                total: file.discTotal
+            ).displayedTotalText
         case .comment:
             return file.comment
         case .releaseDate:
@@ -306,6 +502,34 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return file.publisher
         case .copyright:
             return file.copyright
+        case .isrc:
+            return file.isrc
+        case .barcode:
+            return file.barcode
+        case .language:
+            return file.language
+        case .mediaType:
+            return file.mediaType
+        case .releaseType:
+            return file.releaseType
+        case .catalogNumber:
+            return file.catalogNumber
+        case .releaseCountry:
+            return file.releaseCountry
+        case .itunesAlbumID:
+            return file.itunesAlbumID
+        case .itunesArtistID:
+            return file.itunesArtistID
+        case .itunesCatalogID:
+            return file.itunesCatalogID
+        case .musicBrainzAlbumID:
+            return file.musicBrainzAlbumID
+        case .musicBrainzTrackID:
+            return file.musicBrainzTrackID
+        case .musicBrainzReleaseGroupID:
+            return file.musicBrainzReleaseGroupID
+        case .contentAdvisory:
+            return file.contentAdvisory.map { String($0.rawValue) } ?? ""
         case .ignore:
             return ""
         }
@@ -323,14 +547,26 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             edit.albumArtist = value
         case .composer:
             edit.composer = value
+        case .lyricist:
+            edit.lyricist = value
+        case .producer:
+            edit.producer = value
+        case .engineer:
+            edit.engineer = value
+        case .remixer:
+            edit.remixer = value
         case .genre:
             edit.genre = value
         case .year:
             edit.year = value
         case .trackNumber:
             edit.setTrackNumberText(value)
+        case .trackTotal:
+            edit.setTrackTotalFieldText(value)
         case .discNumber:
             edit.setDiscNumberText(value)
+        case .discTotal:
+            edit.setDiscTotalFieldText(value)
         case .comment:
             edit.comment = value
         case .releaseDate:
@@ -339,12 +575,85 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             edit.publisher = value
         case .copyright:
             edit.copyright = value
+        case .isrc:
+            edit.isrc = value
+        case .barcode:
+            edit.barcode = value
+        case .language:
+            edit.language = value
+        case .mediaType:
+            edit.mediaType = value
+        case .releaseType:
+            edit.releaseType = value
+        case .catalogNumber:
+            edit.catalogNumber = value
+        case .releaseCountry:
+            edit.releaseCountry = value
+        case .itunesAlbumID:
+            edit.itunesAlbumID = value
+        case .itunesArtistID:
+            edit.itunesArtistID = value
+        case .itunesCatalogID:
+            edit.itunesCatalogID = value
+        case .musicBrainzAlbumID:
+            edit.musicBrainzAlbumID = value
+        case .musicBrainzTrackID:
+            edit.musicBrainzTrackID = value
+        case .musicBrainzReleaseGroupID:
+            edit.musicBrainzReleaseGroupID = value
+        case .contentAdvisory:
+            edit.contentAdvisory = ContentAdvisory.fromDisplayName(value)
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
             break
         }
     }
 
-    private func makeRelativePath(for url: URL, basePath: String) -> String? {
+    func canonicalImportedValue(_ value: String) -> String {
+        guard self == .contentAdvisory, !value.isEmpty else { return value }
+        return ContentAdvisory.fromDisplayName(value).map { String($0.rawValue) } ?? value
+    }
+
+    func importedValueValidationMessage(_ value: String) -> String? {
+        if value.unicodeScalars.contains(where: { $0.value == 0 }) {
+            return "\(displayName) contains a null character, which cannot be written safely."
+        }
+
+        guard !value.isEmpty else { return nil }
+
+        switch self {
+        case .trackNumber, .discNumber:
+            let components = value.split(separator: "/", omittingEmptySubsequences: false)
+            guard components.count <= 2,
+                  components.allSatisfy({ component in
+                      let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
+                      return !trimmed.isEmpty && Int(trimmed).map { $0 >= 0 } == true
+                  })
+            else {
+                return "\(displayName) must be a non-negative integer, optionally followed by / and a total."
+            }
+        case .trackTotal, .discTotal:
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard Int(trimmed).map({ $0 >= 0 }) == true else {
+                return "\(displayName) must be a non-negative integer."
+            }
+        case .contentAdvisory:
+            guard ContentAdvisory.fromDisplayName(value) != nil else {
+                return "Content Advisory must be Explicit, Clean, Not Explicit, Yes, No, True, False, 1, 2, or 0."
+            }
+        case .fileName, .baseName, .path, .relativePath, .index, .title, .artist,
+                .album, .albumArtist, .composer, .lyricist, .producer, .engineer,
+                .remixer, .genre, .year, .comment, .releaseDate, .publisher,
+                .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
+                .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
+                .itunesCatalogID, .musicBrainzAlbumID, .musicBrainzTrackID,
+                .musicBrainzReleaseGroupID, .ignore:
+            break
+        }
+
+        return nil
+    }
+
+    fileprivate func makeRelativePath(for url: URL, basePath: String) -> String? {
         let filePath = url.standardizedFileURL.path
         let normalizedBasePath = URL(fileURLWithPath: basePath).standardizedFileURL.path
 
@@ -366,10 +675,15 @@ enum MetadataExchangeTemplateSegment: Equatable {
 struct MetadataExchangeTemplateDocument: Equatable {
     let rawValue: String
     let segments: [MetadataExchangeTemplateSegment]
+    let unknownPlaceholderNames: [String]
+    let hasUnterminatedPlaceholder: Bool
 
     init(rawValue: String) {
+        let result = MetadataExchangeTemplateParser.parse(rawValue)
         self.rawValue = rawValue
-        self.segments = MetadataExchangeTemplateParser.parse(rawValue)
+        self.segments = result.segments
+        self.unknownPlaceholderNames = result.unknownPlaceholderNames
+        self.hasUnterminatedPlaceholder = result.hasUnterminatedPlaceholder
     }
 
     var isEmpty: Bool {
@@ -396,11 +710,25 @@ struct MetadataExchangeTemplateDocument: Equatable {
     }
 }
 
+struct MetadataExchangeTemplateParseResult: Equatable {
+    let segments: [MetadataExchangeTemplateSegment]
+    let unknownPlaceholderNames: [String]
+    let hasUnterminatedPlaceholder: Bool
+}
+
 enum MetadataExchangeTemplateParser {
-    static func parse(_ rawValue: String) -> [MetadataExchangeTemplateSegment] {
-        guard !rawValue.isEmpty else { return [] }
+    static func parse(_ rawValue: String) -> MetadataExchangeTemplateParseResult {
+        guard !rawValue.isEmpty else {
+            return MetadataExchangeTemplateParseResult(
+                segments: [],
+                unknownPlaceholderNames: [],
+                hasUnterminatedPlaceholder: false
+            )
+        }
 
         var segments: [MetadataExchangeTemplateSegment] = []
+        var unknownPlaceholderNames: [String] = []
+        var hasUnterminatedPlaceholder = false
         var searchStart = rawValue.startIndex
         var literalStart = rawValue.startIndex
 
@@ -413,6 +741,7 @@ enum MetadataExchangeTemplateParser {
             guard let closingRange = rawValue[openingRange.upperBound...].range(of: "}}") else {
                 literalStart = openingRange.lowerBound
                 searchStart = rawValue.endIndex
+                hasUnterminatedPlaceholder = true
                 break
             }
 
@@ -420,6 +749,7 @@ enum MetadataExchangeTemplateParser {
             if let field = MetadataExchangeField.field(forPlaceholderName: placeholderName) {
                 segments.append(.field(field))
             } else {
+                unknownPlaceholderNames.append(placeholderName)
                 appendLiteral(String(rawValue[openingRange.lowerBound..<closingRange.upperBound]), to: &segments)
             }
 
@@ -431,7 +761,11 @@ enum MetadataExchangeTemplateParser {
             appendLiteral(String(rawValue[literalStart...]), to: &segments)
         }
 
-        return segments
+        return MetadataExchangeTemplateParseResult(
+            segments: segments,
+            unknownPlaceholderNames: unknownPlaceholderNames,
+            hasUnterminatedPlaceholder: hasUnterminatedPlaceholder
+        )
     }
 
     private static func appendLiteral(_ literal: String, to segments: inout [MetadataExchangeTemplateSegment]) {
@@ -539,6 +873,19 @@ struct MetadataExchangeWriteEntry: Identifiable {
     let fileID: AudioFile.ID
     let fileName: String
     let values: [MetadataExchangeField: String]
+    let expectedFileFingerprint: AudioFileFingerprint?
+
+    init(
+        fileID: AudioFile.ID,
+        fileName: String,
+        values: [MetadataExchangeField: String],
+        expectedFileFingerprint: AudioFileFingerprint? = nil
+    ) {
+        self.fileID = fileID
+        self.fileName = fileName
+        self.values = values
+        self.expectedFileFingerprint = expectedFileFingerprint
+    }
 
     var id: AudioFile.ID { fileID }
 }
@@ -576,16 +923,33 @@ struct MetadataExchangeImportPlan {
 }
 
 enum MetadataExchangePlanner {
+    private static let maximumTemplateUTF8ByteCount = 16_384
+    private static let maximumImportUTF8ByteCount = 32 * 1_024 * 1_024
+    private static let maximumImportRecordCount = 100_000
+    private static let maximumTextRecordUTF8ByteCount = 262_144
+    private static let maximumCSVFieldUTF8ByteCount = 1_048_576
+
     static func makeTextExportPlan(
         template: String,
         targetFiles: [AudioFile]
     ) -> MetadataTextExportPlan {
+        guard template.utf8.count <= maximumTemplateUTF8ByteCount else {
+            return MetadataTextExportPlan(
+                validationMessage: L10n.string("The text template is too large."),
+                rows: []
+            )
+        }
+
         let document = MetadataExchangeTemplateDocument(rawValue: template)
         if document.isEmpty {
             return MetadataTextExportPlan(
                 validationMessage: L10n.string("Enter a template to preview exported text."),
                 rows: []
             )
+        }
+
+        if let validationMessage = validateTemplateSyntax(document, requiresSingleLine: true) {
+            return MetadataTextExportPlan(validationMessage: validationMessage, rows: [])
         }
 
         guard document.fields.contains(where: { $0 != .ignore }) else {
@@ -595,8 +959,9 @@ enum MetadataExchangePlanner {
             )
         }
 
-        let relativeBasePath = commonDirectoryPath(for: targetFiles)
-        let rows = targetFiles.enumerated().map { index, file in
+        let uniqueFiles = uniqueTargetFiles(targetFiles)
+        let relativeBasePath = commonDirectoryPath(for: uniqueFiles)
+        let rows = uniqueFiles.enumerated().map { index, file in
             MetadataTextExportRow(
                 id: file.id,
                 fileName: file.url.lastPathComponent,
@@ -604,7 +969,17 @@ enum MetadataExchangePlanner {
             )
         }
 
-        return MetadataTextExportPlan(validationMessage: nil, rows: rows)
+        let containsMultilineRecord = rows.contains { row in
+            row.output.unicodeScalars.contains { scalar in
+                scalar.value == 0x0A || scalar.value == 0x0D
+            }
+        }
+        return MetadataTextExportPlan(
+            validationMessage: containsMultilineRecord
+                ? L10n.string("One or more values contain line breaks. Use CSV export to preserve multiline metadata safely.")
+                : nil,
+            rows: rows
+        )
     }
 
     static func makeCSVExportPlan(
@@ -623,8 +998,9 @@ enum MetadataExchangePlanner {
             )
         }
 
-        let relativeBasePath = commonDirectoryPath(for: targetFiles)
-        let rows = targetFiles.enumerated().map { index, file in
+        let uniqueFiles = uniqueTargetFiles(targetFiles)
+        let relativeBasePath = commonDirectoryPath(for: uniqueFiles)
+        let rows = uniqueFiles.enumerated().map { index, file in
             result.columns.map { field in
                 field.value(from: file, index: index, relativeBasePath: relativeBasePath)
             }
@@ -645,16 +1021,63 @@ enum MetadataExchangePlanner {
         targetFiles: [AudioFile],
         clearBlankImportedValues: Bool
     ) -> MetadataExchangeImportPlan {
+        guard template.utf8.count <= maximumTemplateUTF8ByteCount else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("The text template is too large."),
+                rows: []
+            )
+        }
+
+        guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("The import text is too large. Split it into files smaller than 32 MB."),
+                rows: []
+            )
+        }
+
         let document = MetadataExchangeTemplateDocument(rawValue: template)
         if let validationMessage = validateImportTextTemplate(document) {
             return MetadataExchangeImportPlan(validationMessage: validationMessage, rows: [])
         }
 
-        let records = sourceText
+        var normalizedSource = sourceText
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
-            .components(separatedBy: "\n")
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if normalizedSource.hasPrefix("\u{FEFF}") {
+            normalizedSource.removeFirst()
+        }
+
+        var records = normalizedSource.isEmpty
+            ? []
+            : normalizedSource.components(separatedBy: "\n")
+        if clearBlankImportedValues {
+            if normalizedSource.hasSuffix("\n"), records.last?.isEmpty == true {
+                records.removeLast()
+            }
+        } else {
+            records.removeAll { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
+
+        guard !records.isEmpty else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("Add at least one text record to import."),
+                rows: []
+            )
+        }
+
+        guard records.count <= maximumImportRecordCount else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("The import contains more than 100,000 records. Split it into smaller batches."),
+                rows: []
+            )
+        }
+
+        guard !records.contains(where: { $0.utf8.count > maximumTextRecordUTF8ByteCount }) else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("A text record is larger than 256 KB. Use CSV import for multiline or very large values."),
+                rows: []
+            )
+        }
 
         let matcher = MetadataExchangeTextMatcher(document: document)
         let parsedRecords = records.enumerated().map { index, record in
@@ -676,6 +1099,13 @@ enum MetadataExchangePlanner {
         targetFiles: [AudioFile],
         clearBlankImportedValues: Bool
     ) -> MetadataExchangeImportPlan {
+        guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("The CSV import is too large. Split it into files smaller than 32 MB."),
+                rows: []
+            )
+        }
+
         let result = parseCSVColumnTemplate(template)
         if let validationMessage = result.validationMessage {
             return MetadataExchangeImportPlan(validationMessage: validationMessage, rows: [])
@@ -692,11 +1122,21 @@ enum MetadataExchangePlanner {
             parsedCSV = try MetadataExchangeCSV.parseFields(
                 sourceText,
                 delimiter: result.delimiter,
-                allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: result.delimiter)
+                allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: result.delimiter),
+                maximumRowCount: maximumImportRecordCount + (firstRowIsHeader ? 1 : 0),
+                maximumFieldCountPerRow: result.columns.count + 1,
+                maximumFieldUTF8ByteCount: maximumCSVFieldUTF8ByteCount
             )
         } catch {
             return MetadataExchangeImportPlan(
                 validationMessage: (error as NSError).localizedDescription,
+                rows: []
+            )
+        }
+
+        if firstRowIsHeader, let header = parsedCSV.first, header.count != result.columns.count {
+            return MetadataExchangeImportPlan(
+                validationMessage: "The CSV header has \(header.count) column(s), but the template has \(result.columns.count).",
                 rows: []
             )
         }
@@ -709,7 +1149,14 @@ enum MetadataExchangePlanner {
             )
         }
 
-        guard dataRows.contains(where: isUsableCSVDataRow) else {
+        guard dataRows.count <= maximumImportRecordCount else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("The CSV contains more than 100,000 data rows. Split it into smaller batches."),
+                rows: []
+            )
+        }
+
+        guard clearBlankImportedValues || dataRows.contains(where: isUsableCSVDataRow) else {
             return MetadataExchangeImportPlan(
                 validationMessage: L10n.string("Add at least one CSV data row with values to import."),
                 rows: []
@@ -735,8 +1182,11 @@ enum MetadataExchangePlanner {
                 )
             }
 
-            let captures = captures(from: cells, columns: result.columns)
-            return ParsedExternalRecord(index: index, displayText: displayText, captures: .success(captures))
+            return ParsedExternalRecord(
+                index: index,
+                displayText: displayText,
+                captures: captures(from: cells, columns: result.columns)
+            )
         }
 
         return makeImportPlan(
@@ -754,10 +1204,19 @@ enum MetadataExchangePlanner {
             return ([], delimiter, L10n.string("Enter a comma-, semicolon-, pipe-, or tab-delimited column template."))
         }
 
+        guard trimmed.utf8.count <= maximumTemplateUTF8ByteCount else {
+            return ([], delimiter, L10n.string("The column template is too large."))
+        }
+
         do {
             let rows = try MetadataExchangeCSV.parse(trimmed, delimiter: delimiter)
             guard rows.count == 1, let row = rows.first, !row.isEmpty else {
                 return ([], delimiter, L10n.string("Enter a single CSV template row."))
+            }
+
+
+            guard row.count <= MetadataExchangeField.allCases.count + 64 else {
+                return ([], delimiter, L10n.string("The column template contains too many columns."))
             }
 
             var columns: [MetadataExchangeField] = []
@@ -773,10 +1232,6 @@ enum MetadataExchangePlanner {
 
                 seenFields.insert(field)
                 columns.append(field)
-            }
-
-            if columns.contains(.fileName), columns.contains(.baseName) {
-                return (columns, delimiter, "Use either {{fileName}} or {{baseName}} for matching, not both.")
             }
 
             guard columns.contains(where: { $0 != .ignore }) else {
@@ -810,6 +1265,10 @@ enum MetadataExchangePlanner {
             return L10n.string("Enter a text template to parse imported records.")
         }
 
+        if let validationMessage = validateTemplateSyntax(document, requiresSingleLine: true) {
+            return validationMessage
+        }
+
         guard document.hasWritableMetadataFields else {
             return L10n.string("Add at least one writable metadata field to import.")
         }
@@ -826,16 +1285,49 @@ enum MetadataExchangePlanner {
         return nil
     }
 
+    private static func validateTemplateSyntax(
+        _ document: MetadataExchangeTemplateDocument,
+        requiresSingleLine: Bool
+    ) -> String? {
+        if document.rawValue.utf8.count > maximumTemplateUTF8ByteCount {
+            return L10n.string("The text template is too large.")
+        }
+
+        if document.segments.count > 256 {
+            return L10n.string("The text template contains too many segments.")
+        }
+
+        if document.hasUnterminatedPlaceholder {
+            return L10n.string("Close every template field with }}.")
+        }
+
+        if let unknownPlaceholderName = document.unknownPlaceholderNames.first {
+            let name = unknownPlaceholderName.isEmpty ? "{{}}" : "{{\(unknownPlaceholderName)}}"
+            return "\(name) is not a supported metadata field."
+        }
+
+        if requiresSingleLine,
+           document.rawValue.unicodeScalars.contains(where: { $0.value == 0x0A || $0.value == 0x0D }) {
+            return L10n.string("Use a single-line template. Use CSV for multiline metadata.")
+        }
+
+        return nil
+    }
+
     private static func captures(
         from cells: [MetadataExchangeCSVField],
         columns: [MetadataExchangeField]
-    ) -> [MetadataExchangeField: String] {
+    ) -> MetadataExchangeCaptureResult {
         var captures: [MetadataExchangeField: String] = [:]
         for (index, field) in columns.enumerated() {
             guard field != .ignore else { continue }
-            captures[field] = cells[index].importedValue
+            let importedValue = field.canonicalImportedValue(cells[index].importedValue)
+            if let validationMessage = field.importedValueValidationMessage(importedValue) {
+                return .failure(validationMessage)
+            }
+            captures[field] = importedValue
         }
-        return captures
+        return .success(captures)
     }
 
     nonisolated private static func isUsableCSVDataRow(_ cells: [MetadataExchangeCSVField]) -> Bool {
@@ -848,21 +1340,24 @@ enum MetadataExchangePlanner {
         targetFiles: [AudioFile],
         clearBlankImportedValues: Bool
     ) -> MetadataExchangeImportPlan {
-        let usesFileName = fields.contains(.fileName)
-        let usesBaseName = fields.contains(.baseName)
+        let uniqueFiles = uniqueTargetFiles(targetFiles)
+        var seenLocatorFields = Set<MetadataExchangeField>()
+        let locatorFields = fields.filter { field in
+            field.isLocatorField && seenLocatorFields.insert(field).inserted
+        }
         let rows: [MetadataExchangeImportPreviewRow]
 
-        if usesFileName || usesBaseName {
+        if !locatorFields.isEmpty {
             rows = makeMatchedImportRows(
                 parsedRecords: parsedRecords,
-                targetFiles: targetFiles,
-                matchingField: usesFileName ? .fileName : .baseName,
+                targetFiles: uniqueFiles,
+                locatorFields: locatorFields,
                 clearBlankImportedValues: clearBlankImportedValues
             )
         } else {
             rows = makeSelectionOrderImportRows(
                 parsedRecords: parsedRecords,
-                targetFiles: targetFiles,
+                targetFiles: uniqueFiles,
                 clearBlankImportedValues: clearBlankImportedValues
             )
         }
@@ -917,93 +1412,96 @@ enum MetadataExchangePlanner {
     private static func makeMatchedImportRows(
         parsedRecords: [ParsedExternalRecord],
         targetFiles: [AudioFile],
-        matchingField: MetadataExchangeField,
+        locatorFields: [MetadataExchangeField],
         clearBlankImportedValues: Bool
     ) -> [MetadataExchangeImportPreviewRow] {
-        let filesByKey = Dictionary(grouping: targetFiles) { file in
-            matchingKey(
-                matchingField == .fileName
-                    ? file.url.lastPathComponent
-                    : file.url.deletingPathExtension().lastPathComponent
-            )
+        let resolutions: [(record: ParsedExternalRecord, resolution: LocatorResolution)] = parsedRecords.map { record in
+            switch record.captures {
+            case .failure(let message):
+                return (record, .parseError(message))
+            case .success(let captures):
+                let matches = targetFiles.enumerated().compactMap { index, file in
+                    matchesAllLocators(
+                        captures: captures,
+                        locatorFields: locatorFields,
+                        file: file,
+                        fileIndex: index
+                    ) ? file : nil
+                }
+                let description = locatorDescription(captures: captures, locatorFields: locatorFields)
+                switch matches.count {
+                case 0:
+                    return (record, .noMatch(description))
+                case 1:
+                    return (record, .matched(matches[0]))
+                default:
+                    return (record, .ambiguous(description))
+                }
+            }
         }
+
+        var recordCountByFileID: [AudioFile.ID: Int] = [:]
+        for item in resolutions {
+            if case .matched(let file) = item.resolution {
+                recordCountByFileID[file.id, default: 0] += 1
+            }
+        }
+
         var matchedFileIDs = Set<AudioFile.ID>()
         var rows: [MetadataExchangeImportPreviewRow] = []
 
-        for record in parsedRecords {
-            switch record.captures {
-            case .failure(let message):
+        for item in resolutions {
+            let record = item.record
+            switch item.resolution {
+            case .parseError(let message):
                 rows.append(parseErrorRow(record: record, message: message))
-            case .success(let captures):
-                guard let rawKey = captures[matchingField], !rawKey.isEmpty else {
-                    rows.append(
-                        MetadataExchangeImportPreviewRow(
-                            id: UUID(),
-                            fileID: nil,
-                            fileName: "—",
-                            externalRecord: record.displayText,
-                            status: .noMatch,
-                            changes: [],
-                            issueMessage: "This record did not provide a \(matchingField.displayName) value.",
-                            writeEntry: nil
-                        )
+            case .noMatch(let description):
+                rows.append(
+                    MetadataExchangeImportPreviewRow(
+                        id: UUID(),
+                        fileID: nil,
+                        fileName: description,
+                        externalRecord: record.displayText,
+                        status: .noMatch,
+                        changes: [],
+                        issueMessage: L10n.string("No selected file matches all locator values in this record."),
+                        writeEntry: nil
                     )
-                    continue
-                }
-
-                let key = matchingKey(rawKey)
-                let matches = filesByKey[key] ?? []
-                if matches.isEmpty {
-                    rows.append(
-                        MetadataExchangeImportPreviewRow(
-                            id: UUID(),
-                            fileID: nil,
-                            fileName: key,
-                            externalRecord: record.displayText,
-                            status: .noMatch,
-                            changes: [],
-                            issueMessage: L10n.string("No selected file matches this record."),
-                            writeEntry: nil
-                        )
+                )
+            case .ambiguous(let description):
+                rows.append(
+                    MetadataExchangeImportPreviewRow(
+                        id: UUID(),
+                        fileID: nil,
+                        fileName: description,
+                        externalRecord: record.displayText,
+                        status: .ambiguousMatch,
+                        changes: [],
+                        issueMessage: L10n.string("Multiple selected files match this record. Add Path or Relative Path to disambiguate them."),
+                        writeEntry: nil
                     )
-                } else if matches.count > 1 {
+                )
+            case .matched(let file):
+                if recordCountByFileID[file.id, default: 0] > 1 {
                     rows.append(
                         MetadataExchangeImportPreviewRow(
                             id: UUID(),
-                            fileID: nil,
-                            fileName: key,
+                            fileID: file.id,
+                            fileName: file.url.lastPathComponent,
                             externalRecord: record.displayText,
                             status: .ambiguousMatch,
                             changes: [],
-                            issueMessage: L10n.string("Multiple selected files match this record."),
+                            issueMessage: L10n.string("Multiple external records identify this selected file. None of them will be written."),
                             writeEntry: nil
                         )
                     )
-                } else if let file = matches.first {
-                    guard !matchedFileIDs.contains(file.id) else {
-                        rows.append(
-                            MetadataExchangeImportPreviewRow(
-                                id: UUID(),
-                                fileID: file.id,
-                                fileName: file.url.lastPathComponent,
-                                externalRecord: record.displayText,
-                                status: .ambiguousMatch,
-                                changes: [],
-                                issueMessage: L10n.string("Another external record already matched this selected file."),
-                                writeEntry: nil
-                            )
-                        )
-                        continue
-                    }
-
+                } else {
                     matchedFileIDs.insert(file.id)
-                    rows.append(
-                        makeImportRow(
-                            file: file,
-                            record: record,
-                            clearBlankImportedValues: clearBlankImportedValues
-                        )
-                    )
+                    rows.append(makeImportRow(
+                        file: file,
+                        record: record,
+                        clearBlankImportedValues: clearBlankImportedValues
+                    ))
                 }
             }
         }
@@ -1026,10 +1524,125 @@ enum MetadataExchangePlanner {
         return rows
     }
 
+    private static func matchesAllLocators(
+        captures: [MetadataExchangeField: String],
+        locatorFields: [MetadataExchangeField],
+        file: AudioFile,
+        fileIndex: Int
+    ) -> Bool {
+        locatorFields.allSatisfy { field in
+            guard let importedValue = captures[field] else { return false }
+
+            switch field {
+            case .fileName:
+                return nonEmptyMatchingKey(importedValue) == nonEmptyMatchingKey(file.url.lastPathComponent)
+            case .baseName:
+                return nonEmptyMatchingKey(importedValue) == nonEmptyMatchingKey(file.url.deletingPathExtension().lastPathComponent)
+            case .path:
+                guard let importedPath = normalizedAbsolutePath(importedValue) else { return false }
+                return importedPath == normalizedAbsolutePath(file.url.path)
+            case .relativePath:
+                guard
+                    let importedPath = normalizedRelativePath(importedValue),
+                    let filePath = normalizedAbsolutePath(file.url.path)
+                else {
+                    return false
+                }
+                return filePath.hasSuffix("/\(importedPath)")
+            case .index:
+                return positiveIndex(importedValue) == fileIndex + 1
+            case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+                    .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                    .discNumber, .discTotal, .comment, .releaseDate, .publisher,
+                    .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
+                    .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
+                    .itunesCatalogID, .musicBrainzAlbumID, .musicBrainzTrackID,
+                    .musicBrainzReleaseGroupID, .contentAdvisory, .ignore:
+                return false
+            }
+        }
+    }
+
+    private static func locatorDescription(
+        captures: [MetadataExchangeField: String],
+        locatorFields: [MetadataExchangeField]
+    ) -> String {
+        let values = locatorFields.compactMap { field -> String? in
+            guard let value = captures[field]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+                return nil
+            }
+            return value
+        }
+        return values.isEmpty ? "—" : values.joined(separator: " | ")
+    }
+
+    private static func positiveIndex(_ value: String) -> Int? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            !trimmed.isEmpty,
+            trimmed.unicodeScalars.allSatisfy({ (48...57).contains($0.value) }),
+            let index = Int(trimmed),
+            index > 0
+        else {
+            return nil
+        }
+        return index
+    }
+
+    private static func normalizedAbsolutePath(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let path: String
+        if trimmed.lowercased().hasPrefix("file:") {
+            guard let url = URL(string: trimmed), url.isFileURL else { return nil }
+            let host = url.host?.lowercased()
+            guard host == nil || host == "" || host == "localhost" else { return nil }
+            path = url.path
+        } else {
+            path = trimmed
+        }
+
+        guard (path as NSString).isAbsolutePath else { return nil }
+        let normalized = URL(fileURLWithPath: path).standardizedFileURL.path
+            .precomposedStringWithCanonicalMapping
+        return normalized.isEmpty ? nil : normalized
+    }
+
+    private static func normalizedRelativePath(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            !trimmed.isEmpty,
+            !(trimmed as NSString).isAbsolutePath,
+            !trimmed.lowercased().hasPrefix("file:")
+        else {
+            return nil
+        }
+
+        let normalizedBasePath = "/__AudioMatorRelativePathRoot__"
+        let baseURL = URL(fileURLWithPath: normalizedBasePath, isDirectory: true)
+        let resolvedPath = URL(fileURLWithPath: trimmed, relativeTo: baseURL).standardizedFileURL.path
+        let basePrefix = normalizedBasePath + "/"
+        guard resolvedPath.hasPrefix(basePrefix) else { return nil }
+        let relative = String(resolvedPath.dropFirst(basePrefix.count))
+            .precomposedStringWithCanonicalMapping
+        return relative.isEmpty ? nil : relative
+    }
+
+    private static func nonEmptyMatchingKey(_ value: String) -> String? {
+        let key = matchingKey(value)
+        return key.isEmpty ? nil : key
+    }
+
     private static func matchingKey(_ value: String) -> String {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .precomposedStringWithCanonicalMapping
+            .folding(
+                options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .precomposedStringWithCanonicalMapping
     }
 
     private static func makeImportRow(
@@ -1041,6 +1654,12 @@ enum MetadataExchangePlanner {
         case .failure(let message):
             return parseErrorRow(record: record, file: file, message: message)
         case .success(let captures):
+            for (field, importedValue) in captures where field.isWritableMetadataField {
+                if let validationMessage = field.importedValueValidationMessage(importedValue) {
+                    return parseErrorRow(record: record, file: file, message: validationMessage)
+                }
+            }
+
             let changes = MetadataExchangeField.allCases.compactMap { field -> MetadataExchangeFieldChange? in
                 guard field.isWritableMetadataField, let importedValue = captures[field] else { return nil }
                 let currentValue = field.value(from: file, index: 0, relativeBasePath: nil)
@@ -1077,7 +1696,8 @@ enum MetadataExchangePlanner {
                 : MetadataExchangeWriteEntry(
                     fileID: file.id,
                     fileName: file.url.lastPathComponent,
-                    values: values
+                    values: values,
+                    expectedFileFingerprint: file.fileFingerprint
                 )
 
             let status: MetadataExchangePreviewStatus = values.isEmpty ? .unchanged : .ready
@@ -1123,6 +1743,18 @@ enum MetadataExchangePlanner {
 
         return "/" + components.joined(separator: "/")
     }
+
+    private static func uniqueTargetFiles(_ files: [AudioFile]) -> [AudioFile] {
+        var seenIDs = Set<AudioFile.ID>()
+        return files.filter { seenIDs.insert($0.id).inserted }
+    }
+
+    private enum LocatorResolution {
+        case parseError(String)
+        case noMatch(String)
+        case ambiguous(String)
+        case matched(AudioFile)
+    }
 }
 
 private struct ParsedExternalRecord {
@@ -1140,12 +1772,44 @@ private enum MetadataExchangeCaptureResult {
 private struct MetadataExchangeTextMatcher {
     let document: MetadataExchangeTemplateDocument
 
+    private static let maximumMatchSteps = 50_000
+    private static let maximumLiteralCandidates = 4_096
+
+    private struct MatchBudget {
+        var remainingSteps: Int
+
+        mutating func consume() -> Bool {
+            guard remainingSteps > 0 else { return false }
+            remainingSteps -= 1
+            return true
+        }
+    }
+
+    private enum SearchResult {
+        case success([MetadataExchangeField: String])
+        case failure(String)
+        case ambiguous
+        case tooComplex
+    }
+
     func match(_ source: String) -> MetadataExchangeCaptureResult {
-        switch matchSegments(document.segments, in: source, at: 0, sourceIndex: source.startIndex, captures: [:]) {
+        var budget = MatchBudget(remainingSteps: Self.maximumMatchSteps)
+        switch matchSegments(
+            document.segments,
+            in: source,
+            at: 0,
+            sourceIndex: source.startIndex,
+            captures: [:],
+            budget: &budget
+        ) {
         case .success(let captures):
             return .success(captures)
         case .failure(let message):
             return .failure(message)
+        case .ambiguous:
+            return .failure(L10n.string("The record matches the template in more than one way. Add more specific separators or use CSV import."))
+        case .tooComplex:
+            return .failure(L10n.string("The record is too complex to match safely. Use CSV import or a simpler template."))
         }
     }
 
@@ -1154,8 +1818,11 @@ private struct MetadataExchangeTextMatcher {
         in source: String,
         at segmentIndex: Int,
         sourceIndex: String.Index,
-        captures: [MetadataExchangeField: String]
-    ) -> MetadataExchangeCaptureResult {
+        captures: [MetadataExchangeField: String],
+        budget: inout MatchBudget
+    ) -> SearchResult {
+        guard budget.consume() else { return .tooComplex }
+
         if segmentIndex >= segments.count {
             return sourceIndex == source.endIndex
                 ? .success(captures)
@@ -1173,21 +1840,36 @@ private struct MetadataExchangeTextMatcher {
                 in: source,
                 at: segmentIndex + 1,
                 sourceIndex: nextSourceIndex,
-                captures: captures
+                captures: captures,
+                budget: &budget
             )
 
         case .field(let field):
             let nextSegmentIndex = segmentIndex + 1
             guard nextSegmentIndex < segments.count else {
-                return captureValue(String(source[sourceIndex...]), for: field, into: captures)
+                switch captureValue(String(source[sourceIndex...]), for: field, into: captures) {
+                case .success(let capturedValues):
+                    return .success(capturedValues)
+                case .failure(let message):
+                    return .failure(message)
+                }
             }
 
             guard case .literal(let nextLiteral) = segments[nextSegmentIndex] else {
                 return .failure(L10n.string("Adjacent fields need a literal separator."))
             }
 
+            guard let literalPositions = findLiteralPositions(
+                nextLiteral,
+                in: source,
+                startingAt: sourceIndex
+            ) else {
+                return .tooComplex
+            }
+
+            var uniqueCapture: [MetadataExchangeField: String]?
             var lastFailure: String?
-            for literalPosition in findLiteralPositions(nextLiteral, in: source, startingAt: sourceIndex).reversed() {
+            for literalPosition in literalPositions.reversed() {
                 switch captureValue(String(source[sourceIndex..<literalPosition]), for: field, into: captures) {
                 case .failure(let message):
                     lastFailure = message
@@ -1198,17 +1880,28 @@ private struct MetadataExchangeTextMatcher {
                         in: source,
                         at: nextSegmentIndex,
                         sourceIndex: literalPosition,
-                        captures: updatedCaptures
+                        captures: updatedCaptures,
+                        budget: &budget
                     )
-                    if case .success = result {
-                        return result
-                    }
-                    if case .failure(let message) = result {
+                    switch result {
+                    case .success(let capturedValues):
+                        if let uniqueCapture, uniqueCapture != capturedValues {
+                            return .ambiguous
+                        }
+                        uniqueCapture = capturedValues
+                    case .failure(let message):
                         lastFailure = message
+                    case .ambiguous:
+                        return .ambiguous
+                    case .tooComplex:
+                        return .tooComplex
                     }
                 }
             }
 
+            if let uniqueCapture {
+                return .success(uniqueCapture)
+            }
             return .failure(lastFailure ?? L10n.string("The record did not match the template."))
         }
     }
@@ -1220,7 +1913,12 @@ private struct MetadataExchangeTextMatcher {
     ) -> MetadataExchangeCaptureResult {
         guard field != .ignore else { return .success(captures) }
 
-        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = field.canonicalImportedValue(
+            rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        if let validationMessage = field.importedValueValidationMessage(value) {
+            return .failure(validationMessage)
+        }
         if let existingValue = captures[field], existingValue != value {
             return .failure("The field \(field.displayName) was captured more than once with different values.")
         }
@@ -1234,13 +1932,14 @@ private struct MetadataExchangeTextMatcher {
         _ literal: String,
         in source: String,
         startingAt startIndex: String.Index
-    ) -> [String.Index] {
+    ) -> [String.Index]? {
         guard !literal.isEmpty else { return [startIndex] }
 
         var positions: [String.Index] = []
         var searchStart = startIndex
         while searchStart < source.endIndex,
               let range = source[searchStart...].range(of: literal) {
+            guard positions.count < Self.maximumLiteralCandidates else { return nil }
             positions.append(range.lowerBound)
             searchStart = source.index(after: range.lowerBound)
         }

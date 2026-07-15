@@ -80,4 +80,67 @@ final class AudioTagNumberPairTests: XCTestCase {
             )
         )
     }
+
+    func testSingleFileEditNumberTextWithSlashReplacesNumberAndTotal() {
+        var edit = SingleFileEditModel(
+            track: 9,
+            trackTotal: 12,
+            disc: 9,
+            discTotal: 12,
+            trackNumberText: "9/12",
+            discNumberText: "9/12"
+        )
+
+        edit.setTrackNumberText("2/3")
+        edit.setDiscNumberText("2/3")
+
+        XCTAssertEqual(edit.track, 2)
+        XCTAssertEqual(edit.trackTotal, 3)
+        XCTAssertEqual(edit.trackNumberText, "2/3")
+        XCTAssertEqual(edit.disc, 2)
+        XCTAssertEqual(edit.discTotal, 3)
+        XCTAssertEqual(edit.discNumberText, "2/3")
+    }
+
+    func testSingleFileEditBlankNumberTextClearsNumberAndTotal() {
+        var edit = SingleFileEditModel(
+            track: 9,
+            trackTotal: 12,
+            disc: 9,
+            discTotal: 12,
+            trackNumberText: "9/12",
+            discNumberText: "9/12"
+        )
+
+        edit.setTrackNumberText("  \n")
+        edit.setDiscNumberText("")
+
+        XCTAssertEqual(edit.track, 0)
+        XCTAssertEqual(edit.trackTotal, 0)
+        XCTAssertEqual(edit.trackNumberText, "")
+        XCTAssertEqual(edit.disc, 0)
+        XCTAssertEqual(edit.discTotal, 0)
+        XCTAssertEqual(edit.discNumberText, "")
+    }
+
+    func testSingleFileEditNumberOnlyTextPreservesTotalAndFormatting() {
+        var edit = SingleFileEditModel(
+            track: 9,
+            trackTotal: 12,
+            disc: 4,
+            discTotal: 5,
+            trackNumberText: "9/12",
+            discNumberText: "4/5"
+        )
+
+        edit.setTrackNumberText(" 02 ")
+        edit.setDiscNumberText("03")
+
+        XCTAssertEqual(edit.track, 2)
+        XCTAssertEqual(edit.trackTotal, 12)
+        XCTAssertEqual(edit.trackNumberText, "02")
+        XCTAssertEqual(edit.disc, 3)
+        XCTAssertEqual(edit.discTotal, 5)
+        XCTAssertEqual(edit.discNumberText, "03")
+    }
 }

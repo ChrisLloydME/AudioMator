@@ -924,10 +924,10 @@ struct MetadataExchangeImportPlan {
 
 enum MetadataExchangePlanner {
     private static let maximumTemplateUTF8ByteCount = 16_384
-    private static let maximumImportUTF8ByteCount = 32 * 1_024 * 1_024
-    private static let maximumImportRecordCount = 100_000
-    private static let maximumTextRecordUTF8ByteCount = 262_144
-    private static let maximumCSVFieldUTF8ByteCount = 1_048_576
+    private static let maximumImportUTF8ByteCount = MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
+    private static let maximumImportRecordCount = MetadataExchangeResourceLimits.maximumRecordCount
+    private static let maximumTextRecordUTF8ByteCount = MetadataExchangeResourceLimits.maximumTextRecordUTF8ByteCount
+    private static let maximumCSVFieldUTF8ByteCount = MetadataExchangeResourceLimits.maximumCSVFieldUTF8ByteCount
 
     static func makeTextExportPlan(
         template: String,
@@ -960,20 +960,55 @@ enum MetadataExchangePlanner {
         }
 
         let uniqueFiles = uniqueTargetFiles(targetFiles)
-        let relativeBasePath = commonDirectoryPath(for: uniqueFiles)
-        let rows = uniqueFiles.enumerated().map { index, file in
-            MetadataTextExportRow(
-                id: file.id,
-                fileName: file.url.lastPathComponent,
-                output: render(document: document, file: file, index: index, relativeBasePath: relativeBasePath)
+        guard uniqueFiles.count <= MetadataExchangeResourceLimits.maximumRecordCount else {
+            return MetadataTextExportPlan(
+                validationMessage: L10n.string("The export contains more than 100,000 files. Export a smaller selection."),
+                rows: []
             )
         }
 
-        let containsMultilineRecord = rows.contains { row in
-            row.output.unicodeScalars.contains { scalar in
+        let relativeBasePath = commonDirectoryPath(for: uniqueFiles)
+        var rows: [MetadataTextExportRow] = []
+        rows.reserveCapacity(uniqueFiles.count)
+        var outputBudget = MetadataExchangeExportBudget(
+            maximumUTF8ByteCount: MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount,
+            recordSeparatorUTF8ByteCount: 1
+        )
+        var containsMultilineRecord = false
+
+        for (index, file) in uniqueFiles.enumerated() {
+            let output = render(
+                document: document,
+                file: file,
+                index: index,
+                relativeBasePath: relativeBasePath
+            )
+            let outputUTF8ByteCount = output.utf8.count
+            guard outputUTF8ByteCount <= MetadataExchangeResourceLimits.maximumTextRecordUTF8ByteCount else {
+                return MetadataTextExportPlan(
+                    validationMessage: L10n.string("A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values."),
+                    rows: []
+                )
+            }
+            guard outputBudget.append(recordUTF8ByteCount: outputUTF8ByteCount) else {
+                return MetadataTextExportPlan(
+                    validationMessage: L10n.string("The export would be larger than 32 MB. Export a smaller selection."),
+                    rows: []
+                )
+            }
+
+            containsMultilineRecord = containsMultilineRecord || output.unicodeScalars.contains { scalar in
                 scalar.value == 0x0A || scalar.value == 0x0D
             }
+            rows.append(
+                MetadataTextExportRow(
+                    id: file.id,
+                    fileName: file.url.lastPathComponent,
+                    output: output
+                )
+            )
         }
+
         return MetadataTextExportPlan(
             validationMessage: containsMultilineRecord
                 ? L10n.string("One or more values contain line breaks. Use CSV export to preserve multiline metadata safely.")
@@ -999,11 +1034,67 @@ enum MetadataExchangePlanner {
         }
 
         let uniqueFiles = uniqueTargetFiles(targetFiles)
+        guard uniqueFiles.count <= MetadataExchangeResourceLimits.maximumRecordCount else {
+            return MetadataCSVExportPlan(
+                validationMessage: L10n.string("The export contains more than 100,000 files. Export a smaller selection."),
+                columns: result.columns,
+                rows: [],
+                includeHeaderRow: includeHeaderRow,
+                delimiter: result.delimiter
+            )
+        }
+
         let relativeBasePath = commonDirectoryPath(for: uniqueFiles)
-        let rows = uniqueFiles.enumerated().map { index, file in
-            result.columns.map { field in
+        var rows: [[String]] = []
+        rows.reserveCapacity(uniqueFiles.count)
+        var outputBudget = MetadataExchangeExportBudget(
+            maximumUTF8ByteCount: MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount,
+            recordSeparatorUTF8ByteCount: 2
+        )
+
+        if includeHeaderRow {
+            let header = result.columns.map(\.displayName)
+            let serializedHeader = MetadataExchangeCSV.serialize([header], delimiter: result.delimiter)
+            guard outputBudget.append(recordUTF8ByteCount: serializedHeader.utf8.count) else {
+                return MetadataCSVExportPlan(
+                    validationMessage: L10n.string("The export would be larger than 32 MB. Export a smaller selection."),
+                    columns: result.columns,
+                    rows: [],
+                    includeHeaderRow: includeHeaderRow,
+                    delimiter: result.delimiter
+                )
+            }
+        }
+
+        for (index, file) in uniqueFiles.enumerated() {
+            let row = result.columns.map { field in
                 field.value(from: file, index: index, relativeBasePath: relativeBasePath)
             }
+            let hasOversizedField = row.contains { value in
+                MetadataExchangeCSV.spreadsheetProtectedValue(value).utf8.count >
+                    MetadataExchangeResourceLimits.maximumCSVFieldUTF8ByteCount
+            }
+            guard !hasOversizedField else {
+                return MetadataCSVExportPlan(
+                    validationMessage: L10n.string("A CSV field is larger than 1 MB. Shorten that metadata value before exporting."),
+                    columns: result.columns,
+                    rows: [],
+                    includeHeaderRow: includeHeaderRow,
+                    delimiter: result.delimiter
+                )
+            }
+
+            let serializedRow = MetadataExchangeCSV.serialize([row], delimiter: result.delimiter)
+            guard outputBudget.append(recordUTF8ByteCount: serializedRow.utf8.count) else {
+                return MetadataCSVExportPlan(
+                    validationMessage: L10n.string("The export would be larger than 32 MB. Export a smaller selection."),
+                    columns: result.columns,
+                    rows: [],
+                    includeHeaderRow: includeHeaderRow,
+                    delimiter: result.delimiter
+                )
+            }
+            rows.append(row)
         }
 
         return MetadataCSVExportPlan(

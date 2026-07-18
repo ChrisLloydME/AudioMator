@@ -109,9 +109,9 @@ struct CoreMetadataExchangeImportRow: Equatable {
 
 enum CoreMetadataExchange {
     private static let maximumTemplateUTF8ByteCount = 16_384
-    private static let maximumImportUTF8ByteCount = 32 * 1_024 * 1_024
-    private static let maximumImportRecordCount = 100_000
-    private static let maximumCSVFieldUTF8ByteCount = 1_048_576
+    private static let maximumImportUTF8ByteCount = MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
+    private static let maximumImportRecordCount = MetadataExchangeResourceLimits.maximumRecordCount
+    private static let maximumCSVFieldUTF8ByteCount = MetadataExchangeResourceLimits.maximumCSVFieldUTF8ByteCount
 
     static func parseCSVColumnTemplate(
         _ template: String

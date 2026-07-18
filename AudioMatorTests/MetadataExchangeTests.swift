@@ -455,6 +455,23 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows.first?.output, "Line One\r\nLine Two")
     }
 
+    func testTextExportRejectsAnOversizedRenderedRecord() {
+        let file = AudioFileTestFactory.make(
+            title: String(
+                repeating: "a",
+                count: MetadataExchangeResourceLimits.maximumTextRecordUTF8ByteCount + 1
+            )
+        )
+        let plan = MetadataExchangePlanner.makeTextExportPlan(
+            template: "{{title}}",
+            targetFiles: [file]
+        )
+
+        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertTrue(plan.rows.isEmpty)
+        XCTAssertFalse(plan.canExport)
+    }
+
     func testCSVImportMatchesReorderedRowsByIndex() throws {
         let first = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A")
         let second = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"), title: "Old B")
@@ -601,6 +618,23 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows, [["09", "12", "02", "03", "1"]])
+    }
+
+    func testCSVExportRejectsAFieldThatOwnImportLimitCouldNotRead() {
+        let title = "=" + String(
+            repeating: "a",
+            count: MetadataExchangeResourceLimits.maximumCSVFieldUTF8ByteCount - 1
+        )
+        let file = AudioFileTestFactory.make(title: title)
+        let plan = MetadataExchangePlanner.makeCSVExportPlan(
+            template: "{{title}}",
+            includeHeaderRow: false,
+            targetFiles: [file]
+        )
+
+        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertTrue(plan.rows.isEmpty)
+        XCTAssertFalse(plan.canExport)
     }
 
     func testCSVImportRejectsInvalidStructuredNumbersAndHeaderWidth() {

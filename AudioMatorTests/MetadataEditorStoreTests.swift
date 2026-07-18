@@ -183,24 +183,30 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
-    func testPresentKeepsEmptyMapAndReportsLoadFailure() async throws {
-        let file = AudioFileTestFactory.make(
+    func testPresentFailsClosedWhenAnySelectedFileCannotBeRead() async throws {
+        let readableFile = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/readable.mp3")
+        )
+        let unreadableFile = AudioFileTestFactory.make(
             id: UUID(),
             url: URL(fileURLWithPath: "/tmp/unreadable.mp3")
         )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(
-                propertyMapsByURL: [:],
-                failuresByURL: [file.url: MockMetadataEditorPipeline.MockError.unreadable]
+                propertyMapsByURL: [readableFile.url: ["TITLE": "Keep Me"]],
+                failuresByURL: [unreadableFile.url: MockMetadataEditorPipeline.MockError.unreadable]
             )
         )
 
-        store.present(targetFiles: [file])
+        store.present(targetFiles: [readableFile, unreadableFile])
         try await waitUntilLoaded(store)
+        store.upsertField(key: "ALBUM", value: "Must Not Apply")
 
-        XCTAssertEqual(store.originalPropertyMaps[file.id], [:])
-        XCTAssertEqual(store.draftPropertyMaps[file.id], [:])
-        XCTAssertNil(store.selectedFieldKey)
+        XCTAssertEqual(store.originalPropertyMaps[readableFile.id], ["TITLE": "Keep Me"])
+        XCTAssertNil(store.originalPropertyMaps[unreadableFile.id])
+        XCTAssertEqual(store.draftPropertyMaps, store.originalPropertyMaps)
+        XCTAssertFalse(store.hasUnsavedChanges)
         XCTAssertNotNil(store.loadErrorMessage)
         XCTAssertTrue(store.loadErrorMessage?.contains("unreadable.mp3") == true)
     }

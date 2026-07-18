@@ -76,6 +76,26 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         }
     }
 
+    func testExternalTextLoaderHandlesAnUnboundedCallerLimitWithoutOverflow() async throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: temporaryDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let fileURL = temporaryDirectory.appendingPathComponent("metadata.txt")
+        try Data("small".utf8).write(to: fileURL)
+
+        let text = try await MetadataExchangeExternalTextFileLoader.load(
+            from: fileURL,
+            maximumByteCount: Int.max
+        )
+
+        XCTAssertEqual(text, "small")
+    }
+
     func testRenameMessagesPreserveReadyAndDuplicateTargetSummaries() {
         let readyURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let readyFile = AudioFileTestFactory.make(

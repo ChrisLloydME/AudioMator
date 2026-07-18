@@ -20,6 +20,19 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(AudioNumericConversion.roundedInt(123.9, rule: .down), 123)
     }
 
+    func testAudioNumericConversionBoundsIntegerDistanceWithoutOverflow() {
+        XCTAssertEqual(AudioNumericConversion.boundedDistance(10, 12, maximum: 2), 2)
+        XCTAssertNil(AudioNumericConversion.boundedDistance(Int.max, Int.min, maximum: 30_000))
+        XCTAssertNil(AudioNumericConversion.boundedDistance(0, Int.min, maximum: Int.max))
+        XCTAssertNil(AudioNumericConversion.boundedDistance(10, 12, maximum: 1))
+    }
+
+    func testAudioNumericConversionSaturatesNonnegativeCounts() {
+        XCTAssertEqual(AudioNumericConversion.saturatingNonnegativeSum(2, 3), 5)
+        XCTAssertEqual(AudioNumericConversion.saturatingNonnegativeSum(-4, 3), 3)
+        XCTAssertEqual(AudioNumericConversion.saturatingNonnegativeSum(Int.max, 1), Int.max)
+    }
+
     func testAudioTagNumberTextParsesPaddedNumberAndOptionalTotal() {
         let components = AudioTagNumberText.components(from: " 003 / 012 ")
 

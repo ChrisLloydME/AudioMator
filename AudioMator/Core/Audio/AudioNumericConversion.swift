@@ -18,4 +18,24 @@ enum AudioNumericConversion {
         guard seconds > 0 else { return nil }
         return roundedInt(seconds)
     }
+
+    nonisolated static func boundedDistance(
+        _ lhs: Int,
+        _ rhs: Int,
+        maximum: Int
+    ) -> Int? {
+        guard maximum >= 0 else { return nil }
+        let (difference, overflowed) = lhs.subtractingReportingOverflow(rhs)
+        guard !overflowed, difference != .min else { return nil }
+
+        let distance = abs(difference)
+        return distance <= maximum ? distance : nil
+    }
+
+    nonisolated static func saturatingNonnegativeSum(_ lhs: Int, _ rhs: Int) -> Int {
+        let safeLHS = max(0, lhs)
+        let safeRHS = max(0, rhs)
+        let (sum, overflowed) = safeLHS.addingReportingOverflow(safeRHS)
+        return overflowed ? .max : sum
+    }
 }

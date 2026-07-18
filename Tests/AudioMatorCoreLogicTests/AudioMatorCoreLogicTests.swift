@@ -214,6 +214,25 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
     }
 
+    func testMetadataExchangeLocatorIndexUsesTheNarrowestAvailableKey() {
+        let fields = ["name", "path"]
+        let names = ["duplicate", "duplicate", "unique"]
+        let paths = ["/a", "/b", "/c"]
+        let index = MetadataExchangeLocatorCandidateIndex(
+            itemCount: names.count,
+            fields: fields
+        ) { field, itemIndex in
+            [field == "name" ? names[itemIndex] : paths[itemIndex]]
+        }
+
+        let candidates = index.candidateIndices(fields: fields) { field in
+            field == "name" ? "duplicate" : "/b"
+        }
+
+        XCTAssertEqual(candidates, [1])
+        XCTAssertTrue(index.candidateIndices(fields: fields) { _ in nil }.isEmpty)
+    }
+
     func testMetadataExchangeExportBudgetCountsSeparatorsAndFailsClosed() {
         var budget = MetadataExchangeExportBudget(
             maximumUTF8ByteCount: 10,
@@ -501,6 +520,33 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(rows.map(\.status), [.ready, .ready])
         XCTAssertEqual(rows.map(\.fileID), ["2", "1"])
         XCTAssertEqual(rows.map { $0.writeValues[.title] }, ["New B", "New A"])
+    }
+
+    func testMetadataExchangeCoreIndexesLargeReorderedImports() {
+        let count = 10_000
+        let files = (0..<count).map { index in
+            CoreMetadataExchangeFile(
+                id: String(index),
+                fileName: "\(index).flac",
+                baseName: String(index),
+                path: "/music/\(index).flac",
+                values: [.title: "Old"]
+            )
+        }
+        let source = (1...count).reversed().map { "\($0),Title \($0)" }.joined(separator: "\n")
+
+        let rows = CoreMetadataExchange.csvImportRows(
+            columns: [.index, .title],
+            sourceText: source,
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(rows.count, count)
+        XCTAssertEqual(rows.filter { $0.status == .ready }.count, count)
+        XCTAssertEqual(rows.first?.fileID, String(count - 1))
+        XCTAssertEqual(rows.last?.fileID, "0")
     }
 
     func testMetadataExchangeCoreIntersectsRelativePathToDisambiguateDuplicateFilenames() {

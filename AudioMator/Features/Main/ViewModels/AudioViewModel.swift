@@ -341,6 +341,7 @@ final class AudioViewModel: ObservableObject {
         guard panel.runModal() == .OK else { return nil }
 
         var addedFolders: [WatchedFolder] = []
+        var failedFolderNames: [String] = []
         var duplicateSelection: SidebarSelection?
         var seenFolderKeys = Set<String>()
         let existingFoldersByKey = Dictionary(
@@ -359,7 +360,17 @@ final class AudioViewModel: ObservableObject {
             do {
                 let folder = try watchedFolderStore.makeFolder(from: url)
                 addedFolders.append(folder)
-            } catch {}
+            } catch {
+                failedFolderNames.append(FileManager.default.displayName(atPath: url.path))
+            }
+        }
+
+        if !failedFolderNames.isEmpty {
+            presentMetadataWriteHUD(
+                style: .warning,
+                title: String(localized: "Folder Not Added"),
+                subtitle: Self.watchedFolderAccessFailureMessage(for: failedFolderNames)
+            )
         }
 
         guard !addedFolders.isEmpty else {
@@ -385,6 +396,14 @@ final class AudioViewModel: ObservableObject {
         #else
         return nil
         #endif
+    }
+
+    nonisolated static func watchedFolderAccessFailureMessage(for displayNames: [String]) -> String {
+        guard let firstName = displayNames.first else { return "" }
+        if displayNames.count == 1 {
+            return String(localized: "AudioMator couldn't save access to “\(firstName)”.")
+        }
+        return String(localized: "AudioMator couldn't save access to \(displayNames.count) selected folders.")
     }
 
     func removeWatchedFolder(id: UUID) {

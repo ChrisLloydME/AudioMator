@@ -6,6 +6,7 @@ extension AudioViewModel {
 
         let targetFiles = targetFiles
         guard !targetFiles.isEmpty else { return }
+        guard canStartExternalFileMutation() else { return }
 
         let assignments = MuseAmpCommentIDGenerator.assignments(
             for: targetFiles.map { file in

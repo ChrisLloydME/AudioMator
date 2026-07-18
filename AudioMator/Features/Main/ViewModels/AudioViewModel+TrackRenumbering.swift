@@ -25,6 +25,7 @@ extension AudioViewModel {
         guard !targetsInOrder.isEmpty else {
             return .empty
         }
+        guard canStartExternalFileMutation() else { return .empty }
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }

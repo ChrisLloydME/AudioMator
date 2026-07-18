@@ -7,6 +7,7 @@ extension AudioViewModel {
         to targets: [MetadataEditorTarget]
     ) async -> Bool {
         guard !targets.isEmpty else { return false }
+        guard canStartExternalFileMutation() else { return false }
 
         var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
 

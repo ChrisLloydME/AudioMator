@@ -5,6 +5,7 @@ extension AudioViewModel {
         guard metadataSaveProgress == nil else { return false }
         let normalizedLyrics = syncedLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedLyrics.isEmpty else { return false }
+        guard canStartExternalFileMutation() else { return false }
 
         guard let file = files.first(where: { $0.id == fileID }) else {
             presentMetadataWriteHUD(
@@ -100,6 +101,7 @@ extension AudioViewModel {
             )
             return []
         }
+        guard canStartExternalFileMutation() else { return [] }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         var summary = BatchMetadataWriteSummary(totalTargets: matches.count)

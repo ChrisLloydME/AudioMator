@@ -944,6 +944,36 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "iTunes Title")
     }
 
+    func testExternalMetadataWriteDoesNotDiscardUnsavedInspectorDraft() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/itunes-unsaved.m4a")
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Original",
+            includeDefaultFileFingerprint: false
+        )
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+        viewModel.edit?.title = "Pending Inspector Draft"
+
+        await viewModel.applyiTunesTaggingPlan([
+            iTunesTaggingWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Provider Title"]
+            )
+        ])
+
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertEqual(viewModel.edit?.title, "Pending Inspector Draft")
+        XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Unsaved Changes")
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

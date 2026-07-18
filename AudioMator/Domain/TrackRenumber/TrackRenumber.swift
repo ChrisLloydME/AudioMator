@@ -13,9 +13,15 @@ struct TrackRenumberOptions: Equatable {
     var padWithZeros: Bool = true
 }
 
+let maximumTrackRenumberStartNumber = 9_999
+
+func normalizedTrackRenumberStartNumber(_ value: Int) -> Int {
+    min(max(value, 0), maximumTrackRenumberStartNumber)
+}
+
 func trackRenumberPadWidth(maxNumber: Int, padWithZeros: Bool) -> Int {
     guard padWithZeros else { return 0 }
-    return max(2, String(abs(maxNumber)).count)
+    return max(2, String(maxNumber.magnitude).count)
 }
 
 struct TrackRenumberFailure: Identifiable, Equatable {

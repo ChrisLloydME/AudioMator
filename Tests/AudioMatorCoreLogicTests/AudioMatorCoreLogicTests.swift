@@ -330,6 +330,12 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(trackRenumberPadWidth(maxNumber: 9, padWithZeros: true), 2)
         XCTAssertEqual(trackRenumberPadWidth(maxNumber: 100, padWithZeros: true), 3)
         XCTAssertEqual(trackRenumberPadWidth(maxNumber: 100, padWithZeros: false), 0)
+        XCTAssertEqual(normalizedTrackRenumberStartNumber(Int.min), 0)
+        XCTAssertEqual(normalizedTrackRenumberStartNumber(Int.max), 9_999)
+        XCTAssertEqual(
+            trackRenumberPadWidth(maxNumber: Int.min, padWithZeros: true),
+            String(Int.min.magnitude).count
+        )
     }
 
     func testFuzzyStringSimilarityNormalizesProviderMetadataNoise() {

@@ -173,6 +173,7 @@ final class iTunesBrowserStore: ObservableObject {
                     self.isSearching = false
                 }
             } catch is CancellationError {
+                guard !Task.isCancelled else { return }
                 await MainActor.run { self.isSearching = false }
             } catch {
                 guard !Task.isCancelled else { return }

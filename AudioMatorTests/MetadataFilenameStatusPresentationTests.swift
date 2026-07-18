@@ -77,9 +77,11 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
     }
 
     func testRenameMessagesPreserveReadyAndDuplicateTargetSummaries() {
+        let readyURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let readyFile = AudioFileTestFactory.make(
-            url: URL(fileURLWithPath: "/tmp/source.mp3"),
-            title: "Renamed"
+            url: readyURL,
+            title: "Renamed",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: readyURL)
         )
         let readyPlan = makeFileRenamePlan(template: "{{title}}", targetFiles: [readyFile])
 
@@ -97,11 +99,17 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
             targetFiles: [
                 AudioFileTestFactory.make(
                     url: URL(fileURLWithPath: "/tmp/one.mp3"),
-                    title: "Duplicate"
+                    title: "Duplicate",
+                    fileFingerprint: AudioFileTestFactory.fingerprint(
+                        for: URL(fileURLWithPath: "/tmp/one.mp3")
+                    )
                 ),
                 AudioFileTestFactory.make(
                     url: URL(fileURLWithPath: "/tmp/two.mp3"),
-                    title: "Duplicate"
+                    title: "Duplicate",
+                    fileFingerprint: AudioFileTestFactory.fingerprint(
+                        for: URL(fileURLWithPath: "/tmp/two.mp3")
+                    )
                 )
             ]
         )

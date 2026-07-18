@@ -34,12 +34,14 @@ final class FileRenameTransactionTests: XCTestCase {
                 FileRenameOperation(
                     id: UUID(),
                     sourceURL: firstSourceURL,
-                    destinationURL: firstDestinationURL
+                    destinationURL: firstDestinationURL,
+                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: firstSourceURL)
                 ),
                 FileRenameOperation(
                     id: UUID(),
                     sourceURL: secondSourceURL,
-                    destinationURL: secondDestinationURL
+                    destinationURL: secondDestinationURL,
+                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: secondSourceURL)
                 )
             ],
             fileSystem: fileSystem
@@ -90,12 +92,14 @@ final class FileRenameTransactionTests: XCTestCase {
                 FileRenameOperation(
                     id: UUID(),
                     sourceURL: firstSourceURL,
-                    destinationURL: firstDestinationURL
+                    destinationURL: firstDestinationURL,
+                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: firstSourceURL)
                 ),
                 FileRenameOperation(
                     id: UUID(),
                     sourceURL: secondSourceURL,
-                    destinationURL: secondDestinationURL
+                    destinationURL: secondDestinationURL,
+                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: secondSourceURL)
                 )
             ],
             fileSystem: fileSystem
@@ -112,6 +116,40 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertNotNil(recoveryItem.rollbackError)
         XCTAssertTrue(failure.message.contains(firstDestinationURL.path))
     }
+
+    func testChangedSourceIsRejectedBeforeAnyFileIsMoved() {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorRenameIdentityTests-\(UUID().uuidString)", isDirectory: true)
+        let sourceURL = rootURL.appendingPathComponent("source.mp3")
+        let destinationURL = rootURL.appendingPathComponent("renamed.mp3")
+        let previewFingerprint = AudioFileTestFactory.fingerprint(for: sourceURL, fileSize: 100)
+        let changedFingerprint = AudioFileTestFactory.fingerprint(for: sourceURL, fileSize: 200)
+        let fileSystem = FaultInjectingRenameFileSystem(
+            existingURLs: [sourceURL],
+            fingerprints: [sourceURL: changedFingerprint],
+            shouldFailMove: { _, _ in nil }
+        )
+
+        let result = executeFileRenameTransaction(
+            [
+                FileRenameOperation(
+                    id: UUID(),
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL,
+                    expectedFileFingerprint: previewFingerprint
+                )
+            ],
+            fileSystem: fileSystem
+        )
+
+        guard case .failure(let failure) = result else {
+            return XCTFail("Expected a source changed after preview to be rejected.")
+        }
+        XCTAssertTrue(failure.message.contains("changed after the preview"))
+        XCTAssertTrue(fileSystem.fileExists(at: sourceURL))
+        XCTAssertFalse(fileSystem.fileExists(at: destinationURL))
+        XCTAssertEqual(fileSystem.moveCount, 0)
+    }
 }
 
 private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unchecked Sendable {
@@ -119,10 +157,17 @@ private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unche
 
     private let lock = NSLock()
     private var existingPaths: Set<String>
+    private let fingerprintsByPath: [String: AudioFileFingerprint]
     private let shouldFailMove: FailureRule
+    private(set) var moveCount = 0
 
-    init(existingURLs: [URL], shouldFailMove: @escaping FailureRule) {
+    init(
+        existingURLs: [URL],
+        fingerprints: [URL: AudioFileFingerprint] = [:],
+        shouldFailMove: @escaping FailureRule
+    ) {
         existingPaths = Set(existingURLs.map(\.path))
+        fingerprintsByPath = Dictionary(uniqueKeysWithValues: fingerprints.map { ($0.key.path, $0.value) })
         self.shouldFailMove = shouldFailMove
     }
 
@@ -130,8 +175,18 @@ private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unche
         lock.withLock { existingPaths.contains(url.path) }
     }
 
+    func fingerprint(at url: URL) throws -> AudioFileFingerprint {
+        try lock.withLock {
+            guard existingPaths.contains(url.path) else {
+                throw TestMoveError.sourceMissing
+            }
+            return fingerprintsByPath[url.path] ?? AudioFileTestFactory.fingerprint(for: url)
+        }
+    }
+
     func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
         try lock.withLock {
+            moveCount += 1
             if let error = shouldFailMove(sourceURL, destinationURL) {
                 throw error
             }

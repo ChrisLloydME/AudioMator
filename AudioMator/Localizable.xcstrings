@@ -481,6 +481,84 @@
     "1" : {
 
     },
+    "A text record is larger than 256 KB. Use CSV import for multiline or very large values." : {
+
+    },
+    "Add at least one text record to import." : {
+
+    },
+    "Close every template field with }}." : {
+
+    },
+    "Content Advisory" : {
+
+    },
+    "Multiple external records identify this selected file. None of them will be written." : {
+
+    },
+    "Multiple selected files match this record. Add Path or Relative Path to disambiguate them." : {
+
+    },
+    "Name Too Long" : {
+
+    },
+    "No selected file matches all locator values in this record." : {
+
+    },
+    "One or more values contain line breaks. Use CSV export to preserve multiline metadata safely." : {
+
+    },
+    "The CSV contains more than 100,000 data rows. Split it into smaller batches." : {
+
+    },
+    "The CSV import is too large. Split it into files smaller than 32 MB." : {
+
+    },
+    "The column template contains too many columns." : {
+
+    },
+    "The column template is too large." : {
+
+    },
+    "The filename template contains too many segments." : {
+
+    },
+    "The filename template is too large." : {
+
+    },
+    "The generated filename is too long for the destination file system." : {
+
+    },
+    "The import contains more than 100,000 records. Split it into smaller batches." : {
+
+    },
+    "The import text is too large. Split it into files smaller than 32 MB." : {
+
+    },
+    "The record is too complex to match safely. Use CSV import or a simpler template." : {
+
+    },
+    "The record matches the template in more than one way. Add more specific separators or use CSV import." : {
+
+    },
+    "The text template contains too many segments." : {
+
+    },
+    "The text template is too large." : {
+
+    },
+    "Use a single-line template. Use CSV for multiline metadata." : {
+
+    },
+    "iTunes Album ID" : {
+
+    },
+    "iTunes Artist ID" : {
+
+    },
+    "iTunes Catalog ID" : {
+
+    },
     "A different file already exists at the target path." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:135.",
       "localizations" : {
@@ -1568,6 +1646,12 @@
           }
         }
       }
+    },
+    "AudioMator can only import a regular text file." : {
+
+    },
+    "AudioMator couldn't read that file as UTF-8, UTF-16, Windows-1252, or Mac Roman text." : {
+
     },
     "AudioMator keeps each file's current extension. The template changes only the filename." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:546.",
@@ -5206,6 +5290,9 @@
     "Finder" : {
 
     },
+    "Finishing..." : {
+
+    },
     "First row gets the highest number." : {
 
     },
@@ -5556,6 +5643,9 @@
       }
     },
     "Imported" : {
+
+    },
+    "Importing Metadata" : {
 
     },
     "Include header row" : {
@@ -7194,6 +7284,9 @@
       }
     },
     "Modes" : {
+
+    },
+    "More than one loaded file has the same identifier. Reload the files and try again." : {
 
     },
     "Multiple selected files would end up with the same filename." : {
@@ -9130,6 +9223,9 @@
       }
     },
     "Prefix" : {
+
+    },
+    "Preparing %lld files..." : {
 
     },
     "Preview" : {
@@ -11114,6 +11210,9 @@
     "Save Logs" : {
 
     },
+    "Save or discard the pending inspector edits before writing a metadata exchange plan." : {
+
+    },
     "Saved to Disk" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:51, AudioMator/Features/Main/ViewModels/AudioViewModel.swift:200.",
       "localizations" : {
@@ -12316,6 +12415,9 @@
     "Text Transform" : {
 
     },
+    "That file is too large to import. Choose a text file no larger than %lld MB." : {
+
+    },
     "That link didn't resolve to a supported MusicBrainz result." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:407.",
       "localizations" : {
@@ -12397,6 +12499,9 @@
           }
         }
       }
+    },
+    "The file is no longer loaded in AudioMator." : {
+
     },
     "The filename did not fully match the template." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:200.",
@@ -12480,6 +12585,9 @@
         }
       }
     },
+    "The filename metadata plan contains an invalid field or value. Refresh the preview and try again." : {
+
+    },
     "The filenames already match." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:291.",
       "localizations" : {
@@ -12562,6 +12670,9 @@
         }
       }
     },
+    "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again." : {
+
+    },
     "The selected artwork will be applied to all selected files." : {
 
     },
@@ -12608,6 +12719,9 @@
           }
         }
       }
+    },
+    "The write plan contains more than one entry for the same file. Refresh the preview and try again." : {
+
     },
     "This artwork will be applied to all selected files" : {
       "comment" : "User-facing UI text. Context: album artwork editing or lookup workflow. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:549.",
@@ -13932,6 +14046,9 @@
         }
       }
     },
+    "Write Failed" : {
+
+    },
     "Write Metadata" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:69, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet+iOS.swift:25, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:30.",
       "localizations" : {
@@ -13972,6 +14089,9 @@
           }
         }
       }
+    },
+    "Writing Filename Metadata" : {
+
     },
     "Year" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:37, AudioMator/Domain/UIState/MiddleListColumn.swift:45, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:124, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:310.",

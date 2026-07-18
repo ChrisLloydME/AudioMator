@@ -202,7 +202,7 @@ final class AudioMatorCoreLogicTests: XCTestCase {
     }
 
     func testMetadataExchangeCSVNeutralizesSpreadsheetFormulasReversibly() {
-        let rows = [["=1+1", "+2", "-3", "@SUM(A1:A2)", "\t=4", "'=literal", "plain"]]
+        let rows = [["=1+1", "+2", "-3", "@SUM(A1:A2)", "\t=4", "\u{00A0}=5", "'=literal", "plain"]]
         let serialized = MetadataExchangeCSV.serialize(rows)
 
         XCTAssertTrue(serialized.hasPrefix("'=1+1"))

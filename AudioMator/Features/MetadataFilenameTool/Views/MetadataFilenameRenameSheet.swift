@@ -86,7 +86,7 @@ private struct MetadataFilenameTargetResolution {
 }
 
 enum MetadataExchangeExternalTextFileLoader {
-    nonisolated static let maximumByteCount = 32 * 1_024 * 1_024
+    nonisolated static let maximumByteCount = MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
 
     enum LoadingError: LocalizedError, Equatable, Sendable {
         case notRegularFile
@@ -138,8 +138,11 @@ enum MetadataExchangeExternalTextFileLoader {
             var data = Data()
             while data.count <= maximumByteCount {
                 try Task.checkCancellation()
-                let remainingByteCount = maximumByteCount + 1 - data.count
-                let chunk = try fileHandle.read(upToCount: min(64 * 1_024, remainingByteCount))
+                let remainingByteCount = maximumByteCount - data.count
+                let chunkByteCount = remainingByteCount < 64 * 1_024
+                    ? remainingByteCount + 1
+                    : 64 * 1_024
+                let chunk = try fileHandle.read(upToCount: chunkByteCount)
                 guard let chunk, !chunk.isEmpty else { break }
                 data.append(chunk)
             }

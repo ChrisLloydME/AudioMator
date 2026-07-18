@@ -162,6 +162,7 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
                     }
                 }
             } catch is CancellationError {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self.updateState(for: file.id) { state in
                         state.searchState = .cancelled

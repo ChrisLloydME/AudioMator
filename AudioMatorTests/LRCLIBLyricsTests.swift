@@ -190,6 +190,35 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertEqual(pipeline.writtenPropertyMap?.count, 3)
     }
 
+    @MainActor
+    func testRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
+        let file = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/restarted-search.m4a"),
+            title: "Restarted Search",
+            artist: "Artist"
+        )
+        let gate = RestartableLRCLIBSearchGate()
+        let store = LRCLIBLyricsBrowserStore(client: RestartableLRCLIBSearchClient(gate: gate))
+        store.seed(from: [file])
+
+        store.searchCurrentFile()
+        await gate.waitUntilCallCount(1)
+        store.searchCurrentFile()
+        await gate.waitUntilCallCount(2)
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(
+            store.searchState,
+            .searching,
+            "A cancelled request must not overwrite the state of its replacement search."
+        )
+
+        await gate.releaseSecondCall()
+        try await waitForSearchToFinish(store)
+        XCTAssertEqual(store.searchState, .loaded)
+    }
+
     private func makeMockSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -289,6 +318,58 @@ private final class MockLRCLIBSearchClient: LRCLIBLyricsSearching, @unchecked Se
             }
         }
 
+        return []
+    }
+}
+
+private actor RestartableLRCLIBSearchGate {
+    private var callCount = 0
+    private var callCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var secondCallContinuation: CheckedContinuation<Void, Never>?
+    private var isSecondCallReleased = false
+
+    func beginCall() -> Int {
+        callCount += 1
+        let readyWaiters = callCountWaiters.filter { callCount >= $0.count }
+        callCountWaiters.removeAll { callCount >= $0.count }
+        readyWaiters.forEach { $0.continuation.resume() }
+        return callCount
+    }
+
+    func waitUntilCallCount(_ expectedCount: Int) async {
+        guard callCount < expectedCount else { return }
+        await withCheckedContinuation { continuation in
+            callCountWaiters.append((expectedCount, continuation))
+        }
+    }
+
+    func waitForSecondCallRelease() async {
+        guard !isSecondCallReleased else { return }
+        await withCheckedContinuation { secondCallContinuation = $0 }
+    }
+
+    func releaseSecondCall() {
+        isSecondCallReleased = true
+        secondCallContinuation?.resume()
+        secondCallContinuation = nil
+    }
+}
+
+private final class RestartableLRCLIBSearchClient: LRCLIBLyricsSearching, @unchecked Sendable {
+    private let gate: RestartableLRCLIBSearchGate
+
+    init(gate: RestartableLRCLIBSearchGate) {
+        self.gate = gate
+    }
+
+    func search(matching query: LRCLIBSearchQuery, limit: Int) async throws -> [LRCLIBLyricsCandidate] {
+        let callIndex = await gate.beginCall()
+        if callIndex == 1 {
+            try await Task.sleep(for: .seconds(60))
+            return []
+        }
+
+        await gate.waitForSecondCallRelease()
         return []
     }
 }

@@ -131,6 +131,45 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    func testWatchedFolderRefreshRetainsLastKnownFilesWhenRootScanFails() async throws {
+        let suiteName = "AudioMator.WatchedFolderScanFailureTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolderScanFailure-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        let audioURL = rootURL.appendingPathComponent("track.mp3")
+        XCTAssertTrue(FileManager.default.createFile(atPath: audioURL.path, contents: Data()))
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+        let viewModel = AudioViewModel(
+            watchedFolderStore: store,
+            metadataPipeline: ControllableWatchedFolderMetadataPipeline(),
+            saveIssueLogStore: SaveIssueLogStore()
+        )
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+
+        try await waitUntil(viewModel.files.count == 1)
+        try FileManager.default.removeItem(at: rootURL)
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        try await waitUntil(
+            viewModel.directoryMonitoringStatuses[folder.id]?.scanFailureCount == 1
+        )
+
+        XCTAssertEqual(viewModel.files.map(\.url), [audioURL])
+        XCTAssertTrue(
+            viewModel.directoryMonitoringStatuses[folder.id]?.message.contains("last known file list is retained") == true
+        )
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

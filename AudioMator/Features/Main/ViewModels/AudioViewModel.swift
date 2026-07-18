@@ -84,6 +84,7 @@ final class AudioViewModel: ObservableObject {
     private var fileIDsByKey: [String: UUID] = [:]
     private var folderRescanTasks: [UUID: Task<Void, Never>] = [:]
     private var folderDirectoryMonitors: [UUID: [String: DirectoryMonitor]] = [:]
+    private var watchedFolderScanFailureCounts: [UUID: Int] = [:]
     private var watchedFolderMetadataReadFailureCounts: [UUID: Int] = [:]
     private var securityScopedFolderURLs: [UUID: URL] = [:]
     private var securityScopedQuickImportFileURLs: [String: URL] = [:]
@@ -392,6 +393,7 @@ final class AudioViewModel: ObservableObject {
         stopWatchingFolder(id: id)
         watchedFolders.removeAll { $0.id == id }
         watchedFolderFiles[id] = nil
+        watchedFolderScanFailureCounts[id] = nil
         watchedFolderMetadataReadFailureCounts[id] = nil
         folderScanTokens[id] = nil
 
@@ -617,6 +619,23 @@ final class AudioViewModel: ObservableObject {
             scanTask.cancel()
         }
         guard !Task.isCancelled else { return }
+        guard folderScanTokens[id] == scanToken else { return }
+
+        if snapshot.scanFailureCount > 0 {
+            watchedFolderScanFailureCounts[id] = snapshot.scanFailureCount
+            let retainedMonitorKeys = folderDirectoryMonitors[id].map { Array($0.keys) } ?? []
+            let retainedMonitorURLs = retainedMonitorKeys.map {
+                URL(fileURLWithPath: $0, isDirectory: true)
+            }
+            updateDirectoryMonitors(
+                for: id,
+                directories: snapshot.directoryURLs + retainedMonitorURLs
+            )
+            rebuildVisibleFiles()
+            return
+        }
+
+        watchedFolderScanFailureCounts[id] = 0
 
         let fileIDsByKey = prepareStableIDs(for: snapshot.audioURLs)
         let metadataPipeline = self.metadataPipeline
@@ -925,6 +944,7 @@ final class AudioViewModel: ObservableObject {
             monitoredDirectoryCount: monitors.count,
             omittedByLimitCount: plan.omittedByLimitCount,
             failedToOpenCount: failedToOpenCount,
+            scanFailureCount: watchedFolderScanFailureCounts[folderID] ?? 0,
             metadataReadFailureCount: watchedFolderMetadataReadFailureCounts[folderID] ?? 0
         )
     }
@@ -1068,6 +1088,7 @@ final class AudioViewModel: ObservableObject {
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {
         var audioURLs: [URL] = []
         var directoryURLs: [URL] = [folderURL.standardizedFileURL]
+        var scanFailureCount = 0
         var seenAudioKeys = Set<String>()
         var seenDirectoryKeys = Set([urlKey(for: folderURL)])
 
@@ -1077,14 +1098,28 @@ final class AudioViewModel: ObservableObject {
         guard let enumerator = FileManager.default.enumerator(
             at: folderURL,
             includingPropertiesForKeys: Array(resourceKeys),
-            options: options
+            options: options,
+            errorHandler: { _, _ in
+                scanFailureCount += 1
+                return true
+            }
         ) else {
-            return FolderScanSnapshot(audioURLs: audioURLs, directoryURLs: directoryURLs)
+            return FolderScanSnapshot(
+                audioURLs: audioURLs,
+                directoryURLs: directoryURLs,
+                scanFailureCount: 1
+            )
         }
 
         for case let url as URL in enumerator {
             guard !Task.isCancelled else { break }
-            guard let values = try? url.resourceValues(forKeys: resourceKeys) else { continue }
+            let values: URLResourceValues
+            do {
+                values = try url.resourceValues(forKeys: resourceKeys)
+            } catch {
+                scanFailureCount += 1
+                continue
+            }
 
             if values.isDirectory == true {
                 let key = urlKey(for: url)
@@ -1105,7 +1140,11 @@ final class AudioViewModel: ObservableObject {
         audioURLs.sort(by: compareURLs)
         directoryURLs.sort(by: compareURLs)
 
-        return FolderScanSnapshot(audioURLs: audioURLs, directoryURLs: directoryURLs)
+        return FolderScanSnapshot(
+            audioURLs: audioURLs,
+            directoryURLs: directoryURLs,
+            scanFailureCount: scanFailureCount
+        )
     }
 
     nonisolated private static func uniqueSortedURLs(_ urls: [URL]) -> [URL] {
@@ -1167,6 +1206,7 @@ final class AudioViewModel: ObservableObject {
 private struct FolderScanSnapshot {
     let audioURLs: [URL]
     let directoryURLs: [URL]
+    let scanFailureCount: Int
 }
 
 private struct AudioFileLoadFailure: Sendable {

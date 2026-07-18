@@ -484,6 +484,18 @@
     "A text record is larger than 256 KB. Use CSV import for multiline or very large values." : {
 
     },
+    "A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values." : {
+
+    },
+    "A CSV field is larger than 1 MB. Shorten that metadata value before exporting." : {
+
+    },
+    "The export contains more than 100,000 files. Export a smaller selection." : {
+
+    },
+    "The export would be larger than 32 MB. Export a smaller selection." : {
+
+    },
     "Add at least one text record to import." : {
 
     },

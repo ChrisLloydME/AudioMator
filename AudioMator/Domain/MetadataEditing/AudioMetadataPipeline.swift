@@ -112,7 +112,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
-        let metadata = MetadataPipelineSupport.makeTagLibMetadata(from: edit, url: url)
+        let metadata = try MetadataPipelineSupport.makeTagLibMetadata(from: edit, url: url)
 
         let writeResult = try TagLibMetadataManager.writeTagMetadata(
             metadata,
@@ -156,7 +156,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
-        let originalPropertyMap = (try? rawMetadataPropertyMap(for: url)) ?? [:]
+        let originalPropertyMap = try rawMetadataPropertyMap(for: url)
         let removedKeys = MetadataPipelineSupport.removedPropertyMapKeys(
             original: originalPropertyMap,
             replacement: propertyMap
@@ -563,9 +563,13 @@ private enum MetadataPipelineSupport {
     ) -> [String] {
         guard !removedKeys.isEmpty else { return [] }
 
-        let persistedKeys = Set(((try? TagLibAudioMetadataPipeline().rawMetadataPropertyMap(for: url)) ?? [:])
-            .keys
-            .flatMap(propertyMapKeyAliases))
+        let persistedPropertyMap: [String: String]
+        do {
+            persistedPropertyMap = try TagLibAudioMetadataPipeline().rawMetadataPropertyMap(for: url)
+        } catch {
+            return ["Could not verify raw metadata removal after save: \((error as NSError).localizedDescription)"]
+        }
+        let persistedKeys = Set(persistedPropertyMap.keys.flatMap(propertyMapKeyAliases))
 
         let remainingKeys = removedKeys.intersection(persistedKeys)
         guard !remainingKeys.isEmpty else { return [] }
@@ -586,7 +590,13 @@ private enum MetadataPipelineSupport {
             warnings.append(contentsOf: removeMP4Atoms(matching: removedKeys, from: url))
         }
 
-        let currentPropertyMap = (try? TagLibAudioMetadataPipeline().rawMetadataPropertyMap(for: url)) ?? [:]
+        let currentPropertyMap: [String: String]
+        do {
+            currentPropertyMap = try TagLibAudioMetadataPipeline().rawMetadataPropertyMap(for: url)
+        } catch {
+            warnings.append("Could not read raw metadata for cleared-field cleanup: \((error as NSError).localizedDescription)")
+            return warnings
+        }
         let filteredPropertyMap = currentPropertyMap.filter { entry in
             removedKeys.intersection(propertyMapKeyAliases(entry.key)).isEmpty
         }
@@ -790,8 +800,11 @@ private enum MetadataPipelineSupport {
         AudioTagNumberText.parsedPair(from: rawText)
     }
 
-    nonisolated static func makeTagLibMetadata(from edit: MetadataEditPayload, url: URL) -> TagLibAudioMetadata {
-        let metadata = (try? TagLibMetadataExtractor.extractMetadata(from: url)) ?? TagLibAudioMetadata()
+    nonisolated static func makeTagLibMetadata(
+        from edit: MetadataEditPayload,
+        url: URL
+    ) throws -> TagLibAudioMetadata {
+        let metadata = try TagLibMetadataExtractor.extractMetadata(from: url)
 
         metadata.title = normalizedFieldComponent(edit.title)
         metadata.artist = normalizedFieldComponent(edit.artist)

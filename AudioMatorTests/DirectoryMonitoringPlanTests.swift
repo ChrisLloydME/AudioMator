@@ -63,12 +63,15 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
             totalDirectoryCount: 301,
             monitoredDirectoryCount: 126,
             omittedByLimitCount: 173,
-            failedToOpenCount: 2
+            failedToOpenCount: 2,
+            metadataReadFailureCount: 1
         )
 
         XCTAssertTrue(status.isDegraded)
         XCTAssertTrue(status.message.contains("126 of 301"))
         XCTAssertTrue(status.message.contains("173 omitted"))
         XCTAssertTrue(status.message.contains("2 could not be opened"))
+        XCTAssertTrue(status.message.contains("1 audio file could not be read"))
+        XCTAssertTrue(status.message.contains("Last known metadata is retained"))
     }
 }

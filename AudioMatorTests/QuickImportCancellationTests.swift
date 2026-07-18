@@ -88,6 +88,60 @@ final class QuickImportCancellationTests: XCTestCase {
             "Import feedback should identify the filename without disclosing its full path."
         )
     }
+
+    func testWatchedFolderRefreshRetainsLastKnownFileWhenMetadataReadFails() async throws {
+        let suiteName = "AudioMator.WatchedFolderReadFailureTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolderReadFailure-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        let firstURL = rootURL.appendingPathComponent("01-first.mp3")
+        let secondURL = rootURL.appendingPathComponent("02-second.mp3")
+        XCTAssertTrue(FileManager.default.createFile(atPath: firstURL.path, contents: Data()))
+        XCTAssertTrue(FileManager.default.createFile(atPath: secondURL.path, contents: Data()))
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+        let pipeline = ControllableWatchedFolderMetadataPipeline()
+        let viewModel = AudioViewModel(
+            watchedFolderStore: store,
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore()
+        )
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+
+        try await waitUntil(viewModel.files.count == 2)
+        await pipeline.setUnreadableURLs([firstURL])
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        try await waitUntil(
+            viewModel.directoryMonitoringStatuses[folder.id]?.metadataReadFailureCount == 1
+        )
+
+        XCTAssertEqual(Set(viewModel.files.map(\.url)), Set([firstURL, secondURL]))
+        XCTAssertTrue(
+            viewModel.directoryMonitoringStatuses[folder.id]?.message.contains("Last known metadata is retained") == true
+        )
+    }
+
+    private func waitUntil(
+        _ condition: @autoclosure @escaping @MainActor () -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let deadline = Date().addingTimeInterval(2)
+        while !condition(), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(condition(), "Timed out waiting for condition", file: file, line: line)
+    }
 }
 
 private actor QuickImportLoadGate {
@@ -182,6 +236,53 @@ private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPi
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         if url == unreadableURL {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        return await AudioFileTestFactory.make(id: id, url: url)
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private actor WatchedFolderReadControl {
+    private var unreadableURLs: Set<URL> = []
+
+    func setUnreadableURLs(_ urls: Set<URL>) {
+        unreadableURLs = urls
+    }
+
+    func shouldFail(_ url: URL) -> Bool {
+        unreadableURLs.contains(url)
+    }
+}
+
+private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private let control = WatchedFolderReadControl()
+
+    func setUnreadableURLs(_ urls: Set<URL>) async {
+        await control.setUnreadableURLs(urls)
+    }
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        if await control.shouldFail(url) {
             throw CocoaError(.fileReadNoPermission)
         }
         return await AudioFileTestFactory.make(id: id, url: url)

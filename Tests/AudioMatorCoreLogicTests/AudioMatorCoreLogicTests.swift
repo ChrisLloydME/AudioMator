@@ -4,6 +4,22 @@ import XCTest
 final class AudioMatorCoreLogicTests: XCTestCase {
     private let locale = Locale(identifier: "en_US_POSIX")
 
+    func testAudioNumericConversionRejectsInvalidAndOutOfRangeValues() {
+        XCTAssertNil(AudioNumericConversion.roundedInt(.nan))
+        XCTAssertNil(AudioNumericConversion.roundedInt(.infinity))
+        XCTAssertNil(AudioNumericConversion.roundedInt(-.infinity))
+        XCTAssertNil(AudioNumericConversion.roundedInt(.greatestFiniteMagnitude))
+        XCTAssertNil(AudioNumericConversion.positiveDurationMilliseconds(.greatestFiniteMagnitude))
+        XCTAssertNil(AudioNumericConversion.positiveDurationSeconds(0))
+        XCTAssertNil(AudioNumericConversion.positiveDurationSeconds(-1))
+    }
+
+    func testAudioNumericConversionRoundsValidDurations() {
+        XCTAssertEqual(AudioNumericConversion.positiveDurationMilliseconds(123.456), 123_456)
+        XCTAssertEqual(AudioNumericConversion.positiveDurationSeconds(123.6), 124)
+        XCTAssertEqual(AudioNumericConversion.roundedInt(123.9, rule: .down), 123)
+    }
+
     func testAudioTagNumberTextParsesPaddedNumberAndOptionalTotal() {
         let components = AudioTagNumberText.components(from: " 003 / 012 ")
 

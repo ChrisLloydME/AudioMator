@@ -36,7 +36,11 @@ enum LRCLIBCandidateRanker {
 
         if let queryDuration = query.durationSeconds,
            let candidateDuration = candidate.durationSeconds {
-            let delta = abs(candidateDuration - queryDuration)
+            let delta = AudioNumericConversion.boundedDistance(
+                candidateDuration,
+                queryDuration,
+                maximum: 20
+            ) ?? 20
             switch delta {
             case 0...1:
                 score += 20

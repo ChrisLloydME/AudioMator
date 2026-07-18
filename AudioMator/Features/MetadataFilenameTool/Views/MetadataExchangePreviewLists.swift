@@ -598,7 +598,7 @@ private extension MetadataExchangePreviewStatus {
             return .systemGreen
         case .unchanged, .extraExternalRecord, .noWritableFields:
             return .secondaryLabelColor
-        case .noMatch, .ambiguousMatch, .parseError, .missingExternalRecord:
+        case .noMatch, .ambiguousMatch, .parseError, .sourceUnavailable, .missingExternalRecord:
             return .systemOrange
         }
     }
@@ -609,7 +609,7 @@ private extension MetadataExchangePreviewStatus {
             return "checkmark.circle.fill"
         case .unchanged:
             return "equal.circle.fill"
-        case .noMatch, .ambiguousMatch, .parseError, .missingExternalRecord:
+        case .noMatch, .ambiguousMatch, .parseError, .sourceUnavailable, .missingExternalRecord:
             return "exclamationmark.triangle.fill"
         case .extraExternalRecord, .noWritableFields:
             return "minus.circle.fill"
@@ -622,7 +622,7 @@ private extension MetadataExchangePreviewStatus {
             return .green
         case .unchanged, .extraExternalRecord, .noWritableFields:
             return .secondary
-        case .noMatch, .ambiguousMatch, .parseError, .missingExternalRecord:
+        case .noMatch, .ambiguousMatch, .parseError, .sourceUnavailable, .missingExternalRecord:
             return .orange
         }
     }

@@ -37,6 +37,21 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    func testTextImportRejectsWritesWhenFileVersionIsUnavailable() {
+        let file = AudioFileTestFactory.make(includeDefaultFileFingerprint: false)
+
+        let plan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "Imported Title",
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertEqual(plan.rows.first?.status, .sourceUnavailable)
+        XCTAssertNil(plan.rows.first?.writeEntry)
+        XCTAssertFalse(plan.canApply)
+    }
+
     func testTextImportMarksConflictingRepeatedCapturesAsParseError() {
         let file = AudioFileTestFactory.make()
 

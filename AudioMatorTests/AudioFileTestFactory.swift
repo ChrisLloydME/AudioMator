@@ -31,7 +31,8 @@ enum AudioFileTestFactory {
         albumArtist: String = "",
         releaseDate: String = "",
         contentAdvisory: ContentAdvisory? = nil,
-        fileFingerprint: AudioFileFingerprint? = nil
+        fileFingerprint: AudioFileFingerprint? = nil,
+        includeDefaultFileFingerprint: Bool = true
     ) -> AudioFile {
         AudioFile(
             id: id,
@@ -80,7 +81,7 @@ enum AudioFileTestFactory {
             format: "",
             artwork: nil,
             artworkFingerprint: nil,
-            fileFingerprint: fileFingerprint
+            fileFingerprint: fileFingerprint ?? (includeDefaultFileFingerprint ? fingerprint(for: url) : nil)
         )
     }
 }

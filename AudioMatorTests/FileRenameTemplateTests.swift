@@ -81,7 +81,8 @@ final class FileRenameTemplateTests: XCTestCase {
     func testRenamePlanRejectsAFileWhoseIdentityCannotBeCaptured() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/missing-audiomator-file.mp3"),
-            title: "Renamed"
+            title: "Renamed",
+            includeDefaultFileFingerprint: false
         )
 
         let plan = makeFileRenamePlan(template: "{{title}}", targetFiles: [file])

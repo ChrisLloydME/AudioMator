@@ -54,6 +54,16 @@ extension AudioViewModel {
                 continue
             }
 
+            guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: entry.fileName,
+                        messages: [String(localized: "The file version could not be verified. Refresh the preview and try again.")]
+                    )
+                )
+                continue
+            }
+
             var edit = SingleFileEditModel(from: file)
             for field in FileRenameMetadataField.allCases {
                 guard let value = entry.values[field] else { continue }
@@ -64,7 +74,7 @@ extension AudioViewModel {
                 edit,
                 to: file,
                 syncInspectorAfterReload: false,
-                expectedFileFingerprint: entry.expectedFileFingerprint
+                expectedFileFingerprint: expectedFileFingerprint
             )
 
             switch result {
@@ -156,6 +166,16 @@ extension AudioViewModel {
                 continue
             }
 
+            guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: entry.fileName,
+                        messages: [String(localized: "The file version could not be verified. Refresh the preview and try again.")]
+                    )
+                )
+                continue
+            }
+
             var edit = SingleFileEditModel(from: file)
             for field in MetadataExchangeField.allCases {
                 guard let value = entry.values[field] else { continue }
@@ -166,7 +186,7 @@ extension AudioViewModel {
                 edit,
                 to: file,
                 syncInspectorAfterReload: false,
-                expectedFileFingerprint: entry.expectedFileFingerprint
+                expectedFileFingerprint: expectedFileFingerprint
             )
 
             switch result {

@@ -758,7 +758,7 @@ private extension FilenameMetadataPreviewStatus {
             return .systemGreen
         case .unchanged, .noWritableFields:
             return .secondaryLabelColor
-        case .noMatch:
+        case .noMatch, .sourceUnavailable:
             return .systemOrange
         }
     }
@@ -769,7 +769,7 @@ private extension FilenameMetadataPreviewStatus {
             return "checkmark.circle.fill"
         case .unchanged:
             return "minus.circle.fill"
-        case .noMatch:
+        case .noMatch, .sourceUnavailable:
             return "exclamationmark.triangle.fill"
         case .noWritableFields:
             return "questionmark.circle.fill"
@@ -782,7 +782,7 @@ private extension FilenameMetadataPreviewStatus {
             return .green
         case .unchanged, .noWritableFields:
             return .secondary
-        case .noMatch:
+        case .noMatch, .sourceUnavailable:
             return .orange
         }
     }

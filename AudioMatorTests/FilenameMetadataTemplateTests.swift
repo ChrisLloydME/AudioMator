@@ -52,6 +52,23 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertNil(plan.rows[0].writeEntry)
     }
 
+    func testFilenameMetadataPlanRejectsWritesWhenFileVersionIsUnavailable() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/unverified.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+
+        let plan = makeFilenameMetadataPlan(
+            template: "{{title}}",
+            targetFiles: [file],
+            replaceUnderscoresWithSpaces: false
+        )
+
+        XCTAssertEqual(plan.rows.first?.status, .sourceUnavailable)
+        XCTAssertNil(plan.rows.first?.writeEntry)
+        XCTAssertFalse(plan.canApply)
+    }
+
     func testFilenameMetadataPlanRejectsAdjacentFields() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/ArtistTitle.mp3"))
 

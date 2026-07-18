@@ -32,8 +32,14 @@ final class MetadataFilenameToolStore: ObservableObject {
     @Published private(set) var targetFileIDs: [AudioFile.ID] = []
 
     func present(targetFileIDs: [AudioFile.ID]) {
-        self.targetFileIDs = targetFileIDs
+        var seenIDs = Set<AudioFile.ID>()
+        self.targetFileIDs = targetFileIDs.filter { seenIDs.insert($0).inserted }
     }
+}
+
+private struct MetadataFilenameTargetResolution {
+    let files: [AudioFile]
+    let isComplete: Bool
 }
 
 struct MetadataFilenameWindowView: View {
@@ -51,9 +57,23 @@ struct MetadataFilenameWindowView: View {
     @State private var isApplying: Bool = false
     @State private var renameFailureMessage: String?
 
+    private var targetResolution: MetadataFilenameTargetResolution {
+        let filesByID = Dictionary(grouping: viewModel.files, by: \.id)
+        var resolvedFiles: [AudioFile] = []
+        resolvedFiles.reserveCapacity(store.targetFileIDs.count)
+
+        for id in store.targetFileIDs {
+            guard let matches = filesByID[id], matches.count == 1, let file = matches.first else {
+                return MetadataFilenameTargetResolution(files: [], isComplete: false)
+            }
+            resolvedFiles.append(file)
+        }
+
+        return MetadataFilenameTargetResolution(files: resolvedFiles, isComplete: true)
+    }
+
     private var targetFiles: [AudioFile] {
-        let filesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
-        return store.targetFileIDs.compactMap { filesByID[$0] }
+        targetResolution.files
     }
 
     private var activeTemplateBinding: Binding<String> {
@@ -244,6 +264,15 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var canApply: Bool {
+        guard
+            targetResolution.isComplete,
+            !isApplying,
+            viewModel.metadataSaveProgress == nil,
+            !viewModel.hasUnsavedInspectorChanges
+        else {
+            return false
+        }
+
         switch mode {
         case .metadataToFilename:
             return renamePlan.canApply
@@ -262,7 +291,7 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyCurrentPlan() async {
-        guard !isApplying else { return }
+        guard canApply else { return }
         isApplying = true
 
         switch mode {

@@ -322,14 +322,21 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
     func testApplyFilenameMetadataPlanWritesExtractedFieldsAndRefreshesSelection() async throws {
         let id = UUID()
-        let url = URL(fileURLWithPath: "/tmp/07 - Old Artist - Old Title.mp3")
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorFilenameMetadataWriteTests-\(UUID().uuidString)", isDirectory: true)
+        let url = directoryURL.appendingPathComponent("07 - Old Artist - Old Title.mp3")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        try Data("fixture".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
         let original = AudioFileTestFactory.make(
             id: id,
             url: url,
             title: "Old Title",
             artist: "Old Artist",
             album: "Keep Album",
-            trackNumberText: "01"
+            trackNumberText: "01",
+            fileFingerprint: fingerprint
         )
         let reloaded = AudioFileTestFactory.make(
             id: id,
@@ -353,7 +360,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                     .title: "Parsed Title",
                     .artist: "Parsed Artist",
                     .trackNumberText: "07"
-                ]
+                ],
+                expectedFileFingerprint: fingerprint
             )
         ])
 
@@ -372,14 +380,21 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
     func testApplyMetadataExchangeWriteEntriesWritesImportedFieldsAndRefreshesSelection() async throws {
         let id = UUID()
-        let url = URL(fileURLWithPath: "/tmp/exchange.flac")
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorMetadataExchangeWriteTests-\(UUID().uuidString)", isDirectory: true)
+        let url = directoryURL.appendingPathComponent("exchange.flac")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        try Data("fixture".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
         let original = AudioFileTestFactory.make(
             id: id,
             url: url,
             title: "Old Title",
             album: "Keep Album",
             comment: "Old Comment",
-            discNumberText: "1/2"
+            discNumberText: "1/2",
+            fileFingerprint: fingerprint
         )
         let reloaded = AudioFileTestFactory.make(
             id: id,
@@ -403,7 +418,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                     .title: "Imported Title",
                     .comment: "Imported Comment",
                     .discNumber: "2/2"
-                ]
+                ],
+                expectedFileFingerprint: fingerprint
             )
         ])
 
@@ -470,6 +486,35 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                 fileID: id,
                 fileName: url.lastPathComponent,
                 values: [.fileName: "not-writable"]
+            )
+        ])
+
+        XCTAssertEqual(filenameSummary?.failureIssues.count, 1)
+        XCTAssertEqual(exchangeSummary?.failureIssues.count, 1)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    func testMetadataPlanWritesRejectMissingFileFingerprintsAtExecutionTime() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/unverified-plan.flac")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan([
+            FilenameMetadataWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Filename Import"]
+            )
+        ])
+        let exchangeSummary = await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: id,
+                fileName: url.lastPathComponent,
+                values: [.title: "Exchange Import"]
             )
         ])
 

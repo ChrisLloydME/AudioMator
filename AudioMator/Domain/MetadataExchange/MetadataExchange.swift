@@ -824,6 +824,7 @@ enum MetadataExchangePreviewStatus: Equatable {
     case noMatch
     case ambiguousMatch
     case parseError
+    case sourceUnavailable
     case missingExternalRecord
     case extraExternalRecord
     case noWritableFields
@@ -840,6 +841,8 @@ enum MetadataExchangePreviewStatus: Equatable {
             return L10n.string("Ambiguous Match")
         case .parseError:
             return L10n.string("Parse Error")
+        case .sourceUnavailable:
+            return L10n.string("File Unavailable")
         case .missingExternalRecord:
             return L10n.string("Missing Record")
         case .extraExternalRecord:
@@ -853,7 +856,7 @@ enum MetadataExchangePreviewStatus: Equatable {
         switch self {
         case .ready, .unchanged:
             return false
-        case .noMatch, .ambiguousMatch, .parseError, .missingExternalRecord,
+        case .noMatch, .ambiguousMatch, .parseError, .sourceUnavailable, .missingExternalRecord,
                 .extraExternalRecord, .noWritableFields:
             return true
         }
@@ -1784,16 +1787,27 @@ enum MetadataExchangePlanner {
                     .filter(\.willWrite)
                     .map { ($0.field, $0.importedValue) }
             )
-            let writeEntry = values.isEmpty
-                ? nil
-                : MetadataExchangeWriteEntry(
+            let writeEntry: MetadataExchangeWriteEntry?
+            let status: MetadataExchangePreviewStatus
+            let issueMessage: String?
+            if values.isEmpty {
+                writeEntry = nil
+                status = .unchanged
+                issueMessage = record.warning
+            } else if let expectedFileFingerprint = file.fileFingerprint {
+                writeEntry = MetadataExchangeWriteEntry(
                     fileID: file.id,
                     fileName: file.url.lastPathComponent,
                     values: values,
-                    expectedFileFingerprint: file.fileFingerprint
+                    expectedFileFingerprint: expectedFileFingerprint
                 )
-
-            let status: MetadataExchangePreviewStatus = values.isEmpty ? .unchanged : .ready
+                status = .ready
+                issueMessage = record.warning
+            } else {
+                writeEntry = nil
+                status = .sourceUnavailable
+                issueMessage = L10n.string("The file version could not be verified. Reload the file and try again.")
+            }
             return MetadataExchangeImportPreviewRow(
                 id: UUID(),
                 fileID: file.id,
@@ -1801,7 +1815,7 @@ enum MetadataExchangePlanner {
                 externalRecord: record.displayText,
                 status: status,
                 changes: changes,
-                issueMessage: record.warning,
+                issueMessage: issueMessage,
                 writeEntry: writeEntry
             )
         }

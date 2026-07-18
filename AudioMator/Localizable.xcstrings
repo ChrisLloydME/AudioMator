@@ -12524,6 +12524,9 @@
     "The file version could not be verified. Reload the file and try again." : {
 
     },
+    "The file version could not be verified. Refresh the preview and try again." : {
+
+    },
     "The filename did not fully match the template." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:200.",
       "localizations" : {

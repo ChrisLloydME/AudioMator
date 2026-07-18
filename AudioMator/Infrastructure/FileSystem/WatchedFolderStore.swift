@@ -14,32 +14,44 @@ final class WatchedFolderStore {
         do {
             let records = try JSONDecoder().decode([WatchedFolderRecord].self, from: data)
             var folders: [WatchedFolder] = []
+            var refreshedRecords: [WatchedFolderRecord] = []
             var needsSave = false
 
             for record in records {
-                var isStale = false
-                let url = try resolveURL(from: record.bookmarkData, isStale: &isStale)
-                let bookmarkData = isStale ? try makeBookmarkData(for: url) : record.bookmarkData
-                let displayName = record.displayName.isEmpty
-                    ? FileManager.default.displayName(atPath: url.path)
-                    : record.displayName
+                do {
+                    var isStale = false
+                    let url = try resolveURL(from: record.bookmarkData, isStale: &isStale)
+                    let bookmarkData = isStale ? try makeBookmarkData(for: url) : record.bookmarkData
+                    let displayName = record.displayName.isEmpty
+                        ? FileManager.default.displayName(atPath: url.path)
+                        : record.displayName
 
-                folders.append(
-                    WatchedFolder(
-                        id: record.id,
-                        displayName: displayName,
-                        url: url,
-                        bookmarkData: bookmarkData
+                    folders.append(
+                        WatchedFolder(
+                            id: record.id,
+                            displayName: displayName,
+                            url: url,
+                            bookmarkData: bookmarkData
+                        )
                     )
-                )
+                    refreshedRecords.append(
+                        WatchedFolderRecord(
+                            id: record.id,
+                            displayName: displayName,
+                            bookmarkData: bookmarkData
+                        )
+                    )
 
-                if isStale || displayName != record.displayName {
-                    needsSave = true
+                    if isStale || displayName != record.displayName {
+                        needsSave = true
+                    }
+                } catch {
+                    refreshedRecords.append(record)
                 }
             }
 
             if needsSave {
-                saveFolders(folders)
+                saveRecords(refreshedRecords)
             }
 
             return folders
@@ -57,6 +69,10 @@ final class WatchedFolderStore {
             )
         }
 
+        saveRecords(records)
+    }
+
+    private func saveRecords(_ records: [WatchedFolderRecord]) {
         do {
             let data = try JSONEncoder().encode(records)
             userDefaults.set(data, forKey: storageKey)

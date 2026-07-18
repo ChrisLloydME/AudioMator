@@ -67,22 +67,7 @@ extension AudioViewModel {
 
         return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
             try await Task.detached(priority: .userInitiated) {
-                if let expectedFileFingerprint {
-                    let currentFingerprint: AudioFileFingerprint
-                    do {
-                        currentFingerprint = try AudioFileFingerprint.capture(at: url)
-                    } catch {
-                        throw AudioFileFingerprintValidationError.unavailable(
-                            fileName: url.lastPathComponent
-                        )
-                    }
-
-                    guard currentFingerprint == expectedFileFingerprint else {
-                        throw AudioFileFingerprintValidationError.changedSincePreview(
-                            fileName: url.lastPathComponent
-                        )
-                    }
-                }
+                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
 
                 return try metadataPipeline.writeMetadata(edit, to: url)
             }.value
@@ -91,31 +76,38 @@ extension AudioViewModel {
 
     func writeRawMetadataPropertyMapOffMainActor(
         _ propertyMap: [String: String],
-        to url: URL
+        to url: URL,
+        expectedFileFingerprint: AudioFileFingerprint? = nil
     ) async throws -> AudioMetadataWriteResult {
         let metadataPipeline = self.metadataPipeline
         let fileMutationCoordinator = self.fileMutationCoordinator
 
         return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
             try await Task.detached(priority: .userInitiated) {
-                try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
+                return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
             }.value
         }
     }
 
-    func eraseAllMetadataOffMainActor(at url: URL) async throws -> AudioMetadataWriteResult {
+    func eraseAllMetadataOffMainActor(
+        at url: URL,
+        expectedFileFingerprint: AudioFileFingerprint? = nil
+    ) async throws -> AudioMetadataWriteResult {
         let metadataPipeline = self.metadataPipeline
         let fileMutationCoordinator = self.fileMutationCoordinator
 
         return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
             try await Task.detached(priority: .userInitiated) {
-                try metadataPipeline.eraseAllMetadata(at: url)
+                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
+                return try metadataPipeline.eraseAllMetadata(at: url)
             }.value
         }
     }
 
     func updateRawMetadataPropertyMapOffMainActor(
         at url: URL,
+        expectedFileFingerprint: AudioFileFingerprint? = nil,
         transform: @escaping @Sendable (inout [String: String]) -> Void
     ) async throws -> AudioMetadataWriteResult {
         let metadataPipeline = self.metadataPipeline
@@ -123,6 +115,7 @@ extension AudioViewModel {
 
         return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
             try await Task.detached(priority: .userInitiated) {
+                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
                 var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
                 transform(&propertyMap)
                 return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
@@ -130,4 +123,22 @@ extension AudioViewModel {
         }
     }
 
+}
+
+nonisolated func validateExpectedFileFingerprint(
+    _ expectedFileFingerprint: AudioFileFingerprint?,
+    at url: URL
+) throws {
+    guard let expectedFileFingerprint else { return }
+
+    let currentFingerprint: AudioFileFingerprint
+    do {
+        currentFingerprint = try AudioFileFingerprint.capture(at: url)
+    } catch {
+        throw AudioFileFingerprintValidationError.unavailable(fileName: url.lastPathComponent)
+    }
+
+    guard currentFingerprint == expectedFileFingerprint else {
+        throw AudioFileFingerprintValidationError.changedSincePreview(fileName: url.lastPathComponent)
+    }
 }

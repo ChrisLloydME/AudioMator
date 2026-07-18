@@ -41,7 +41,8 @@ extension AudioViewModel {
                 let result = await self.persistMetadataEdit(
                     edit,
                     to: file,
-                    syncInspectorAfterReload: false
+                    syncInspectorAfterReload: false,
+                    expectedFileFingerprint: file.fileFingerprint
                 )
 
                 switch result {

@@ -134,7 +134,10 @@ extension AudioViewModel {
         }
 
         do {
-            let writeResult = try await eraseAllMetadataOffMainActor(at: file.url)
+            let writeResult = try await eraseAllMetadataOffMainActor(
+                at: file.url,
+                expectedFileFingerprint: file.fileFingerprint
+            )
             var warnings: [String] = writeResult.warnings
 
             let refreshWarning = await reloadEditedFile(

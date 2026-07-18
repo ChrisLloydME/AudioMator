@@ -23,7 +23,8 @@ extension AudioViewModel {
             do {
                 let writeResult = try await writeRawMetadataPropertyMapOffMainActor(
                     propertyMaps[target.id] ?? [:],
-                    to: target.url
+                    to: target.url,
+                    expectedFileFingerprint: target.expectedFileFingerprint
                 )
 
                 summary.succeeded += 1

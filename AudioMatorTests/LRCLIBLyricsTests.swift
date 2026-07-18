@@ -169,7 +169,8 @@ final class LRCLIBLyricsTests: XCTestCase {
             id: UUID(),
             url: URL(fileURLWithPath: "/tmp/lyrics-target.m4a"),
             title: "Title",
-            artist: "Artist"
+            artist: "Artist",
+            includeDefaultFileFingerprint: false
         )
         let pipeline = RecordingRawMetadataPipeline(
             file: file,

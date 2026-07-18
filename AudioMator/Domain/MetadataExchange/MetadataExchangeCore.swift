@@ -117,15 +117,15 @@ enum CoreMetadataExchange {
         _ template: String
     ) -> (columns: [CoreMetadataExchangeField], delimiter: Character, validationMessage: String?) {
         let trimmed = template.trimmingCharacters(in: .whitespacesAndNewlines)
-        let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         guard !trimmed.isEmpty else {
-            return ([], delimiter, "Enter a comma-, semicolon-, pipe-, or tab-delimited column template.")
+            return ([], ",", "Enter a comma-, semicolon-, pipe-, or tab-delimited column template.")
         }
 
         guard trimmed.utf8.count <= maximumTemplateUTF8ByteCount else {
-            return ([], delimiter, "The column template is too large.")
+            return ([], ",", "The column template is too large.")
         }
 
+        let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         do {
             let rows = try MetadataExchangeCSV.parse(trimmed, delimiter: delimiter)
             guard rows.count == 1, let row = rows.first, !row.isEmpty else {

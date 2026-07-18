@@ -135,7 +135,7 @@ enum MetadataFilenameStatusPresentation {
         let summary = issueSummary(
             titles: issueRows.map(\.status.title)
         )
-        return "\(issueRows.count) file(s) could not be parsed: \(summary)."
+        return "\(issueRows.count) file(s) need review: \(summary)."
     }
 
     private static func issueSummary(titles: [String]) -> String {

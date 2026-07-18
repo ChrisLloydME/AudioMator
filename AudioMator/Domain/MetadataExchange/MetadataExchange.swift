@@ -1295,15 +1295,15 @@ enum MetadataExchangePlanner {
 
     static func parseCSVColumnTemplate(_ template: String) -> (columns: [MetadataExchangeField], delimiter: Character, validationMessage: String?) {
         let trimmed = template.trimmingCharacters(in: .whitespacesAndNewlines)
-        let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         guard !trimmed.isEmpty else {
-            return ([], delimiter, L10n.string("Enter a comma-, semicolon-, pipe-, or tab-delimited column template."))
+            return ([], ",", L10n.string("Enter a comma-, semicolon-, pipe-, or tab-delimited column template."))
         }
 
         guard trimmed.utf8.count <= maximumTemplateUTF8ByteCount else {
-            return ([], delimiter, L10n.string("The column template is too large."))
+            return ([], ",", L10n.string("The column template is too large."))
         }
 
+        let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         do {
             let rows = try MetadataExchangeCSV.parse(trimmed, delimiter: delimiter)
             guard rows.count == 1, let row = rows.first, !row.isEmpty else {

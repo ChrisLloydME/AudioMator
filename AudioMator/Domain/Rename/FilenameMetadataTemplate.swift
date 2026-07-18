@@ -90,6 +90,7 @@ enum FilenameMetadataPreviewStatus: Equatable {
     case ready
     case unchanged
     case noMatch
+    case sourceUnavailable
     case noWritableFields
 
     var title: String {
@@ -100,6 +101,8 @@ enum FilenameMetadataPreviewStatus: Equatable {
             return L10n.string("Unchanged")
         case .noMatch:
             return L10n.string("No Match")
+        case .sourceUnavailable:
+            return L10n.string("File Unavailable")
         case .noWritableFields:
             return L10n.string("No Writable Fields")
         }
@@ -113,13 +116,15 @@ enum FilenameMetadataPreviewStatus: Equatable {
             return L10n.string("The extracted metadata already matches the file's current tags.")
         case .noMatch:
             return L10n.string("The filename did not fully match the template.")
+        case .sourceUnavailable:
+            return L10n.string("The file version could not be verified. Reload the file and try again.")
         case .noWritableFields:
             return L10n.string("The template matched, but it did not extract any writable metadata fields.")
         }
     }
 
     var isError: Bool {
-        self == .noMatch
+        self == .noMatch || self == .sourceUnavailable
     }
 }
 
@@ -334,19 +339,25 @@ private struct FilenameMetadataPlanBuilder {
         } else if writeValues.isEmpty {
             status = .unchanged
             issueMessage = nil
+        } else if file.fileFingerprint == nil {
+            status = .sourceUnavailable
+            issueMessage = FilenameMetadataPreviewStatus.sourceUnavailable.message
         } else {
             status = .ready
             issueMessage = nil
         }
 
-        let writeEntry = writeValues.isEmpty
-            ? nil
-            : FilenameMetadataWriteEntry(
+        let writeEntry: FilenameMetadataWriteEntry?
+        if status == .ready, let expectedFileFingerprint = file.fileFingerprint {
+            writeEntry = FilenameMetadataWriteEntry(
                 fileID: file.id,
                 fileName: file.url.lastPathComponent,
                 values: writeValues,
-                expectedFileFingerprint: file.fileFingerprint
+                expectedFileFingerprint: expectedFileFingerprint
             )
+        } else {
+            writeEntry = nil
+        }
 
         return FilenameMetadataPreviewRow(
             id: file.id,

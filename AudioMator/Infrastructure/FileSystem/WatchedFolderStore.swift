@@ -3,12 +3,14 @@ import Foundation
 final class WatchedFolderStore {
     private let userDefaults: UserDefaults
     private let storageKey = "watchedFolderRecords"
+    private var unresolvedRecords: [WatchedFolderRecord] = []
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
     }
 
     func loadFolders() -> [WatchedFolder] {
+        unresolvedRecords = []
         guard let data = userDefaults.data(forKey: storageKey) else { return [] }
 
         do {
@@ -47,6 +49,7 @@ final class WatchedFolderStore {
                     }
                 } catch {
                     refreshedRecords.append(record)
+                    unresolvedRecords.append(record)
                 }
             }
 
@@ -61,13 +64,15 @@ final class WatchedFolderStore {
     }
 
     func saveFolders(_ folders: [WatchedFolder]) {
-        let records = folders.map {
+        let resolvedRecords = folders.map {
             WatchedFolderRecord(
                 id: $0.id,
                 displayName: $0.displayName,
                 bookmarkData: $0.bookmarkData
             )
         }
+        let resolvedIDs = Set(resolvedRecords.map(\.id))
+        let records = resolvedRecords + unresolvedRecords.filter { !resolvedIDs.contains($0.id) }
 
         saveRecords(records)
     }

@@ -36,7 +36,7 @@ extension AudioViewModel {
         }
 
         let count = writeTargets.count
-        let start = max(0, options.startNumber)
+        let start = normalizedTrackRenumberStartNumber(options.startNumber)
 
         let numbers: [Int] = {
             switch options.direction {

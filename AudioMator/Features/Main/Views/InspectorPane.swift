@@ -818,7 +818,7 @@ struct InspectorPane: View {
                 Divider()
                 metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps")
                 Divider()
-                metadataRow(label: "Sample Rate", value: "\(Int(file.sampleRate)) Hz")
+                metadataRow(label: "Sample Rate", value: formatSampleRate(file.sampleRate))
                 Divider()
                 metadataRow(label: "Channels", value: "\(file.channels)")
                 Divider()

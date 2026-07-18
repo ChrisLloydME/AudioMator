@@ -238,7 +238,7 @@ final class iTunesBrowserStore: ObservableObject {
             trackNumber: fallback.trackNumber,
             discNumber: fallback.discNumber,
             trackTotal: file.trackTotal,
-            durationMilliseconds: file.duration.isFinite && file.duration > 0 ? Int((file.duration * 1000).rounded()) : nil,
+            durationMilliseconds: AudioNumericConversion.positiveDurationMilliseconds(file.duration),
             releaseDate: fallback.releaseDate,
             barcode: file.barcode,
             itunesAlbumID: file.itunesAlbumID,

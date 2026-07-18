@@ -1164,7 +1164,9 @@ enum MetadataExchangePlanner {
         }
 
         let parsedRecords = dataRows.enumerated().map { index, cells in
-            let displayText = cells.map { $0.value.replacingOccurrences(of: "\n", with: " ") }.joined(separator: " | ")
+            let displayText = cells.map {
+                $0.decodedValue.replacingOccurrences(of: "\n", with: " ")
+            }.joined(separator: " | ")
             if cells.count < result.columns.count {
                 let missingCount = result.columns.count - cells.count
                 return ParsedExternalRecord(

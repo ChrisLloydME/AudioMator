@@ -201,6 +201,19 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
     }
 
+    func testMetadataExchangeCSVNeutralizesSpreadsheetFormulasReversibly() {
+        let rows = [["=1+1", "+2", "-3", "@SUM(A1:A2)", "\t=4", "'=literal", "plain"]]
+        let serialized = MetadataExchangeCSV.serialize(rows)
+
+        XCTAssertTrue(serialized.hasPrefix("'=1+1"))
+        XCTAssertTrue(serialized.contains("''=literal"))
+        XCTAssertEqual(try? MetadataExchangeCSV.parse(serialized), rows)
+        XCTAssertEqual(
+            try? MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            rows
+        )
+    }
+
     func testLRCLIBQueryTreatsWhitespaceOnlyInputAsEmpty() {
         let query = LRCLIBSearchQuery(
             trackName: " \n ",

@@ -56,6 +56,13 @@ final class MetadataEditorStore: ObservableObject {
         draftPropertyMaps != originalPropertyMaps
     }
 
+    var isEditable: Bool {
+        !isLoading &&
+        loadErrorMessage == nil &&
+        !targets.isEmpty &&
+        originalPropertyMaps.count == targets.count
+    }
+
     fileprivate var rows: [MetadataEditorRow] {
         MetadataEditorDraftRows.makeRows(targets: targets, draftPropertyMaps: draftPropertyMaps)
     }
@@ -113,7 +120,11 @@ final class MetadataEditorStore: ObservableObject {
                 self.draftPropertyMaps = loadedState.propertyMaps
                 self.loadErrorMessage = loadedState.errorMessage
                 self.isLoading = false
-                self.realignSelection(preferred: self.selectedFieldKey)
+                if loadedState.errorMessage == nil {
+                    self.realignSelection(preferred: self.selectedFieldKey)
+                } else {
+                    self.selectedFieldKeys = []
+                }
             }
         }
     }
@@ -133,7 +144,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     fileprivate func makeEditFieldContext() -> MetadataFieldEditorContext? {
-        guard let key = selectedFieldKey else { return nil }
+        guard isEditable, let key = selectedFieldKey else { return nil }
 
         let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
         let firstValue = values.first ?? ""
@@ -148,6 +159,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func upsertField(key: String, value: String) {
+        guard isEditable else { return }
         let normalizedKey = Self.normalizedFieldKey(key)
         let normalizedValue = Self.normalizedFieldValue(value)
 
@@ -167,6 +179,7 @@ final class MetadataEditorStore: ObservableObject {
         key: String,
         value: String
     ) {
+        guard isEditable else { return }
         let normalizedValue = Self.normalizedFieldValue(value)
 
         switch context.mode {
@@ -211,7 +224,7 @@ final class MetadataEditorStore: ObservableObject {
         pipeline: TextEditPipeline,
         fieldKeys: Set<String>
     ) {
-        guard !fieldKeys.isEmpty else { return }
+        guard isEditable, !fieldKeys.isEmpty else { return }
 
         for target in targets {
             var propertyMap = draftPropertyMaps[target.id] ?? [:]
@@ -234,7 +247,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func deleteSelectedField() {
-        guard !selectedFieldKeys.isEmpty else { return }
+        guard isEditable, !selectedFieldKeys.isEmpty else { return }
 
         for key in selectedFieldKeys {
             deleteField(named: key, realignAfterDelete: false)
@@ -244,7 +257,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func deleteField(named key: String, realignAfterDelete: Bool = true) {
-        guard !key.isEmpty else { return }
+        guard isEditable, !key.isEmpty else { return }
 
         for target in targets {
             var propertyMap = draftPropertyMaps[target.id] ?? [:]
@@ -276,7 +289,6 @@ final class MetadataEditorStore: ObservableObject {
             do {
                 propertyMaps[target.id] = try metadataPipeline.rawMetadataPropertyMap(for: target.url)
             } catch {
-                propertyMaps[target.id] = [:]
                 failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
             }
         }
@@ -384,7 +396,7 @@ struct MetadataEditorWindowView: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let errorMessage = store.loadErrorMessage, store.rows.isEmpty {
+        } else if let errorMessage = store.loadErrorMessage {
             ContentUnavailableView(
                 "Unable to Read Metadata",
                 systemImage: "exclamationmark.triangle",
@@ -428,22 +440,22 @@ struct MetadataEditorWindowView: View {
             Button("Edit Selected…") {
                 editorContext = store.makeEditFieldContext()
             }
-            .disabled(store.selectedFieldKeys.count != 1 || store.isLoading || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.count != 1 || !store.isEditable || isApplyingChanges)
 
             Button("Add Field…") {
                 editorContext = store.makeAddFieldContext()
             }
-            .disabled(store.targets.isEmpty || store.isLoading || isApplyingChanges)
+            .disabled(!store.isEditable || isApplyingChanges)
 
             Button("Delete Field", role: .destructive) {
                 store.deleteSelectedField()
             }
-            .disabled(store.selectedFieldKeys.isEmpty || store.isLoading || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.isEmpty || !store.isEditable || isApplyingChanges)
 
             Button("Utilities…") {
                 utilityContext = MetadataTextUtilitiesContext(fieldKeys: store.selectedFieldKeys)
             }
-            .disabled(store.selectedFieldKeys.isEmpty || store.isLoading || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.isEmpty || !store.isEditable || isApplyingChanges)
 
             Spacer()
 

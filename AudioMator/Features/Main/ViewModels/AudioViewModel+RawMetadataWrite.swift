@@ -1,11 +1,12 @@
 import Foundation
 
 extension AudioViewModel {
+    @discardableResult
     func applyRawMetadataPropertyMaps(
         _ propertyMaps: [AudioFile.ID: [String: String]],
         to targets: [MetadataEditorTarget]
-    ) async {
-        guard !targets.isEmpty else { return }
+    ) async -> Bool {
+        guard !targets.isEmpty else { return false }
 
         var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
 
@@ -74,5 +75,6 @@ extension AudioViewModel {
         }
 
         presentBatchMetadataWriteSummary(summary)
+        return summary.failureIssues.isEmpty
     }
 }

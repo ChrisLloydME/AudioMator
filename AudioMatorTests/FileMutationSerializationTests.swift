@@ -63,6 +63,74 @@ final class FileMutationSerializationTests: XCTestCase {
             "Write, erase, and renumber must serialize mutations for the same file URL."
         )
     }
+
+    func testCancelledWaiterDoesNotExecuteQueuedMutation() async {
+        let coordinator = FileMutationCoordinator()
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorCancelledMutation.mp3")
+        let firstMutationEntered = AsyncTestLatch()
+        let releaseFirstMutation = AsyncTestLatch()
+        let secondMutationStarted = AsyncTestLatch()
+        let secondMutationExecuted = AsyncTestLatch()
+
+        let firstTask = Task {
+            try? await coordinator.withExclusiveAccess(to: [fileURL]) {
+                await firstMutationEntered.signal()
+                await releaseFirstMutation.wait()
+            }
+        }
+        await firstMutationEntered.wait()
+
+        let secondTask = Task {
+            await secondMutationStarted.signal()
+            try? await coordinator.withExclusiveAccess(to: [fileURL]) {
+                await secondMutationExecuted.signal()
+            }
+        }
+        await secondMutationStarted.wait()
+        secondTask.cancel()
+        await releaseFirstMutation.signal()
+
+        _ = await firstTask.value
+        _ = await secondTask.value
+
+        let didExecuteCancelledMutation = await secondMutationExecuted.isSignaled
+        XCTAssertFalse(
+            didExecuteCancelledMutation,
+            "A mutation cancelled while waiting for a file reservation must never execute later."
+        )
+
+        let followUpMutationExecuted = AsyncTestLatch()
+        try? await coordinator.withExclusiveAccess(to: [fileURL]) {
+            await followUpMutationExecuted.signal()
+        }
+        let didExecuteFollowUpMutation = await followUpMutationExecuted.isSignaled
+        XCTAssertTrue(
+            didExecuteFollowUpMutation,
+            "Cancelling a waiter must leave the file reservation usable by later mutations."
+        )
+    }
+}
+
+private actor AsyncTestLatch {
+    private var signaled = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    var isSignaled: Bool { signaled }
+
+    func signal() {
+        guard !signaled else { return }
+        signaled = true
+        let pendingWaiters = waiters
+        waiters.removeAll()
+        pendingWaiters.forEach { $0.resume() }
+    }
+
+    func wait() async {
+        guard !signaled else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
 }
 
 private final class OverlapDetectingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {

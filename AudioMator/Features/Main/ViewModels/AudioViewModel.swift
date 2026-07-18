@@ -598,21 +598,33 @@ final class AudioViewModel: ObservableObject {
         let scanToken = UUID()
         folderScanTokens[id] = scanToken
 
-        let snapshot = await Task.detached(priority: .utility) {
+        let scanTask = Task.detached(priority: .utility) {
             Self.scanFolderSnapshot(for: folder.url)
-        }.value
+        }
+        let snapshot = await withTaskCancellationHandler {
+            await scanTask.value
+        } onCancel: {
+            scanTask.cancel()
+        }
+        guard !Task.isCancelled else { return }
 
         let fileIDsByKey = prepareStableIDs(for: snapshot.audioURLs)
         let metadataPipeline = self.metadataPipeline
 
-        let loadedFiles = await Task.detached(priority: .userInitiated) {
+        let loadTask = Task.detached(priority: .userInitiated) {
             await Self.loadAudioFiles(
                 from: snapshot.audioURLs,
                 fileIDsByKey: fileIDsByKey,
                 metadataPipeline: metadataPipeline
             )
-        }.value
+        }
+        let loadedFiles = await withTaskCancellationHandler {
+            await loadTask.value
+        } onCancel: {
+            loadTask.cancel()
+        }
 
+        guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
 
         watchedFolderFiles[id] = loadedFiles
@@ -994,6 +1006,7 @@ final class AudioViewModel: ObservableObject {
         }
 
         for case let url as URL in enumerator {
+            guard !Task.isCancelled else { break }
             guard let values = try? url.resourceValues(forKeys: resourceKeys) else { continue }
 
             if values.isDirectory == true {

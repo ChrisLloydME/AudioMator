@@ -5,6 +5,57 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class QuickImportCancellationTests: XCTestCase {
+    func testRemovingFileRejectsLateReimportOfSameURL() async throws {
+        let gate = QuickImportLoadGate()
+        let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportRemove-\(UUID().uuidString).mp3")
+        let visibleFile = AudioFileTestFactory.make(url: fileURL)
+
+        viewModel.mergeQuickImportFiles([visibleFile])
+        viewModel.importQuickFiles(from: [fileURL])
+        await gate.waitUntilStarted()
+
+        viewModel.removeQuickImportFile(id: visibleFile.id)
+        await gate.release()
+        await gate.waitUntilReturned()
+        try await Task.sleep(for: .milliseconds(150))
+
+        XCTAssertTrue(
+            viewModel.files.isEmpty,
+            "A late import completion must not undo the user's newer remove action."
+        )
+
+        viewModel.importQuickFiles(from: [fileURL])
+        try await waitUntil(viewModel.files.count == 1)
+        XCTAssertEqual(viewModel.files.first?.url, fileURL)
+    }
+
+    func testRemovingFileSuppressesLateFailureFromSameURL() async throws {
+        let gate = QuickImportLoadGate()
+        let pipeline = DelayedQuickImportMetadataPipeline(gate: gate, shouldFail: true)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportRemoveFailure-\(UUID().uuidString).mp3")
+        let visibleFile = AudioFileTestFactory.make(url: fileURL)
+
+        viewModel.mergeQuickImportFiles([visibleFile])
+        viewModel.importQuickFiles(from: [fileURL])
+        await gate.waitUntilStarted()
+
+        viewModel.removeQuickImportFile(id: visibleFile.id)
+        await gate.release()
+        await gate.waitUntilReturned()
+        try await Task.sleep(for: .milliseconds(150))
+
+        XCTAssertTrue(viewModel.files.isEmpty)
+        XCTAssertNil(
+            viewModel.metadataWriteHUD,
+            "An obsolete import failure must not surface after the user removes that URL."
+        )
+    }
+
     func testClearCancelsImportAndRejectsLateBatch() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
@@ -264,13 +315,19 @@ private actor QuickImportLoadGate {
 
 private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let gate: QuickImportLoadGate
+    private let shouldFail: Bool
 
-    init(gate: QuickImportLoadGate) {
+    init(gate: QuickImportLoadGate, shouldFail: Bool = false) {
         self.gate = gate
+        self.shouldFail = shouldFail
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         await gate.suspendLoad()
+        if shouldFail {
+            await gate.markReturned(wasCancelled: Task.isCancelled)
+            throw CocoaError(.fileReadNoPermission)
+        }
         let file = await MainActor.run {
             AudioFileTestFactory.make(id: id, url: url)
         }

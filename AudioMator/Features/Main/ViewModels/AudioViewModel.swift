@@ -344,9 +344,10 @@ final class AudioViewModel: ObservableObject {
         var failedFolderNames: [String] = []
         var duplicateSelection: SidebarSelection?
         var seenFolderKeys = Set<String>()
-        let existingFoldersByKey = Dictionary(
-            uniqueKeysWithValues: watchedFolders.map { (Self.urlKey(for: $0.url), $0) }
-        )
+        var existingFoldersByKey: [String: WatchedFolder] = [:]
+        for folder in watchedFolders where existingFoldersByKey[Self.urlKey(for: folder.url)] == nil {
+            existingFoldersByKey[Self.urlKey(for: folder.url)] = folder
+        }
 
         for url in panel.urls {
             let key = Self.urlKey(for: url)
@@ -515,7 +516,10 @@ final class AudioViewModel: ObservableObject {
     func replaceLoadedFiles(_ reloadedFiles: [AudioFile]) {
         guard !reloadedFiles.isEmpty else { return }
 
-        let reloadedByID = Dictionary(uniqueKeysWithValues: reloadedFiles.map { ($0.id, $0) })
+        var reloadedByID: [UUID: AudioFile] = [:]
+        for file in reloadedFiles {
+            reloadedByID[file.id] = file
+        }
 
         quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }
 
@@ -530,7 +534,10 @@ final class AudioViewModel: ObservableObject {
     func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) {
         guard !changes.isEmpty else { return }
 
-        let urlsByID = Dictionary(uniqueKeysWithValues: changes.map { ($0.id, $0.newURL) })
+        var urlsByID: [UUID: URL] = [:]
+        for change in changes {
+            urlsByID[change.id] = change.newURL
+        }
 
         quickImportFiles = quickImportFiles.map { file in
             guard let newURL = urlsByID[file.id] else { return file }
@@ -675,12 +682,8 @@ final class AudioViewModel: ObservableObject {
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
 
-        let previousFilesByKey = Dictionary(
-            uniqueKeysWithValues: (watchedFolderFiles[id] ?? []).map { (Self.urlKey(for: $0.url), $0) }
-        )
-        var refreshedFilesByKey = Dictionary(
-            uniqueKeysWithValues: loadResult.files.map { (Self.urlKey(for: $0.url), $0) }
-        )
+        let previousFilesByKey = Self.audioFilesByURLKey(watchedFolderFiles[id] ?? [])
+        var refreshedFilesByKey = Self.audioFilesByURLKey(loadResult.files)
         for failure in loadResult.failures {
             let key = Self.urlKey(for: failure.url)
             if let previousFile = previousFilesByKey[key] {
@@ -760,9 +763,10 @@ final class AudioViewModel: ObservableObject {
 
     private func mergeFilesPreservingExistingOrder(existing: [AudioFile], incoming: [AudioFile]) -> [AudioFile] {
         var merged = existing
-        var indicesByKey = Dictionary(
-            uniqueKeysWithValues: existing.enumerated().map { (Self.urlKey(for: $0.element.url), $0.offset) }
-        )
+        var indicesByKey: [String: Int] = [:]
+        for (index, file) in existing.enumerated() where indicesByKey[Self.urlKey(for: file.url)] == nil {
+            indicesByKey[Self.urlKey(for: file.url)] = index
+        }
 
         for file in incoming {
             let key = Self.urlKey(for: file.url)
@@ -1012,10 +1016,11 @@ final class AudioViewModel: ObservableObject {
                 group.addTask {
                     guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
                     do {
+                        let file = try await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
                         return (
                             input.index,
                             input.url,
-                            try await metadataPipeline.loadAudioFile(at: input.url, id: input.id),
+                            file.url == input.url ? file : file.withUpdatedURL(input.url),
                             nil
                         )
                     } catch is CancellationError {
@@ -1077,10 +1082,11 @@ final class AudioViewModel: ObservableObject {
                 group.addTask {
                     guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
                     do {
+                        let file = try await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
                         return (
                             input.index,
                             input.url,
-                            try await metadataPipeline.loadAudioFile(at: input.url, id: input.id),
+                            file.url == input.url ? file : file.withUpdatedURL(input.url),
                             nil
                         )
                     } catch is CancellationError {
@@ -1219,6 +1225,14 @@ final class AudioViewModel: ObservableObject {
         }
 
         return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+    }
+
+    nonisolated private static func audioFilesByURLKey(_ files: [AudioFile]) -> [String: AudioFile] {
+        var filesByKey: [String: AudioFile] = [:]
+        for file in files where filesByKey[urlKey(for: file.url)] == nil {
+            filesByKey[urlKey(for: file.url)] = file
+        }
+        return filesByKey
     }
 }
 

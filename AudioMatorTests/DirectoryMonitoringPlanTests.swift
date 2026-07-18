@@ -3,6 +3,16 @@ import XCTest
 @testable import AudioMator
 
 final class DirectoryMonitoringPlanTests: XCTestCase {
+    func testWatchedFolderAccessFailureMessagesAvoidFullPaths() {
+        let single = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music"])
+        let multiple = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music", "Archive"])
+
+        XCTAssertEqual(single, "AudioMator couldn't save access to “Music”.")
+        XCTAssertEqual(multiple, "AudioMator couldn't save access to 2 selected folders.")
+        XCTAssertFalse(single.contains("/Users/"))
+        XCTAssertFalse(multiple.contains("Music"))
+    }
+
     func testWatchedFolderRestoreKeepsValidRecordsWhenOneBookmarkIsInvalid() throws {
         let suiteName = "AudioMator.WatchedFolderStoreTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

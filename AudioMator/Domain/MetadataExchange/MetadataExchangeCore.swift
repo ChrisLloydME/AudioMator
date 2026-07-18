@@ -198,7 +198,9 @@ enum CoreMetadataExchange {
 
         let dataRows = firstRowIsHeader && !parsedCSV.isEmpty ? Array(parsedCSV.dropFirst()) : parsedCSV
         let parsedRecords = dataRows.enumerated().map { index, cells -> ParsedRecord in
-            let displayText = cells.map { $0.value.replacingOccurrences(of: "\n", with: " ") }.joined(separator: " | ")
+            let displayText = cells.map {
+                $0.decodedValue.replacingOccurrences(of: "\n", with: " ")
+            }.joined(separator: " | ")
             if cells.count < columns.count {
                 return ParsedRecord(index: index, displayText: displayText, captures: nil, parseError: "\(columns.count - cells.count) missing CSV column(s).")
             }

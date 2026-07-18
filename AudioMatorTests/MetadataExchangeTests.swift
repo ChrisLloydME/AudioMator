@@ -158,6 +158,28 @@ final class MetadataExchangeTests: XCTestCase {
         )
     }
 
+    func testCSVExportProtectsSpreadsheetFormulasAndRoundTripsOriginalValues() throws {
+        let values = [
+            "=HYPERLINK(\"https://example.invalid\")",
+            "+1+1",
+            "-2+3",
+            "@SUM(A1:A2)",
+            "\t=1+1",
+            "'=literal",
+            "plain"
+        ]
+
+        let serialized = MetadataExchangeCSV.serialize([values])
+        XCTAssertFalse(serialized.hasPrefix("="))
+        XCTAssertTrue(serialized.contains("'=HYPERLINK"))
+        XCTAssertTrue(serialized.contains("''=literal"))
+        XCTAssertEqual(try MetadataExchangeCSV.parse(serialized), [values])
+        XCTAssertEqual(
+            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            [values]
+        )
+    }
+
     func testCSVImportRejectsEmptyAndHeaderOnlySources() {
         let file = AudioFileTestFactory.make()
 

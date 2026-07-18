@@ -4,6 +4,34 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    func testSidebarActionsRouteThroughUnsavedInspectorDiscardGuard() throws {
+        let repositoryURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sidebarSource = try String(
+            contentsOf: repositoryURL.appendingPathComponent(
+                "AudioMator/Features/Main/Views/SidebarPane.swift"
+            ),
+            encoding: .utf8
+        )
+        let contentSource = try String(
+            contentsOf: repositoryURL.appendingPathComponent(
+                "AudioMator/Features/Main/Views/ContentView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(sidebarSource.contains("state.selectedSidebarItem = selection"))
+        XCTAssertFalse(sidebarSource.contains("state.selectedSidebarItem = newSelection"))
+        XCTAssertFalse(sidebarSource.contains("state.selectedSidebarItem = viewModel.watchedFolders"))
+        XCTAssertTrue(sidebarSource.contains("onSelectSidebarItem"))
+        XCTAssertTrue(sidebarSource.contains("onRemoveWatchedFolder"))
+        XCTAssertTrue(contentSource.contains("onSelectSidebarItem: attemptSidebarSelectionChange"))
+        XCTAssertTrue(contentSource.contains("onRemoveWatchedFolder: attemptWatchedFolderRemoval"))
+        XCTAssertTrue(contentSource.contains("pendingAction: .sidebarSelection(newSelection)"))
+        XCTAssertTrue(contentSource.contains("pendingAction: .removeWatchedFolder(folder.id)"))
+    }
+
     func testExplicitInspectorSelectionOrderMatchesInspectorControl() {
         XCTAssertEqual(
             ExplicitInspectorSelection.inspectorSelectionOrder.map(\.displayName),

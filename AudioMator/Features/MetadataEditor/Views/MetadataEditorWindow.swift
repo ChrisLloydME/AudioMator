@@ -10,10 +10,12 @@ import TagLibAudioMetadata
 struct MetadataEditorTarget: Identifiable, Hashable {
     let id: AudioFile.ID
     let url: URL
+    let expectedFileFingerprint: AudioFileFingerprint?
 
     init(file: AudioFile) {
         self.id = file.id
         self.url = file.url
+        self.expectedFileFingerprint = file.fileFingerprint
     }
 
     nonisolated var fileName: String {

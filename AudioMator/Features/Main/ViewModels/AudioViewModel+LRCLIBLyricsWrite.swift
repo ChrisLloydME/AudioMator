@@ -31,7 +31,10 @@ extension AudioViewModel {
         )
 
         do {
-            let writeResult = try await updateRawMetadataPropertyMapOffMainActor(at: file.url) {
+            let writeResult = try await updateRawMetadataPropertyMapOffMainActor(
+                at: file.url,
+                expectedFileFingerprint: file.fileFingerprint
+            ) {
                 $0["LYRICS"] = normalizedLyrics
             }
             var warnings = writeResult.warnings
@@ -146,7 +149,10 @@ extension AudioViewModel {
             }
 
             do {
-                let writeResult = try await updateRawMetadataPropertyMapOffMainActor(at: file.url) {
+                let writeResult = try await updateRawMetadataPropertyMapOffMainActor(
+                    at: file.url,
+                    expectedFileFingerprint: file.fileFingerprint
+                ) {
                     $0["LYRICS"] = normalizedLyrics
                 }
                 var warningMessages = writeResult.warnings

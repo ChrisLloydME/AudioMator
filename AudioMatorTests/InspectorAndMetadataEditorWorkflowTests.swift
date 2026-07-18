@@ -126,7 +126,12 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
     func testSaveInspectorEditsWritesSingleSelectionAndRefreshesEditModel() async throws {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/01.mp3")
-        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Original",
+            includeDefaultFileFingerprint: false
+        )
         let reloaded = AudioFileTestFactory.make(id: id, url: url, title: "Reloaded")
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
@@ -147,13 +152,62 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    func testSaveInspectorEditsRejectsFileChangedSinceSelection() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorInspectorFingerprintTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("changed.mp3")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+
+        try Data(repeating: 0x41, count: 16).write(to: fileURL)
+        let loadedFingerprint = try AudioFileFingerprint.capture(at: fileURL)
+        let id = UUID()
+        let file = AudioFileTestFactory.make(
+            id: id,
+            url: fileURL,
+            title: "Loaded Title",
+            fileFingerprint: loadedFingerprint
+        )
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+        viewModel.selectedAudioIDs = [id]
+        viewModel.updateEditForSelection()
+        viewModel.edit?.title = "Inspector Draft"
+
+        try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
+        viewModel.saveInspectorEdits()
+        try await waitUntil(viewModel.metadataSaveProgress == nil)
+
+        XCTAssertTrue(
+            pipeline.metadataWrites.isEmpty,
+            "Inspector writes must fail closed when the file changed after it was loaded."
+        )
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("changed after the preview") == true)
+    }
+
     func testSaveInspectorEditsAppliesOnlyModifiedMultiFileFieldsToEachFile() async throws {
         let firstID = UUID()
         let secondID = UUID()
         let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
         let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
-        let first = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "First", album: "Old One")
-        let second = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Second", album: "Old Two")
+        let first = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "First",
+            album: "Old One",
+            includeDefaultFileFingerprint: false
+        )
+        let second = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Second",
+            album: "Old Two",
+            includeDefaultFileFingerprint: false
+        )
         let firstReloaded = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "First", album: "Batch Album")
         let secondReloaded = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Second", album: "Batch Album")
         let pipeline = RecordingMetadataPipeline(
@@ -187,8 +241,18 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let secondID = UUID()
         let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
         let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
-        let first = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "First")
-        let second = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Second")
+        let first = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "First",
+            includeDefaultFileFingerprint: false
+        )
+        let second = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Second",
+            includeDefaultFileFingerprint: false
+        )
         let firstReloaded = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "Raw First")
         let secondReloaded = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Raw Second")
         let pipeline = RecordingMetadataPipeline(
@@ -219,6 +283,68 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Raw First")
     }
 
+    func testMetadataEditorRawMapApplyRejectsFileChangedSinceEditorOpened() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorRawEditorFingerprintTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("changed.mp3")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+
+        try Data(repeating: 0x41, count: 16).write(to: fileURL)
+        let file = AudioFileTestFactory.make(
+            url: fileURL,
+            fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
+        )
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+
+        try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
+        await viewModel.applyRawMetadataPropertyMaps(
+            [file.id: ["TITLE": "Stale Draft"]],
+            to: [MetadataEditorTarget(file: file)]
+        )
+
+        XCTAssertTrue(
+            pipeline.rawMapWrites.isEmpty,
+            "Raw metadata writes must fail closed when the file changed after the editor opened."
+        )
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("changed after the preview") == true)
+    }
+
+    func testEraseMetadataRejectsFileChangedSinceSelection() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorEraseFingerprintTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("changed.mp3")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+
+        try Data(repeating: 0x41, count: 16).write(to: fileURL)
+        let file = AudioFileTestFactory.make(
+            url: fileURL,
+            fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
+        )
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+
+        try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
+        let result = await viewModel.persistMetadataErase(file, syncInspectorAfterReload: false)
+
+        guard case .failure(let reason) = result else {
+            return XCTFail("Expected metadata erase to reject the stale file.")
+        }
+        XCTAssertTrue(reason.contains("changed after the preview"))
+        XCTAssertEqual(
+            pipeline.eraseCount,
+            0,
+            "Metadata erase must fail closed when the file changed after it was loaded."
+        )
+    }
+
     func testCreateMuseAmpIDsWritesDeterministicCommentPayloadsAndRefreshesLoadedFiles() async throws {
         let firstID = UUID()
         let secondID = UUID()
@@ -230,7 +356,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             title: "First",
             album: "Shared Album",
             comment: "Old First",
-            albumArtist: "Shared Artist"
+            albumArtist: "Shared Artist",
+            includeDefaultFileFingerprint: false
         )
         let second = AudioFileTestFactory.make(
             id: secondID,
@@ -238,7 +365,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             title: "Second",
             album: "Shared Album",
             comment: "Old Second",
-            albumArtist: "Shared Artist"
+            albumArtist: "Shared Artist",
+            includeDefaultFileFingerprint: false
         )
         let expectedAssignments = MuseAmpCommentIDGenerator.assignments(for: [
             MuseAmpTrackIdentity(album: first.album, albumArtist: first.albumArtist, trackKey: firstURL.path),
@@ -290,8 +418,20 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let secondID = UUID()
         let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
         let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
-        let first = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "Old First", album: "Keep Album")
-        let second = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Old Second", album: "Keep Album")
+        let first = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "Old First",
+            album: "Keep Album",
+            includeDefaultFileFingerprint: false
+        )
+        let second = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Old Second",
+            album: "Keep Album",
+            includeDefaultFileFingerprint: false
+        )
         let firstReloaded = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "Imported First", album: "Keep Album")
         let secondReloaded = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Imported Second", album: "Keep Album")
         let pipeline = RecordingMetadataPipeline(
@@ -762,6 +902,7 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
     private let reloadedFilesByURL: [URL: AudioFile]
     private(set) var metadataWrites: [MetadataWrite] = []
     private(set) var rawMapWrites: [URL: [String: String]] = [:]
+    private var recordedEraseCount = 0
 
     init(reloadedFilesByURL: [URL: AudioFile] = [:]) {
         self.reloadedFilesByURL = reloadedFilesByURL
@@ -800,7 +941,14 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
     }
 
     nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
+        lock.withLock {
+            recordedEraseCount += 1
+        }
+        return AudioMetadataWriteResult(warnings: [])
+    }
+
+    var eraseCount: Int {
+        lock.withLock { recordedEraseCount }
     }
 
     nonisolated func writeTrackNumberText(

@@ -34,7 +34,11 @@ final class FileMutationSerializationTests: XCTestCase {
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
         let fileID = UUID()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorSharedMutation.mp3")
-        let file = AudioFileTestFactory.make(id: fileID, url: fileURL)
+        let file = AudioFileTestFactory.make(
+            id: fileID,
+            url: fileURL,
+            includeDefaultFileFingerprint: false
+        )
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
         viewModel.mergeQuickImportFiles([file])
 

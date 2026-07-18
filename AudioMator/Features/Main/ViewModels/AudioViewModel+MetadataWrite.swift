@@ -35,7 +35,11 @@ extension AudioViewModel {
         )
 
         Task(priority: .userInitiated) {
-            let result = await self.persistMetadataEdit(edit, to: file)
+            let result = await self.persistMetadataEdit(
+                edit,
+                to: file,
+                expectedFileFingerprint: file.fileFingerprint
+            )
             self.updateMetadataSaveProgress(
                 subtitle: file.url.lastPathComponent,
                 completedUnitCount: 1
@@ -95,7 +99,8 @@ extension AudioViewModel {
                 let result = await self.persistMetadataEdit(
                     effectiveEdit,
                     to: file,
-                    syncInspectorAfterReload: false
+                    syncInspectorAfterReload: false,
+                    expectedFileFingerprint: file.fileFingerprint
                 )
 
                 switch result {

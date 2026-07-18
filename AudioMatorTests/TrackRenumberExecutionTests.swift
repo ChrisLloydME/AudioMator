@@ -12,7 +12,8 @@ final class TrackRenumberExecutionTests: XCTestCase {
             id: fileID,
             url: fileURL,
             track: 1,
-            trackNumberText: "01"
+            trackNumberText: "01",
+            includeDefaultFileFingerprint: false
         )
         let diskReadback = AudioFileTestFactory.make(
             id: fileID,
@@ -37,6 +38,42 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertEqual(pipeline.verifyAfterWriteValues, [true])
         XCTAssertEqual(viewModel.files.first?.trackNumberText, "7")
         XCTAssertEqual(result.warnings.first?.messages, ["Synthetic verification warning"])
+    }
+
+    func testRenumberRejectsFileChangedSinceSelection() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorRenumberFingerprintTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directoryURL.appendingPathComponent("changed.mp3")
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+
+        try Data(repeating: 0x41, count: 16).write(to: fileURL)
+        let file = AudioFileTestFactory.make(
+            url: fileURL,
+            track: 1,
+            trackNumberText: "01",
+            fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
+        )
+        let pipeline = RenumberRecordingMetadataPipeline(diskReadback: file)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+
+        try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
+        let result = await viewModel.renumberTrackNumbers(
+            orderedIDs: [file.id],
+            selectedIDs: [],
+            options: TrackRenumberOptions(startNumber: 7)
+        )
+
+        XCTAssertEqual(result.failed, 1)
+        XCTAssertEqual(result.succeeded, 0)
+        XCTAssertTrue(result.failures.first?.reason.contains("changed after the preview") == true)
+        XCTAssertTrue(
+            pipeline.verifyAfterWriteValues.isEmpty,
+            "Track renumbering must not write when its loaded file fingerprint is stale."
+        )
     }
 }
 

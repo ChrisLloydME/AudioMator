@@ -4,6 +4,21 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    func testMetadataEditorOnlyDismissesAfterAllRawMapsApply() throws {
+        let repositoryURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let editorSource = try String(
+            contentsOf: repositoryURL.appendingPathComponent(
+                "AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(editorSource.contains("let didApplyAllChanges = await viewModel.applyRawMetadataPropertyMaps"))
+        XCTAssertTrue(editorSource.contains("guard didApplyAllChanges else { return }"))
+    }
+
     func testSidebarActionsRouteThroughUnsavedInspectorDiscardGuard() throws {
         let repositoryURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -294,7 +309,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.selectedAudioIDs = [firstID]
         viewModel.updateEditForSelection()
 
-        await viewModel.applyRawMetadataPropertyMaps(
+        let didApplyAllChanges = await viewModel.applyRawMetadataPropertyMaps(
             [
                 firstID: ["TITLE": "Raw First", "CUSTOM": "One"],
                 secondID: ["TITLE": "Raw Second"]
@@ -307,6 +322,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         XCTAssertEqual(pipeline.rawMapWrites[firstURL], ["TITLE": "Raw First", "CUSTOM": "One"])
         XCTAssertEqual(pipeline.rawMapWrites[secondURL], ["TITLE": "Raw Second"])
+        XCTAssertTrue(didApplyAllChanges)
         XCTAssertEqual(viewModel.files.map(\.title), ["Raw First", "Raw Second"])
         XCTAssertEqual(viewModel.edit?.title, "Raw First")
     }
@@ -319,7 +335,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let pipeline = RecordingMetadataPipeline()
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
 
-        await viewModel.applyRawMetadataPropertyMaps(
+        let didApplyAllChanges = await viewModel.applyRawMetadataPropertyMaps(
             [:],
             to: [MetadataEditorTarget(file: file)]
         )
@@ -328,6 +344,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             pipeline.rawMapWrites.isEmpty,
             "A missing editor map must not be converted into an empty metadata write."
         )
+        XCTAssertFalse(didApplyAllChanges)
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
         XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("metadata was not loaded") == true)
     }

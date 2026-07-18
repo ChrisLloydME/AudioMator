@@ -489,8 +489,12 @@ struct MetadataEditorWindowView: View {
         }
 
         isApplyingChanges = true
-        await viewModel.applyRawMetadataPropertyMaps(store.draftPropertyMaps, to: store.targets)
+        let didApplyAllChanges = await viewModel.applyRawMetadataPropertyMaps(
+            store.draftPropertyMaps,
+            to: store.targets
+        )
         isApplyingChanges = false
+        guard didApplyAllChanges else { return }
         dismiss()
     }
 }

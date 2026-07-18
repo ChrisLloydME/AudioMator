@@ -232,15 +232,17 @@ extension AudioViewModel {
     }
 
     private func loadPendingArtwork(from url: URL) throws -> PendingArtwork {
-        guard let image = PlatformImage(contentsOfFile: url.path) else {
-            throw NSError(
-                domain: "AudioMator.Artwork",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "The selected image could not be opened."]
-            )
-        }
+        try SecurityScopedResourceAccess.withAccess(to: url) {
+            guard let image = PlatformImage(contentsOfFile: url.path) else {
+                throw NSError(
+                    domain: "AudioMator.Artwork",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "The selected image could not be opened."]
+                )
+            }
 
-        return try loadPendingArtwork(from: image)
+            return try loadPendingArtwork(from: image)
+        }
     }
 
     private func loadPendingArtwork(fromImageData data: Data) throws -> PendingArtwork {

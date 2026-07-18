@@ -1,18 +1,37 @@
 import Foundation
 
+struct RawMetadataApplyResult {
+    let succeededTargetIDs: Set<AudioFile.ID>
+    let failedTargetIDs: Set<AudioFile.ID>
+
+    var didApplyAllChanges: Bool {
+        failedTargetIDs.isEmpty
+    }
+}
+
 extension AudioViewModel {
     @discardableResult
     func applyRawMetadataPropertyMaps(
         _ propertyMaps: [AudioFile.ID: [String: String]],
         to targets: [MetadataEditorTarget]
-    ) async -> Bool {
-        guard !targets.isEmpty else { return false }
-        guard canStartExternalFileMutation() else { return false }
+    ) async -> RawMetadataApplyResult {
+        guard !targets.isEmpty else {
+            return RawMetadataApplyResult(succeededTargetIDs: [], failedTargetIDs: [])
+        }
+        guard canStartExternalFileMutation() else {
+            return RawMetadataApplyResult(
+                succeededTargetIDs: [],
+                failedTargetIDs: Set(targets.map(\.id))
+            )
+        }
 
         var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
+        var succeededTargetIDs = Set<AudioFile.ID>()
+        var failedTargetIDs = Set<AudioFile.ID>()
 
         for target in targets {
             guard let propertyMap = propertyMaps[target.id] else {
+                failedTargetIDs.insert(target.id)
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
@@ -23,6 +42,7 @@ extension AudioViewModel {
             }
 
             guard isTagWriteSupportedExtension(target.url.pathExtension) else {
+                failedTargetIDs.insert(target.id)
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
@@ -40,6 +60,7 @@ extension AudioViewModel {
                 )
 
                 summary.succeeded += 1
+                succeededTargetIDs.insert(target.id)
                 var warningMessages = writeResult.warnings
 
                 let refreshWarning = await reloadEditedFile(
@@ -62,6 +83,7 @@ extension AudioViewModel {
                     )
                 }
             } catch {
+                failedTargetIDs.insert(target.id)
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
@@ -76,6 +98,9 @@ extension AudioViewModel {
         }
 
         presentBatchMetadataWriteSummary(summary)
-        return summary.failureIssues.isEmpty
+        return RawMetadataApplyResult(
+            succeededTargetIDs: succeededTargetIDs,
+            failedTargetIDs: failedTargetIDs
+        )
     }
 }

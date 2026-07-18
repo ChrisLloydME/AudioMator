@@ -183,6 +183,30 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    func testRecordingPartialApplyLeavesOnlyFailedTargetsPending() async throws {
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let store = MetadataEditorStore(
+            metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
+                firstFile.url: ["TITLE": "First"],
+                secondFile.url: ["TITLE": "Second"]
+            ])
+        )
+
+        store.present(targetFiles: [firstFile, secondFile])
+        try await waitUntilLoaded(store)
+        store.upsertField(key: "ALBUM", value: "Shared Draft")
+        store.recordAppliedTargets([firstFile.id])
+
+        XCTAssertEqual(store.pendingTargets.map(\.id), [secondFile.id])
+        XCTAssertTrue(store.hasUnsavedChanges)
+
+        store.recordAppliedTargets([secondFile.id])
+
+        XCTAssertTrue(store.pendingTargets.isEmpty)
+        XCTAssertFalse(store.hasUnsavedChanges)
+    }
+
     func testPresentFailsClosedWhenAnySelectedFileCannotBeRead() async throws {
         let readableFile = AudioFileTestFactory.make(
             id: UUID(),

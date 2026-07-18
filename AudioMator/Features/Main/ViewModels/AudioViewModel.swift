@@ -79,6 +79,7 @@ final class AudioViewModel: ObservableObject {
     private var quickImportGeneration: UInt64 = 0
     private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
     private var quickImportLoadingURLs: [UUID: [URL]] = [:]
+    private var quickImportTokensByURLKey: [String: UUID] = [:]
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
     private var activeSidebarSelection: SidebarSelection = .quickImport
     private var fileIDsByKey: [String: UUID] = [:]
@@ -435,6 +436,13 @@ final class AudioViewModel: ObservableObject {
 
         let taskID = UUID()
         let generation = quickImportGeneration
+        var importTokensByURLKey: [String: UUID] = [:]
+        for url in candidateURLs {
+            let key = Self.urlKey(for: url)
+            let token = UUID()
+            quickImportTokensByURLKey[key] = token
+            importTokensByURLKey[key] = token
+        }
         quickImportLoadingURLs[taskID] = candidateURLs
         beginAccessingQuickImportResources(for: candidateURLs)
 
@@ -462,7 +470,11 @@ final class AudioViewModel: ObservableObject {
                     guard !batch.isEmpty, !Task.isCancelled else { return }
                     await MainActor.run { [weak self] in
                         guard let self, self.quickImportGeneration == generation else { return }
-                        self.mergeQuickImportFiles(batch)
+                        let currentBatch = batch.filter { file in
+                            let key = Self.urlKey(for: file.url)
+                            return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
+                        }
+                        self.mergeQuickImportFiles(currentBatch)
                     }
                 }
             )
@@ -471,11 +483,19 @@ final class AudioViewModel: ObservableObject {
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 if shouldReportFailures, self.quickImportGeneration == generation {
-                    self.mergeQuickImportFiles(loadResult.files)
+                    let currentFiles = loadResult.files.filter { file in
+                        let key = Self.urlKey(for: file.url)
+                        return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
+                    }
+                    self.mergeQuickImportFiles(currentFiles)
                 }
                 self.finishQuickImportTask(taskID)
                 if shouldReportFailures, self.quickImportGeneration == generation {
-                    self.presentQuickImportFailures(loadResult.failures)
+                    let currentFailures = loadResult.failures.filter { failure in
+                        let key = Self.urlKey(for: failure.url)
+                        return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
+                    }
+                    self.presentQuickImportFailures(currentFailures)
                 }
             }
         }
@@ -486,6 +506,7 @@ final class AudioViewModel: ObservableObject {
         quickImportGeneration &+= 1
         quickImportTasks.values.forEach { $0.cancel() }
         quickImportTasks.removeAll()
+        quickImportTokensByURLKey.removeAll()
         quickImportFiles.removeAll()
         syncQuickImportSecurityScopedResources()
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
@@ -493,6 +514,9 @@ final class AudioViewModel: ObservableObject {
     }
 
     func removeQuickImportFile(id: UUID) {
+        if let removedFile = quickImportFiles.first(where: { $0.id == id }) {
+            quickImportTokensByURLKey[Self.urlKey(for: removedFile.url)] = UUID()
+        }
         quickImportFiles.removeAll { $0.id == id }
         syncQuickImportSecurityScopedResources()
         rebuildVisibleFiles()

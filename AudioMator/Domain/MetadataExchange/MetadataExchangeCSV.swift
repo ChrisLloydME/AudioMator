@@ -4,12 +4,16 @@ struct MetadataExchangeCSVField {
     let value: String
     let wasQuoted: Bool
 
+    nonisolated var decodedValue: String {
+        MetadataExchangeCSV.decodeSpreadsheetProtectedValue(value)
+    }
+
     nonisolated var importedValue: String {
-        wasQuoted ? value : value.trimmingCharacters(in: .whitespacesAndNewlines)
+        wasQuoted ? decodedValue : decodedValue.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated var hasImportContent: Bool {
-        wasQuoted ? !value.isEmpty : !importedValue.isEmpty
+        wasQuoted ? !decodedValue.isEmpty : !importedValue.isEmpty
     }
 }
 
@@ -43,7 +47,7 @@ enum MetadataExchangeCSV {
 
     nonisolated static func parse(_ source: String, delimiter: Character = ",") throws -> [[String]] {
         try parseFields(source, delimiter: delimiter).map { row in
-            row.map(\.value)
+            row.map(\.decodedValue)
         }
     }
 
@@ -201,17 +205,66 @@ enum MetadataExchangeCSV {
 
     nonisolated static func serialize(_ rows: [[String]], delimiter: Character = ",") -> String {
         rows
-            .map { row in row.map { escape($0, delimiter: delimiter) }.joined(separator: String(delimiter)) }
+            .map { row in
+                row.map { value in
+                    escape(
+                        spreadsheetProtectedValue(value),
+                        delimiter: delimiter,
+                        forceQuote: value.first?.isWhitespace == true || value.last?.isWhitespace == true
+                    )
+                }
+                .joined(separator: String(delimiter))
+            }
             .joined(separator: "\r\n")
     }
 
-    nonisolated private static func escape(_ value: String, delimiter: Character) -> String {
+    /// Prefixes formula-like values with an apostrophe so spreadsheet apps treat them as text.
+    /// A genuine leading apostrophe is doubled when needed, making AudioMator export/import reversible.
+    nonisolated static func spreadsheetProtectedValue(_ value: String) -> String {
+        guard !value.isEmpty else { return value }
+
+        if value.first == "'", startsSpreadsheetFormula(String(value.dropFirst())) {
+            return "'" + value
+        }
+
+        guard startsSpreadsheetFormula(value) else { return value }
+        return "'" + value
+    }
+
+    nonisolated static func decodeSpreadsheetProtectedValue(_ value: String) -> String {
+        guard value.first == "'" else { return value }
+
+        let remainder = String(value.dropFirst())
+        if remainder.first == "'", startsSpreadsheetFormula(String(remainder.dropFirst())) {
+            return remainder
+        }
+        if startsSpreadsheetFormula(remainder) {
+            return remainder
+        }
+        return value
+    }
+
+    nonisolated private static func startsSpreadsheetFormula(_ value: String) -> Bool {
+        for scalar in value.unicodeScalars {
+            if scalar.value <= 0x20 || scalar.value == 0xFEFF {
+                continue
+            }
+            return scalar == "=" || scalar == "+" || scalar == "-" || scalar == "@"
+        }
+        return false
+    }
+
+    nonisolated private static func escape(
+        _ value: String,
+        delimiter: Character,
+        forceQuote: Bool = false
+    ) -> String {
         let containsRecordSeparator = value.unicodeScalars.contains { scalar in
             scalar.value == 0x0A || scalar.value == 0x0D
         }
         let hasBoundaryWhitespace = value.first?.isWhitespace == true || value.last?.isWhitespace == true
 
-        guard value.contains(delimiter) || value.contains("\"") || containsRecordSeparator || hasBoundaryWhitespace else {
+        guard forceQuote || value.contains(delimiter) || value.contains("\"") || containsRecordSeparator || hasBoundaryWhitespace else {
             return value
         }
 

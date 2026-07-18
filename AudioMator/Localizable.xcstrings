@@ -4671,6 +4671,9 @@
         }
       }
     },
+    "Enter a comma-, semicolon-, pipe-, or tab-delimited column template." : {
+
+    },
     "Enter a template or drag metadata chips into the field." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:283.",
       "localizations" : {

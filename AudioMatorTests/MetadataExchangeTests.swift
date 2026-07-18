@@ -180,6 +180,7 @@ final class MetadataExchangeTests: XCTestCase {
             "-2+3",
             "@SUM(A1:A2)",
             "\t=1+1",
+            "\u{00A0}=2+2",
             "'=literal",
             "plain"
         ]

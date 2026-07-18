@@ -327,7 +327,9 @@ enum MetadataExchangeCSV {
 
     nonisolated private static func startsSpreadsheetFormula(_ value: String) -> Bool {
         for scalar in value.unicodeScalars {
-            if scalar.value <= 0x20 || scalar.value == 0xFEFF {
+            if scalar.value <= 0x20 ||
+                scalar.value == 0xFEFF ||
+                CharacterSet.whitespacesAndNewlines.contains(scalar) {
                 continue
             }
             return scalar == "=" || scalar == "+" || scalar == "-" || scalar == "@"

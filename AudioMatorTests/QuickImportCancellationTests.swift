@@ -25,12 +25,53 @@ final class QuickImportCancellationTests: XCTestCase {
             "A batch from an import session cleared by the user must not merge later."
         )
     }
+
+    func testRemovingWatchedFolderCancelsInFlightMetadataLoads() async throws {
+        let suiteName = "AudioMator.WatchedFolderCancellationTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolderCancellation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        let audioURL = rootURL.appendingPathComponent("track.mp3")
+        XCTAssertTrue(FileManager.default.createFile(atPath: audioURL.path, contents: Data()))
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+
+        let gate = QuickImportLoadGate()
+        let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
+        let viewModel = AudioViewModel(
+            watchedFolderStore: store,
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore()
+        )
+
+        await gate.waitUntilStarted()
+        viewModel.removeWatchedFolder(id: folder.id)
+        await gate.release()
+        await gate.waitUntilReturned()
+        let wasCancelled = await gate.wasCancelledWhenReturned()
+
+        XCTAssertTrue(
+            wasCancelled,
+            "Removing a watched folder must cancel metadata reads owned by its rescan."
+        )
+    }
 }
 
 private actor QuickImportLoadGate {
     private var didStart = false
     private var didRelease = false
     private var didReturn = false
+    private var wasCancelledOnReturn = false
     private var startWaiters: [CheckedContinuation<Void, Never>] = []
     private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
     private var returnWaiters: [CheckedContinuation<Void, Never>] = []
@@ -55,8 +96,9 @@ private actor QuickImportLoadGate {
         releaseWaiters.removeAll()
     }
 
-    func markReturned() {
+    func markReturned(wasCancelled: Bool) {
         didReturn = true
+        wasCancelledOnReturn = wasCancelled
         returnWaiters.forEach { $0.resume() }
         returnWaiters.removeAll()
     }
@@ -64,6 +106,10 @@ private actor QuickImportLoadGate {
     func waitUntilReturned() async {
         guard !didReturn else { return }
         await withCheckedContinuation { returnWaiters.append($0) }
+    }
+
+    func wasCancelledWhenReturned() -> Bool {
+        wasCancelledOnReturn
     }
 }
 
@@ -79,7 +125,7 @@ private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @
         let file = await MainActor.run {
             AudioFileTestFactory.make(id: id, url: url)
         }
-        await gate.markReturned()
+        await gate.markReturned(wasCancelled: Task.isCancelled)
         return file
     }
 

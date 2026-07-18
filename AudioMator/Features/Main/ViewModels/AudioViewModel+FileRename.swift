@@ -56,6 +56,7 @@ enum FileRenameExecutionResult: Sendable {
 
 protocol FileRenameFileSystem: Sendable {
     nonisolated func fileExists(at url: URL) -> Bool
+    nonisolated func fingerprint(at url: URL) throws -> AudioFileFingerprint
     nonisolated func moveItem(at sourceURL: URL, to destinationURL: URL) throws
 }
 
@@ -64,6 +65,10 @@ struct LocalFileRenameFileSystem: FileRenameFileSystem {
 
     nonisolated func fileExists(at url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
+    }
+
+    nonisolated func fingerprint(at url: URL) throws -> AudioFileFingerprint {
+        try AudioFileFingerprint.capture(at: url)
     }
 
     nonisolated func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
@@ -226,6 +231,11 @@ nonisolated func executeFileRenameTransaction(
 
     for prepared in preparedOperations {
         do {
+            let currentFingerprint = try fileSystem.fingerprint(at: prepared.operation.sourceURL)
+            guard currentFingerprint == prepared.operation.expectedFileFingerprint else {
+                throw FileRenameSourceValidationError.changedSincePreview
+            }
+
             try fileSystem.moveItem(at: prepared.operation.sourceURL, to: prepared.temporaryURL)
             stagedOperations.append(prepared)
         } catch {
@@ -266,6 +276,17 @@ nonisolated func executeFileRenameTransaction(
     }
 
     return .success(actionableOperations)
+}
+
+private enum FileRenameSourceValidationError: LocalizedError {
+    case changedSincePreview
+
+    var errorDescription: String? {
+        switch self {
+        case .changedSincePreview:
+            return L10n.string("The file changed after the preview was shown. Refresh the preview and try again.")
+        }
+    }
 }
 
 nonisolated private func uniqueTemporaryRenameURL(

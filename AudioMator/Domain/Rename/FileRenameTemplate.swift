@@ -43,6 +43,7 @@ enum FileRenamePreviewStatus: Equatable {
     case unchanged
     case emptyName
     case nameTooLong
+    case sourceUnavailable
     case duplicateTarget
     case existingFile
 
@@ -56,6 +57,8 @@ enum FileRenamePreviewStatus: Equatable {
             return L10n.string("Empty Name")
         case .nameTooLong:
             return L10n.string("Name Too Long")
+        case .sourceUnavailable:
+            return L10n.string("File Unavailable")
         case .duplicateTarget:
             return L10n.string("Duplicate Target")
         case .existingFile:
@@ -73,6 +76,8 @@ enum FileRenamePreviewStatus: Equatable {
             return L10n.string("This template resolves to an empty filename for the file.")
         case .nameTooLong:
             return L10n.string("The generated filename is too long for the destination file system.")
+        case .sourceUnavailable:
+            return L10n.string("The file version could not be verified. Reload the file and try again.")
         case .duplicateTarget:
             return L10n.string("Multiple selected files would end up with the same filename.")
         case .existingFile:
@@ -84,7 +89,7 @@ enum FileRenamePreviewStatus: Equatable {
         switch self {
         case .ready, .unchanged:
             return false
-        case .emptyName, .nameTooLong, .duplicateTarget, .existingFile:
+        case .emptyName, .nameTooLong, .sourceUnavailable, .duplicateTarget, .existingFile:
             return true
         }
     }
@@ -96,6 +101,7 @@ struct FileRenamePreviewRow: Identifiable {
     let previewName: String
     let sourceURL: URL
     let destinationURL: URL?
+    let expectedFileFingerprint: AudioFileFingerprint?
     let status: FileRenamePreviewStatus
 }
 
@@ -103,6 +109,7 @@ struct FileRenameOperation: Identifiable, Sendable {
     let id: UUID
     let sourceURL: URL
     let destinationURL: URL
+    let expectedFileFingerprint: AudioFileFingerprint
 }
 
 struct FileRenamePlan {
@@ -254,6 +261,7 @@ private struct FileRenamePlanBuilder {
                             previewName: "Empty filename",
                             sourceURL: file.url,
                             destinationURL: nil,
+                            expectedFileFingerprint: nil,
                             status: .emptyName
                         ),
                         sourceKey: nil,
@@ -270,12 +278,15 @@ private struct FileRenamePlanBuilder {
             let sourceKey = fileRenameCollisionKey(for: file.url)
             let destinationKey = fileRenameCollisionKey(for: destinationURL)
             let destinationExists = fileManager.fileExists(atPath: destinationURL.path)
+            let expectedFileFingerprint = file.fileFingerprint ?? (try? AudioFileFingerprint.capture(at: file.url))
 
             let status: FileRenamePreviewStatus
             if sourcePath == destinationPath {
                 status = .unchanged
             } else if destinationURL.lastPathComponent.utf8.count > 255 {
                 status = .nameTooLong
+            } else if expectedFileFingerprint == nil {
+                status = .sourceUnavailable
             } else {
                 status = .ready
             }
@@ -287,6 +298,7 @@ private struct FileRenamePlanBuilder {
                         previewName: destinationURL.lastPathComponent,
                         sourceURL: file.url,
                         destinationURL: destinationURL,
+                        expectedFileFingerprint: expectedFileFingerprint,
                         status: status
                     ),
                     sourceKey: sourceKey,
@@ -308,14 +320,19 @@ private struct FileRenamePlanBuilder {
         let finalizedStatuses = FileRenameCollisionPolicy.finalizedStatuses(for: coreDrafts)
         let rows = finalizeRows(from: drafts, finalizedStatuses: finalizedStatuses)
         let operations = rows.compactMap { row -> FileRenameOperation? in
-            guard row.status == .ready, let destinationURL = row.destinationURL else {
+            guard
+                row.status == .ready,
+                let destinationURL = row.destinationURL,
+                let expectedFileFingerprint = row.expectedFileFingerprint
+            else {
                 return nil
             }
 
             return FileRenameOperation(
                 id: row.id,
                 sourceURL: row.sourceURL,
-                destinationURL: destinationURL
+                destinationURL: destinationURL,
+                expectedFileFingerprint: expectedFileFingerprint
             )
         }
 
@@ -346,6 +363,7 @@ private struct FileRenamePlanBuilder {
                 previewName: draft.row.previewName,
                 sourceURL: draft.row.sourceURL,
                 destinationURL: draft.row.destinationURL,
+                expectedFileFingerprint: draft.row.expectedFileFingerprint,
                 status: status
             )
         }
@@ -363,6 +381,8 @@ private extension FileRenameCoreStatus {
             self = .emptyName
         case .nameTooLong:
             self = .nameTooLong
+        case .sourceUnavailable:
+            self = .sourceUnavailable
         case .duplicateTarget:
             self = .duplicateTarget
         case .existingFile:
@@ -382,6 +402,8 @@ private extension FileRenamePreviewStatus {
             self = .emptyName
         case .nameTooLong:
             self = .nameTooLong
+        case .sourceUnavailable:
+            self = .sourceUnavailable
         case .duplicateTarget:
             self = .duplicateTarget
         case .existingFile:

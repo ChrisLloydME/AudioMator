@@ -10,6 +10,16 @@ extension AudioViewModel {
         var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
 
         for target in targets {
+            guard let propertyMap = propertyMaps[target.id] else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: target.fileName,
+                        messages: [L10n.string("The metadata was not loaded for this file, so no changes were written.")]
+                    )
+                )
+                continue
+            }
+
             guard isTagWriteSupportedExtension(target.url.pathExtension) else {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
@@ -22,7 +32,7 @@ extension AudioViewModel {
 
             do {
                 let writeResult = try await writeRawMetadataPropertyMapOffMainActor(
-                    propertyMaps[target.id] ?? [:],
+                    propertyMap,
                     to: target.url,
                     expectedFileFingerprint: target.expectedFileFingerprint
                 )

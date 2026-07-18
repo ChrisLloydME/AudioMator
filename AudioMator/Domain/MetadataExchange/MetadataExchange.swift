@@ -1437,6 +1437,13 @@ enum MetadataExchangePlanner {
         clearBlankImportedValues: Bool
     ) -> MetadataExchangeImportPlan {
         let uniqueFiles = uniqueTargetFiles(targetFiles)
+        guard uniqueFiles.count <= maximumImportRecordCount else {
+            return MetadataExchangeImportPlan(
+                validationMessage: L10n.string("The selection contains more than 100,000 files. Import into a smaller selection."),
+                rows: []
+            )
+        }
+
         var seenLocatorFields = Set<MetadataExchangeField>()
         let locatorFields = fields.filter { field in
             field.isLocatorField && seenLocatorFields.insert(field).inserted
@@ -1511,27 +1518,63 @@ enum MetadataExchangePlanner {
         locatorFields: [MetadataExchangeField],
         clearBlankImportedValues: Bool
     ) -> [MetadataExchangeImportPreviewRow] {
+        let candidateIndex = MetadataExchangeLocatorCandidateIndex(
+            itemCount: targetFiles.count,
+            fields: locatorFields
+        ) { field, fileIndex in
+            locatorIndexKeys(
+                field: field,
+                file: targetFiles[fileIndex],
+                fileIndex: fileIndex
+            )
+        }
+        var matchCache: [LocatorSignature: LocatorMatch] = [:]
+
         let resolutions: [(record: ParsedExternalRecord, resolution: LocatorResolution)] = parsedRecords.map { record in
             switch record.captures {
             case .failure(let message):
                 return (record, .parseError(message))
             case .success(let captures):
-                let matches = targetFiles.enumerated().compactMap { index, file in
-                    matchesAllLocators(
-                        captures: captures,
-                        locatorFields: locatorFields,
-                        file: file,
-                        fileIndex: index
-                    ) ? file : nil
-                }
                 let description = locatorDescription(captures: captures, locatorFields: locatorFields)
-                switch matches.count {
-                case 0:
+                guard let signature = locatorSignature(captures: captures, locatorFields: locatorFields) else {
                     return (record, .noMatch(description))
-                case 1:
-                    return (record, .matched(matches[0]))
-                default:
+                }
+
+                let match: LocatorMatch
+                if let cachedMatch = matchCache[signature] {
+                    match = cachedMatch
+                } else {
+                    let candidateIndices = candidateIndex.candidateIndices(fields: locatorFields) { field in
+                        locatorLookupKey(captures[field] ?? "", field: field)
+                    }
+                    let matchingFiles = candidateIndices.compactMap { fileIndex -> AudioFile? in
+                        let file = targetFiles[fileIndex]
+                        return matchesAllLocators(
+                            captures: captures,
+                            locatorFields: locatorFields,
+                            file: file,
+                            fileIndex: fileIndex
+                        ) ? file : nil
+                    }
+
+                    switch matchingFiles.count {
+                    case 0:
+                        match = .none
+                    case 1:
+                        match = .matched(matchingFiles[0])
+                    default:
+                        match = .ambiguous
+                    }
+                    matchCache[signature] = match
+                }
+
+                switch match {
+                case .none:
+                    return (record, .noMatch(description))
+                case .ambiguous:
                     return (record, .ambiguous(description))
+                case .matched(let file):
+                    return (record, .matched(file))
                 }
             }
         }
@@ -1656,6 +1699,76 @@ enum MetadataExchangePlanner {
                     .musicBrainzReleaseGroupID, .contentAdvisory, .ignore:
                 return false
             }
+        }
+    }
+
+    private static func locatorSignature(
+        captures: [MetadataExchangeField: String],
+        locatorFields: [MetadataExchangeField]
+    ) -> LocatorSignature? {
+        var values: [String] = []
+        values.reserveCapacity(locatorFields.count)
+        for field in locatorFields {
+            guard let value = captures[field], let key = locatorLookupKey(value, field: field) else {
+                return nil
+            }
+            values.append(key)
+        }
+        return LocatorSignature(values: values)
+    }
+
+    private static func locatorIndexKeys(
+        field: MetadataExchangeField,
+        file: AudioFile,
+        fileIndex: Int
+    ) -> [String] {
+        switch field {
+        case .fileName:
+            return nonEmptyMatchingKey(file.url.lastPathComponent).map { [$0] } ?? []
+        case .baseName:
+            return nonEmptyMatchingKey(file.url.deletingPathExtension().lastPathComponent).map { [$0] } ?? []
+        case .path:
+            return normalizedAbsolutePath(file.url.path).map { [$0] } ?? []
+        case .relativePath:
+            guard let path = normalizedAbsolutePath(file.url.path) else { return [] }
+            let components = path.split(separator: "/", omittingEmptySubsequences: true)
+            return components.indices.map { index in
+                components[index...].joined(separator: "/")
+            }
+        case .index:
+            return [String(fileIndex + 1)]
+        case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .discNumber, .discTotal, .comment, .releaseDate, .publisher,
+                .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
+                .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
+                .itunesCatalogID, .musicBrainzAlbumID, .musicBrainzTrackID,
+                .musicBrainzReleaseGroupID, .contentAdvisory, .ignore:
+            return []
+        }
+    }
+
+    private static func locatorLookupKey(
+        _ value: String,
+        field: MetadataExchangeField
+    ) -> String? {
+        switch field {
+        case .fileName, .baseName:
+            return nonEmptyMatchingKey(value)
+        case .path:
+            return normalizedAbsolutePath(value)
+        case .relativePath:
+            return normalizedRelativePath(value)
+        case .index:
+            return positiveIndex(value).map(String.init)
+        case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
+                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .discNumber, .discTotal, .comment, .releaseDate, .publisher,
+                .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
+                .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
+                .itunesCatalogID, .musicBrainzAlbumID, .musicBrainzTrackID,
+                .musicBrainzReleaseGroupID, .contentAdvisory, .ignore:
+            return nil
         }
     }
 
@@ -1861,6 +1974,16 @@ enum MetadataExchangePlanner {
         case noMatch(String)
         case ambiguous(String)
         case matched(AudioFile)
+    }
+
+    private enum LocatorMatch {
+        case none
+        case ambiguous
+        case matched(AudioFile)
+    }
+
+    private struct LocatorSignature: Hashable {
+        let values: [String]
     }
 }
 

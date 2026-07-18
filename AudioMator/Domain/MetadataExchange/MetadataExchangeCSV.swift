@@ -34,6 +34,53 @@ struct MetadataExchangeExportBudget {
     }
 }
 
+struct MetadataExchangeLocatorCandidateIndex<Field: Hashable> {
+    private let candidateIndicesByFieldAndKey: [Field: [String: [Int]]]
+
+    init(
+        itemCount: Int,
+        fields: [Field],
+        keysForItem: (Field, Int) -> [String]
+    ) {
+        var indexes: [Field: [String: [Int]]] = [:]
+        for field in fields {
+            var candidatesByKey: [String: [Int]] = [:]
+            for itemIndex in 0..<max(itemCount, 0) {
+                for key in Set(keysForItem(field, itemIndex)) where !key.isEmpty {
+                    candidatesByKey[key, default: []].append(itemIndex)
+                }
+            }
+            indexes[field] = candidatesByKey
+        }
+        candidateIndicesByFieldAndKey = indexes
+    }
+
+    func candidateIndices(
+        fields: [Field],
+        lookupKey: (Field) -> String?
+    ) -> [Int] {
+        var narrowestCandidates: [Int]?
+
+        for field in fields {
+            guard
+                let key = lookupKey(field),
+                let candidates = candidateIndicesByFieldAndKey[field]?[key],
+                !candidates.isEmpty
+            else {
+                return []
+            }
+
+            if let narrowestCandidates, candidates.count >= narrowestCandidates.count {
+                continue
+            } else {
+                narrowestCandidates = candidates
+            }
+        }
+
+        return narrowestCandidates ?? []
+    }
+}
+
 struct MetadataExchangeCSVField {
     let value: String
     let wasQuoted: Bool

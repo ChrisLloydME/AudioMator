@@ -490,9 +490,7 @@ struct ContentView: View {
             album: selectedInput.album,
             trackNumber: selectedInput.trackNumber,
             trackTotal: selectedFile.trackTotal,
-            durationMilliseconds: selectedFile.duration.isFinite && selectedFile.duration > 0
-                ? Int((selectedFile.duration * 1000).rounded())
-                : nil,
+            durationMilliseconds: AudioNumericConversion.positiveDurationMilliseconds(selectedFile.duration),
             releaseDate: selectedInput.releaseDate,
             isrc: selectedFile.isrc,
             barcode: selectedFile.barcode,

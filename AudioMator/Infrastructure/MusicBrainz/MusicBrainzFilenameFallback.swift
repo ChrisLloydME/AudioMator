@@ -27,9 +27,7 @@ enum MusicBrainzFilenameFallbackResolver {
             trackNumber: fallback.trackNumber,
             discNumber: fallback.discNumber,
             trackTotal: file.trackTotal,
-            durationMilliseconds: file.duration.isFinite && file.duration > 0
-                ? Int((file.duration * 1000).rounded())
-                : nil,
+            durationMilliseconds: AudioNumericConversion.positiveDurationMilliseconds(file.duration),
             releaseDate: file.releaseDate.isEmpty ? file.year : file.releaseDate,
             isrc: file.isrc,
             barcode: file.barcode,

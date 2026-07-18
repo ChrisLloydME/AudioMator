@@ -141,10 +141,14 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func recordAppliedTargets(_ targetIDs: Set<AudioFile.ID>) {
+        guard !targetIDs.isEmpty else { return }
+
+        targets.removeAll { targetIDs.contains($0.id) }
         for targetID in targetIDs {
-            guard let appliedMap = draftPropertyMaps[targetID] else { continue }
-            originalPropertyMaps[targetID] = appliedMap
+            originalPropertyMaps.removeValue(forKey: targetID)
+            draftPropertyMaps.removeValue(forKey: targetID)
         }
+        realignSelection(preferred: selectedFieldKey)
     }
 
     fileprivate func makeAddFieldContext() -> MetadataFieldEditorContext {

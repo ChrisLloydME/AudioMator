@@ -7,20 +7,24 @@ import Foundation
 /// destination path. Reservations are acquired atomically to avoid deadlocks.
 actor FileMutationCoordinator {
     private struct Waiter {
+        let id: UUID
         let keys: Set<String>
-        let continuation: CheckedContinuation<Void, Never>
+        let continuation: CheckedContinuation<Void, Error>
     }
 
     private var reservedKeys: Set<String> = []
     private var waiters: [Waiter] = []
+    private var pendingWaiterIDs: Set<UUID> = []
+    private var cancelledWaiterIDs: Set<UUID> = []
 
     func withExclusiveAccess<Value: Sendable>(
         to urls: [URL],
         perform operation: @Sendable () async throws -> Value
-    ) async rethrows -> Value {
+    ) async throws -> Value {
         let keys = Set(urls.map(Self.normalizedFileKey(for:)))
-        await acquire(keys)
+        try await acquire(keys)
         defer { release(keys) }
+        try Task.checkCancellation()
         return try await operation()
     }
 
@@ -29,16 +33,57 @@ actor FileMutationCoordinator {
         return normalizedURL.path.precomposedStringWithCanonicalMapping
     }
 
-    private func acquire(_ keys: Set<String>) async {
+    private func acquire(_ keys: Set<String>) async throws {
         guard !keys.isEmpty else { return }
+        try Task.checkCancellation()
 
         if reservedKeys.isDisjoint(with: keys) {
             reservedKeys.formUnion(keys)
             return
         }
 
-        await withCheckedContinuation { continuation in
-            waiters.append(Waiter(keys: keys, continuation: continuation))
+        let waiterID = UUID()
+        pendingWaiterIDs.insert(waiterID)
+
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                enqueueWaiter(
+                    Waiter(id: waiterID, keys: keys, continuation: continuation)
+                )
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWaiter(id: waiterID)
+            }
+        }
+    }
+
+    private func enqueueWaiter(_ waiter: Waiter) {
+        if cancelledWaiterIDs.remove(waiter.id) != nil {
+            pendingWaiterIDs.remove(waiter.id)
+            waiter.continuation.resume(throwing: CancellationError())
+            return
+        }
+
+        if reservedKeys.isDisjoint(with: waiter.keys) {
+            pendingWaiterIDs.remove(waiter.id)
+            reservedKeys.formUnion(waiter.keys)
+            waiter.continuation.resume()
+            return
+        }
+
+        waiters.append(waiter)
+    }
+
+    private func cancelWaiter(id: UUID) {
+        guard pendingWaiterIDs.contains(id) else { return }
+
+        if let index = waiters.firstIndex(where: { $0.id == id }) {
+            let waiter = waiters.remove(at: index)
+            pendingWaiterIDs.remove(id)
+            waiter.continuation.resume(throwing: CancellationError())
+        } else {
+            cancelledWaiterIDs.insert(id)
         }
     }
 
@@ -55,6 +100,7 @@ actor FileMutationCoordinator {
             }
 
             waiters.remove(at: index)
+            pendingWaiterIDs.remove(waiter.id)
             reservedKeys.formUnion(waiter.keys)
             waiter.continuation.resume()
         }

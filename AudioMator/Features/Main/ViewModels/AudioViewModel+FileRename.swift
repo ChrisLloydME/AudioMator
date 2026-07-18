@@ -113,12 +113,22 @@ extension AudioViewModel {
 
         let mutationURLs = operations.flatMap { [$0.sourceURL, $0.destinationURL] }
         let fileMutationCoordinator = self.fileMutationCoordinator
-        let execution = await withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
-            await fileMutationCoordinator.withExclusiveAccess(to: mutationURLs) {
-                await Task.detached(priority: .userInitiated) {
-                    executeFileRenameTransaction(operations)
-                }.value
+        let execution: FileRenameExecutionResult
+        do {
+            execution = try await withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
+                try await fileMutationCoordinator.withExclusiveAccess(to: mutationURLs) {
+                    await Task.detached(priority: .userInitiated) {
+                        executeFileRenameTransaction(operations)
+                    }.value
+                }
             }
+        } catch {
+            execution = .failure(
+                FileRenameTransactionFailure(
+                    message: "File renaming was cancelled before it started.",
+                    recoveryItems: []
+                )
+            )
         }
 
         switch execution {

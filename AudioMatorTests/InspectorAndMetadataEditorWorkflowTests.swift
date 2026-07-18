@@ -311,6 +311,27 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Raw First")
     }
 
+    func testMetadataEditorRawMapApplyRejectsMissingTargetMap() async {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/missing-map.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+
+        await viewModel.applyRawMetadataPropertyMaps(
+            [:],
+            to: [MetadataEditorTarget(file: file)]
+        )
+
+        XCTAssertTrue(
+            pipeline.rawMapWrites.isEmpty,
+            "A missing editor map must not be converted into an empty metadata write."
+        )
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("metadata was not loaded") == true)
+    }
+
     func testMetadataEditorRawMapApplyRejectsFileChangedSinceEditorOpened() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorRawEditorFingerprintTests-\(UUID().uuidString)", isDirectory: true)

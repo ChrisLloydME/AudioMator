@@ -95,6 +95,17 @@ extension AudioViewModel {
                 recoveryItems: []
             )
         }
+        guard canStartExternalFileMutation() else {
+            return FileRenameResult(
+                totalTargets: totalTargets,
+                renamed: 0,
+                unchanged: unchangedCount,
+                skippedIssues: skippedIssues,
+                warnings: issueWarnings,
+                failureMessage: String(localized: "Save or discard the pending inspector edits before renaming files."),
+                recoveryItems: []
+            )
+        }
 
         let scopedURLs = operations.map(\.sourceURL)
         if let accessFailure = ensureRenameDirectoryAccess(for: scopedURLs) {

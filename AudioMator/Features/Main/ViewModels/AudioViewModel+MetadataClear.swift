@@ -4,6 +4,7 @@ extension AudioViewModel {
     /// Attempts to erase all metadata from a file by writing empty tags over the existing values.
     func eraseAllMetadata(_ file: AudioFile) {
         guard metadataSaveProgress == nil else { return }
+        guard canStartExternalFileMutation() else { return }
 
         beginMetadataSaveProgress(
             title: "Clearing Metadata",
@@ -62,6 +63,7 @@ extension AudioViewModel {
 
         let targetFiles = targetFiles
         guard !targetFiles.isEmpty else { return }
+        guard canStartExternalFileMutation() else { return }
 
         if targetFiles.count == 1, let file = targetFiles.first {
             eraseAllMetadata(file)

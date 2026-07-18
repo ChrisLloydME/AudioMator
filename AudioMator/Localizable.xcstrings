@@ -493,6 +493,9 @@
     "Content Advisory" : {
 
     },
+    "File Unavailable" : {
+
+    },
     "Multiple external records identify this selected file. None of them will be written." : {
 
     },
@@ -12501,6 +12504,12 @@
       }
     },
     "The file is no longer loaded in AudioMator." : {
+
+    },
+    "The file changed after the preview was shown. Refresh the preview and try again." : {
+
+    },
+    "The file version could not be verified. Reload the file and try again." : {
 
     },
     "The filename did not fully match the template." : {

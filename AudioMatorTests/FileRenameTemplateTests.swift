@@ -37,10 +37,12 @@ final class FileRenameTemplateTests: XCTestCase {
     }
 
     func testRenamePlanSanitizesInvalidFilenameCharactersAndPreservesExtension() {
+        let fileURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let file = AudioFileTestFactory.make(
-            url: URL(fileURLWithPath: "/tmp/source.mp3"),
+            url: fileURL,
             title: "Track/Name: Mix",
-            artist: "Artist"
+            artist: "Artist",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: fileURL)
         )
 
         let plan = makeFileRenamePlan(template: "{{artist}} - {{title}}", targetFiles: [file])
@@ -52,9 +54,11 @@ final class FileRenameTemplateTests: XCTestCase {
     }
 
     func testRenamePlanRejectsInvalidTemplatesAndOverlongNames() {
+        let fileURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let file = AudioFileTestFactory.make(
-            url: URL(fileURLWithPath: "/tmp/source.mp3"),
-            title: String(repeating: "a", count: 253)
+            url: fileURL,
+            title: String(repeating: "a", count: 253),
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: fileURL)
         )
 
         let unknown = makeFileRenamePlan(template: "{{titel}}", targetFiles: [file])
@@ -72,5 +76,18 @@ final class FileRenameTemplateTests: XCTestCase {
         XCTAssertEqual(overlongName.rows.first?.status, .nameTooLong)
         XCTAssertTrue(overlongName.operations.isEmpty)
         XCTAssertFalse(overlongName.canApply)
+    }
+
+    func testRenamePlanRejectsAFileWhoseIdentityCannotBeCaptured() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/missing-audiomator-file.mp3"),
+            title: "Renamed"
+        )
+
+        let plan = makeFileRenamePlan(template: "{{title}}", targetFiles: [file])
+
+        XCTAssertEqual(plan.rows.first?.status, .sourceUnavailable)
+        XCTAssertTrue(plan.operations.isEmpty)
+        XCTAssertFalse(plan.canApply)
     }
 }

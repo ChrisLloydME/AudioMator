@@ -2,6 +2,16 @@ import Foundation
 @testable import AudioMator
 
 enum AudioFileTestFactory {
+    static func fingerprint(for url: URL, fileSize: UInt64 = 1) -> AudioFileFingerprint {
+        AudioFileFingerprint(
+            normalizedPath: url.standardizedFileURL.resolvingSymlinksInPath().path,
+            fileSize: fileSize,
+            contentModificationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            fileSystemNumber: 1,
+            fileNumber: UInt64(bitPattern: Int64(url.path.hashValue))
+        )
+    }
+
     static func make(
         id: UUID = UUID(),
         url: URL = URL(fileURLWithPath: "/tmp/01 - Untitled.mp3"),

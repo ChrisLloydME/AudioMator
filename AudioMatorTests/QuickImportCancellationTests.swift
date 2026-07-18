@@ -65,6 +65,29 @@ final class QuickImportCancellationTests: XCTestCase {
             "Removing a watched folder must cancel metadata reads owned by its rescan."
         )
     }
+
+    func testQuickImportReportsUnreadableFilesAndKeepsSuccessfulSiblings() async throws {
+        let unreadableURL = URL(fileURLWithPath: "/tmp/00-unreadable-import.mp3")
+        let readableURL = URL(fileURLWithPath: "/tmp/01-readable-import.mp3")
+        let pipeline = PartiallyFailingQuickImportMetadataPipeline(unreadableURL: unreadableURL)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+
+        viewModel.importQuickFiles(from: [unreadableURL, readableURL])
+
+        let deadline = Date().addingTimeInterval(2)
+        while (viewModel.files.count != 1 || viewModel.metadataWriteHUD == nil), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        XCTAssertEqual(viewModel.files.map(\.url), [readableURL])
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .warning)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "File Not Imported")
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("00-unreadable-import.mp3") == true)
+        XCTAssertFalse(
+            viewModel.metadataWriteHUD?.subtitle.contains("/tmp/") == true,
+            "Import feedback should identify the filename without disclosing its full path."
+        )
+    }
 }
 
 private actor QuickImportLoadGate {
@@ -127,6 +150,41 @@ private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @
         }
         await gate.markReturned(wasCancelled: Task.isCancelled)
         return file
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private let unreadableURL: URL
+
+    init(unreadableURL: URL) {
+        self.unreadableURL = unreadableURL
+    }
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        if url == unreadableURL {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        return await AudioFileTestFactory.make(id: id, url: url)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }

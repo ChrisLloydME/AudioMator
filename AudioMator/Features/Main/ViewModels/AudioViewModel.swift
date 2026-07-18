@@ -430,7 +430,7 @@ final class AudioViewModel: ObservableObject {
                 return
             }
 
-            _ = await Self.loadAudioFiles(
+            let loadResult = await Self.loadAudioFiles(
                 from: candidateURLs,
                 fileIDsByKey: context.fileIDsByKey,
                 metadataPipeline: context.metadataPipeline,
@@ -443,8 +443,16 @@ final class AudioViewModel: ObservableObject {
                 }
             )
 
+            let shouldReportFailures = !Task.isCancelled
             await MainActor.run { [weak self] in
-                self?.finishQuickImportTask(taskID)
+                guard let self else { return }
+                if shouldReportFailures, self.quickImportGeneration == generation {
+                    self.mergeQuickImportFiles(loadResult.files)
+                }
+                self.finishQuickImportTask(taskID)
+                if shouldReportFailures, self.quickImportGeneration == generation {
+                    self.presentQuickImportFailures(loadResult.failures)
+                }
             }
         }
         quickImportTasks[taskID] = task
@@ -618,7 +626,7 @@ final class AudioViewModel: ObservableObject {
                 metadataPipeline: metadataPipeline
             )
         }
-        let loadedFiles = await withTaskCancellationHandler {
+        let loadResult = await withTaskCancellationHandler {
             await loadTask.value
         } onCancel: {
             loadTask.cancel()
@@ -627,7 +635,7 @@ final class AudioViewModel: ObservableObject {
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
 
-        watchedFolderFiles[id] = loadedFiles
+        watchedFolderFiles[id] = loadResult.files
         updateDirectoryMonitors(for: id, directories: snapshot.directoryURLs)
         rebuildVisibleFiles()
     }
@@ -789,6 +797,25 @@ final class AudioViewModel: ObservableObject {
         syncQuickImportSecurityScopedResources()
     }
 
+    private func presentQuickImportFailures(_ failures: [AudioFileLoadFailure]) {
+        guard !failures.isEmpty else { return }
+
+        var lines = failures.prefix(3).map { failure in
+            let fileName = failure.url.lastPathComponent
+            let reason = failure.reason.replacingOccurrences(of: failure.url.path, with: fileName)
+            return "\(fileName): \(reason)"
+        }
+        if failures.count > lines.count {
+            lines.append("...and \(failures.count - lines.count) more")
+        }
+
+        presentMetadataWriteHUD(
+            style: .warning,
+            title: failures.count == 1 ? "File Not Imported" : "Some Files Were Not Imported",
+            subtitle: lines.joined(separator: "\n")
+        )
+    }
+
     private func hasRenameDirectoryAccess(for directoryURL: URL) -> Bool {
         let key = Self.urlKey(for: directoryURL)
         if securityScopedQuickImportRenameDirectoryURLs[key] != nil {
@@ -892,15 +919,15 @@ final class AudioViewModel: ObservableObject {
         fileIDsByKey: [String: UUID],
         metadataPipeline: any AudioMetadataPipeline,
         onBatchLoaded: (@Sendable ([AudioFile]) async -> Void)? = nil
-    ) async -> [AudioFile] {
+    ) async -> AudioFileLoadResult {
         let inputs: [(index: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
             let key = urlKey(for: url)
             guard let id = fileIDsByKey[key] else { return nil }
             return (offset, url, id)
         }
 
-        guard !inputs.isEmpty else { return [] }
-        guard !Task.isCancelled else { return [] }
+        guard !inputs.isEmpty else { return AudioFileLoadResult(files: [], failures: []) }
+        guard !Task.isCancelled else { return AudioFileLoadResult(files: [], failures: []) }
 
         // Audio metadata reads are mostly I/O-bound. Allow higher parallelism than the
         // earlier fixed value so first import becomes interactive faster on larger drops.
@@ -916,23 +943,32 @@ final class AudioViewModel: ObservableObject {
         completedByIndex.reserveCapacity(inputs.count)
         var loadedByIndex: [(Int, AudioFile)] = []
         loadedByIndex.reserveCapacity(inputs.count)
+        var failuresByIndex: [(Int, AudioFileLoadFailure)] = []
         var nextContiguousIndex = 0
         var pendingBatch: [AudioFile] = []
         pendingBatch.reserveCapacity(partialBatchSize)
         var lastFlushTime = Date.timeIntervalSinceReferenceDate
 
-        await withTaskGroup(of: (Int, AudioFile?).self) { group in
+        await withTaskGroup(of: (Int, URL, AudioFile?, String?).self) { group in
             for input in inputs.prefix(maxConcurrentLoads) {
                 group.addTask {
-                    guard !Task.isCancelled else { return (input.index, nil) }
-                    return (
-                        input.index,
-                        try? await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
-                    )
+                    guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
+                    do {
+                        return (
+                            input.index,
+                            input.url,
+                            try await metadataPipeline.loadAudioFile(at: input.url, id: input.id),
+                            nil
+                        )
+                    } catch is CancellationError {
+                        return (input.index, input.url, nil, nil)
+                    } catch {
+                        return (input.index, input.url, nil, (error as NSError).localizedDescription)
+                    }
                 }
             }
 
-            while let (index, file) = await group.next() {
+            while let (index, url, file, failureReason) = await group.next() {
                 if Task.isCancelled {
                     group.cancelAll()
                     break
@@ -960,6 +996,16 @@ final class AudioViewModel: ObservableObject {
                             lastFlushTime = now
                         }
                     }
+                } else if let failureReason {
+                    failuresByIndex.append(
+                        (
+                            index,
+                            AudioFileLoadFailure(
+                                url: url,
+                                reason: failureReason
+                            )
+                        )
+                    )
                 }
 
                 guard nextInputIndex < inputs.count else { continue }
@@ -971,11 +1017,19 @@ final class AudioViewModel: ObservableObject {
                 nextInputIndex += 1
 
                 group.addTask {
-                    guard !Task.isCancelled else { return (input.index, nil) }
-                    return (
-                        input.index,
-                        try? await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
-                    )
+                    guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
+                    do {
+                        return (
+                            input.index,
+                            input.url,
+                            try await metadataPipeline.loadAudioFile(at: input.url, id: input.id),
+                            nil
+                        )
+                    } catch is CancellationError {
+                        return (input.index, input.url, nil, nil)
+                    } catch {
+                        return (input.index, input.url, nil, (error as NSError).localizedDescription)
+                    }
                 }
             }
         }
@@ -985,7 +1039,11 @@ final class AudioViewModel: ObservableObject {
         }
 
         loadedByIndex.sort { $0.0 < $1.0 }
-        return loadedByIndex.map(\.1)
+        failuresByIndex.sort { $0.0 < $1.0 }
+        return AudioFileLoadResult(
+            files: loadedByIndex.map(\.1),
+            failures: failuresByIndex.map(\.1)
+        )
     }
 
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {
@@ -1090,4 +1148,14 @@ final class AudioViewModel: ObservableObject {
 private struct FolderScanSnapshot {
     let audioURLs: [URL]
     let directoryURLs: [URL]
+}
+
+private struct AudioFileLoadFailure: Sendable {
+    let url: URL
+    let reason: String
+}
+
+private struct AudioFileLoadResult: Sendable {
+    let files: [AudioFile]
+    let failures: [AudioFileLoadFailure]
 }

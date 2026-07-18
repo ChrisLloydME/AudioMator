@@ -503,6 +503,28 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.writeEntries.map { $0.values[.title] }, ["New B", "New A"])
     }
 
+    func testCSVImportIndexesLargeReorderedSelections() {
+        let count = 1_000
+        let files = (0..<count).map { index in
+            let url = URL(fileURLWithPath: "/music/\(index).flac")
+            return AudioFileTestFactory.make(id: UUID(), url: url, title: "Old")
+        }
+        let source = (1...count).reversed().map { "\($0),Title \($0)" }.joined(separator: "\n")
+
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{index}},{{title}}",
+            sourceText: source,
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertEqual(plan.readyCount, count)
+        XCTAssertEqual(plan.rows.first?.fileID, files.last?.id)
+        XCTAssertEqual(plan.rows.last?.fileID, files.first?.id)
+    }
+
     func testCSVImportIntersectsRelativePathToDisambiguateDuplicateNames() throws {
         let first = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/Library/Album/Disc 1/Song.flac"))
         let second = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/Library/Album/Disc 2/Song.flac"))

@@ -496,6 +496,9 @@
     "The export would be larger than 32 MB. Export a smaller selection." : {
 
     },
+    "The selection contains more than 100,000 files. Import into a smaller selection." : {
+
+    },
     "Add at least one text record to import." : {
 
     },

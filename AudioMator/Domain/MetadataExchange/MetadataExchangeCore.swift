@@ -178,6 +178,10 @@ enum CoreMetadataExchange {
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
+        guard targetFiles.count <= maximumImportRecordCount else {
+            return [parseErrorRow(sourceText)]
+        }
+
         guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
             return [parseErrorRow(sourceText)]
         }
@@ -286,18 +290,69 @@ enum CoreMetadataExchange {
         targetFiles: [CoreMetadataExchangeFile],
         clearBlankImportedValues: Bool
     ) -> [CoreMetadataExchangeImportRow] {
+        let candidateIndex = MetadataExchangeLocatorCandidateIndex(
+            itemCount: targetFiles.count,
+            fields: locatorFields
+        ) { field, fileIndex in
+            locatorIndexKeys(
+                field: field,
+                file: targetFiles[fileIndex],
+                fileIndex: fileIndex
+            )
+        }
+        var matchCache: [LocatorSignature: LocatorMatch] = [:]
+
         let locatedRecords = parsedRecords.map { record -> LocatedRecord in
             guard let captures = record.captures else {
                 return LocatedRecord(record: record, matches: [], locatorDescription: "-")
             }
 
-            let matches = targetFiles.enumerated().compactMap { index, file in
-                matchesAllLocators(
-                    captures: captures,
-                    locatorFields: locatorFields,
-                    file: file,
-                    fileIndex: index
-                ) ? file : nil
+            guard let signature = locatorSignature(captures: captures, locatorFields: locatorFields) else {
+                return LocatedRecord(
+                    record: record,
+                    matches: [],
+                    locatorDescription: locatorDescription(
+                        captures: captures,
+                        locatorFields: locatorFields
+                    )
+                )
+            }
+
+            let match: LocatorMatch
+            if let cachedMatch = matchCache[signature] {
+                match = cachedMatch
+            } else {
+                let candidateIndices = candidateIndex.candidateIndices(fields: locatorFields) { field in
+                    locatorLookupKey(captures[field] ?? "", field: field)
+                }
+                let matches = candidateIndices.compactMap { fileIndex -> CoreMetadataExchangeFile? in
+                    let file = targetFiles[fileIndex]
+                    return matchesAllLocators(
+                        captures: captures,
+                        locatorFields: locatorFields,
+                        file: file,
+                        fileIndex: fileIndex
+                    ) ? file : nil
+                }
+                switch matches.count {
+                case 0:
+                    match = .none
+                case 1:
+                    match = .matched(matches[0])
+                default:
+                    match = .ambiguous(Array(matches.prefix(2)))
+                }
+                matchCache[signature] = match
+            }
+
+            let matches: [CoreMetadataExchangeFile]
+            switch match {
+            case .none:
+                matches = []
+            case .ambiguous(let ambiguousMatches):
+                matches = ambiguousMatches
+            case .matched(let file):
+                matches = [file]
             }
             return LocatedRecord(
                 record: record,
@@ -380,6 +435,68 @@ enum CoreMetadataExchange {
                     .releaseDate, .publisher, .copyright, .ignore:
                 return false
             }
+        }
+    }
+
+    private static func locatorSignature(
+        captures: [CoreMetadataExchangeField: String],
+        locatorFields: [CoreMetadataExchangeField]
+    ) -> LocatorSignature? {
+        var values: [String] = []
+        values.reserveCapacity(locatorFields.count)
+        for field in locatorFields {
+            guard let value = captures[field], let key = locatorLookupKey(value, field: field) else {
+                return nil
+            }
+            values.append(key)
+        }
+        return LocatorSignature(values: values)
+    }
+
+    private static func locatorIndexKeys(
+        field: CoreMetadataExchangeField,
+        file: CoreMetadataExchangeFile,
+        fileIndex: Int
+    ) -> [String] {
+        switch field {
+        case .fileName:
+            return nonEmptyMatchingKey(file.fileName).map { [$0] } ?? []
+        case .baseName:
+            return nonEmptyMatchingKey(file.baseName).map { [$0] } ?? []
+        case .path:
+            return normalizedAbsolutePath(file.path).map { [$0] } ?? []
+        case .relativePath:
+            guard let path = normalizedAbsolutePath(file.path) else { return [] }
+            let components = path.split(separator: "/", omittingEmptySubsequences: true)
+            return components.indices.map { index in
+                components[index...].joined(separator: "/")
+            }
+        case .index:
+            return [String(fileIndex + 1)]
+        case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
+                .trackNumber, .trackTotal, .discNumber, .discTotal, .comment,
+                .releaseDate, .publisher, .copyright, .ignore:
+            return []
+        }
+    }
+
+    private static func locatorLookupKey(
+        _ value: String,
+        field: CoreMetadataExchangeField
+    ) -> String? {
+        switch field {
+        case .fileName, .baseName:
+            return nonEmptyMatchingKey(value)
+        case .path:
+            return normalizedAbsolutePath(value)
+        case .relativePath:
+            return normalizedRelativePath(value)
+        case .index:
+            return positiveIndex(value).map(String.init)
+        case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
+                .trackNumber, .trackTotal, .discNumber, .discTotal, .comment,
+                .releaseDate, .publisher, .copyright, .ignore:
+            return nil
         }
     }
 
@@ -523,5 +640,15 @@ enum CoreMetadataExchange {
         let record: ParsedRecord
         let matches: [CoreMetadataExchangeFile]
         let locatorDescription: String
+    }
+
+    private enum LocatorMatch {
+        case none
+        case ambiguous([CoreMetadataExchangeFile])
+        case matched(CoreMetadataExchangeFile)
+    }
+
+    private struct LocatorSignature: Hashable {
+        let values: [String]
     }
 }

@@ -170,6 +170,39 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    func testWatchedFolderRefreshUsesScannedURLsWhenPipelineReturnsDuplicateURLs() async throws {
+        let suiteName = "AudioMator.WatchedFolderDuplicateURLTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolderDuplicateURL-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        let firstURL = rootURL.appendingPathComponent("01-first.mp3")
+        let secondURL = rootURL.appendingPathComponent("02-second.mp3")
+        XCTAssertTrue(FileManager.default.createFile(atPath: firstURL.path, contents: Data()))
+        XCTAssertTrue(FileManager.default.createFile(atPath: secondURL.path, contents: Data()))
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+        let viewModel = AudioViewModel(
+            watchedFolderStore: store,
+            metadataPipeline: DuplicateURLWatchedFolderMetadataPipeline(returnedURL: firstURL),
+            saveIssueLogStore: SaveIssueLogStore()
+        )
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+
+        try await waitUntil(viewModel.files.count == 2)
+
+        XCTAssertEqual(Set(viewModel.files.map(\.url)), Set([firstURL, secondURL]))
+    }
+
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,
@@ -325,6 +358,38 @@ private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipe
             throw CocoaError(.fileReadNoPermission)
         }
         return await AudioFileTestFactory.make(id: id, url: url)
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private let returnedURL: URL
+
+    init(returnedURL: URL) {
+        self.returnedURL = returnedURL
+    }
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        await AudioFileTestFactory.make(id: id, url: returnedURL)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }

@@ -103,6 +103,16 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{title}}"), ",")
     }
 
+    func testCSVColumnTemplateRejectsOversizedInputBeforeParsing() {
+        let result = MetadataExchangePlanner.parseCSVColumnTemplate(
+            String(repeating: ",", count: 16_385)
+        )
+
+        XCTAssertNotNil(result.validationMessage)
+        XCTAssertTrue(result.columns.isEmpty)
+        XCTAssertEqual(result.delimiter, ",")
+    }
+
     func testCSVParserHandlesEmptyInputAndTrailingEmptyFields() throws {
         XCTAssertEqual(try MetadataExchangeCSV.parse(""), [])
         XCTAssertEqual(try MetadataExchangeCSV.parse(","), [["", ""]])

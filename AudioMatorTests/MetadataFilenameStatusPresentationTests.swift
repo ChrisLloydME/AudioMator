@@ -175,7 +175,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
                 template: noMatchPlan.template,
                 plan: noMatchPlan
             ),
-            "0 file(s) are ready. 1 file(s) could not be parsed: 1 no match."
+            "0 file(s) are ready. 1 file(s) need review: 1 no match."
         )
     }
 

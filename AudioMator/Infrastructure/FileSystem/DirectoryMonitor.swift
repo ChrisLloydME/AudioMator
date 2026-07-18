@@ -42,9 +42,10 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
     let monitoredDirectoryCount: Int
     let omittedByLimitCount: Int
     let failedToOpenCount: Int
+    let metadataReadFailureCount: Int
 
     var isDegraded: Bool {
-        omittedByLimitCount > 0 || failedToOpenCount > 0
+        omittedByLimitCount > 0 || failedToOpenCount > 0 || metadataReadFailureCount > 0
     }
 
     var message: String {
@@ -59,8 +60,19 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
         if failedToOpenCount > 0 {
             reasons.append("\(failedToOpenCount) could not be opened")
         }
+        if metadataReadFailureCount > 0 {
+            let fileLabel = metadataReadFailureCount == 1 ? "audio file" : "audio files"
+            reasons.append("\(metadataReadFailureCount) \(fileLabel) could not be read")
+        }
 
-        return "Automatic refresh is monitoring \(monitoredDirectoryCount) of \(totalDirectoryCount) directories (\(reasons.joined(separator: ", "))). Some nested changes may not refresh immediately."
+        var message = "Automatic refresh is monitoring \(monitoredDirectoryCount) of \(totalDirectoryCount) directories (\(reasons.joined(separator: ", ")))."
+        if omittedByLimitCount > 0 || failedToOpenCount > 0 {
+            message += " Some nested changes may not refresh immediately."
+        }
+        if metadataReadFailureCount > 0 {
+            message += " Last known metadata is retained where available."
+        }
+        return message
     }
 }
 

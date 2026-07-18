@@ -84,6 +84,7 @@ final class AudioViewModel: ObservableObject {
     private var fileIDsByKey: [String: UUID] = [:]
     private var folderRescanTasks: [UUID: Task<Void, Never>] = [:]
     private var folderDirectoryMonitors: [UUID: [String: DirectoryMonitor]] = [:]
+    private var watchedFolderMetadataReadFailureCounts: [UUID: Int] = [:]
     private var securityScopedFolderURLs: [UUID: URL] = [:]
     private var securityScopedQuickImportFileURLs: [String: URL] = [:]
     private var securityScopedQuickImportDirectoryURLs: [String: URL] = [:]
@@ -391,6 +392,7 @@ final class AudioViewModel: ObservableObject {
         stopWatchingFolder(id: id)
         watchedFolders.removeAll { $0.id == id }
         watchedFolderFiles[id] = nil
+        watchedFolderMetadataReadFailureCounts[id] = nil
         folderScanTokens[id] = nil
 
         persistWatchedFolders()
@@ -635,7 +637,23 @@ final class AudioViewModel: ObservableObject {
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
 
-        watchedFolderFiles[id] = loadResult.files
+        let previousFilesByKey = Dictionary(
+            uniqueKeysWithValues: (watchedFolderFiles[id] ?? []).map { (Self.urlKey(for: $0.url), $0) }
+        )
+        var refreshedFilesByKey = Dictionary(
+            uniqueKeysWithValues: loadResult.files.map { (Self.urlKey(for: $0.url), $0) }
+        )
+        for failure in loadResult.failures {
+            let key = Self.urlKey(for: failure.url)
+            if let previousFile = previousFilesByKey[key] {
+                refreshedFilesByKey[key] = previousFile
+            }
+        }
+
+        watchedFolderFiles[id] = snapshot.audioURLs.compactMap { url in
+            refreshedFilesByKey[Self.urlKey(for: url)]
+        }
+        watchedFolderMetadataReadFailureCounts[id] = loadResult.failures.count
         updateDirectoryMonitors(for: id, directories: snapshot.directoryURLs)
         rebuildVisibleFiles()
     }
@@ -906,7 +924,8 @@ final class AudioViewModel: ObservableObject {
             totalDirectoryCount: plan.totalDirectoryCount,
             monitoredDirectoryCount: monitors.count,
             omittedByLimitCount: plan.omittedByLimitCount,
-            failedToOpenCount: failedToOpenCount
+            failedToOpenCount: failedToOpenCount,
+            metadataReadFailureCount: watchedFolderMetadataReadFailureCounts[folderID] ?? 0
         )
     }
 

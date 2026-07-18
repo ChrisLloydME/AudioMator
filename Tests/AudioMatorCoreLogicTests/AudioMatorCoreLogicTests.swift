@@ -214,6 +214,22 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
     }
 
+    func testMetadataExchangeExportBudgetCountsSeparatorsAndFailsClosed() {
+        var budget = MetadataExchangeExportBudget(
+            maximumUTF8ByteCount: 10,
+            recordSeparatorUTF8ByteCount: 2
+        )
+
+        XCTAssertTrue(budget.append(recordUTF8ByteCount: 4))
+        XCTAssertTrue(budget.append(recordUTF8ByteCount: 4))
+        XCTAssertEqual(budget.usedUTF8ByteCount, 10)
+        XCTAssertEqual(budget.recordCount, 2)
+        XCTAssertFalse(budget.append(recordUTF8ByteCount: 0))
+        XCTAssertFalse(budget.append(recordUTF8ByteCount: Int.max))
+        XCTAssertEqual(budget.usedUTF8ByteCount, 10)
+        XCTAssertEqual(budget.recordCount, 2)
+    }
+
     func testLRCLIBQueryTreatsWhitespaceOnlyInputAsEmpty() {
         let query = LRCLIBSearchQuery(
             trackName: " \n ",

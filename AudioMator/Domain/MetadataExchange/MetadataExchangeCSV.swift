@@ -1,5 +1,39 @@
 import Foundation
 
+enum MetadataExchangeResourceLimits {
+    static let maximumRecordCount = 100_000
+    static let maximumDocumentUTF8ByteCount = 32 * 1_024 * 1_024
+    static let maximumTextRecordUTF8ByteCount = 262_144
+    static let maximumCSVFieldUTF8ByteCount = 1_048_576
+}
+
+struct MetadataExchangeExportBudget {
+    let maximumUTF8ByteCount: Int
+    let recordSeparatorUTF8ByteCount: Int
+
+    private(set) var recordCount = 0
+    private(set) var usedUTF8ByteCount = 0
+
+    mutating func append(recordUTF8ByteCount: Int) -> Bool {
+        guard
+            maximumUTF8ByteCount >= 0,
+            recordUTF8ByteCount >= 0,
+            recordSeparatorUTF8ByteCount >= 0,
+            usedUTF8ByteCount >= 0,
+            usedUTF8ByteCount <= maximumUTF8ByteCount
+        else { return false }
+
+        let separatorByteCount = recordCount == 0 ? 0 : recordSeparatorUTF8ByteCount
+        guard separatorByteCount <= maximumUTF8ByteCount - usedUTF8ByteCount else { return false }
+        let remainingByteCount = maximumUTF8ByteCount - usedUTF8ByteCount - separatorByteCount
+        guard recordUTF8ByteCount <= remainingByteCount else { return false }
+
+        usedUTF8ByteCount += separatorByteCount + recordUTF8ByteCount
+        recordCount += 1
+        return true
+    }
+}
+
 struct MetadataExchangeCSVField {
     let value: String
     let wasQuoted: Bool

@@ -1038,7 +1038,7 @@ struct MetadataFilenameWindowView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            try text.data(using: .utf8)?.write(to: url, options: .atomic)
+            try Data(text.utf8).write(to: url, options: .atomic)
         } catch {
             viewModel.presentMetadataWriteHUD(
                 style: .failure,

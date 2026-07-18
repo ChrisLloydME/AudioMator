@@ -198,11 +198,17 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.upsertField(key: "ALBUM", value: "Shared Draft")
         store.recordAppliedTargets([firstFile.id])
 
+        XCTAssertEqual(store.targets.map(\.id), [secondFile.id])
         XCTAssertEqual(store.pendingTargets.map(\.id), [secondFile.id])
         XCTAssertTrue(store.hasUnsavedChanges)
 
+        store.upsertField(key: "GENRE", value: "Retry Edit")
+
+        XCTAssertEqual(store.pendingTargets.map(\.id), [secondFile.id])
+
         store.recordAppliedTargets([secondFile.id])
 
+        XCTAssertTrue(store.targets.isEmpty)
         XCTAssertTrue(store.pendingTargets.isEmpty)
         XCTAssertFalse(store.hasUnsavedChanges)
     }

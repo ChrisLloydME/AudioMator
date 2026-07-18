@@ -27,6 +27,17 @@ func fileCountLabel(_ count: Int) -> String {
 }
 
 extension AudioViewModel {
+    func canStartExternalFileMutation() -> Bool {
+        guard hasUnsavedInspectorChanges else { return true }
+
+        presentMetadataWriteHUD(
+            style: .failure,
+            title: String(localized: "Unsaved Changes"),
+            subtitle: String(localized: "Save or discard the pending inspector edits before changing files from another tool.")
+        )
+        return false
+    }
+
     func beginMetadataSaveProgress(
         title: String,
         subtitle: String,

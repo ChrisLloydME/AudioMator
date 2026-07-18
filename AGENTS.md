@@ -72,6 +72,7 @@ Useful commands:
 swift test --filter AudioMatorCoreLogicTests
 bash scripts/codex-build.sh
 bash scripts/codex-build.sh --force
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'platform=macOS' -derivedDataPath .deriveddata-codex -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
@@ -84,6 +85,8 @@ Prefer `bash scripts/codex-build.sh` for Codex validation. The script uses a two
 - When build-relevant files did change, it reuses the repository-local `.deriveddata-codex` directory so `xcodebuild build` can behave incrementally like Xcode instead of forcing a clean build.
 
 Use `bash scripts/codex-build.sh --force` when you want to run a full validation build regardless of the changed-file filter. All Agent-triggered Xcode builds should write derived data to the repository-local `.deriveddata-codex` directory. Do not create alternate local build roots such as `.DerivedData`, `.deriveddata-codex-ios`, `.deriveddata-ios-codex`, or `.deriveddata-macos-codex`; reuse `.deriveddata-codex` and let the existing `.gitignore` keep it out of source control.
+
+The macOS `AudioMatorTests` target is app-hosted, so every parallel Xcode test runner launches another `AudioMator.app` instance in the Dock. Keep the scheme test target non-parallel and run all Agent-triggered app-hosted Xcode tests with `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`. Do not override this with parallel-testing flags. This serializes runner processes without skipping tests or reducing coverage; prefer the SwiftPM core-logic tests for fast feedback and reserve the full app-hosted suite for changes that require it.
 
 For bridge/package debugging:
 

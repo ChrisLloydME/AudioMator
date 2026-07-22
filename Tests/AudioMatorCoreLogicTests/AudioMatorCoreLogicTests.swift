@@ -211,7 +211,7 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
     }
 
-    func testMetadataExchangeCSVSerializeEscapesOnlyWhenNeeded() {
+    func testMetadataExchangeCSVSerializeEscapesOnlyWhenNeeded() throws {
         XCTAssertEqual(
             MetadataExchangeCSV.serialize([["Plain", "A, B", "C\"D", "Line\nBreak"]]),
             "Plain,\"A, B\",\"C\"\"D\",\"Line\nBreak\""
@@ -225,20 +225,20 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         let serialized = MetadataExchangeCSV.serialize(roundTripRows)
         XCTAssertEqual(serialized, "\"  Leading and trailing  \",\"Line\r\nBreak\"")
         XCTAssertEqual(
-            try? MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
             roundTripRows
         )
     }
 
-    func testMetadataExchangeCSVNeutralizesSpreadsheetFormulasReversibly() {
+    func testMetadataExchangeCSVNeutralizesSpreadsheetFormulasReversibly() throws {
         let rows = [["=1+1", "+2", "-3", "@SUM(A1:A2)", "\t=4", "\u{00A0}=5", "'=literal", "plain"]]
         let serialized = MetadataExchangeCSV.serialize(rows)
 
         XCTAssertTrue(serialized.hasPrefix("'=1+1"))
         XCTAssertTrue(serialized.contains("''=literal"))
-        XCTAssertEqual(try? MetadataExchangeCSV.parse(serialized), rows)
+        XCTAssertEqual(try MetadataExchangeCSV.parse(serialized), rows)
         XCTAssertEqual(
-            try? MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
             rows
         )
     }

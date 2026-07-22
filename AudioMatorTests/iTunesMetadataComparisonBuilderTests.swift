@@ -171,6 +171,28 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.trackTotal.id }?.localValue, "9")
     }
 
+    func testBrowserSeedRejectsUnrepresentableFileDuration() {
+        let store = iTunesBrowserStore()
+        let file = AudioFileTestFactory.make(
+            title: "Extreme Duration",
+            duration: .greatestFiniteMagnitude
+        )
+
+        store.seed(from: [file])
+
+        XCTAssertNil(store.seededFileInputs.first?.durationMilliseconds)
+    }
+
+    func testTrackRankingHandlesExtremeDurationDistanceWithoutOverflow() {
+        let file = makeFileInput(durationMilliseconds: .max)
+        let extreme = Self.makeTrack(trackID: 1, durationMilliseconds: .min)
+        let exact = Self.makeTrack(trackID: 2, durationMilliseconds: .max)
+
+        let ranked = iTunesAlbumMatcher.rerankTracks([extreme, exact], file: file)
+
+        XCTAssertEqual(ranked.map(\.trackID), [2, 1])
+    }
+
     private func makeAssignment(track: iTunesTrackResult) -> iTunesAlbumMatchAssignment {
         iTunesAlbumMatchAssignment(
             id: "assignment",
@@ -187,7 +209,8 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         artist: String = "Local Artist",
         album: String = "Local Album",
         trackNumber: String = "1",
-        trackTotal: Int = 10
+        trackTotal: Int = 10,
+        durationMilliseconds: Int? = nil
     ) -> iTunesFileSearchInput {
         iTunesFileSearchInput(
             id: id,
@@ -199,7 +222,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
             trackNumber: trackNumber,
             discNumber: "1",
             trackTotal: trackTotal,
-            durationMilliseconds: nil,
+            durationMilliseconds: durationMilliseconds,
             releaseDate: "2024-01-01T00:00:00Z",
             barcode: "123456789012",
             itunesAlbumID: "100",
@@ -243,6 +266,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
     }
 
     private static func makeTrack(
+        trackID: Int = 300,
         trackName: String = "Remote Title",
         artistName: String = "Remote Artist",
         collectionArtistName: String = "Remote Album Artist",
@@ -252,10 +276,11 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         discCount: Int = 2,
         trackNumber: Int = 1,
         trackCount: Int = 10,
-        trackExplicitness: String = "notExplicit"
+        trackExplicitness: String = "notExplicit",
+        durationMilliseconds: Int? = nil
     ) -> iTunesTrackResult {
         iTunesTrackResult(
-            trackID: 300,
+            trackID: trackID,
             collectionID: 100,
             artistID: 200,
             collectionArtistID: 201,
@@ -267,7 +292,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
             trackCount: trackCount,
             discNumber: 1,
             discCount: discCount,
-            durationMilliseconds: nil,
+            durationMilliseconds: durationMilliseconds,
             releaseDate: releaseDate,
             primaryGenreName: primaryGenreName,
             country: "USA",

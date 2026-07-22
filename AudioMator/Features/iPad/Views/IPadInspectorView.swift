@@ -160,7 +160,7 @@ struct IPadInspectorView: View {
             Section("Technical") {
                 readOnlyRow("Duration", value: formatDuration(file.duration))
                 readOnlyRow("Bitrate", value: "\(file.bitrate) kbps")
-                readOnlyRow("Sample Rate", value: "\(Int(file.sampleRate)) Hz")
+                readOnlyRow("Sample Rate", value: formatSampleRate(file.sampleRate))
                 readOnlyRow("Channels", value: "\(file.channels)")
                 readOnlyRow("Format", value: file.format)
             }

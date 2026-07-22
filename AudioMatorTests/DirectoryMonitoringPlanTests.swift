@@ -3,6 +3,91 @@ import XCTest
 @testable import AudioMator
 
 final class DirectoryMonitoringPlanTests: XCTestCase {
+    func testWatchedFolderAccessFailureMessagesAvoidFullPaths() {
+        let single = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music"])
+        let multiple = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music", "Archive"])
+
+        XCTAssertEqual(single, "AudioMator couldn't save access to “Music”.")
+        XCTAssertEqual(multiple, "AudioMator couldn't save access to 2 selected folders.")
+        XCTAssertFalse(single.contains("/Users/"))
+        XCTAssertFalse(multiple.contains("Music"))
+    }
+
+    func testWatchedFolderRestoreKeepsValidRecordsWhenOneBookmarkIsInvalid() throws {
+        let suiteName = "AudioMator.WatchedFolderStoreTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolder-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+
+        let validFolder = try store.makeFolder(from: directoryURL)
+        let records = [
+            WatchedFolderRecord(
+                id: UUID(),
+                displayName: "Unavailable",
+                bookmarkData: Data([0x00, 0x01, 0x02])
+            ),
+            WatchedFolderRecord(
+                id: validFolder.id,
+                displayName: validFolder.displayName,
+                bookmarkData: validFolder.bookmarkData
+            )
+        ]
+        userDefaults.set(try JSONEncoder().encode(records), forKey: "watchedFolderRecords")
+
+        let restoredFolders = store.loadFolders()
+
+        XCTAssertEqual(restoredFolders.map(\.id), [validFolder.id])
+        XCTAssertEqual(restoredFolders.first?.url.standardizedFileURL, directoryURL.standardizedFileURL)
+    }
+
+    func testWatchedFolderSavePreservesUnresolvedRecordsForRecovery() throws {
+        let suiteName = "AudioMator.WatchedFolderSaveRecoveryTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolder-Save-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+
+        let validFolder = try store.makeFolder(from: directoryURL)
+        let unresolvedID = UUID()
+        let records = [
+            WatchedFolderRecord(
+                id: unresolvedID,
+                displayName: "Offline Library",
+                bookmarkData: Data([0x00, 0x01, 0x02])
+            ),
+            WatchedFolderRecord(
+                id: validFolder.id,
+                displayName: validFolder.displayName,
+                bookmarkData: validFolder.bookmarkData
+            )
+        ]
+        userDefaults.set(try JSONEncoder().encode(records), forKey: "watchedFolderRecords")
+
+        let restoredFolders = store.loadFolders()
+        store.saveFolders(restoredFolders)
+
+        let persistedData = try XCTUnwrap(userDefaults.data(forKey: "watchedFolderRecords"))
+        let persistedRecords = try JSONDecoder().decode([WatchedFolderRecord].self, from: persistedData)
+        XCTAssertEqual(Set(persistedRecords.map(\.id)), Set([unresolvedID, validFolder.id]))
+    }
+
     func testPlanIsBoundedAndAlwaysPrioritizesRootDirectory() {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorMonitorRoot", isDirectory: true)
@@ -27,12 +112,18 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
             totalDirectoryCount: 301,
             monitoredDirectoryCount: 126,
             omittedByLimitCount: 173,
-            failedToOpenCount: 2
+            failedToOpenCount: 2,
+            scanFailureCount: 1,
+            metadataReadFailureCount: 1
         )
 
         XCTAssertTrue(status.isDegraded)
         XCTAssertTrue(status.message.contains("126 of 301"))
         XCTAssertTrue(status.message.contains("173 omitted"))
         XCTAssertTrue(status.message.contains("2 could not be opened"))
+        XCTAssertTrue(status.message.contains("1 scan error"))
+        XCTAssertTrue(status.message.contains("1 audio file could not be read"))
+        XCTAssertTrue(status.message.contains("Last known metadata is retained"))
+        XCTAssertTrue(status.message.contains("last known file list is retained"))
     }
 }

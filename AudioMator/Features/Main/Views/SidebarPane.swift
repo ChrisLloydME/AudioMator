@@ -3,6 +3,8 @@ import SwiftUI
 struct SidebarPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
+    let onSelectSidebarItem: (SidebarSelection?) -> Void
+    let onRemoveWatchedFolder: (WatchedFolder) -> Void
 
     var body: some View {
         List(selection: sidebarSelection) {
@@ -42,7 +44,7 @@ struct SidebarPane: View {
 
                 Button {
                     if let selection = viewModel.addWatchedFolders() {
-                        state.selectedSidebarItem = selection
+                        onSelectSidebarItem(selection)
                     }
                 } label: {
                     Label("Add Folder…", systemImage: "plus.circle")
@@ -65,7 +67,7 @@ struct SidebarPane: View {
                 guard state.selectedSidebarItem != newSelection else { return }
 
                 DispatchQueue.main.async {
-                    state.selectedSidebarItem = newSelection
+                    onSelectSidebarItem(newSelection)
                 }
             }
         )
@@ -110,10 +112,6 @@ struct SidebarPane: View {
     }
 
     private func removeWatchedFolder(_ folder: WatchedFolder) {
-        viewModel.removeWatchedFolder(id: folder.id)
-
-        if state.selectedSidebarItem == .watchedFolder(folder.id) {
-            state.selectedSidebarItem = viewModel.watchedFolders.isEmpty ? .quickImport : .watchedLibrary
-        }
+        onRemoveWatchedFolder(folder)
     }
 }

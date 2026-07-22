@@ -8,6 +8,7 @@ extension AudioViewModel {
         for targetFiles: [AudioFile]
     ) async {
         guard !targetFiles.isEmpty else { return }
+        guard canStartExternalFileMutation() else { return }
 
         guard values.count == targetFiles.count else {
             presentMetadataWriteHUD(
@@ -27,7 +28,8 @@ extension AudioViewModel {
             let result = await persistMetadataEdit(
                 edit,
                 to: file,
-                syncInspectorAfterReload: false
+                syncInspectorAfterReload: false,
+                expectedFileFingerprint: file.fileFingerprint
             )
 
             switch result {

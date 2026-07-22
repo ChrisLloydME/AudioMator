@@ -53,7 +53,7 @@ struct LRCLIBLyricsCandidate: Decodable, Identifiable, Equatable, Sendable {
     }
 
     var durationSeconds: Int? {
-        duration.map { Int($0.rounded()) }
+        duration.flatMap(AudioNumericConversion.positiveDurationSeconds)
     }
 
     var lyricsAvailabilityLabel: String {

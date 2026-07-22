@@ -216,7 +216,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.fileFingerprint = fileFingerprint
     }
 
-    func withUpdatedURL(_ url: URL) -> AudioFile {
+    nonisolated func withUpdatedURL(_ url: URL) -> AudioFile {
         AudioFile(
             id: id,
             url: url,

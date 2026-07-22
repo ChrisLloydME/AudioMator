@@ -32,7 +32,10 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(
+            plan.validationMessage,
+            "Add literal separators between fields so each text line can be parsed unambiguously."
+        )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canApply)
     }
@@ -104,12 +107,23 @@ final class MetadataExchangeTests: XCTestCase {
     }
 
     func testCSVColumnTemplateRejectsOversizedInputBeforeParsing() {
+        let internalPadding = String(repeating: " ", count: 16_385)
         let result = MetadataExchangePlanner.parseCSVColumnTemplate(
-            String(repeating: ",", count: 16_385)
+            "{{title}}\(internalPadding),{{artist}}"
         )
 
-        XCTAssertNotNil(result.validationMessage)
+        XCTAssertEqual(result.validationMessage, "The column template is too large.")
         XCTAssertTrue(result.columns.isEmpty)
+        XCTAssertEqual(result.delimiter, ",")
+    }
+
+    func testCSVColumnTemplateAcceptsIntersectingLocatorsOnProductionPlanner() {
+        let result = MetadataExchangePlanner.parseCSVColumnTemplate(
+            "{{fileName}},{{baseName}},{{title}}"
+        )
+
+        XCTAssertNil(result.validationMessage)
+        XCTAssertEqual(result.columns, [.fileName, .baseName, .title])
         XCTAssertEqual(result.delimiter, ",")
     }
 
@@ -148,7 +162,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(plan.validationMessage, "Unexpected quote in an unquoted CSV field.")
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canApply)
     }
@@ -216,7 +230,7 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [file],
             clearBlankImportedValues: false
         )
-        XCTAssertNotNil(emptyPlan.validationMessage)
+        XCTAssertEqual(emptyPlan.validationMessage, "Add at least one CSV data row to import.")
         XCTAssertFalse(emptyPlan.canApply)
 
         let headerOnlyPlan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -226,7 +240,7 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [file],
             clearBlankImportedValues: false
         )
-        XCTAssertNotNil(headerOnlyPlan.validationMessage)
+        XCTAssertEqual(headerOnlyPlan.validationMessage, "Add at least one CSV data row to import.")
         XCTAssertFalse(headerOnlyPlan.canApply)
     }
 
@@ -452,7 +466,12 @@ final class MetadataExchangeTests: XCTestCase {
     func testTextTemplatesRejectUnknownUnterminatedAndMultilineFields() {
         let file = AudioFileTestFactory.make()
 
-        for template in ["{{title}} | {{titel}}", "{{title", "{{title}}\n{{artist}}"] {
+        let templates = [
+            ("{{title}} | {{titel}}", "{{titel}} is not a supported metadata field."),
+            ("{{title", "Close every template field with }}."),
+            ("{{title}}\n{{artist}}", "Use a single-line template. Use CSV for multiline metadata.")
+        ]
+        for (template, expectedMessage) in templates {
             let exportPlan = MetadataExchangePlanner.makeTextExportPlan(
                 template: template,
                 targetFiles: [file]
@@ -464,8 +483,8 @@ final class MetadataExchangeTests: XCTestCase {
                 clearBlankImportedValues: false
             )
 
-            XCTAssertNotNil(exportPlan.validationMessage, template)
-            XCTAssertNotNil(importPlan.validationMessage, template)
+            XCTAssertEqual(exportPlan.validationMessage, expectedMessage, template)
+            XCTAssertEqual(importPlan.validationMessage, expectedMessage, template)
         }
     }
 
@@ -476,9 +495,32 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [file]
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(
+            plan.validationMessage,
+            "One or more values contain line breaks. Use CSV export to preserve multiline metadata safely."
+        )
         XCTAssertFalse(plan.canExport)
         XCTAssertEqual(plan.rows.first?.output, "Line One\r\nLine Two")
+    }
+
+    func testTextExportUsesSelectionIndexesAndRelativePathsOnProductionPlanner() {
+        let files = [
+            AudioFileTestFactory.make(
+                url: URL(fileURLWithPath: "/Volumes/Library/Album/01.flac"),
+                title: "One"
+            ),
+            AudioFileTestFactory.make(
+                url: URL(fileURLWithPath: "/Volumes/Library/Album/02.flac"),
+                title: "Two"
+            )
+        ]
+        let plan = MetadataExchangePlanner.makeTextExportPlan(
+            template: "{{index}}|{{relativePath}}|{{title}}",
+            targetFiles: files
+        )
+
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertEqual(plan.rows.map(\.output), ["1|01.flac|One", "2|02.flac|Two"])
     }
 
     func testTextExportRejectsAnOversizedRenderedRecord() {
@@ -493,7 +535,10 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [file]
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(
+            plan.validationMessage,
+            "A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values."
+        )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canExport)
     }
@@ -680,7 +725,10 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [file]
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(
+            plan.validationMessage,
+            "A CSV field is larger than 1 MB. Shorten that metadata value before exporting."
+        )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canExport)
     }
@@ -703,7 +751,10 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [file],
             clearBlankImportedValues: false
         )
-        XCTAssertNotNil(invalidHeader.validationMessage)
+        XCTAssertEqual(
+            invalidHeader.validationMessage,
+            "The CSV header has 1 column(s), but the template has 2."
+        )
         XCTAssertTrue(invalidHeader.rows.isEmpty)
     }
 

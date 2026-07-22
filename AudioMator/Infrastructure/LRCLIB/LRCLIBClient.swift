@@ -15,9 +15,10 @@ struct LRCLIBFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
         self.title = Self.preferred(file.title, fallback: fallback.title)
         self.artist = Self.preferred(file.artist, fallback: fallback.artist)
         self.album = Self.preferred(file.album, fallback: fallback.album)
-        self.durationSeconds = file.duration.isFinite && file.duration > 0
-            ? Int(file.duration.rounded())
-            : fallback.durationMilliseconds.map { Int((Double($0) / 1000.0).rounded()) }
+        self.durationSeconds = AudioNumericConversion.positiveDurationSeconds(file.duration)
+            ?? fallback.durationMilliseconds.flatMap {
+                AudioNumericConversion.positiveDurationSeconds(Double($0) / 1_000)
+            }
     }
 
     var displayTitle: String {

@@ -6,6 +6,7 @@ extension AudioViewModel {
 
         let targetFiles = targetFiles
         guard !targetFiles.isEmpty else { return }
+        guard canStartExternalFileMutation() else { return }
 
         let assignments = MuseAmpCommentIDGenerator.assignments(
             for: targetFiles.map { file in
@@ -41,7 +42,8 @@ extension AudioViewModel {
                 let result = await self.persistMetadataEdit(
                     edit,
                     to: file,
-                    syncInspectorAfterReload: false
+                    syncInspectorAfterReload: false,
+                    expectedFileFingerprint: file.fileFingerprint
                 )
 
                 switch result {

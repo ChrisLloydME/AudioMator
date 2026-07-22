@@ -14,6 +14,8 @@ import AppKit
 struct ContentView: View {
     private enum PendingDiscardAction {
         case selection(Set<AudioFile.ID>)
+        case sidebarSelection(SidebarSelection?)
+        case removeWatchedFolder(UUID)
         case hideInspector
     }
 
@@ -196,6 +198,10 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
                 attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
             }
+            .onReceive(NotificationCenter.default.publisher(for: .requestSidebarSelectionChange)) { notification in
+                guard let selection = notification.object as? SidebarSelection else { return }
+                attemptSidebarSelectionChange(to: selection)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .requestToggleInspector)) { _ in
                 toggleInspector()
             }
@@ -205,7 +211,12 @@ struct ContentView: View {
     private var rootContent: some View {
         #if os(macOS)
         NavigationSplitView {
-            SidebarPane(viewModel: viewModel, state: state)
+            SidebarPane(
+                viewModel: viewModel,
+                state: state,
+                onSelectSidebarItem: attemptSidebarSelectionChange,
+                onRemoveWatchedFolder: attemptWatchedFolderRemoval
+            )
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
         } detail: {
             contentPane
@@ -353,6 +364,91 @@ struct ContentView: View {
         }
     }
 
+    private func attemptSidebarSelectionChange(to newSelection: SidebarSelection?) {
+        guard newSelection != state.selectedSidebarItem else { return }
+
+        #if os(macOS)
+        Self.performSidebarSelectionChange(
+            hasUnsavedInspectorChanges: viewModel.hasUnsavedInspectorChanges,
+            suppressesDiscardWarning: suppressesUnsavedInspectorDiscardWarning,
+            requestDiscardConfirmation: presentUnsavedInspectorDiscardAlert,
+            discardInspectorEdits: discardInspectorEditsIfNeeded
+        ) {
+            state.selectedSidebarItem = newSelection
+        }
+        #else
+        confirmDiscardUnsavedInspectorEditsIfNeeded(
+            pendingAction: .sidebarSelection(newSelection)
+        ) {
+            state.selectedSidebarItem = newSelection
+        }
+        #endif
+    }
+
+    #if os(macOS)
+    static func performSidebarSelectionChange(
+        hasUnsavedInspectorChanges: Bool,
+        suppressesDiscardWarning: Bool,
+        requestDiscardConfirmation: (@escaping () -> Void) -> Void,
+        discardInspectorEdits: @escaping () -> Void,
+        commitSelection: @escaping () -> Void
+    ) {
+        guard hasUnsavedInspectorChanges else {
+            commitSelection()
+            return
+        }
+
+        let continueAction = {
+            discardInspectorEdits()
+            commitSelection()
+        }
+
+        if suppressesDiscardWarning {
+            continueAction()
+        } else {
+            requestDiscardConfirmation(continueAction)
+        }
+    }
+    #endif
+
+    private func attemptWatchedFolderRemoval(_ folder: WatchedFolder) {
+        guard watchedFolderRemovalCanAffectInspectorSelection(folder) else {
+            removeWatchedFolderAndUpdateSelection(id: folder.id)
+            return
+        }
+
+        confirmDiscardUnsavedInspectorEditsIfNeeded(
+            pendingAction: .removeWatchedFolder(folder.id)
+        ) {
+            removeWatchedFolderAndUpdateSelection(id: folder.id)
+        }
+    }
+
+    private func watchedFolderRemovalCanAffectInspectorSelection(_ folder: WatchedFolder) -> Bool {
+        switch state.selectedSidebarItem {
+        case .watchedFolder(let id):
+            return id == folder.id
+        case .watchedLibrary:
+            let folderPath = folder.url.standardizedFileURL.resolvingSymlinksInPath().path
+            let folderPrefix = folderPath == "/" ? "/" : folderPath + "/"
+            return viewModel.files.contains { file in
+                guard state.selectedAudioIDs.contains(file.id) else { return false }
+                let filePath = file.url.standardizedFileURL.resolvingSymlinksInPath().path
+                return filePath == folderPath || filePath.hasPrefix(folderPrefix)
+            }
+        case .quickImport, .none:
+            return false
+        }
+    }
+
+    private func removeWatchedFolderAndUpdateSelection(id: UUID) {
+        viewModel.removeWatchedFolder(id: id)
+
+        if state.selectedSidebarItem == .watchedFolder(id) {
+            state.selectedSidebarItem = viewModel.watchedFolders.isEmpty ? .quickImport : .watchedLibrary
+        }
+    }
+
     private func discardInspectorEditsIfNeeded() {
         guard viewModel.hasUnsavedInspectorChanges else { return }
         viewModel.cancelEditing()
@@ -390,7 +486,7 @@ struct ContentView: View {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Discard Inspector Edits?"
-        alert.informativeText = "To switch files, discard your unsaved inspector edits."
+        alert.informativeText = "To continue, discard your unsaved inspector edits."
         alert.addButton(withTitle: "Discard Edits")
         alert.addButton(withTitle: "Cancel")
         alert.showsSuppressionButton = true
@@ -490,9 +586,7 @@ struct ContentView: View {
             album: selectedInput.album,
             trackNumber: selectedInput.trackNumber,
             trackTotal: selectedFile.trackTotal,
-            durationMilliseconds: selectedFile.duration.isFinite && selectedFile.duration > 0
-                ? Int((selectedFile.duration * 1000).rounded())
-                : nil,
+            durationMilliseconds: AudioNumericConversion.positiveDurationMilliseconds(selectedFile.duration),
             releaseDate: selectedInput.releaseDate,
             isrc: selectedFile.isrc,
             barcode: selectedFile.barcode,
@@ -543,6 +637,10 @@ struct ContentView: View {
         switch pendingDiscardAction {
         case .selection(let newSelection):
             state.selectedAudioIDs = newSelection
+        case .sidebarSelection(let newSelection):
+            state.selectedSidebarItem = newSelection
+        case .removeWatchedFolder(let id):
+            removeWatchedFolderAndUpdateSelection(id: id)
         case .hideInspector:
             setInspectorVisibility(false)
         }

@@ -36,14 +36,14 @@ struct TrackRenumberSheet: View {
 
     private var sanitizedStartNumber: Int {
         let parsed = Int(trackRenumberStartText.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 1
-        return max(0, parsed)
+        return normalizedTrackRenumberStartNumber(parsed)
     }
 
     private var startNumberBinding: Binding<Int> {
         Binding(
             get: { sanitizedStartNumber },
             set: { newValue in
-                let value = max(0, newValue)
+                let value = normalizedTrackRenumberStartNumber(newValue)
                 trackRenumberStartText = String(value)
             }
         )
@@ -248,7 +248,7 @@ struct TrackRenumberSheet: View {
                         .frame(width: 72)
                         .disabled(isTrackRenumberRunning)
 
-                    Stepper("", value: startNumberBinding, in: 0...9999)
+                    Stepper("", value: startNumberBinding, in: 0...maximumTrackRenumberStartNumber)
                         .labelsHidden()
                         .disabled(isTrackRenumberRunning)
                 }
@@ -526,7 +526,7 @@ struct TrackRenumberSheet: View {
 
     private func applyTrackRenumber() {
         let parsed = Int(trackRenumberStartText.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 1
-        trackRenumberOptions.startNumber = max(0, parsed)
+        trackRenumberOptions.startNumber = normalizedTrackRenumberStartNumber(parsed)
         trackRenumberStartText = String(trackRenumberOptions.startNumber)
 
         let selected = state.selectedAudioIDs

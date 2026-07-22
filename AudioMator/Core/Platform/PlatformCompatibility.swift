@@ -386,6 +386,24 @@ enum PlatformWorkspace {
     }
 }
 
+enum SecurityScopedResourceAccess {
+    static func withAccess<Result>(
+        to url: URL,
+        startAccessing: (URL) -> Bool = { $0.startAccessingSecurityScopedResource() },
+        stopAccessing: (URL) -> Void = { $0.stopAccessingSecurityScopedResource() },
+        perform: () throws -> Result
+    ) rethrows -> Result {
+        let didStartAccess = startAccessing(url)
+        defer {
+            if didStartAccess {
+                stopAccessing(url)
+            }
+        }
+
+        return try perform()
+    }
+}
+
 enum PlatformDocumentPicker {
     static func pickAudioFiles(completion: @escaping ([URL]) -> Void) {
         #if os(macOS)

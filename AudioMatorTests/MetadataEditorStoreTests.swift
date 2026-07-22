@@ -213,6 +213,63 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    func testPartialApplyRetriesOnlyFailedTargetThroughProductionWritePath() async throws {
+        let firstFile = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/01-retry.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/02-retry.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let pipeline = RetryableMetadataEditorPipeline(
+            propertyMapsByURL: [
+                firstFile.url: ["TITLE": "First"],
+                secondFile.url: ["TITLE": "Second"]
+            ],
+            initiallyFailingURL: secondFile.url
+        )
+        let store = MetadataEditorStore(metadataPipeline: pipeline)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([firstFile, secondFile])
+
+        store.present(targetFiles: [firstFile, secondFile])
+        try await waitUntilLoaded(store)
+        store.upsertField(key: "ALBUM", value: "Shared Draft")
+
+        let firstResult = await viewModel.applyRawMetadataPropertyMaps(
+            store.draftPropertyMaps,
+            to: store.pendingTargets
+        )
+        store.recordAppliedTargets(firstResult.succeededTargetIDs)
+
+        XCTAssertEqual(firstResult.succeededTargetIDs, [firstFile.id])
+        XCTAssertEqual(firstResult.failedTargetIDs, [secondFile.id])
+        XCTAssertFalse(firstResult.didApplyAllChanges)
+        XCTAssertEqual(store.targets.map(\.id), [secondFile.id])
+        XCTAssertEqual(store.pendingTargets.map(\.id), [secondFile.id])
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["ALBUM"], "Shared Draft")
+        XCTAssertEqual(pipeline.writeAttemptCount(for: firstFile.url), 1)
+        XCTAssertEqual(pipeline.writeAttemptCount(for: secondFile.url), 1)
+
+        pipeline.allowWrites(to: secondFile.url)
+        let retryResult = await viewModel.applyRawMetadataPropertyMaps(
+            store.draftPropertyMaps,
+            to: store.pendingTargets
+        )
+        store.recordAppliedTargets(retryResult.succeededTargetIDs)
+
+        XCTAssertTrue(retryResult.didApplyAllChanges)
+        XCTAssertEqual(retryResult.succeededTargetIDs, [secondFile.id])
+        XCTAssertTrue(store.targets.isEmpty)
+        XCTAssertTrue(store.pendingTargets.isEmpty)
+        XCTAssertFalse(store.hasUnsavedChanges)
+        XCTAssertEqual(pipeline.writeAttemptCount(for: firstFile.url), 1)
+        XCTAssertEqual(pipeline.writeAttemptCount(for: secondFile.url), 2)
+    }
+
     func testPresentFailsClosedWhenAnySelectedFileCannotBeRead() async throws {
         let readableFile = AudioFileTestFactory.make(
             id: UUID(),
@@ -301,6 +358,76 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
 
     nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private enum WriteError: LocalizedError {
+        case injectedFailure
+
+        var errorDescription: String? { "Injected raw metadata write failure" }
+    }
+
+    private let lock = NSLock()
+    private let propertyMapsByURL: [URL: [String: String]]
+    private var failingURLs: Set<URL>
+    private var writeAttemptsByURL: [URL: Int] = [:]
+
+    init(propertyMapsByURL: [URL: [String: String]], initiallyFailingURL: URL) {
+        self.propertyMapsByURL = propertyMapsByURL
+        self.failingURLs = [initiallyFailingURL]
+    }
+
+    func allowWrites(to url: URL) {
+        lock.withLock { _ = failingURLs.remove(url) }
+    }
+
+    func writeAttemptCount(for url: URL) -> Int {
+        lock.withLock { writeAttemptsByURL[url, default: 0] }
+    }
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        await AudioFileTestFactory.make(id: id, url: url, includeDefaultFileFingerprint: false)
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
+        propertyMapsByURL[url] ?? [:]
+    }
+
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeRawMetadataPropertyMap(
+        _ propertyMap: [String: String],
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        let shouldFail = lock.withLock {
+            writeAttemptsByURL[url, default: 0] += 1
+            return failingURLs.contains(url)
+        }
+        if shouldFail {
+            throw WriteError.injectedFailure
+        }
+        return AudioMetadataWriteResult(warnings: [])
     }
 
     nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {

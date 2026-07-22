@@ -6,7 +6,7 @@ import XCTest
 @MainActor
 final class FileMutationSerializationTests: XCTestCase {
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {
-        let pipeline = OverlapDetectingMetadataPipeline()
+        let pipeline = BlockingMutationPipeline()
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorMutationSerialization", isDirectory: true)
@@ -19,18 +19,25 @@ final class FileMutationSerializationTests: XCTestCase {
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
 
         async let metadataWrite = viewModel.writeMetadataOffMainActor(payload, to: canonicalURL)
+        let didStartMetadataWrite = await waitUntil { pipeline.totalMutationCount == 1 }
+        XCTAssertTrue(didStartMetadataWrite)
+
         async let rawMapWrite = viewModel.writeRawMetadataPropertyMapOffMainActor([:], to: aliasURL)
+        let didQueueAliasMutation = await waitUntil {
+            await viewModel.fileMutationCoordinator.queuedMutationCount == 1
+        }
+        let mutationCountBeforeRelease = pipeline.totalMutationCount
+        pipeline.releaseFirstMutation()
         _ = try await (metadataWrite, rawMapWrite)
 
-        XCTAssertEqual(
-            pipeline.maximumConcurrentMutations,
-            1,
-            "Mutations for aliases of the same normalized file URL must not overlap."
-        )
+        XCTAssertTrue(didQueueAliasMutation)
+        XCTAssertEqual(mutationCountBeforeRelease, 1)
+        XCTAssertEqual(pipeline.mutationCount(for: .metadataWrite), 1)
+        XCTAssertEqual(pipeline.mutationCount(for: .rawMapWrite), 1)
     }
 
     func testMetadataWriteEraseAndTrackRenumberShareOneFileReservation() async throws {
-        let pipeline = OverlapDetectingMetadataPipeline()
+        let pipeline = BlockingMutationPipeline()
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
         let fileID = UUID()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorSharedMutation.mp3")
@@ -43,6 +50,9 @@ final class FileMutationSerializationTests: XCTestCase {
         viewModel.mergeQuickImportFiles([file])
 
         async let metadataWrite = viewModel.writeMetadataOffMainActor(payload, to: fileURL)
+        let didStartMetadataWrite = await waitUntil { pipeline.totalMutationCount == 1 }
+        XCTAssertTrue(didStartMetadataWrite)
+
         async let metadataErase = viewModel.eraseAllMetadataOffMainActor(at: fileURL)
         async let renumberResult = viewModel.renumberTrackNumbers(
             orderedIDs: [fileID],
@@ -54,22 +64,27 @@ final class FileMutationSerializationTests: XCTestCase {
             )
         )
 
+        let didQueueBothMutations = await waitUntil {
+            await viewModel.fileMutationCoordinator.queuedMutationCount == 2
+        }
+        let mutationCountBeforeRelease = pipeline.totalMutationCount
+        pipeline.releaseFirstMutation()
         _ = try await (metadataWrite, metadataErase)
-        _ = await renumberResult
+        let result = await renumberResult
 
-        XCTAssertEqual(
-            pipeline.maximumConcurrentMutations,
-            1,
-            "Write, erase, and renumber must serialize mutations for the same file URL."
-        )
+        XCTAssertTrue(didQueueBothMutations)
+        XCTAssertEqual(mutationCountBeforeRelease, 1)
+        XCTAssertEqual(pipeline.mutationCount(for: .metadataWrite), 1)
+        XCTAssertEqual(pipeline.mutationCount(for: .erase), 1)
+        XCTAssertEqual(pipeline.mutationCount(for: .trackRenumber), 1)
+        XCTAssertEqual(result.succeeded, 1)
     }
 
-    func testCancelledWaiterDoesNotExecuteQueuedMutation() async {
+    func testCancelledWaiterDoesNotExecuteQueuedMutation() async throws {
         let coordinator = FileMutationCoordinator()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorCancelledMutation.mp3")
         let firstMutationEntered = AsyncTestLatch()
         let releaseFirstMutation = AsyncTestLatch()
-        let secondMutationStarted = AsyncTestLatch()
         let secondMutationExecuted = AsyncTestLatch()
 
         let firstTask = Task {
@@ -81,18 +96,28 @@ final class FileMutationSerializationTests: XCTestCase {
         await firstMutationEntered.wait()
 
         let secondTask = Task {
-            await secondMutationStarted.signal()
-            try? await coordinator.withExclusiveAccess(to: [fileURL]) {
-                await secondMutationExecuted.signal()
+            do {
+                try await coordinator.withExclusiveAccess(to: [fileURL]) {
+                    await secondMutationExecuted.signal()
+                }
+                return WaiterOutcome.executed
+            } catch is CancellationError {
+                return WaiterOutcome.cancelled
+            } catch {
+                return WaiterOutcome.failed
             }
         }
-        await secondMutationStarted.wait()
+        let didQueueSecondMutation = await waitUntil {
+            await coordinator.queuedMutationCount == 1
+        }
         secondTask.cancel()
         await releaseFirstMutation.signal()
 
         _ = await firstTask.value
-        _ = await secondTask.value
+        let secondOutcome = await secondTask.value
 
+        XCTAssertTrue(didQueueSecondMutation)
+        XCTAssertEqual(secondOutcome, .cancelled)
         let didExecuteCancelledMutation = await secondMutationExecuted.isSignaled
         XCTAssertFalse(
             didExecuteCancelledMutation,
@@ -100,7 +125,7 @@ final class FileMutationSerializationTests: XCTestCase {
         )
 
         let followUpMutationExecuted = AsyncTestLatch()
-        try? await coordinator.withExclusiveAccess(to: [fileURL]) {
+        try await coordinator.withExclusiveAccess(to: [fileURL]) {
             await followUpMutationExecuted.signal()
         }
         let didExecuteFollowUpMutation = await followUpMutationExecuted.isSignaled
@@ -109,6 +134,27 @@ final class FileMutationSerializationTests: XCTestCase {
             "Cancelling a waiter must leave the file reservation usable by later mutations."
         )
     }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        _ condition: @escaping () async -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while clock.now < deadline {
+            if await condition() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return await condition()
+    }
+}
+
+private enum WaiterOutcome: Equatable {
+    case executed
+    case cancelled
+    case failed
 }
 
 private actor AsyncTestLatch {
@@ -133,17 +179,36 @@ private actor AsyncTestLatch {
     }
 }
 
-private final class OverlapDetectingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
-    private let condition = NSCondition()
-    private var activeMutations = 0
-    private var recordedMaximumConcurrentMutations = 0
+nonisolated private enum RecordedMutationKind: Hashable {
+    case metadataWrite
+    case rawMapWrite
+    case erase
+    case trackRenumber
+}
 
-    var maximumConcurrentMutations: Int {
-        condition.withLock { recordedMaximumConcurrentMutations }
+private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private let condition = NSCondition()
+    private var recordedMutationCounts: [RecordedMutationKind: Int] = [:]
+    private var recordedTotalMutationCount = 0
+    private var isFirstMutationReleased = false
+
+    var totalMutationCount: Int {
+        condition.withLock { recordedTotalMutationCount }
+    }
+
+    func mutationCount(for kind: RecordedMutationKind) -> Int {
+        condition.withLock { recordedMutationCounts[kind, default: 0] }
+    }
+
+    func releaseFirstMutation() {
+        condition.withLock {
+            isFirstMutationReleased = true
+            condition.broadcast()
+        }
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        throw TestError.unexpectedRead
+        await AudioFileTestFactory.make(id: id, url: url, includeDefaultFileFingerprint: false)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
@@ -158,7 +223,7 @@ private final class OverlapDetectingMetadataPipeline: AudioMetadataPipeline, @un
         _ edit: MetadataEditPayload,
         to url: URL
     ) throws -> AudioMetadataWriteResult {
-        recordMutationOverlap()
+        recordMutation(.metadataWrite)
         return AudioMetadataWriteResult(warnings: [])
     }
 
@@ -166,12 +231,12 @@ private final class OverlapDetectingMetadataPipeline: AudioMetadataPipeline, @un
         _ propertyMap: [String: String],
         to url: URL
     ) throws -> AudioMetadataWriteResult {
-        recordMutationOverlap()
+        recordMutation(.rawMapWrite)
         return AudioMetadataWriteResult(warnings: [])
     }
 
     nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
-        recordMutationOverlap()
+        recordMutation(.erase)
         return AudioMetadataWriteResult(warnings: [])
     }
 
@@ -181,31 +246,23 @@ private final class OverlapDetectingMetadataPipeline: AudioMetadataPipeline, @un
         to url: URL,
         verifyAfterWrite: Bool
     ) throws -> AudioMetadataWriteResult {
-        recordMutationOverlap()
+        recordMutation(.trackRenumber)
         return AudioMetadataWriteResult(warnings: [])
     }
 
-    private func recordMutationOverlap() {
+    private func recordMutation(_ kind: RecordedMutationKind) {
         condition.lock()
-        activeMutations += 1
-        recordedMaximumConcurrentMutations = max(
-            recordedMaximumConcurrentMutations,
-            activeMutations
-        )
+        recordedMutationCounts[kind, default: 0] += 1
+        recordedTotalMutationCount += 1
         condition.broadcast()
 
-        let deadline = Date().addingTimeInterval(0.2)
-        while activeMutations < 2, Date() < deadline {
-            condition.wait(until: deadline)
+        if recordedTotalMutationCount == 1 {
+            while !isFirstMutationReleased {
+                condition.wait()
+            }
         }
 
-        activeMutations -= 1
-        condition.broadcast()
         condition.unlock()
-    }
-
-    private enum TestError: Error {
-        case unexpectedRead
     }
 }
 #endif

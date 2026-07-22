@@ -3,6 +3,7 @@ import Foundation
 extension AudioViewModel {
     func applyMusicBrainzTaggingPlan(_ entries: [MusicBrainzTaggingWriteEntry]) async {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
+        guard canStartExternalFileMutation() else { return }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
@@ -81,6 +82,7 @@ extension AudioViewModel {
 
     func applyiTunesTaggingPlan(_ entries: [iTunesTaggingWriteEntry]) async {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
+        guard canStartExternalFileMutation() else { return }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)

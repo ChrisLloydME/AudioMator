@@ -25,17 +25,19 @@ extension AudioViewModel {
         guard !targetsInOrder.isEmpty else {
             return .empty
         }
+        guard canStartExternalFileMutation() else { return .empty }
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
-        let writeTargets: [(id: UUID, url: URL)] = targetFiles.map { ($0.id, $0.url) }
+        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?)] =
+            targetFiles.map { ($0.id, $0.url, $0.fileFingerprint) }
 
         guard !writeTargets.isEmpty else {
             return .empty
         }
 
         let count = writeTargets.count
-        let start = max(0, options.startNumber)
+        let start = normalizedTrackRenumberStartNumber(options.startNumber)
 
         let numbers: [Int] = {
             switch options.direction {
@@ -86,6 +88,7 @@ extension AudioViewModel {
                         refreshWarning: String?
                     ) = try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) {
                         try await Task.detached(priority: .userInitiated) {
+                            try validateExpectedFileFingerprint(target.expectedFileFingerprint, at: target.url)
                             let writeResult = try metadataPipeline.writeTrackNumberText(
                                 formattedTrackNumber,
                                 discNumberText: nil,

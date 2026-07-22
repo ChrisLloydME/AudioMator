@@ -300,7 +300,10 @@ enum MusicBrainzFileSelectionMatcher {
 
     private static func totalTrackCount(in release: MusicBrainzReleaseDetail) -> Int {
         let summed = release.media.reduce(0) { partialResult, medium in
-            partialResult + max(medium.trackCount, medium.tracks.count)
+            AudioNumericConversion.saturatingNonnegativeSum(
+                partialResult,
+                max(medium.trackCount, medium.tracks.count)
+            )
         }
         return max(summed, release.media.flatMap(\.tracks).count)
     }
@@ -323,7 +326,7 @@ enum MusicBrainzFileSelectionMatcher {
         if expected == candidate {
             return 1
         }
-        if abs(expected - candidate) == 1 {
+        if AudioNumericConversion.boundedDistance(expected, candidate, maximum: 1) == 1 {
             return 0.35
         }
         return 0
@@ -336,8 +339,9 @@ enum MusicBrainzFileSelectionMatcher {
 
     private static func durationSimilarity(_ lhs: Int?, _ rhs: Int?) -> Double {
         guard let lhs, let rhs else { return 0 }
-        let difference = abs(lhs - rhs)
-        guard difference < 30_000 else { return 0 }
+        guard let difference = AudioNumericConversion.boundedDistance(lhs, rhs, maximum: 29_999) else {
+            return 0
+        }
         return 1 - (Double(difference) / 30_000)
     }
 
@@ -346,7 +350,9 @@ enum MusicBrainzFileSelectionMatcher {
         guard digits.count >= 4, !queryYear.isEmpty else { return 0 }
         let candidateYear = String(digits.prefix(4))
         guard let queryValue = Int(queryYear), let candidateValue = Int(candidateYear) else { return 0 }
-        let difference = abs(queryValue - candidateValue)
+        guard let difference = AudioNumericConversion.boundedDistance(queryValue, candidateValue, maximum: 2) else {
+            return 0
+        }
         switch difference {
         case 0:
             return 1
@@ -497,8 +503,9 @@ enum MusicBrainzResultRanker {
     }
 
     private static func durationScore(_ lhs: Int, _ rhs: Int) -> Double {
-        let difference = abs(lhs - rhs)
-        guard difference < 30_000 else { return 0 }
+        guard let difference = AudioNumericConversion.boundedDistance(lhs, rhs, maximum: 29_999) else {
+            return 0
+        }
         return 1 - (Double(difference) / 30_000)
     }
 
@@ -508,7 +515,9 @@ enum MusicBrainzResultRanker {
         let candidateYear = String(candidateYearDigits.prefix(4))
         guard let queryValue = Int(queryYear), let candidateValue = Int(candidateYear) else { return 0 }
 
-        let difference = abs(queryValue - candidateValue)
+        guard let difference = AudioNumericConversion.boundedDistance(queryValue, candidateValue, maximum: 2) else {
+            return 0
+        }
         switch difference {
         case 0:
             return 1

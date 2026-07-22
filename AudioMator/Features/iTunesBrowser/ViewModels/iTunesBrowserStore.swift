@@ -30,12 +30,12 @@ final class iTunesBrowserStore: ObservableObject {
     @Published private(set) var sourceDescription: String = "Seed iTunes from the current AudioMator selection or search manually."
     @Published private(set) var navigationResetToken = UUID()
 
-    private let client: iTunesClient
+    private let client: any iTunesBrowserClient
     private var searchTask: Task<Void, Never>?
     private var fileInputs: [iTunesFileSearchInput] = []
     private var albumDetailsByID: [Int: iTunesAlbumDetail] = [:]
 
-    init(client: iTunesClient = iTunesClient()) {
+    init(client: any iTunesBrowserClient = iTunesClient()) {
         self.client = client
     }
 
@@ -165,7 +165,7 @@ final class iTunesBrowserStore: ObservableObject {
 
         searchTask = Task { [client] in
             do {
-                let results = try await client.search(matching: query)
+                let results = try await client.search(matching: query, limit: 25)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self.results = results

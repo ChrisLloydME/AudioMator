@@ -29,7 +29,16 @@ actor MusicBrainzRateLimiter {
     }
 }
 
-struct MusicBrainzClient {
+protocol MusicBrainzBrowserClient: Sendable {
+    func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults
+    func recordingDetail(
+        id: String,
+        fallbackReleases: [MusicBrainzRecordingResult.Release]
+    ) async throws -> MusicBrainzRecordingDetail
+    func releaseDetail(id: String) async throws -> MusicBrainzReleaseDetail
+}
+
+struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static let baseURL = URL(string: "https://\(NetworkServiceDisclosure.MusicBrainz.host)/ws/2")!
 
     private let session: URLSession

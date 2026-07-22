@@ -35,6 +35,41 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertTrue(request.value(forHTTPHeaderField: "User-Agent")?.contains("AudioMator/") == true)
     }
 
+    func testFileAndCandidateInputsRejectUnrepresentableDurations() {
+        let file = AudioFileTestFactory.make(
+            title: "Extreme Duration",
+            duration: .greatestFiniteMagnitude
+        )
+        let candidate = makeCandidate(
+            id: 1,
+            track: "Extreme Duration",
+            artist: "Artist",
+            album: "Album",
+            duration: .greatestFiniteMagnitude
+        )
+
+        XCTAssertNil(LRCLIBFileSearchInput(file: file).durationSeconds)
+        XCTAssertNil(candidate.durationSeconds)
+    }
+
+    func testCandidateRankingHandlesExtremeDurationDistanceWithoutOverflow() {
+        let query = LRCLIBSearchQuery(
+            trackName: "Title",
+            artistName: "Artist",
+            albumName: "Album",
+            durationSeconds: .min
+        )
+        let candidate = makeCandidate(
+            id: 1,
+            track: "Title",
+            artist: "Artist",
+            album: "Album",
+            duration: 1
+        )
+
+        XCTAssertEqual(LRCLIBCandidateRanker.score(candidate: candidate, query: query), 80)
+    }
+
     func testSearchDecodesSyncedPlainInstrumentalAndEmptyResults() async throws {
         let payload = """
         [
@@ -207,7 +242,10 @@ final class LRCLIBLyricsTests: XCTestCase {
         await gate.waitUntilCallCount(1)
         store.searchCurrentFile()
         await gate.waitUntilCallCount(2)
-        try await Task.sleep(for: .milliseconds(50))
+        await gate.waitUntilCancellationCount(1)
+        for _ in 0..<10 {
+            await Task.yield()
+        }
 
         XCTAssertEqual(
             store.searchState,
@@ -325,7 +363,9 @@ private final class MockLRCLIBSearchClient: LRCLIBLyricsSearching, @unchecked Se
 
 private actor RestartableLRCLIBSearchGate {
     private var callCount = 0
+    private var cancellationCount = 0
     private var callCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var cancellationWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
     private var secondCallContinuation: CheckedContinuation<Void, Never>?
     private var isSecondCallReleased = false
 
@@ -341,6 +381,20 @@ private actor RestartableLRCLIBSearchGate {
         guard callCount < expectedCount else { return }
         await withCheckedContinuation { continuation in
             callCountWaiters.append((expectedCount, continuation))
+        }
+    }
+
+    func recordCancellation() {
+        cancellationCount += 1
+        let readyWaiters = cancellationWaiters.filter { cancellationCount >= $0.count }
+        cancellationWaiters.removeAll { cancellationCount >= $0.count }
+        readyWaiters.forEach { $0.continuation.resume() }
+    }
+
+    func waitUntilCancellationCount(_ expectedCount: Int) async {
+        guard cancellationCount < expectedCount else { return }
+        await withCheckedContinuation { continuation in
+            cancellationWaiters.append((expectedCount, continuation))
         }
     }
 
@@ -366,8 +420,13 @@ private final class RestartableLRCLIBSearchClient: LRCLIBLyricsSearching, @unche
     func search(matching query: LRCLIBSearchQuery, limit: Int) async throws -> [LRCLIBLyricsCandidate] {
         let callIndex = await gate.beginCall()
         if callIndex == 1 {
-            try await Task.sleep(for: .seconds(60))
-            return []
+            do {
+                try await Task.sleep(for: .seconds(60))
+                return []
+            } catch {
+                await gate.recordCancellation()
+                throw error
+            }
         }
 
         await gate.waitForSecondCallRelease()

@@ -19,11 +19,11 @@ final class FileMutationSerializationTests: XCTestCase {
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
 
         async let metadataWrite = viewModel.writeMetadataOffMainActor(payload, to: canonicalURL)
-        let didStartMetadataWrite = await waitUntil { pipeline.totalMutationCount == 1 }
+        let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
 
         async let rawMapWrite = viewModel.writeRawMetadataPropertyMapOffMainActor([:], to: aliasURL)
-        let didQueueAliasMutation = await waitUntil {
+        let didQueueAliasMutation = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 1
         }
         let mutationCountBeforeRelease = pipeline.totalMutationCount
@@ -50,7 +50,7 @@ final class FileMutationSerializationTests: XCTestCase {
         viewModel.mergeQuickImportFiles([file])
 
         async let metadataWrite = viewModel.writeMetadataOffMainActor(payload, to: fileURL)
-        let didStartMetadataWrite = await waitUntil { pipeline.totalMutationCount == 1 }
+        let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
 
         async let metadataErase = viewModel.eraseAllMetadataOffMainActor(at: fileURL)
@@ -64,7 +64,7 @@ final class FileMutationSerializationTests: XCTestCase {
             )
         )
 
-        let didQueueBothMutations = await waitUntil {
+        let didQueueBothMutations = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 2
         }
         let mutationCountBeforeRelease = pipeline.totalMutationCount
@@ -88,7 +88,7 @@ final class FileMutationSerializationTests: XCTestCase {
         let secondMutationExecuted = AsyncTestLatch()
 
         let firstTask = Task {
-            try? await coordinator.withExclusiveAccess(to: [fileURL]) {
+            try await coordinator.withExclusiveAccess(to: [fileURL]) {
                 await firstMutationEntered.signal()
                 await releaseFirstMutation.wait()
             }
@@ -107,13 +107,13 @@ final class FileMutationSerializationTests: XCTestCase {
                 return WaiterOutcome.failed
             }
         }
-        let didQueueSecondMutation = await waitUntil {
+        let didQueueSecondMutation = try await waitUntil {
             await coordinator.queuedMutationCount == 1
         }
         secondTask.cancel()
         await releaseFirstMutation.signal()
 
-        _ = await firstTask.value
+        _ = try await firstTask.value
         let secondOutcome = await secondTask.value
 
         XCTAssertTrue(didQueueSecondMutation)
@@ -138,14 +138,14 @@ final class FileMutationSerializationTests: XCTestCase {
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @escaping () async -> Bool
-    ) async -> Bool {
+    ) async throws -> Bool {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)
         while clock.now < deadline {
             if await condition() {
                 return true
             }
-            try? await Task.sleep(for: .milliseconds(10))
+            try await Task.sleep(for: .milliseconds(10))
         }
         return await condition()
     }

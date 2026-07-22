@@ -78,6 +78,7 @@ final class AudioViewModel: ObservableObject {
     private var quickImportFiles: [AudioFile] = []
     private var quickImportGeneration: UInt64 = 0
     private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
+    private var inFlightQuickImportTaskIDs: Set<UUID> = []
     private var quickImportLoadingURLs: [UUID: [URL]] = [:]
     private var quickImportTokensByURLKey: [String: UUID] = [:]
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
@@ -157,6 +158,10 @@ final class AudioViewModel: ObservableObject {
 
     var currentFileSourceMode: FileSourceMode {
         normalizedSidebarSelection(activeSidebarSelection).sourceMode
+    }
+
+    var activeQuickImportTaskCount: Int {
+        inFlightQuickImportTaskIDs.count
     }
 
     var hasUnsavedInspectorChanges: Bool {
@@ -446,6 +451,7 @@ final class AudioViewModel: ObservableObject {
         quickImportLoadingURLs[taskID] = candidateURLs
         beginAccessingQuickImportResources(for: candidateURLs)
 
+        inFlightQuickImportTaskIDs.insert(taskID)
         let task = Task.detached(priority: .userInitiated) { [weak self] in
             let context: (fileIDsByKey: [String: UUID], metadataPipeline: any AudioMetadataPipeline)? = await MainActor.run { [weak self] in
                 guard let self, self.quickImportGeneration == generation else { return nil }
@@ -876,6 +882,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     private func finishQuickImportTask(_ taskID: UUID) {
+        inFlightQuickImportTaskIDs.remove(taskID)
         quickImportTasks[taskID] = nil
         quickImportLoadingURLs[taskID] = nil
         syncQuickImportSecurityScopedResources()

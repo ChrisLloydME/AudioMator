@@ -4,6 +4,70 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    func testToolbarAddWatchedFolderRequestsSidebarSelectionChange() {
+        let notificationCenter = NotificationCenter()
+        let expectedSelection = SidebarSelection.watchedLibrary
+        var receivedSelection: SidebarSelection?
+        let observer = notificationCenter.addObserver(
+            forName: .requestSidebarSelectionChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            receivedSelection = notification.object as? SidebarSelection
+        }
+        defer { notificationCenter.removeObserver(observer) }
+
+        ToolbarEditCommands.performAddWatchedFolders(
+            using: { expectedSelection },
+            notificationCenter: notificationCenter
+        )
+
+        XCTAssertEqual(receivedSelection, expectedSelection)
+    }
+
+    func testSidebarSelectionRequestPreservesDraftUntilDiscardIsConfirmed() {
+        var pendingConfirmation: (() -> Void)?
+        var didDiscardDraft = false
+        var didCommitSelection = false
+
+        ContentView.performSidebarSelectionChange(
+            hasUnsavedInspectorChanges: true,
+            suppressesDiscardWarning: false,
+            requestDiscardConfirmation: { pendingConfirmation = $0 },
+            discardInspectorEdits: { didDiscardDraft = true },
+            commitSelection: { didCommitSelection = true }
+        )
+
+        XCTAssertNotNil(pendingConfirmation)
+        XCTAssertFalse(didDiscardDraft)
+        XCTAssertFalse(didCommitSelection)
+
+        pendingConfirmation?()
+
+        XCTAssertTrue(didDiscardDraft)
+        XCTAssertTrue(didCommitSelection)
+    }
+
+    func testToolbarAddWatchedFolderDoesNotRequestSelectionWhenPickerIsCancelled() {
+        let notificationCenter = NotificationCenter()
+        var requestCount = 0
+        let observer = notificationCenter.addObserver(
+            forName: .requestSidebarSelectionChange,
+            object: nil,
+            queue: nil
+        ) { _ in
+            requestCount += 1
+        }
+        defer { notificationCenter.removeObserver(observer) }
+
+        ToolbarEditCommands.performAddWatchedFolders(
+            using: { nil },
+            notificationCenter: notificationCenter
+        )
+
+        XCTAssertEqual(requestCount, 0)
+    }
+
     func testExplicitInspectorSelectionOrderMatchesInspectorControl() {
         XCTAssertEqual(
             ExplicitInspectorSelection.inspectorSelectionOrder.map(\.displayName),

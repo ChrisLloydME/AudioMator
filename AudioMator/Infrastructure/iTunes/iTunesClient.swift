@@ -623,7 +623,12 @@ enum iTunesClientError: LocalizedError {
     }
 }
 
-struct iTunesClient: Sendable {
+protocol iTunesBrowserClient: Sendable {
+    func search(matching query: iTunesSearchQuery, limit: Int) async throws -> iTunesSearchResults
+    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail
+}
+
+struct iTunesClient: iTunesBrowserClient, Sendable {
     private let session: URLSession
 
     nonisolated init(session: URLSession = .shared) {

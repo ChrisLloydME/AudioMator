@@ -76,7 +76,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     @Published private(set) var sourceDescription: String = "Edit the fields below or seed them from the current AudioMator selection."
     @Published private(set) var navigationResetToken: UUID = UUID()
 
-    private let client: MusicBrainzClient
+    private let client: any MusicBrainzBrowserClient
     private var searchTask: Task<Void, Never>?
     private var recordingDetailsByID: [String: MusicBrainzRecordingDetail] = [:]
     private var fileTrackTotal: Int = 0
@@ -88,7 +88,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     private var fileMusicBrainzTrackID: String = ""
     private var fileInputs: [MusicBrainzFileSearchInput] = []
 
-    init(client: MusicBrainzClient) {
+    init(client: any MusicBrainzBrowserClient) {
         self.client = client
     }
 
@@ -281,7 +281,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         searchTask = Task { [client] in
             do {
-                let results = try await client.search(matching: query)
+                let results = try await client.search(matching: query, limit: 25)
                 guard !Task.isCancelled else { return }
 
                 await MainActor.run {

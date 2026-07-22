@@ -20,7 +20,7 @@ final class QuickImportCancellationTests: XCTestCase {
         viewModel.removeQuickImportFile(id: visibleFile.id)
         await gate.release()
         await gate.waitUntilReturned()
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
 
         XCTAssertTrue(
             viewModel.files.isEmpty,
@@ -47,7 +47,7 @@ final class QuickImportCancellationTests: XCTestCase {
         viewModel.removeQuickImportFile(id: visibleFile.id)
         await gate.release()
         await gate.waitUntilReturned()
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
 
         XCTAssertTrue(viewModel.files.isEmpty)
         XCTAssertNil(
@@ -69,7 +69,7 @@ final class QuickImportCancellationTests: XCTestCase {
         viewModel.clearQuickImportFiles()
         await gate.release()
         await gate.waitUntilReturned()
-        try await Task.sleep(for: .milliseconds(150))
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
 
         XCTAssertTrue(
             viewModel.files.isEmpty,

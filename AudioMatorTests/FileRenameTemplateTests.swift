@@ -62,7 +62,7 @@ final class FileRenameTemplateTests: XCTestCase {
         )
 
         let unknown = makeFileRenamePlan(template: "{{titel}}", targetFiles: [file])
-        XCTAssertNotNil(unknown.validationMessage)
+        XCTAssertEqual(unknown.validationMessage, "{{titel}} is not a supported metadata field.")
         XCTAssertFalse(unknown.canApply)
 
         let oversizedTemplate = makeFileRenamePlan(

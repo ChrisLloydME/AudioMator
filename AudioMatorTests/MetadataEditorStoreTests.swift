@@ -294,8 +294,10 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertNil(store.originalPropertyMaps[unreadableFile.id])
         XCTAssertEqual(store.draftPropertyMaps, store.originalPropertyMaps)
         XCTAssertFalse(store.hasUnsavedChanges)
-        XCTAssertNotNil(store.loadErrorMessage)
-        XCTAssertTrue(store.loadErrorMessage?.contains("unreadable.mp3") == true)
+        XCTAssertEqual(
+            store.loadErrorMessage,
+            "unreadable.mp3: The metadata could not be read."
+        )
     }
 
     private func waitUntilLoaded(

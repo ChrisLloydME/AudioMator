@@ -78,7 +78,10 @@ final class FilenameMetadataTemplateTests: XCTestCase {
             replaceUnderscoresWithSpaces: false
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(
+            plan.validationMessage,
+            "Add literal separators between metadata fields so AudioMator can parse the filename unambiguously."
+        )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canApply)
     }
@@ -87,16 +90,16 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         let file = AudioFileTestFactory.make()
 
         let templates = [
-            "{{titel}}",
-            "{{title"
+            ("{{titel}}", "{{titel}} is not a supported metadata field."),
+            ("{{title", "Close every template field with }}.")
         ]
-        for template in templates {
+        for (template, expectedMessage) in templates {
             let plan = makeFilenameMetadataPlan(
                 template: template,
                 targetFiles: [file],
                 replaceUnderscoresWithSpaces: false
             )
-            XCTAssertNotNil(plan.validationMessage, String(template.prefix(20)))
+            XCTAssertEqual(plan.validationMessage, expectedMessage, String(template.prefix(20)))
             XCTAssertFalse(plan.canApply, String(template.prefix(20)))
         }
     }

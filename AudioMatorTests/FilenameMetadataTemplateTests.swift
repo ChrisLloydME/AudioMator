@@ -78,28 +78,42 @@ final class FilenameMetadataTemplateTests: XCTestCase {
             replaceUnderscoresWithSpaces: false
         )
 
-        XCTAssertNotNil(plan.validationMessage)
+        XCTAssertEqual(
+            plan.validationMessage,
+            "Add literal separators between metadata fields so AudioMator can parse the filename unambiguously."
+        )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canApply)
     }
 
-    func testFilenameMetadataPlanRejectsInvalidAndOversizedTemplates() {
+    func testFilenameMetadataPlanRejectsInvalidTemplates() {
         let file = AudioFileTestFactory.make()
 
         let templates = [
-            "{{titel}}",
-            "{{title",
-            String(repeating: "x", count: maximumFileRenameTemplateUTF8ByteCount + 1)
+            ("{{titel}}", "{{titel}} is not a supported metadata field."),
+            ("{{title", "Close every template field with }}.")
         ]
-        for template in templates {
+        for (template, expectedMessage) in templates {
             let plan = makeFilenameMetadataPlan(
                 template: template,
                 targetFiles: [file],
                 replaceUnderscoresWithSpaces: false
             )
-            XCTAssertNotNil(plan.validationMessage, String(template.prefix(20)))
+            XCTAssertEqual(plan.validationMessage, expectedMessage, String(template.prefix(20)))
             XCTAssertFalse(plan.canApply, String(template.prefix(20)))
         }
+    }
+
+    func testFilenameMetadataPlanRejectsOversizedTemplateForSizeReason() {
+        let plan = makeFilenameMetadataPlan(
+            template: String(repeating: "x", count: maximumFileRenameTemplateUTF8ByteCount + 1),
+            targetFiles: [AudioFileTestFactory.make()],
+            replaceUnderscoresWithSpaces: false
+        )
+
+        XCTAssertEqual(plan.validationMessage, "The filename template is too large.")
+        XCTAssertTrue(plan.rows.isEmpty)
+        XCTAssertFalse(plan.canApply)
     }
 
     func testFilenameMetadataPlanRejectsAmbiguousFieldSplits() {

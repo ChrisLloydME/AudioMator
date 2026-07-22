@@ -5,10 +5,12 @@ import Combine
 struct MetadataEditorTarget: Identifiable, Hashable {
     let id: AudioFile.ID
     let url: URL
+    let expectedFileFingerprint: AudioFileFingerprint?
 
     init(file: AudioFile) {
         self.id = file.id
         self.url = file.url
+        self.expectedFileFingerprint = file.fileFingerprint
     }
 
     nonisolated var fileName: String {
@@ -56,6 +58,13 @@ final class MetadataEditorStore: ObservableObject {
         draftPropertyMaps != originalPropertyMaps
     }
 
+    var isEditable: Bool {
+        !isLoading &&
+        loadErrorMessage == nil &&
+        !targets.isEmpty &&
+        originalPropertyMaps.count == targets.count
+    }
+
     fileprivate var rows: [IOSMetadataEditorRow] {
         let allKeys = Set(draftPropertyMaps.values.flatMap(\.keys))
         return allKeys.sorted().map { key in
@@ -88,7 +97,7 @@ final class MetadataEditorStore: ObservableObject {
                 self.draftPropertyMaps = loadedState.propertyMaps
                 self.loadErrorMessage = loadedState.errorMessage
                 self.isLoading = false
-                self.selectedFieldKey = self.rows.first?.key
+                self.selectedFieldKey = loadedState.errorMessage == nil ? self.rows.first?.key : nil
             }
         }
     }
@@ -102,7 +111,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     fileprivate func makeEditFieldContext() -> MetadataFieldEditorContext? {
-        guard let selectedFieldKey else { return nil }
+        guard isEditable, let selectedFieldKey else { return nil }
         let values = targets.compactMap { draftPropertyMaps[$0.id]?[selectedFieldKey] }
         let firstValue = values.first ?? ""
         let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
@@ -110,6 +119,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func upsertField(key: String, value: String) {
+        guard isEditable else { return }
         let normalizedKey = MetadataFieldSuggestion.resolvedKey(for: key)
         let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedKey.isEmpty, !normalizedValue.isEmpty else { return }
@@ -124,6 +134,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     fileprivate func commitFieldEntry(context: MetadataFieldEditorContext, key: String, value: String) {
+        guard isEditable else { return }
         let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let existingKey = context.key {
@@ -138,7 +149,7 @@ final class MetadataEditorStore: ObservableObject {
     }
 
     func deleteSelectedField() {
-        guard let selectedFieldKey else { return }
+        guard isEditable, let selectedFieldKey else { return }
         deleteField(named: selectedFieldKey)
     }
 
@@ -165,7 +176,6 @@ final class MetadataEditorStore: ObservableObject {
             do {
                 propertyMaps[target.id] = try metadataPipeline.rawMetadataPropertyMap(for: target.url)
             } catch {
-                propertyMaps[target.id] = [:]
                 failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
             }
         }
@@ -194,6 +204,13 @@ struct MetadataEditorWindowView: View {
                 if store.isLoading {
                     ProgressView("Loading metadata…".localizedUI)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let errorMessage = store.loadErrorMessage {
+                    ContentUnavailableView(
+                        "Unable to Read Metadata",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(errorMessage)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(selection: $store.selectedFieldKey) {
                         Section {
@@ -215,18 +232,19 @@ struct MetadataEditorWindowView: View {
                     Button("Add Field") {
                         prepareEditor(context: store.makeAddFieldContext())
                     }
+                    .disabled(!store.isEditable)
 
                     Button("Edit") {
                         if let context = store.makeEditFieldContext() {
                             prepareEditor(context: context)
                         }
                     }
-                    .disabled(store.selectedFieldKey == nil)
+                    .disabled(store.selectedFieldKey == nil || !store.isEditable)
 
                     Button("Delete", role: .destructive) {
                         store.deleteSelectedField()
                     }
-                    .disabled(store.selectedFieldKey == nil)
+                    .disabled(store.selectedFieldKey == nil || !store.isEditable)
 
                     Spacer()
 

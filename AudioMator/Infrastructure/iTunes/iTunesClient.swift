@@ -504,7 +504,7 @@ enum iTunesAlbumMatcher {
     private static func trackIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
         guard let expected, candidateValue > 0 else { return 0 }
         if expected == candidateValue { return 1 }
-        if abs(expected - candidateValue) == 1 { return 0.35 }
+        if AudioNumericConversion.boundedDistance(expected, candidateValue, maximum: 1) == 1 { return 0.35 }
         return 0
     }
 
@@ -515,8 +515,9 @@ enum iTunesAlbumMatcher {
 
     private static func durationSimilarity(_ lhs: Int?, _ rhs: Int?) -> Double {
         guard let lhs, let rhs else { return 0 }
-        let difference = abs(lhs - rhs)
-        guard difference < 30_000 else { return 0 }
+        guard let difference = AudioNumericConversion.boundedDistance(lhs, rhs, maximum: 29_999) else {
+            return 0
+        }
         return 1 - (Double(difference) / 30_000)
     }
 
@@ -526,7 +527,11 @@ enum iTunesAlbumMatcher {
         let candidateYear = String(digits.prefix(4))
         guard let queryValue = Int(queryYear), let candidateValue = Int(candidateYear) else { return 0 }
 
-        switch abs(queryValue - candidateValue) {
+        guard let difference = AudioNumericConversion.boundedDistance(queryValue, candidateValue, maximum: 2) else {
+            return 0
+        }
+
+        switch difference {
         case 0: return 1
         case 1: return 0.65
         case 2: return 0.3
@@ -618,7 +623,12 @@ enum iTunesClientError: LocalizedError {
     }
 }
 
-struct iTunesClient: Sendable {
+protocol iTunesBrowserClient: Sendable {
+    func search(matching query: iTunesSearchQuery, limit: Int) async throws -> iTunesSearchResults
+    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail
+}
+
+struct iTunesClient: iTunesBrowserClient, Sendable {
     private let session: URLSession
 
     nonisolated init(session: URLSession = .shared) {

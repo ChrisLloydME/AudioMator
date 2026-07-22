@@ -95,6 +95,17 @@ extension AudioViewModel {
                 recoveryItems: []
             )
         }
+        guard canStartExternalFileMutation() else {
+            return FileRenameResult(
+                totalTargets: totalTargets,
+                renamed: 0,
+                unchanged: unchangedCount,
+                skippedIssues: skippedIssues,
+                warnings: issueWarnings,
+                failureMessage: String(localized: "Save or discard the pending inspector edits before renaming files."),
+                recoveryItems: []
+            )
+        }
 
         let scopedURLs = operations.map(\.sourceURL)
         if let accessFailure = ensureRenameDirectoryAccess(for: scopedURLs) {
@@ -113,12 +124,22 @@ extension AudioViewModel {
 
         let mutationURLs = operations.flatMap { [$0.sourceURL, $0.destinationURL] }
         let fileMutationCoordinator = self.fileMutationCoordinator
-        let execution = await withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
-            await fileMutationCoordinator.withExclusiveAccess(to: mutationURLs) {
-                await Task.detached(priority: .userInitiated) {
-                    executeFileRenameTransaction(operations)
-                }.value
+        let execution: FileRenameExecutionResult
+        do {
+            execution = try await withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
+                try await fileMutationCoordinator.withExclusiveAccess(to: mutationURLs) {
+                    await Task.detached(priority: .userInitiated) {
+                        executeFileRenameTransaction(operations)
+                    }.value
+                }
             }
+        } catch {
+            execution = .failure(
+                FileRenameTransactionFailure(
+                    message: "File renaming was cancelled before it started.",
+                    recoveryItems: []
+                )
+            )
         }
 
         switch execution {

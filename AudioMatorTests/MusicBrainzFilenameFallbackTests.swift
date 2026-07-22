@@ -37,4 +37,47 @@ final class MusicBrainzFilenameFallbackTests: XCTestCase {
         XCTAssertEqual(fallback.trackNumber, "04/12")
         XCTAssertEqual(fallback.discNumber, "01/02")
     }
+
+    func testSearchInputRejectsUnrepresentableFileDuration() {
+        let file = AudioFileTestFactory.make(
+            title: "Extreme Duration",
+            duration: .greatestFiniteMagnitude
+        )
+
+        let input = MusicBrainzFilenameFallbackResolver.makeSearchInput(for: file)
+
+        XCTAssertNil(input.durationMilliseconds)
+    }
+
+    func testResultRankingHandlesExtremeDurationDistanceWithoutOverflow() {
+        let query = MusicBrainzSearchQuery(
+            mode: .track,
+            title: "Title",
+            durationMilliseconds: .max
+        )
+        let extreme = MusicBrainzRecordingResult(
+            id: "extreme",
+            title: "Title",
+            artistCredit: "",
+            score: 0,
+            disambiguation: "",
+            firstReleaseDate: "",
+            durationMilliseconds: .min,
+            releases: []
+        )
+        let exact = MusicBrainzRecordingResult(
+            id: "exact",
+            title: "Title",
+            artistCredit: "",
+            score: 0,
+            disambiguation: "",
+            firstReleaseDate: "",
+            durationMilliseconds: .max,
+            releases: []
+        )
+
+        let ranked = MusicBrainzResultRanker.rerankRecordings([extreme, exact], query: query)
+
+        XCTAssertEqual(ranked.map(\.id), ["exact", "extreme"])
+    }
 }

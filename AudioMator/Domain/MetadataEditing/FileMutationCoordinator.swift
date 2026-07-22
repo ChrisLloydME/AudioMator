@@ -17,6 +17,10 @@ actor FileMutationCoordinator {
     private var pendingWaiterIDs: Set<UUID> = []
     private var cancelledWaiterIDs: Set<UUID> = []
 
+    var queuedMutationCount: Int {
+        pendingWaiterIDs.count
+    }
+
     func withExclusiveAccess<Value: Sendable>(
         to urls: [URL],
         perform operation: @Sendable () async throws -> Value

@@ -198,6 +198,10 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .requestSelectAllTracks)) { _ in
                 attemptSelectionChange(to: Set(viewModel.files.map(\.id)))
             }
+            .onReceive(NotificationCenter.default.publisher(for: .requestSidebarSelectionChange)) { notification in
+                guard let selection = notification.object as? SidebarSelection else { return }
+                attemptSidebarSelectionChange(to: selection)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .requestToggleInspector)) { _ in
                 toggleInspector()
             }
@@ -363,12 +367,49 @@ struct ContentView: View {
     private func attemptSidebarSelectionChange(to newSelection: SidebarSelection?) {
         guard newSelection != state.selectedSidebarItem else { return }
 
+        #if os(macOS)
+        Self.performSidebarSelectionChange(
+            hasUnsavedInspectorChanges: viewModel.hasUnsavedInspectorChanges,
+            suppressesDiscardWarning: suppressesUnsavedInspectorDiscardWarning,
+            requestDiscardConfirmation: presentUnsavedInspectorDiscardAlert,
+            discardInspectorEdits: discardInspectorEditsIfNeeded
+        ) {
+            state.selectedSidebarItem = newSelection
+        }
+        #else
         confirmDiscardUnsavedInspectorEditsIfNeeded(
             pendingAction: .sidebarSelection(newSelection)
         ) {
             state.selectedSidebarItem = newSelection
         }
+        #endif
     }
+
+    #if os(macOS)
+    static func performSidebarSelectionChange(
+        hasUnsavedInspectorChanges: Bool,
+        suppressesDiscardWarning: Bool,
+        requestDiscardConfirmation: (@escaping () -> Void) -> Void,
+        discardInspectorEdits: @escaping () -> Void,
+        commitSelection: @escaping () -> Void
+    ) {
+        guard hasUnsavedInspectorChanges else {
+            commitSelection()
+            return
+        }
+
+        let continueAction = {
+            discardInspectorEdits()
+            commitSelection()
+        }
+
+        if suppressesDiscardWarning {
+            continueAction()
+        } else {
+            requestDiscardConfirmation(continueAction)
+        }
+    }
+    #endif
 
     private func attemptWatchedFolderRemoval(_ folder: WatchedFolder) {
         guard watchedFolderRemovalCanAffectInspectorSelection(folder) else {

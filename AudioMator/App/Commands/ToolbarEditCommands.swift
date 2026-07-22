@@ -23,9 +23,7 @@ struct ToolbarEditCommands: Commands {
             .disabled(sharedState.currentFileSourceMode != .quickImport)
 
             Button {
-                if let selection = viewModel.addWatchedFolders() {
-                    sharedState.selectedSidebarItem = selection
-                }
+                Self.performAddWatchedFolders(using: viewModel.addWatchedFolders)
             } label: {
                 Label("Add Watched Folder…", systemImage: "folder.badge.plus")
             }
@@ -88,6 +86,14 @@ struct ToolbarEditCommands: Commands {
             }
             .disabled(sharedState.selectedAudioIDs.isEmpty)
         }
+    }
+
+    static func performAddWatchedFolders(
+        using addWatchedFolders: () -> SidebarSelection?,
+        notificationCenter: NotificationCenter = .default
+    ) {
+        guard let selection = addWatchedFolders() else { return }
+        notificationCenter.post(name: .requestSidebarSelectionChange, object: selection)
     }
 }
 #endif

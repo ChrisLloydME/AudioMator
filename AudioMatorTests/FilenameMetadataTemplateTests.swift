@@ -83,13 +83,12 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
-    func testFilenameMetadataPlanRejectsInvalidAndOversizedTemplates() {
+    func testFilenameMetadataPlanRejectsInvalidTemplates() {
         let file = AudioFileTestFactory.make()
 
         let templates = [
             "{{titel}}",
-            "{{title",
-            String(repeating: "x", count: maximumFileRenameTemplateUTF8ByteCount + 1)
+            "{{title"
         ]
         for template in templates {
             let plan = makeFilenameMetadataPlan(
@@ -100,6 +99,18 @@ final class FilenameMetadataTemplateTests: XCTestCase {
             XCTAssertNotNil(plan.validationMessage, String(template.prefix(20)))
             XCTAssertFalse(plan.canApply, String(template.prefix(20)))
         }
+    }
+
+    func testFilenameMetadataPlanRejectsOversizedTemplateForSizeReason() {
+        let plan = makeFilenameMetadataPlan(
+            template: String(repeating: "x", count: maximumFileRenameTemplateUTF8ByteCount + 1),
+            targetFiles: [AudioFileTestFactory.make()],
+            replaceUnderscoresWithSpaces: false
+        )
+
+        XCTAssertEqual(plan.validationMessage, "The filename template is too large.")
+        XCTAssertTrue(plan.rows.isEmpty)
+        XCTAssertFalse(plan.canApply)
     }
 
     func testFilenameMetadataPlanRejectsAmbiguousFieldSplits() {

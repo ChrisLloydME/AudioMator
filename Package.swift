@@ -60,7 +60,6 @@ let package = Package(
                 "Domain/FileSources/FileCollectionCore.swift",
                 "Domain/MetadataEditing/TextEditPipeline.swift",
                 "Domain/MetadataEditing/FileMutationCoordinator.swift",
-                "Domain/MetadataExchange/MetadataExchangeCore.swift",
                 "Domain/MetadataExchange/MetadataExchangeCSV.swift",
                 "Domain/MuseAmp/MuseAmpCommentIDGenerator.swift",
                 "Domain/Rename/FileRenamePlanCore.swift",

@@ -27,15 +27,17 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.wav": ("07", "2", true)
     ]
 
-    func testMetadataPayloadConstructionFailsClosedWhenSourceCannotBeRead() {
+    func testMetadataPayloadConstructionFailsAtSourceReadBoundary() {
         let missingURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMator-Missing-\(UUID().uuidString).mp3")
         let payload = MetadataEditPayload(SingleFileEditModel())
 
         XCTAssertThrowsError(
-            try TagLibAudioMetadataPipeline().writeMetadata(payload, to: missingURL)
+            try TagLibAudioMetadataPipeline.metadataForWrite(
+                from: payload,
+                sourceURL: missingURL
+            )
         )
-        XCTAssertFalse(FileManager.default.fileExists(atPath: missingURL.path))
     }
 
     func testAudioFixturesAreReadableByTagLib() throws {

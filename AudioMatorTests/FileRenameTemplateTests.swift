@@ -69,7 +69,8 @@ final class FileRenameTemplateTests: XCTestCase {
             template: String(repeating: "a", count: maximumFileRenameTemplateUTF8ByteCount + 1),
             targetFiles: [file]
         )
-        XCTAssertNotNil(oversizedTemplate.validationMessage)
+        XCTAssertEqual(oversizedTemplate.validationMessage, "The filename template is too large.")
+        XCTAssertTrue(oversizedTemplate.rows.isEmpty)
         XCTAssertFalse(oversizedTemplate.canApply)
 
         let overlongName = makeFileRenamePlan(template: "{{title}}", targetFiles: [file])

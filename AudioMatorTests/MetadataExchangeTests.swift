@@ -104,12 +104,23 @@ final class MetadataExchangeTests: XCTestCase {
     }
 
     func testCSVColumnTemplateRejectsOversizedInputBeforeParsing() {
+        let internalPadding = String(repeating: " ", count: 16_385)
         let result = MetadataExchangePlanner.parseCSVColumnTemplate(
-            String(repeating: ",", count: 16_385)
+            "{{title}}\(internalPadding),{{artist}}"
         )
 
-        XCTAssertNotNil(result.validationMessage)
+        XCTAssertEqual(result.validationMessage, "The column template is too large.")
         XCTAssertTrue(result.columns.isEmpty)
+        XCTAssertEqual(result.delimiter, ",")
+    }
+
+    func testCSVColumnTemplateAcceptsIntersectingLocatorsOnProductionPlanner() {
+        let result = MetadataExchangePlanner.parseCSVColumnTemplate(
+            "{{fileName}},{{baseName}},{{title}}"
+        )
+
+        XCTAssertNil(result.validationMessage)
+        XCTAssertEqual(result.columns, [.fileName, .baseName, .title])
         XCTAssertEqual(result.delimiter, ",")
     }
 
@@ -479,6 +490,26 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertNotNil(plan.validationMessage)
         XCTAssertFalse(plan.canExport)
         XCTAssertEqual(plan.rows.first?.output, "Line One\r\nLine Two")
+    }
+
+    func testTextExportUsesSelectionIndexesAndRelativePathsOnProductionPlanner() {
+        let files = [
+            AudioFileTestFactory.make(
+                url: URL(fileURLWithPath: "/Volumes/Library/Album/01.flac"),
+                title: "One"
+            ),
+            AudioFileTestFactory.make(
+                url: URL(fileURLWithPath: "/Volumes/Library/Album/02.flac"),
+                title: "Two"
+            )
+        ]
+        let plan = MetadataExchangePlanner.makeTextExportPlan(
+            template: "{{index}}|{{relativePath}}|{{title}}",
+            targetFiles: files
+        )
+
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertEqual(plan.rows.map(\.output), ["1|01.flac|One", "2|02.flac|Two"])
     }
 
     func testTextExportRejectsAnOversizedRenderedRecord() {

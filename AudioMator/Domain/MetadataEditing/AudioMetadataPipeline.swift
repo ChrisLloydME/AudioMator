@@ -69,6 +69,13 @@ protocol AudioMetadataPipeline: Sendable {
 struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     nonisolated init() {}
 
+    nonisolated static func metadataForWrite(
+        from edit: MetadataEditPayload,
+        sourceURL: URL
+    ) throws -> TagLibAudioMetadata {
+        try MetadataPipelineSupport.makeTagLibMetadata(from: edit, url: sourceURL)
+    }
+
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         try await AudioFile(url: url, id: id)
     }
@@ -112,7 +119,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
-        let metadata = try MetadataPipelineSupport.makeTagLibMetadata(from: edit, url: url)
+        let metadata = try Self.metadataForWrite(from: edit, sourceURL: url)
 
         let writeResult = try TagLibMetadataManager.writeTagMetadata(
             metadata,

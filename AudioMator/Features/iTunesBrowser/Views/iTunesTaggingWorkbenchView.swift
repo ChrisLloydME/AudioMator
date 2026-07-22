@@ -589,7 +589,7 @@ private enum iTunesWorkbenchAppKitFactory {
         target: AnyObject,
         action: Selector
     ) -> iTunesAssignmentPopUpButton {
-        let values: [Int?] = [nil] + tracks.map(\.trackID)
+        let values = OnlineMetadataWorkbenchPopUpMapping.selectionValues(for: tracks.map(\.trackID))
         let popUp = iTunesAssignmentPopUpButton(assignmentID: assignmentID, selectionValues: values)
         popUp.translatesAutoresizingMaskIntoConstraints = false
         popUp.controlSize = .regular

@@ -726,7 +726,7 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         target: AnyObject,
         action: Selector
     ) -> MusicBrainzAssignmentPopUpButton {
-        let values: [String?] = [nil] + tracks.map(\.id)
+        let values = OnlineMetadataWorkbenchPopUpMapping.selectionValues(for: tracks.map(\.id))
         let popUp = MusicBrainzAssignmentPopUpButton(assignmentID: assignmentID, selectionValues: values)
         popUp.translatesAutoresizingMaskIntoConstraints = false
         popUp.controlSize = .regular

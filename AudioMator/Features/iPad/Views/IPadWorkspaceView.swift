@@ -30,7 +30,7 @@ struct IPadWorkspaceView: View {
     }
 
     private var selectedFiles: [AudioFile] {
-        orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+        orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
     }
 
     var body: some View {
@@ -61,11 +61,11 @@ struct IPadWorkspaceView: View {
                     Menu {
                         Button(ToolbarButtonOption.onlineMetadataBrowser.displayName, action: onOpenOnlineMetadataBrowser)
                         Button(ToolbarButtonOption.tagInspector.displayName, action: onShowMetadataDump)
-                            .disabled(state.selectedAudioIDs.isEmpty)
+                            .disabled(viewModel.selectedAudioIDs.isEmpty)
                         Button(ToolbarButtonOption.renameFiles.displayName + "...", action: openMetadataFilenameRenameSheet)
-                            .disabled(state.selectedAudioIDs.isEmpty)
+                            .disabled(viewModel.selectedAudioIDs.isEmpty)
                         Button(ToolbarButtonOption.metadataEditor.displayName + "...", action: openMetadataEditorWindow)
-                            .disabled(state.selectedAudioIDs.isEmpty)
+                            .disabled(viewModel.selectedAudioIDs.isEmpty)
                         Button("Renumber Tracks...", action: onOpenTrackRenumber)
                             .disabled(orderedFiles.isEmpty)
                         Divider()
@@ -110,16 +110,9 @@ struct IPadWorkspaceView: View {
             Text("Removes metadata from the selected files. This can't be undone.")
         }
         .onAppear {
-            syncSelectionWithFiles()
-            syncViewModelSelection()
             syncCustomOrderWithFiles()
         }
-        .onChange(of: state.selectedAudioIDs) { _, _ in
-            syncViewModelSelection()
-        }
         .onChange(of: viewModel.files.map(\.id)) { _, _ in
-            syncSelectionWithFiles()
-            syncViewModelSelection()
             syncCustomOrderWithFiles()
         }
     }
@@ -290,19 +283,6 @@ struct IPadWorkspaceView: View {
 }
 
 private extension IPadWorkspaceView {
-    func syncViewModelSelection() {
-        viewModel.selectedAudioIDs = state.selectedAudioIDs
-        viewModel.updateEditForSelection()
-    }
-
-    func syncSelectionWithFiles() {
-        let validIDs = Set(viewModel.files.map(\.id))
-        let prunedSelection = state.selectedAudioIDs.intersection(validIDs)
-        if prunedSelection != state.selectedAudioIDs {
-            state.selectedAudioIDs = prunedSelection
-        }
-    }
-
     func syncCustomOrderWithFiles() {
         let ids = viewModel.files.map(\.id)
         let idSet = Set(ids)
@@ -321,7 +301,7 @@ private extension IPadWorkspaceView {
     }
 
     func openMetadataFilenameRenameSheet() {
-        let targets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+        let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
         guard !targets.isEmpty else { return }
 
         if let failure = viewModel.ensureRenameDirectoryAccess(for: targets.map(\.url)) {
@@ -337,7 +317,7 @@ private extension IPadWorkspaceView {
     }
 
     func openMetadataEditorWindow() {
-        let targets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+        let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
         guard !targets.isEmpty else { return }
         onOpenMetadataEditor(targets.map(\.id))
     }
@@ -362,7 +342,6 @@ private extension IPadWorkspaceView {
 
     func clearFileList() {
         viewModel.clearList()
-        state.selectedAudioIDs.removeAll()
         state.customOrder.removeAll()
     }
 }

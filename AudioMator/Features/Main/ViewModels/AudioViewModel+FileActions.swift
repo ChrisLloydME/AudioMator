@@ -19,19 +19,11 @@ extension AudioViewModel {
         guard currentFileSourceMode == .quickImport else { return }
 
         removeQuickImportFile(id: file.id)
-        selectedAudioIDs.remove(file.id)
-        if selectedAudioIDs.isEmpty {
-            edit = nil
-            multiEdit = nil
-        }
     }
 
     func clearList() {
         guard currentFileSourceMode == .quickImport else { return }
 
         clearQuickImportFiles()
-        selectedAudioIDs.removeAll()
-        edit = nil
-        multiEdit = nil
     }
 }

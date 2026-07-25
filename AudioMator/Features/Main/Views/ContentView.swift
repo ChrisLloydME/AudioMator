@@ -55,7 +55,7 @@ struct ContentView: View {
 
     private var guardedSelection: Binding<Set<AudioFile.ID>> {
         Binding(
-            get: { state.selectedAudioIDs },
+            get: { viewModel.selectedAudioIDs },
             set: { newSelection in
                 attemptSelectionChange(to: newSelection)
             }
@@ -185,7 +185,7 @@ struct ContentView: View {
                 isWelcomeSplashPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataDump)) { _ in
-                guard !state.selectedAudioIDs.isEmpty else { return }
+                guard !viewModel.selectedAudioIDs.isEmpty else { return }
                 presentMetadataDump()
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestTrackRenumber)) { _ in
@@ -357,10 +357,10 @@ struct ContentView: View {
     }
 
     private func attemptSelectionChange(to newSelection: Set<AudioFile.ID>) {
-        guard newSelection != state.selectedAudioIDs else { return }
+        guard newSelection != viewModel.selectedAudioIDs else { return }
 
         confirmDiscardUnsavedInspectorEditsIfNeeded(pendingAction: .selection(newSelection)) {
-            state.selectedAudioIDs = newSelection
+            viewModel.setSelectedAudioIDs(newSelection)
         }
     }
 
@@ -432,7 +432,7 @@ struct ContentView: View {
             let folderPath = folder.url.standardizedFileURL.resolvingSymlinksInPath().path
             let folderPrefix = folderPath == "/" ? "/" : folderPath + "/"
             return viewModel.files.contains { file in
-                guard state.selectedAudioIDs.contains(file.id) else { return false }
+                guard viewModel.selectedAudioIDs.contains(file.id) else { return false }
                 let filePath = file.url.standardizedFileURL.resolvingSymlinksInPath().path
                 return filePath == folderPath || filePath.hasPrefix(folderPrefix)
             }
@@ -518,7 +518,7 @@ struct ContentView: View {
     }
 
     private func currentMusicBrainzSearchSeed() -> MusicBrainzSearchSeed? {
-        let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
         let fileInputs = musicBrainzFileInputs(from: selectedFiles)
         guard let selectedInput = fileInputs.first else { return nil }
 
@@ -574,7 +574,7 @@ struct ContentView: View {
     }
 
     private func currentMusicBrainzMatchSeed() -> MusicBrainzSearchSeed? {
-        let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
         let fileInputs = musicBrainzFileInputs(from: selectedFiles)
         guard let selectedFile = selectedFiles.first, let selectedInput = fileInputs.first else { return nil }
 
@@ -605,7 +605,7 @@ struct ContentView: View {
     }
 
     private func seedLRCLIBLyricsBrowser() {
-        let selectedFiles = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
         lrclibLyricsBrowserStore.seed(from: selectedFiles)
     }
 
@@ -636,7 +636,7 @@ struct ContentView: View {
         guard let pendingDiscardAction else { return }
         switch pendingDiscardAction {
         case .selection(let newSelection):
-            state.selectedAudioIDs = newSelection
+            viewModel.setSelectedAudioIDs(newSelection)
         case .sidebarSelection(let newSelection):
             state.selectedSidebarItem = newSelection
         case .removeWatchedFolder(let id):
@@ -925,7 +925,7 @@ struct ContentView_Previews: PreviewProvider {
 // MARK: - Full metadata dump (user-facing)
 extension ContentView {
     private func presentMetadataDump() {
-        let selected = viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        let selected = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
         metadataDumpText = "Loading metadata…"
         isMetadataDumpPresented = true
 

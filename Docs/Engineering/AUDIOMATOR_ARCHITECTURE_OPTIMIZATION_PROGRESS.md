@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`38dbe70`
+- 当前 commit：`c40dd32`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
 - 当前阶段：批次 5——故障注入与最终 release gate
-- 最后稳定 commit：`38dbe70`
+- 最后稳定 commit：`c40dd32`
 
 ## 当前架构假设
 
@@ -37,6 +37,8 @@
 - 批次 3 UI state boundary：`a9634da` (`refactor(ui-state): move presentation state out of domain`)
 - 批次 3 metadata adapter boundary：`ac4b343` (`refactor(metadata): separate domain contracts from TagLib`)
 - 批次 4 exchange responsibility boundary：`38dbe70` (`refactor(exchange): separate syntax from planning`)
+- 批次 5 reliability sensors：`f5167df` (`test(reliability): cover provider and missing-file faults`)
+- 批次 5 release tooling：`c40dd32` (`chore(release): restore binary TagLib smoke tooling`)
 
 ## 本阶段修改文件
 
@@ -91,6 +93,9 @@
 - 2026-07-25：新增 provider fault sensors；focused `ProviderNetworkFaultTests` passed，覆盖 MusicBrainz/iTunes/LRCLIB timeout、non-2xx 与 invalid payload。
 - 2026-07-25：新增 deleted-source rename sensor；首次断言错误地预期空 recovery list，实际返回可操作的 `location unknown` recovery item；按真实 contract 修正后 focused `FileRenameTransactionTests` passed。
 - 2026-07-25：把 iPad 四方向与 `UILaunchScreen` 写入实际 `Config/Info.plist` 后，Xcode 27 beta generic iOS build passed 且原 orientation/launch warnings 清零；产物 plist 已核对。
+- 2026-07-25 最终矩阵：47 SwiftPM tests passed；`bash scripts/codex-build.sh --force` passed；完整串行 app-hosted suite 264 tests passed；generic macOS build passed；Xcode 27 beta generic iOS build passed 且无输出 warning。
+- 2026-07-25 临时夹具 smoke：FLAC/M4A/MP3/OGG/WAV read/raw、批量 write-roundtrip/reload、Unicode rename/reload 全部 passed；缺失源文件按预期非零失败；临时目录已删除。
+- 2026-07-25 remote gate：`git ls-remote` 确认 `origin/main` 为 `a9634da...`，远端最新稳定 tag `V2.4.2B26521` 为 `a28822b...`；本地后续 commit 未 push。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -113,7 +118,7 @@
 
 ## 下一步唯一动作
 
-提交 provider/file fault sensors 与 iPad plist 修正，然后执行最终完整验证矩阵和 release-readiness 记录。
+提交最终 release-readiness 证据文档，核对干净工作树并结束目标。
 
 ## 批次规模说明
 

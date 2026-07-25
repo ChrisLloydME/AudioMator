@@ -38,6 +38,7 @@ let package = Package(
                 "Infrastructure/iTunes/iTunesArtworkService.swift",
                 "Infrastructure/iTunes/iTunesClient.swift",
                 "Infrastructure/LRCLIB/LRCLIBClient.swift",
+                "Infrastructure/TagLib",
                 "Infrastructure/MusicBrainz/MusicBrainzClient.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzFilenameFallback.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzLinkParser.swift",

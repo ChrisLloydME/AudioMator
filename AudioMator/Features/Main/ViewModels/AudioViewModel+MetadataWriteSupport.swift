@@ -135,21 +135,3 @@ extension AudioViewModel {
     }
 
 }
-
-nonisolated func validateExpectedFileFingerprint(
-    _ expectedFileFingerprint: AudioFileFingerprint?,
-    at url: URL
-) throws {
-    guard let expectedFileFingerprint else { return }
-
-    let currentFingerprint: AudioFileFingerprint
-    do {
-        currentFingerprint = try AudioFileFingerprint.capture(at: url)
-    } catch {
-        throw AudioFileFingerprintValidationError.unavailable(fileName: url.lastPathComponent)
-    }
-
-    guard currentFingerprint == expectedFileFingerprint else {
-        throw AudioFileFingerprintValidationError.changedSincePreview(fileName: url.lastPathComponent)
-    }
-}

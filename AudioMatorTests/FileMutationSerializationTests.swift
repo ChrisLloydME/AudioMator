@@ -5,6 +5,78 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class FileMutationSerializationTests: XCTestCase {
+    func testMetadataMutationKeepsReservationUntilPersistedSnapshotReloads() async throws {
+        let pipeline = ReloadGatedMutationPipeline()
+        let coordinator = FileMutationCoordinator()
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: coordinator
+        )
+        let fileID = UUID()
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorAtomicWriteReload.mp3")
+
+        let firstTask = Task {
+            await executor.execute(
+                at: fileURL,
+                id: fileID,
+                expectedFileFingerprint: nil
+            ) { pipeline, url in
+                try pipeline.writeRawMetadataPropertyMap(["TITLE": "First"], to: url)
+            }
+        }
+        await pipeline.reloadStarted.wait()
+
+        let secondMutationEntered = AsyncTestLatch()
+        let secondTask = Task {
+            try await coordinator.withExclusiveAccess(to: [fileURL]) {
+                await secondMutationEntered.signal()
+            }
+        }
+        let didQueueSecondMutation = try await waitUntil {
+            await coordinator.queuedMutationCount == 1
+        }
+
+        XCTAssertTrue(didQueueSecondMutation)
+        let didEnterBeforeReloadFinished = await secondMutationEntered.isSignaled
+        XCTAssertFalse(didEnterBeforeReloadFinished)
+
+        await pipeline.allowReload.signal()
+        let firstResult = await firstTask.value
+        try await secondTask.value
+
+        guard case .success(let success) = firstResult else {
+            return XCTFail("Expected the write and reload transaction to succeed.")
+        }
+        XCTAssertTrue(success.didReloadFile)
+        XCTAssertEqual(success.reloadedFile?.id, fileID)
+        let didEnterAfterReloadFinished = await secondMutationEntered.isSignaled
+        XCTAssertTrue(didEnterAfterReloadFinished)
+    }
+
+    func testMetadataMutationDistinguishesPersistedWriteFromReloadFailure() async {
+        let pipeline = ReloadFailingMutationPipeline()
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: FileMutationCoordinator()
+        )
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorReloadFailure.mp3")
+
+        let result = await executor.execute(
+            at: fileURL,
+            id: UUID(),
+            expectedFileFingerprint: nil
+        ) { pipeline, url in
+            try pipeline.eraseAllMetadata(at: url)
+        }
+
+        guard case .success(let success) = result else {
+            return XCTFail("A reload failure must not erase the successful write result.")
+        }
+        XCTAssertEqual(success.writeResult.warnings, ["Injected write warning"])
+        XCTAssertFalse(success.didReloadFile)
+        XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
+    }
+
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {
         let pipeline = BlockingMutationPipeline()
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
@@ -176,6 +248,93 @@ private actor AsyncTestLatch {
         await withCheckedContinuation { continuation in
             waiters.append(continuation)
         }
+    }
+}
+
+private final class ReloadGatedMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    let reloadStarted = AsyncTestLatch()
+    let allowReload = AsyncTestLatch()
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        await reloadStarted.signal()
+        await allowReload.wait()
+        return await AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            includeDefaultFileFingerprint: false
+        )
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeRawMetadataPropertyMap(
+        _ propertyMap: [String: String],
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private final class ReloadFailingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        throw ReloadFailure.injected
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: ["Injected write warning"])
+    }
+
+    nonisolated func writeRawMetadataPropertyMap(
+        _ propertyMap: [String: String],
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: ["Injected write warning"])
+    }
+
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: ["Injected write warning"])
+    }
+
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: ["Injected write warning"])
+    }
+
+    private enum ReloadFailure: LocalizedError {
+        case injected
+
+        var errorDescription: String? { "Injected reload failure" }
     }
 }
 

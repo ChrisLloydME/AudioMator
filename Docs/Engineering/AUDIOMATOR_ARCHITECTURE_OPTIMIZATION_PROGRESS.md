@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`a9634da`
+- 当前 commit：`ac4b343`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
-- 当前阶段：批次 3——UI state 与 metadata infrastructure 依赖边界
-- 最后稳定 commit：`a9634da`
+- 当前阶段：批次 4——Metadata Exchange 职责与确定性测试边界
+- 最后稳定 commit：`ac4b343`
 
 ## 当前架构假设
 
@@ -35,6 +35,7 @@
 - 批次 1 调用方迁移：`c60099b` (`refactor(metadata): route writes through atomic mutations`)
 - 批次 2 selection owner：`585e8ba` (`refactor(selection): establish a single session owner`)
 - 批次 3 UI state boundary：`a9634da` (`refactor(ui-state): move presentation state out of domain`)
+- 批次 3 metadata adapter boundary：`ac4b343` (`refactor(metadata): separate domain contracts from TagLib`)
 
 ## 本阶段修改文件
 
@@ -84,6 +85,8 @@
 - 2026-07-25：metadata contract/adapter 拆分后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；首次 macOS build 发现 Infrastructure loader 缺显式 AppKit/UIKit import，修正后 `bash scripts/codex-build.sh` passed。
 - 2026-07-25：focused `SensitiveLoggingPolicyTests` 与 `TagLibReadWriteIntegrationTests` passed；仅保留测试代码中两个既有 unused-result warning。
 - 2026-07-25：Xcode 27 beta generic iOS build passed（未启动 simulator）；仍保留批次 2 已登记的 orientation/launch configuration warning，留待最终 release gate 修正。
+- 2026-07-25：Metadata Exchange 拆分后固定 seed 测试首次揭示“仅含空字段的末行”与尾随换行不可区分；生成器排除该格式歧义后，47 个 SwiftPM tests passed。
+- 2026-07-25：Metadata Exchange 首次并行启动两个共享 DerivedData 的 Xcode command，test 因 build DB lock 取消；串行重跑后 `bash scripts/codex-build.sh` 与 focused `MetadataExchangeTests` passed。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -101,18 +104,20 @@
 - `AudioViewModel` 同时拥有文件来源、平台资源、加载、选择/draft、mutation、进度和 HUD，多种变化原因仍集中。
 - Domain 路径内仍有 Combine 观察型模型；将其改为 Observation 会扩散 UI binding，需另有证据再做。
 - metadata contract 与 adapter 已物理分离，但真实 TagLib write/reload 仍必须由 app-hosted target 覆盖。
-- `MetadataExchange.swift` 包含多个独立语法和 planning 职责，修改扩散与 app-hosted 覆盖比例偏高。
+- Metadata exchange planning 仍依赖真实 `AudioFile` 与本地化字段 schema，因此完整 plan 保留 app-hosted 覆盖；纯 syntax/CSV/index 已进入 SwiftPM。
 - 没有已授权的签名、公证、上传或发布动作；“release-ready”仅指进入这些外部流程之前的源码、测试和构建状态。
 
 ## 下一步唯一动作
 
-提交 metadata contract、TagLib pipeline 和 `AudioFile` loading adapter，然后进入批次 4。
+提交 Metadata Exchange responsibility split 与 fixed-seed regression，然后进入批次 5 的故障注入和 release gate。
 
 ## 批次规模说明
 
 批次 1 调用方迁移涉及超过 8 个文件，因为 inspector、raw editor、erase、LRCLIB、provider 间接写入和 renumber 必须在同一检查点删除旧的 split write/reload 路径；若拆成多个行为提交，将暂时保留两套不一致 mutation contract。回滚只需回退调用方迁移 commit，`7512fb1` 的未接线 executor 不改变用户行为。
 
 批次 2 涉及超过 8 个文件，因为两个平台的所有 selection readers/writers 必须与 owner 的 `private(set)` 同时迁移，否则任一中间提交无法编译或会恢复双事实来源。回滚该批次可完整恢复 `SharedState` mirror 与原视图同步，不触及磁盘数据。
+
+批次 4 的代码与文档超过 8 个文件，因为删除旧聚合文件、创建四个职责文件、SwiftPM source list、固定-seed tests、ADR 与架构/测试记录必须在同一可编译检查点保持一致。回滚该 commit 可恢复原聚合文件和 43-test 快速边界，不改变持久化格式。
 
 ## 恢复执行步骤
 

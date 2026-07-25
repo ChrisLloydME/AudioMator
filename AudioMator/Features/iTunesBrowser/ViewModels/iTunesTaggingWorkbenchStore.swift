@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-enum iTunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
+nonisolated enum iTunesTagWriteField: String, CaseIterable, Identifiable, Hashable, Sendable {
     case title
     case artist
     case albumArtist
@@ -99,6 +99,7 @@ enum iTunesTagWriteField: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    @MainActor
     func apply(_ value: String, to edit: inout SingleFileEditModel) {
         switch self {
         case .title: edit.title = value

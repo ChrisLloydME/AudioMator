@@ -214,12 +214,12 @@ struct iTunesAlbumDetailView: View {
                     systemImage: "exclamationmark.triangle",
                     description: Text(message)
                 )
-            case .loaded(let detail):
-                albumContent(detail)
+            case .loaded(let loadedDetail):
+                albumContent(loadedDetail)
             }
         }
         .navigationTitle(album.collectionName.isEmpty ? "iTunes Album" : album.collectionName)
-        .task(id: album.collectionID) {
+        .task(id: detailLoadID) {
             await loadDetail()
         }
         .sheet(item: $workbenchStore) { store in
@@ -229,11 +229,17 @@ struct iTunesAlbumDetailView: View {
         }
     }
 
-    private func albumContent(_ detail: iTunesAlbumDetail) -> some View {
-        ScrollView {
+    private func albumContent(_ loadedDetail: LoadedDetail) -> some View {
+        let detail = loadedDetail.detail
+        return ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 if let preview = detail.selectionMatchPreview {
-                    matchPreviewSection(preview: preview, detail: detail)
+                    matchPreviewSection(
+                        preview: preview,
+                        detail: detail,
+                        comparisonGroups: loadedDetail.comparisonGroups,
+                        comparisonErrorMessage: loadedDetail.comparisonErrorMessage
+                    )
                     unmatchedFilesSection(preview: preview)
                     unassignedTracksSection(preview: preview)
                 }
@@ -275,14 +281,13 @@ struct iTunesAlbumDetailView: View {
         .background(Color(platformColor: .audiomatorWindowBackground))
     }
 
-    private func matchPreviewSection(preview: iTunesAlbumMatchPreview, detail: iTunesAlbumDetail) -> some View {
-        let comparisonGroups = iTunesMetadataComparisonBuilder.groups(
-            for: preview,
-            detail: detail,
-            loadedFiles: viewModel.files
-        )
-
-        return MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
+    private func matchPreviewSection(
+        preview: iTunesAlbumMatchPreview,
+        detail: iTunesAlbumDetail,
+        comparisonGroups: [iTunesMetadataComparisonGroup],
+        comparisonErrorMessage: String?
+    ) -> some View {
+        MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
             iTunesMetadataInfoRows(items: [
                 infoItem("matched", "Matched Files", "\(preview.matchedAssignments.count)/\(preview.totalSelectedFiles)", monospaced: true),
                 infoItem("unmatched", "Unmatched Files", preview.unmatchedFiles.isEmpty ? "" : String(preview.unmatchedFiles.count), monospaced: true),
@@ -323,16 +328,26 @@ struct iTunesAlbumDetailView: View {
 
                 MetadataCardDivider()
 
-                NavigationLink {
-                    iTunesMetadataComparisonDetailView(groups: comparisonGroups)
-                } label: {
-                    iTunesMetadataNavigationRow(
-                        title: "Metadata Comparison",
-                        subtitle: "Compare local file tags with iTunes metadata",
-                        symbolName: "arrow.left.arrow.right"
-                    )
+                if let comparisonErrorMessage {
+                    iTunesMetadataInfoRows(items: [
+                        iTunesMetadataInfoItem(
+                            id: "comparison-error",
+                            title: "Metadata Comparison",
+                            value: comparisonErrorMessage
+                        )
+                    ])
+                } else {
+                    NavigationLink {
+                        iTunesMetadataComparisonDetailView(groups: comparisonGroups)
+                    } label: {
+                        iTunesMetadataNavigationRow(
+                            title: "Metadata Comparison",
+                            subtitle: "Compare local file tags with iTunes metadata",
+                            symbolName: "arrow.left.arrow.right"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -391,17 +406,75 @@ struct iTunesAlbumDetailView: View {
     }
 
     private func loadDetail() async {
-        detailState = .loading
+        if case .loaded = detailState {
+            // Keep the current page interactive while refreshing local comparison values.
+        } else {
+            detailState = .loading
+        }
+
         do {
-            detailState = .loaded(try await store.albumDetail(for: album))
+            let detail = try await store.albumDetail(for: album)
+            try Task.checkCancellation()
+
+            var comparisonGroups: [iTunesMetadataComparisonGroup] = []
+            var comparisonErrorMessage: String?
+            if let preview = detail.selectionMatchPreview, !preview.matchedAssignments.isEmpty {
+                let loadedFiles = viewModel.files
+                do {
+                    comparisonGroups = try await withAsyncTimeout(
+                        .seconds(10),
+                        operationName: "iTunes metadata comparison",
+                        priority: .userInitiated
+                    ) {
+                        iTunesMetadataComparisonBuilder.groups(
+                            for: preview,
+                            detail: detail,
+                            loadedFiles: loadedFiles
+                        )
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    comparisonErrorMessage = (error as? LocalizedError)?.errorDescription
+                        ?? error.localizedDescription
+                }
+            }
+            try Task.checkCancellation()
+            detailState = .loaded(
+                LoadedDetail(
+                    detail: detail,
+                    comparisonGroups: comparisonGroups,
+                    comparisonErrorMessage: comparisonErrorMessage
+                )
+            )
+        } catch is CancellationError {
+            return
         } catch {
             detailState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }
 
+    private var detailLoadID: DetailLoadID {
+        DetailLoadID(
+            albumID: album.collectionID,
+            fileFingerprints: viewModel.files.map(\.middleListContentFingerprint)
+        )
+    }
+
+    private struct DetailLoadID: Hashable {
+        let albumID: Int
+        let fileFingerprints: [Int]
+    }
+
+    private struct LoadedDetail {
+        let detail: iTunesAlbumDetail
+        let comparisonGroups: [iTunesMetadataComparisonGroup]
+        let comparisonErrorMessage: String?
+    }
+
     private enum DetailState {
         case loading
-        case loaded(iTunesAlbumDetail)
+        case loaded(LoadedDetail)
         case failed(String)
     }
 }

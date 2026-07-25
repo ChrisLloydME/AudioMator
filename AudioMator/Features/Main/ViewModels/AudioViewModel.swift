@@ -71,7 +71,8 @@ final class AudioViewModel: ObservableObject {
     let metadataPipeline: any AudioMetadataPipeline
     let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
-    let artworkLookupService = iTunesArtworkService()
+    let artworkLookupService: any iTunesArtworkServicing
+    let artworkLookupOperationTimeout: Duration
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
     var artworkLookupTask: Task<Void, Never>?
     private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []
@@ -112,6 +113,20 @@ final class AudioViewModel: ObservableObject {
 
     convenience init(
         metadataPipeline: any AudioMetadataPipeline,
+        artworkLookupService: any iTunesArtworkServicing,
+        artworkLookupOperationTimeout: Duration = .seconds(30)
+    ) {
+        self.init(
+            watchedFolderStore: WatchedFolderStore(),
+            metadataPipeline: metadataPipeline,
+            saveIssueLogStore: SaveIssueLogStore(),
+            artworkLookupService: artworkLookupService,
+            artworkLookupOperationTimeout: artworkLookupOperationTimeout
+        )
+    }
+
+    convenience init(
+        metadataPipeline: any AudioMetadataPipeline,
         saveIssueLogStore: SaveIssueLogStore
     ) {
         self.init(
@@ -124,11 +139,15 @@ final class AudioViewModel: ObservableObject {
     init(
         watchedFolderStore: WatchedFolderStore,
         metadataPipeline: any AudioMetadataPipeline,
-        saveIssueLogStore: SaveIssueLogStore
+        saveIssueLogStore: SaveIssueLogStore,
+        artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
+        artworkLookupOperationTimeout: Duration = .seconds(30)
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.metadataPipeline = metadataPipeline
         self.saveIssueLogStore = saveIssueLogStore
+        self.artworkLookupService = artworkLookupService
+        self.artworkLookupOperationTimeout = artworkLookupOperationTimeout
 
         let restoredFolders = PlatformApplication.supportsWatchedFolders
             ? watchedFolderStore.loadFolders()

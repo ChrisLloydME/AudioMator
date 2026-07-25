@@ -1,11 +1,11 @@
 import Foundation
 
-enum iTunesArtworkCoreEntity: String {
+nonisolated enum iTunesArtworkCoreEntity: String, Sendable {
     case album
     case idAlbum
 }
 
-struct iTunesArtworkCoreRequest: Equatable {
+nonisolated struct iTunesArtworkCoreRequest: Equatable, Sendable {
     let query: String
     let entity: iTunesArtworkCoreEntity
     let country: String
@@ -46,7 +46,7 @@ struct iTunesArtworkCoreRequest: Equatable {
     }
 }
 
-struct iTunesArtworkCoreResult: Equatable {
+nonisolated struct iTunesArtworkCoreResult: Equatable, Sendable {
     let id: String
     let title: String
     let subtitle: String?
@@ -74,7 +74,7 @@ struct iTunesArtworkCoreResult: Equatable {
     }
 }
 
-enum iTunesArtworkCoreError: Error, Equatable {
+nonisolated enum iTunesArtworkCoreError: Error, Equatable, Sendable {
     case emptyQuery
     case invalidCountry
     case invalidLimit
@@ -82,7 +82,7 @@ enum iTunesArtworkCoreError: Error, Equatable {
     case invalidResponseBody
 }
 
-enum iTunesArtworkCore {
+nonisolated enum iTunesArtworkCore {
     static func transformResults(from jsonData: Data, entity: iTunesArtworkCoreEntity) throws -> [iTunesArtworkCoreResult] {
         guard
             let rootObject = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],

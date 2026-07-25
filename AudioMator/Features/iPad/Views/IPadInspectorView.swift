@@ -49,10 +49,7 @@ struct IPadInspectorView: View {
             }
         }
         .sheet(item: artworkLookupSessionBinding) { _ in
-            IPadDismissibleSheet(
-                title: "Online Album Artwork",
-                isCloseDisabled: viewModel.artworkLookupSession?.isApplying == true
-            ) {
+            IPadDismissibleSheet(title: "Online Album Artwork") {
                 AlbumArtworkLookupSheet(viewModel: viewModel)
             }
         }

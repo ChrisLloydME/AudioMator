@@ -1,16 +1,13 @@
 import Foundation
-#if os(macOS)
-import AppKit
-#else
-import UIKit
-#endif
+import ImageIO
+import UniformTypeIdentifiers
 
-enum iTunesArtworkSearchEntity: String, Sendable {
+nonisolated enum iTunesArtworkSearchEntity: String, Sendable {
     case album
     case idAlbum
 }
 
-struct iTunesArtworkSearchRequest: Sendable {
+nonisolated struct iTunesArtworkSearchRequest: Sendable {
     let query: String
     let entity: iTunesArtworkSearchEntity
     let country: String
@@ -29,7 +26,7 @@ struct iTunesArtworkSearchRequest: Sendable {
     }
 }
 
-struct iTunesArtworkSearchResult: Identifiable, Sendable {
+nonisolated struct iTunesArtworkSearchResult: Identifiable, Sendable {
     let id: String
     let title: String
     let subtitle: String?
@@ -57,7 +54,7 @@ struct iTunesArtworkSearchResult: Identifiable, Sendable {
     }
 }
 
-enum iTunesArtworkServiceError: LocalizedError {
+nonisolated enum iTunesArtworkServiceError: LocalizedError, Sendable {
     case emptyQuery
     case invalidCountry
     case invalidLimit
@@ -92,7 +89,17 @@ enum iTunesArtworkServiceError: LocalizedError {
     }
 }
 
-struct iTunesArtworkService: Sendable {
+nonisolated struct iTunesDownloadedArtwork: Sendable {
+    let pngData: Data
+}
+
+nonisolated protocol iTunesArtworkServicing: Sendable {
+    func search(_ request: iTunesArtworkSearchRequest) async throws -> [iTunesArtworkSearchResult]
+    func downloadArtworkData(for result: iTunesArtworkSearchResult) async throws -> iTunesDownloadedArtwork
+}
+
+nonisolated struct iTunesArtworkService: iTunesArtworkServicing, Sendable {
+    private static let requestTimeout: TimeInterval = 15
     private let session: URLSession
 
     init(session: URLSession = .shared) {
@@ -126,7 +133,8 @@ struct iTunesArtworkService: Sendable {
             throw iTunesArtworkServiceError.failedToBuildURL
         }
 
-        let (data, response) = try await session.data(from: url)
+        let urlRequest = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
+        let (data, response) = try await session.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw iTunesArtworkServiceError.invalidResponseBody
         }
@@ -138,7 +146,7 @@ struct iTunesArtworkService: Sendable {
         return try transformResults(from: data, entity: request.entity)
     }
 
-    func downloadArtwork(for result: iTunesArtworkSearchResult) async throws -> PendingArtwork {
+    func downloadArtworkData(for result: iTunesArtworkSearchResult) async throws -> iTunesDownloadedArtwork {
         guard !result.preferredDownloadURLs.isEmpty else {
             throw iTunesArtworkServiceError.invalidArtworkData
         }
@@ -146,13 +154,16 @@ struct iTunesArtworkService: Sendable {
         var downloadedData: Data?
 
         for artworkURL in result.preferredDownloadURLs {
+            try Task.checkCancellation()
             do {
-                let (data, response) = try await session.data(from: artworkURL)
+                let request = URLRequest(url: artworkURL, timeoutInterval: Self.requestTimeout)
+                let (data, response) = try await session.data(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else { continue }
                 guard (200..<300).contains(httpResponse.statusCode), !data.isEmpty else { continue }
                 downloadedData = data
                 break
             } catch {
+                try Task.checkCancellation()
                 continue
             }
         }
@@ -161,22 +172,28 @@ struct iTunesArtworkService: Sendable {
             throw iTunesArtworkServiceError.invalidArtworkData
         }
 
-        guard let image = PlatformImage(data: downloadedData) else {
+        guard
+            let source = CGImageSourceCreateWithData(downloadedData as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else {
             throw iTunesArtworkServiceError.imageDecodingFailed
         }
 
-        guard
-            let pngData = image.audiomatorPNGData,
-            let previewImage = PlatformImage(data: pngData)
-        else {
+        let encodedData = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            encodedData,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw iTunesArtworkServiceError.imageEncodingFailed
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
             throw iTunesArtworkServiceError.imageEncodingFailed
         }
 
-        return PendingArtwork(
-            image: previewImage,
-            data: pngData,
-            mimeType: "image/png"
-        )
+        return iTunesDownloadedArtwork(pngData: encodedData as Data)
     }
 
     private func transformResults(

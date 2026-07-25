@@ -330,7 +330,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             metadata.artworkData = artworkData
             metadata.artworkMimeType = "image/jpeg"
 
-            try TagLibMetadataManager.writeTagMetadata(
+            _ = try TagLibMetadataManager.writeTagMetadata(
                 metadata,
                 to: workingURL,
                 verification: .init(
@@ -352,7 +352,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
             let remover = TagLibAudioMetadata()
             remover.removeArtwork = true
-            try TagLibMetadataManager.writeTagMetadata(
+            _ = try TagLibMetadataManager.writeTagMetadata(
                 remover,
                 to: workingURL,
                 verification: .init(

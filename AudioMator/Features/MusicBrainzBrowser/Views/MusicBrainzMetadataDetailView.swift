@@ -13,6 +13,7 @@ struct MusicBrainzMetadataDetailView: View {
     @State private var recordingPreloadProgress: (completedCount: Int, totalCount: Int)?
     @State private var isPreparingRecordingWorkbench = false
     @State private var recordingWorkbenchErrorMessage: String?
+    @State private var recordingWorkbenchTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -53,6 +54,11 @@ struct MusicBrainzMetadataDetailView: View {
         .navigationTitle(navigationTitle)
         .task(id: destination.id) {
             await loadMetadata()
+        }
+        .onDisappear {
+            recordingWorkbenchTask?.cancel()
+            recordingWorkbenchTask = nil
+            isPreparingRecordingWorkbench = false
         }
         #if os(macOS)
         .sheet(item: $workbenchStore) { workbenchStore in
@@ -438,9 +444,9 @@ struct MusicBrainzMetadataDetailView: View {
             guard !Task.isCancelled else { return }
 
             if case .release(let release) = detail {
+                loadState = .loaded(detail)
                 let targetCount = store.recordingPreloadTargetIDs(for: release).count
                 if targetCount > 0 {
-                    metadataLoadingMessage = "Loading MusicBrainz recording details…"
                     recordingPreloadProgress = (completedCount: 0, totalCount: targetCount)
 
                     await store.preloadRecordingDetails(for: release) { completedCount, totalCount in
@@ -495,18 +501,19 @@ struct MusicBrainzMetadataDetailView: View {
         selectedFile: MusicBrainzFileSearchInput
     ) {
         guard !isPreparingRecordingWorkbench else { return }
+        isPreparingRecordingWorkbench = true
+        recordingWorkbenchErrorMessage = nil
 
-        Task {
-            isPreparingRecordingWorkbench = true
-            recordingWorkbenchErrorMessage = nil
-
+        recordingWorkbenchTask = Task {
             defer {
                 isPreparingRecordingWorkbench = false
+                recordingWorkbenchTask = nil
             }
 
             do {
                 for releaseSummary in recording.releases {
                     let release = try await releaseDetail(for: releaseSummary)
+                    try Task.checkCancellation()
                     guard let preview = MusicBrainzTaggingPreviewBuilder.makeSingleTrackPreview(
                         file: selectedFile,
                         release: release,
@@ -542,6 +549,8 @@ struct MusicBrainzMetadataDetailView: View {
                     loadedFiles: viewModel.files,
                     browserStore: store
                 )
+            } catch is CancellationError {
+                return
             } catch {
                 recordingWorkbenchErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }

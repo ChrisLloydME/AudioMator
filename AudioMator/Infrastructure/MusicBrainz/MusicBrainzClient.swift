@@ -181,6 +181,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 
         var matchedResults: [MusicBrainzReleaseSearchResult] = []
         for candidate in orderedCandidates.prefix(6) {
+            try Task.checkCancellation()
             do {
                 let detail = try await releaseDetail(id: candidate.id)
                 let preview = MusicBrainzFileSelectionMatcher.match(
@@ -194,6 +195,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                     )
                 )
             } catch {
+                try Task.checkCancellation()
                 matchedResults.append(candidate)
             }
         }
@@ -230,6 +232,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         var evidenceByReleaseID: [String: Double] = [:]
 
         for (fileIndex, file) in representativeFiles.enumerated() {
+            try Task.checkCancellation()
             let title = file.title.isEmpty ? file.preferredDisplayTitle : file.title
             guard !title.isEmpty else { continue }
 
@@ -270,6 +273,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         for releaseID in evidenceByReleaseID.keys
             .sorted(by: { (evidenceByReleaseID[$0] ?? 0) > (evidenceByReleaseID[$1] ?? 0) })
             .prefix(6) {
+            try Task.checkCancellation()
             let release = try await releaseSummary(id: releaseID)
             guard filters.isEmpty || filters.matches(
                 date: release.date,
@@ -442,6 +446,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         var lastRecoverableError: MusicBrainzClientError?
 
         for luceneQuery in normalizedQueries {
+            try Task.checkCancellation()
             do {
                 let results = try await searchRecordings(
                     luceneQuery: luceneQuery,
@@ -508,6 +513,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         var lastRecoverableError: MusicBrainzClientError?
 
         for luceneQuery in normalizedQueries {
+            try Task.checkCancellation()
             do {
                 let results = try await searchReleases(
                     luceneQuery: luceneQuery,
@@ -603,7 +609,7 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             throw MusicBrainzClientError.invalidRequest
         }
 
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 

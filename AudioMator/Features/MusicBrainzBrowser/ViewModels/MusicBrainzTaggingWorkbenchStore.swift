@@ -501,6 +501,17 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         recordingLoadTasks.values.forEach { $0.cancel() }
     }
 
+    func cancelPendingRecordingLoads() {
+        recordingLoadTasks.values.forEach { $0.cancel() }
+        recordingLoadTasks.removeAll()
+        let loadingRecordingIDs = recordingStates.compactMap { recordingID, state in
+            state.isLoading ? recordingID : nil
+        }
+        for recordingID in loadingRecordingIDs {
+            recordingStates[recordingID] = .idle
+        }
+    }
+
     var plan: MusicBrainzTaggingPlan {
         let selectedFields = selectedAvailableFields
         let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.id, $0) })
@@ -739,23 +750,21 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
             recordingStates[recordingID] = .loading
 
-            recordingLoadTasks[recordingID] = Task { [weak self] in
-                guard let self else { return }
-
+            let detailStore = browserStore
+            recordingLoadTasks[recordingID] = Task { [weak self, detailStore] in
                 do {
-                    let detail = try await self.browserStore.recordingDetail(id: recordingID)
-
-                    await MainActor.run {
-                        self.recordingStates[recordingID] = .loaded(detail)
-                        self.recordingLoadTasks[recordingID] = nil
-                    }
+                    let detail = try await detailStore.recordingDetail(id: recordingID)
+                    guard !Task.isCancelled, let self else { return }
+                    self.recordingStates[recordingID] = .loaded(detail)
+                    self.recordingLoadTasks[recordingID] = nil
+                } catch is CancellationError {
+                    return
                 } catch {
-                    await MainActor.run {
-                        self.recordingStates[recordingID] = .failed(
-                            (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                        )
-                        self.recordingLoadTasks[recordingID] = nil
-                    }
+                    guard !Task.isCancelled, let self else { return }
+                    self.recordingStates[recordingID] = .failed(
+                        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    )
+                    self.recordingLoadTasks[recordingID] = nil
                 }
             }
         }

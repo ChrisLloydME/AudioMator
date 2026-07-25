@@ -139,6 +139,41 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
+    func testMusicBrainzAndITunesRequestsUseFiniteExplicitTimeouts() async throws {
+        let requestRecorder = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requestRecorder.record(request)
+            let data: Data
+            if request.url?.host == "musicbrainz.org" {
+                data = Data(#"{"created":"","count":0,"offset":0,"recordings":[]}"#.utf8)
+            } else {
+                data = Data(#"{"results":[]}"#.utf8)
+            }
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )
+            )
+            return (response, data)
+        }
+
+        _ = try await MusicBrainzClient(
+            session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0)
+        ).search(matching: MusicBrainzSearchQuery(title: "Timeout"), limit: 1)
+        _ = try await iTunesClient(session: makeSession()).search(
+            matching: iTunesSearchQuery(mode: .track, title: "Timeout"),
+            limit: 1
+        )
+
+        XCTAssertTrue(requestRecorder.hosts.contains("musicbrainz.org"))
+        XCTAssertTrue(requestRecorder.hosts.contains("itunes.apple.com"))
+        XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
+    }
+
     private func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ProviderFaultURLProtocol.self]
@@ -160,6 +195,32 @@ final class ProviderNetworkFaultTests: XCTestCase {
             )
             return (response, data)
         }
+    }
+}
+
+private final class ProviderRequestRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedRequests: [RecordedRequest] = []
+
+    var timeoutIntervals: [TimeInterval] {
+        lock.withLock { recordedRequests.map(\.timeoutInterval) }
+    }
+
+    var hosts: [String] {
+        lock.withLock { recordedRequests.compactMap(\.host) }
+    }
+
+    func record(_ request: URLRequest) {
+        lock.withLock {
+            recordedRequests.append(
+                RecordedRequest(host: request.url?.host, timeoutInterval: request.timeoutInterval)
+            )
+        }
+    }
+
+    private struct RecordedRequest {
+        let host: String?
+        let timeoutInterval: TimeInterval
     }
 }
 

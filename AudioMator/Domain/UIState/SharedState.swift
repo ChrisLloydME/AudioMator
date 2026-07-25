@@ -17,8 +17,6 @@ final class SharedState: ObservableObject {
     #endif
 
     @Published var selectedSidebarItem: SidebarSelection? = .quickImport
-    @Published var selectedAudioIDs: Set<AudioFile.ID> = []
-
     // Custom ordering for the middle list (session-only)
     @Published var customOrder: [AudioFile.ID] = []
 

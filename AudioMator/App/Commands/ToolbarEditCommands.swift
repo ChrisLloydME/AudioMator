@@ -33,7 +33,7 @@ struct ToolbarEditCommands: Commands {
             } label: {
                 Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
             }
-            .disabled(sharedState.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestTrackRenumber, object: nil)
@@ -47,14 +47,14 @@ struct ToolbarEditCommands: Commands {
             } label: {
                 Label(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
             }
-            .disabled(sharedState.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestMetadataEditor, object: nil)
             } label: {
                 Label(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
             }
-            .disabled(sharedState.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty)
 
             Button {
                 NotificationCenter.default.post(name: .requestOnlineMetadataBrowser, object: nil)
@@ -77,14 +77,14 @@ struct ToolbarEditCommands: Commands {
             } label: {
                 Label("Cancel Edits", systemImage: ToolbarButtonOption.cancelEdits.systemImage)
             }
-            .disabled(sharedState.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty)
 
             Button {
                 viewModel.saveSingleEdits()
             } label: {
                 Label("Save Edits", systemImage: ToolbarButtonOption.saveEdits.systemImage)
             }
-            .disabled(sharedState.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty)
         }
     }
 

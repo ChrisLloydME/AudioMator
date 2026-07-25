@@ -73,7 +73,7 @@ AudioViewModel write extensions
 | A7 | provider 搜索/匹配模型相似但语义不同 | 1 | 1 | 2 | 2 | 2 | 2 | 2 | 2 | 1 | 2 | 17 | 暂缓 |
 | A8 | 快速测试排除真实 write/reload use case 与 production exchange planner | 2 | 2 | 3 | 2 | 2 | 2 | 3 | 2 | 1 | 2 | 21 | 随批次解决 |
 
-实施状态：A1 已在批次 1 收敛到 `MetadataFileMutationExecutor`；所有 metadata、raw map、erase、LRCLIB 和 renumber 调用方均在同一路径 reservation 中完成 write/reload。其余条目保持开放。
+实施状态：A1 已在批次 1 收敛到 `MetadataFileMutationExecutor`；所有 metadata、raw map、erase、LRCLIB 和 renumber 调用方均在同一路径 reservation 中完成 write/reload。A2 已在批次 2 收敛到 `AudioViewModel.setSelectedAudioIDs`，并移除 `SharedState` 的镜像选择与视图同步回调。其余条目保持开放。
 
 ## 获选批次
 

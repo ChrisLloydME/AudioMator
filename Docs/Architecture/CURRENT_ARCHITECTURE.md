@@ -15,7 +15,7 @@
 
 ## Runtime flow
 
-文件由 quick import 或 watched-folder scan 进入 `AudioViewModel` 私有集合，再通过 `files` 暴露当前 source。选择由 `SharedState` 保存，并复制到 `AudioViewModel`；后者据此创建 inspector draft。所有 metadata mutation 通过 `MetadataFileMutationExecutor` 在同一 `FileMutationCoordinator` reservation 内完成 fingerprint validation、write 和 reload，再由 `AudioViewModel` 在主 actor 应用新的 `AudioFile` 快照与 presentation。
+文件由 quick import 或 watched-folder scan 进入 `AudioViewModel` 私有集合，再通过 `files` 暴露当前 source。`AudioViewModel` 是选择的唯一 owner；`setSelectedAudioIDs` 过滤不可见 ID，并在同一 main-actor operation 中重建 single/multi inspector draft。所有 metadata mutation 通过 `MetadataFileMutationExecutor` 在同一 `FileMutationCoordinator` reservation 内完成 fingerprint validation、write 和 reload，再由 `AudioViewModel` 在主 actor 应用新的 `AudioFile` 快照与 presentation。
 
 rename 是多路径两阶段事务：同时 reserve source/destination，先移动到唯一临时路径，再 finalize；失败时 best-effort rollback 并返回 recovery items。
 
@@ -23,7 +23,6 @@ provider search 由各自 `@MainActor` store 管理。MusicBrainz/iTunes 生成 
 
 ## Known transitional boundaries
 
-- selection 存在两个可变 owner。
 - metadata pipeline contract 与 TagLib adapter 尚未物理分离。
 - `Domain/UIState` 属于目录边界错误。
 

@@ -24,10 +24,10 @@ struct TrackRenumberSheet: View {
     }
 
     private var targetIDs: [AudioFile.ID] {
-        if state.selectedAudioIDs.isEmpty {
+        if viewModel.selectedAudioIDs.isEmpty {
             return orderedIDs
         }
-        return orderedIDs.filter { state.selectedAudioIDs.contains($0) }
+        return orderedIDs.filter { viewModel.selectedAudioIDs.contains($0) }
     }
 
     private var targetCount: Int {
@@ -82,12 +82,12 @@ struct TrackRenumberSheet: View {
             return L10n.string("Add files to preview the new numbers.")
         }
 
-        let scope = state.selectedAudioIDs.isEmpty ? "current list" : "selection"
+        let scope = viewModel.selectedAudioIDs.isEmpty ? "current list" : "selection"
         return "\(targetCount) tracks in the \(scope) will be renumbered from \(formattedNumber(first)) to \(formattedNumber(last))."
     }
 
     private var selectionSummaryText: String {
-        if state.selectedAudioIDs.isEmpty {
+        if viewModel.selectedAudioIDs.isEmpty {
             return L10n.string("Current list")
         }
 
@@ -95,7 +95,7 @@ struct TrackRenumberSheet: View {
     }
 
     private var selectionDetailText: String {
-        state.selectedAudioIDs.isEmpty
+        viewModel.selectedAudioIDs.isEmpty
             ? "Uses the order shown in the center list."
             : "Uses the selected rows in center-list order."
     }
@@ -153,7 +153,7 @@ struct TrackRenumberSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Label(selectionSummaryText, systemImage: state.selectedAudioIDs.isEmpty ? "music.note.list" : "checkmark.circle")
+            Label(selectionSummaryText, systemImage: viewModel.selectedAudioIDs.isEmpty ? "music.note.list" : "checkmark.circle")
                 .font(.subheadline.weight(.medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -529,7 +529,7 @@ struct TrackRenumberSheet: View {
         trackRenumberOptions.startNumber = normalizedTrackRenumberStartNumber(parsed)
         trackRenumberStartText = String(trackRenumberOptions.startNumber)
 
-        let selected = state.selectedAudioIDs
+        let selected = viewModel.selectedAudioIDs
 
         isTrackRenumberRunning = true
         trackRenumberResult = .empty

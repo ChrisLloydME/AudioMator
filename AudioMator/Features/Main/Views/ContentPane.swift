@@ -32,7 +32,7 @@ struct ContentPane: View {
     }
 
     private var selectedFiles: [AudioFile] {
-        viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
     }
 
     private var visibleToolbarButtons: Set<ToolbarButtonOption> {
@@ -101,11 +101,11 @@ struct ContentPane: View {
                 isClearListConfirmPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataFilenameRename)) { _ in
-                guard !state.selectedAudioIDs.isEmpty else { return }
+                guard !viewModel.selectedAudioIDs.isEmpty else { return }
                 openMetadataFilenameRenameSheet()
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataEditor)) { _ in
-                guard !state.selectedAudioIDs.isEmpty else { return }
+                guard !viewModel.selectedAudioIDs.isEmpty else { return }
                 openMetadataEditorWindow()
             }
     }
@@ -114,12 +114,12 @@ struct ContentPane: View {
     private var trailingToolbarButtons: some View {
         if visibleToolbarButtons.contains(.cancelEdits) {
             Button("Cancel", action: onCancelEdits)
-                .disabled(state.selectedAudioIDs.isEmpty)
+                .disabled(viewModel.selectedAudioIDs.isEmpty)
         }
 
         if visibleToolbarButtons.contains(.saveEdits) {
             Button("Save", action: onSaveEdits)
-                .disabled(state.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+                .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
         }
 
         Button(action: onToggleInspector) {
@@ -154,20 +154,10 @@ struct ContentPane: View {
                     isMuseAmpSupportEnabled: isMuseAmpSupportEnabled,
                     isMuseAmpIDCreationEnabled: viewModel.metadataSaveProgress == nil
                 )
-                .onChange(of: state.selectedAudioIDs) { _, newSelection in
-                    viewModel.selectedAudioIDs = newSelection
-                    viewModel.updateEditForSelection()
-                }
                 .onAppear {
-                    syncSelectionWithFiles()
-                    viewModel.selectedAudioIDs = state.selectedAudioIDs
-                    viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
                 }
                 .onChange(of: viewModel.files.map { $0.id }) {
-                    syncSelectionWithFiles()
-                    viewModel.selectedAudioIDs = state.selectedAudioIDs
-                    viewModel.updateEditForSelection()
                     syncCustomOrderWithFiles()
                 }
                 .confirmationDialog(
@@ -239,7 +229,7 @@ struct ContentPane: View {
                     toolbarIconLabel(ToolbarButtonOption.renameFiles.displayName + "…", systemImage: ToolbarButtonOption.renameFiles.systemImage)
                 }
                 .help("Convert between filenames and metadata for the selected files")
-                .disabled(state.selectedAudioIDs.isEmpty)
+                .disabled(viewModel.selectedAudioIDs.isEmpty)
             }
 
             if visibleToolbarButtons.contains(.onlineMetadataBrowser) {
@@ -262,7 +252,7 @@ struct ContentPane: View {
                     toolbarIconLabel(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
                 }
                 .help("View raw metadata")
-                .disabled(state.selectedAudioIDs.isEmpty)
+                .disabled(viewModel.selectedAudioIDs.isEmpty)
             }
 
             if visibleToolbarButtons.contains(.metadataEditor) {
@@ -270,7 +260,7 @@ struct ContentPane: View {
                     toolbarIconLabel(ToolbarButtonOption.metadataEditor.displayName + "…", systemImage: ToolbarButtonOption.metadataEditor.systemImage)
                 }
                 .help("Edit the selected metadata fields in a separate window")
-                .disabled(state.selectedAudioIDs.isEmpty)
+                .disabled(viewModel.selectedAudioIDs.isEmpty)
             }
         } label: {
             Label("Metadata Inspectors", systemImage: ToolbarButtonOption.tagInspector.systemImage)
@@ -323,15 +313,6 @@ struct ContentPane: View {
         }
     }
 
-    private func syncSelectionWithFiles() {
-        let validIDs = Set(viewModel.files.map(\.id))
-        let prunedSelection = state.selectedAudioIDs.intersection(validIDs)
-
-        if prunedSelection != state.selectedAudioIDs {
-            state.selectedAudioIDs = prunedSelection
-        }
-    }
-
     private func syncCustomOrderWithFiles() {
         let ids = viewModel.files.map { $0.id }
         let idSet = Set(ids)
@@ -352,7 +333,7 @@ struct ContentPane: View {
     }
 
     private func openMetadataFilenameRenameSheet() {
-        let targets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+        let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
 
         guard !targets.isEmpty else { return }
         if let failure = viewModel.ensureRenameDirectoryAccess(for: targets.map(\.url)) {
@@ -368,7 +349,7 @@ struct ContentPane: View {
     }
 
     private func openMetadataEditorWindow() {
-        let targets = orderedFiles.filter { state.selectedAudioIDs.contains($0.id) }
+        let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
         guard !targets.isEmpty else { return }
         onOpenMetadataEditor(targets.map(\.id))
     }
@@ -406,7 +387,6 @@ struct ContentPane: View {
     private func clearFileList() {
         guard isQuickImportMode else { return }
         viewModel.clearList()
-        state.selectedAudioIDs.removeAll()
         state.customOrder.removeAll()
     }
 }

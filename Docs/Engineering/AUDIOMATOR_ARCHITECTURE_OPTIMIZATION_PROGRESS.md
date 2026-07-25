@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`7512fb1`
+- 当前 commit：`c60099b`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
-- 当前阶段：批次 1——迁移全部 metadata mutation 调用方并删除旧路径
-- 最后稳定 commit：`7512fb1`
+- 当前阶段：批次 2——选择与 draft 单一所有权
+- 最后稳定 commit：`c60099b`
 
 ## 当前架构假设
 
@@ -32,6 +32,7 @@
 
 - 审计基线：`1a4b8c0` (`docs(audit): establish architecture modernization baseline`)
 - 批次 1 contract 与测试：`7512fb1` (`arch(metadata): define atomic write and reload boundary`)
+- 批次 1 调用方迁移：`c60099b` (`refactor(metadata): route writes through atomic mutations`)
 
 ## 本阶段修改文件
 
@@ -50,6 +51,16 @@
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataClear.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+LRCLIBLyricsWrite.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+TrackRenumbering.swift`
+- `AudioMator/Domain/UIState/SharedState.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+FileActions.swift`
+- `AudioMator/Features/Main/Views/ContentView.swift`
+- `AudioMator/Features/Main/Views/ContentPane.swift`
+- `AudioMator/Features/Main/Views/TrackRenumberSheet.swift`
+- `AudioMator/Features/iPad/Views/IPadWorkspaceView.swift`
+- `AudioMator/Features/iPad/Views/IPadInspectorView.swift`
+- `AudioMator/App/Commands/ToolbarEditCommands.swift`
+- `Docs/Architecture/Decisions/0002-single-selection-owner.md`
 
 ## 测试记录
 
@@ -60,6 +71,10 @@
 - 2026-07-25：迁移后 focused `FileMutationSerializationTests`、`InspectorAndMetadataEditorWorkflowTests`、`LRCLIBLyricsTests`、`TrackRenumberExecutionTests` passed。
 - 2026-07-25：迁移后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed。
 - 2026-07-25：迁移后 `bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded。
+- 2026-07-25：selection owner focused `InspectorAndMetadataEditorWorkflowTests` passed；编译同时暴露既有 `AudioFile.withUpdatedURL` main-actor warning，登记到批次 3。
+- 2026-07-25：active Xcode 26.6 generic iOS build 未执行，原因是本机未安装 iOS 26.5 SDK；已确认 Xcode 27 beta 含 iOS 27 SDK，待用同一 `.deriveddata-codex` 验证。
+- 2026-07-25：Xcode 27 beta generic iOS build 首次在 sandbox 内因 CoreSimulator/cache service 退出 143；按环境故障策略在 sandbox 外重跑（未启动 simulator），build passed，保留两个既有 iPad launch/orientation 配置 warning 待最终 release gate 评估。
+- 2026-07-25：selection owner 后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；`bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -74,7 +89,6 @@
 
 ## 未解决风险
 
-- 选择状态有两个可变事实来源，draft 依赖视图及时同步。
 - `AudioViewModel` 同时拥有文件来源、平台资源、加载、选择/draft、mutation、进度和 HUD，多种变化原因仍集中。
 - Domain 路径内仍有 Combine、AppKit/UIKit、AVFoundation 与 TagLib 依赖；其中部分是目录归属错误，部分需要真实 adapter 拆分。
 - `AudioMetadataPipeline` contract 和 TagLib 实现同文件，快速测试无法替换完整的写入—reload 用例。
@@ -83,11 +97,13 @@
 
 ## 下一步唯一动作
 
-提交全部 metadata mutation 调用方迁移，然后开始批次 2 的 selection 单一所有权 characterization。
+提交 selection 单一所有权批次，然后开始 contract/TagLib adapter 与 UIState 目录边界迁移。
 
 ## 批次规模说明
 
 批次 1 调用方迁移涉及超过 8 个文件，因为 inspector、raw editor、erase、LRCLIB、provider 间接写入和 renumber 必须在同一检查点删除旧的 split write/reload 路径；若拆成多个行为提交，将暂时保留两套不一致 mutation contract。回滚只需回退调用方迁移 commit，`7512fb1` 的未接线 executor 不改变用户行为。
+
+批次 2 涉及超过 8 个文件，因为两个平台的所有 selection readers/writers 必须与 owner 的 `private(set)` 同时迁移，否则任一中间提交无法编译或会恢复双事实来源。回滚该批次可完整恢复 `SharedState` mirror 与原视图同步，不触及磁盘数据。
 
 ## 恢复执行步骤
 

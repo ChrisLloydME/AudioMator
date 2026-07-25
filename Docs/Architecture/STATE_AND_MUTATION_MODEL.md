@@ -6,12 +6,10 @@
 | --- | --- | --- |
 | file identity | session UUID associated with a normalized path; rename explicitly rebinds path while retaining ID | session |
 | disk snapshot | immutable `AudioFile` values loaded from current bytes/tags | recreated after import, scan or mutation |
-| selection | IDs selected in the current visible collection | session |
+| selection | `AudioViewModel` 独占的当前 visible collection IDs；setter 与 collection rebuild 都会过滤无效 ID | session |
 | editing draft | `SingleFileEditModel` / `MultiFileEditModel`, distinct from disk snapshot | session, never implicit disk truth |
 | presentation | progress, HUD, open sheet/window and issue summaries | session, except explicit issue-log storage |
 | source configuration | watched-folder bookmark records and display preferences | user defaults/bookmark store on supported platform |
-
-基线例外：selection 当前同时存在于 `SharedState` 与 `AudioViewModel`。批次 2 将移除这一例外。
 
 ## File identity
 

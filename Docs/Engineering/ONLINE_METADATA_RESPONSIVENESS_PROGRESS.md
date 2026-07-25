@@ -13,6 +13,7 @@ Date: 2026-07-25
 - A 15-second sample during the ten-file MusicBrainz search found the main thread idle in `mach_msg` for 6,313 of 6,356 samples. The successful search still took approximately 30–40 seconds, identifying sequential network fan-out without an overall deadline rather than a continuously blocked main thread.
 - A 20-second sample during MusicBrainz release detail preload found the main thread idle for 8,487 of 8,575 samples. The preload performs sequential recording-detail requests and can keep the page loading indefinitely when a request never completes.
 - A 10-second sample while opening an iTunes album detail captured 160 samples in `iTunesAlbumDetailView.loadDetail`, including 158 in `iTunesBrowserStore.detailByResolvingSelectionPreview` and 113 in `iTunesAlbumMatcher.match`. The stack continues through fuzzy similarity and Levenshtein distance on the main thread.
+- A post-fix real macOS traversal opened MusicBrainz file search, recording detail, relationship preload, and the Review & Apply workbench. An 8-second sample while changing workbench field selections found the main thread idle for 6,874 of 6,879 samples, with no sustained comparison or plan-building block.
 
 The raw `sample` reports are intentionally kept outside the repository under `/private/tmp/audiomator-*.sample.txt`; this document records the durable findings without committing machine-specific traces.
 
@@ -65,11 +66,11 @@ Required fix and regression sensors:
 - [x] Provider source picker and source switching
 - [x] MusicBrainz track search and recording detail
 - [x] MusicBrainz multi-file search and release detail/preload
-- [ ] MusicBrainz recording and release tagging workbenches
+- [x] MusicBrainz recording and release tagging workbenches
 - [x] iTunes file, album, and track search result paths
 - [x] iTunes album detail and match preview
 - [ ] iTunes track and album tagging workbenches
-- [ ] Metadata comparison and assignment pages under both workbenches
+- [x] Metadata comparison and assignment page implementation audit
 - [ ] Apply/write/reload success, failure, timeout, and cancellation
 
 ## Delivery gates
@@ -107,3 +108,12 @@ Required fix and regression sensors:
 - Metadata write/reload now has a finite UI-facing deadline. Timeout or cancellation releases the caller while the underlying non-cancellable transaction retains its per-file reservation until it actually finishes, preventing overlapping TagLib writes.
 - Added regression sensors for cancellation during a non-cooperative provider reload and timeout during reload with a queued same-file mutation.
 - Targeted result: `FileMutationSerializationTests` plus the provider apply cancellation regression, 7 tests passed serially on macOS.
+
+### Batch 4 — artwork processing and comparison refresh isolation
+
+- iTunes artwork search/download requests now use explicit 15-second request timeouts and a 30-second UI-facing deadline. A provider that ignores cancellation can no longer retain the lookup session or leave search/apply state active indefinitely.
+- Artwork decode and PNG normalization now happen inside the detached, bounded service operation. Only construction of the already-normalized platform preview image and publication of edit state occur on the main actor.
+- The artwork sheet remains dismissible while a download is active on both macOS and iPadOS; dismissal invalidates the session and releases the view model even if the service continues running.
+- iTunes album comparison groups are no longer rebuilt inside SwiftUI `body`. They are prepared once per detail/file fingerprint in a detached, 10-second bounded operation, and file lookup is indexed once by ID instead of repeated for every assignment and field.
+- Added regression sensors for non-cooperative artwork search/download timeouts, cancellation-state cleanup, dismissal during search/download, and explicit artwork request timeout configuration.
+- Targeted result: `ArtworkLookupResponsivenessTests`, `iTunesMetadataComparisonBuilderTests`, and `ProviderNetworkFaultTests` passed serially on macOS; incremental macOS build succeeded.

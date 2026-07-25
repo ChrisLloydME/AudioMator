@@ -139,7 +139,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
-    func testMusicBrainzAndITunesRequestsUseFiniteExplicitTimeouts() async throws {
+    func testMusicBrainzITunesAndArtworkRequestsUseFiniteExplicitTimeouts() async throws {
         let requestRecorder = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
             requestRecorder.record(request)
@@ -168,9 +168,16 @@ final class ProviderNetworkFaultTests: XCTestCase {
             matching: iTunesSearchQuery(mode: .track, title: "Timeout"),
             limit: 1
         )
+        _ = try await iTunesArtworkService(session: makeSession()).search(
+            iTunesArtworkSearchRequest(query: "Timeout", entity: .album, limit: 1)
+        )
 
         XCTAssertTrue(requestRecorder.hosts.contains("musicbrainz.org"))
         XCTAssertTrue(requestRecorder.hosts.contains("itunes.apple.com"))
+        XCTAssertGreaterThanOrEqual(
+            requestRecorder.hosts.filter { $0 == "itunes.apple.com" }.count,
+            2
+        )
         XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
     }
 

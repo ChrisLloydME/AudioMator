@@ -36,7 +36,6 @@ struct AlbumArtworkLookupSheet: View {
                 }
                 .padding(20)
                 .frame(minWidth: 860, minHeight: 620)
-                .interactiveDismissDisabled(session.isApplying)
             } else {
                 Color.clear
                     .frame(width: 1, height: 1)
@@ -185,7 +184,6 @@ struct AlbumArtworkLookupSheet: View {
                 viewModel.dismissArtworkLookup()
                 dismiss()
             }
-            .disabled(session.isApplying)
 
             Spacer()
 

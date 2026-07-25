@@ -68,69 +68,52 @@ extension AudioViewModel {
         metadataSaveProgress = nil
     }
 
-    func writeMetadataOffMainActor(
-        _ edit: MetadataEditPayload,
-        to url: URL,
-        expectedFileFingerprint: AudioFileFingerprint? = nil
-    ) async throws -> AudioMetadataWriteResult {
-        let metadataPipeline = self.metadataPipeline
-        let fileMutationCoordinator = self.fileMutationCoordinator
-
-        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
-            try await Task.detached(priority: .userInitiated) {
-                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
-
-                return try metadataPipeline.writeMetadata(edit, to: url)
-            }.value
-        }
-    }
-
-    func writeRawMetadataPropertyMapOffMainActor(
-        _ propertyMap: [String: String],
-        to url: URL,
-        expectedFileFingerprint: AudioFileFingerprint? = nil
-    ) async throws -> AudioMetadataWriteResult {
-        let metadataPipeline = self.metadataPipeline
-        let fileMutationCoordinator = self.fileMutationCoordinator
-
-        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
-            try await Task.detached(priority: .userInitiated) {
-                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
-                return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
-            }.value
-        }
-    }
-
-    func eraseAllMetadataOffMainActor(
+    func executeMetadataFileMutation(
         at url: URL,
-        expectedFileFingerprint: AudioFileFingerprint? = nil
-    ) async throws -> AudioMetadataWriteResult {
-        let metadataPipeline = self.metadataPipeline
-        let fileMutationCoordinator = self.fileMutationCoordinator
+        id: AudioFile.ID,
+        expectedFileFingerprint: AudioFileFingerprint?,
+        syncInspectorAfterReload: Bool,
+        write: @escaping @Sendable (any AudioMetadataPipeline, URL) throws -> AudioMetadataWriteResult
+    ) async -> MetadataWriteExecutionResult {
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: metadataPipeline,
+            fileMutationCoordinator: fileMutationCoordinator
+        )
+        let result = await executor.execute(
+            at: url,
+            id: id,
+            expectedFileFingerprint: expectedFileFingerprint,
+            write: write
+        )
 
-        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
-            try await Task.detached(priority: .userInitiated) {
-                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
-                return try metadataPipeline.eraseAllMetadata(at: url)
-            }.value
-        }
-    }
+        switch result {
+        case .success(let success):
+            if let reloadedFile = success.reloadedFile {
+                replaceLoadedFile(reloadedFile)
+                if syncInspectorAfterReload, selectedAudioIDs.contains(id) {
+                    updateEditForSelection()
+                }
+            }
 
-    func updateRawMetadataPropertyMapOffMainActor(
-        at url: URL,
-        expectedFileFingerprint: AudioFileFingerprint? = nil,
-        transform: @escaping @Sendable (inout [String: String]) -> Void
-    ) async throws -> AudioMetadataWriteResult {
-        let metadataPipeline = self.metadataPipeline
-        let fileMutationCoordinator = self.fileMutationCoordinator
+            var warnings = success.writeResult.warnings
+            if let reloadErrorDescription = success.reloadErrorDescription {
+                warnings.append(
+                    "Saved to disk, but the inspector could not refresh: \(reloadErrorDescription)"
+                )
+            }
 
-        return try await fileMutationCoordinator.withExclusiveAccess(to: [url]) {
-            try await Task.detached(priority: .userInitiated) {
-                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
-                var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
-                transform(&propertyMap)
-                return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
-            }.value
+            return .success(
+                MetadataWriteSuccessOutcome(
+                    warnings: warnings,
+                    didRefreshFileModel: success.didReloadFile
+                )
+            )
+
+        case .failure(let reason):
+            return .failure(reason)
+
+        case .cancelled:
+            return .failure(String(localized: "The metadata operation was cancelled before it started."))
         }
     }
 

@@ -4,18 +4,18 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`1a4b8c0`
+- 当前 commit：`7512fb1`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
-- 当前阶段：批次 1——原子 metadata write/reload use case（contract 与测试）
-- 最后稳定 commit：`1a4b8c0`
+- 当前阶段：批次 1——迁移全部 metadata mutation 调用方并删除旧路径
+- 最后稳定 commit：`7512fb1`
 
 ## 当前架构假设
 
 1. `AudioFile` 是加载到内存的磁盘快照；`SingleFileEditModel` / `MultiFileEditModel` 是未持久化 draft；TagLib 写入后的重新加载才应更新快照。
 2. `AudioViewModel` 是当前文件集合、文件来源、加载任务、mutation coordinator、draft、进度与用户反馈的实际编排中心。
 3. `SharedState.selectedAudioIDs` 是视图侧选择事实来源，但 `AudioViewModel.selectedAudioIDs` 又是保存和 draft 逻辑的事实来源；当前通过视图回调手动同步。
-4. `FileMutationCoordinator` 对规范化路径提供原子多路径 reservation 和等待取消，但除 track renumber 外，写入与 reload 没有处于同一 reservation 内。
+4. `FileMutationCoordinator` 对规范化路径提供原子多路径 reservation 和等待取消；批次 1 后，所有 metadata write/reload 由 `MetadataFileMutationExecutor` 保持同一 reservation。
 5. `AudioMetadataPipeline` 同时声明业务所需 contract 并包含 TagLib adapter、兼容清理、验证和错误转换。
 6. SwiftPM 快速测试覆盖 43 个纯逻辑用例；依赖 `AudioFile`、TagLib、Combine 或平台框架的多数编排只能在 app-hosted target 中测试。
 
@@ -31,6 +31,7 @@
 ## 已完成批次和 commit
 
 - 审计基线：`1a4b8c0` (`docs(audit): establish architecture modernization baseline`)
+- 批次 1 contract 与测试：`7512fb1` (`arch(metadata): define atomic write and reload boundary`)
 
 ## 本阶段修改文件
 
@@ -44,6 +45,11 @@
 - `AudioMator/Features/Main/Application/MetadataFileMutationExecutor.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWriteSupport.swift`
 - `AudioMatorTests/FileMutationSerializationTests.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+RawMetadataWrite.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataClear.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+LRCLIBLyricsWrite.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+TrackRenumbering.swift`
 
 ## 测试记录
 
@@ -51,6 +57,9 @@
 - 2026-07-25：focused `FileMutationSerializationTests` 首次编译发现 XCTest async autoclosure 限制；改为先读取 actor state 后断言。
 - 2026-07-25：`xcodebuild -quiet ... -only-testing:AudioMatorTests/FileMutationSerializationTests test`，passed；包含 write/reload reservation 与 reload failure 新测试。
 - 2026-07-25：新增 use-case 后再次运行 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed。
+- 2026-07-25：迁移后 focused `FileMutationSerializationTests`、`InspectorAndMetadataEditorWorkflowTests`、`LRCLIBLyricsTests`、`TrackRenumberExecutionTests` passed。
+- 2026-07-25：迁移后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed。
+- 2026-07-25：迁移后 `bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -65,7 +74,6 @@
 
 ## 未解决风险
 
-- 写入与 reload reservation 分裂，rename 或另一写入可在两者之间发生。
 - 选择状态有两个可变事实来源，draft 依赖视图及时同步。
 - `AudioViewModel` 同时拥有文件来源、平台资源、加载、选择/draft、mutation、进度和 HUD，多种变化原因仍集中。
 - Domain 路径内仍有 Combine、AppKit/UIKit、AVFoundation 与 TagLib 依赖；其中部分是目录归属错误，部分需要真实 adapter 拆分。
@@ -75,7 +83,11 @@
 
 ## 下一步唯一动作
 
-完成并提交 `MetadataFileMutationExecutor` contract 与 reservation/reload failure tests，然后迁移所有 metadata mutation 调用方。
+提交全部 metadata mutation 调用方迁移，然后开始批次 2 的 selection 单一所有权 characterization。
+
+## 批次规模说明
+
+批次 1 调用方迁移涉及超过 8 个文件，因为 inspector、raw editor、erase、LRCLIB、provider 间接写入和 renumber 必须在同一检查点删除旧的 split write/reload 路径；若拆成多个行为提交，将暂时保留两套不一致 mutation contract。回滚只需回退调用方迁移 commit，`7512fb1` 的未接线 executor 不改变用户行为。
 
 ## 恢复执行步骤
 

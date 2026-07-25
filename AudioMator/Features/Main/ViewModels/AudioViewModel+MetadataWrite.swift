@@ -152,30 +152,13 @@ extension AudioViewModel {
 
         let editPayload = MetadataEditPayload(edit)
 
-        do {
-            let writeResult = try await writeMetadataOffMainActor(
-                editPayload,
-                to: file.url,
-                expectedFileFingerprint: expectedFileFingerprint
-            )
-            var warnings: [String] = writeResult.warnings
-
-            let refreshWarning = await reloadEditedFile(
-                file,
-                syncInspectorAfterReload: syncInspectorAfterReload
-            )
-            if let refreshWarning {
-                warnings.append(refreshWarning)
-            }
-
-            return .success(
-                MetadataWriteSuccessOutcome(
-                    warnings: warnings,
-                    didRefreshFileModel: refreshWarning == nil
-                )
-            )
-        } catch {
-            return .failure((error as NSError).localizedDescription)
+        return await executeMetadataFileMutation(
+            at: file.url,
+            id: file.id,
+            expectedFileFingerprint: expectedFileFingerprint,
+            syncInspectorAfterReload: syncInspectorAfterReload
+        ) { metadataPipeline, url in
+            try metadataPipeline.writeMetadata(editPayload, to: url)
         }
     }
 
@@ -189,36 +172,6 @@ extension AudioViewModel {
             title: summary.hudTitle,
             subtitle: summary.hudSubtitle
         )
-    }
-
-    func reloadEditedFile(
-        _ file: AudioFile,
-        syncInspectorAfterReload: Bool = true
-    ) async -> String? {
-        await reloadEditedFile(
-            at: file.url,
-            id: file.id,
-            syncInspectorAfterReload: syncInspectorAfterReload
-        )
-    }
-
-    func reloadEditedFile(
-        at url: URL,
-        id: UUID,
-        syncInspectorAfterReload: Bool = true
-    ) async -> String? {
-        do {
-            let reloaded = try await metadataPipeline.loadAudioFile(at: url, id: id)
-            replaceLoadedFile(reloaded)
-
-            if syncInspectorAfterReload, selectedAudioIDs.contains(id) {
-                updateEditForSelection()
-            }
-
-            return nil
-        } catch {
-            return "Saved to disk, but the inspector could not refresh: \((error as NSError).localizedDescription)"
-        }
     }
 
 }

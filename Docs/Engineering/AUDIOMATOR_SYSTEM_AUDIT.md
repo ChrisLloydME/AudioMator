@@ -73,6 +73,8 @@ AudioViewModel write extensions
 | A7 | provider 搜索/匹配模型相似但语义不同 | 1 | 1 | 2 | 2 | 2 | 2 | 2 | 2 | 1 | 2 | 17 | 暂缓 |
 | A8 | 快速测试排除真实 write/reload use case 与 production exchange planner | 2 | 2 | 3 | 2 | 2 | 2 | 3 | 2 | 1 | 2 | 21 | 随批次解决 |
 
+实施状态：A1 已在批次 1 收敛到 `MetadataFileMutationExecutor`；所有 metadata、raw map、erase、LRCLIB 和 renumber 调用方均在同一路径 reservation 中完成 write/reload。其余条目保持开放。
+
 ## 获选批次
 
 1. **原子文件 mutation use case**：先测试交错，再统一 validate/write/reload reservation 与明确的 persisted/refresh-failed/failure 结果；保持 rename 事务不变量。

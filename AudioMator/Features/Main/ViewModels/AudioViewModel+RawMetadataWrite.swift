@@ -52,42 +52,38 @@ extension AudioViewModel {
                 continue
             }
 
-            do {
-                let writeResult = try await writeRawMetadataPropertyMapOffMainActor(
-                    propertyMap,
-                    to: target.url,
-                    expectedFileFingerprint: target.expectedFileFingerprint
-                )
+            let result = await executeMetadataFileMutation(
+                at: target.url,
+                id: target.id,
+                expectedFileFingerprint: target.expectedFileFingerprint,
+                syncInspectorAfterReload: false
+            ) { metadataPipeline, url in
+                try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+            }
 
+            switch result {
+            case .success(let success):
                 summary.succeeded += 1
                 succeededTargetIDs.insert(target.id)
-                var warningMessages = writeResult.warnings
-
-                let refreshWarning = await reloadEditedFile(
-                    at: target.url,
-                    id: target.id,
-                    syncInspectorAfterReload: false
-                )
-
-                if let refreshWarning {
-                    warningMessages.append(refreshWarning)
+                if !success.didRefreshFileModel {
                     summary.allSuccessfulFilesRefreshed = false
                 }
 
-                if !warningMessages.isEmpty {
+                if !success.warnings.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
                             fileName: target.fileName,
-                            messages: warningMessages
+                            messages: success.warnings
                         )
                     )
                 }
-            } catch {
+
+            case .failure(let reason):
                 failedTargetIDs.insert(target.id)
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
-                        messages: [(error as NSError).localizedDescription]
+                        messages: [reason]
                     )
                 )
             }

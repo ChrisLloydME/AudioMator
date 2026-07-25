@@ -52,11 +52,14 @@ extension AudioViewModel {
         let padWidth = trackRenumberPadWidth(maxNumber: maxNumber, padWithZeros: options.padWithZeros)
         let writableExtensions = AudioFormatSupport.metadataWritableExtensions
         let metadataPipeline = self.metadataPipeline
-        let fileMutationCoordinator = self.fileMutationCoordinator
+        let mutationExecutor = MetadataFileMutationExecutor(
+            metadataPipeline: metadataPipeline,
+            fileMutationCoordinator: fileMutationCoordinator
+        )
 
         let writeOutcome = await Task.detached(
             priority: .userInitiated
-        ) { [writeTargets, numbers, padWidth, writableExtensions, metadataPipeline] in
+        ) { [writeTargets, numbers, padWidth, writableExtensions, mutationExecutor] in
             var result = TrackRenumberResult(
                 totalTargets: writeTargets.count,
                 succeeded: 0,
@@ -76,47 +79,35 @@ extension AudioViewModel {
                     continue
                 }
 
-                do {
-                    let formattedTrackNumber =
-                        padWidth > 0
-                        ? String(format: "%0*d", padWidth, newNumber)
-                        : String(newNumber)
+                let formattedTrackNumber =
+                    padWidth > 0
+                    ? String(format: "%0*d", padWidth, newNumber)
+                    : String(newNumber)
+                let targetOutcome = await mutationExecutor.execute(
+                    at: target.url,
+                    id: target.id,
+                    expectedFileFingerprint: target.expectedFileFingerprint
+                ) { metadataPipeline, url in
+                    try metadataPipeline.writeTrackNumberText(
+                        formattedTrackNumber,
+                        discNumberText: nil,
+                        to: url,
+                        verifyAfterWrite: true
+                    )
+                }
 
-                    let targetOutcome: (
-                        writeResult: AudioMetadataWriteResult,
-                        reloadedFile: AudioFile?,
-                        refreshWarning: String?
-                    ) = try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) {
-                        try await Task.detached(priority: .userInitiated) {
-                            try validateExpectedFileFingerprint(target.expectedFileFingerprint, at: target.url)
-                            let writeResult = try metadataPipeline.writeTrackNumberText(
-                                formattedTrackNumber,
-                                discNumberText: nil,
-                                to: target.url,
-                                verifyAfterWrite: true
-                            )
-
-                            do {
-                                let reloadedFile = try await metadataPipeline.loadAudioFile(
-                                    at: target.url,
-                                    id: target.id
-                                )
-                                return (writeResult, reloadedFile, nil)
-                            } catch {
-                                let warning = "Saved to disk, but the file could not be refreshed: "
-                                    + (error as NSError).localizedDescription
-                                return (writeResult, nil, warning)
-                            }
-                        }.value
-                    }
+                switch targetOutcome {
+                case .success(let success):
                     result.succeeded += 1
-                    if let reloadedFile = targetOutcome.reloadedFile {
+                    if let reloadedFile = success.reloadedFile {
                         reloadedFiles.append(reloadedFile)
                     }
 
-                    var warningMessages = targetOutcome.writeResult.warnings
-                    if let refreshWarning = targetOutcome.refreshWarning {
-                        warningMessages.append(refreshWarning)
+                    var warningMessages = success.writeResult.warnings
+                    if let reloadErrorDescription = success.reloadErrorDescription {
+                        warningMessages.append(
+                            "Saved to disk, but the file could not be refreshed: \(reloadErrorDescription)"
+                        )
                     }
                     if !warningMessages.isEmpty {
                         result.warnings.append(
@@ -126,10 +117,19 @@ extension AudioViewModel {
                             )
                         )
                     }
-                } catch {
+
+                case .failure(let reason):
                     result.failed += 1
-                    let reason = (error as NSError).localizedDescription
                     result.failures.append(TrackRenumberFailure(fileName: target.url.lastPathComponent, reason: reason))
+
+                case .cancelled:
+                    result.failed += 1
+                    result.failures.append(
+                        TrackRenumberFailure(
+                            fileName: target.url.lastPathComponent,
+                            reason: "The track renumber operation was cancelled before it started."
+                        )
+                    )
                 }
             }
 

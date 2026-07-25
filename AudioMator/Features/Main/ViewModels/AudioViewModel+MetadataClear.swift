@@ -135,29 +135,13 @@ extension AudioViewModel {
             return .failure("This format does not support metadata writing yet.")
         }
 
-        do {
-            let writeResult = try await eraseAllMetadataOffMainActor(
-                at: file.url,
-                expectedFileFingerprint: file.fileFingerprint
-            )
-            var warnings: [String] = writeResult.warnings
-
-            let refreshWarning = await reloadEditedFile(
-                file,
-                syncInspectorAfterReload: syncInspectorAfterReload
-            )
-            if let refreshWarning {
-                warnings.append(refreshWarning)
-            }
-
-            return .success(
-                MetadataWriteSuccessOutcome(
-                    warnings: warnings,
-                    didRefreshFileModel: refreshWarning == nil
-                )
-            )
-        } catch {
-            return .failure((error as NSError).localizedDescription)
+        return await executeMetadataFileMutation(
+            at: file.url,
+            id: file.id,
+            expectedFileFingerprint: file.fileFingerprint,
+            syncInspectorAfterReload: syncInspectorAfterReload
+        ) { metadataPipeline, url in
+            try metadataPipeline.eraseAllMetadata(at: url)
         }
     }
 

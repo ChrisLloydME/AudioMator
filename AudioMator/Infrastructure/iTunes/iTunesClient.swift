@@ -73,7 +73,7 @@ enum iTunesStorefront: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-struct iTunesFileSearchInput: Identifiable, Equatable, Hashable {
+struct iTunesFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let displayTitle: String
     let title: String
@@ -90,25 +90,25 @@ struct iTunesFileSearchInput: Identifiable, Equatable, Hashable {
     let itunesArtistID: String
     let itunesCatalogID: String
 
-    var preferredDisplayTitle: String {
+    nonisolated var preferredDisplayTitle: String {
         if !title.isEmpty { return title }
         if !displayTitle.isEmpty { return displayTitle }
         return "Selected File"
     }
 
-    var normalizedTrackNumber: Int? {
+    nonisolated var normalizedTrackNumber: Int? {
         OnlineMetadataSelectionCore.normalizedPositiveIndex(trackNumber)
     }
 
-    var normalizedDiscNumber: Int? {
+    nonisolated var normalizedDiscNumber: Int? {
         OnlineMetadataSelectionCore.normalizedPositiveIndex(discNumber)
     }
 
-    var normalizedReleaseYear: String {
+    nonisolated var normalizedReleaseYear: String {
         OnlineMetadataSelectionCore.normalizedReleaseYear(releaseDate)
     }
 
-    var artistCandidates: [String] {
+    nonisolated var artistCandidates: [String] {
         let values = [artist, albumArtist]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -117,7 +117,7 @@ struct iTunesFileSearchInput: Identifiable, Equatable, Hashable {
     }
 }
 
-struct iTunesFileSelectionSummary: Equatable, Hashable {
+struct iTunesFileSelectionSummary: Equatable, Hashable, Sendable {
     let files: [iTunesFileSearchInput]
     let albumCandidate: String
     let albumArtistCandidate: String
@@ -153,8 +153,8 @@ struct iTunesFileSelectionSummary: Equatable, Hashable {
         self.distinctArtistCount = summary.distinctArtistCount
     }
 
-    var isMultiFile: Bool { files.count > 1 }
-    var selectionLooksMixed: Bool { distinctAlbumCount > 1 || distinctArtistCount > 1 }
+    nonisolated var isMultiFile: Bool { files.count > 1 }
+    nonisolated var selectionLooksMixed: Bool { distinctAlbumCount > 1 || distinctArtistCount > 1 }
 
 }
 
@@ -225,7 +225,7 @@ enum iTunesSearchResults: Equatable {
     var isEmpty: Bool { count == 0 }
 }
 
-struct iTunesTrackResult: Identifiable, Equatable, Hashable {
+struct iTunesTrackResult: Identifiable, Equatable, Hashable, Sendable {
     let trackID: Int
     let collectionID: Int?
     let artistID: Int?
@@ -259,7 +259,7 @@ struct iTunesTrackResult: Identifiable, Equatable, Hashable {
     }
 }
 
-struct iTunesAlbumResult: Identifiable, Equatable, Hashable {
+struct iTunesAlbumResult: Identifiable, Equatable, Hashable, Sendable {
     let collectionID: Int
     let artistID: Int?
     let collectionArtistID: Int?
@@ -285,13 +285,13 @@ struct iTunesAlbumResult: Identifiable, Equatable, Hashable {
     }
 }
 
-struct iTunesAlbumDetail: Equatable, Hashable {
+struct iTunesAlbumDetail: Equatable, Hashable, Sendable {
     let album: iTunesAlbumResult
     let tracks: [iTunesTrackResult]
     var selectionMatchPreview: iTunesAlbumMatchPreview?
 }
 
-struct iTunesAlbumMatchAssignment: Identifiable, Equatable, Hashable {
+struct iTunesAlbumMatchAssignment: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let file: iTunesFileSearchInput
     let track: iTunesTrackResult
@@ -299,7 +299,7 @@ struct iTunesAlbumMatchAssignment: Identifiable, Equatable, Hashable {
     let reason: String
 }
 
-struct iTunesAlbumMatchPreview: Equatable, Hashable {
+struct iTunesAlbumMatchPreview: Equatable, Hashable, Sendable {
     let totalSelectedFiles: Int
     let matchedAssignments: [iTunesAlbumMatchAssignment]
     let unmatchedFiles: [iTunesFileSearchInput]
@@ -308,7 +308,7 @@ struct iTunesAlbumMatchPreview: Equatable, Hashable {
 }
 
 enum iTunesAlbumMatcher {
-    static func match(selection: iTunesFileSelectionSummary, detail: iTunesAlbumDetail) -> iTunesAlbumMatchPreview {
+    nonisolated static func match(selection: iTunesFileSelectionSummary, detail: iTunesAlbumDetail) -> iTunesAlbumMatchPreview {
         let exactAssignments = greedyAssignments(
             from: buildCandidates(
                 files: selection.files,
@@ -360,7 +360,7 @@ enum iTunesAlbumMatcher {
         )
     }
 
-    static func rerankTracks(_ tracks: [iTunesTrackResult], file: iTunesFileSearchInput) -> [iTunesTrackResult] {
+    nonisolated static func rerankTracks(_ tracks: [iTunesTrackResult], file: iTunesFileSearchInput) -> [iTunesTrackResult] {
         tracks.sorted {
             let lhsScore = trackSimilarityScore(track: $0, file: file, album: nil)
             let rhsScore = trackSimilarityScore(track: $1, file: file, album: nil)
@@ -369,7 +369,7 @@ enum iTunesAlbumMatcher {
         }
     }
 
-    private static func buildCandidates(
+    private nonisolated static func buildCandidates(
         files: [iTunesFileSearchInput],
         tracks: [iTunesTrackResult],
         album: iTunesAlbumResult?,
@@ -394,7 +394,7 @@ enum iTunesAlbumMatcher {
         }
     }
 
-    private static func greedyAssignments(from candidates: [iTunesAlbumMatchAssignment]) -> [iTunesAlbumMatchAssignment] {
+    private nonisolated static func greedyAssignments(from candidates: [iTunesAlbumMatchAssignment]) -> [iTunesAlbumMatchAssignment] {
         var assignedFileIDs: Set<String> = []
         var assignedTrackIDs: Set<Int> = []
         var assignments: [iTunesAlbumMatchAssignment] = []
@@ -411,7 +411,7 @@ enum iTunesAlbumMatcher {
         return assignments
     }
 
-    private static func candidateAssignment(
+    private nonisolated static func candidateAssignment(
         file: iTunesFileSearchInput,
         track: iTunesTrackResult,
         album: iTunesAlbumResult?,
@@ -445,7 +445,7 @@ enum iTunesAlbumMatcher {
         )
     }
 
-    private static func exactMatchReason(file: iTunesFileSearchInput, track: iTunesTrackResult) -> (score: Double, reason: String)? {
+    private nonisolated static func exactMatchReason(file: iTunesFileSearchInput, track: iTunesTrackResult) -> (score: Double, reason: String)? {
         let sameTrackNumber = file.normalizedTrackNumber == track.trackNumber
         let sameDiscNumber = file.normalizedDiscNumber == nil || file.normalizedDiscNumber == track.discNumber
         let titleScore = titleSimilarity(file.title, track.trackName)
@@ -463,7 +463,7 @@ enum iTunesAlbumMatcher {
         return nil
     }
 
-    private static func trackSimilarityScore(
+    private nonisolated static func trackSimilarityScore(
         track: iTunesTrackResult,
         file: iTunesFileSearchInput,
         album: iTunesAlbumResult?
@@ -488,7 +488,7 @@ enum iTunesAlbumMatcher {
         )
     }
 
-    private static func releaseScore(selection: iTunesFileSelectionSummary, album: iTunesAlbumResult) -> Double {
+    private nonisolated static func releaseScore(selection: iTunesFileSelectionSummary, album: iTunesAlbumResult) -> Double {
         let albumScore = FuzzyStringSimilarity.score(selection.albumCandidate, album.collectionName) * 0.36
         let artistScore = bestSimilarity(
             [selection.albumArtistCandidate, selection.primaryArtistCandidate].filter { !$0.isEmpty },
@@ -501,19 +501,19 @@ enum iTunesAlbumMatcher {
         return min(1, albumScore + artistScore + yearScore + countScore + idScore)
     }
 
-    private static func trackIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
+    private nonisolated static func trackIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
         guard let expected, candidateValue > 0 else { return 0 }
         if expected == candidateValue { return 1 }
         if AudioNumericConversion.boundedDistance(expected, candidateValue, maximum: 1) == 1 { return 0.35 }
         return 0
     }
 
-    private static func discIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
+    private nonisolated static func discIndexSimilarity(_ expected: Int?, candidateValue: Int) -> Double {
         guard let expected, candidateValue > 0 else { return 0 }
         return expected == candidateValue ? 1 : 0
     }
 
-    private static func durationSimilarity(_ lhs: Int?, _ rhs: Int?) -> Double {
+    private nonisolated static func durationSimilarity(_ lhs: Int?, _ rhs: Int?) -> Double {
         guard let lhs, let rhs else { return 0 }
         guard let difference = AudioNumericConversion.boundedDistance(lhs, rhs, maximum: 29_999) else {
             return 0
@@ -521,7 +521,7 @@ enum iTunesAlbumMatcher {
         return 1 - (Double(difference) / 30_000)
     }
 
-    private static func yearSimilarity(_ queryYear: String, candidateDate: String) -> Double {
+    private nonisolated static func yearSimilarity(_ queryYear: String, candidateDate: String) -> Double {
         let digits = candidateDate.filter(\.isNumber)
         guard digits.count >= 4, !queryYear.isEmpty else { return 0 }
         let candidateYear = String(digits.prefix(4))
@@ -539,14 +539,14 @@ enum iTunesAlbumMatcher {
         }
     }
 
-    private static func trackCountSimilarity(selectedCount: Int, albumTrackCount: Int) -> Double {
+    private nonisolated static func trackCountSimilarity(selectedCount: Int, albumTrackCount: Int) -> Double {
         guard selectedCount > 0, albumTrackCount > 0 else { return 0 }
         if selectedCount == albumTrackCount { return 1 }
         if selectedCount < albumTrackCount { return 0.3 }
         return 0
     }
 
-    private static func bestSimilarity(_ queries: [String], candidates: [String]) -> Double {
+    private nonisolated static func bestSimilarity(_ queries: [String], candidates: [String]) -> Double {
         var best = 0.0
         for query in queries {
             for candidate in candidates {
@@ -556,7 +556,7 @@ enum iTunesAlbumMatcher {
         return best
     }
 
-    private static func matchReason(
+    private nonisolated static func matchReason(
         file: iTunesFileSearchInput,
         track: iTunesTrackResult,
         isTitleVersionMatch: Bool
@@ -572,11 +572,11 @@ enum iTunesAlbumMatcher {
         return "Metadata similarity"
     }
 
-    private static func titleSimilarity(_ lhs: String, _ rhs: String) -> Double {
+    private nonisolated static func titleSimilarity(_ lhs: String, _ rhs: String) -> Double {
         max(FuzzyStringSimilarity.score(lhs, rhs), titleVersionMatch(lhs, rhs) ? 0.98 : 0)
     }
 
-    private static func titleVersionMatch(_ lhs: String, _ rhs: String) -> Bool {
+    private nonisolated static func titleVersionMatch(_ lhs: String, _ rhs: String) -> Bool {
         let normalizedLHS = FuzzyStringSimilarity.normalize(lhs)
         let normalizedRHS = FuzzyStringSimilarity.normalize(rhs)
         guard !normalizedLHS.isEmpty, !normalizedRHS.isEmpty else { return false }
@@ -590,7 +590,7 @@ enum iTunesAlbumMatcher {
         return FuzzyStringSimilarity.tokenSequenceContains(longer, sequence: shorter)
     }
 
-    private static func trackSort(_ lhs: iTunesTrackResult, _ rhs: iTunesTrackResult) -> Bool {
+    private nonisolated static func trackSort(_ lhs: iTunesTrackResult, _ rhs: iTunesTrackResult) -> Bool {
         if lhs.discNumber != rhs.discNumber { return lhs.discNumber < rhs.discNumber }
         if lhs.trackNumber != rhs.trackNumber { return lhs.trackNumber < rhs.trackNumber }
         return lhs.trackName < rhs.trackName

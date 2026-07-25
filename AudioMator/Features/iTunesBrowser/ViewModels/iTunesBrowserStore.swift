@@ -31,12 +31,18 @@ final class iTunesBrowserStore: ObservableObject {
     @Published private(set) var navigationResetToken = UUID()
 
     private let client: any iTunesBrowserClient
+    private let albumMatcher: @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview
     private var searchTask: Task<Void, Never>?
+    private var searchOperationID = UUID()
     private var fileInputs: [iTunesFileSearchInput] = []
     private var albumDetailsByID: [Int: iTunesAlbumDetail] = [:]
 
-    init(client: any iTunesBrowserClient = iTunesClient()) {
+    init(
+        client: any iTunesBrowserClient = iTunesClient(),
+        albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview = iTunesAlbumMatcher.match
+    ) {
         self.client = client
+        self.albumMatcher = albumMatcher
     }
 
     deinit {
@@ -62,7 +68,7 @@ final class iTunesBrowserStore: ObservableObject {
     var seededFileInputs: [iTunesFileSearchInput] { fileInputs }
 
     func seed(from files: [AudioFile]) {
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         fileInputs = files.map(Self.fileInput)
         guard let first = fileInputs.first else {
@@ -86,7 +92,7 @@ final class iTunesBrowserStore: ObservableObject {
     }
 
     func resetToDefault() {
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
@@ -104,13 +110,13 @@ final class iTunesBrowserStore: ObservableObject {
     }
 
     func closeWindowSession() {
-        searchTask?.cancel()
+        cancelSearch()
         albumDetailsByID = [:]
         resetToDefault()
     }
 
     func clearSearch() {
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
@@ -130,7 +136,7 @@ final class iTunesBrowserStore: ObservableObject {
 
     func handleModeChange(from oldMode: iTunesSearchMode, to newMode: iTunesSearchMode) {
         guard oldMode != newMode else { return }
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         isSearching = false
         errorMessage = nil
@@ -161,55 +167,97 @@ final class iTunesBrowserStore: ObservableObject {
         errorMessage = nil
         isSearching = true
         lastSubmittedQuery = query
-        searchTask?.cancel()
+        cancelSearch(resetLoadingState: false)
 
-        searchTask = Task { [client] in
+        let operationID = UUID()
+        searchOperationID = operationID
+
+        searchTask = Task { [client, weak self] in
             do {
                 let results = try await client.search(matching: query, limit: 25)
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    self.results = results
-                    self.errorMessage = nil
-                    self.isSearching = false
-                }
+                guard let self, self.searchOperationID == operationID else { return }
+                self.searchTask = nil
+                self.results = results
+                self.errorMessage = nil
+                self.isSearching = false
             } catch is CancellationError {
                 guard !Task.isCancelled else { return }
-                await MainActor.run { self.isSearching = false }
+                guard let self, self.searchOperationID == operationID else { return }
+                self.searchTask = nil
+                self.isSearching = false
             } catch {
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    self.results = Self.emptyResults(for: query)
-                    self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                    self.isSearching = false
-                }
+                guard let self, self.searchOperationID == operationID else { return }
+                self.searchTask = nil
+                self.results = Self.emptyResults(for: query)
+                self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                self.isSearching = false
             }
         }
     }
 
-    func albumDetail(for album: iTunesAlbumResult) async throws -> iTunesAlbumDetail {
-        if var cached = albumDetailsByID[album.collectionID] {
-            cached = detailByResolvingSelectionPreview(for: cached, fallbackPreview: album.selectionMatchPreview)
-            albumDetailsByID[album.collectionID] = cached
-            return cached
+    func cancelSearch(resetLoadingState: Bool = true) {
+        searchOperationID = UUID()
+        searchTask?.cancel()
+        searchTask = nil
+        if resetLoadingState {
+            isSearching = false
         }
-
-        var detail = try await client.albumDetail(collectionID: album.collectionID, country: storefront.countryCode)
-        detail = detailByResolvingSelectionPreview(for: detail, fallbackPreview: album.selectionMatchPreview)
-        albumDetailsByID[album.collectionID] = detail
-        return detail
     }
 
-    private func detailByResolvingSelectionPreview(
+    func albumDetail(for album: iTunesAlbumResult) async throws -> iTunesAlbumDetail {
+        let fallbackPreview = album.selectionMatchPreview
+        let selectionSummary = fileSelectionSummary
+
+        if let cached = albumDetailsByID[album.collectionID] {
+            let resolved = try await Self.detailByResolvingSelectionPreview(
+                for: cached,
+                fallbackPreview: fallbackPreview,
+                selectionSummary: selectionSummary,
+                albumMatcher: albumMatcher
+            )
+            try Task.checkCancellation()
+            albumDetailsByID[album.collectionID] = resolved
+            return resolved
+        }
+
+        let detail = try await client.albumDetail(collectionID: album.collectionID, country: storefront.countryCode)
+        try Task.checkCancellation()
+        let resolved = try await Self.detailByResolvingSelectionPreview(
+            for: detail,
+            fallbackPreview: fallbackPreview,
+            selectionSummary: selectionSummary,
+            albumMatcher: albumMatcher
+        )
+        try Task.checkCancellation()
+        albumDetailsByID[album.collectionID] = resolved
+        return resolved
+    }
+
+    private nonisolated static func detailByResolvingSelectionPreview(
         for detail: iTunesAlbumDetail,
-        fallbackPreview: iTunesAlbumMatchPreview?
-    ) -> iTunesAlbumDetail {
+        fallbackPreview: iTunesAlbumMatchPreview?,
+        selectionSummary: iTunesFileSelectionSummary?,
+        albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview
+    ) async throws -> iTunesAlbumDetail {
         var resolved = detail
         if let fallbackPreview {
             resolved.selectionMatchPreview = fallbackPreview
             return resolved
         }
-        guard let summary = fileSelectionSummary else { return resolved }
-        resolved.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: resolved)
+        guard let selectionSummary else { return resolved }
+
+        let matchingTask = Task.detached(priority: .userInitiated) {
+            albumMatcher(selectionSummary, resolved)
+        }
+        let preview = await withTaskCancellationHandler {
+            await matchingTask.value
+        } onCancel: {
+            matchingTask.cancel()
+        }
+        try Task.checkCancellation()
+        resolved.selectionMatchPreview = preview
         return resolved
     }
 

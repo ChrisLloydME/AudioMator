@@ -150,6 +150,38 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertFalse(fileSystem.fileExists(at: destinationURL))
         XCTAssertEqual(fileSystem.moveCount, 0)
     }
+
+    func testDeletedSourceIsRejectedBeforeAnyFileIsMoved() {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorRenameDeletedSourceTests-\(UUID().uuidString)", isDirectory: true)
+        let sourceURL = rootURL.appendingPathComponent("deleted.mp3")
+        let destinationURL = rootURL.appendingPathComponent("renamed.mp3")
+        let fileSystem = FaultInjectingRenameFileSystem(
+            existingURLs: [],
+            shouldFailMove: { _, _ in nil }
+        )
+
+        let result = executeFileRenameTransaction(
+            [
+                FileRenameOperation(
+                    id: UUID(),
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL,
+                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: sourceURL)
+                )
+            ],
+            fileSystem: fileSystem
+        )
+
+        guard case .failure(let failure) = result else {
+            return XCTFail("Expected a deleted source to abort the transaction.")
+        }
+        XCTAssertTrue(failure.message.contains("source missing"))
+        XCTAssertEqual(failure.recoveryItems.count, 1)
+        XCTAssertTrue(failure.recoveryItems[0].finalLocations.isEmpty)
+        XCTAssertTrue(failure.message.contains("location unknown"))
+        XCTAssertEqual(fileSystem.moveCount, 0)
+    }
 }
 
 private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unchecked Sendable {

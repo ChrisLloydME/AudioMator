@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`f1378c1`
+- 当前 commit：`1a4b8c0`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
-- 当前阶段：建立系统模型并提交审计基线
-- 最后稳定 commit：`f1378c1`
+- 当前阶段：批次 1——原子 metadata write/reload use case（contract 与测试）
+- 最后稳定 commit：`1a4b8c0`
 
 ## 当前架构假设
 
@@ -21,7 +21,7 @@
 
 ## 已完成
 
-### 审计基线（尚待提交）
+### 审计基线（已提交）
 
 - 从 `AudioMatorApp`、`ContentView`、`AudioViewModel` 追踪了文件导入、watched-folder、选择、draft、写入、reload、重命名和 provider 应用入口。
 - 检查了 179 个 Swift 文件、主要依赖 import、条件编译、测试覆盖说明和 2025 年以来的修改热点。
@@ -30,7 +30,7 @@
 
 ## 已完成批次和 commit
 
-暂无。审计基线提交后在此登记。
+- 审计基线：`1a4b8c0` (`docs(audit): establish architecture modernization baseline`)
 
 ## 本阶段修改文件
 
@@ -41,10 +41,16 @@
 - `Docs/Architecture/STATE_AND_MUTATION_MODEL.md`
 - `Docs/Architecture/TEST_STRATEGY.md`
 - `Docs/Architecture/Decisions/0001-atomic-write-and-reload-reservation.md`
+- `AudioMator/Features/Main/Application/MetadataFileMutationExecutor.swift`
+- `AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWriteSupport.swift`
+- `AudioMatorTests/FileMutationSerializationTests.swift`
 
 ## 测试记录
 
 - 2026-07-25：`swift test --filter AudioMatorCoreLogicTests`，43 tests passed。
+- 2026-07-25：focused `FileMutationSerializationTests` 首次编译发现 XCTest async autoclosure 限制；改为先读取 actor state 后断言。
+- 2026-07-25：`xcodebuild -quiet ... -only-testing:AudioMatorTests/FileMutationSerializationTests test`，passed；包含 write/reload reservation 与 reload failure 新测试。
+- 2026-07-25：新增 use-case 后再次运行 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -69,7 +75,7 @@
 
 ## 下一步唯一动作
 
-提交审计基线，然后为“写入成功到 reload 完成必须持有同一路径 reservation”添加会在当前实现下暴露交错的 characterization/regression test。
+完成并提交 `MetadataFileMutationExecutor` contract 与 reservation/reload failure tests，然后迁移所有 metadata mutation 调用方。
 
 ## 恢复执行步骤
 

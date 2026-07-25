@@ -243,6 +243,126 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
     }
 
+    func testFixedSeedCSVSerializationRoundTripsUnicodeEscapingAndFormulaPrefixes() throws {
+        var generator = FixedSeedGenerator(seed: 0xA11D_10C5_C5A5_E001)
+        let alphabet: [Character] = [
+            "a", "Z", "0", " ", "\t", "\n", "\r", ",", ";", "|", "\"", "'", "=", "+", "-", "@",
+            "é", "中", "🎵", "\u{00A0}"
+        ]
+
+        for delimiter in [Character(","), Character(";"), Character("|"), Character("\t")] {
+            for _ in 0..<160 {
+                let rowCount = generator.int(in: 1...4)
+                let fieldCount = generator.int(in: 1...6)
+                var rows: [[String]] = []
+                for _ in 0..<rowCount {
+                    var row: [String] = []
+                    for fieldIndex in 0..<fieldCount {
+                        let length = generator.int(in: 0...24)
+                        var value = String((0..<length).map { _ in alphabet[generator.int(in: 0...(alphabet.count - 1))] })
+                        if fieldIndex == 0, value.isEmpty {
+                            value = "seed"
+                        }
+                        row.append(value)
+                    }
+                    rows.append(row)
+                }
+
+                let serialized = MetadataExchangeCSV.serialize(rows, delimiter: delimiter)
+                XCTAssertEqual(try MetadataExchangeCSV.parse(serialized, delimiter: delimiter), rows)
+            }
+        }
+    }
+
+    func testFixedSeedTemplateSyntaxPreservesEveryGeneratedCodePoint() {
+        var generator = FixedSeedGenerator(seed: 0x7E4D_91A7_E202_600D)
+        let literalAlphabet: [Character] = ["a", " ", "-", "_", "}", "é", "中", "🎵", "\n"]
+        let placeholderNames = ["title", "artist", "trackNumber", "未知", "", "a-b"]
+
+        for _ in 0..<500 {
+            var template = ""
+            let segmentCount = generator.int(in: 1...12)
+            for _ in 0..<segmentCount {
+                if generator.bool() {
+                    let length = generator.int(in: 0...12)
+                    template += String((0..<length).map { _ in
+                        literalAlphabet[generator.int(in: 0...(literalAlphabet.count - 1))]
+                    })
+                } else {
+                    template += "{{\(placeholderNames[generator.int(in: 0...(placeholderNames.count - 1))])}}"
+                }
+            }
+
+            let result = MetadataExchangeTemplateSyntaxParser.parse(template)
+            let reconstructed = result.segments.map { segment in
+                switch segment {
+                case .literal(let literal):
+                    return literal
+                case .placeholder(let name):
+                    return "{{\(name)}}"
+                }
+            }.joined()
+
+            XCTAssertEqual(reconstructed, template)
+            XCTAssertFalse(result.hasUnterminatedPlaceholder)
+        }
+
+        let unterminated = MetadataExchangeTemplateSyntaxParser.parse("前缀 {{title}} {{未完成")
+        XCTAssertTrue(unterminated.hasUnterminatedPlaceholder)
+        XCTAssertEqual(
+            unterminated.segments.map { segment in
+                switch segment {
+                case .literal(let literal): return literal
+                case .placeholder(let name): return "{{\(name)}}"
+                }
+            }.joined(),
+            "前缀 {{title}} {{未完成"
+        )
+    }
+
+    func testFixedSeedTrackDiscTextPreservesNumericIntent() {
+        var generator = FixedSeedGenerator(seed: 0x7A4C_D15C_2026_0725)
+
+        for _ in 0..<1_000 {
+            let number = generator.int(in: 0...9_999)
+            let total = generator.int(in: 0...9_999)
+            let padding = generator.int(in: 1...5)
+            let numberText = String(repeating: "0", count: max(0, padding - String(number).count)) + String(number)
+            let totalText = String(repeating: "0", count: max(0, padding - String(total).count)) + String(total)
+            let rawText = " \(numberText) / \(totalText) "
+            let parsed = AudioTagNumberText.parsedPair(from: rawText)
+
+            XCTAssertEqual(parsed.number, number)
+            XCTAssertEqual(parsed.total, total)
+            XCTAssertTrue(
+                AudioTagNumberText.writeExpectationMatches(
+                    expectedText: rawText,
+                    actualNumber: number,
+                    actualTotal: total
+                )
+            )
+        }
+    }
+
+    func testFixedSeedRenameSanitizationKeepsUnicodeAndRemovesPathUnsafeScalars() {
+        var generator = FixedSeedGenerator(seed: 0xF11E_1D3A_71A5_0001)
+        let sanitizer = FileRenameSanitizer()
+        let alphabet: [Character] = ["a", " ", "/", ":", "\n", "\t", "é", "中", "🎵", "-", "_"]
+
+        for _ in 0..<500 {
+            let length = generator.int(in: 1...40)
+            let source = "track" + String((0..<length).map { _ in
+                alphabet[generator.int(in: 0...(alphabet.count - 1))]
+            })
+            let sanitized = try? XCTUnwrap(sanitizer.sanitizeBaseName(source))
+
+            XCTAssertNotNil(sanitized)
+            XCTAssertFalse(sanitized?.contains("/") == true)
+            XCTAssertFalse(sanitized?.contains(":") == true)
+            XCTAssertFalse(sanitized?.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) == true)
+        }
+    }
+
     func testMetadataExchangeLocatorIndexUsesTheNarrowestAvailableKey() {
         let fields = ["name", "path"]
         let names = ["duplicate", "duplicate", "unique"]
@@ -719,6 +839,29 @@ private struct ProviderFileFixture: Equatable, Hashable {
     let id: String
     let title: String
     let trackNumber: String
+}
+
+private struct FixedSeedGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed
+    }
+
+    mutating func next() -> UInt64 {
+        state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+        return state
+    }
+
+    mutating func int(in range: ClosedRange<Int>) -> Int {
+        precondition(range.lowerBound <= range.upperBound)
+        let width = UInt64(range.upperBound - range.lowerBound + 1)
+        return range.lowerBound + Int(next() % width)
+    }
+
+    mutating func bool() -> Bool {
+        next() & 1 == 0
+    }
 }
 
 private func providerFile(_ id: String, title: String, track: String) -> ProviderFileFixture {

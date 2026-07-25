@@ -24,3 +24,5 @@ provider search 由各自 `@MainActor` store 管理。MusicBrainz/iTunes 生成 
 ## Adapter boundary
 
 `Domain/MetadataEditing/AudioMetadataPipeline.swift` 只声明 write/load contract、payload 和结果。`Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift` 实现 TagLib 写入、验证与兼容清理；`AudioFile+TagLibLoading.swift` 拥有 TagLib、AVFoundation 与平台图像构造。App 在 composition root 注入具体 adapter。
+
+Metadata exchange 按职责分为 `MetadataExchangeModels`（字段 schema/校验）、`MetadataExchangeTemplate`（字段映射）、`MetadataExchangeTemplateSyntax`（纯模板 tokenizer）和 `MetadataExchangePlanning`（export/import plan 与 matcher）。SwiftPM 直接编译 production syntax parser、CSV parser、resource budget 与 locator index。

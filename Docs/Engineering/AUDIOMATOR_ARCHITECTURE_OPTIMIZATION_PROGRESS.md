@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`ac4b343`
+- 当前 commit：`38dbe70`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
-- 当前阶段：批次 4——Metadata Exchange 职责与确定性测试边界
-- 最后稳定 commit：`ac4b343`
+- 当前阶段：批次 5——故障注入与最终 release gate
+- 最后稳定 commit：`38dbe70`
 
 ## 当前架构假设
 
@@ -17,7 +17,7 @@
 3. `AudioViewModel.selectedAudioIDs` 是选择的唯一事实来源；setter 在同一 main-actor operation 中过滤可见 ID 并重建 draft。
 4. `FileMutationCoordinator` 对规范化路径提供原子多路径 reservation 和等待取消；批次 1 后，所有 metadata write/reload 由 `MetadataFileMutationExecutor` 保持同一 reservation。
 5. `AudioMetadataPipeline` 在 Domain 声明业务 contract；TagLib adapter、兼容清理、验证和 `AudioFile` loading 位于 `Infrastructure/TagLib`。
-6. SwiftPM 快速测试覆盖 43 个纯逻辑用例；依赖 `AudioFile`、TagLib、Combine 或平台框架的多数编排只能在 app-hosted target 中测试。
+6. SwiftPM 快速测试覆盖 47 个纯逻辑用例；依赖 `AudioFile`、TagLib、Combine 或平台框架的多数编排由 app-hosted target 测试。
 
 ## 已完成
 
@@ -36,6 +36,7 @@
 - 批次 2 selection owner：`585e8ba` (`refactor(selection): establish a single session owner`)
 - 批次 3 UI state boundary：`a9634da` (`refactor(ui-state): move presentation state out of domain`)
 - 批次 3 metadata adapter boundary：`ac4b343` (`refactor(metadata): separate domain contracts from TagLib`)
+- 批次 4 exchange responsibility boundary：`38dbe70` (`refactor(exchange): separate syntax from planning`)
 
 ## 本阶段修改文件
 
@@ -87,6 +88,9 @@
 - 2026-07-25：Xcode 27 beta generic iOS build passed（未启动 simulator）；仍保留批次 2 已登记的 orientation/launch configuration warning，留待最终 release gate 修正。
 - 2026-07-25：Metadata Exchange 拆分后固定 seed 测试首次揭示“仅含空字段的末行”与尾随换行不可区分；生成器排除该格式歧义后，47 个 SwiftPM tests passed。
 - 2026-07-25：Metadata Exchange 首次并行启动两个共享 DerivedData 的 Xcode command，test 因 build DB lock 取消；串行重跑后 `bash scripts/codex-build.sh` 与 focused `MetadataExchangeTests` passed。
+- 2026-07-25：新增 provider fault sensors；focused `ProviderNetworkFaultTests` passed，覆盖 MusicBrainz/iTunes/LRCLIB timeout、non-2xx 与 invalid payload。
+- 2026-07-25：新增 deleted-source rename sensor；首次断言错误地预期空 recovery list，实际返回可操作的 `location unknown` recovery item；按真实 contract 修正后 focused `FileRenameTransactionTests` passed。
+- 2026-07-25：把 iPad 四方向与 `UILaunchScreen` 写入实际 `Config/Info.plist` 后，Xcode 27 beta generic iOS build passed 且原 orientation/launch warnings 清零；产物 plist 已核对。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -109,7 +113,7 @@
 
 ## 下一步唯一动作
 
-提交 Metadata Exchange responsibility split 与 fixed-seed regression，然后进入批次 5 的故障注入和 release gate。
+提交 provider/file fault sensors 与 iPad plist 修正，然后执行最终完整验证矩阵和 release-readiness 记录。
 
 ## 批次规模说明
 

@@ -8,6 +8,7 @@ struct iTunesTrackDetailView: View {
 
     @State private var isPreparingWorkbench = false
     @State private var workbenchStore: iTunesTaggingWorkbenchStore?
+    @State private var workbenchPreparationTask: Task<Void, Never>?
 
     var body: some View {
         detailContent
@@ -16,6 +17,11 @@ struct iTunesTrackDetailView: View {
             NavigationStack {
                 iTunesTaggingWorkbenchView(store: store, viewModel: viewModel)
             }
+        }
+        .onDisappear {
+            workbenchPreparationTask?.cancel()
+            workbenchPreparationTask = nil
+            isPreparingWorkbench = false
         }
     }
 
@@ -80,9 +86,14 @@ struct iTunesTrackDetailView: View {
 
     private func prepareWorkbench() {
         guard let fileInput = store.seededFileInputs.first else { return }
+        guard workbenchPreparationTask == nil else { return }
+        isPreparingWorkbench = true
 
-        Task {
-            isPreparingWorkbench = true
+        workbenchPreparationTask = Task {
+            defer {
+                isPreparingWorkbench = false
+                workbenchPreparationTask = nil
+            }
             let detail: iTunesAlbumDetail
 
             if let collectionID = track.collectionID {
@@ -108,6 +119,8 @@ struct iTunesTrackDetailView: View {
                             selectionMatchScore: nil
                         )
                     )
+                } catch is CancellationError {
+                    return
                 } catch {
                     detail = fallbackDetail
                 }
@@ -137,7 +150,6 @@ struct iTunesTrackDetailView: View {
                 preview: preview,
                 loadedFiles: viewModel.files
             )
-            isPreparingWorkbench = false
         }
     }
 

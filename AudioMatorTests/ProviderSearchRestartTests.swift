@@ -45,7 +45,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         var store: iTunesBrowserStore? = iTunesBrowserStore(
             client: NonCooperativeiTunesBrowserClient(gate: gate)
         )
-        weak var weakStore = store
+        let weakStore = WeakReference(store)
         store?.titleQuery = "Never Finishes"
 
         store?.search()
@@ -56,9 +56,26 @@ final class ProviderSearchRestartTests: XCTestCase {
         await drainCancelledSearchCompletion()
 
         XCTAssertNil(
-            weakStore,
+            weakStore.value,
             "A non-cooperative provider request must not retain its browser store after closure."
         )
+        await gate.finish()
+    }
+
+    func testiTunesNonCooperativeSearchReachesTimeoutState() async throws {
+        let gate = NonCooperativeProviderSearchGate()
+        let store = iTunesBrowserStore(
+            client: NonCooperativeiTunesBrowserClient(gate: gate),
+            operationTimeout: .milliseconds(30)
+        )
+        store.titleQuery = "Never Finishes"
+
+        store.search()
+        await gate.waitUntilStarted()
+        let didFinish = try await waitUntil { !store.isSearching }
+
+        XCTAssertTrue(didFinish)
+        XCTAssertEqual(store.errorMessage, "iTunes search timed out. Please try again.")
         await gate.finish()
     }
 
@@ -67,7 +84,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         var store: MusicBrainzBrowserStore? = MusicBrainzBrowserStore(
             client: NonCooperativeMusicBrainzBrowserClient(gate: gate)
         )
-        weak var weakStore = store
+        let weakStore = WeakReference(store)
         store?.titleQuery = "Never Finishes"
 
         store?.search()
@@ -78,9 +95,51 @@ final class ProviderSearchRestartTests: XCTestCase {
         await drainCancelledSearchCompletion()
 
         XCTAssertNil(
-            weakStore,
+            weakStore.value,
             "A non-cooperative provider request must not retain its browser store after closure."
         )
+        await gate.finish()
+    }
+
+    func testMusicBrainzNonCooperativeSearchReachesTimeoutState() async throws {
+        let gate = NonCooperativeProviderSearchGate()
+        let store = MusicBrainzBrowserStore(
+            client: NonCooperativeMusicBrainzBrowserClient(gate: gate),
+            operationTimeout: .milliseconds(30)
+        )
+        store.titleQuery = "Never Finishes"
+
+        store.search()
+        await gate.waitUntilStarted()
+        let didFinish = try await waitUntil { !store.isSearching }
+
+        XCTAssertTrue(didFinish)
+        XCTAssertEqual(store.errorMessage, "MusicBrainz search timed out. Please try again.")
+        await gate.finish()
+    }
+
+    func testMusicBrainzPreloadReturnsAfterNonCooperativeDetailTimeout() async throws {
+        let gate = NonCooperativeProviderSearchGate()
+        let store = MusicBrainzBrowserStore(
+            client: NonCooperativeMusicBrainzBrowserClient(gate: gate),
+            detailTimeout: .milliseconds(30),
+            preloadTimeBudget: .milliseconds(100)
+        )
+        let release = makeMusicBrainzRelease(recordingID: "recording-id")
+        var lastProgress = (completed: 0, total: 0)
+
+        let preloadTask = Task {
+            await store.preloadRecordingDetails(for: release) { completed, total in
+                lastProgress = (completed, total)
+            }
+        }
+        await gate.waitUntilStarted()
+        let didReturn = try await waitUntil { preloadTask.isCancelled || lastProgress.completed == 1 }
+
+        XCTAssertTrue(didReturn)
+        XCTAssertEqual(lastProgress.completed, 1)
+        XCTAssertEqual(lastProgress.total, 1)
+        await preloadTask.value
         await gate.finish()
     }
 
@@ -187,9 +246,55 @@ final class ProviderSearchRestartTests: XCTestCase {
             selectionMatchPreview: nil
         )
     }
+
+    private func makeMusicBrainzRelease(recordingID: String) -> MusicBrainzReleaseDetail {
+        MusicBrainzReleaseDetail(
+            id: "release-id",
+            title: "Album",
+            artistCredit: "Artist",
+            date: "",
+            country: "US",
+            status: "Official",
+            barcode: "",
+            packaging: "",
+            asin: "",
+            quality: "",
+            language: "",
+            script: "",
+            annotation: "",
+            genres: [],
+            tags: [],
+            releaseGroupTitle: "Album",
+            releaseGroupID: "release-group-id",
+            releaseGroupPrimaryType: "Album",
+            releaseGroupSecondaryTypes: [],
+            labels: [],
+            media: [
+                MusicBrainzReleaseDetail.Medium(
+                    id: "medium-id",
+                    title: "",
+                    format: "Digital Media",
+                    trackCount: 1,
+                    discIDs: [],
+                    tracks: [
+                        MusicBrainzReleaseDetail.Medium.Track(
+                            id: "track-id",
+                            number: "1",
+                            title: "Track",
+                            artistCredit: "Artist",
+                            durationMilliseconds: nil,
+                            recordingID: recordingID,
+                            isrcs: []
+                        )
+                    ]
+                )
+            ],
+            selectionMatchPreview: nil
+        )
+    }
 }
 
-private final class BlockingSynchronousGate: @unchecked Sendable {
+private nonisolated final class BlockingSynchronousGate: @unchecked Sendable {
     private let lock = NSLock()
     private let releaseSemaphore = DispatchSemaphore(value: 0)
     private var started = false
@@ -205,6 +310,14 @@ private final class BlockingSynchronousGate: @unchecked Sendable {
 
     func release() {
         releaseSemaphore.signal()
+    }
+}
+
+private nonisolated final class WeakReference<Value: AnyObject>: @unchecked Sendable {
+    weak var value: Value?
+
+    init(_ value: Value?) {
+        self.value = value
     }
 }
 
@@ -268,6 +381,7 @@ private struct NonCooperativeMusicBrainzBrowserClient: MusicBrainzBrowserClient 
         id: String,
         fallbackReleases: [MusicBrainzRecordingResult.Release]
     ) async throws -> MusicBrainzRecordingDetail {
+        await gate.suspendIgnoringCancellation()
         throw ProviderSearchTestError.unexpectedDetailRequest
     }
 

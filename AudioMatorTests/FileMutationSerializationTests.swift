@@ -77,6 +77,52 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
     }
 
+    func testTimedOutReloadReleasesCallerButKeepsReservationUntilUnderlyingWorkEnds() async throws {
+        let pipeline = ReloadGatedMutationPipeline()
+        let coordinator = FileMutationCoordinator()
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: coordinator,
+            mutationTimeout: .milliseconds(30)
+        )
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorTimedOutReload.mp3")
+
+        let mutationTask = Task {
+            await executor.execute(
+                at: fileURL,
+                id: UUID(),
+                expectedFileFingerprint: nil
+            ) { pipeline, url in
+                try pipeline.eraseAllMetadata(at: url)
+            }
+        }
+        await pipeline.reloadStarted.wait()
+        let result = await mutationTask.value
+
+        guard case .failure(let message) = result else {
+            return XCTFail("The UI-facing mutation must return when reload exceeds its deadline.")
+        }
+        XCTAssertTrue(message.contains("timed out"))
+
+        let followUpEntered = AsyncTestLatch()
+        let followUpTask = Task {
+            try await coordinator.withExclusiveAccess(to: [fileURL]) {
+                await followUpEntered.signal()
+            }
+        }
+        let didQueueFollowUp = try await waitUntil {
+            await coordinator.queuedMutationCount == 1
+        }
+        let didEnterBeforeReloadFinished = await followUpEntered.isSignaled
+        XCTAssertTrue(didQueueFollowUp)
+        XCTAssertFalse(didEnterBeforeReloadFinished)
+
+        await pipeline.allowReload.signal()
+        try await followUpTask.value
+        let didEnterAfterReloadFinished = await followUpEntered.isSignaled
+        XCTAssertTrue(didEnterAfterReloadFinished)
+    }
+
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {
         let pipeline = BlockingMutationPipeline()
         let viewModel = AudioViewModel(metadataPipeline: pipeline)

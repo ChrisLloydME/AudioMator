@@ -9,6 +9,7 @@ struct iTunesTaggingWorkbenchView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var isApplying = false
+    @State private var applyTask: Task<Void, Never>?
 
     var body: some View {
         let plan = store.plan
@@ -38,6 +39,11 @@ struct iTunesTaggingWorkbenchView: View {
         }
         .onChange(of: viewModel.files.map(\.middleListContentFingerprint)) { _, _ in
             store.refreshLoadedFiles(viewModel.files)
+        }
+        .onDisappear {
+            applyTask?.cancel()
+            applyTask = nil
+            isApplying = false
         }
         .overlay {
             if let progress = viewModel.metadataSaveProgress {
@@ -250,12 +256,17 @@ struct iTunesTaggingWorkbenchView: View {
     private func applyTags(plan: iTunesTaggingPlan) {
         let entries = plan.writeEntries
         guard !entries.isEmpty, viewModel.metadataSaveProgress == nil else { return }
+        guard applyTask == nil else { return }
+        isApplying = true
 
-        Task {
-            isApplying = true
+        applyTask = Task {
+            defer {
+                isApplying = false
+                applyTask = nil
+            }
             await viewModel.applyiTunesTaggingPlan(entries)
+            guard !Task.isCancelled else { return }
             store.refreshLoadedFiles(viewModel.files)
-            isApplying = false
         }
     }
 }

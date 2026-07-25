@@ -32,6 +32,7 @@ final class iTunesBrowserStore: ObservableObject {
 
     private let client: any iTunesBrowserClient
     private let albumMatcher: @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview
+    private let operationTimeout: Duration
     private var searchTask: Task<Void, Never>?
     private var searchOperationID = UUID()
     private var fileInputs: [iTunesFileSearchInput] = []
@@ -39,10 +40,12 @@ final class iTunesBrowserStore: ObservableObject {
 
     init(
         client: any iTunesBrowserClient = iTunesClient(),
-        albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview = iTunesAlbumMatcher.match
+        albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview = iTunesAlbumMatcher.match,
+        operationTimeout: Duration = .seconds(30)
     ) {
         self.client = client
         self.albumMatcher = albumMatcher
+        self.operationTimeout = operationTimeout
     }
 
     deinit {
@@ -172,9 +175,14 @@ final class iTunesBrowserStore: ObservableObject {
         let operationID = UUID()
         searchOperationID = operationID
 
-        searchTask = Task { [client, weak self] in
+        searchTask = Task { [client, operationTimeout, weak self] in
             do {
-                let results = try await client.search(matching: query, limit: 25)
+                let results = try await withAsyncTimeout(
+                    operationTimeout,
+                    operationName: "iTunes search"
+                ) {
+                    try await client.search(matching: query, limit: 25)
+                }
                 guard !Task.isCancelled else { return }
                 guard let self, self.searchOperationID == operationID else { return }
                 self.searchTask = nil
@@ -215,20 +223,30 @@ final class iTunesBrowserStore: ObservableObject {
                 for: cached,
                 fallbackPreview: fallbackPreview,
                 selectionSummary: selectionSummary,
-                albumMatcher: albumMatcher
+                albumMatcher: albumMatcher,
+                operationTimeout: operationTimeout
             )
             try Task.checkCancellation()
             albumDetailsByID[album.collectionID] = resolved
             return resolved
         }
 
-        let detail = try await client.albumDetail(collectionID: album.collectionID, country: storefront.countryCode)
+        let country = storefront.countryCode
+        let collectionID = album.collectionID
+        let detailClient = client
+        let detail = try await withAsyncTimeout(
+            operationTimeout,
+            operationName: "iTunes album detail"
+        ) {
+            try await detailClient.albumDetail(collectionID: collectionID, country: country)
+        }
         try Task.checkCancellation()
         let resolved = try await Self.detailByResolvingSelectionPreview(
             for: detail,
             fallbackPreview: fallbackPreview,
             selectionSummary: selectionSummary,
-            albumMatcher: albumMatcher
+            albumMatcher: albumMatcher,
+            operationTimeout: operationTimeout
         )
         try Task.checkCancellation()
         albumDetailsByID[album.collectionID] = resolved
@@ -239,7 +257,8 @@ final class iTunesBrowserStore: ObservableObject {
         for detail: iTunesAlbumDetail,
         fallbackPreview: iTunesAlbumMatchPreview?,
         selectionSummary: iTunesFileSelectionSummary?,
-        albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview
+        albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview,
+        operationTimeout: Duration
     ) async throws -> iTunesAlbumDetail {
         var resolved = detail
         if let fallbackPreview {
@@ -247,16 +266,15 @@ final class iTunesBrowserStore: ObservableObject {
             return resolved
         }
         guard let selectionSummary else { return resolved }
+        let detailForMatching = resolved
 
-        let matchingTask = Task.detached(priority: .userInitiated) {
-            albumMatcher(selectionSummary, resolved)
+        let preview = try await withAsyncTimeout(
+            operationTimeout,
+            operationName: "iTunes album matching",
+            priority: .userInitiated
+        ) {
+            albumMatcher(selectionSummary, detailForMatching)
         }
-        let preview = await withTaskCancellationHandler {
-            await matchingTask.value
-        } onCancel: {
-            matchingTask.cancel()
-        }
-        try Task.checkCancellation()
         resolved.selectionMatchPreview = preview
         return resolved
     }

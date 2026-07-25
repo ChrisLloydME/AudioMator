@@ -77,6 +77,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
     @Published private(set) var navigationResetToken: UUID = UUID()
 
     private let client: any MusicBrainzBrowserClient
+    private let operationTimeout: Duration
+    private let detailTimeout: Duration
+    private let preloadTimeBudget: Duration
     private var searchTask: Task<Void, Never>?
     private var searchOperationID = UUID()
     private var recordingDetailsByID: [String: MusicBrainzRecordingDetail] = [:]
@@ -89,8 +92,16 @@ final class MusicBrainzBrowserStore: ObservableObject {
     private var fileMusicBrainzTrackID: String = ""
     private var fileInputs: [MusicBrainzFileSearchInput] = []
 
-    init(client: any MusicBrainzBrowserClient) {
+    init(
+        client: any MusicBrainzBrowserClient,
+        operationTimeout: Duration = .seconds(45),
+        detailTimeout: Duration = .seconds(15),
+        preloadTimeBudget: Duration = .seconds(20)
+    ) {
         self.client = client
+        self.operationTimeout = operationTimeout
+        self.detailTimeout = detailTimeout
+        self.preloadTimeBudget = preloadTimeBudget
     }
 
     convenience init() {
@@ -284,9 +295,14 @@ final class MusicBrainzBrowserStore: ObservableObject {
         let operationID = UUID()
         searchOperationID = operationID
 
-        searchTask = Task { [client, weak self] in
+        searchTask = Task { [client, operationTimeout, weak self] in
             do {
-                let results = try await client.search(matching: query, limit: 25)
+                let results = try await withAsyncTimeout(
+                    operationTimeout,
+                    operationName: "MusicBrainz search"
+                ) {
+                    try await client.search(matching: query, limit: 25)
+                }
                 guard !Task.isCancelled else { return }
                 guard let self, self.searchOperationID == operationID else { return }
                 self.searchTask = nil
@@ -321,14 +337,23 @@ final class MusicBrainzBrowserStore: ObservableObject {
     func metadataDetail(for destination: MusicBrainzBrowserDestination) async throws -> MusicBrainzMetadataDetail {
         switch destination {
         case .recording(let result):
-            let detail = try await client.recordingDetail(
+            let detail = try await loadRecordingDetail(
                 id: result.id,
                 fallbackReleases: result.releases
             )
+            try Task.checkCancellation()
             recordingDetailsByID[result.id] = detail
             return .recording(detail)
         case .release(let result):
-            var detail = try await client.releaseDetail(id: result.id)
+            let detailClient = client
+            let releaseID = result.id
+            var detail = try await withAsyncTimeout(
+                detailTimeout,
+                operationName: "MusicBrainz release detail"
+            ) {
+                try await detailClient.releaseDetail(id: releaseID)
+            }
+            try Task.checkCancellation()
             detail.selectionMatchPreview = result.selectionMatchPreview
             return .release(detail)
         case .track(let track):
@@ -339,7 +364,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
             return .track(
                 MusicBrainzTrackDetail(
                     track: track,
-                    recordingDetail: try await client.recordingDetail(
+                    recordingDetail: try await loadRecordingDetail(
                         id: track.recordingID,
                         fallbackReleases: []
                     )
@@ -353,7 +378,8 @@ final class MusicBrainzBrowserStore: ObservableObject {
             return cachedDetail
         }
 
-        let detail = try await client.recordingDetail(id: id, fallbackReleases: [])
+        let detail = try await loadRecordingDetail(id: id, fallbackReleases: [])
+        try Task.checkCancellation()
         recordingDetailsByID[id] = detail
         return detail
     }
@@ -385,13 +411,17 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
         var completedCount = 0
         progress(completedCount, recordingIDs.count)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: preloadTimeBudget)
 
         for recordingID in recordingIDs.sorted() {
             guard !Task.isCancelled else { return }
+            guard clock.now < deadline else { return }
 
             if recordingDetailsByID[recordingID] == nil {
                 do {
-                    let detail = try await client.recordingDetail(id: recordingID, fallbackReleases: [])
+                    let detail = try await loadRecordingDetail(id: recordingID, fallbackReleases: [])
+                    try Task.checkCancellation()
                     recordingDetailsByID[recordingID] = detail
                 } catch {
                     // Keep release loading resilient; missing recording detail only hides deep relationship fields.
@@ -400,6 +430,19 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
             completedCount += 1
             progress(completedCount, recordingIDs.count)
+        }
+    }
+
+    private func loadRecordingDetail(
+        id: String,
+        fallbackReleases: [MusicBrainzRecordingResult.Release]
+    ) async throws -> MusicBrainzRecordingDetail {
+        let detailClient = client
+        return try await withAsyncTimeout(
+            detailTimeout,
+            operationName: "MusicBrainz recording detail"
+        ) {
+            try await detailClient.recordingDetail(id: id, fallbackReleases: fallbackReleases)
         }
     }
 

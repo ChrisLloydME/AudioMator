@@ -1,6 +1,6 @@
 import Foundation
 
-enum iTunesSearchMode: String, CaseIterable, Identifiable {
+nonisolated enum iTunesSearchMode: String, CaseIterable, Identifiable, Sendable {
     case track
     case album
     case file
@@ -20,7 +20,7 @@ enum iTunesSearchMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum iTunesStorefront: String, CaseIterable, Identifiable, Hashable {
+nonisolated enum iTunesStorefront: String, CaseIterable, Identifiable, Hashable, Sendable {
     case us
     case cn
     case hk
@@ -73,7 +73,7 @@ enum iTunesStorefront: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-struct iTunesFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct iTunesFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let displayTitle: String
     let title: String
@@ -117,7 +117,7 @@ struct iTunesFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
     }
 }
 
-struct iTunesFileSelectionSummary: Equatable, Hashable, Sendable {
+nonisolated struct iTunesFileSelectionSummary: Equatable, Hashable, Sendable {
     let files: [iTunesFileSearchInput]
     let albumCandidate: String
     let albumArtistCandidate: String
@@ -158,7 +158,7 @@ struct iTunesFileSelectionSummary: Equatable, Hashable, Sendable {
 
 }
 
-struct iTunesSearchQuery: Equatable {
+nonisolated struct iTunesSearchQuery: Equatable, Sendable {
     var mode: iTunesSearchMode = .track
     var title: String = ""
     var artist: String = ""
@@ -211,7 +211,7 @@ struct iTunesSearchQuery: Equatable {
     }
 }
 
-enum iTunesSearchResults: Equatable {
+nonisolated enum iTunesSearchResults: Equatable, Sendable {
     case tracks([iTunesTrackResult])
     case albums([iTunesAlbumResult])
 
@@ -225,7 +225,7 @@ enum iTunesSearchResults: Equatable {
     var isEmpty: Bool { count == 0 }
 }
 
-struct iTunesTrackResult: Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct iTunesTrackResult: Identifiable, Equatable, Hashable, Sendable {
     let trackID: Int
     let collectionID: Int?
     let artistID: Int?
@@ -259,7 +259,7 @@ struct iTunesTrackResult: Identifiable, Equatable, Hashable, Sendable {
     }
 }
 
-struct iTunesAlbumResult: Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct iTunesAlbumResult: Identifiable, Equatable, Hashable, Sendable {
     let collectionID: Int
     let artistID: Int?
     let collectionArtistID: Int?
@@ -285,13 +285,13 @@ struct iTunesAlbumResult: Identifiable, Equatable, Hashable, Sendable {
     }
 }
 
-struct iTunesAlbumDetail: Equatable, Hashable, Sendable {
+nonisolated struct iTunesAlbumDetail: Equatable, Hashable, Sendable {
     let album: iTunesAlbumResult
     let tracks: [iTunesTrackResult]
     var selectionMatchPreview: iTunesAlbumMatchPreview?
 }
 
-struct iTunesAlbumMatchAssignment: Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct iTunesAlbumMatchAssignment: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let file: iTunesFileSearchInput
     let track: iTunesTrackResult
@@ -299,7 +299,7 @@ struct iTunesAlbumMatchAssignment: Identifiable, Equatable, Hashable, Sendable {
     let reason: String
 }
 
-struct iTunesAlbumMatchPreview: Equatable, Hashable, Sendable {
+nonisolated struct iTunesAlbumMatchPreview: Equatable, Hashable, Sendable {
     let totalSelectedFiles: Int
     let matchedAssignments: [iTunesAlbumMatchAssignment]
     let unmatchedFiles: [iTunesFileSearchInput]
@@ -307,7 +307,7 @@ struct iTunesAlbumMatchPreview: Equatable, Hashable, Sendable {
     let overallScore: Double
 }
 
-enum iTunesAlbumMatcher {
+nonisolated enum iTunesAlbumMatcher {
     nonisolated static func match(selection: iTunesFileSelectionSummary, detail: iTunesAlbumDetail) -> iTunesAlbumMatchPreview {
         let exactAssignments = greedyAssignments(
             from: buildCandidates(
@@ -629,6 +629,8 @@ protocol iTunesBrowserClient: Sendable {
 }
 
 struct iTunesClient: iTunesBrowserClient, Sendable {
+    static let requestTimeout: TimeInterval = 15
+
     private let session: URLSession
 
     nonisolated init(session: URLSession = .shared) {
@@ -691,12 +693,14 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
             var matchedAlbumsByID: [Int: iTunesAlbumResult] = [:]
 
             for album in albums.prefix(18) {
+                try Task.checkCancellation()
                 do {
                     var detail = try await albumDetail(collectionID: album.collectionID, country: query.country)
                     let preview = iTunesAlbumMatcher.match(selection: summary, detail: detail)
                     detail.selectionMatchPreview = preview
                     matchedAlbumsByID[album.collectionID] = detail.album.withPreview(preview)
                 } catch {
+                    try Task.checkCancellation()
                     matchedAlbumsByID[album.collectionID] = album
                 }
             }
@@ -737,12 +741,14 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
             do {
                 append(try await searchAlbums(term: albumArtistTerm, country: query.country, limit: min(limit, 25)))
             } catch {
+                try Task.checkCancellation()
                 // Keep the primary album search usable if a secondary recall query fails.
             }
         }
 
         let representativeFiles = representativeFilesForAlbumDiscovery(summary.files)
         for file in representativeFiles {
+            try Task.checkCancellation()
             let term = [file.title, file.artist, file.album]
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
@@ -752,6 +758,7 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
             do {
                 tracks = try await searchTracks(term: term, country: query.country, limit: 12)
             } catch {
+                try Task.checkCancellation()
                 continue
             }
             for track in iTunesAlbumMatcher.rerankTracks(tracks, file: file) {
@@ -876,7 +883,8 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
         components.queryItems = queryItems
 
         guard let url = components.url else { throw iTunesClientError.failedToBuildURL }
-        let (data, response) = try await session.data(from: url)
+        let request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw iTunesClientError.invalidResponseBody }
         guard (200..<300).contains(http.statusCode) else { throw iTunesClientError.requestFailed(http.statusCode) }
         guard
@@ -1000,7 +1008,7 @@ enum iTunesLinkParser {
 }
 
 private extension String {
-    var trimmedForiTunes: String {
+    nonisolated var trimmedForiTunes: String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

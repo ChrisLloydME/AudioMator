@@ -65,7 +65,7 @@ enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    static func fromiTunesExplicitness(_ explicitness: String) -> ContentAdvisory? {
+    nonisolated static func fromiTunesExplicitness(_ explicitness: String) -> ContentAdvisory? {
         let normalized = explicitness.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         switch normalized {
         case "explicit":

@@ -13,8 +13,10 @@ extension AudioViewModel {
             subtitle: "Preparing \(entries.count) files...",
             totalUnitCount: entries.count
         )
+        defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
+            guard !Task.isCancelled else { return }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -43,6 +45,7 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
+            guard !Task.isCancelled else { return }
 
             switch result {
             case .success(let success):
@@ -71,7 +74,6 @@ extension AudioViewModel {
             subtitle: "Finishing...",
             completedUnitCount: entries.count
         )
-        endMetadataSaveProgress()
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             updateEditForSelection()
@@ -92,8 +94,10 @@ extension AudioViewModel {
             subtitle: "Preparing \(entries.count) files...",
             totalUnitCount: entries.count
         )
+        defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
+            guard !Task.isCancelled else { return }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -122,6 +126,7 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
+            guard !Task.isCancelled else { return }
 
             switch result {
             case .success(let success):
@@ -150,7 +155,6 @@ extension AudioViewModel {
             subtitle: "Finishing...",
             completedUnitCount: entries.count
         )
-        endMetadataSaveProgress()
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             updateEditForSelection()

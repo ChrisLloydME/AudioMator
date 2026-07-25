@@ -1009,6 +1009,36 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "iTunes Title")
     }
 
+    func testCancelledProviderApplyAlwaysClearsMetadataProgress() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/itunes-cancelled-apply.m4a")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let pipeline = ProviderApplyGatedPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let applyTask = Task {
+            await viewModel.applyiTunesTaggingPlan([
+                iTunesTaggingWriteEntry(
+                    fileID: id,
+                    fileName: url.lastPathComponent,
+                    values: [.title: "Remote"]
+                )
+            ])
+        }
+        await pipeline.reloadStarted.wait()
+        XCTAssertNotNil(viewModel.metadataSaveProgress)
+
+        applyTask.cancel()
+        await applyTask.value
+
+        XCTAssertNil(
+            viewModel.metadataSaveProgress,
+            "Cancelling a provider apply must clear the shared progress overlay immediately."
+        )
+        await pipeline.allowReload.signal()
+    }
+
     func testExternalMetadataWriteDoesNotDiscardUnsavedInspectorDraft() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/itunes-unsaved.m4a")
@@ -1136,6 +1166,65 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
         }
 
         XCTFail("Timed out waiting for \(expectedCount) metadata writes", file: file, line: line)
+    }
+}
+
+private actor ProviderApplyLatch {
+    private var signaled = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func signal() {
+        guard !signaled else { return }
+        signaled = true
+        let pendingWaiters = waiters
+        waiters.removeAll()
+        pendingWaiters.forEach { $0.resume() }
+    }
+
+    func wait() async {
+        guard !signaled else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+}
+
+private final class ProviderApplyGatedPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    let reloadStarted = ProviderApplyLatch()
+    let allowReload = ProviderApplyLatch()
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        await reloadStarted.signal()
+        await allowReload.wait()
+        return await AudioFileTestFactory.make(id: id, url: url)
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeRawMetadataPropertyMap(
+        _ propertyMap: [String: String],
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
     }
 }
 #endif

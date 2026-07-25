@@ -90,3 +90,20 @@ Required fix and regression sensors:
 - iTunes album preview matching now runs in a detached user-initiated task; only the resolved immutable preview returns to the main-actor cache.
 - Added three regression sensors: non-cooperative MusicBrainz search teardown, non-cooperative iTunes search teardown, and main-actor schedulability while iTunes album matching is deliberately blocked.
 - Targeted result: `ProviderSearchRestartTests`, 5 tests passed serially on macOS.
+
+### Batch 2 — bounded provider operations and partial detail recovery
+
+- Added a one-shot async deadline primitive whose caller completes on success, failure, timeout, or cancellation even when the wrapped operation ignores cancellation. Late results are discarded.
+- MusicBrainz and iTunes searches, detail requests, and off-main iTunes matching now have operation deadlines; every provider URL request carries an explicit 15-second timeout.
+- MusicBrainz release detail is published before optional recording-detail preload. Individual preload requests and the overall preload have finite budgets, so unavailable relationship data can no longer hold the page in a loading state.
+- Sequential provider fan-out now checks cancellation between requests and does not swallow cancellation in best-effort fallback branches.
+- Added regression sensors for both non-cooperative search timeouts, non-cooperative MusicBrainz preload timeout, finite URL request timeouts, and replacement-search stale-result suppression.
+- Targeted result: `ProviderSearchRestartTests` and `ProviderNetworkFaultTests`, 13 tests passed serially on macOS; incremental macOS build succeeded.
+
+### Batch 3 — page-owned work and metadata mutation recovery
+
+- MusicBrainz/iTunes detail preparation, workbench apply, and MusicBrainz recording-detail tasks now have explicit owners and are cancelled when their page disappears. Cancelled recording loads return to an idle state without publishing late data.
+- Provider apply functions clear the shared metadata progress overlay with `defer`, including early cancellation exits between files and after writes.
+- Metadata write/reload now has a finite UI-facing deadline. Timeout or cancellation releases the caller while the underlying non-cancellable transaction retains its per-file reservation until it actually finishes, preventing overlapping TagLib writes.
+- Added regression sensors for cancellation during a non-cooperative provider reload and timeout during reload with a queued same-file mutation.
+- Targeted result: `FileMutationSerializationTests` plus the provider apply cancellation regression, 7 tests passed serially on macOS.

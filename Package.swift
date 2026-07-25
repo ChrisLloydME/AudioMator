@@ -23,6 +23,7 @@ let package = Package(
                 "Core/Localization",
                 "Core/Network",
                 "Core/Platform",
+                "Core/Concurrency",
                 "Core/Audio/AudioFormatSupport.swift",
                 "Domain/AudioFiles/AudioFile.swift",
                 "Domain/AudioFiles/MergedAudioFile.swift",

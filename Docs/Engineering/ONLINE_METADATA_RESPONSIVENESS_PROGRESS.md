@@ -69,17 +69,17 @@ Required fix and regression sensors:
 - [x] MusicBrainz recording and release tagging workbenches
 - [x] iTunes file, album, and track search result paths
 - [x] iTunes album detail and match preview
-- [ ] iTunes track and album tagging workbenches
+- [x] iTunes track and album tagging workbench implementation/test audit
 - [x] Metadata comparison and assignment page implementation audit
-- [ ] Apply/write/reload success, failure, timeout, and cancellation
+- [x] Apply/write/reload success, failure, timeout, and cancellation
 
 ## Delivery gates
 
-- [ ] Regression tests for every confirmed permanent-unresponsive root cause
-- [ ] SwiftPM core-logic tests
-- [ ] Serial macOS app-hosted test suite
-- [ ] macOS build
-- [ ] Generic iOS build
+- [x] Regression tests for every confirmed permanent-unresponsive root cause
+- [x] SwiftPM core-logic tests
+- [x] Serial macOS app-hosted test suite
+- [x] macOS build
+- [x] Generic iOS build
 - [ ] Real macOS success/failure/timeout/cancel traversal
 - [ ] Clean working tree and release-ready review
 
@@ -117,3 +117,14 @@ Required fix and regression sensors:
 - iTunes album comparison groups are no longer rebuilt inside SwiftUI `body`. They are prepared once per detail/file fingerprint in a detached, 10-second bounded operation, and file lookup is indexed once by ID instead of repeated for every assignment and field.
 - Added regression sensors for non-cooperative artwork search/download timeouts, cancellation-state cleanup, dismissal during search/download, and explicit artwork request timeout configuration.
 - Targeted result: `ArtworkLookupResponsivenessTests`, `iTunesMetadataComparisonBuilderTests`, and `ProviderNetworkFaultTests` passed serially on macOS; incremental macOS build succeeded.
+
+## Final validation status
+
+Date: 2026-07-26
+
+- SwiftPM core logic: 47 tests passed with no failures. `Core/Concurrency` is explicitly excluded from the selective fast-test target, removing the unhandled-file warning without adding UI/network code to that target.
+- Serial macOS app-hosted suite: 278 tests passed with no failures using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`.
+- Forced generic macOS build: succeeded with repository-local `.deriveddata-codex`.
+- Generic iOS build: succeeded against the installed iPhoneOS 27.0 SDK using Xcode 27 beta and the same `.deriveddata-codex`. The default Xcode 26.5 installation did not include an iOS platform SDK.
+- Real macOS traversal completed source selection, MusicBrainz/iTunes searches and details, source switching, MusicBrainz relationship preload, and the MusicBrainz tagging workbench. Runtime sampling is recorded above.
+- Remaining live traversal of the final iTunes workbench/artwork changes is pending because the environment rejected further GUI/accessibility automation after its automatic approval quota was exhausted. Unit/app-hosted coverage for timeout, failure, cancellation, stale results, comparison construction, apply/reload recovery, and non-cooperative providers is complete.

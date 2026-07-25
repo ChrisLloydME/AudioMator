@@ -31,26 +31,26 @@ extension AudioViewModel {
             totalUnitCount: 1
         )
 
-        do {
-            let writeResult = try await updateRawMetadataPropertyMapOffMainActor(
-                at: file.url,
-                expectedFileFingerprint: file.fileFingerprint
-            ) {
-                $0["LYRICS"] = normalizedLyrics
-            }
-            var warnings = writeResult.warnings
-            let refreshWarning = await reloadEditedFile(file, syncInspectorAfterReload: true)
-            if let refreshWarning {
-                warnings.append(refreshWarning)
-            }
+        let result = await executeMetadataFileMutation(
+            at: file.url,
+            id: file.id,
+            expectedFileFingerprint: file.fileFingerprint,
+            syncInspectorAfterReload: true
+        ) { metadataPipeline, url in
+            var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
+            propertyMap["LYRICS"] = normalizedLyrics
+            return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+        }
 
+        switch result {
+        case .success(let success):
             updateMetadataSaveProgress(
                 subtitle: file.url.lastPathComponent,
                 completedUnitCount: 1
             )
             endMetadataSaveProgress()
 
-            if warnings.isEmpty {
+            if success.warnings.isEmpty {
                 presentMetadataWriteHUD(
                     style: .success,
                     title: "LRCLIB Lyrics Applied",
@@ -59,13 +59,13 @@ extension AudioViewModel {
             } else {
                 presentMetadataWriteWarning(
                     title: "Lyrics Applied with Issues",
-                    subtitle: ([file.url.lastPathComponent] + warnings).joined(separator: "\n")
+                    subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
                 )
             }
 
             return true
-        } catch {
-            let reason = (error as NSError).localizedDescription
+
+        case .failure(let reason):
             updateMetadataSaveProgress(
                 subtitle: file.url.lastPathComponent,
                 completedUnitCount: 1
@@ -150,37 +150,40 @@ extension AudioViewModel {
                 continue
             }
 
-            do {
-                let writeResult = try await updateRawMetadataPropertyMapOffMainActor(
-                    at: file.url,
-                    expectedFileFingerprint: file.fileFingerprint
-                ) {
-                    $0["LYRICS"] = normalizedLyrics
-                }
-                var warningMessages = writeResult.warnings
-                let refreshWarning = await reloadEditedFile(file, syncInspectorAfterReload: false)
+            let result = await executeMetadataFileMutation(
+                at: file.url,
+                id: file.id,
+                expectedFileFingerprint: file.fileFingerprint,
+                syncInspectorAfterReload: false
+            ) { metadataPipeline, url in
+                var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
+                propertyMap["LYRICS"] = normalizedLyrics
+                return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+            }
 
-                if let refreshWarning {
-                    warningMessages.append(refreshWarning)
+            switch result {
+            case .success(let success):
+                if !success.didRefreshFileModel {
                     summary.allSuccessfulFilesRefreshed = false
                 }
 
                 summary.succeeded += 1
                 appliedFileIDs.insert(file.id)
 
-                if !warningMessages.isEmpty {
+                if !success.warnings.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
                             fileName: file.url.lastPathComponent,
-                            messages: warningMessages
+                            messages: success.warnings
                         )
                     )
                 }
-            } catch {
+
+            case .failure(let reason):
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: file.url.lastPathComponent,
-                        messages: [(error as NSError).localizedDescription]
+                        messages: [reason]
                     )
                 )
             }

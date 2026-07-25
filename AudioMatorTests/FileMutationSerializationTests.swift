@@ -89,18 +89,34 @@ final class FileMutationSerializationTests: XCTestCase {
             .appendingPathComponent("track.mp3")
         let file = AudioFileTestFactory.make(url: canonicalURL)
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: viewModel.fileMutationCoordinator
+        )
 
-        async let metadataWrite = viewModel.writeMetadataOffMainActor(payload, to: canonicalURL)
+        async let metadataWrite = executor.execute(
+            at: canonicalURL,
+            id: file.id,
+            expectedFileFingerprint: nil
+        ) { pipeline, url in
+            try pipeline.writeMetadata(payload, to: url)
+        }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
 
-        async let rawMapWrite = viewModel.writeRawMetadataPropertyMapOffMainActor([:], to: aliasURL)
+        async let rawMapWrite = executor.execute(
+            at: aliasURL,
+            id: file.id,
+            expectedFileFingerprint: nil
+        ) { pipeline, url in
+            try pipeline.writeRawMetadataPropertyMap([:], to: url)
+        }
         let didQueueAliasMutation = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 1
         }
         let mutationCountBeforeRelease = pipeline.totalMutationCount
         pipeline.releaseFirstMutation()
-        _ = try await (metadataWrite, rawMapWrite)
+        _ = await (metadataWrite, rawMapWrite)
 
         XCTAssertTrue(didQueueAliasMutation)
         XCTAssertEqual(mutationCountBeforeRelease, 1)
@@ -120,12 +136,28 @@ final class FileMutationSerializationTests: XCTestCase {
         )
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
         viewModel.mergeQuickImportFiles([file])
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: viewModel.fileMutationCoordinator
+        )
 
-        async let metadataWrite = viewModel.writeMetadataOffMainActor(payload, to: fileURL)
+        async let metadataWrite = executor.execute(
+            at: fileURL,
+            id: fileID,
+            expectedFileFingerprint: nil
+        ) { pipeline, url in
+            try pipeline.writeMetadata(payload, to: url)
+        }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
 
-        async let metadataErase = viewModel.eraseAllMetadataOffMainActor(at: fileURL)
+        async let metadataErase = executor.execute(
+            at: fileURL,
+            id: fileID,
+            expectedFileFingerprint: nil
+        ) { pipeline, url in
+            try pipeline.eraseAllMetadata(at: url)
+        }
         async let renumberResult = viewModel.renumberTrackNumbers(
             orderedIDs: [fileID],
             selectedIDs: [],
@@ -141,7 +173,7 @@ final class FileMutationSerializationTests: XCTestCase {
         }
         let mutationCountBeforeRelease = pipeline.totalMutationCount
         pipeline.releaseFirstMutation()
-        _ = try await (metadataWrite, metadataErase)
+        _ = await (metadataWrite, metadataErase)
         let result = await renumberResult
 
         XCTAssertTrue(didQueueBothMutations)

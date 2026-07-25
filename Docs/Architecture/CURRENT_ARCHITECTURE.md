@@ -15,7 +15,7 @@
 
 ## Runtime flow
 
-文件由 quick import 或 watched-folder scan 进入 `AudioViewModel` 私有集合，再通过 `files` 暴露当前 source。选择由 `SharedState` 保存，并复制到 `AudioViewModel`；后者据此创建 inspector draft。metadata mutation 通过 `FileMutationCoordinator` 串行化相同规范化路径，调用 `AudioMetadataPipeline` 写入，再 reload 为新的 `AudioFile` 快照。
+文件由 quick import 或 watched-folder scan 进入 `AudioViewModel` 私有集合，再通过 `files` 暴露当前 source。选择由 `SharedState` 保存，并复制到 `AudioViewModel`；后者据此创建 inspector draft。所有 metadata mutation 通过 `MetadataFileMutationExecutor` 在同一 `FileMutationCoordinator` reservation 内完成 fingerprint validation、write 和 reload，再由 `AudioViewModel` 在主 actor 应用新的 `AudioFile` 快照与 presentation。
 
 rename 是多路径两阶段事务：同时 reserve source/destination，先移动到唯一临时路径，再 finalize；失败时 best-effort rollback 并返回 recovery items。
 
@@ -23,7 +23,6 @@ provider search 由各自 `@MainActor` store 管理。MusicBrainz/iTunes 生成 
 
 ## Known transitional boundaries
 
-- metadata write/reload reservation 在不同 feature path 中不一致。
 - selection 存在两个可变 owner。
 - metadata pipeline contract 与 TagLib adapter 尚未物理分离。
 - `Domain/UIState` 属于目录边界错误。

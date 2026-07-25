@@ -8,6 +8,8 @@
 
 属性/模糊测试使用固定 seed、明确迭代次数和输入长度上限。失败输出 seed 与最小必要输入，使 CI 可复现。
 
+当前固定-seed 性质传感器覆盖 CSV quote/delimiter/formula/Unicode round-trip、metadata template syntax code-point preservation、track/disc numeric intent、rename unsafe scalar 清理；全空末尾 CSV record 因文本格式本身与尾随换行不可区分，生成器明确排除该歧义输入。
+
 ## App-hosted tests
 
 命令：

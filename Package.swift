@@ -32,7 +32,6 @@ let package = Package(
                 "Domain/MetadataExchange/MetadataExchange.swift",
                 "Domain/Rename/FileRenameTemplate.swift",
                 "Domain/Rename/FilenameMetadataTemplate.swift",
-                "Domain/UIState",
                 "Domain/MetadataEditing/AudioMetadataPipeline.swift",
                 "Infrastructure/FileSystem",
                 "Infrastructure/GitHub",

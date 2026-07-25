@@ -9,8 +9,8 @@
 ## Layers
 
 - `App`：应用入口、scene、commands、notifications、macOS delegate 与更新装配。
-- `Features`：SwiftUI/AppKit/UIKit 视图、provider store、工具 store、`AudioViewModel` 及 mutation presentation。
-- `Domain`：metadata/rename/exchange/renumber 语义和当前 `AudioFile`/draft 模型。基线状态下该目录仍包含 UI state 及部分平台/TagLib 依赖，属于已登记改进项。
+- `Features`：SwiftUI/AppKit/UIKit 视图、provider store、工具 store、`AudioViewModel`、feature state 及 mutation presentation。
+- `Domain`：metadata/rename/exchange/renumber 语义和当前 `AudioFile`/draft 模型。基线状态下该目录仍包含部分平台/TagLib 依赖，属于已登记改进项。
 - `Infrastructure`：watched-folder、directory monitor、网络 client、update service 和 provider core。基线 `TagLibAudioMetadataPipeline` 尚位于 Domain 文件中。
 
 ## Runtime flow
@@ -24,6 +24,5 @@ provider search 由各自 `@MainActor` store 管理。MusicBrainz/iTunes 生成 
 ## Known transitional boundaries
 
 - metadata pipeline contract 与 TagLib adapter 尚未物理分离。
-- `Domain/UIState` 属于目录边界错误。
 
 这些项目只有在代码和测试实际迁移后才从本节删除。

@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`c60099b`
+- 当前 commit：`585e8ba`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
-- 当前阶段：批次 2——选择与 draft 单一所有权
-- 最后稳定 commit：`c60099b`
+- 当前阶段：批次 3——UI state 与 metadata infrastructure 依赖边界
+- 最后稳定 commit：`585e8ba`
 
 ## 当前架构假设
 
@@ -33,6 +33,7 @@
 - 审计基线：`1a4b8c0` (`docs(audit): establish architecture modernization baseline`)
 - 批次 1 contract 与测试：`7512fb1` (`arch(metadata): define atomic write and reload boundary`)
 - 批次 1 调用方迁移：`c60099b` (`refactor(metadata): route writes through atomic mutations`)
+- 批次 2 selection owner：`585e8ba` (`refactor(selection): establish a single session owner`)
 
 ## 本阶段修改文件
 
@@ -51,7 +52,10 @@
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataClear.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+LRCLIBLyricsWrite.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+TrackRenumbering.swift`
-- `AudioMator/Domain/UIState/SharedState.swift`
+- `AudioMator/Features/Main/State/SharedState.swift`
+- `AudioMator/Features/Main/State/MiddleListColumn.swift`
+- `AudioMator/Features/Main/State/ToolbarButtonOption.swift`
+- `AudioMator/Features/Main/State/InspectorMetadataField.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel.swift`
 - `AudioMator/Features/Main/ViewModels/AudioViewModel+FileActions.swift`
 - `AudioMator/Features/Main/Views/ContentView.swift`
@@ -75,6 +79,7 @@
 - 2026-07-25：active Xcode 26.6 generic iOS build 未执行，原因是本机未安装 iOS 26.5 SDK；已确认 Xcode 27 beta 含 iOS 27 SDK，待用同一 `.deriveddata-codex` 验证。
 - 2026-07-25：Xcode 27 beta generic iOS build 首次在 sandbox 内因 CoreSimulator/cache service 退出 143；按环境故障策略在 sandbox 外重跑（未启动 simulator），build passed，保留两个既有 iPad launch/orientation 配置 warning 待最终 release gate 评估。
 - 2026-07-25：selection owner 后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；`bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded。
+- 2026-07-25：UI-only state 迁移后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；`bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded；`git diff --check` passed。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -97,7 +102,7 @@
 
 ## 下一步唯一动作
 
-提交 selection 单一所有权批次，然后开始 contract/TagLib adapter 与 UIState 目录边界迁移。
+提交 UI-only state 目录迁移，然后拆分 metadata contract、TagLib pipeline 和 `AudioFile` loading adapter。
 
 ## 批次规模说明
 

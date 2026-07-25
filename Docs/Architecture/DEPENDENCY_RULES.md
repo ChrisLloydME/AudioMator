@@ -36,3 +36,4 @@ Infrastructure adapters
 - SwiftPM `AudioMatorCoreLogic` source list 是纯逻辑快速传感器，不得加入 AppKit、UIKit、SwiftUI、Combine、TagLib 或网络依赖。
 - app-hosted tests 覆盖 adapter、真实 `AudioFile`、TagLib、文件系统与主 actor 编排。
 - 每次新跨层 import、公开 protocol 或 service 都必须说明调用方、被替代耦合和独立测试收益。
+- `AudioFile` 可以保存由 `Core/Platform` 定义的原生 artwork snapshot，以避免在每个 inspector binding 中重复解码；TagLib、AVFoundation 与 AppKit/UIKit 的构造行为必须留在 Infrastructure adapter。

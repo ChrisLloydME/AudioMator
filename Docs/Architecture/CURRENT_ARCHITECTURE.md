@@ -10,8 +10,8 @@
 
 - `App`：应用入口、scene、commands、notifications、macOS delegate 与更新装配。
 - `Features`：SwiftUI/AppKit/UIKit 视图、provider store、工具 store、`AudioViewModel`、feature state 及 mutation presentation。
-- `Domain`：metadata/rename/exchange/renumber 语义和当前 `AudioFile`/draft 模型。基线状态下该目录仍包含部分平台/TagLib 依赖，属于已登记改进项。
-- `Infrastructure`：watched-folder、directory monitor、网络 client、update service 和 provider core。基线 `TagLibAudioMetadataPipeline` 尚位于 Domain 文件中。
+- `Domain`：metadata/rename/exchange/renumber 语义、`AudioFile`/draft 模型与 metadata pipeline contract。`AudioFile` 模型本身只依赖 Foundation；其他仍含 Combine 的观察型 domain models 是后续可独立评估的边界。
+- `Infrastructure`：watched-folder、directory monitor、网络 client、update service、provider core，以及 `Infrastructure/TagLib` 下的 metadata pipeline 与 `AudioFile` loading adapter。
 
 ## Runtime flow
 
@@ -21,8 +21,6 @@ rename 是多路径两阶段事务：同时 reserve source/destination，先移�
 
 provider search 由各自 `@MainActor` store 管理。MusicBrainz/iTunes 生成 write plan 并交给 `AudioViewModel`；LRCLIB 更新 raw property map。网络调用保持用户显式触发。
 
-## Known transitional boundaries
+## Adapter boundary
 
-- metadata pipeline contract 与 TagLib adapter 尚未物理分离。
-
-这些项目只有在代码和测试实际迁移后才从本节删除。
+`Domain/MetadataEditing/AudioMetadataPipeline.swift` 只声明 write/load contract、payload 和结果。`Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift` 实现 TagLib 写入、验证与兼容清理；`AudioFile+TagLibLoading.swift` 拥有 TagLib、AVFoundation 与平台图像构造。App 在 composition root 注入具体 adapter。

@@ -4,19 +4,19 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`585e8ba`
+- 当前 commit：`a9634da`
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
 - 当前阶段：批次 3——UI state 与 metadata infrastructure 依赖边界
-- 最后稳定 commit：`585e8ba`
+- 最后稳定 commit：`a9634da`
 
 ## 当前架构假设
 
 1. `AudioFile` 是加载到内存的磁盘快照；`SingleFileEditModel` / `MultiFileEditModel` 是未持久化 draft；TagLib 写入后的重新加载才应更新快照。
 2. `AudioViewModel` 是当前文件集合、文件来源、加载任务、mutation coordinator、draft、进度与用户反馈的实际编排中心。
-3. `SharedState.selectedAudioIDs` 是视图侧选择事实来源，但 `AudioViewModel.selectedAudioIDs` 又是保存和 draft 逻辑的事实来源；当前通过视图回调手动同步。
+3. `AudioViewModel.selectedAudioIDs` 是选择的唯一事实来源；setter 在同一 main-actor operation 中过滤可见 ID 并重建 draft。
 4. `FileMutationCoordinator` 对规范化路径提供原子多路径 reservation 和等待取消；批次 1 后，所有 metadata write/reload 由 `MetadataFileMutationExecutor` 保持同一 reservation。
-5. `AudioMetadataPipeline` 同时声明业务所需 contract 并包含 TagLib adapter、兼容清理、验证和错误转换。
+5. `AudioMetadataPipeline` 在 Domain 声明业务 contract；TagLib adapter、兼容清理、验证和 `AudioFile` loading 位于 `Infrastructure/TagLib`。
 6. SwiftPM 快速测试覆盖 43 个纯逻辑用例；依赖 `AudioFile`、TagLib、Combine 或平台框架的多数编排只能在 app-hosted target 中测试。
 
 ## 已完成
@@ -34,6 +34,7 @@
 - 批次 1 contract 与测试：`7512fb1` (`arch(metadata): define atomic write and reload boundary`)
 - 批次 1 调用方迁移：`c60099b` (`refactor(metadata): route writes through atomic mutations`)
 - 批次 2 selection owner：`585e8ba` (`refactor(selection): establish a single session owner`)
+- 批次 3 UI state boundary：`a9634da` (`refactor(ui-state): move presentation state out of domain`)
 
 ## 本阶段修改文件
 
@@ -80,6 +81,9 @@
 - 2026-07-25：Xcode 27 beta generic iOS build 首次在 sandbox 内因 CoreSimulator/cache service 退出 143；按环境故障策略在 sandbox 外重跑（未启动 simulator），build passed，保留两个既有 iPad launch/orientation 配置 warning 待最终 release gate 评估。
 - 2026-07-25：selection owner 后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；`bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded。
 - 2026-07-25：UI-only state 迁移后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；`bash scripts/codex-build.sh`，generic macOS universal Debug build succeeded；`git diff --check` passed。
+- 2026-07-25：metadata contract/adapter 拆分后 `swift test --filter AudioMatorCoreLogicTests`，43 tests passed；首次 macOS build 发现 Infrastructure loader 缺显式 AppKit/UIKit import，修正后 `bash scripts/codex-build.sh` passed。
+- 2026-07-25：focused `SensitiveLoggingPolicyTests` 与 `TagLibReadWriteIntegrationTests` passed；仅保留测试代码中两个既有 unused-result warning。
+- 2026-07-25：Xcode 27 beta generic iOS build passed（未启动 simulator）；仍保留批次 2 已登记的 orientation/launch configuration warning，留待最终 release gate 修正。
 - 待运行：审计文档提交前 `git diff --check`。
 - 待运行：每个代码批次的相关 app-hosted 测试、SwiftPM 快速测试和增量构建。
 - 待运行：目标文件要求的最终完整验证矩阵。
@@ -95,14 +99,14 @@
 ## 未解决风险
 
 - `AudioViewModel` 同时拥有文件来源、平台资源、加载、选择/draft、mutation、进度和 HUD，多种变化原因仍集中。
-- Domain 路径内仍有 Combine、AppKit/UIKit、AVFoundation 与 TagLib 依赖；其中部分是目录归属错误，部分需要真实 adapter 拆分。
-- `AudioMetadataPipeline` contract 和 TagLib 实现同文件，快速测试无法替换完整的写入—reload 用例。
+- Domain 路径内仍有 Combine 观察型模型；将其改为 Observation 会扩散 UI binding，需另有证据再做。
+- metadata contract 与 adapter 已物理分离，但真实 TagLib write/reload 仍必须由 app-hosted target 覆盖。
 - `MetadataExchange.swift` 包含多个独立语法和 planning 职责，修改扩散与 app-hosted 覆盖比例偏高。
 - 没有已授权的签名、公证、上传或发布动作；“release-ready”仅指进入这些外部流程之前的源码、测试和构建状态。
 
 ## 下一步唯一动作
 
-提交 UI-only state 目录迁移，然后拆分 metadata contract、TagLib pipeline 和 `AudioFile` loading adapter。
+提交 metadata contract、TagLib pipeline 和 `AudioFile` loading adapter，然后进入批次 4。
 
 ## 批次规模说明
 

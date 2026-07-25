@@ -8,7 +8,7 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let sourceURL = repositoryURL
-            .appendingPathComponent("AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift")
+            .appendingPathComponent("AudioMator/Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertFalse(source.contains("logMetadataWrite("))

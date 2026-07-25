@@ -4,6 +4,86 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class ProviderSearchRestartTests: XCTestCase {
+    func testiTunesAlbumMatchingDoesNotBlockMainActor() async throws {
+        let matchingGate = BlockingSynchronousGate()
+        let detail = makeAlbumDetail()
+        let store = iTunesBrowserStore(
+            client: ImmediateiTunesDetailClient(detail: detail),
+            albumMatcher: { selection, _ in
+                matchingGate.blockUntilReleased()
+                return iTunesAlbumMatchPreview(
+                    totalSelectedFiles: selection.files.count,
+                    matchedAssignments: [],
+                    unmatchedFiles: selection.files,
+                    unassignedTracks: [],
+                    overallScore: 0
+                )
+            }
+        )
+        store.seed(from: [
+            AudioFileTestFactory.make(title: "Track", artist: "Artist", album: "Album")
+        ])
+
+        let detailTask = Task {
+            try await store.albumDetail(for: detail.album)
+        }
+        let matcherStarted = try await waitUntil { matchingGate.didStart }
+
+        XCTAssertTrue(matcherStarted)
+        XCTAssertTrue(
+            Thread.isMainThread,
+            "The test must resume on the main actor while the matcher is still blocked off-main."
+        )
+
+        matchingGate.release()
+        let resolved = try await detailTask.value
+        XCTAssertEqual(resolved.selectionMatchPreview?.totalSelectedFiles, 1)
+    }
+
+    func testiTunesCancelledNonCooperativeSearchReleasesStoreAndLoadingState() async {
+        let gate = NonCooperativeProviderSearchGate()
+        var store: iTunesBrowserStore? = iTunesBrowserStore(
+            client: NonCooperativeiTunesBrowserClient(gate: gate)
+        )
+        weak var weakStore = store
+        store?.titleQuery = "Never Finishes"
+
+        store?.search()
+        await gate.waitUntilStarted()
+        store?.closeWindowSession()
+        XCTAssertFalse(store?.isSearching ?? true)
+        store = nil
+        await drainCancelledSearchCompletion()
+
+        XCTAssertNil(
+            weakStore,
+            "A non-cooperative provider request must not retain its browser store after closure."
+        )
+        await gate.finish()
+    }
+
+    func testMusicBrainzCancelledNonCooperativeSearchReleasesStoreAndLoadingState() async {
+        let gate = NonCooperativeProviderSearchGate()
+        var store: MusicBrainzBrowserStore? = MusicBrainzBrowserStore(
+            client: NonCooperativeMusicBrainzBrowserClient(gate: gate)
+        )
+        weak var weakStore = store
+        store?.titleQuery = "Never Finishes"
+
+        store?.search()
+        await gate.waitUntilStarted()
+        store?.closeWindowSession()
+        XCTAssertFalse(store?.isSearching ?? true)
+        store = nil
+        await drainCancelledSearchCompletion()
+
+        XCTAssertNil(
+            weakStore,
+            "A non-cooperative provider request must not retain its browser store after closure."
+        )
+        await gate.finish()
+    }
+
     func testiTunesRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
         let gate = RestartableProviderSearchGate()
         let store = iTunesBrowserStore(client: RestartableiTunesBrowserClient(gate: gate))
@@ -67,6 +147,132 @@ final class ProviderSearchRestartTests: XCTestCase {
         for _ in 0..<10 {
             await Task.yield()
         }
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        _ condition: () -> Bool
+    ) async throws -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while clock.now < deadline {
+            if condition() { return true }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
+
+    private func makeAlbumDetail() -> iTunesAlbumDetail {
+        iTunesAlbumDetail(
+            album: iTunesAlbumResult(
+                collectionID: 42,
+                artistID: nil,
+                collectionArtistID: nil,
+                collectionName: "Album",
+                artistName: "Artist",
+                collectionArtistName: "Artist",
+                trackCount: 0,
+                releaseDate: "",
+                primaryGenreName: "",
+                country: "US",
+                copyright: "",
+                contentAdvisoryRating: "",
+                collectionExplicitness: "",
+                collectionViewURL: nil,
+                artistViewURL: nil,
+                selectionMatchPreview: nil,
+                selectionMatchScore: nil
+            ),
+            tracks: [],
+            selectionMatchPreview: nil
+        )
+    }
+}
+
+private final class BlockingSynchronousGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private let releaseSemaphore = DispatchSemaphore(value: 0)
+    private var started = false
+
+    var didStart: Bool {
+        lock.withLock { started }
+    }
+
+    func blockUntilReleased() {
+        lock.withLock { started = true }
+        releaseSemaphore.wait()
+    }
+
+    func release() {
+        releaseSemaphore.signal()
+    }
+}
+
+private actor NonCooperativeProviderSearchGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var started = false
+
+    func suspendIgnoringCancellation() async {
+        started = true
+        startWaiters.forEach { $0.resume() }
+        startWaiters.removeAll()
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilStarted() async {
+        guard !started else { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    func finish() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+private struct ImmediateiTunesDetailClient: iTunesBrowserClient {
+    let detail: iTunesAlbumDetail
+
+    func search(matching query: iTunesSearchQuery, limit: Int) async throws -> iTunesSearchResults {
+        .tracks([])
+    }
+
+    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+        detail
+    }
+}
+
+private struct NonCooperativeiTunesBrowserClient: iTunesBrowserClient {
+    let gate: NonCooperativeProviderSearchGate
+
+    func search(matching query: iTunesSearchQuery, limit: Int) async throws -> iTunesSearchResults {
+        await gate.suspendIgnoringCancellation()
+        return .tracks([])
+    }
+
+    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+        throw ProviderSearchTestError.unexpectedDetailRequest
+    }
+}
+
+private struct NonCooperativeMusicBrainzBrowserClient: MusicBrainzBrowserClient {
+    let gate: NonCooperativeProviderSearchGate
+
+    func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults {
+        await gate.suspendIgnoringCancellation()
+        return .recordings([])
+    }
+
+    func recordingDetail(
+        id: String,
+        fallbackReleases: [MusicBrainzRecordingResult.Release]
+    ) async throws -> MusicBrainzRecordingDetail {
+        throw ProviderSearchTestError.unexpectedDetailRequest
+    }
+
+    func releaseDetail(id: String) async throws -> MusicBrainzReleaseDetail {
+        throw ProviderSearchTestError.unexpectedDetailRequest
     }
 }
 

@@ -78,6 +78,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     private let client: any MusicBrainzBrowserClient
     private var searchTask: Task<Void, Never>?
+    private var searchOperationID = UUID()
     private var recordingDetailsByID: [String: MusicBrainzRecordingDetail] = [:]
     private var fileTrackTotal: Int = 0
     private var fileDurationMilliseconds: Int?
@@ -150,6 +151,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     }
 
     func apply(seed: MusicBrainzSearchSeed?) {
+        cancelSearch()
         guard let seed else {
             resetToDefault()
             return
@@ -176,7 +178,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
     }
 
     func resetToDefault() {
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
@@ -202,13 +204,13 @@ final class MusicBrainzBrowserStore: ObservableObject {
     }
 
     func closeWindowSession() {
-        searchTask?.cancel()
+        cancelSearch()
         recordingDetailsByID = [:]
         resetToDefault()
     }
 
     func clearSearch() {
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         titleQuery = ""
         artistQuery = ""
@@ -239,7 +241,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     func handleModeChange(from oldMode: MusicBrainzSearchMode, to newMode: MusicBrainzSearchMode) {
         guard oldMode != newMode else { return }
-        searchTask?.cancel()
+        cancelSearch()
         resetNavigation()
         isSearching = false
         errorMessage = nil
@@ -277,32 +279,42 @@ final class MusicBrainzBrowserStore: ObservableObject {
         errorMessage = nil
         isSearching = true
         lastSubmittedQuery = query
-        searchTask?.cancel()
+        cancelSearch(resetLoadingState: false)
 
-        searchTask = Task { [client] in
+        let operationID = UUID()
+        searchOperationID = operationID
+
+        searchTask = Task { [client, weak self] in
             do {
                 let results = try await client.search(matching: query, limit: 25)
                 guard !Task.isCancelled else { return }
-
-                await MainActor.run {
-                    self.results = results
-                    self.errorMessage = nil
-                    self.isSearching = false
-                }
+                guard let self, self.searchOperationID == operationID else { return }
+                self.searchTask = nil
+                self.results = results
+                self.errorMessage = nil
+                self.isSearching = false
             } catch is CancellationError {
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    self.isSearching = false
-                }
+                guard let self, self.searchOperationID == operationID else { return }
+                self.searchTask = nil
+                self.isSearching = false
             } catch {
                 guard !Task.isCancelled else { return }
-
-                await MainActor.run {
-                    self.results = Self.emptyResults(for: query)
-                    self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                    self.isSearching = false
-                }
+                guard let self, self.searchOperationID == operationID else { return }
+                self.searchTask = nil
+                self.results = Self.emptyResults(for: query)
+                self.errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                self.isSearching = false
             }
+        }
+    }
+
+    func cancelSearch(resetLoadingState: Bool = true) {
+        searchOperationID = UUID()
+        searchTask?.cancel()
+        searchTask = nil
+        if resetLoadingState {
+            isSearching = false
         }
     }
 

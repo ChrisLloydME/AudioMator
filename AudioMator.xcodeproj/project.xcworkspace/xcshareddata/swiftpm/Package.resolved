@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ChrisLloydME/TagLibAudioMetadata.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "714321c400775b18c6aa667fe5dfa7253cb7f803"
+        "revision" : "921ede9fa2e74f9ece96d600e4b8c688b74c8991",
+        "version" : "0.4.3"
       }
     }
   ],

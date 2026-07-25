@@ -1,4 +1,9 @@
 import Foundation
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 enum ArtworkLookupSource: String {
     case iTunesAlbumID = "iTunes Album ID"
@@ -140,14 +145,29 @@ extension AudioViewModel {
 
         let sessionID = session.id
         let targetFileIDs = session.fileIDs
+        let service = artworkLookupService
+        let operationTimeout = artworkLookupOperationTimeout
 
         artworkLookupTask?.cancel()
-        artworkLookupTask = Task { [weak self] in
-            guard let self else { return }
-
+        artworkLookupTask = Task { [weak self, service] in
             do {
-                let pendingArtwork = try await artworkLookupService.downloadArtwork(for: selectedResult)
-                guard !Task.isCancelled else { return }
+                let downloadedArtwork = try await withAsyncTimeout(
+                    operationTimeout,
+                    operationName: "iTunes artwork download"
+                ) {
+                    try await service.downloadArtworkData(for: selectedResult)
+                }
+                try Task.checkCancellation()
+
+                guard let previewImage = PlatformImage(data: downloadedArtwork.pngData) else {
+                    throw iTunesArtworkServiceError.imageDecodingFailed
+                }
+                let pendingArtwork = PendingArtwork(
+                    image: previewImage,
+                    data: downloadedArtwork.pngData,
+                    mimeType: "image/png"
+                )
+                guard let self else { return }
 
                 let targetFiles = files.filter { targetFileIDs.contains($0.id) }
                 guard !targetFiles.isEmpty else {
@@ -170,7 +190,14 @@ extension AudioViewModel {
                 artworkLookupSession = nil
                 artworkLookupTask = nil
             } catch is CancellationError {
+                guard let self else { return }
+                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
+                currentSession.isApplying = false
+                currentSession.errorMessage = L10n.string("The artwork download was cancelled.")
+                artworkLookupSession = currentSession
+                artworkLookupTask = nil
             } catch {
+                guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
                 currentSession.isApplying = false
                 currentSession.errorMessage = (error as NSError).localizedDescription
@@ -195,19 +222,23 @@ extension AudioViewModel {
         artworkLookupSession = session
 
         let sessionID = session.id
+        let service = artworkLookupService
+        let operationTimeout = artworkLookupOperationTimeout
 
-        artworkLookupTask = Task { [weak self] in
-            guard let self else { return }
-
+        artworkLookupTask = Task { [weak self, service] in
             do {
-                let results = try await artworkLookupService.search(
-                    iTunesArtworkSearchRequest(
-                        query: request.query,
-                        entity: request.entity
-                    )
+                let searchRequest = iTunesArtworkSearchRequest(
+                    query: request.query,
+                    entity: request.entity
                 )
-
-                guard !Task.isCancelled else { return }
+                let results = try await withAsyncTimeout(
+                    operationTimeout,
+                    operationName: "iTunes artwork search"
+                ) {
+                    try await service.search(searchRequest)
+                }
+                try Task.checkCancellation()
+                guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
 
                 currentSession.isLoading = false
@@ -218,7 +249,15 @@ extension AudioViewModel {
                 artworkLookupSession = currentSession
                 artworkLookupTask = nil
             } catch is CancellationError {
+                guard let self else { return }
+                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
+                currentSession.isLoading = false
+                currentSession.errorMessage = L10n.string("The artwork search was cancelled.")
+                currentSession.emptyMessage = nil
+                artworkLookupSession = currentSession
+                artworkLookupTask = nil
             } catch {
+                guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
                 currentSession.isLoading = false
                 currentSession.errorMessage = (error as NSError).localizedDescription

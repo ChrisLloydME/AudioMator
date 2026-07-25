@@ -1,6 +1,6 @@
 import Foundation
 
-struct AudioTagNumberPair: Equatable {
+nonisolated struct AudioTagNumberPair: Equatable, Sendable {
     var rawText: String
     var number: Int
     var total: Int

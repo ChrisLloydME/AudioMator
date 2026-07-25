@@ -12444,6 +12444,12 @@
         }
       }
     },
+    "The artwork download was cancelled." : {
+
+    },
+    "The artwork search was cancelled." : {
+
+    },
     "The column template contains too many columns." : {
 
     },
@@ -12698,6 +12704,9 @@
 
     },
     "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again." : {
+
+    },
+    "The metadata operation was cancelled before it started." : {
 
     },
     "The record is too complex to match safely. Use CSV import or a simpler template." : {

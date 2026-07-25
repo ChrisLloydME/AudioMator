@@ -12,7 +12,7 @@ enum ArtworkEditAction {
     case remove
 }
 
-enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
+nonisolated enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
     case notExplicit = 0
     case explicit = 1
     case clean = 2

@@ -14,7 +14,7 @@ struct IPadInspectorView: View {
     @State private var selectedPhotoLibraryArtworkItem: PhotosPickerItem?
 
     private var selectedFiles: [AudioFile] {
-        viewModel.files.filter { state.selectedAudioIDs.contains($0.id) }
+        viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
     }
 
     private var artworkLookupSessionBinding: Binding<ArtworkLookupSession?> {

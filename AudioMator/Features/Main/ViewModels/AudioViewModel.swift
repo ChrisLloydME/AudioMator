@@ -51,7 +51,7 @@ final class AudioViewModel: ObservableObject {
     @Published var files: [AudioFile] = []
     @Published private(set) var watchedFolders: [WatchedFolder] = []
     // Current selection in the middle list. Single-file and multi-file inspector editing both use this selection.
-    @Published var selectedAudioIDs: Set<UUID> = []
+    @Published private(set) var selectedAudioIDs: Set<UUID> = []
     // Inspector edit models bound to the right-side inspector.
     @Published var editSourceFileID: UUID?
     @Published var edit: SingleFileEditModel? {
@@ -218,6 +218,15 @@ final class AudioViewModel: ObservableObject {
         edit = nil
         editSourceFileID = nil
         multiEdit = MultiFileEditModel(files: selectedFiles)
+    }
+
+    func setSelectedAudioIDs(_ selection: Set<AudioFile.ID>) {
+        let validIDs = Set(files.map(\.id))
+        let normalizedSelection = selection.intersection(validIDs)
+        guard normalizedSelection != selectedAudioIDs else { return }
+
+        selectedAudioIDs = normalizedSelection
+        updateEditForSelection()
     }
 
     /// Discard the current edits and restore the latest tags from disk.
@@ -740,6 +749,13 @@ final class AudioViewModel: ObservableObject {
             files = mergedWatchedFiles()
         case .watchedFolder(let id):
             files = watchedFolderFiles[id] ?? []
+        }
+
+        let validIDs = Set(files.map(\.id))
+        let prunedSelection = selectedAudioIDs.intersection(validIDs)
+        if prunedSelection != selectedAudioIDs {
+            selectedAudioIDs = prunedSelection
+            updateEditForSelection()
         }
     }
 

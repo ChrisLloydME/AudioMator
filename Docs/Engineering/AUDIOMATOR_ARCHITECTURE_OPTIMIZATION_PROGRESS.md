@@ -4,11 +4,11 @@
 
 - 审计日期：2026-07-25
 - 起始 commit：`f1378c1`
-- 当前 commit：`c40dd32`
+- 当前 commit：`HEAD`（release evidence；implementation/tooling checkpoint 为 `c40dd32`）
 - 分支：`main`，启动时与 `origin/main` 一致
 - 启动工作树：干净
 - 当前阶段：批次 5——故障注入与最终 release gate
-- 最后稳定 commit：`c40dd32`
+- 最后稳定 commit：`HEAD`
 
 ## 当前架构假设
 
@@ -39,6 +39,7 @@
 - 批次 4 exchange responsibility boundary：`38dbe70` (`refactor(exchange): separate syntax from planning`)
 - 批次 5 reliability sensors：`f5167df` (`test(reliability): cover provider and missing-file faults`)
 - 批次 5 release tooling：`c40dd32` (`chore(release): restore binary TagLib smoke tooling`)
+- 最终 release evidence：`HEAD` (`docs(release): record architecture readiness evidence` 及本记录收口)
 
 ## 本阶段修改文件
 
@@ -118,7 +119,7 @@
 
 ## 下一步唯一动作
 
-提交最终 release-readiness 证据文档，核对干净工作树并结束目标。
+目标完成；后续仅在明确授权下 push、tag、签名、公证、上传或发布。
 
 ## 批次规模说明
 

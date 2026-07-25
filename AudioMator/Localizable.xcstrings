@@ -481,100 +481,7 @@
     "1" : {
 
     },
-    "A text record is larger than 256 KB. Use CSV import for multiline or very large values." : {
-
-    },
-    "A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values." : {
-
-    },
     "A CSV field is larger than 1 MB. Shorten that metadata value before exporting." : {
-
-    },
-    "The export contains more than 100,000 files. Export a smaller selection." : {
-
-    },
-    "The export would be larger than 32 MB. Export a smaller selection." : {
-
-    },
-    "The selection contains more than 100,000 files. Import into a smaller selection." : {
-
-    },
-    "Add at least one text record to import." : {
-
-    },
-    "Close every template field with }}." : {
-
-    },
-    "Content Advisory" : {
-
-    },
-    "File Unavailable" : {
-
-    },
-    "Multiple external records identify this selected file. None of them will be written." : {
-
-    },
-    "Multiple selected files match this record. Add Path or Relative Path to disambiguate them." : {
-
-    },
-    "Name Too Long" : {
-
-    },
-    "No selected file matches all locator values in this record." : {
-
-    },
-    "One or more values contain line breaks. Use CSV export to preserve multiline metadata safely." : {
-
-    },
-    "The CSV contains more than 100,000 data rows. Split it into smaller batches." : {
-
-    },
-    "The CSV import is too large. Split it into files smaller than 32 MB." : {
-
-    },
-    "The column template contains too many columns." : {
-
-    },
-    "The column template is too large." : {
-
-    },
-    "The filename template contains too many segments." : {
-
-    },
-    "The filename template is too large." : {
-
-    },
-    "The generated filename is too long for the destination file system." : {
-
-    },
-    "The import contains more than 100,000 records. Split it into smaller batches." : {
-
-    },
-    "The import text is too large. Split it into files smaller than 32 MB." : {
-
-    },
-    "The record is too complex to match safely. Use CSV import or a simpler template." : {
-
-    },
-    "The record matches the template in more than one way. Add more specific separators or use CSV import." : {
-
-    },
-    "The text template contains too many segments." : {
-
-    },
-    "The text template is too large." : {
-
-    },
-    "Use a single-line template. Use CSV for multiline metadata." : {
-
-    },
-    "iTunes Album ID" : {
-
-    },
-    "iTunes Artist ID" : {
-
-    },
-    "iTunes Catalog ID" : {
 
     },
     "A different file already exists at the target path." : {
@@ -617,6 +524,12 @@
           }
         }
       }
+    },
+    "A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values." : {
+
+    },
+    "A text record is larger than 256 KB. Use CSV import for multiline or very large values." : {
+
     },
     "About" : {
       "localizations" : {
@@ -766,6 +679,9 @@
           }
         }
       }
+    },
+    "Add at least one text record to import." : {
+
     },
     "Add audio files for one-off metadata edits." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:204.",
@@ -1669,6 +1585,12 @@
 
     },
     "AudioMator couldn't read that file as UTF-8, UTF-16, Windows-1252, or Mac Roman text." : {
+
+    },
+    "AudioMator couldn't save access to “%@”." : {
+
+    },
+    "AudioMator couldn't save access to %lld selected folders." : {
 
     },
     "AudioMator keeps each file's current extension. The template changes only the filename." : {
@@ -3072,6 +2994,9 @@
         }
       }
     },
+    "Close every template field with }}." : {
+
+    },
     "Column Template Needs Work" : {
 
     },
@@ -3200,6 +3125,9 @@
           }
         }
       }
+    },
+    "Content Advisory" : {
+
     },
     "Continue" : {
 
@@ -4630,6 +4558,9 @@
         }
       }
     },
+    "Enter a comma-, semicolon-, pipe-, or tab-delimited column template." : {
+
+    },
     "Enter a matching template or drag metadata chips into the field." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:320.",
       "localizations" : {
@@ -4670,9 +4601,6 @@
           }
         }
       }
-    },
-    "Enter a comma-, semicolon-, pipe-, or tab-delimited column template." : {
-
     },
     "Enter a template or drag metadata chips into the field." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:283.",
@@ -5011,6 +4939,9 @@
     "File List" : {
 
     },
+    "File Unavailable" : {
+
+    },
     "Filename" : {
       "comment" : "Short UI label. Context: filename and metadata conversion workflow. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/App/AudioMatorApp.swift:23, AudioMator/Domain/UIState/ToolbarButtonOption.swift:27, AudioMator/Domain/UIState/MiddleListColumn.swift:31.",
       "localizations" : {
@@ -5324,6 +5255,9 @@
 
     },
     "Folder monitoring degraded" : {
+
+    },
+    "Folder Not Added" : {
 
     },
     "Format" : {
@@ -5882,6 +5816,15 @@
           }
         }
       }
+    },
+    "iTunes Album ID" : {
+
+    },
+    "iTunes Artist ID" : {
+
+    },
+    "iTunes Catalog ID" : {
+
     },
     "iTunes: %@%@" : {
       "localizations" : {
@@ -7310,6 +7253,12 @@
     "More than one loaded file has the same identifier. Reload the files and try again." : {
 
     },
+    "Multiple external records identify this selected file. None of them will be written." : {
+
+    },
+    "Multiple selected files match this record. Add Path or Relative Path to disambiguate them." : {
+
+    },
     "Multiple selected files would end up with the same filename." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:133.",
       "localizations" : {
@@ -7887,6 +7836,9 @@
           }
         }
       }
+    },
+    "Name Too Long" : {
+
     },
     "Network activity only happens when optional online features are used." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:1121.",
@@ -8568,6 +8520,9 @@
         }
       }
     },
+    "No selected file matches all locator values in this record." : {
+
+    },
     "No synced lyrics found in these results." : {
 
     },
@@ -8783,6 +8738,9 @@
 
     },
     "OK" : {
+
+    },
+    "One or more values contain line breaks. Use CSV export to preserve multiline metadata safely." : {
 
     },
     "Online Album Artwork" : {
@@ -11231,6 +11189,12 @@
     "Save Logs" : {
 
     },
+    "Save or discard the pending inspector edits before changing files from another tool." : {
+
+    },
+    "Save or discard the pending inspector edits before renaming files." : {
+
+    },
     "Save or discard the pending inspector edits before writing a metadata exchange plan." : {
 
     },
@@ -12480,6 +12444,24 @@
         }
       }
     },
+    "The column template contains too many columns." : {
+
+    },
+    "The column template is too large." : {
+
+    },
+    "The CSV contains more than 100,000 data rows. Split it into smaller batches." : {
+
+    },
+    "The CSV import is too large. Split it into files smaller than 32 MB." : {
+
+    },
+    "The export contains more than 100,000 files. Export a smaller selection." : {
+
+    },
+    "The export would be larger than 32 MB. Export a smaller selection." : {
+
+    },
     "The extracted metadata already matches the file's current tags." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:198.",
       "localizations" : {
@@ -12521,16 +12503,16 @@
         }
       }
     },
-    "The file is no longer loaded in AudioMator." : {
-
-    },
     "The file changed after the preview was shown. Refresh the preview and try again." : {
 
     },
-    "The file version could not be verified. Reload the file and try again." : {
+    "The file is no longer loaded in AudioMator." : {
 
     },
     "The file version could not be verified. Refresh the preview and try again." : {
+
+    },
+    "The file version could not be verified. Reload the file and try again." : {
 
     },
     "The filename did not fully match the template." : {
@@ -12618,6 +12600,12 @@
     "The filename metadata plan contains an invalid field or value. Refresh the preview and try again." : {
 
     },
+    "The filename template contains too many segments." : {
+
+    },
+    "The filename template is too large." : {
+
+    },
     "The filenames already match." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:291.",
       "localizations" : {
@@ -12700,13 +12688,31 @@
         }
       }
     },
+    "The generated filename is too long for the destination file system." : {
+
+    },
+    "The import contains more than 100,000 records. Split it into smaller batches." : {
+
+    },
+    "The import text is too large. Split it into files smaller than 32 MB." : {
+
+    },
     "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again." : {
+
+    },
+    "The record is too complex to match safely. Use CSV import or a simpler template." : {
+
+    },
+    "The record matches the template in more than one way. Add more specific separators or use CSV import." : {
 
     },
     "The selected artwork will be applied to all selected files." : {
 
     },
     "The selected artwork will replace the current file artwork." : {
+
+    },
+    "The selection contains more than 100,000 files. Import into a smaller selection." : {
 
     },
     "The template matched, but it did not extract any writable metadata fields." : {
@@ -12749,6 +12755,12 @@
           }
         }
       }
+    },
+    "The text template contains too many segments." : {
+
+    },
+    "The text template is too large." : {
+
     },
     "The write plan contains more than one entry for the same file. Refresh the preview and try again." : {
 
@@ -13851,6 +13863,9 @@
       }
     },
     "US, JP, GB" : {
+
+    },
+    "Use a single-line template. Use CSV for multiline metadata." : {
 
     },
     "Use Selected Artwork" : {

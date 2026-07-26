@@ -4,6 +4,8 @@
 
 Make every reachable MusicBrainz and iTunes browser page recover to an interactive state after success, failure, timeout, cancellation, navigation, source changes, and window closure without changing search semantics, matching rules, or the visible workflow.
 
+Scope correction (2026-07-26): the standalone iTunes Artwork lookup does not enter through Online Metadata and was not a reported performance problem. Its defensive timeout work is retained, but it is not counted as evidence that the MusicBrainz/iTunes browser chains—especially Review & Apply—are responsive.
+
 ## Baseline and runtime evidence
 
 Date: 2026-07-25
@@ -14,6 +16,8 @@ Date: 2026-07-25
 - A 20-second sample during MusicBrainz release detail preload found the main thread idle for 8,487 of 8,575 samples. The preload performs sequential recording-detail requests and can keep the page loading indefinitely when a request never completes.
 - A 10-second sample while opening an iTunes album detail captured 160 samples in `iTunesAlbumDetailView.loadDetail`, including 158 in `iTunesBrowserStore.detailByResolvingSelectionPreview` and 113 in `iTunesAlbumMatcher.match`. The stack continues through fuzzy similarity and Levenshtein distance on the main thread.
 - A post-fix real macOS traversal opened MusicBrainz file search, recording detail, relationship preload, and the Review & Apply workbench. An 8-second sample while changing workbench field selections found the main thread idle for 6,874 of 6,879 samples, with no sustained comparison or plan-building block.
+- That ten-file traversal did not cover the reported large-album failure. A deterministic 80-file/80-track Review & Apply reproduction measured 7.19 seconds of synchronous initial layout for iTunes and 9.91 seconds for MusicBrainz. MusicBrainz also started 80 suspended recording-detail calls immediately.
+- During the 80-track reproduction, AudioMator stayed near 100% CPU; a five-second hang sample found the main thread inside `layoutSubtreeIfNeeded`, workbench body/field recomputation, and the eager assignment/diff view hierarchy. Physical footprint reached approximately 822 MB.
 
 The raw `sample` reports are intentionally kept outside the repository under `/private/tmp/audiomator-*.sample.txt`; this document records the durable findings without committing machine-specific traces.
 
@@ -82,6 +86,16 @@ Required fix and regression sensors:
 - Propagate preload cancellation and invalidate the MusicBrainz session when switching back to Sources.
 - Test fallback preview/comparison equivalence, preservation of provider previews, cancellation progress, and the absence of body-time matching.
 
+### RC7 — Review & Apply eagerly materializes the whole album and MusicBrainz fans out recording requests
+
+Both Review & Apply views synchronously derive a full write plan in `body`. Their macOS bridges then materialize every assignment and diff row in `NSStackView`; each assignment creates a popup containing every release track. Initial work is therefore O(files × tracks), and Auto Layout must solve the complete off-screen hierarchy before the page responds. MusicBrainz compounds this by creating one recording-detail `Task` per target. MusicBrainz rate limiting queues those calls, while every completion publishes `recordingStates` and can invalidate the workbench again.
+
+Required fix and regression sensors:
+
+- Use the existing lazy SwiftUI rows and deferred track menu so off-screen rows and unopened menus are not materialized.
+- Replace per-recording task fan-out with one cancellable sequential request pump; cancellation or page dismissal must synchronously restore loading states.
+- Render both providers with 200 selected files/tracks under a fixed main-thread layout budget and assert a suspended MusicBrainz provider receives only bounded work.
+
 ## Page-chain audit checklist
 
 - [x] Provider source picker and source switching
@@ -97,12 +111,12 @@ Required fix and regression sensors:
 ## Delivery gates
 
 - [x] Regression tests for every confirmed permanent-unresponsive root cause
-- [x] SwiftPM core-logic tests
-- [x] Serial macOS app-hosted test suite
-- [x] macOS build
-- [x] Generic iOS build
+- [ ] SwiftPM core-logic tests
+- [ ] Serial macOS app-hosted test suite
+- [ ] macOS build
+- [ ] Generic iOS build
 - [x] Deterministic macOS app-hosted success/failure/timeout/cancel page traversal with a selected audio fixture
-- [x] Clean working tree and release-ready review
+- [ ] Clean working tree and release-ready review
 
 ## Completed batches
 
@@ -132,6 +146,8 @@ Required fix and regression sensors:
 
 ### Batch 4 — artwork processing and comparison refresh isolation
 
+The artwork changes below are defensive work outside the Online Metadata entry path and are not counted toward this goal's completion. The iTunes album comparison portion remains in scope.
+
 - iTunes artwork search/download requests now use explicit 15-second request timeouts and a 30-second UI-facing deadline. A provider that ignores cancellation can no longer retain the lookup session or leave search/apply state active indefinitely.
 - Artwork decode and PNG normalization now happen inside the detached, bounded service operation. Only construction of the already-normalized platform preview image and publication of edit state occur on the main actor.
 - The artwork sheet remains dismissible while a download is active on both macOS and iPadOS; dismissal invalidates the session and releases the view model even if the service continues running.
@@ -157,10 +173,17 @@ Required fix and regression sensors:
 ### Batch 7 — selected-file macOS page and recovery traversal
 
 - Added an app-hosted traversal harness that first creates and selects a real `AudioFile` fixture in `AudioViewModel`; provider searches therefore exercise the same selected-file precondition as the application instead of attempting a resultless GUI search.
-- The harness mounts the actual SwiftUI source picker, MusicBrainz/iTunes search roots, recording/release/track and album detail pages, comparison surfaces, both tagging workbenches, and artwork loading/failure/success states in an `NSHostingView`/`NSWindow` host.
+- The harness mounts the actual SwiftUI source picker, MusicBrainz/iTunes search roots, recording/release/track and album detail pages, comparison surfaces, and both tagging workbenches in an `NSHostingView`/`NSWindow` host. Artwork states are covered elsewhere but are not part of the Online Metadata completion claim.
 - MusicBrainz and iTunes roots are each driven through success, provider failure, a 30-millisecond deadline, and explicit session cancellation. Every case asserts loading-state recovery before rendering, then requires layout to finish within two seconds and a queued main-event-loop pulse to complete.
 - Production entry points retain their existing behavior; the view initializers only accept injected stores/source state so app-hosted tests can traverse provider roots deterministically.
 - Targeted `OnlineMetadataPageTraversalTests` passed serially on macOS (2 tests). The earlier coordinate-driven run remains discarded and is not used as evidence.
+
+### Batch 8 — large-album Review & Apply correction
+
+- Added a deterministic app-hosted 200-file/200-track fixture for both Review & Apply pages. The same test failed before the fix at 7.19 seconds for iTunes and 9.91 seconds for MusicBrainz with only 80 tracks; both exceeded the two-second per-page budget.
+- Replaced the eager macOS assignment/diff surface on the active page path with the existing lazy row implementation. Track options are now constructed only when a menu opens, so initial page cost no longer scales as files × tracks and off-screen diff rows are not laid out synchronously.
+- Replaced MusicBrainz's task-per-recording preload with one operation-identified sequential request pump. The failing sensor observed 80 simultaneous suspended calls; the fixed 200-track fixture holds only one, and dismissal cancels the pump, invalidates late publication, and restores loading states in one publication.
+- Targeted `OnlineMetadataWorkbenchPerformanceTests`, `OnlineMetadataPlanSnapshotTests`, and `OnlineMetadataPageTraversalTests` pass serially on macOS. Full delivery gates are pending rerun.
 
 ## Final validation status
 

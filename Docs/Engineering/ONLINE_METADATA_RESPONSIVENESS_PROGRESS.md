@@ -147,13 +147,20 @@ Required fix and regression sensors:
 - Added regression sensors for presentation equivalence, provider-preview preservation, off-main structural boundaries, body-time matching removal, and cancellation without late preload progress.
 - Targeted macOS tests and incremental generic macOS build succeeded; full delivery gates are being rerun after this audit batch.
 
+### Batch 6 — deterministic app-hosted stress harness
+
+- Replaced coordinate-driven GUI performance automation with deterministic app-hosted stress fixtures. A 10,000-record MusicBrainz JSON response exercises request completion, JSON decoding, result mapping, and ranking under a five-second caller deadline while a main-actor heartbeat remains schedulable.
+- A 200-file/200-track MusicBrainz release fixture exercises fallback matching plus 1,800 comparison-row decisions through the same detached, five-second bounded presentation path used by the detail page. The test asserts the operation is not on the main thread and that every assignment/comparison group completes.
+- The attempted GUI search without a valid AudioMator file-selection setup is explicitly discarded as invalid evidence. Its follow-up 5-second sample found the main thread idle in `mach_msg` for 4,328 of 4,335 samples, so it did not show a main-thread hang, but it is not counted as a successful page traversal.
+- Targeted `OnlineMetadataStressTests` and `ProviderNetworkFaultTests` passed serially without new compiler warnings.
+
 ## Final validation status
 
 Date: 2026-07-26
 
 - SwiftPM core logic: 47 tests passed with no failures. `Core/Concurrency` is explicitly excluded from the selective fast-test target, removing the unhandled-file warning without adding UI/network code to that target.
-- Serial macOS app-hosted suite: 278 tests passed with no failures using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`.
+- Serial macOS app-hosted suite: 285 tests passed with no failures using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`, including the final two deterministic stress sensors.
 - Forced generic macOS build: succeeded with repository-local `.deriveddata-codex`.
 - Generic iOS build: succeeded against the installed iPhoneOS 27.0 SDK using Xcode 27 beta and the same `.deriveddata-codex`. The default Xcode 26.5 installation did not include an iOS platform SDK.
 - Real macOS traversal completed source selection, MusicBrainz/iTunes searches and details, source switching, MusicBrainz relationship preload, and the MusicBrainz tagging workbench. Runtime sampling is recorded above.
-- Remaining live traversal of the final iTunes workbench/artwork changes is pending because the environment rejected further GUI/accessibility automation after its automatic approval quota was exhausted. Unit/app-hosted coverage for timeout, failure, cancellation, stale results, comparison construction, apply/reload recovery, and non-cooperative providers is complete.
+- Remaining live traversal of the final iTunes workbench/artwork changes is pending. Coordinate-driven GUI automation was stopped after it proved unable to establish AudioMator's required file-selection state reliably; deterministic app-hosted coverage now exercises timeout, failure, cancellation, stale results, large-payload parsing, large comparison construction, apply/reload recovery, and non-cooperative providers.

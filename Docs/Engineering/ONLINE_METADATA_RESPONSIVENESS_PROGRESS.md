@@ -111,12 +111,12 @@ Required fix and regression sensors:
 ## Delivery gates
 
 - [x] Regression tests for every confirmed permanent-unresponsive root cause
-- [ ] SwiftPM core-logic tests
-- [ ] Serial macOS app-hosted test suite
-- [ ] macOS build
-- [ ] Generic iOS build
+- [x] SwiftPM core-logic tests
+- [x] Serial macOS app-hosted test suite
+- [x] macOS build
+- [x] Generic iOS build
 - [x] Deterministic macOS app-hosted success/failure/timeout/cancel page traversal with a selected audio fixture
-- [ ] Clean working tree and release-ready review
+- [x] Clean working tree and release-ready review
 
 ## Completed batches
 
@@ -183,16 +183,16 @@ The artwork changes below are defensive work outside the Online Metadata entry p
 - Added a deterministic app-hosted 200-file/200-track fixture for both Review & Apply pages. The same test failed before the fix at 7.19 seconds for iTunes and 9.91 seconds for MusicBrainz with only 80 tracks; both exceeded the two-second per-page budget.
 - Replaced the eager macOS assignment/diff surface on the active page path with the existing lazy row implementation. Track options are now constructed only when a menu opens, so initial page cost no longer scales as files × tracks and off-screen diff rows are not laid out synchronously.
 - Replaced MusicBrainz's task-per-recording preload with one operation-identified sequential request pump. The failing sensor observed 80 simultaneous suspended calls; the fixed 200-track fixture holds only one, and dismissal cancels the pump, invalidates late publication, and restores loading states in one publication.
-- Targeted `OnlineMetadataWorkbenchPerformanceTests`, `OnlineMetadataPlanSnapshotTests`, and `OnlineMetadataPageTraversalTests` pass serially on macOS. Full delivery gates are pending rerun.
+- Targeted `OnlineMetadataWorkbenchPerformanceTests`, `OnlineMetadataPlanSnapshotTests`, and `OnlineMetadataPageTraversalTests` pass serially on macOS. The complete SwiftPM/app-hosted/build matrix also passed after this correction.
 
 ## Final validation status
 
 Date: 2026-07-26
 
 - SwiftPM core logic: 47 tests passed with no failures. `Core/Concurrency` is explicitly excluded from the selective fast-test target, removing the unhandled-file warning without adding UI/network code to that target.
-- Serial macOS app-hosted suite: 287 tests passed with no failures or skips using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`, including the deterministic stress sensors and the two selected-file page traversal tests.
+- Serial macOS app-hosted suite: 290 tests passed with no failures or skips using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`, including the 200-track Review & Apply budget, bounded MusicBrainz request-pump, and success/failure/timeout/cancellation sensors.
 - Forced generic macOS build: succeeded with repository-local `.deriveddata-codex`.
 - Generic iOS build: succeeded against the installed iPhoneOS 27.0 SDK using Xcode 27 beta and the same `.deriveddata-codex`. The default Xcode 26.5 installation did not include an iOS platform SDK.
-- The release traversal gate is satisfied by the macOS app-hosted harness: it starts with an explicitly selected audio fixture and mounts every MusicBrainz/iTunes root, detail, comparison, tagging-workbench, and artwork state while exercising timeout, failure, cancellation, stale results, large-payload parsing, large comparison construction, apply/reload recovery, and non-cooperative providers.
+- The release traversal gate is satisfied by the macOS app-hosted harness: it starts with explicitly selected audio fixtures and mounts every MusicBrainz/iTunes root, detail, comparison, and tagging-workbench state while exercising timeout, failure, cancellation, stale results, large-payload parsing, 200-track Review & Apply rendering, large comparison construction, apply/reload recovery, and non-cooperative providers.
 - Coordinate-driven GUI automation was stopped after it proved unable to establish AudioMator's required file-selection state reliably. Its result and sample are retained only as discarded diagnostic history and are not counted as release evidence.
 - Final forced generic macOS and generic iOS builds passed. The worktree was clean after the validation record was committed.

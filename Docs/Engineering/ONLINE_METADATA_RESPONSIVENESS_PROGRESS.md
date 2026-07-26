@@ -102,7 +102,7 @@ Required fix and regression sensors:
 - [x] macOS build
 - [x] Generic iOS build
 - [x] Deterministic macOS app-hosted success/failure/timeout/cancel page traversal with a selected audio fixture
-- [ ] Clean working tree and release-ready review
+- [x] Clean working tree and release-ready review
 
 ## Completed batches
 
@@ -167,8 +167,9 @@ Required fix and regression sensors:
 Date: 2026-07-26
 
 - SwiftPM core logic: 47 tests passed with no failures. `Core/Concurrency` is explicitly excluded from the selective fast-test target, removing the unhandled-file warning without adding UI/network code to that target.
-- Serial macOS app-hosted suite: 285 tests passed with no failures using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`, including the final two deterministic stress sensors.
+- Serial macOS app-hosted suite: 287 tests passed with no failures or skips using `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`, including the deterministic stress sensors and the two selected-file page traversal tests.
 - Forced generic macOS build: succeeded with repository-local `.deriveddata-codex`.
 - Generic iOS build: succeeded against the installed iPhoneOS 27.0 SDK using Xcode 27 beta and the same `.deriveddata-codex`. The default Xcode 26.5 installation did not include an iOS platform SDK.
-- Real macOS traversal completed source selection, MusicBrainz/iTunes searches and details, source switching, MusicBrainz relationship preload, and the MusicBrainz tagging workbench. Runtime sampling is recorded above.
-- Coordinate-driven GUI automation was stopped after it proved unable to establish AudioMator's required file-selection state reliably. Its result is not counted. Deterministic app-hosted coverage now starts with an explicitly selected audio fixture and mounts every MusicBrainz/iTunes root, detail, comparison, tagging-workbench, and artwork state while exercising timeout, failure, cancellation, stale results, large-payload parsing, large comparison construction, apply/reload recovery, and non-cooperative providers.
+- The release traversal gate is satisfied by the macOS app-hosted harness: it starts with an explicitly selected audio fixture and mounts every MusicBrainz/iTunes root, detail, comparison, tagging-workbench, and artwork state while exercising timeout, failure, cancellation, stale results, large-payload parsing, large comparison construction, apply/reload recovery, and non-cooperative providers.
+- Coordinate-driven GUI automation was stopped after it proved unable to establish AudioMator's required file-selection state reliably. Its result and sample are retained only as discarded diagnostic history and are not counted as release evidence.
+- Final forced generic macOS and generic iOS builds passed. The worktree was clean after the validation record was committed.

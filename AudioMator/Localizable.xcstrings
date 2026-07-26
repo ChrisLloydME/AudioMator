@@ -1191,7 +1191,25 @@
         }
       }
     },
+    "Allow" : {
+
+    },
+    "Allow File Access" : {
+
+    },
+    "Allow Folder Access" : {
+
+    },
+    "Allow Safe File Saving" : {
+
+    },
+    "Allow your user folder now, or choose another folder that contains the audio files you edit." : {
+
+    },
     "Any" : {
+
+    },
+    "Apple protects your files" : {
 
     },
     "Applied" : {
@@ -1587,10 +1605,23 @@
     "AudioMator couldn't read that file as UTF-8, UTF-16, Windows-1252, or Mac Roman text." : {
 
     },
+    "AudioMator couldn't save access to “%@”: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "AudioMator couldn't save access to “%1$@”: %2$@"
+          }
+        }
+      }
+    },
     "AudioMator couldn't save access to “%@”." : {
 
     },
     "AudioMator couldn't save access to %lld selected folders." : {
+
+    },
+    "AudioMator follows the macOS App Sandbox and only changes files in locations you authorize." : {
 
     },
     "AudioMator keeps each file's current extension. The template changes only the filename." : {
@@ -1674,6 +1705,9 @@
           }
         }
       }
+    },
+    "AudioMator writes and verifies a temporary copy before replacing the original audio file." : {
+
     },
     "Auto Apply Best Matches" : {
 
@@ -2566,6 +2600,9 @@
         }
       }
     },
+    "Choose one trusted folder" : {
+
+    },
     "Choose or paste text to preview imported metadata." : {
 
     },
@@ -2691,6 +2728,9 @@
           }
         }
       }
+    },
+    "Choosing individual files allows access to those files, but not permission to create a verified copy beside them." : {
+
     },
     "Clean" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:441, AudioMator/Features/Main/Views/InspectorPane.swift:922, AudioMator/Features/iPad/Views/IPadInspectorView.swift:212.",
@@ -5254,6 +5294,9 @@
     "First row is header" : {
 
     },
+    "Folder Access Needed" : {
+
+    },
     "Folder monitoring degraded" : {
 
     },
@@ -7248,6 +7291,9 @@
       }
     },
     "Modes" : {
+
+    },
+    "Modifying files requires folder access for “%@”." : {
 
     },
     "More than one loaded file has the same identifier. Reload the files and try again." : {
@@ -11025,6 +11071,9 @@
     "Review recent save warnings and failures shown by the save status HUD." : {
 
     },
+    "Safe saves use a nearby copy" : {
+
+    },
     "Same" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/UIState/SharedState.swift:159, AudioMator/Domain/UIState/MiddleListColumn.swift:206, AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift:158, AudioMator/Domain/MetadataEditing/TextEditPipeline.swift:89.",
       "localizations" : {
@@ -11743,6 +11792,12 @@
       }
     },
     "Select one or more files to preview text export." : {
+
+    },
+    "Select the exact folder “%@” to continue." : {
+
+    },
+    "Select your user folder, or another folder containing the audio files you edit." : {
 
     },
     "Selected Fields" : {
@@ -13078,6 +13133,9 @@
           }
         }
       }
+    },
+    "To safely modify these audio files, select the folder “%@”." : {
+
     },
     "Toggle Inspector" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/App/Commands/ViewLayoutCommands.swift:10.",

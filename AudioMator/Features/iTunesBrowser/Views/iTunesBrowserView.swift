@@ -9,6 +9,27 @@ struct iTunesBrowserView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var navigationPath: [iTunesBrowserDestination] = []
 
+    init(
+        viewModel: AudioViewModel,
+        onBackToSources: @escaping () -> Void
+    ) {
+        self.init(
+            store: iTunesBrowserStore(),
+            viewModel: viewModel,
+            onBackToSources: onBackToSources
+        )
+    }
+
+    init(
+        store: iTunesBrowserStore,
+        viewModel: AudioViewModel,
+        onBackToSources: @escaping () -> Void
+    ) {
+        _store = StateObject(wrappedValue: store)
+        self.viewModel = viewModel
+        self.onBackToSources = onBackToSources
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             VStack(spacing: 0) {

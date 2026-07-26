@@ -18,7 +18,7 @@ enum MusicBrainzBrowserDestination: Hashable, Identifiable {
     }
 }
 
-struct MusicBrainzSearchSeed {
+nonisolated struct MusicBrainzSearchSeed: Sendable {
     var mode: MusicBrainzSearchMode
     var title: String
     var artist: String

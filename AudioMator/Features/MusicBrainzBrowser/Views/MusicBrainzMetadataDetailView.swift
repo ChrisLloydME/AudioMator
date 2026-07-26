@@ -10,7 +10,6 @@ struct MusicBrainzMetadataDetailView: View {
     @State private var loadState: LoadState = .loading
     @State private var workbenchStore: MusicBrainzTaggingWorkbenchStore?
     @State private var metadataLoadingMessage: String = "Loading metadata…"
-    @State private var recordingPreloadProgress: (completedCount: Int, totalCount: Int)?
     @State private var isPreparingRecordingWorkbench = false
     @State private var recordingWorkbenchErrorMessage: String?
     @State private var recordingWorkbenchTask: Task<Void, Never>?
@@ -24,19 +23,6 @@ struct MusicBrainzMetadataDetailView: View {
                     Text(metadataLoadingMessage)
                         .foregroundStyle(.secondary)
 
-                    if let recordingPreloadProgress, recordingPreloadProgress.totalCount > 0 {
-                        VStack(spacing: 8) {
-                            ProgressView(
-                                value: Double(recordingPreloadProgress.completedCount),
-                                total: Double(recordingPreloadProgress.totalCount)
-                            )
-                            .frame(maxWidth: 320)
-
-                            Text("\(recordingPreloadProgress.completedCount) of \(recordingPreloadProgress.totalCount) recording details loaded")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -47,8 +33,8 @@ struct MusicBrainzMetadataDetailView: View {
                     description: Text(message)
                 )
 
-            case .loaded(let detail):
-                detailContent(detail)
+            case .loaded(let loadedMetadata):
+                detailContent(loadedMetadata)
             }
         }
         .navigationTitle(navigationTitle)
@@ -72,14 +58,14 @@ struct MusicBrainzMetadataDetailView: View {
         #endif
     }
 
-    private func detailContent(_ detail: MusicBrainzMetadataDetail) -> some View {
+    private func detailContent(_ loadedMetadata: LoadedMetadata) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                switch detail {
+                switch loadedMetadata.detail {
                 case .recording(let recording):
                     recordingSections(recording, overviewTitle: "Overview")
                 case .release(let release):
-                    releaseSections(release)
+                    releaseSections(release, loadedMetadata: loadedMetadata)
                 case .track(let track):
                     trackSections(track)
                 }
@@ -205,17 +191,31 @@ struct MusicBrainzMetadataDetailView: View {
     }
 
     @ViewBuilder
-    private func releaseSections(_ detail: MusicBrainzReleaseDetail) -> some View {
-        let preview = resolvedSelectionPreview(for: detail)
-
-        if let preview {
-            let comparisonGroups = preview.matchedAssignments.map { assignment in
-                MetadataComparisonGroup(
-                    id: assignment.id,
-                    assignment: assignment,
-                    rows: comparisonRows(for: assignment, release: detail)
-                )
+    private func releaseSections(
+        _ detail: MusicBrainzReleaseDetail,
+        loadedMetadata: LoadedMetadata
+    ) -> some View {
+        if loadedMetadata.isPreparingReleasePresentation {
+            MetadataSectionCard(title: "Match Preview", symbolName: "checklist") {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Preparing MusicBrainz match preview…")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
             }
+        } else if let releasePresentationErrorMessage = loadedMetadata.releasePresentationErrorMessage {
+            MetadataSectionCard(title: "Match Preview", symbolName: "exclamationmark.triangle") {
+                MetadataBodyRow(text: releasePresentationErrorMessage)
+            }
+        }
+
+        if let presentation = loadedMetadata.releasePresentation,
+           let preview = presentation.preview {
             let overviewItems = [
                 infoItem("matched", "Matched Files", "\(preview.matchedFileCount)/\(preview.totalSelectedFiles)", monospaced: true),
                 infoItem("unmatched", "Unmatched Files", preview.unmatchedFiles.isEmpty ? "" : "\(preview.unmatchedFiles.count)", monospaced: true),
@@ -282,7 +282,7 @@ struct MusicBrainzMetadataDetailView: View {
                     MetadataCardDivider()
 
                     NavigationLink {
-                        MetadataComparisonDetailView(groups: comparisonGroups)
+                        MetadataComparisonDetailView(groups: presentation.comparisonGroups)
                     } label: {
                         MetadataDetailNavigationRow(
                             title: "Metadata Comparison",
@@ -437,28 +437,52 @@ struct MusicBrainzMetadataDetailView: View {
     private func loadMetadata() async {
         loadState = .loading
         metadataLoadingMessage = "Loading metadata…"
-        recordingPreloadProgress = nil
 
         do {
             let detail = try await store.metadataDetail(for: destination)
-            guard !Task.isCancelled else { return }
+            try Task.checkCancellation()
 
             if case .release(let release) = detail {
-                loadState = .loaded(detail)
+                let fallbackFiles = store.fileSelectionSummary?.files ?? []
+                var loadedMetadata = LoadedMetadata(
+                    detail: detail,
+                    releasePresentation: nil,
+                    releasePresentationErrorMessage: nil,
+                    isPreparingReleasePresentation: true
+                )
+                loadState = .loaded(loadedMetadata)
+
+                do {
+                    loadedMetadata.releasePresentation = try await withAsyncTimeout(
+                        .seconds(10),
+                        operationName: "MusicBrainz match preview",
+                        priority: .userInitiated
+                    ) {
+                        MusicBrainzMetadataComparisonBuilder.presentation(
+                            for: release,
+                            fallbackFiles: fallbackFiles
+                        )
+                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    loadedMetadata.releasePresentationErrorMessage =
+                        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                }
+                loadedMetadata.isPreparingReleasePresentation = false
+                try Task.checkCancellation()
+                loadState = .loaded(loadedMetadata)
+
                 let targetCount = store.recordingPreloadTargetIDs(for: release).count
                 if targetCount > 0 {
-                    recordingPreloadProgress = (completedCount: 0, totalCount: targetCount)
-
-                    await store.preloadRecordingDetails(for: release) { completedCount, totalCount in
-                        recordingPreloadProgress = (completedCount: completedCount, totalCount: totalCount)
-                    }
+                    await store.preloadRecordingDetails(for: release) { _, _ in }
                 }
+            } else {
+                loadState = .loaded(LoadedMetadata(detail: detail))
             }
-
-            guard !Task.isCancelled else { return }
-            loadState = .loaded(detail)
+        } catch is CancellationError {
+            return
         } catch {
-            guard !Task.isCancelled else { return }
             loadState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
         }
     }
@@ -680,99 +704,32 @@ struct MusicBrainzMetadataDetailView: View {
             .joined(separator: " ")
     }
 
-    private func comparisonRows(
-        for assignment: MusicBrainzReleaseMatchAssignment,
-        release: MusicBrainzReleaseDetail
-    ) -> [MetadataComparisonRow] {
-        [
-            comparisonRow("title", "Title", local: assignment.file.title, remote: assignment.track.title),
-            comparisonRow(
-                "artist",
-                "Artist",
-                local: assignment.file.artist,
-                remote: assignment.track.artistCredit.isEmpty ? release.artistCredit : assignment.track.artistCredit
-            ),
-            comparisonRow("album-artist", "Album Artist", local: assignment.file.albumArtist, remote: release.artistCredit),
-            comparisonRow("album", "Album", local: assignment.file.album, remote: release.title),
-            comparisonRow("track-number", "Track Number", local: assignment.file.trackNumber, remote: assignment.track.number, monospaced: true),
-            comparisonRow(
-                "disc-number",
-                "Disc Number",
-                local: assignment.file.discNumber,
-                remote: assignment.track.mediumPosition > 0 ? String(assignment.track.mediumPosition) : "",
-                monospaced: true
-            ),
-            comparisonRow("release-date", "Release Date", local: assignment.file.releaseDate, remote: release.date),
-            comparisonRow(
-                "isrc",
-                "ISRC",
-                local: assignment.file.isrc,
-                remote: assignment.track.isrcs.joined(separator: ", "),
-                monospaced: true
-            ),
-            comparisonRow("barcode", "Barcode", local: assignment.file.barcode, remote: release.barcode, monospaced: true)
-        ].compactMap { $0 }
-    }
-
-    private func comparisonRow(
-        _ id: String,
-        _ title: String,
-        local: String,
-        remote: String,
-        monospaced: Bool = false
-    ) -> MetadataComparisonRow? {
-        let localValue = local.trimmingCharacters(in: .whitespacesAndNewlines)
-        let remoteValue = remote.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !localValue.isEmpty || !remoteValue.isEmpty else { return nil }
-
-        let status: MetadataComparisonStatus
-        if localValue.isEmpty {
-            status = .missingLocal
-        } else if remoteValue.isEmpty {
-            status = .missingRemote
-        } else if normalizedComparisonValue(localValue) == normalizedComparisonValue(remoteValue) {
-            status = .same
-        } else {
-            status = .different
-        }
-
-        return MetadataComparisonRow(
-            id: id,
-            title: title,
-            localValue: localValue,
-            remoteValue: remoteValue,
-            status: status,
-            monospaced: monospaced
-        )
-    }
-
-    private func resolvedSelectionPreview(
-        for release: MusicBrainzReleaseDetail
-    ) -> MusicBrainzReleaseMatchPreview? {
-        if let preview = release.selectionMatchPreview {
-            return preview
-        }
-
-        return MusicBrainzTaggingPreviewBuilder.makePreview(
-            files: store.fileSelectionSummary?.files ?? [],
-            release: release
-        )
-    }
-
-    private func normalizedComparisonValue(_ value: String) -> String {
-        value
-            .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: .current)
-            .split(whereSeparator: { $0.isWhitespace })
-            .joined(separator: " ")
-    }
 }
 
 private extension MusicBrainzMetadataDetailView {
     enum LoadState {
         case loading
-        case loaded(MusicBrainzMetadataDetail)
+        case loaded(LoadedMetadata)
         case failed(String)
+    }
+
+    struct LoadedMetadata {
+        let detail: MusicBrainzMetadataDetail
+        var releasePresentation: MusicBrainzReleaseMetadataPresentation?
+        var releasePresentationErrorMessage: String?
+        var isPreparingReleasePresentation: Bool
+
+        init(
+            detail: MusicBrainzMetadataDetail,
+            releasePresentation: MusicBrainzReleaseMetadataPresentation? = nil,
+            releasePresentationErrorMessage: String? = nil,
+            isPreparingReleasePresentation: Bool = false
+        ) {
+            self.detail = detail
+            self.releasePresentation = releasePresentation
+            self.releasePresentationErrorMessage = releasePresentationErrorMessage
+            self.isPreparingReleasePresentation = isPreparingReleasePresentation
+        }
     }
 }
 
@@ -783,27 +740,7 @@ private struct MetadataInfoItem: Identifiable {
     let monospaced: Bool
 }
 
-private struct MetadataComparisonRow: Identifiable {
-    let id: String
-    let title: String
-    let localValue: String
-    let remoteValue: String
-    let status: MetadataComparisonStatus
-    let monospaced: Bool
-}
-
-private struct MetadataComparisonGroup: Identifiable {
-    let id: String
-    let assignment: MusicBrainzReleaseMatchAssignment
-    let rows: [MetadataComparisonRow]
-}
-
-private enum MetadataComparisonStatus {
-    case same
-    case different
-    case missingLocal
-    case missingRemote
-
+private extension MusicBrainzMetadataComparisonStatus {
     var symbolName: String {
         switch self {
         case .same:
@@ -1353,7 +1290,7 @@ private struct MatchedFilesDetailView: View {
 }
 
 private struct MetadataComparisonDetailView: View {
-    let groups: [MetadataComparisonGroup]
+    let groups: [MusicBrainzMetadataComparisonGroup]
 
     var body: some View {
         ScrollView {
@@ -1385,7 +1322,7 @@ private struct MetadataComparisonDetailView: View {
 
 private struct MetadataComparisonGroupView: View {
     let assignment: MusicBrainzReleaseMatchAssignment
-    let rows: [MetadataComparisonRow]
+    let rows: [MusicBrainzMetadataComparisonRow]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1477,7 +1414,7 @@ private struct MetadataComparisonTableHeader: View {
 }
 
 private struct MetadataComparisonRowView: View {
-    let row: MetadataComparisonRow
+    let row: MusicBrainzMetadataComparisonRow
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {

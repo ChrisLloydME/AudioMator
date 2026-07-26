@@ -16,22 +16,22 @@ enum NetworkServiceDisclosure {
     }
 
     enum MusicBrainz {
-        static let host = "musicbrainz.org"
+        nonisolated static let host = "musicbrainz.org"
         static let webHost = "www.musicbrainz.org"
-        static let webBaseURLString = "https://\(host)"
+        nonisolated static let webBaseURLString = "https://\(host)"
 
         static let domains = [
             host
         ]
 
-        static let acceptedLinkDomains = [
+        nonisolated static let acceptedLinkDomains = [
             host,
             webHost
         ]
 
         static let sentDataSummary = "MusicBrainz lookup may send metadata-derived queries or identifiers, including title, artist, album, album artist, track number, duration, release identifiers, ISRC, barcode, and manually entered search terms or links."
 
-        static func webURL(path: String) -> URL? {
+        nonisolated static func webURL(path: String) -> URL? {
             URL(string: "\(webBaseURLString)\(path)")
         }
     }

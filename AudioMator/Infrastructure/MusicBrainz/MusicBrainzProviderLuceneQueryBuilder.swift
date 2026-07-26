@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicBrainzProviderLuceneQueryBuilder {
+nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
     nonisolated private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
     nonisolated private static let maxPreferredClauseCount = 6
     nonisolated private static let maxPreferredClauseLength = 420

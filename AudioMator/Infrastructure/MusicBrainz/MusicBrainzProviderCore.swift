@@ -1,13 +1,13 @@
 import Foundation
 
-enum MusicBrainzProviderSearchMode: String {
+nonisolated enum MusicBrainzProviderSearchMode: String, Sendable {
     case track
     case album
     case file
     case link
 }
 
-enum MusicBrainzProviderReleaseStatus: String, CaseIterable, Hashable {
+nonisolated enum MusicBrainzProviderReleaseStatus: String, CaseIterable, Hashable, Sendable {
     case official
     case promotion
     case bootleg
@@ -17,7 +17,7 @@ enum MusicBrainzProviderReleaseStatus: String, CaseIterable, Hashable {
     case cancelled
 }
 
-enum MusicBrainzProviderMediaFormat: String, CaseIterable, Hashable {
+nonisolated enum MusicBrainzProviderMediaFormat: String, CaseIterable, Hashable, Sendable {
     case digitalMedia = "Digital Media"
     case cd = "CD"
     case vinyl = "Vinyl"
@@ -28,7 +28,7 @@ enum MusicBrainzProviderMediaFormat: String, CaseIterable, Hashable {
     case minidisc = "MiniDisc"
 }
 
-struct MusicBrainzProviderReleaseFilters: Equatable, Hashable {
+nonisolated struct MusicBrainzProviderReleaseFilters: Equatable, Hashable, Sendable {
     var mediaFormats: Set<MusicBrainzProviderMediaFormat>
     var releaseYear: String
     var countries: Set<String>
@@ -89,7 +89,7 @@ struct MusicBrainzProviderReleaseFilters: Equatable, Hashable {
     }
 }
 
-struct MusicBrainzProviderFileInput: Equatable, Hashable {
+nonisolated struct MusicBrainzProviderFileInput: Equatable, Hashable, Sendable {
     let id: String
     let displayTitle: String
     let title: String
@@ -129,7 +129,7 @@ struct MusicBrainzProviderFileInput: Equatable, Hashable {
     }
 }
 
-struct MusicBrainzProviderSearchQuery: Equatable {
+nonisolated struct MusicBrainzProviderSearchQuery: Equatable, Sendable {
     var mode: MusicBrainzProviderSearchMode = .track
     var title: String = ""
     var artist: String = ""
@@ -256,12 +256,12 @@ struct MusicBrainzProviderSearchQuery: Equatable {
     }
 }
 
-enum MusicBrainzProviderLinkTarget: Equatable {
+nonisolated enum MusicBrainzProviderLinkTarget: Equatable, Sendable {
     case recording(String)
     case release(String)
 }
 
-enum MusicBrainzProviderLinkParser {
+nonisolated enum MusicBrainzProviderLinkParser {
     static let supportedHosts = Set(["musicbrainz.org", "www.musicbrainz.org"])
 
     static func parse(
@@ -297,7 +297,7 @@ enum MusicBrainzProviderLinkParser {
     }
 }
 
-enum MusicBrainzProviderCore {
+nonisolated enum MusicBrainzProviderCore {
     static func representativeFilesForReleaseLookup(
         from files: [MusicBrainzProviderFileInput]
     ) -> [MusicBrainzProviderFileInput] {

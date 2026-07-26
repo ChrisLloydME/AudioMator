@@ -143,6 +143,31 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    func testCancelledMusicBrainzPreloadDoesNotPublishProgressAfterCancellation() async throws {
+        let gate = NonCooperativeProviderSearchGate()
+        let store = MusicBrainzBrowserStore(
+            client: NonCooperativeMusicBrainzBrowserClient(gate: gate),
+            detailTimeout: .seconds(30),
+            preloadTimeBudget: .seconds(30)
+        )
+        let release = makeMusicBrainzRelease(recordingID: "recording-id")
+        var progressUpdates: [(completed: Int, total: Int)] = []
+
+        let preloadTask = Task {
+            await store.preloadRecordingDetails(for: release) { completed, total in
+                progressUpdates.append((completed, total))
+            }
+        }
+        await gate.waitUntilStarted()
+        preloadTask.cancel()
+        await preloadTask.value
+
+        XCTAssertEqual(progressUpdates.count, 1)
+        XCTAssertEqual(progressUpdates.first?.completed, 0)
+        XCTAssertEqual(progressUpdates.first?.total, 1)
+        await gate.finish()
+    }
+
     func testiTunesRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
         let gate = RestartableProviderSearchGate()
         let store = iTunesBrowserStore(client: RestartableiTunesBrowserClient(gate: gate))

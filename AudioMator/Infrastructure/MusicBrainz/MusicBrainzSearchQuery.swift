@@ -1,6 +1,6 @@
 import Foundation
 
-struct MusicBrainzSearchQuery: Equatable {
+nonisolated struct MusicBrainzSearchQuery: Equatable, Sendable {
     var mode: MusicBrainzSearchMode
     var title: String
     var artist: String

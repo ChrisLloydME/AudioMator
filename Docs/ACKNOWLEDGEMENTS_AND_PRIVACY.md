@@ -65,7 +65,10 @@ AudioMator is designed to work directly on local files.
 
 - Supports session imports for one-off work.
 - Supports persistent watched folders.
-- Uses security-scoped bookmarks for persistent folder access where needed.
+- Explains macOS App Sandbox file access during onboarding and lets the user authorize a folder for safe transactional saves.
+- Stores security-scoped bookmarks locally for user-authorized save locations and persistent watched folders.
+- Does not scan an authorized save location unless the user separately adds it as a watched folder or imports files from it.
+- Requests the exact containing folder when a transactional save targets a location outside the currently authorized roots.
 - Can reveal files in Finder.
 - Can open files with the default system app.
 - Can copy file paths for desktop workflows.

@@ -64,6 +64,7 @@ extension AudioViewModel {
         let targetFiles = targetFiles
         guard !targetFiles.isEmpty else { return }
         guard canStartExternalFileMutation() else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         if targetFiles.count == 1, let file = targetFiles.first {
             eraseAllMetadata(file)

@@ -24,6 +24,12 @@ extension AudioViewModel {
                 failedTargetIDs: Set(targets.map(\.id))
             )
         }
+        guard prepareMetadataMutationDirectoryAccess(for: targets.map(\.url)) else {
+            return RawMetadataApplyResult(
+                succeededTargetIDs: [],
+                failedTargetIDs: Set(targets.map(\.id))
+            )
+        }
 
         var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
         var succeededTargetIDs = Set<AudioFile.ID>()

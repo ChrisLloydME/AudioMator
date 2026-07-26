@@ -18,6 +18,7 @@ extension AudioViewModel {
             )
             return
         }
+        guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
 

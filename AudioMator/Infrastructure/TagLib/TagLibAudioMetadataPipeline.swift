@@ -2,6 +2,8 @@ import Foundation
 import TagLibAudioMetadata
 
 struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
+    nonisolated var requiresTransactionalDirectoryAccess: Bool { true }
+
     nonisolated init() {}
 
     nonisolated static func metadataForWrite(

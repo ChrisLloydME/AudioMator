@@ -51,6 +51,7 @@ struct AudioMetadataWriteResult: Sendable {
 }
 
 protocol AudioMetadataPipeline: Sendable {
+    nonisolated var requiresTransactionalDirectoryAccess: Bool { get }
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile
     nonisolated func rawMetadataDumpText(for url: URL) -> String?
     nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String]
@@ -63,4 +64,8 @@ protocol AudioMetadataPipeline: Sendable {
         to url: URL,
         verifyAfterWrite: Bool
     ) throws -> AudioMetadataWriteResult
+}
+
+extension AudioMetadataPipeline {
+    nonisolated var requiresTransactionalDirectoryAccess: Bool { false }
 }

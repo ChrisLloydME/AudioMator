@@ -16,6 +16,11 @@ extension AudioViewModel {
         }
 
         let filesByID = Dictionary(grouping: files, by: \.id)
+        let targetURLs = entries.compactMap { entry in
+            let matchingFiles = filesByID[entry.fileID]
+            return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
+        }
+        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
@@ -128,6 +133,11 @@ extension AudioViewModel {
         }
 
         let filesByID = Dictionary(grouping: files, by: \.id)
+        let targetURLs = entries.compactMap { entry in
+            let matchingFiles = filesByID[entry.fileID]
+            return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
+        }
+        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(

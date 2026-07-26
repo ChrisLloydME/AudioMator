@@ -27,6 +27,20 @@ func fileCountLabel(_ count: Int) -> String {
 }
 
 extension AudioViewModel {
+    func prepareMetadataMutationDirectoryAccess(
+        for urls: [URL],
+        failureTitle: String = String(localized: "Folder Access Needed")
+    ) -> Bool {
+        guard let failure = ensureMetadataMutationDirectoryAccess(for: urls) else { return true }
+
+        presentMetadataWriteHUD(
+            style: .warning,
+            title: failureTitle,
+            subtitle: failure
+        )
+        return false
+    }
+
     func canStartExternalFileMutation() -> Bool {
         guard hasUnsavedInspectorChanges else { return true }
 
@@ -75,6 +89,10 @@ extension AudioViewModel {
         syncInspectorAfterReload: Bool,
         write: @escaping @Sendable (any AudioMetadataPipeline, URL) throws -> AudioMetadataWriteResult
     ) async -> MetadataWriteExecutionResult {
+        if let accessFailure = ensureMetadataMutationDirectoryAccess(for: [url]) {
+            return .failure(accessFailure)
+        }
+
         let executor = MetadataFileMutationExecutor(
             metadataPipeline: metadataPipeline,
             fileMutationCoordinator: fileMutationCoordinator

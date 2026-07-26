@@ -107,7 +107,9 @@ struct ContentView: View {
             .sheet(isPresented: $isWelcomeSplashPresented) {
                 WelcomeSplashView(
                     onQuit: quitApplication,
-                    onContinue: dismissWelcomeSplash
+                    onContinue: dismissWelcomeSplash,
+                    initialFileAccessGrantPath: viewModel.primaryFileAccessGrantPath,
+                    onAuthorizeFileAccess: viewModel.authorizeDefaultFileAccessFolder
                 )
             }
             #if os(iOS)

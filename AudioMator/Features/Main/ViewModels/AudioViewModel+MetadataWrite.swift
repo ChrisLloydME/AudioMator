@@ -77,6 +77,7 @@ extension AudioViewModel {
 
         let targetFiles = files.filter { selectedAudioIDs.contains($0.id) }
         guard !targetFiles.isEmpty else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         let editSnapshot = multiEdit
 

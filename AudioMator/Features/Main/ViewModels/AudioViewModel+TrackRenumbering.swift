@@ -36,6 +36,19 @@ extension AudioViewModel {
             return .empty
         }
 
+        if let accessFailure = ensureMetadataMutationDirectoryAccess(for: writeTargets.map(\.url)) {
+            return TrackRenumberResult(
+                totalTargets: writeTargets.count,
+                succeeded: 0,
+                skippedUnsupported: 0,
+                failed: writeTargets.count,
+                failures: writeTargets.map {
+                    TrackRenumberFailure(fileName: $0.url.lastPathComponent, reason: accessFailure)
+                },
+                warnings: []
+            )
+        }
+
         let count = writeTargets.count
         let start = normalizedTrackRenumberStartNumber(options.startNumber)
 

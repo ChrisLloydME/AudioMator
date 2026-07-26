@@ -6,12 +6,31 @@ import AppKit
 struct MacWelcomeSplashView: View {
     let onQuit: () -> Void
     let onContinue: () -> Void
+    let onAuthorizeFileAccess: () -> FileAccessAuthorizationOutcome
 
     @State private var currentPage: WelcomeSplashPage = .welcome
+    @State private var fileAccessGrantPath: String?
+    @State private var fileAccessErrorMessage: String?
+
+    init(
+        onQuit: @escaping () -> Void,
+        onContinue: @escaping () -> Void,
+        initialFileAccessGrantPath: String?,
+        onAuthorizeFileAccess: @escaping () -> FileAccessAuthorizationOutcome
+    ) {
+        self.onQuit = onQuit
+        self.onContinue = onContinue
+        self.onAuthorizeFileAccess = onAuthorizeFileAccess
+        _fileAccessGrantPath = State(initialValue: initialFileAccessGrantPath)
+    }
 
     var body: some View {
         ScrollView(.vertical) {
-            MacWelcomeSplashPageView(content: currentPage.content)
+            MacWelcomeSplashPageView(
+                content: currentPage.content,
+                fileAccessGrantPath: fileAccessGrantPath,
+                fileAccessErrorMessage: fileAccessErrorMessage
+            )
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.horizontal, 30)
                 .padding(.top, 12)
@@ -27,7 +46,8 @@ struct MacWelcomeSplashView: View {
                 currentPage: currentPage,
                 onQuit: onQuit,
                 onBack: retreat,
-                onContinue: advance
+                onSkip: advance,
+                onContinue: continueFromCurrentPage
             )
             .padding(.horizontal, 30)
             .padding(.top, 14)
@@ -52,10 +72,30 @@ struct MacWelcomeSplashView: View {
         guard let previousPage = currentPage.previous else { return }
         currentPage = previousPage
     }
+
+    private func continueFromCurrentPage() {
+        guard currentPage == .fileAccess, fileAccessGrantPath == nil else {
+            advance()
+            return
+        }
+
+        switch onAuthorizeFileAccess() {
+        case .authorized(let path):
+            fileAccessGrantPath = path
+            fileAccessErrorMessage = nil
+            advance()
+        case .cancelled:
+            break
+        case .failure(let message):
+            fileAccessErrorMessage = message
+        }
+    }
 }
 
 private struct MacWelcomeSplashPageView: View {
     let content: WelcomeSplashPageContent
+    let fileAccessGrantPath: String?
+    let fileAccessErrorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: content.page == .welcome ? 28 : 26) {
@@ -77,8 +117,42 @@ private struct MacWelcomeSplashPageView: View {
                 }
                 .padding(.vertical, content.page == .features || content.page == .privacy ? 20 : 22)
             }
+
+            if content.page == .fileAccess {
+                MacWelcomeFileAccessStatus(
+                    grantPath: fileAccessGrantPath,
+                    errorMessage: fileAccessErrorMessage
+                )
+            }
         }
         .padding(.top, content.topPadding)
+    }
+}
+
+private struct MacWelcomeFileAccessStatus: View {
+    let grantPath: String?
+    let errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let grantPath {
+                Label {
+                    Text(grantPath)
+                        .textSelection(.enabled)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+                .font(.callout)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -141,6 +215,7 @@ private struct MacWelcomeSplashButtonBar: View {
     let currentPage: WelcomeSplashPage
     let onQuit: () -> Void
     let onBack: () -> Void
+    let onSkip: () -> Void
     let onContinue: () -> Void
 
     var body: some View {
@@ -156,6 +231,11 @@ private struct MacWelcomeSplashButtonBar: View {
             }
 
             Spacer()
+
+            if currentPage == .fileAccess {
+                Button("Skip", action: onSkip)
+                    .buttonStyle(MacWelcomeGlassButtonStyle())
+            }
 
             Button(currentPage.next == nil ? "Get Started" : "Continue", action: onContinue)
                 .buttonStyle(MacWelcomeGlassButtonStyle(isProminent: true))

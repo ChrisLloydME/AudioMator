@@ -4,6 +4,42 @@ import XCTest
 final class AudioMatorCoreLogicTests: XCTestCase {
     private let locale = Locale(identifier: "en_US_POSIX")
 
+    func testMutationDirectoryAccessTreatsAuthorizedHomeAsCoveringDescendantFiles() {
+        let homeURL = URL(fileURLWithPath: "/Users/example", isDirectory: true)
+        let fileURLs = [
+            homeURL.appendingPathComponent("Music/Album/01.aiff"),
+            homeURL.appendingPathComponent("Downloads/02.aiff")
+        ]
+
+        XCTAssertTrue(
+            FileMutationDirectoryAccessPlan.missingDirectories(
+                for: fileURLs,
+                activeDirectoryURLs: [homeURL]
+            ).isEmpty
+        )
+    }
+
+    func testMutationDirectoryAccessRequestsOnlyUncoveredUniqueParentFolders() {
+        let homeURL = URL(fileURLWithPath: "/Users/example", isDirectory: true)
+        let externalAlbumURL = URL(fileURLWithPath: "/Volumes/Library/Album", isDirectory: true)
+        let fileURLs = [
+            homeURL.appendingPathComponent("Music/covered.aiff"),
+            externalAlbumURL.appendingPathComponent("01.aiff"),
+            externalAlbumURL.appendingPathComponent("02.aiff"),
+            URL(fileURLWithPath: "/Users/example-copy/not-covered.aiff")
+        ]
+
+        let missingDirectories = FileMutationDirectoryAccessPlan.missingDirectories(
+            for: fileURLs,
+            activeDirectoryURLs: [homeURL]
+        )
+
+        XCTAssertEqual(
+            missingDirectories.map(\.path),
+            ["/Users/example-copy", "/Volumes/Library/Album"]
+        )
+    }
+
     func testAudioNumericConversionRejectsInvalidAndOutOfRangeValues() {
         XCTAssertNil(AudioNumericConversion.roundedInt(.nan))
         XCTAssertNil(AudioNumericConversion.roundedInt(.infinity))

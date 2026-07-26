@@ -3,10 +3,17 @@ import SwiftUI
 struct WelcomeSplashView: View {
     let onQuit: () -> Void
     let onContinue: () -> Void
+    let initialFileAccessGrantPath: String?
+    let onAuthorizeFileAccess: () -> FileAccessAuthorizationOutcome
 
     var body: some View {
         #if os(macOS)
-        MacWelcomeSplashView(onQuit: onQuit, onContinue: onContinue)
+        MacWelcomeSplashView(
+            onQuit: onQuit,
+            onContinue: onContinue,
+            initialFileAccessGrantPath: initialFileAccessGrantPath,
+            onAuthorizeFileAccess: onAuthorizeFileAccess
+        )
             .frame(width: 750, height: 700)
         #else
         SwiftUIWelcomeSplashView(onQuit: onQuit, onContinue: onContinue)
@@ -35,6 +42,9 @@ struct WelcomeSplashRowContent: Identifiable {
 enum WelcomeSplashPage: Int, CaseIterable {
     case welcome
     case features
+    #if os(macOS)
+    case fileAccess
+    #endif
     case onlineMetadata
     case artwork
     case privacy
@@ -101,6 +111,39 @@ enum WelcomeSplashPage: Int, CaseIterable {
                     )
                 ]
             )
+        #if os(macOS)
+        case .fileAccess:
+            WelcomeSplashPageContent(
+                page: self,
+                title: String(localized: "Allow Safe File Saving"),
+                subtitle: String(
+                    localized: "AudioMator follows the macOS App Sandbox and only changes files in locations you authorize."
+                ),
+                rows: [
+                    WelcomeSplashRowContent(
+                        symbol: "lock.shield",
+                        title: String(localized: "Apple protects your files"),
+                        description: String(
+                            localized: "Choosing individual files allows access to those files, but not permission to create a verified copy beside them."
+                        )
+                    ),
+                    WelcomeSplashRowContent(
+                        symbol: "doc.on.doc",
+                        title: String(localized: "Safe saves use a nearby copy"),
+                        description: String(
+                            localized: "AudioMator writes and verifies a temporary copy before replacing the original audio file."
+                        )
+                    ),
+                    WelcomeSplashRowContent(
+                        symbol: "folder.badge.plus",
+                        title: String(localized: "Choose one trusted folder"),
+                        description: String(
+                            localized: "Allow your user folder now, or choose another folder that contains the audio files you edit."
+                        )
+                    )
+                ]
+            )
+        #endif
         case .onlineMetadata:
             WelcomeSplashPageContent(
                 page: self,

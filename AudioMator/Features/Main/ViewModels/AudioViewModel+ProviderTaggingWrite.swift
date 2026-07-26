@@ -6,6 +6,8 @@ extension AudioViewModel {
         guard canStartExternalFileMutation() else { return }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        let targetURLs = entries.compactMap { filesByID[$0.fileID]?.url }
+        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return }
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
@@ -87,6 +89,8 @@ extension AudioViewModel {
         guard canStartExternalFileMutation() else { return }
 
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        let targetURLs = entries.compactMap { filesByID[$0.fileID]?.url }
+        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return }
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(

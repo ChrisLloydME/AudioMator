@@ -66,8 +66,10 @@ final class AudioViewModel: ObservableObject {
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
+    @Published private(set) var fileAccessGrants: [FileAccessGrant] = []
 
     private let watchedFolderStore: WatchedFolderStore
+    private let fileAccessGrantStore: FileAccessGrantStore
     let metadataPipeline: any AudioMetadataPipeline
     let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
@@ -92,12 +94,14 @@ final class AudioViewModel: ObservableObject {
     private var securityScopedFolderURLs: [UUID: URL] = [:]
     private var securityScopedQuickImportFileURLs: [String: URL] = [:]
     private var securityScopedQuickImportDirectoryURLs: [String: URL] = [:]
-    private var securityScopedQuickImportRenameDirectoryURLs: [String: URL] = [:]
+    private var securityScopedFileAccessGrantURLs: [UUID: URL] = [:]
+    private var securityScopedSupplementalMutationDirectoryURLs: [String: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
 
     convenience init() {
         self.init(
             watchedFolderStore: WatchedFolderStore(),
+            fileAccessGrantStore: FileAccessGrantStore(),
             metadataPipeline: TagLibAudioMetadataPipeline(),
             saveIssueLogStore: SaveIssueLogStore()
         )
@@ -106,6 +110,7 @@ final class AudioViewModel: ObservableObject {
     convenience init(metadataPipeline: any AudioMetadataPipeline) {
         self.init(
             watchedFolderStore: WatchedFolderStore(),
+            fileAccessGrantStore: FileAccessGrantStore(),
             metadataPipeline: metadataPipeline,
             saveIssueLogStore: SaveIssueLogStore()
         )
@@ -118,6 +123,7 @@ final class AudioViewModel: ObservableObject {
     ) {
         self.init(
             watchedFolderStore: WatchedFolderStore(),
+            fileAccessGrantStore: FileAccessGrantStore(),
             metadataPipeline: metadataPipeline,
             saveIssueLogStore: SaveIssueLogStore(),
             artworkLookupService: artworkLookupService,
@@ -131,19 +137,39 @@ final class AudioViewModel: ObservableObject {
     ) {
         self.init(
             watchedFolderStore: WatchedFolderStore(),
+            fileAccessGrantStore: FileAccessGrantStore(),
             metadataPipeline: metadataPipeline,
             saveIssueLogStore: saveIssueLogStore
         )
     }
 
-    init(
+    convenience init(
         watchedFolderStore: WatchedFolderStore,
         metadataPipeline: any AudioMetadataPipeline,
         saveIssueLogStore: SaveIssueLogStore,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
         artworkLookupOperationTimeout: Duration = .seconds(30)
     ) {
+        self.init(
+            watchedFolderStore: watchedFolderStore,
+            fileAccessGrantStore: FileAccessGrantStore(),
+            metadataPipeline: metadataPipeline,
+            saveIssueLogStore: saveIssueLogStore,
+            artworkLookupService: artworkLookupService,
+            artworkLookupOperationTimeout: artworkLookupOperationTimeout
+        )
+    }
+
+    init(
+        watchedFolderStore: WatchedFolderStore,
+        fileAccessGrantStore: FileAccessGrantStore,
+        metadataPipeline: any AudioMetadataPipeline,
+        saveIssueLogStore: SaveIssueLogStore,
+        artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
+        artworkLookupOperationTimeout: Duration = .seconds(30)
+    ) {
         self.watchedFolderStore = watchedFolderStore
+        self.fileAccessGrantStore = fileAccessGrantStore
         self.metadataPipeline = metadataPipeline
         self.saveIssueLogStore = saveIssueLogStore
         self.artworkLookupService = artworkLookupService
@@ -153,6 +179,17 @@ final class AudioViewModel: ObservableObject {
             ? watchedFolderStore.loadFolders()
             : []
         self.watchedFolders = restoredFolders
+
+        #if os(macOS)
+        let restoredFileAccessGrants = fileAccessGrantStore.loadGrants()
+        #else
+        let restoredFileAccessGrants: [FileAccessGrant] = []
+        #endif
+        self.fileAccessGrants = restoredFileAccessGrants
+
+        for grant in restoredFileAccessGrants {
+            beginAccessingFileAccessGrant(grant)
+        }
 
         for folder in restoredFolders {
             beginAccessingWatchedFolder(folder)
@@ -172,7 +209,8 @@ final class AudioViewModel: ObservableObject {
         securityScopedFolderURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
         securityScopedQuickImportFileURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
         securityScopedQuickImportDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
-        securityScopedQuickImportRenameDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
+        securityScopedFileAccessGrantURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
+        securityScopedSupplementalMutationDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
     }
 
     var currentFileSourceMode: FileSourceMode {
@@ -643,21 +681,64 @@ final class AudioViewModel: ObservableObject {
         return try await body()
     }
 
-    func ensureRenameDirectoryAccess(for urls: [URL]) -> String? {
-        guard currentFileSourceMode == .quickImport else { return nil }
-
-        let directoryURLs = Self.parentDirectoryURLsByKey(for: urls).values.sorted(by: Self.compareURLs)
+    func ensureMutationDirectoryAccess(for urls: [URL]) -> String? {
+        let directoryURLs = FileMutationDirectoryAccessPlan.missingDirectories(
+            for: urls,
+            activeDirectoryURLs: activeMutationDirectoryURLs
+        )
         for directoryURL in directoryURLs {
-            if hasRenameDirectoryAccess(for: directoryURL) {
-                continue
-            }
-
-            if let failure = requestRenameDirectoryAccess(for: directoryURL) {
+            if let failure = requestMutationDirectoryAccess(for: directoryURL) {
                 return failure
             }
         }
 
         return nil
+    }
+
+    func ensureRenameDirectoryAccess(for urls: [URL]) -> String? {
+        ensureMutationDirectoryAccess(for: urls)
+    }
+
+    func ensureMetadataMutationDirectoryAccess(for urls: [URL]) -> String? {
+        guard metadataPipeline.requiresTransactionalDirectoryAccess else { return nil }
+        return ensureMutationDirectoryAccess(for: urls)
+    }
+
+    var primaryFileAccessGrantPath: String? {
+        securityScopedFileAccessGrantURLs.values
+            .sorted(by: Self.compareURLs)
+            .first?
+            .path
+    }
+
+    func authorizeDefaultFileAccessFolder() -> FileAccessAuthorizationOutcome {
+        #if os(macOS)
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.directoryURL = homeURL
+        panel.title = String(localized: "Allow File Access")
+        panel.prompt = String(localized: "Allow")
+        panel.message = String(
+            localized: "Select your user folder, or another folder containing the audio files you edit."
+        )
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
+            return .cancelled
+        }
+
+        do {
+            let grant = try registerFileAccessGrant(for: selectedURL)
+            return .authorized(path: grant.url.path)
+        } catch {
+            return .failure((error as NSError).localizedDescription)
+        }
+        #else
+        return .failure(String(localized: "Folder preauthorization is available on macOS only."))
+        #endif
     }
 
     func registerMovedFiles(_ changes: [(id: UUID, oldURL: URL, newURL: URL)]) {
@@ -855,6 +936,14 @@ final class AudioViewModel: ObservableObject {
         }
     }
 
+    private func beginAccessingFileAccessGrant(_ grant: FileAccessGrant) {
+        guard securityScopedFileAccessGrantURLs[grant.id] == nil else { return }
+
+        if grant.url.startAccessingSecurityScopedResource() {
+            securityScopedFileAccessGrantURLs[grant.id] = grant.url
+        }
+    }
+
     private func stopAccessingWatchedFolder(_ id: UUID) {
         guard let url = securityScopedFolderURLs.removeValue(forKey: id) else { return }
         url.stopAccessingSecurityScopedResource()
@@ -942,22 +1031,14 @@ final class AudioViewModel: ObservableObject {
         )
     }
 
-    private func hasRenameDirectoryAccess(for directoryURL: URL) -> Bool {
-        let key = Self.urlKey(for: directoryURL)
-        if securityScopedQuickImportRenameDirectoryURLs[key] != nil {
-            return true
-        }
-
-        if securityScopedQuickImportDirectoryURLs[key] != nil {
-            return true
-        }
-
-        return securityScopedFolderURLs.values.contains { folderURL in
-            Self.isSameOrDescendant(directoryURL, of: folderURL)
-        }
+    private var activeMutationDirectoryURLs: [URL] {
+        Array(securityScopedSupplementalMutationDirectoryURLs.values)
+            + Array(securityScopedQuickImportDirectoryURLs.values)
+            + Array(securityScopedFolderURLs.values)
+            + Array(securityScopedFileAccessGrantURLs.values)
     }
 
-    private func requestRenameDirectoryAccess(for directoryURL: URL) -> String? {
+    private func requestMutationDirectoryAccess(for directoryURL: URL) -> String? {
         let displayName = FileManager.default.displayName(atPath: directoryURL.path)
         let key = Self.urlKey(for: directoryURL)
 
@@ -968,33 +1049,71 @@ final class AudioViewModel: ObservableObject {
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
         panel.directoryURL = directoryURL.deletingLastPathComponent()
-        panel.title = "Allow Folder Access"
-        panel.prompt = "Allow"
-        panel.message = "To rename imported files, select the folder “\(displayName)”."
+        panel.title = String(localized: "Allow Folder Access")
+        panel.prompt = String(localized: "Allow")
+        panel.message = String(
+            localized: "To safely modify these audio files, select the folder “\(displayName)”."
+        )
 
         guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
-            return "Renaming requires folder access for “\(displayName)”."
+            return String(localized: "Modifying files requires folder access for “\(displayName)”.")
         }
 
         guard Self.urlKey(for: selectedURL) == key else {
-            return "Select the exact folder “\(displayName)” to continue renaming."
+            return String(localized: "Select the exact folder “\(displayName)” to continue.")
         }
 
-        guard selectedURL.startAccessingSecurityScopedResource() else {
-            return "AudioMator couldn't access “\(displayName)” after you selected it."
+        do {
+            _ = try registerFileAccessGrant(for: selectedURL)
+            return nil
+        } catch {
+            return String(
+                localized: "AudioMator couldn't save access to “\(displayName)”: \((error as NSError).localizedDescription)"
+            )
         }
-
-        securityScopedQuickImportRenameDirectoryURLs[key] = selectedURL
-        return nil
         #else
         if directoryURL.startAccessingSecurityScopedResource() {
-            securityScopedQuickImportRenameDirectoryURLs[key] = directoryURL
+            securityScopedSupplementalMutationDirectoryURLs[key] = directoryURL
             return nil
         }
 
         return "iPadOS can't request extra folder access here. Keep renamed files inside the imported session scope."
         #endif
     }
+
+    #if os(macOS)
+    private func registerFileAccessGrant(for url: URL) throws -> FileAccessGrant {
+        let normalizedURL = url.standardizedFileURL
+        let key = Self.urlKey(for: normalizedURL)
+
+        if let existingGrant = fileAccessGrants.first(where: { Self.urlKey(for: $0.url) == key }),
+           securityScopedFileAccessGrantURLs[existingGrant.id] != nil {
+            return existingGrant
+        }
+
+        let grant = try fileAccessGrantStore.makeGrant(from: normalizedURL)
+        guard normalizedURL.startAccessingSecurityScopedResource() else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+
+        let redundantGrants = fileAccessGrants.filter {
+            Self.isSameOrDescendant($0.url, of: normalizedURL)
+        }
+        for redundantGrant in redundantGrants {
+            securityScopedFileAccessGrantURLs.removeValue(forKey: redundantGrant.id)?
+                .stopAccessingSecurityScopedResource()
+        }
+        fileAccessGrants.removeAll { candidate in
+            redundantGrants.contains(where: { $0.id == candidate.id })
+        }
+
+        fileAccessGrants.append(grant)
+        fileAccessGrants.sort { Self.compareURLs($0.url, $1.url) }
+        securityScopedFileAccessGrantURLs[grant.id] = normalizedURL
+        fileAccessGrantStore.saveGrants(fileAccessGrants)
+        return grant
+    }
+    #endif
 
     private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {
         guard let rootURL = watchedFolders.first(where: { $0.id == folderID })?.url else { return }

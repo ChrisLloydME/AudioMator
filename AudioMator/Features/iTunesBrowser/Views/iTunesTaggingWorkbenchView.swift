@@ -142,17 +142,6 @@ struct iTunesTaggingWorkbenchView: View {
 
     private var assignmentSection: some View {
         MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
-            #if os(macOS)
-            iTunesAssignmentsAppKitList(
-                assignments: store.assignments,
-                tracks: store.availableTracks,
-                isApplying: isApplying,
-                selectedTrackID: { assignment in store.selectedTrackID(for: assignment.id) },
-                selectedTrack: { assignment in store.track(for: assignment) },
-                isDuplicate: { assignment in store.isDuplicateAssignment(assignment) },
-                onSelectTrack: { trackID, assignmentID in store.updateSelectedTrack(trackID, for: assignmentID) }
-            )
-            #else
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 iTunesAssignmentRow(
                     assignment: assignment,
@@ -167,7 +156,6 @@ struct iTunesTaggingWorkbenchView: View {
                     MetadataCardDivider()
                 }
             }
-            #endif
         }
     }
 
@@ -182,9 +170,6 @@ struct iTunesTaggingWorkbenchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 36)
             } else {
-                #if os(macOS)
-                iTunesDiffPreviewAppKitList(rows: plan.rows)
-                #else
                 ForEach(Array(plan.rows.enumerated()), id: \.element.id) { index, row in
                     iTunesPlanRow(row: row)
 
@@ -192,7 +177,6 @@ struct iTunesTaggingWorkbenchView: View {
                         MetadataCardDivider()
                     }
                 }
-                #endif
             }
         }
     }

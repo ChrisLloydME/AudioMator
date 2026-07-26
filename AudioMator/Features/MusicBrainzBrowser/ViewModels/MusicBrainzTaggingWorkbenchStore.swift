@@ -451,7 +451,9 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     @Published private(set) var recordingPreloadTargetIDs: Set<String> = []
 
     private let browserStore: MusicBrainzBrowserStore
-    private var recordingLoadTasks: [String: Task<Void, Never>] = [:]
+    private var recordingLoadTask: Task<Void, Never>?
+    private var pendingRecordingIDs: Set<String> = []
+    private var recordingLoadOperationID = UUID()
     private let releaseArtistCredit: String
     private let publisherName: String
     private let primaryCatalogNumber: String
@@ -498,18 +500,20 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     deinit {
-        recordingLoadTasks.values.forEach { $0.cancel() }
+        recordingLoadTask?.cancel()
     }
 
     func cancelPendingRecordingLoads() {
-        recordingLoadTasks.values.forEach { $0.cancel() }
-        recordingLoadTasks.removeAll()
-        let loadingRecordingIDs = recordingStates.compactMap { recordingID, state in
-            state.isLoading ? recordingID : nil
+        recordingLoadOperationID = UUID()
+        recordingLoadTask?.cancel()
+        recordingLoadTask = nil
+        pendingRecordingIDs.removeAll()
+
+        var recoveredStates = recordingStates
+        for (recordingID, state) in recoveredStates where state.isLoading {
+            recoveredStates[recordingID] = .idle
         }
-        for recordingID in loadingRecordingIDs {
-            recordingStates[recordingID] = .idle
-        }
+        recordingStates = recoveredStates
     }
 
     var plan: MusicBrainzTaggingPlan {
@@ -739,35 +743,84 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     private func ensureRecordingDataIfNeeded(for recordingIDs: Set<String>) {
-        for recordingID in recordingIDs {
+        var updatedStates = recordingStates
+        var unresolvedRecordingIDs: Set<String> = []
+
+        for recordingID in recordingIDs.sorted() {
             let currentState = recordingStates[recordingID] ?? .idle
             guard case .idle = currentState else { continue }
 
             if let cachedDetail = browserStore.cachedRecordingDetail(id: recordingID) {
-                recordingStates[recordingID] = .loaded(cachedDetail)
+                updatedStates[recordingID] = .loaded(cachedDetail)
                 continue
             }
 
-            recordingStates[recordingID] = .loading
+            updatedStates[recordingID] = .loading
+            unresolvedRecordingIDs.insert(recordingID)
+        }
 
-            let detailStore = browserStore
-            recordingLoadTasks[recordingID] = Task { [weak self, detailStore] in
+        guard updatedStates != recordingStates else { return }
+        recordingStates = updatedStates
+        pendingRecordingIDs.formUnion(unresolvedRecordingIDs)
+        startRecordingLoadIfNeeded()
+    }
+
+    private func startRecordingLoadIfNeeded() {
+        guard recordingLoadTask == nil, !pendingRecordingIDs.isEmpty else { return }
+
+        let operationID = UUID()
+        recordingLoadOperationID = operationID
+        let detailStore = browserStore
+
+        recordingLoadTask = Task { [weak self, detailStore] in
+            while !Task.isCancelled {
+                guard let recordingID = self?.dequeueNextRecordingID() else { break }
+
                 do {
                     let detail = try await detailStore.recordingDetail(id: recordingID)
-                    guard !Task.isCancelled, let self else { return }
-                    self.recordingStates[recordingID] = .loaded(detail)
-                    self.recordingLoadTasks[recordingID] = nil
+                    guard !Task.isCancelled else { return }
+                    self?.finishRecordingLoad(
+                        recordingID: recordingID,
+                        state: .loaded(detail),
+                        operationID: operationID
+                    )
                 } catch is CancellationError {
                     return
                 } catch {
-                    guard !Task.isCancelled, let self else { return }
-                    self.recordingStates[recordingID] = .failed(
-                        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    guard !Task.isCancelled else { return }
+                    self?.finishRecordingLoad(
+                        recordingID: recordingID,
+                        state: .failed(
+                            (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                        ),
+                        operationID: operationID
                     )
-                    self.recordingLoadTasks[recordingID] = nil
                 }
             }
+
+            self?.finishRecordingLoadOperation(operationID: operationID)
         }
+    }
+
+    private func dequeueNextRecordingID() -> String? {
+        guard let recordingID = pendingRecordingIDs.sorted().first else { return nil }
+        pendingRecordingIDs.remove(recordingID)
+        return recordingID
+    }
+
+    private func finishRecordingLoad(
+        recordingID: String,
+        state: RecordingLookupState,
+        operationID: UUID
+    ) {
+        guard recordingLoadOperationID == operationID else { return }
+        recordingStates[recordingID] = state
+    }
+
+    private func finishRecordingLoadOperation(operationID: UUID) {
+        guard recordingLoadOperationID == operationID else { return }
+        recordingLoadTask = nil
+        startRecordingLoadIfNeeded()
     }
 
     private func buildPlanRow(

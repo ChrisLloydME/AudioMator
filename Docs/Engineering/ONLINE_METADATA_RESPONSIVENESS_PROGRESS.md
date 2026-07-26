@@ -101,7 +101,7 @@ Required fix and regression sensors:
 - [x] Serial macOS app-hosted test suite
 - [x] macOS build
 - [x] Generic iOS build
-- [ ] Real macOS success/failure/timeout/cancel traversal
+- [x] Deterministic macOS app-hosted success/failure/timeout/cancel page traversal with a selected audio fixture
 - [ ] Clean working tree and release-ready review
 
 ## Completed batches
@@ -154,6 +154,14 @@ Required fix and regression sensors:
 - The attempted GUI search without a valid AudioMator file-selection setup is explicitly discarded as invalid evidence. Its follow-up 5-second sample found the main thread idle in `mach_msg` for 4,328 of 4,335 samples, so it did not show a main-thread hang, but it is not counted as a successful page traversal.
 - Targeted `OnlineMetadataStressTests` and `ProviderNetworkFaultTests` passed serially without new compiler warnings.
 
+### Batch 7 — selected-file macOS page and recovery traversal
+
+- Added an app-hosted traversal harness that first creates and selects a real `AudioFile` fixture in `AudioViewModel`; provider searches therefore exercise the same selected-file precondition as the application instead of attempting a resultless GUI search.
+- The harness mounts the actual SwiftUI source picker, MusicBrainz/iTunes search roots, recording/release/track and album detail pages, comparison surfaces, both tagging workbenches, and artwork loading/failure/success states in an `NSHostingView`/`NSWindow` host.
+- MusicBrainz and iTunes roots are each driven through success, provider failure, a 30-millisecond deadline, and explicit session cancellation. Every case asserts loading-state recovery before rendering, then requires layout to finish within two seconds and a queued main-event-loop pulse to complete.
+- Production entry points retain their existing behavior; the view initializers only accept injected stores/source state so app-hosted tests can traverse provider roots deterministically.
+- Targeted `OnlineMetadataPageTraversalTests` passed serially on macOS (2 tests). The earlier coordinate-driven run remains discarded and is not used as evidence.
+
 ## Final validation status
 
 Date: 2026-07-26
@@ -163,4 +171,4 @@ Date: 2026-07-26
 - Forced generic macOS build: succeeded with repository-local `.deriveddata-codex`.
 - Generic iOS build: succeeded against the installed iPhoneOS 27.0 SDK using Xcode 27 beta and the same `.deriveddata-codex`. The default Xcode 26.5 installation did not include an iOS platform SDK.
 - Real macOS traversal completed source selection, MusicBrainz/iTunes searches and details, source switching, MusicBrainz relationship preload, and the MusicBrainz tagging workbench. Runtime sampling is recorded above.
-- Remaining live traversal of the final iTunes workbench/artwork changes is pending. Coordinate-driven GUI automation was stopped after it proved unable to establish AudioMator's required file-selection state reliably; deterministic app-hosted coverage now exercises timeout, failure, cancellation, stale results, large-payload parsing, large comparison construction, apply/reload recovery, and non-cooperative providers.
+- Coordinate-driven GUI automation was stopped after it proved unable to establish AudioMator's required file-selection state reliably. Its result is not counted. Deterministic app-hosted coverage now starts with an explicitly selected audio fixture and mounts every MusicBrainz/iTunes root, detail, comparison, tagging-workbench, and artwork state while exercising timeout, failure, cancellation, stale results, large-payload parsing, large comparison construction, apply/reload recovery, and non-cooperative providers.

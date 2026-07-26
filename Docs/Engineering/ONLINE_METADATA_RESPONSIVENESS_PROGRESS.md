@@ -61,6 +61,27 @@ Required fix and regression sensors:
 - A cancelled queued mutation must still never execute.
 - Test cancellation during a non-cooperative reload/write gate and verify a later mutation remains serialized correctly.
 
+### RC5 — MusicBrainz decoding and ranking inherit main-actor isolation
+
+The app target's default actor isolation causes the MusicBrainz client, JSON DTO decoding, Lucene query construction, link parsing, and result reranking to execute on the main actor unless each pure-data boundary is explicitly nonisolated. Wrapping the client call in a detached timeout task is insufficient when the called protocol and concrete methods hop back to the main actor.
+
+Required fix and regression sensors:
+
+- Make the complete MusicBrainz request/parse/query/ranking pipeline nonisolated and Sendable where values cross task boundaries.
+- Keep only observable UI-state publication in `MusicBrainzBrowserStore` on the main actor.
+- Add a structural compile-time regression sensor for the nonisolated boundaries plus existing successful/invalid-payload client tests.
+
+### RC6 — release matching and comparison are rebuilt inside SwiftUI body
+
+MusicBrainz release detail previously resolved a fallback file-to-track preview and built every metadata comparison row directly in `releaseSections`. Optional recording-detail preload publishes progress repeatedly, so each update could retrigger the full matching/comparison workload on the main actor. The preload's best-effort error handler also swallowed `CancellationError` and published progress after cancellation.
+
+Required fix and regression sensors:
+
+- Build the immutable release presentation once in a detached, bounded, cancellable operation while keeping the base release detail interactive.
+- Do not publish preload progress that is not visible and only causes broad view invalidation.
+- Propagate preload cancellation and invalidate the MusicBrainz session when switching back to Sources.
+- Test fallback preview/comparison equivalence, preservation of provider previews, cancellation progress, and the absence of body-time matching.
+
 ## Page-chain audit checklist
 
 - [x] Provider source picker and source switching
@@ -117,6 +138,14 @@ Required fix and regression sensors:
 - iTunes album comparison groups are no longer rebuilt inside SwiftUI `body`. They are prepared once per detail/file fingerprint in a detached, 10-second bounded operation, and file lookup is indexed once by ID instead of repeated for every assignment and field.
 - Added regression sensors for non-cooperative artwork search/download timeouts, cancellation-state cleanup, dismissal during search/download, and explicit artwork request timeout configuration.
 - Targeted result: `ArtworkLookupResponsivenessTests`, `iTunesMetadataComparisonBuilderTests`, and `ProviderNetworkFaultTests` passed serially on macOS; incremental macOS build succeeded.
+
+### Batch 5 — MusicBrainz parsing and release-presentation isolation
+
+- The complete MusicBrainz client pipeline—query/link construction, request processing, JSON DTO decoding, result mapping/ranking, and relationship construction—is explicitly nonisolated. Detached deadline tasks no longer hop heavy parse/rank work back to the main actor.
+- Release fallback matching and comparison-row construction moved out of SwiftUI `body` into a pure Sendable presentation builder with a 10-second caller deadline. The overview is published first and stays scrollable/dismissible during preparation or after timeout/failure.
+- Invisible recording-preload progress no longer invalidates the entire release view. Cancellation is propagated instead of being swallowed, and switching from MusicBrainz to Sources closes the provider session before changing the selected source.
+- Added regression sensors for presentation equivalence, provider-preview preservation, off-main structural boundaries, body-time matching removal, and cancellation without late preload progress.
+- Targeted macOS tests and incremental generic macOS build succeeded; full delivery gates are being rerun after this audit batch.
 
 ## Final validation status
 

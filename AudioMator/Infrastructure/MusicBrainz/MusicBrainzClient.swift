@@ -1,7 +1,7 @@
 import Foundation
 
 private extension MusicBrainzClientError {
-    var isRecoverableServerFailure: Bool {
+    nonisolated var isRecoverableServerFailure: Bool {
         guard case .requestFailed(let statusCode) = self else { return false }
         return (500...599).contains(statusCode)
     }
@@ -29,7 +29,7 @@ actor MusicBrainzRateLimiter {
     }
 }
 
-protocol MusicBrainzBrowserClient: Sendable {
+nonisolated protocol MusicBrainzBrowserClient: Sendable {
     func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults
     func recordingDetail(
         id: String,
@@ -38,7 +38,7 @@ protocol MusicBrainzBrowserClient: Sendable {
     func releaseDetail(id: String) async throws -> MusicBrainzReleaseDetail
 }
 
-struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
+nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static let baseURL = URL(string: "https://\(NetworkServiceDisclosure.MusicBrainz.host)/ws/2")!
 
     private let session: URLSession
@@ -649,22 +649,22 @@ struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 }
 
 extension String {
-    var validMBID: String? {
+    nonisolated var validMBID: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         guard UUID(uuidString: trimmed) != nil else { return nil }
         return trimmed
     }
 }
 
-private struct MusicBrainzRecordingSearchResponse: Decodable {
+private nonisolated struct MusicBrainzRecordingSearchResponse: Decodable {
     let recordings: [MusicBrainzRecordingDTO]
 }
 
-private struct MusicBrainzReleaseSearchResponse: Decodable {
+private nonisolated struct MusicBrainzReleaseSearchResponse: Decodable {
     let releases: [MusicBrainzReleaseSearchDTO]
 }
 
-private struct MusicBrainzRecordingDTO: Decodable {
+private nonisolated struct MusicBrainzRecordingDTO: Decodable {
     let id: String
     let title: String
     let score: Int
@@ -708,7 +708,7 @@ private struct MusicBrainzRecordingDTO: Decodable {
     }
 }
 
-private struct MusicBrainzArtistCreditDTO: Decodable {
+private nonisolated struct MusicBrainzArtistCreditDTO: Decodable {
     let name: String?
     let joinPhrase: String
     let artist: MusicBrainzArtistDTO?
@@ -727,7 +727,7 @@ private struct MusicBrainzArtistCreditDTO: Decodable {
     }
 }
 
-private struct MusicBrainzArtistDTO: Decodable {
+private nonisolated struct MusicBrainzArtistDTO: Decodable {
     let id: String
     let name: String?
     let disambiguation: String
@@ -746,7 +746,7 @@ private struct MusicBrainzArtistDTO: Decodable {
     }
 }
 
-private struct MusicBrainzReleaseDTO: Decodable {
+private nonisolated struct MusicBrainzReleaseDTO: Decodable {
     let id: String
     let title: String
     let date: String
@@ -771,7 +771,7 @@ private struct MusicBrainzReleaseDTO: Decodable {
     }
 }
 
-private struct MusicBrainzReleaseSearchDTO: Decodable {
+private nonisolated struct MusicBrainzReleaseSearchDTO: Decodable {
     let id: String
     let title: String
     let score: Int
@@ -813,7 +813,7 @@ private struct MusicBrainzReleaseSearchDTO: Decodable {
     }
 }
 
-private struct MusicBrainzReleaseGroupDTO: Decodable {
+private nonisolated struct MusicBrainzReleaseGroupDTO: Decodable {
     let id: String
     let primaryType: String
     let secondaryTypes: [String]
@@ -832,7 +832,7 @@ private struct MusicBrainzReleaseGroupDTO: Decodable {
     }
 }
 
-private struct MusicBrainzTermDTO: Decodable {
+private nonisolated struct MusicBrainzTermDTO: Decodable {
     let name: String
     let count: Int?
 
@@ -864,7 +864,7 @@ private struct MusicBrainzTermDTO: Decodable {
     }
 }
 
-private struct MusicBrainzRatingDTO: Decodable {
+private nonisolated struct MusicBrainzRatingDTO: Decodable {
     let value: Double?
     let voteCount: Int
 
@@ -900,7 +900,7 @@ private struct MusicBrainzRatingDTO: Decodable {
     }
 }
 
-private struct MusicBrainzTextRepresentationDTO: Decodable {
+private nonisolated struct MusicBrainzTextRepresentationDTO: Decodable {
     let language: String
     let script: String
 
@@ -916,7 +916,7 @@ private struct MusicBrainzTextRepresentationDTO: Decodable {
     }
 }
 
-private struct MusicBrainzRecordingLookupDTO: Decodable {
+private nonisolated struct MusicBrainzRecordingLookupDTO: Decodable {
     let id: String
     let title: String
     let disambiguation: String
@@ -965,7 +965,7 @@ private struct MusicBrainzRecordingLookupDTO: Decodable {
     }
 }
 
-private struct MusicBrainzReleaseLookupDTO: Decodable {
+private nonisolated struct MusicBrainzReleaseLookupDTO: Decodable {
     let id: String
     let title: String
     let date: String
@@ -1026,7 +1026,7 @@ private struct MusicBrainzReleaseLookupDTO: Decodable {
     }
 }
 
-private struct MusicBrainzReleaseGroupLookupDTO: Decodable {
+private nonisolated struct MusicBrainzReleaseGroupLookupDTO: Decodable {
     let id: String
     let title: String
     let primaryType: String
@@ -1048,7 +1048,7 @@ private struct MusicBrainzReleaseGroupLookupDTO: Decodable {
     }
 }
 
-private struct MusicBrainzLabelInfoDTO: Decodable {
+private nonisolated struct MusicBrainzLabelInfoDTO: Decodable {
     let catalogNumber: String
     let label: MusicBrainzLabelDTO?
 
@@ -1064,7 +1064,7 @@ private struct MusicBrainzLabelInfoDTO: Decodable {
     }
 }
 
-private struct MusicBrainzLabelDTO: Decodable {
+private nonisolated struct MusicBrainzLabelDTO: Decodable {
     let id: String
     let name: String
     let disambiguation: String
@@ -1083,7 +1083,7 @@ private struct MusicBrainzLabelDTO: Decodable {
     }
 }
 
-private struct MusicBrainzPlaceDTO: Decodable {
+private nonisolated struct MusicBrainzPlaceDTO: Decodable {
     let id: String
     let name: String
     let disambiguation: String
@@ -1102,7 +1102,7 @@ private struct MusicBrainzPlaceDTO: Decodable {
     }
 }
 
-private struct MusicBrainzSeriesDTO: Decodable {
+private nonisolated struct MusicBrainzSeriesDTO: Decodable {
     let id: String
     let name: String
     let disambiguation: String
@@ -1121,7 +1121,7 @@ private struct MusicBrainzSeriesDTO: Decodable {
     }
 }
 
-private struct MusicBrainzURLDTO: Decodable {
+private nonisolated struct MusicBrainzURLDTO: Decodable {
     let id: String
     let resource: String
 
@@ -1137,7 +1137,7 @@ private struct MusicBrainzURLDTO: Decodable {
     }
 }
 
-private struct MusicBrainzRelatedRecordingDTO: Decodable {
+private nonisolated struct MusicBrainzRelatedRecordingDTO: Decodable {
     let id: String
     let title: String
     let disambiguation: String
@@ -1159,7 +1159,7 @@ private struct MusicBrainzRelatedRecordingDTO: Decodable {
     }
 }
 
-private struct MusicBrainzWorkDTO: Decodable {
+private nonisolated struct MusicBrainzWorkDTO: Decodable {
     let id: String
     let title: String
     let disambiguation: String
@@ -1181,7 +1181,7 @@ private struct MusicBrainzWorkDTO: Decodable {
     }
 }
 
-private struct MusicBrainzRelationDTO: Decodable {
+private nonisolated struct MusicBrainzRelationDTO: Decodable {
     let type: String
     let direction: String
     let targetType: String
@@ -1248,7 +1248,7 @@ private struct MusicBrainzRelationDTO: Decodable {
     }
 }
 
-private struct MusicBrainzNestedRelationDTO: Decodable {
+private nonisolated struct MusicBrainzNestedRelationDTO: Decodable {
     let type: String
     let direction: String
     let targetType: String
@@ -1312,7 +1312,7 @@ private struct MusicBrainzNestedRelationDTO: Decodable {
     }
 }
 
-private struct MusicBrainzMediumDTO: Decodable {
+private nonisolated struct MusicBrainzMediumDTO: Decodable {
     let id: String
     let title: String
     let format: String
@@ -1340,7 +1340,7 @@ private struct MusicBrainzMediumDTO: Decodable {
     }
 }
 
-private struct MusicBrainzDiscDTO: Decodable {
+private nonisolated struct MusicBrainzDiscDTO: Decodable {
     let id: String
 
     init(from decoder: Decoder) throws {
@@ -1353,7 +1353,7 @@ private struct MusicBrainzDiscDTO: Decodable {
     }
 }
 
-private struct MusicBrainzTrackDTO: Decodable {
+private nonisolated struct MusicBrainzTrackDTO: Decodable {
     let id: String
     let number: String
     let title: String
@@ -1381,7 +1381,7 @@ private struct MusicBrainzTrackDTO: Decodable {
     }
 }
 
-private struct MusicBrainzTrackRecordingDTO: Decodable {
+private nonisolated struct MusicBrainzTrackRecordingDTO: Decodable {
     let id: String
     let title: String
     let length: Int?
@@ -1407,7 +1407,7 @@ private struct MusicBrainzTrackRecordingDTO: Decodable {
 }
 
 private extension MusicBrainzRecordingResult {
-    init(dto: MusicBrainzRecordingDTO) {
+    nonisolated init(dto: MusicBrainzRecordingDTO) {
         id = dto.id
         title = dto.title
         score = dto.score
@@ -1436,7 +1436,7 @@ private extension MusicBrainzRecordingResult {
 }
 
 private extension MusicBrainzReleaseSearchResult {
-    init(dto: MusicBrainzReleaseSearchDTO) {
+    nonisolated init(dto: MusicBrainzReleaseSearchDTO) {
         id = dto.id
         title = dto.title
         score = dto.score
@@ -1474,7 +1474,7 @@ private extension MusicBrainzReleaseSearchResult {
 }
 
 private extension MusicBrainzRecordingDetail {
-    init(dto: MusicBrainzRecordingLookupDTO, releases: [MusicBrainzRecordingResult.Release]) {
+    nonisolated init(dto: MusicBrainzRecordingLookupDTO, releases: [MusicBrainzRecordingResult.Release]) {
         id = dto.id
         title = dto.title
         disambiguation = dto.disambiguation
@@ -1508,7 +1508,7 @@ private extension MusicBrainzRecordingDetail {
 }
 
 private extension MusicBrainzReleaseDetail {
-    init(dto: MusicBrainzReleaseLookupDTO) {
+    nonisolated init(dto: MusicBrainzReleaseLookupDTO) {
         id = dto.id
         title = dto.title
         date = dto.date
@@ -1571,7 +1571,7 @@ private extension MusicBrainzReleaseDetail {
 }
 
 private extension MusicBrainzReleaseSearchResult {
-    func withSelectionMatchPreview(
+    nonisolated func withSelectionMatchPreview(
         _ preview: MusicBrainzReleaseMatchPreview,
         selectionMatchScore: Double
     ) -> MusicBrainzReleaseSearchResult {
@@ -1598,7 +1598,7 @@ private extension MusicBrainzTerm {
     }
 }
 
-private func musicBrainzJoinedArtistCredit(_ credits: [MusicBrainzArtistCreditDTO]) -> String {
+nonisolated private func musicBrainzJoinedArtistCredit(_ credits: [MusicBrainzArtistCreditDTO]) -> String {
     credits
         .map { credit in
             let baseName = credit.name ?? credit.artist?.name ?? ""
@@ -1608,7 +1608,7 @@ private func musicBrainzJoinedArtistCredit(_ credits: [MusicBrainzArtistCreditDT
         .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-private enum MusicBrainzRelationshipBuilder {
+private nonisolated enum MusicBrainzRelationshipBuilder {
     static func makeGroups(from relations: [MusicBrainzRelationDTO]) -> [MusicBrainzRelationshipGroup] {
         var groups: [MusicBrainzRelationshipGroup] = []
 

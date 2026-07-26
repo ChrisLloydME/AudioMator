@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicBrainzLuceneQueryBuilder {
+nonisolated enum MusicBrainzLuceneQueryBuilder {
     static func recordingSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
         MusicBrainzProviderLuceneQueryBuilder.recordingSearchQueries(from: query.providerSearchQuery)
     }
@@ -27,7 +27,7 @@ enum MusicBrainzLuceneQueryBuilder {
 }
 
 private extension MusicBrainzSearchQuery {
-    var providerSearchQuery: MusicBrainzProviderSearchQuery {
+    nonisolated var providerSearchQuery: MusicBrainzProviderSearchQuery {
         MusicBrainzProviderSearchQuery(
             mode: providerMode,
             title: title,
@@ -48,7 +48,7 @@ private extension MusicBrainzSearchQuery {
         )
     }
 
-    var providerMode: MusicBrainzProviderSearchMode {
+    nonisolated var providerMode: MusicBrainzProviderSearchMode {
         switch mode {
         case .track:
             return .track
@@ -63,7 +63,7 @@ private extension MusicBrainzSearchQuery {
 }
 
 private extension MusicBrainzFileSearchInput {
-    var providerFileInput: MusicBrainzProviderFileInput {
+    nonisolated var providerFileInput: MusicBrainzProviderFileInput {
         MusicBrainzProviderFileInput(
             id: id,
             displayTitle: displayTitle,
@@ -85,7 +85,7 @@ private extension MusicBrainzFileSearchInput {
 }
 
 private extension MusicBrainzReleaseFilters {
-    var providerReleaseFilters: MusicBrainzProviderReleaseFilters {
+    nonisolated var providerReleaseFilters: MusicBrainzProviderReleaseFilters {
         MusicBrainzProviderReleaseFilters(
             mediaFormats: Set(mediaFormats.compactMap { MusicBrainzProviderMediaFormat(rawValue: $0.rawValue) }),
             releaseYear: releaseYear,

@@ -113,7 +113,7 @@ struct OnlineMetadataBrowserView: View {
             if navigationPath.isEmpty {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        selectedMetadataSource = nil
+                        leaveMusicBrainzSource()
                     } label: {
                         Label("Sources", systemImage: "chevron.left")
                     }
@@ -150,6 +150,12 @@ struct OnlineMetadataBrowserView: View {
         default:
             break
         }
+    }
+
+    private func leaveMusicBrainzSource() {
+        navigationPath.removeAll()
+        store.closeWindowSession()
+        selectedMetadataSource = nil
     }
 
     private var searchHeader: some View {

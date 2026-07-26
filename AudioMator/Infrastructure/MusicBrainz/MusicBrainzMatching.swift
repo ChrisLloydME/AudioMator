@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicBrainzTaggingPreviewBuilder {
+nonisolated enum MusicBrainzTaggingPreviewBuilder {
     static func makePreview(
         files: [MusicBrainzFileSearchInput],
         release: MusicBrainzReleaseDetail
@@ -26,7 +26,7 @@ enum MusicBrainzTaggingPreviewBuilder {
     }
 }
 
-enum MusicBrainzFileSelectionMatcher {
+nonisolated enum MusicBrainzFileSelectionMatcher {
     static func match(
         selection: MusicBrainzFileSelectionSummary,
         release: MusicBrainzReleaseDetail
@@ -384,7 +384,7 @@ enum MusicBrainzFileSelectionMatcher {
     }
 }
 
-enum MusicBrainzResultRanker {
+nonisolated enum MusicBrainzResultRanker {
     static func rerankRecordings(
         _ results: [MusicBrainzRecordingResult],
         query: MusicBrainzSearchQuery,

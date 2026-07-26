@@ -5,6 +5,63 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class OnlineMetadataPlanSnapshotTests: XCTestCase {
+    func testMusicBrainzDetailBuildsPresentationOutsideTheSwiftUIBody() throws {
+        let repositoryURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: repositoryURL.appendingPathComponent(
+                "AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(source.contains("operationName: \"MusicBrainz match preview\""))
+        XCTAssertTrue(source.contains("MusicBrainzMetadataComparisonBuilder.presentation("))
+        XCTAssertFalse(source.contains("resolvedSelectionPreview"))
+        XCTAssertFalse(source.contains("preview.matchedAssignments.map { assignment in"))
+        XCTAssertFalse(source.contains("recordingPreloadProgress"))
+    }
+
+    func testMusicBrainzNetworkParsingAndRankingStayOffTheMainActor() throws {
+        let repositoryURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let expectedDeclarations = [
+            (
+                "AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift",
+                [
+                    "nonisolated protocol MusicBrainzBrowserClient",
+                    "nonisolated struct MusicBrainzClient",
+                    "private nonisolated struct MusicBrainzRecordingLookupDTO",
+                    "private nonisolated struct MusicBrainzReleaseLookupDTO"
+                ]
+            ),
+            (
+                "AudioMator/Infrastructure/MusicBrainz/MusicBrainzSearchQuery.swift",
+                ["nonisolated struct MusicBrainzSearchQuery"]
+            ),
+            (
+                "AudioMator/Infrastructure/MusicBrainz/MusicBrainzMatching.swift",
+                ["nonisolated enum MusicBrainzResultRanker"]
+            ),
+            (
+                "AudioMator/Infrastructure/MusicBrainz/MusicBrainzProviderLuceneQueryBuilder.swift",
+                ["nonisolated enum MusicBrainzProviderLuceneQueryBuilder"]
+            )
+        ]
+
+        for (sourcePath, declarations) in expectedDeclarations {
+            let source = try String(
+                contentsOf: repositoryURL.appendingPathComponent(sourcePath),
+                encoding: .utf8
+            )
+            for declaration in declarations {
+                XCTAssertTrue(source.contains(declaration), "\(sourcePath): \(declaration)")
+            }
+        }
+    }
+
     func testWorkbenchViewsApplyTheDisplayedPlanInsteadOfReadingStorePlanAgain() throws {
         let repositoryURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

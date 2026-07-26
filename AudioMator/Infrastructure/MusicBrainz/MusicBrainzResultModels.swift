@@ -1,7 +1,7 @@
 import Foundation
 
-struct MusicBrainzReleaseSearchResult: Identifiable, Equatable, Hashable {
-    struct ReleaseGroup: Equatable, Hashable {
+nonisolated struct MusicBrainzReleaseSearchResult: Identifiable, Equatable, Hashable, Sendable {
+    struct ReleaseGroup: Equatable, Hashable, Sendable {
         let id: String
         let primaryType: String
         let secondaryTypes: [String]
@@ -46,7 +46,7 @@ extension MusicBrainzReleaseSearchResult {
     }
 }
 
-enum MusicBrainzSearchResults: Equatable {
+nonisolated enum MusicBrainzSearchResults: Equatable, Sendable {
     case recordings([MusicBrainzRecordingResult])
     case releases([MusicBrainzReleaseSearchResult])
 
@@ -60,8 +60,8 @@ enum MusicBrainzSearchResults: Equatable {
     var isEmpty: Bool { count == 0 }
 }
 
-struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable {
-    struct Release: Identifiable, Equatable, Hashable {
+nonisolated struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable, Sendable {
+    struct Release: Identifiable, Equatable, Hashable, Sendable {
         let id: String
         let title: String
         let date: String
@@ -91,7 +91,7 @@ struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable {
     }
 }
 
-struct MusicBrainzRecordingDetail: Equatable {
+nonisolated struct MusicBrainzRecordingDetail: Equatable, Sendable {
     let id: String
     let title: String
     let artistCredit: String
@@ -111,14 +111,14 @@ struct MusicBrainzRecordingDetail: Equatable {
     }
 }
 
-struct MusicBrainzRelationshipGroup: Equatable, Identifiable {
+nonisolated struct MusicBrainzRelationshipGroup: Equatable, Identifiable, Sendable {
     let title: String
     var values: [String]
 
     var id: String { title }
 }
 
-struct MusicBrainzTerm: Equatable {
+nonisolated struct MusicBrainzTerm: Equatable, Sendable {
     let name: String
     let count: Int?
 
@@ -128,7 +128,7 @@ struct MusicBrainzTerm: Equatable {
     }
 }
 
-struct MusicBrainzRating: Equatable {
+nonisolated struct MusicBrainzRating: Equatable, Sendable {
     let value: Double?
     let voteCount: Int
 
@@ -138,15 +138,15 @@ struct MusicBrainzRating: Equatable {
     }
 }
 
-struct MusicBrainzReleaseDetail: Equatable {
-    struct LabelInfo: Identifiable, Equatable, Hashable {
+nonisolated struct MusicBrainzReleaseDetail: Equatable, Sendable {
+    struct LabelInfo: Identifiable, Equatable, Hashable, Sendable {
         let id: String
         let labelName: String
         let catalogNumber: String
     }
 
-    struct Medium: Identifiable, Equatable, Hashable {
-        struct Track: Identifiable, Equatable, Hashable {
+    struct Medium: Identifiable, Equatable, Hashable, Sendable {
+        struct Track: Identifiable, Equatable, Hashable, Sendable {
             let id: String
             let number: String
             let title: String
@@ -192,18 +192,18 @@ struct MusicBrainzReleaseDetail: Equatable {
     }
 }
 
-struct MusicBrainzTrackDetail: Equatable {
+nonisolated struct MusicBrainzTrackDetail: Equatable, Sendable {
     let track: MusicBrainzReleaseDetail.Medium.Track
     let recordingDetail: MusicBrainzRecordingDetail?
 }
 
-enum MusicBrainzMetadataDetail: Equatable {
+nonisolated enum MusicBrainzMetadataDetail: Equatable, Sendable {
     case recording(MusicBrainzRecordingDetail)
     case release(MusicBrainzReleaseDetail)
     case track(MusicBrainzTrackDetail)
 }
 
-enum MusicBrainzClientError: LocalizedError {
+nonisolated enum MusicBrainzClientError: LocalizedError, Sendable {
     case emptyQuery
     case invalidLink
     case unsupportedLink

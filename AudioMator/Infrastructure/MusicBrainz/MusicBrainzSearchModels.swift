@@ -1,6 +1,6 @@
 import Foundation
 
-enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
+nonisolated enum MusicBrainzSearchMode: String, CaseIterable, Identifiable, Sendable {
     case track
     case album
     case file
@@ -18,7 +18,7 @@ enum MusicBrainzSearchMode: String, CaseIterable, Identifiable {
     }
 }
 
-struct MusicBrainzFileSearchInput: Identifiable, Equatable, Hashable {
+nonisolated struct MusicBrainzFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let displayTitle: String
     let title: String
@@ -102,7 +102,7 @@ struct MusicBrainzFileSearchInput: Identifiable, Equatable, Hashable {
     }
 }
 
-struct MusicBrainzFileSelectionSummary: Equatable, Hashable {
+nonisolated struct MusicBrainzFileSelectionSummary: Equatable, Hashable, Sendable {
     let files: [MusicBrainzFileSearchInput]
     let albumCandidate: String
     let albumArtistCandidate: String
@@ -150,7 +150,7 @@ struct MusicBrainzFileSelectionSummary: Equatable, Hashable {
     }
 }
 
-struct MusicBrainzReleaseMatchTrack: Identifiable, Equatable, Hashable {
+nonisolated struct MusicBrainzReleaseMatchTrack: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let mediumTitle: String
     let mediumFormat: String
@@ -165,7 +165,7 @@ struct MusicBrainzReleaseMatchTrack: Identifiable, Equatable, Hashable {
     let isrcs: [String]
 }
 
-struct MusicBrainzReleaseMatchAssignment: Identifiable, Equatable, Hashable {
+nonisolated struct MusicBrainzReleaseMatchAssignment: Identifiable, Equatable, Hashable, Sendable {
     let id: String
     let file: MusicBrainzFileSearchInput
     let track: MusicBrainzReleaseMatchTrack
@@ -173,7 +173,7 @@ struct MusicBrainzReleaseMatchAssignment: Identifiable, Equatable, Hashable {
     let reason: String
 }
 
-struct MusicBrainzReleaseMatchPreview: Equatable, Hashable {
+nonisolated struct MusicBrainzReleaseMatchPreview: Equatable, Hashable, Sendable {
     let totalSelectedFiles: Int
     let matchedAssignments: [MusicBrainzReleaseMatchAssignment]
     let unmatchedFiles: [MusicBrainzFileSearchInput]
@@ -187,7 +187,7 @@ struct MusicBrainzReleaseMatchPreview: Equatable, Hashable {
     }
 }
 
-enum MusicBrainzReleaseStatus: String, CaseIterable, Identifiable, Hashable {
+nonisolated enum MusicBrainzReleaseStatus: String, CaseIterable, Identifiable, Hashable, Sendable {
     case official
     case promotion
     case bootleg
@@ -211,7 +211,7 @@ enum MusicBrainzReleaseStatus: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
-enum MusicBrainzReleaseMediaFormat: String, CaseIterable, Identifiable, Hashable {
+nonisolated enum MusicBrainzReleaseMediaFormat: String, CaseIterable, Identifiable, Hashable, Sendable {
     case digitalMedia = "Digital Media"
     case cd = "CD"
     case vinyl = "Vinyl"
@@ -226,7 +226,7 @@ enum MusicBrainzReleaseMediaFormat: String, CaseIterable, Identifiable, Hashable
     nonisolated var displayName: String { rawValue }
 }
 
-struct MusicBrainzReleaseFilters: Equatable, Hashable {
+nonisolated struct MusicBrainzReleaseFilters: Equatable, Hashable, Sendable {
     var mediaFormats: Set<MusicBrainzReleaseMediaFormat>
     var releaseYear: String
     var countries: Set<String>

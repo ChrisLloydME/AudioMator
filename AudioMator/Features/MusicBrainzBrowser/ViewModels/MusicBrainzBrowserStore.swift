@@ -423,6 +423,8 @@ final class MusicBrainzBrowserStore: ObservableObject {
                     let detail = try await loadRecordingDetail(id: recordingID, fallbackReleases: [])
                     try Task.checkCancellation()
                     recordingDetailsByID[recordingID] = detail
+                } catch is CancellationError {
+                    return
                 } catch {
                     // Keep release loading resilient; missing recording detail only hides deep relationship fields.
                 }

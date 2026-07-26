@@ -1,11 +1,11 @@
 import Foundation
 
-enum MusicBrainzLinkTarget: Equatable {
+nonisolated enum MusicBrainzLinkTarget: Equatable, Sendable {
     case recording(String)
     case release(String)
 }
 
-enum MusicBrainzLinkParser {
+nonisolated enum MusicBrainzLinkParser {
     private static let supportedHosts = Set(NetworkServiceDisclosure.MusicBrainz.acceptedLinkDomains)
 
     static func parse(_ rawValue: String) throws -> MusicBrainzLinkTarget {

@@ -6,10 +6,54 @@ struct OnlineMetadataBrowserView: View {
     @ObservedObject var store: MusicBrainzBrowserStore
     @ObservedObject var lrclibStore: LRCLIBLyricsBrowserStore
     @ObservedObject var viewModel: AudioViewModel
+    private let iTunesStore: iTunesBrowserStore
     @Environment(\.dismiss) private var dismiss
     @State private var selectedMetadataSource: MetadataBrowserSource?
     @State private var navigationPath: [MusicBrainzBrowserDestination] = []
     @State private var isShowingFilters = false
+
+    init(
+        store: MusicBrainzBrowserStore,
+        lrclibStore: LRCLIBLyricsBrowserStore,
+        viewModel: AudioViewModel
+    ) {
+        self.init(
+            store: store,
+            lrclibStore: lrclibStore,
+            viewModel: viewModel,
+            iTunesStore: iTunesBrowserStore(),
+            initialSource: nil
+        )
+    }
+
+    init(
+        store: MusicBrainzBrowserStore,
+        lrclibStore: LRCLIBLyricsBrowserStore,
+        viewModel: AudioViewModel,
+        initialSource: MetadataBrowserSource
+    ) {
+        self.init(
+            store: store,
+            lrclibStore: lrclibStore,
+            viewModel: viewModel,
+            iTunesStore: iTunesBrowserStore(),
+            initialSource: initialSource
+        )
+    }
+
+    init(
+        store: MusicBrainzBrowserStore,
+        lrclibStore: LRCLIBLyricsBrowserStore,
+        viewModel: AudioViewModel,
+        iTunesStore: iTunesBrowserStore,
+        initialSource: MetadataBrowserSource?
+    ) {
+        self.store = store
+        self.lrclibStore = lrclibStore
+        self.viewModel = viewModel
+        self.iTunesStore = iTunesStore
+        _selectedMetadataSource = State(initialValue: initialSource)
+    }
 
     var body: some View {
         Group {
@@ -19,6 +63,7 @@ struct OnlineMetadataBrowserView: View {
                     musicBrainzContent
                 case .iTunes:
                     iTunesBrowserView(
+                        store: iTunesStore,
                         viewModel: viewModel,
                         onBackToSources: { self.selectedMetadataSource = nil }
                     )

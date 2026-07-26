@@ -181,6 +181,63 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
     }
 
+    @MainActor
+    func testLargeMusicBrainzPayloadLeavesMainActorSchedulableAndDecodesWithinDeadline() async throws {
+        let responseGate = ProviderResponseGate()
+        let recordings: [[String: Any]] = (0..<10_000).map { index in
+            [
+                "id": "00000000-0000-0000-0000-\(String(format: "%012d", index))",
+                "title": "Synthetic Track \(index)",
+                "score": 100,
+                "artist-credit": [["name": "Synthetic Artist", "joinphrase": ""]],
+                "releases": [[
+                    "id": "10000000-0000-0000-0000-\(String(format: "%012d", index))",
+                    "title": "Synthetic Album"
+                ]]
+            ]
+        }
+        let payload = try JSONSerialization.data(withJSONObject: ["recordings": recordings])
+        ProviderFaultURLProtocol.requestHandler = { request in
+            responseGate.blockUntilReleased()
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )
+            )
+            return (response, payload)
+        }
+        let client = MusicBrainzClient(
+            session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0)
+        )
+
+        let searchTask = Task {
+            try await withAsyncTimeout(.seconds(5), operationName: "MusicBrainz stress decode") {
+                try await client.search(
+                    matching: MusicBrainzSearchQuery(title: "Synthetic Track"),
+                    limit: 25
+                )
+            }
+        }
+        let requestStarted = try await waitUntil { responseGate.didStart }
+
+        XCTAssertTrue(requestStarted)
+        XCTAssertTrue(
+            Thread.isMainThread,
+            "The main actor must remain schedulable while the MusicBrainz response is pending."
+        )
+
+        responseGate.release()
+        let results = try await searchTask.value
+        guard case .recordings(let decodedRecordings) = results else {
+            return XCTFail("Expected recording results")
+        }
+        XCTAssertEqual(decodedRecordings.count, 25)
+    }
+
     private func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ProviderFaultURLProtocol.self]
@@ -202,6 +259,39 @@ final class ProviderNetworkFaultTests: XCTestCase {
             )
             return (response, data)
         }
+    }
+
+    @MainActor
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        condition: @escaping @MainActor () -> Bool
+    ) async throws -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while clock.now < deadline {
+            if condition() { return true }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
+}
+
+private nonisolated final class ProviderResponseGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private let semaphore = DispatchSemaphore(value: 0)
+    private var started = false
+
+    var didStart: Bool {
+        lock.withLock { started }
+    }
+
+    func blockUntilReleased() {
+        lock.withLock { started = true }
+        semaphore.wait()
+    }
+
+    func release() {
+        semaphore.signal()
     }
 }
 

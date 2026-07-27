@@ -12102,6 +12102,9 @@
     "Show Welcome Screen on Launch" : {
 
     },
+    "Skip" : {
+
+    },
     "Some selected formats do not support embedded artwork writing yet." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+ArtworkLookup.swift:55.",
       "localizations" : {

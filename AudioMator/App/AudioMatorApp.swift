@@ -76,7 +76,6 @@ struct AudioMatorApp: App {
 
         Settings {
             SettingsView(sharedState: sharedState, saveIssueLogStore: saveIssueLogStore)
-                .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 700, height: 480)
 

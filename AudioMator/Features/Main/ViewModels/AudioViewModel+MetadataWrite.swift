@@ -33,12 +33,14 @@ extension AudioViewModel {
             subtitle: file.url.lastPathComponent,
             totalUnitCount: 1
         )
+        let expectedFileFingerprint = inspectorEditSourceFilesByID[id]?.fileFingerprint
+            ?? file.fileFingerprint
 
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
-                expectedFileFingerprint: file.fileFingerprint
+                expectedFileFingerprint: expectedFileFingerprint
             )
             self.updateMetadataSaveProgress(
                 subtitle: file.url.lastPathComponent,
@@ -80,6 +82,7 @@ extension AudioViewModel {
         guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         let editSnapshot = multiEdit
+        let expectedFileFingerprints = inspectorEditSourceFilesByID.mapValues(\.fileFingerprint)
 
         beginMetadataSaveProgress(
             title: "Saving Album Artwork",
@@ -101,7 +104,8 @@ extension AudioViewModel {
                     effectiveEdit,
                     to: file,
                     syncInspectorAfterReload: false,
-                    expectedFileFingerprint: file.fileFingerprint
+                    expectedFileFingerprint: expectedFileFingerprints[file.id]
+                        ?? file.fileFingerprint
                 )
 
                 switch result {

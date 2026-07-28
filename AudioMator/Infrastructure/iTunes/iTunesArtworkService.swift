@@ -1,6 +1,4 @@
 import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 
 nonisolated enum iTunesArtworkSearchEntity: String, Sendable {
     case album
@@ -157,10 +155,10 @@ nonisolated struct iTunesArtworkService: iTunesArtworkServicing, Sendable {
             try Task.checkCancellation()
             do {
                 let request = URLRequest(url: artworkURL, timeoutInterval: Self.requestTimeout)
-                let (data, response) = try await session.data(for: request)
+                let (temporaryURL, response) = try await session.download(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else { continue }
-                guard (200..<300).contains(httpResponse.statusCode), !data.isEmpty else { continue }
-                downloadedData = data
+                guard (200..<300).contains(httpResponse.statusCode) else { continue }
+                downloadedData = try ArtworkImageNormalizer.normalizedPNGData(from: temporaryURL)
                 break
             } catch {
                 try Task.checkCancellation()
@@ -172,28 +170,7 @@ nonisolated struct iTunesArtworkService: iTunesArtworkServicing, Sendable {
             throw iTunesArtworkServiceError.invalidArtworkData
         }
 
-        guard
-            let source = CGImageSourceCreateWithData(downloadedData as CFData, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else {
-            throw iTunesArtworkServiceError.imageDecodingFailed
-        }
-
-        let encodedData = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
-            encodedData,
-            UTType.png.identifier as CFString,
-            1,
-            nil
-        ) else {
-            throw iTunesArtworkServiceError.imageEncodingFailed
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else {
-            throw iTunesArtworkServiceError.imageEncodingFailed
-        }
-
-        return iTunesDownloadedArtwork(pngData: encodedData as Data)
+        return iTunesDownloadedArtwork(pngData: downloadedData)
     }
 
     private func transformResults(

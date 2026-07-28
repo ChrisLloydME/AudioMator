@@ -193,6 +193,19 @@ struct iTunesTaggingPlan {
 
 @MainActor
 final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
+    final class PerformanceProbe {
+        private(set) var planBuildCount = 0
+        private(set) var planRowBuildCount = 0
+
+        fileprivate func didBuildPlan() {
+            planBuildCount += 1
+        }
+
+        fileprivate func didBuildPlanRow() {
+            planRowBuildCount += 1
+        }
+    }
+
     struct AssignmentDraft: Identifiable, Hashable {
         let fileInput: iTunesFileSearchInput
         let initialTrackID: Int?
@@ -211,10 +224,21 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     @Published var selectedFields: Set<iTunesTagWriteField>
 
     private let barcodeValue: String
+    private let performanceProbe: PerformanceProbe?
+    private let tracksByID: [Int: iTunesTrackResult]
+    private var cachedPlan: iTunesTaggingPlan?
+    private var cachedPlanRowsByAssignmentID: [String: iTunesTaggingPlanRow] = [:]
 
-    init(detail: iTunesAlbumDetail, preview: iTunesAlbumMatchPreview, loadedFiles: [AudioFile]) {
+    init(
+        detail: iTunesAlbumDetail,
+        preview: iTunesAlbumMatchPreview,
+        loadedFiles: [AudioFile],
+        performanceProbe: PerformanceProbe? = nil
+    ) {
         self.detail = detail
+        self.performanceProbe = performanceProbe
         self.availableTracks = detail.tracks
+        self.tracksByID = Dictionary(uniqueKeysWithValues: detail.tracks.map { ($0.trackID, $0) })
         self.loadedFilesByInputID = Dictionary(uniqueKeysWithValues: loadedFiles.map { ($0.id.uuidString, $0) })
         self.selectedFields = Set(iTunesTagWriteField.allCases.filter(\.isDefaultSelected))
         self.barcodeValue = preview.matchedAssignments.first(where: { !$0.file.barcode.isEmpty })?.file.barcode ?? ""
@@ -235,7 +259,6 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var availableFields: [iTunesTagWriteField] {
-        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.trackID, $0) })
         let selectedTracks = assignments.compactMap { assignment in
             assignment.selectedTrackID.flatMap { tracksByID[$0] }
         }
@@ -253,17 +276,30 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var plan: iTunesTaggingPlan {
+        if let cachedPlan {
+            return cachedPlan
+        }
+
+        performanceProbe?.didBuildPlan()
         let selectedFields = selectedAvailableFields
-        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.trackID, $0) })
-        return iTunesTaggingPlan(
+        let plan = iTunesTaggingPlan(
             rows: assignments.map { assignment in
-                buildPlanRow(
+                if let cachedRow = cachedPlanRowsByAssignmentID[assignment.id] {
+                    return cachedRow
+                }
+
+                let row = buildPlanRow(
                     for: assignment,
                     selectedFields: selectedFields,
                     selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
                 )
+                performanceProbe?.didBuildPlanRow()
+                cachedPlanRowsByAssignmentID[assignment.id] = row
+                return row
             }
         )
+        cachedPlan = plan
+        return plan
     }
 
     var hasDuplicateTrackAssignments: Bool {
@@ -300,6 +336,7 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     func refreshLoadedFiles(_ files: [AudioFile]) {
+        invalidateAllPlanRows()
         loadedFilesByInputID = Dictionary(uniqueKeysWithValues: files.map { ($0.id.uuidString, $0) })
     }
 
@@ -309,17 +346,26 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func setFieldSelected(_ isSelected: Bool, for field: iTunesTagWriteField) {
         if isSelected {
+            guard !selectedFields.contains(field) else { return }
+            invalidateAllPlanRows()
             selectedFields.insert(field)
         } else {
+            guard selectedFields.contains(field) else { return }
+            invalidateAllPlanRows()
             selectedFields.remove(field)
         }
     }
 
     func selectAllAvailableFields() {
-        selectedFields = Set(availableFields)
+        let fields = Set(availableFields)
+        guard fields != selectedFields else { return }
+        invalidateAllPlanRows()
+        selectedFields = fields
     }
 
     func deselectAllFields() {
+        guard !selectedFields.isEmpty else { return }
+        invalidateAllPlanRows()
         selectedFields.removeAll()
     }
 
@@ -329,22 +375,31 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func updateSelectedTrack(_ trackID: Int?, for assignmentID: String) {
         guard let index = assignments.firstIndex(where: { $0.id == assignmentID }) else { return }
-        guard let trackID else {
-            assignments[index].selectedTrackID = nil
-            return
-        }
+        let validatedTrackID = trackID.flatMap { tracksByID[$0] == nil ? nil : $0 }
+        guard assignments[index].selectedTrackID != validatedTrackID else { return }
 
-        assignments[index].selectedTrackID = availableTracks.contains { $0.trackID == trackID } ? trackID : nil
+        invalidatePlanRow(for: assignmentID)
+        assignments[index].selectedTrackID = validatedTrackID
     }
 
     func track(for assignment: AssignmentDraft) -> iTunesTrackResult? {
         guard let id = assignment.selectedTrackID else { return nil }
-        return availableTracks.first(where: { $0.trackID == id })
+        return tracksByID[id]
     }
 
     func isDuplicateAssignment(_ assignment: AssignmentDraft) -> Bool {
         guard let id = assignment.selectedTrackID else { return false }
         return duplicateTrackIDs.contains(id)
+    }
+
+    private func invalidateAllPlanRows() {
+        cachedPlan = nil
+        cachedPlanRowsByAssignmentID.removeAll(keepingCapacity: true)
+    }
+
+    private func invalidatePlanRow(for assignmentID: String) {
+        cachedPlan = nil
+        cachedPlanRowsByAssignmentID[assignmentID] = nil
     }
 
     private func buildPlanRow(

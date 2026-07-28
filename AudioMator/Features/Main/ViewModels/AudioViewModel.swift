@@ -78,6 +78,9 @@ final class AudioViewModel: ObservableObject {
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
     var artworkLookupTask: Task<Void, Never>?
     private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []
+    // The disk snapshots the current inspector drafts were created from. Keep
+    // these separate from `files`, which can be refreshed while a draft is open.
+    var inspectorEditSourceFilesByID: [UUID: AudioFile] = [:]
     private var quickImportFiles: [AudioFile] = []
     private var quickImportGeneration: UInt64 = 0
     private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
@@ -229,14 +232,15 @@ final class AudioViewModel: ObservableObject {
         guard
             selectedAudioIDs.count == 1,
             let id = selectedAudioIDs.first,
-            let file = files.first(where: { $0.id == id }),
+            let sourceFile = inspectorEditSourceFilesByID[id]
+                ?? files.first(where: { $0.id == id }),
             let edit,
             editSourceFileID == id
         else {
             return false
         }
 
-        return edit.hasUnsavedChanges(comparedTo: file)
+        return edit.hasUnsavedChanges(comparedTo: sourceFile)
     }
 
     func setSidebarSelection(_ selection: SidebarSelection?) {
@@ -252,6 +256,7 @@ final class AudioViewModel: ObservableObject {
             edit = nil
             editSourceFileID = nil
             multiEdit = nil
+            inspectorEditSourceFilesByID = [:]
             return
         }
 
@@ -261,6 +266,7 @@ final class AudioViewModel: ObservableObject {
             edit = SingleFileEditModel(from: selectedFile)
             editSourceFileID = selectedID
             multiEdit = nil
+            inspectorEditSourceFilesByID = [selectedID: selectedFile]
             return
         }
 
@@ -269,12 +275,16 @@ final class AudioViewModel: ObservableObject {
             edit = nil
             editSourceFileID = nil
             multiEdit = nil
+            inspectorEditSourceFilesByID = [:]
             return
         }
 
         edit = nil
         editSourceFileID = nil
         multiEdit = MultiFileEditModel(files: selectedFiles)
+        inspectorEditSourceFilesByID = Dictionary(
+            uniqueKeysWithValues: selectedFiles.map { ($0.id, $0) }
+        )
     }
 
     func setSelectedAudioIDs(_ selection: Set<AudioFile.ID>) {
@@ -855,6 +865,8 @@ final class AudioViewModel: ObservableObject {
         let prunedSelection = selectedAudioIDs.intersection(validIDs)
         if prunedSelection != selectedAudioIDs {
             selectedAudioIDs = prunedSelection
+            updateEditForSelection()
+        } else if !selectedAudioIDs.isEmpty && !hasUnsavedInspectorChanges {
             updateEditForSelection()
         }
     }

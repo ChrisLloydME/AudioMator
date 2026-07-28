@@ -40,11 +40,7 @@ struct iTunesTaggingWorkbenchView: View {
         .onChange(of: viewModel.files.map(\.middleListContentFingerprint)) { _, _ in
             store.refreshLoadedFiles(viewModel.files)
         }
-        .onDisappear {
-            applyTask?.cancel()
-            applyTask = nil
-            isApplying = false
-        }
+        .interactiveDismissDisabled(isApplying || viewModel.metadataSaveProgress != nil)
         .overlay {
             if let progress = viewModel.metadataSaveProgress {
                 MetadataSaveProgressOverlay(progress: progress)
@@ -196,6 +192,7 @@ struct iTunesTaggingWorkbenchView: View {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
+            .disabled(isApplying || viewModel.metadataSaveProgress != nil)
 
             Button {
                 applyTags(plan: plan)

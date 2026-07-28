@@ -418,7 +418,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Config/AudioMator.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2673;
+				CURRENT_PROJECT_VERSION = 2675;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -488,7 +488,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2673;
+				CURRENT_PROJECT_VERSION = 2675;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = YM5G2M8PV9;
 				ENABLE_APP_SANDBOX = YES;
@@ -589,8 +589,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git";
 			requirement = {
-				kind = exactVersion;
-				version = 0.4.3;
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.4.4;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

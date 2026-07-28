@@ -20,8 +20,11 @@ struct OnlineMetadataWorkbenchPerformanceScenario {
 enum OnlineMetadataWorkbenchPerformanceScenarioFactory {
     static let supportedTrackCounts = [10, 50, 200]
 
-    static func make(trackCount: Int) -> OnlineMetadataWorkbenchPerformanceScenario {
-        precondition(supportedTrackCounts.contains(trackCount))
+    static func make(
+        trackCount: Int,
+        musicBrainzTrackCount: Int? = nil
+    ) -> OnlineMetadataWorkbenchPerformanceScenario {
+        precondition(supportedTrackCounts.contains(trackCount) || trackCount == 21)
 
         let discCount = 2
         let tracksPerDisc = trackCount / discCount
@@ -81,7 +84,8 @@ enum OnlineMetadataWorkbenchPerformanceScenarioFactory {
                 barcode: index.isMultiple(of: 5) ? "000000000000\(index)" : ""
             )
         }
-        let musicBrainzTracks = (0..<trackCount).map { index in
+        let resolvedMusicBrainzTrackCount = musicBrainzTrackCount ?? trackCount
+        let musicBrainzTracks = (0..<resolvedMusicBrainzTrackCount).map { index in
             let discNumber = min((index / tracksPerDisc) + 1, discCount)
             let trackNumber = (index % tracksPerDisc) + 1
             return MusicBrainzReleaseMatchTrack(
@@ -99,7 +103,8 @@ enum OnlineMetadataWorkbenchPerformanceScenarioFactory {
                 isrcs: ["REMOTEISRC\(String(format: "%06d", index + 1))"]
             )
         }
-        let musicBrainzAssignments = (0..<matchedCount).map { index in
+        let musicBrainzMatchedCount = min(matchedCount, resolvedMusicBrainzTrackCount)
+        let musicBrainzAssignments = (0..<musicBrainzMatchedCount).map { index in
             let trackIndex = index == 1 ? 0 : index
             return MusicBrainzReleaseMatchAssignment(
                 id: "mb-assignment-\(index + 1)",
@@ -113,7 +118,7 @@ enum OnlineMetadataWorkbenchPerformanceScenarioFactory {
         let musicBrainzPreview = MusicBrainzReleaseMatchPreview(
             totalSelectedFiles: trackCount,
             matchedAssignments: musicBrainzAssignments,
-            unmatchedFiles: Array(musicBrainzInputs.suffix(unmatchedCount)),
+            unmatchedFiles: Array(musicBrainzInputs.suffix(trackCount - musicBrainzMatchedCount)),
             unassignedTracks: musicBrainzTracks.filter { !assignedMusicBrainzTrackIDs.contains($0.id) },
             averageTrackScore: 0.85,
             overallScore: 0.82,

@@ -58,6 +58,12 @@ final class MetadataEditorStore: ObservableObject {
         draftPropertyMaps != originalPropertyMaps
     }
 
+    var pendingTargets: [MetadataEditorTarget] {
+        targets.filter { target in
+            draftPropertyMaps[target.id] != originalPropertyMaps[target.id]
+        }
+    }
+
     var isEditable: Bool {
         !isLoading &&
         loadErrorMessage == nil &&
@@ -104,6 +110,17 @@ final class MetadataEditorStore: ObservableObject {
 
     func discardChanges() {
         draftPropertyMaps = originalPropertyMaps
+    }
+
+    func recordAppliedTargets(_ targetIDs: Set<AudioFile.ID>) {
+        guard !targetIDs.isEmpty else { return }
+
+        targets.removeAll { targetIDs.contains($0.id) }
+        for targetID in targetIDs {
+            originalPropertyMaps.removeValue(forKey: targetID)
+            draftPropertyMaps.removeValue(forKey: targetID)
+        }
+        selectedFieldKey = rows.first?.key
     }
 
     fileprivate func makeAddFieldContext() -> MetadataFieldEditorContext {
@@ -324,8 +341,13 @@ struct MetadataEditorWindowView: View {
         }
 
         isApplyingChanges = true
-        await viewModel.applyRawMetadataPropertyMaps(store.draftPropertyMaps, to: store.targets)
+        let applyResult = await viewModel.applyRawMetadataPropertyMaps(
+            store.draftPropertyMaps,
+            to: store.pendingTargets
+        )
         isApplyingChanges = false
+        store.recordAppliedTargets(applyResult.succeededTargetIDs)
+        guard applyResult.didApplyAllChanges else { return }
         dismiss()
     }
 }

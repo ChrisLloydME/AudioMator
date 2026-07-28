@@ -117,6 +117,50 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertTrue(failure.message.contains(firstDestinationURL.path))
     }
 
+    func testRollbackDoesNotMoveAReplacementFileIntoTheOriginalPath() throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorRenameReplacementTests-\(UUID().uuidString)", isDirectory: true)
+        let firstSourceURL = rootURL.appendingPathComponent("first.mp3")
+        let firstDestinationURL = rootURL.appendingPathComponent("renamed-first.mp3")
+        let secondSourceURL = rootURL.appendingPathComponent("second.mp3")
+        let secondDestinationURL = rootURL.appendingPathComponent("renamed-second.mp3")
+        let fileSystem = DestinationReplacingRenameFileSystem(
+            firstSourceURL: firstSourceURL,
+            firstDestinationURL: firstDestinationURL,
+            secondSourceURL: secondSourceURL,
+            secondDestinationURL: secondDestinationURL
+        )
+
+        let result = executeFileRenameTransaction(
+            [
+                FileRenameOperation(
+                    id: UUID(),
+                    sourceURL: firstSourceURL,
+                    destinationURL: firstDestinationURL,
+                    expectedFileFingerprint: fileSystem.firstExpectedFingerprint
+                ),
+                FileRenameOperation(
+                    id: UUID(),
+                    sourceURL: secondSourceURL,
+                    destinationURL: secondDestinationURL,
+                    expectedFileFingerprint: fileSystem.secondExpectedFingerprint
+                )
+            ],
+            fileSystem: fileSystem
+        )
+
+        guard case .failure(let failure) = result else {
+            return XCTFail("Expected the second finalization failure to start rollback.")
+        }
+
+        XCTAssertFalse(fileSystem.fileExists(at: firstSourceURL))
+        XCTAssertTrue(fileSystem.replacementRemains(at: firstDestinationURL))
+        XCTAssertEqual(failure.recoveryItems.count, 1)
+        XCTAssertEqual(failure.recoveryItems.first?.originalURL, firstSourceURL)
+        XCTAssertTrue(failure.recoveryItems.first?.finalLocations.isEmpty == true)
+        XCTAssertTrue(failure.message.contains("Recovery required"))
+    }
+
     func testChangedSourceIsRejectedBeforeAnyFileIsMoved() {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorRenameIdentityTests-\(UUID().uuidString)", isDirectory: true)
@@ -184,12 +228,102 @@ final class FileRenameTransactionTests: XCTestCase {
     }
 }
 
+private final class DestinationReplacingRenameFileSystem: FileRenameFileSystem, @unchecked Sendable {
+    private let lock = NSLock()
+    private let firstDestinationURL: URL
+    private let secondDestinationURL: URL
+    private var fingerprintsByPath: [String: AudioFileFingerprint]
+
+    let firstExpectedFingerprint: AudioFileFingerprint
+    let secondExpectedFingerprint: AudioFileFingerprint
+
+    init(
+        firstSourceURL: URL,
+        firstDestinationURL: URL,
+        secondSourceURL: URL,
+        secondDestinationURL: URL
+    ) {
+        self.firstDestinationURL = firstDestinationURL
+        self.secondDestinationURL = secondDestinationURL
+        firstExpectedFingerprint = Self.fingerprint(for: firstSourceURL, fileNumber: 101)
+        secondExpectedFingerprint = Self.fingerprint(for: secondSourceURL, fileNumber: 202)
+        fingerprintsByPath = [
+            firstSourceURL.path: firstExpectedFingerprint,
+            secondSourceURL.path: secondExpectedFingerprint
+        ]
+    }
+
+    func fileExists(at url: URL) -> Bool {
+        lock.withLock { fingerprintsByPath[url.path] != nil }
+    }
+
+    func fingerprint(at url: URL) throws -> AudioFileFingerprint {
+        try lock.withLock {
+            guard let fingerprint = fingerprintsByPath[url.path] else {
+                throw TestMoveError.sourceMissing
+            }
+            return fingerprint
+        }
+    }
+
+    func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
+        try lock.withLock {
+            if destinationURL == secondDestinationURL {
+                throw TestMoveError.primaryFailure
+            }
+            guard let sourceFingerprint = fingerprintsByPath[sourceURL.path] else {
+                throw TestMoveError.sourceMissing
+            }
+            guard fingerprintsByPath[destinationURL.path] == nil else {
+                throw TestMoveError.destinationExists
+            }
+
+            fingerprintsByPath[sourceURL.path] = nil
+            fingerprintsByPath[destinationURL.path] = Self.moving(
+                sourceFingerprint,
+                to: destinationURL
+            )
+
+            if destinationURL == firstDestinationURL {
+                fingerprintsByPath[destinationURL.path] = Self.fingerprint(
+                    for: destinationURL,
+                    fileNumber: 999
+                )
+            }
+        }
+    }
+
+    func replacementRemains(at url: URL) -> Bool {
+        lock.withLock { fingerprintsByPath[url.path]?.fileNumber == 999 }
+    }
+
+    private static func moving(_ fingerprint: AudioFileFingerprint, to url: URL) -> AudioFileFingerprint {
+        AudioFileFingerprint(
+            normalizedPath: url.standardizedFileURL.path,
+            fileSize: fingerprint.fileSize,
+            contentModificationDate: fingerprint.contentModificationDate,
+            fileSystemNumber: fingerprint.fileSystemNumber,
+            fileNumber: fingerprint.fileNumber
+        )
+    }
+
+    private static func fingerprint(for url: URL, fileNumber: UInt64) -> AudioFileFingerprint {
+        AudioFileFingerprint(
+            normalizedPath: url.standardizedFileURL.path,
+            fileSize: 64,
+            contentModificationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            fileSystemNumber: 1,
+            fileNumber: fileNumber
+        )
+    }
+}
+
 private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unchecked Sendable {
     typealias FailureRule = @Sendable (URL, URL) -> Error?
 
     private let lock = NSLock()
     private var existingPaths: Set<String>
-    private let fingerprintsByPath: [String: AudioFileFingerprint]
+    private var fingerprintsByPath: [String: AudioFileFingerprint]
     private let shouldFailMove: FailureRule
     private(set) var moveCount = 0
 
@@ -199,7 +333,12 @@ private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unche
         shouldFailMove: @escaping FailureRule
     ) {
         existingPaths = Set(existingURLs.map(\.path))
-        fingerprintsByPath = Dictionary(uniqueKeysWithValues: fingerprints.map { ($0.key.path, $0.value) })
+        fingerprintsByPath = Dictionary(uniqueKeysWithValues: existingURLs.map {
+            ($0.path, AudioFileTestFactory.fingerprint(for: $0))
+        })
+        for (url, fingerprint) in fingerprints {
+            fingerprintsByPath[url.path] = fingerprint
+        }
         self.shouldFailMove = shouldFailMove
     }
 
@@ -212,7 +351,7 @@ private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unche
             guard existingPaths.contains(url.path) else {
                 throw TestMoveError.sourceMissing
             }
-            return fingerprintsByPath[url.path] ?? AudioFileTestFactory.fingerprint(for: url)
+            return try XCTUnwrap(fingerprintsByPath[url.path])
         }
     }
 
@@ -232,6 +371,16 @@ private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unche
 
             existingPaths.remove(sourceURL.path)
             existingPaths.insert(destinationURL.path)
+            let sourceFingerprint = fingerprintsByPath.removeValue(forKey: sourceURL.path)
+            if let sourceFingerprint {
+                fingerprintsByPath[destinationURL.path] = AudioFileFingerprint(
+                    normalizedPath: destinationURL.standardizedFileURL.path,
+                    fileSize: sourceFingerprint.fileSize,
+                    contentModificationDate: sourceFingerprint.contentModificationDate,
+                    fileSystemNumber: sourceFingerprint.fileSystemNumber,
+                    fileNumber: sourceFingerprint.fileNumber
+                )
+            }
         }
     }
 }

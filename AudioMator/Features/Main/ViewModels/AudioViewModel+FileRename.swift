@@ -343,6 +343,16 @@ nonisolated private func rollbackFinalizedRenameOperations(
 
     for prepared in operations.reversed() {
         guard fileSystem.fileExists(at: prepared.operation.destinationURL) else { continue }
+        guard renameRollbackCandidateMatchesExpectedFile(
+            prepared.operation.destinationURL,
+            operation: prepared.operation,
+            fileSystem: fileSystem
+        ) else {
+            errorsByOperationID[prepared.operation.id, default: []].append(
+                rollbackIdentityFailureMessage(at: prepared.operation.destinationURL)
+            )
+            continue
+        }
         do {
             try fileSystem.moveItem(at: prepared.operation.destinationURL, to: prepared.temporaryURL)
         } catch {
@@ -367,6 +377,16 @@ nonisolated private func rollbackStagedRenameOperations(
 
     for prepared in operations.reversed() {
         guard fileSystem.fileExists(at: prepared.temporaryURL) else { continue }
+        guard renameRollbackCandidateMatchesExpectedFile(
+            prepared.temporaryURL,
+            operation: prepared.operation,
+            fileSystem: fileSystem
+        ) else {
+            errorsByOperationID[prepared.operation.id, default: []].append(
+                rollbackIdentityFailureMessage(at: prepared.temporaryURL)
+            )
+            continue
+        }
         do {
             try fileSystem.moveItem(at: prepared.temporaryURL, to: prepared.operation.sourceURL)
         } catch {
@@ -407,6 +427,13 @@ nonisolated private func makeRenameTransactionFailure(
         ]
 
         for candidate in candidates where fileSystem.fileExists(at: candidate) {
+            guard renameRollbackCandidateMatchesExpectedFile(
+                candidate,
+                operation: prepared.operation,
+                fileSystem: fileSystem
+            ) else {
+                continue
+            }
             if !finalLocations.contains(candidate) {
                 finalLocations.append(candidate)
             }
@@ -446,6 +473,33 @@ nonisolated private func makeRenameTransactionFailure(
         message: lines.joined(separator: "\n"),
         recoveryItems: recoveryItems
     )
+}
+
+nonisolated private func renameRollbackCandidateMatchesExpectedFile(
+    _ candidateURL: URL,
+    operation: FileRenameOperation,
+    fileSystem: any FileRenameFileSystem
+) -> Bool {
+    guard let current = try? fileSystem.fingerprint(at: candidateURL) else { return false }
+    let expected = operation.expectedFileFingerprint
+
+    guard
+        let currentFileSystemNumber = current.fileSystemNumber,
+        let expectedFileSystemNumber = expected.fileSystemNumber,
+        let currentFileNumber = current.fileNumber,
+        let expectedFileNumber = expected.fileNumber
+    else {
+        return false
+    }
+
+    return current.fileSize == expected.fileSize &&
+        current.contentModificationDate == expected.contentModificationDate &&
+        currentFileSystemNumber == expectedFileSystemNumber &&
+        currentFileNumber == expectedFileNumber
+}
+
+nonisolated private func rollbackIdentityFailureMessage(at url: URL) -> String {
+    "Rollback skipped \(url.lastPathComponent) because the file identity could not be verified."
 }
 
 nonisolated private func rollbackFailureMessage(from sourceURL: URL, to destinationURL: URL, error: Error) -> String {

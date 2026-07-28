@@ -16,7 +16,7 @@ struct iTunesTaggingWorkbenchView: View {
 
         VStack(spacing: 0) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 24) {
                     summarySection(plan: plan)
                     fieldSelectionSection
                     assignmentSection

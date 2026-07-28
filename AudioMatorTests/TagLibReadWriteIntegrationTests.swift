@@ -40,6 +40,21 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
     }
 
+    func testAudioFileLoadingRejectsMissingSourceFile() async {
+        let missingURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-Missing-Load-\(UUID().uuidString).mp3")
+
+        do {
+            _ = try await TagLibAudioMetadataPipeline().loadAudioFile(
+                at: missingURL,
+                id: UUID()
+            )
+            XCTFail("A missing source must be reported as a load failure instead of an empty metadata snapshot.")
+        } catch {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: missingURL.path))
+        }
+    }
+
     func testAudioFixturesAreReadableByTagLib() throws {
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)

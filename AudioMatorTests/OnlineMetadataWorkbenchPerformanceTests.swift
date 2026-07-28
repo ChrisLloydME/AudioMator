@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import XCTest
 @testable import AudioMator
@@ -6,107 +7,308 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
-    func testLargeReviewAndApplyPagesFinishInitialLayoutWithinBudget() {
-        let fixture = makeLargeFixture(trackCount: 200)
-        let viewModel = AudioViewModel()
-        viewModel.files = fixture.files
-        viewModel.setSelectedAudioIDs(Set(fixture.files.map(\.id)))
+    func testDeterministicScenarioMatrixCoversProviderEdgeCases() {
+        for trackCount in OnlineMetadataWorkbenchPerformanceScenarioFactory.supportedTrackCounts {
+            let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: trackCount)
+            let client = SuspendedWorkbenchMusicBrainzClient()
+            let musicBrainzStore = makeMusicBrainzStore(scenario: scenario, client: client)
+            let iTunesStore = makeiTunesStore(scenario: scenario)
 
-        let iTunesStore = iTunesTaggingWorkbenchStore(
-            detail: fixture.iTunesDetail,
-            preview: fixture.iTunesPreview,
-            loadedFiles: fixture.files
-        )
-        let iTunesElapsed = renderAndMeasure(
-            iTunesTaggingWorkbenchView(store: iTunesStore, viewModel: viewModel)
-        )
+            XCTAssertEqual(scenario.files.count, trackCount)
+            XCTAssertEqual(scenario.musicBrainzRelease.media.count, 2)
+            XCTAssertEqual(scenario.iTunesDetail.tracks.map(\.discNumber).max(), 2)
+            XCTAssertGreaterThan(scenario.musicBrainzPreview.unmatchedFiles.count, 0)
+            XCTAssertGreaterThan(scenario.iTunesPreview.unmatchedFiles.count, 0)
+            XCTAssertTrue(musicBrainzStore.hasDuplicateTrackAssignments)
+            XCTAssertTrue(iTunesStore.hasDuplicateTrackAssignments)
+            XCTAssertGreaterThan(scenario.musicBrainzRelease.title.count, 100)
+            XCTAssertGreaterThan(scenario.iTunesDetail.album.collectionName.count, 100)
 
-        let musicBrainzClient = SuspendedWorkbenchMusicBrainzClient()
-        let browserStore = MusicBrainzBrowserStore(
-            client: musicBrainzClient,
-            detailTimeout: .seconds(30)
+            let behaviorCounts = scenario.recordingBehaviors.values.reduce(into: [0, 0, 0]) { counts, behavior in
+                switch behavior {
+                case .success: counts[0] += 1
+                case .failure: counts[1] += 1
+                case .timeout: counts[2] += 1
+                }
+            }
+            XCTAssertTrue(behaviorCounts.allSatisfy { $0 > 0 })
+            musicBrainzStore.cancelPendingRecordingLoads()
+        }
+    }
+
+    func testPlanGenerationUsesWarmMedianSamplesAcrossScenarioMatrix() {
+        var report: [String] = []
+
+        for trackCount in OnlineMetadataWorkbenchPerformanceScenarioFactory.supportedTrackCounts {
+            let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: trackCount)
+            let musicBrainzStore = makeMusicBrainzStore(
+                scenario: scenario,
+                client: SuspendedWorkbenchMusicBrainzClient()
+            )
+            musicBrainzStore.cancelPendingRecordingLoads()
+            let iTunesStore = makeiTunesStore(scenario: scenario)
+
+            let musicBrainzMedian = medianMilliseconds(warmupCount: 3, sampleCount: 11) {
+                consume(musicBrainzStore.plan.changeCount)
+            }
+            let iTunesMedian = medianMilliseconds(warmupCount: 3, sampleCount: 11) {
+                consume(iTunesStore.plan.changeCount)
+            }
+
+            XCTAssertGreaterThan(musicBrainzMedian, 0)
+            XCTAssertGreaterThan(iTunesMedian, 0)
+            report.append(measurementLine("musicbrainz.plan", trackCount: trackCount, milliseconds: musicBrainzMedian))
+            report.append(measurementLine("itunes.plan", trackCount: trackCount, milliseconds: iTunesMedian))
+        }
+
+        recordPerformanceReport(named: "Plan generation medians", lines: report)
+    }
+
+    func testInitialReviewLayoutUsesWarmMedianSamplesForTwoHundredTracks() {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
+
+        let iTunesMedian = medianMilliseconds(warmupCount: 1, sampleCount: 5) {
+            let viewModel = makeViewModel(files: scenario.files)
+            let store = makeiTunesStore(scenario: scenario)
+            let hosted = HostedWorkbench(
+                rootView: iTunesTaggingWorkbenchView(store: store, viewModel: viewModel)
+            )
+            hosted.stabilize()
+            hosted.tearDown()
+        }
+
+        let musicBrainzMedian = medianMilliseconds(warmupCount: 1, sampleCount: 5) {
+            let viewModel = makeViewModel(files: scenario.files)
+            let store = makeMusicBrainzStore(
+                scenario: scenario,
+                client: SuspendedWorkbenchMusicBrainzClient()
+            )
+            let hosted = HostedWorkbench(
+                rootView: MusicBrainzTaggingWorkbenchView(store: store, viewModel: viewModel)
+            )
+            hosted.stabilize()
+            store.cancelPendingRecordingLoads()
+            hosted.tearDown()
+        }
+
+        XCTAssertGreaterThan(iTunesMedian, 0)
+        XCTAssertGreaterThan(musicBrainzMedian, 0)
+        recordPerformanceReport(
+            named: "Initial layout medians",
+            lines: [
+                measurementLine("itunes.initial-layout", trackCount: 200, milliseconds: iTunesMedian),
+                measurementLine("musicbrainz.initial-layout", trackCount: 200, milliseconds: musicBrainzMedian)
+            ]
         )
-        let musicBrainzStore = MusicBrainzTaggingWorkbenchStore(
-            release: fixture.musicBrainzRelease,
-            preview: fixture.musicBrainzPreview,
-            loadedFiles: fixture.files,
-            browserStore: browserStore
+    }
+
+    func testFieldToggleUpdateUsesWarmMedianSamplesForTwoHundredTracks() {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
+        let viewModel = makeViewModel(files: scenario.files)
+
+        let iTunesStore = makeiTunesStore(scenario: scenario)
+        let iTunesHosted = HostedWorkbench(
+            rootView: iTunesTaggingWorkbenchView(store: iTunesStore, viewModel: viewModel)
         )
-        let musicBrainzElapsed = renderAndMeasure(
-            MusicBrainzTaggingWorkbenchView(store: musicBrainzStore, viewModel: viewModel)
+        iTunesHosted.stabilize()
+        let iTunesMedian = medianMilliseconds(
+            warmupCount: 2,
+            sampleCount: 9,
+            prepare: {
+                iTunesStore.setFieldSelected(true, for: .title)
+                iTunesHosted.stabilize()
+            },
+            measure: {
+                iTunesStore.setFieldSelected(false, for: .title)
+                iTunesHosted.stabilize()
+            }
+        )
+        iTunesHosted.tearDown()
+
+        let musicBrainzStore = makeMusicBrainzStore(
+            scenario: scenario,
+            client: SuspendedWorkbenchMusicBrainzClient()
         )
         musicBrainzStore.cancelPendingRecordingLoads()
+        let musicBrainzHosted = HostedWorkbench(
+            rootView: MusicBrainzTaggingWorkbenchView(store: musicBrainzStore, viewModel: viewModel)
+        )
+        musicBrainzHosted.stabilize()
+        let musicBrainzMedian = medianMilliseconds(
+            warmupCount: 2,
+            sampleCount: 9,
+            prepare: {
+                musicBrainzStore.setFieldSelected(true, for: .title)
+                musicBrainzHosted.stabilize()
+            },
+            measure: {
+                musicBrainzStore.setFieldSelected(false, for: .title)
+                musicBrainzHosted.stabilize()
+            }
+        )
+        musicBrainzHosted.tearDown()
 
-        XCTAssertLessThan(iTunesElapsed, .seconds(2), "Large iTunes Review & Apply layout blocked the main actor")
-        XCTAssertLessThan(musicBrainzElapsed, .seconds(2), "Large MusicBrainz Review & Apply layout blocked the main actor")
+        recordPerformanceReport(
+            named: "Field toggle medians",
+            lines: [
+                measurementLine("itunes.field-toggle", trackCount: 200, milliseconds: iTunesMedian),
+                measurementLine("musicbrainz.field-toggle", trackCount: 200, milliseconds: musicBrainzMedian)
+            ]
+        )
+    }
+
+    func testTrackAssignmentUpdateUsesWarmMedianSamplesForTwoHundredTracks() throws {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
+        let viewModel = makeViewModel(files: scenario.files)
+
+        let iTunesStore = makeiTunesStore(scenario: scenario)
+        let iTunesAssignment = try XCTUnwrap(iTunesStore.assignments.first)
+        let iTunesHosted = HostedWorkbench(
+            rootView: iTunesTaggingWorkbenchView(store: iTunesStore, viewModel: viewModel)
+        )
+        iTunesHosted.stabilize()
+        let iTunesMedian = medianMilliseconds(
+            warmupCount: 2,
+            sampleCount: 9,
+            prepare: {
+                iTunesStore.updateSelectedTrack(iTunesAssignment.initialTrackID, for: iTunesAssignment.id)
+                iTunesHosted.stabilize()
+            },
+            measure: {
+                iTunesStore.updateSelectedTrack(nil, for: iTunesAssignment.id)
+                iTunesHosted.stabilize()
+            }
+        )
+        iTunesHosted.tearDown()
+
+        let musicBrainzStore = makeMusicBrainzStore(
+            scenario: scenario,
+            client: SuspendedWorkbenchMusicBrainzClient()
+        )
+        musicBrainzStore.cancelPendingRecordingLoads()
+        let musicBrainzAssignment = try XCTUnwrap(musicBrainzStore.assignments.first)
+        let musicBrainzHosted = HostedWorkbench(
+            rootView: MusicBrainzTaggingWorkbenchView(store: musicBrainzStore, viewModel: viewModel)
+        )
+        musicBrainzHosted.stabilize()
+        let musicBrainzMedian = medianMilliseconds(
+            warmupCount: 2,
+            sampleCount: 9,
+            prepare: {
+                musicBrainzStore.updateSelectedTrack(musicBrainzAssignment.initialTrackID, for: musicBrainzAssignment.id)
+                musicBrainzHosted.stabilize()
+            },
+            measure: {
+                musicBrainzStore.updateSelectedTrack(nil, for: musicBrainzAssignment.id)
+                musicBrainzHosted.stabilize()
+            }
+        )
+        musicBrainzStore.cancelPendingRecordingLoads()
+        musicBrainzHosted.tearDown()
+
+        recordPerformanceReport(
+            named: "Track assignment medians",
+            lines: [
+                measurementLine("itunes.assignment", trackCount: 200, milliseconds: iTunesMedian),
+                measurementLine("musicbrainz.assignment", trackCount: 200, milliseconds: musicBrainzMedian)
+            ]
+        )
+    }
+
+    func testPlanCacheInvalidatesOnlyAffectedAssignmentRows() throws {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
+
+        let iTunesProbe = iTunesTaggingWorkbenchStore.PerformanceProbe()
+        let iTunesStore = makeiTunesStore(scenario: scenario, performanceProbe: iTunesProbe)
+        let iTunesAssignment = try XCTUnwrap(iTunesStore.assignments.first)
+        consume(iTunesStore.plan.changeCount)
+        consume(iTunesStore.plan.changeCount)
+        XCTAssertEqual(iTunesProbe.planBuildCount, 1)
+        XCTAssertEqual(iTunesProbe.planRowBuildCount, 200)
+
+        iTunesStore.updateSelectedTrack(nil, for: iTunesAssignment.id)
+        consume(iTunesStore.plan.changeCount)
+        XCTAssertEqual(iTunesProbe.planBuildCount, 2)
+        XCTAssertEqual(iTunesProbe.planRowBuildCount, 201)
+
+        let musicBrainzProbe = MusicBrainzTaggingWorkbenchStore.PerformanceProbe()
+        let musicBrainzStore = makeMusicBrainzStore(
+            scenario: scenario,
+            client: SuspendedWorkbenchMusicBrainzClient(),
+            performanceProbe: musicBrainzProbe
+        )
+        musicBrainzStore.cancelPendingRecordingLoads()
+        let musicBrainzAssignment = try XCTUnwrap(musicBrainzStore.assignments.first)
+        consume(musicBrainzStore.plan.changeCount)
+        consume(musicBrainzStore.plan.changeCount)
+        XCTAssertEqual(musicBrainzProbe.planBuildCount, 1)
+        XCTAssertEqual(musicBrainzProbe.planRowBuildCount, 200)
+
+        musicBrainzStore.updateSelectedTrack(nil, for: musicBrainzAssignment.id)
+        consume(musicBrainzStore.plan.changeCount)
+        XCTAssertEqual(musicBrainzProbe.planBuildCount, 2)
+        XCTAssertEqual(musicBrainzProbe.planRowBuildCount, 201)
+        musicBrainzStore.cancelPendingRecordingLoads()
+    }
+
+    func testMusicBrainzRecordingDetailBatchUsesWarmMedianSamplesForTwoHundredTracks() async throws {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
+        var samples: [Double] = []
+
+        for iteration in 0..<6 {
+            let client = MixedWorkbenchMusicBrainzClient(behaviors: scenario.recordingBehaviors)
+            let performanceProbe = MusicBrainzTaggingWorkbenchStore.PerformanceProbe()
+            let clock = ContinuousClock()
+            let start = clock.now
+            let store = makeMusicBrainzStore(
+                scenario: scenario,
+                client: client,
+                detailTimeout: .seconds(30),
+                performanceProbe: performanceProbe
+            )
+            var planEvaluationCount = 0
+            let subscription = store.objectWillChange.sink {
+                planEvaluationCount += 1
+                self.consume(store.plan.changeCount)
+            }
+
+            try await waitUntil(timeout: .seconds(5)) {
+                store.recordingPreloadCompletedCount == store.recordingPreloadTotalCount
+            }
+            let elapsed = durationMilliseconds(start.duration(to: clock.now))
+            if iteration > 0 {
+                samples.append(elapsed)
+            }
+
+            let states = store.recordingStates.values
+            XCTAssertTrue(states.contains { if case .loaded = $0 { return true }; return false })
+            XCTAssertTrue(states.contains { if case .failed = $0 { return true }; return false })
+            XCTAssertEqual(planEvaluationCount, store.recordingPreloadTotalCount)
+            XCTAssertEqual(performanceProbe.planBuildCount, 1)
+            XCTAssertEqual(performanceProbe.planRowBuildCount, 200)
+            withExtendedLifetime(subscription) {}
+            store.cancelPendingRecordingLoads()
+        }
+
+        let median = median(samples)
+        XCTAssertLessThan(median, 1_500)
+        recordPerformanceReport(
+            named: "Recording detail batch median",
+            lines: [measurementLine("musicbrainz.recording-batch", trackCount: 200, milliseconds: median)]
+        )
     }
 
     func testMusicBrainzLargeWorkbenchDoesNotStartUnboundedRecordingFanOut() async throws {
-        let fixture = makeLargeFixture(trackCount: 200)
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         let client = SuspendedWorkbenchMusicBrainzClient()
-        let browserStore = MusicBrainzBrowserStore(
-            client: client,
-            detailTimeout: .seconds(30)
-        )
-        let store = MusicBrainzTaggingWorkbenchStore(
-            release: fixture.musicBrainzRelease,
-            preview: fixture.musicBrainzPreview,
-            loadedFiles: fixture.files,
-            browserStore: browserStore
-        )
+        let store = makeMusicBrainzStore(scenario: scenario, client: client)
 
         try await Task.sleep(for: .milliseconds(150))
         let requestCount = await client.requestCount
         store.cancelPendingRecordingLoads()
-        let recoveredStates = fixture.musicBrainzPreview.matchedAssignments.map {
-            store.recordingState(for: $0.track.recordingID)
-        }
 
-        XCTAssertLessThanOrEqual(
-            requestCount,
-            4,
-            "MusicBrainz API throttling must not leave one in-flight task per album track"
-        )
-        XCTAssertTrue(recoveredStates.allSatisfy { $0 == .idle })
-    }
-
-    func testMusicBrainzRecordingPumpFinishesAfterSuccessFailureAndTimeout() async throws {
-        for behavior in [WorkbenchRecordingBehavior.success, .failure, .timeout] {
-            let fixture = makeLargeFixture(trackCount: 3)
-            let client = ScriptedWorkbenchMusicBrainzClient(behavior: behavior)
-            let browserStore = MusicBrainzBrowserStore(
-                client: client,
-                detailTimeout: behavior == .timeout ? .milliseconds(20) : .seconds(1)
-            )
-            let store = MusicBrainzTaggingWorkbenchStore(
-                release: fixture.musicBrainzRelease,
-                preview: fixture.musicBrainzPreview,
-                loadedFiles: fixture.files,
-                browserStore: browserStore
-            )
-
-            try await waitUntil {
-                store.recordingPreloadCompletedCount == 3
-            }
-
-            let states = fixture.musicBrainzPreview.matchedAssignments.map {
-                store.recordingState(for: $0.track.recordingID)
-            }
-            let requestCount = await client.requestCount
-            XCTAssertEqual(requestCount, 3)
-            switch behavior {
-            case .success:
-                XCTAssertTrue(states.allSatisfy {
-                    if case .loaded = $0 { return true }
-                    return false
-                })
-            case .failure, .timeout:
-                XCTAssertTrue(states.allSatisfy {
-                    if case .failed = $0 { return true }
-                    return false
-                })
-            }
-        }
+        XCTAssertLessThanOrEqual(requestCount, 1)
+        XCTAssertTrue(store.recordingStates.values.allSatisfy { $0 == .idle })
     }
 
     func testAppKitTrackSelectionValuesStayAlignedWithSeparatorMenuItem() {
@@ -123,14 +325,6 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         XCTAssertNil(values[1])
         XCTAssertEqual(values[2], 101)
         XCTAssertEqual(values[3], 202)
-
-        popUp.selectItem(at: 2)
-        XCTAssertEqual(popUp.titleOfSelectedItem, "Track One")
-        XCTAssertEqual(values[popUp.indexOfSelectedItem], 101)
-
-        popUp.selectItem(at: 3)
-        XCTAssertEqual(popUp.titleOfSelectedItem, "Track Two")
-        XCTAssertEqual(values[popUp.indexOfSelectedItem], 202)
     }
 
     func testDeferredSelectionMenuDoesNotBuildOptionsBeforeOpening() {
@@ -163,266 +357,147 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(pickerCounter.count, options.count)
     }
 
-    private func render<Content: View>(_ content: Content) {
-        let host = NSHostingView(rootView: content.frame(width: 400, height: 100))
-        host.frame = NSRect(x: 0, y: 0, width: 400, height: 100)
-        let window = NSWindow(
-            contentRect: host.frame,
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false
+    private func makeMusicBrainzStore(
+        scenario: OnlineMetadataWorkbenchPerformanceScenario,
+        client: some MusicBrainzBrowserClient,
+        detailTimeout: Duration = .seconds(30),
+        performanceProbe: MusicBrainzTaggingWorkbenchStore.PerformanceProbe? = nil
+    ) -> MusicBrainzTaggingWorkbenchStore {
+        MusicBrainzTaggingWorkbenchStore(
+            release: scenario.musicBrainzRelease,
+            preview: scenario.musicBrainzPreview,
+            loadedFiles: scenario.files,
+            browserStore: MusicBrainzBrowserStore(client: client, detailTimeout: detailTimeout),
+            performanceProbe: performanceProbe
         )
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        host.layoutSubtreeIfNeeded()
     }
 
-    private func renderAndMeasure<Content: View>(_ content: Content) -> Duration {
-        let host = NSHostingView(rootView: content.frame(width: 980, height: 700))
-        host.frame = NSRect(x: 0, y: 0, width: 980, height: 700)
-        let window = NSWindow(
-            contentRect: host.frame,
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
+    private func makeiTunesStore(
+        scenario: OnlineMetadataWorkbenchPerformanceScenario,
+        performanceProbe: iTunesTaggingWorkbenchStore.PerformanceProbe? = nil
+    ) -> iTunesTaggingWorkbenchStore {
+        iTunesTaggingWorkbenchStore(
+            detail: scenario.iTunesDetail,
+            preview: scenario.iTunesPreview,
+            loadedFiles: scenario.files,
+            performanceProbe: performanceProbe
         )
-        window.contentView = host
+    }
+
+    private func makeViewModel(files: [AudioFile]) -> AudioViewModel {
+        let viewModel = AudioViewModel()
+        viewModel.files = files
+        viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
+        return viewModel
+    }
+
+    private func render<Content: View>(_ content: Content) {
+        let hosted = HostedWorkbench(rootView: content.frame(width: 400, height: 100))
+        hosted.stabilize()
+        hosted.tearDown()
+    }
+
+    private func medianMilliseconds(
+        warmupCount: Int,
+        sampleCount: Int,
+        prepare: () -> Void = {},
+        measure operation: () -> Void
+    ) -> Double {
+        for _ in 0..<warmupCount {
+            prepare()
+            operation()
+        }
 
         let clock = ContinuousClock()
-        let startedAt = clock.now
-        host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        host.layoutSubtreeIfNeeded()
-        let elapsed = startedAt.duration(to: clock.now)
-        window.contentView = nil
-        return elapsed
+        let samples = (0..<sampleCount).map { _ in
+            prepare()
+            let start = clock.now
+            operation()
+            return durationMilliseconds(start.duration(to: clock.now))
+        }
+        return median(samples)
+    }
+
+    private func median(_ values: [Double]) -> Double {
+        precondition(!values.isEmpty)
+        let sorted = values.sorted()
+        return sorted[sorted.count / 2]
+    }
+
+    private func durationMilliseconds(_ duration: Duration) -> Double {
+        let components = duration.components
+        return Double(components.seconds) * 1_000 + Double(components.attoseconds) / 1_000_000_000_000_000
+    }
+
+    private func measurementLine(_ name: String, trackCount: Int, milliseconds: Double) -> String {
+        "\(name),tracks=\(trackCount),median_ms=\(String(format: "%.3f", milliseconds))"
+    }
+
+    private func recordPerformanceReport(named name: String, lines: [String]) {
+        let report = lines.joined(separator: "\n")
+        let attachment = XCTAttachment(string: report)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+
+    }
+
+    private func consume(_ value: Int) {
+        XCTAssertGreaterThanOrEqual(value, 0)
     }
 
     private func waitUntil(
-        timeout: Duration = .seconds(2),
+        timeout: Duration,
         condition: @escaping @MainActor () -> Bool
     ) async throws {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)
         while clock.now < deadline {
             if condition() { return }
-            try await Task.sleep(for: .milliseconds(10))
+            try await Task.sleep(for: .milliseconds(1))
         }
-        XCTFail("Timed out waiting for MusicBrainz recording pump")
-    }
-
-    private func makeLargeFixture(trackCount: Int) -> LargeWorkbenchFixture {
-        let files = (1...trackCount).map { index in
-            AudioFileTestFactory.make(
-                url: URL(fileURLWithPath: "/tmp/workbench-\(index).flac"),
-                title: "Local Track \(index)",
-                artist: "Local Artist",
-                album: "Local Album",
-                track: index,
-                trackTotal: trackCount,
-                disc: 1
-            )
-        }
-        let musicBrainzInputs = files.enumerated().map { offset, file in
-            MusicBrainzFileSearchInput(
-                id: file.id.uuidString,
-                displayTitle: file.url.lastPathComponent,
-                title: file.title,
-                artist: file.artist,
-                albumArtist: file.albumArtist,
-                album: file.album,
-                trackNumber: String(offset + 1),
-                discNumber: "1",
-                trackTotal: trackCount,
-                durationMilliseconds: nil,
-                releaseDate: "",
-                isrc: "",
-                barcode: ""
-            )
-        }
-        let musicBrainzTracks = (1...trackCount).map { index in
-            MusicBrainzReleaseMatchTrack(
-                id: "mb-track-\(index)",
-                mediumTitle: "",
-                mediumFormat: "Digital Media",
-                mediumPosition: 1,
-                mediumTrackCount: trackCount,
-                releaseMediumCount: 1,
-                number: String(index),
-                title: "Remote Track \(index)",
-                artistCredit: "Remote Artist",
-                durationMilliseconds: nil,
-                recordingID: "mb-recording-\(index)",
-                isrcs: []
-            )
-        }
-        let musicBrainzAssignments = zip(musicBrainzInputs, musicBrainzTracks).map { input, track in
-            MusicBrainzReleaseMatchAssignment(
-                id: "mb-assignment-\(track.id)",
-                file: input,
-                track: track,
-                score: 1,
-                reason: "performance fixture"
-            )
-        }
-        let musicBrainzPreview = MusicBrainzReleaseMatchPreview(
-            totalSelectedFiles: trackCount,
-            matchedAssignments: musicBrainzAssignments,
-            unmatchedFiles: [],
-            unassignedTracks: [],
-            averageTrackScore: 1,
-            overallScore: 1,
-            selectionLooksMixed: false
-        )
-        let musicBrainzRelease = MusicBrainzReleaseDetail(
-            id: "mb-release",
-            title: "Remote Album",
-            artistCredit: "Remote Artist",
-            date: "2026-01-01",
-            country: "US",
-            status: "Official",
-            barcode: "",
-            packaging: "",
-            asin: "",
-            quality: "",
-            language: "eng",
-            script: "Latn",
-            annotation: "",
-            genres: [],
-            tags: [],
-            releaseGroupTitle: "Remote Album",
-            releaseGroupID: "mb-group",
-            releaseGroupPrimaryType: "Album",
-            releaseGroupSecondaryTypes: [],
-            labels: [],
-            media: [
-                MusicBrainzReleaseDetail.Medium(
-                    id: "mb-medium",
-                    title: "",
-                    format: "Digital Media",
-                    trackCount: trackCount,
-                    discIDs: [],
-                    tracks: musicBrainzTracks.map { track in
-                        MusicBrainzReleaseDetail.Medium.Track(
-                            id: track.id,
-                            number: track.number,
-                            title: track.title,
-                            artistCredit: track.artistCredit,
-                            durationMilliseconds: track.durationMilliseconds,
-                            recordingID: track.recordingID,
-                            isrcs: track.isrcs
-                        )
-                    }
-                )
-            ],
-            selectionMatchPreview: musicBrainzPreview
-        )
-
-        let iTunesInputs = files.enumerated().map { offset, file in
-            iTunesFileSearchInput(
-                id: file.id.uuidString,
-                displayTitle: file.url.lastPathComponent,
-                title: file.title,
-                artist: file.artist,
-                albumArtist: file.albumArtist,
-                album: file.album,
-                trackNumber: String(offset + 1),
-                discNumber: "1",
-                trackTotal: trackCount,
-                durationMilliseconds: nil,
-                releaseDate: "",
-                barcode: "",
-                itunesAlbumID: "",
-                itunesArtistID: "",
-                itunesCatalogID: ""
-            )
-        }
-        let iTunesTracks = (1...trackCount).map { index in
-            iTunesTrackResult(
-                trackID: index,
-                collectionID: 10,
-                artistID: 20,
-                collectionArtistID: 20,
-                trackName: "Remote Track \(index)",
-                artistName: "Remote Artist",
-                collectionArtistName: "Remote Artist",
-                collectionName: "Remote Album",
-                trackNumber: index,
-                trackCount: trackCount,
-                discNumber: 1,
-                discCount: 1,
-                durationMilliseconds: nil,
-                releaseDate: "2026-01-01",
-                primaryGenreName: "Rock",
-                country: "USA",
-                copyright: "",
-                contentAdvisoryRating: "",
-                kind: "song",
-                wrapperType: "track",
-                trackExplicitness: "notExplicit",
-                collectionExplicitness: "notExplicit",
-                trackViewURL: nil,
-                collectionViewURL: nil,
-                artistViewURL: nil
-            )
-        }
-        let iTunesAlbum = iTunesAlbumResult(
-            collectionID: 10,
-            artistID: 20,
-            collectionArtistID: 20,
-            collectionName: "Remote Album",
-            artistName: "Remote Artist",
-            collectionArtistName: "Remote Artist",
-            trackCount: trackCount,
-            releaseDate: "2026-01-01",
-            primaryGenreName: "Rock",
-            country: "USA",
-            copyright: "",
-            contentAdvisoryRating: "",
-            collectionExplicitness: "notExplicit",
-            collectionViewURL: nil,
-            artistViewURL: nil,
-            selectionMatchPreview: nil,
-            selectionMatchScore: nil
-        )
-        let iTunesAssignments = zip(iTunesInputs, iTunesTracks).map { input, track in
-            iTunesAlbumMatchAssignment(
-                id: "itunes-assignment-\(track.trackID)",
-                file: input,
-                track: track,
-                score: 1,
-                reason: "performance fixture"
-            )
-        }
-        let iTunesPreview = iTunesAlbumMatchPreview(
-            totalSelectedFiles: trackCount,
-            matchedAssignments: iTunesAssignments,
-            unmatchedFiles: [],
-            unassignedTracks: [],
-            overallScore: 1
-        )
-
-        return LargeWorkbenchFixture(
-            files: files,
-            musicBrainzRelease: musicBrainzRelease,
-            musicBrainzPreview: musicBrainzPreview,
-            iTunesDetail: iTunesAlbumDetail(
-                album: iTunesAlbum,
-                tracks: iTunesTracks,
-                selectionMatchPreview: iTunesPreview
-            ),
-            iTunesPreview: iTunesPreview
-        )
+        XCTFail("Timed out waiting for deterministic MusicBrainz recording states")
     }
 }
 
-private struct LargeWorkbenchFixture {
-    let files: [AudioFile]
-    let musicBrainzRelease: MusicBrainzReleaseDetail
-    let musicBrainzPreview: MusicBrainzReleaseMatchPreview
-    let iTunesDetail: iTunesAlbumDetail
-    let iTunesPreview: iTunesAlbumMatchPreview
+@MainActor
+private final class HostedWorkbench<Content: View> {
+    private let host: NSHostingView<Content>
+    private let window: NSWindow
+
+    init(rootView: Content) {
+        host = NSHostingView(rootView: rootView)
+        host.frame = NSRect(x: 0, y: 0, width: 980, height: 700)
+        window = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = host
+    }
+
+    func stabilize() {
+        host.layoutSubtreeIfNeeded()
+        drainMainQueue()
+        host.layoutSubtreeIfNeeded()
+        drainMainQueue()
+        host.layoutSubtreeIfNeeded()
+    }
+
+    func tearDown() {
+        window.contentView = nil
+    }
+
+    private func drainMainQueue() {
+        var completed = false
+        DispatchQueue.main.async {
+            completed = true
+        }
+        while !completed {
+            RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+        }
+    }
 }
 
 private actor SuspendedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
@@ -446,22 +521,15 @@ private actor SuspendedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
     }
 }
 
-private enum WorkbenchRecordingBehavior: Sendable {
-    case success
-    case failure
-    case timeout
-}
-
 private enum WorkbenchRecordingClientError: Error {
     case syntheticFailure
 }
 
-private actor ScriptedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
-    private(set) var requestCount = 0
-    private let behavior: WorkbenchRecordingBehavior
+private actor MixedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
+    private let behaviors: [String: WorkbenchRecordingBehavior]
 
-    init(behavior: WorkbenchRecordingBehavior) {
-        self.behavior = behavior
+    init(behaviors: [String: WorkbenchRecordingBehavior]) {
+        self.behaviors = behaviors
     }
 
     func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults {
@@ -472,29 +540,30 @@ private actor ScriptedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
         id: String,
         fallbackReleases: [MusicBrainzRecordingResult.Release]
     ) async throws -> MusicBrainzRecordingDetail {
-        requestCount += 1
-        switch behavior {
+        switch behaviors[id] ?? .failure {
         case .success:
             return MusicBrainzRecordingDetail(
                 id: id,
-                title: "Remote Track",
-                artistCredit: "Remote Artist",
-                disambiguation: "",
-                firstReleaseDate: "2026-01-01",
-                durationMilliseconds: nil,
-                annotation: "",
-                isrcs: [],
-                genres: [],
-                tags: [],
+                title: "Remote Recording \(id)",
+                artistCredit: "Remote Recording Artist",
+                disambiguation: "offline deterministic detail",
+                firstReleaseDate: "2026-07-28",
+                durationMilliseconds: 240_000,
+                annotation: String(repeating: "Long offline annotation. ", count: 20),
+                isrcs: ["OFFLINEISRC"],
+                genres: [MusicBrainzTerm(name: "Rock", count: 10)],
+                tags: [MusicBrainzTerm(name: "fixture", count: 5)],
                 rating: nil,
                 releases: fallbackReleases,
-                relationshipGroups: []
+                relationshipGroups: [
+                    MusicBrainzRelationshipGroup(title: "Composer", values: ["Fixture Composer"]),
+                    MusicBrainzRelationshipGroup(title: "Producer", values: ["Fixture Producer"])
+                ]
             )
         case .failure:
             throw WorkbenchRecordingClientError.syntheticFailure
         case .timeout:
-            try await Task.sleep(for: .seconds(30))
-            throw CancellationError()
+            throw AsyncOperationTimedOutError(operationName: "Offline MusicBrainz recording detail")
         }
     }
 

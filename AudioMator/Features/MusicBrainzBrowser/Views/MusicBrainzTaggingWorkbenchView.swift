@@ -191,23 +191,18 @@ struct MusicBrainzTaggingWorkbenchView: View {
         .controlSize(.small)
     }
 
-    private var assignmentSection: some View {
-        MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
-            ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
-                AssignmentEditorRow(
-                    assignment: assignment,
-                    tracks: store.availableTracks,
-                    isDuplicate: store.isDuplicateAssignment(assignment),
-                    selection: trackSelectionBinding(for: assignment),
-                    selectedTrack: store.track(for: assignment)
-                )
-                .disabled(isApplying)
-
-                if index < store.assignments.count - 1 {
-                    MetadataCardDivider()
-                }
+    var assignmentSection: some View {
+        MusicBrainzAssignmentSection(
+            storeID: store.id,
+            assignments: store.assignments,
+            tracks: store.availableTracks,
+            duplicateTrackIDs: store.duplicateTrackIDs,
+            isApplying: isApplying,
+            onSelectTrack: { trackID, assignmentID in
+                store.updateSelectedTrack(trackID, for: assignmentID)
             }
-        }
+        )
+        .equatable()
     }
 
     @ViewBuilder
@@ -283,15 +278,6 @@ struct MusicBrainzTaggingWorkbenchView: View {
         Binding(
             get: { store.isFieldSelected(field) },
             set: { store.setFieldSelected($0, for: field) }
-        )
-    }
-
-    private func trackSelectionBinding(
-        for assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft
-    ) -> Binding<String?> {
-        Binding(
-            get: { store.selectedTrackID(for: assignment.id) },
-            set: { store.updateSelectedTrack($0, for: assignment.id) }
         )
     }
 
@@ -939,6 +925,47 @@ private extension MusicBrainzTaggingFieldChange.Status {
     }
 }
 #endif
+
+struct MusicBrainzAssignmentSection: View, Equatable {
+    let storeID: UUID
+    let assignments: [MusicBrainzTaggingWorkbenchStore.AssignmentDraft]
+    let tracks: [MusicBrainzReleaseMatchTrack]
+    let duplicateTrackIDs: Set<String>
+    let isApplying: Bool
+    let onSelectTrack: (String?, String) -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.storeID == rhs.storeID &&
+            lhs.assignments == rhs.assignments &&
+            lhs.tracks == rhs.tracks &&
+            lhs.duplicateTrackIDs == rhs.duplicateTrackIDs &&
+            lhs.isApplying == rhs.isApplying
+    }
+
+    var body: some View {
+        let tracksByID = Dictionary(uniqueKeysWithValues: tracks.map { ($0.id, $0) })
+
+        MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
+            ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
+                AssignmentEditorRow(
+                    assignment: assignment,
+                    tracks: tracks,
+                    isDuplicate: assignment.selectedTrackID.map(duplicateTrackIDs.contains) ?? false,
+                    selection: Binding(
+                        get: { assignment.selectedTrackID },
+                        set: { onSelectTrack($0, assignment.id) }
+                    ),
+                    selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
+                )
+                .disabled(isApplying)
+
+                if index < assignments.count - 1 {
+                    MetadataCardDivider()
+                }
+            }
+        }
+    }
+}
 
 private struct AssignmentEditorRow: View {
     let assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft

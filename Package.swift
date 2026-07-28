@@ -25,6 +25,7 @@ let package = Package(
                 "Core/Platform",
                 "Core/Concurrency",
                 "Core/Audio/AudioFormatSupport.swift",
+                "Core/Artwork",
                 "Domain/AudioFiles/AudioFile.swift",
                 "Domain/AudioFiles/MergedAudioFile.swift",
                 "Domain/AudioFiles/SingleFileEditModel.swift",

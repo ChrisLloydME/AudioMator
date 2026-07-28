@@ -42,11 +42,9 @@ struct MusicBrainzTaggingWorkbenchView: View {
             store.refreshLoadedFiles(viewModel.files)
         }
         .onDisappear {
-            applyTask?.cancel()
-            applyTask = nil
-            isApplying = false
             store.cancelPendingRecordingLoads()
         }
+        .interactiveDismissDisabled(isApplying || viewModel.metadataSaveProgress != nil)
         .overlay {
             if let progress = viewModel.metadataSaveProgress {
                 MetadataSaveProgressOverlay(progress: progress)
@@ -253,6 +251,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
+            .disabled(isApplying || viewModel.metadataSaveProgress != nil)
 
             Button {
                 applyTags(plan: plan)

@@ -102,7 +102,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
-    func testPageSectionContainerDoesNotNestLazyStacks() {
+    func testPageAndAssignmentUpdateBoundariesPreventLazyLayoutCycles() {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 10)
         let viewModel = makeViewModel(files: scenario.files)
 
@@ -110,13 +110,18 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
             scenario: scenario,
             client: SuspendedWorkbenchMusicBrainzClient()
         )
-        let musicBrainzBody = MusicBrainzTaggingWorkbenchView(
+        let musicBrainzView = MusicBrainzTaggingWorkbenchView(
             store: musicBrainzStore,
             viewModel: viewModel
-        ).body
+        )
+        let musicBrainzBody = musicBrainzView.body
         XCTAssertFalse(
             containsLazyVStack(in: musicBrainzBody),
             "The page-level section container must stay eager so row-level lazy stacks do not enter a layout-estimation cycle."
+        )
+        XCTAssertTrue(
+            String(reflecting: type(of: musicBrainzView.assignmentSection)).contains("EquatableView"),
+            "Assignments must stay behind an equatable boundary so recording-detail publications cannot invalidate their lazy layout while the user scrolls."
         )
         musicBrainzStore.cancelPendingRecordingLoads()
 
@@ -151,10 +156,8 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
                 }
             )
             try await hosted.stabilizeAsync()
-            try await waitUntil(timeout: .seconds(5)) {
-                store.recordingPreloadTotalCount > 0 &&
-                    store.recordingPreloadCompletedCount == store.recordingPreloadTotalCount
-            }
+            XCTAssertGreaterThan(store.recordingPreloadTotalCount, 0)
+            XCTAssertLessThan(store.recordingPreloadCompletedCount, store.recordingPreloadTotalCount)
             store.selectAllAvailableFields()
             try await hosted.stabilizeAsync()
 
@@ -165,6 +168,10 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
             if iteration > 0 {
                 musicBrainzSamples.append(elapsed)
             }
+            try await waitUntil(timeout: .seconds(5)) {
+                store.recordingPreloadCompletedCount == store.recordingPreloadTotalCount
+            }
+            try await hosted.stabilizeAsync()
             hosted.tearDown()
             store.cancelPendingRecordingLoads()
         }
@@ -701,6 +708,7 @@ private actor RelationHeavyWorkbenchMusicBrainzClient: MusicBrainzBrowserClient 
         id: String,
         fallbackReleases: [MusicBrainzRecordingResult.Release]
     ) async throws -> MusicBrainzRecordingDetail {
+        try await Task.sleep(for: .milliseconds(40))
         let relationshipTitles = [
             "Composer",
             "Lyricist",

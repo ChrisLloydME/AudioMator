@@ -233,28 +233,14 @@ extension AudioViewModel {
 
     private func loadPendingArtwork(from url: URL) throws -> PendingArtwork {
         try SecurityScopedResourceAccess.withAccess(to: url) {
-            guard let image = PlatformImage(contentsOfFile: url.path) else {
-                throw NSError(
-                    domain: "AudioMator.Artwork",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "The selected image could not be opened."]
-                )
-            }
-
-            return try loadPendingArtwork(from: image)
+            let pngData = try ArtworkImageNormalizer.normalizedPNGData(from: url)
+            return try pendingArtwork(fromNormalizedPNGData: pngData)
         }
     }
 
     private func loadPendingArtwork(fromImageData data: Data) throws -> PendingArtwork {
-        guard let image = PlatformImage(data: data) else {
-            throw NSError(
-                domain: "AudioMator.Artwork",
-                code: 4,
-                userInfo: [NSLocalizedDescriptionKey: "The selected photo could not be opened."]
-            )
-        }
-
-        return try loadPendingArtwork(from: image)
+        let pngData = try ArtworkImageNormalizer.normalizedPNGData(from: data)
+        return try pendingArtwork(fromNormalizedPNGData: pngData)
     }
 
     private func loadPendingArtwork(from image: PlatformImage) throws -> PendingArtwork {
@@ -266,6 +252,11 @@ extension AudioViewModel {
             )
         }
 
+        let normalizedPNGData = try ArtworkImageNormalizer.normalizedPNGData(from: pngData)
+        return try pendingArtwork(fromNormalizedPNGData: normalizedPNGData)
+    }
+
+    private func pendingArtwork(fromNormalizedPNGData pngData: Data) throws -> PendingArtwork {
         guard let previewImage = PlatformImage(data: pngData) else {
             throw NSError(
                 domain: "AudioMator.Artwork",

@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import XCTest
 @testable import AudioMator
 
@@ -179,6 +180,88 @@ final class ProviderNetworkFaultTests: XCTestCase {
             2
         )
         XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
+    }
+
+    func testArtworkNormalizerDownsamplesBeforePNGEncoding() throws {
+        let sourceData = try XCTUnwrap(
+            Data(
+                base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAACAAAAAQAQMAAABNzu8aAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGUExURTNmmf////ENxh0AAAABYktHRAH/Ai3eAAAAB3RJTUUH6gccCAUaXeL69AAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNy0yOFQwODowNToyNiswMDowMA6jkt8AAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDctMjhUMDg6MDU6MjYrMDA6MDB//ipjAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA3LTI4VDA4OjA1OjI2KzAwOjAwKOsLvAAAAAxJREFUCNdjYKAuAAAAUAABIhPodQAAAABJRU5ErkJggg=="
+            )
+        )
+
+        let normalizedData = try ArtworkImageNormalizer.normalizedPNGData(
+            from: sourceData,
+            maximumPixelDimension: 8,
+            maximumSourcePixelCount: 1_024
+        )
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(normalizedData as CFData, nil))
+        let properties = try XCTUnwrap(
+            CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        )
+
+        XCTAssertEqual((properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue, 8)
+        XCTAssertEqual((properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue, 4)
+    }
+
+    func testArtworkNormalizerRejectsOversizedEncodedInputBeforeDecode() throws {
+        let sourceData = Data(repeating: 0, count: 32)
+
+        XCTAssertThrowsError(
+            try ArtworkImageNormalizer.normalizedPNGData(
+                from: sourceData,
+                maximumInputByteCount: 31
+            )
+        ) { error in
+            XCTAssertEqual(error as? ArtworkImageNormalizerError, .inputTooLarge)
+        }
+    }
+
+    func testArtworkNormalizerRejectsUnsafePixelCountBeforeDecode() throws {
+        let sourceData = try XCTUnwrap(
+            Data(
+                base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAACAAAAAQAQMAAABNzu8aAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGUExURTNmmf////ENxh0AAAABYktHRAH/Ai3eAAAAB3RJTUUH6gccCAUaXeL69AAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNy0yOFQwODowNToyNiswMDowMA6jkt8AAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDctMjhUMDg6MDU6MjYrMDA6MDB//ipjAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA3LTI4VDA4OjA1OjI2KzAwOjAwKOsLvAAAAAxJREFUCNdjYKAuAAAAUAABIhPodQAAAABJRU5ErkJggg=="
+            )
+        )
+
+        XCTAssertThrowsError(
+            try ArtworkImageNormalizer.normalizedPNGData(
+                from: sourceData,
+                maximumSourcePixelCount: 511
+            )
+        ) { error in
+            XCTAssertEqual(error as? ArtworkImageNormalizerError, .unsafeDimensions)
+        }
+    }
+
+    func testITunesArtworkDownloadNormalizesAValidResponseFromTemporaryStorage() async throws {
+        let sourceData = try XCTUnwrap(
+            Data(
+                base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAACAAAAAQAQMAAABNzu8aAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGUExURTNmmf////ENxh0AAAABYktHRAH/Ai3eAAAAB3RJTUUH6gccCAUaXeL69AAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0wNy0yOFQwODowNToyNiswMDowMA6jkt8AAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMDctMjhUMDg6MDU6MjYrMDA6MDB//ipjAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTA3LTI4VDA4OjA1OjI2KzAwOjAwKOsLvAAAAAxJREFUCNdjYKAuAAAAUAABIhPodQAAAABJRU5ErkJggg=="
+            )
+        )
+        ProviderFaultURLProtocol.requestHandler = response(statusCode: 200, data: sourceData)
+        let artworkURL = try XCTUnwrap(URL(string: "https://example.test/artwork.png"))
+        let result = iTunesArtworkSearchResult(
+            id: "fixture",
+            title: "Fixture",
+            subtitle: nil,
+            thumbnailURL: nil,
+            standardURL: artworkURL,
+            hiresURL: nil,
+            uncompressedURL: nil,
+            pixelWidth: 32,
+            pixelHeight: 16
+        )
+
+        let artwork = try await iTunesArtworkService(session: makeSession())
+            .downloadArtworkData(for: result)
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(artwork.pngData as CFData, nil))
+        let properties = try XCTUnwrap(
+            CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        )
+
+        XCTAssertEqual((properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue, 32)
+        XCTAssertEqual((properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue, 16)
     }
 
     @MainActor

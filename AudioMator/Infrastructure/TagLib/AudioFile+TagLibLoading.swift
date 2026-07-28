@@ -169,8 +169,8 @@ extension AudioFile {
 
         // MARK: – Basic tags via TagLib
         //
-        // Fall back to `BasicMetadata.empty` when TagLib parsing fails to avoid repeated optional handling.
-        let tag = TagLibMetadataManager.readMetadata(from: url) ?? .empty
+        // A failed source read must remain a load failure so import and rescan recovery can react.
+        let tag = try TagLibMetadataManager.readMetadataResult(from: url)
 
         self.title       = tag.title
         self.artist      = tag.artist
@@ -316,6 +316,6 @@ extension AudioFile {
             self.artworkFingerprint = nil
         }
 
-        self.fileFingerprint = try? AudioFileFingerprint.capture(at: url)
+        self.fileFingerprint = try AudioFileFingerprint.capture(at: url)
     }
 }

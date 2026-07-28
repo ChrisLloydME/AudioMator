@@ -406,6 +406,19 @@ struct MusicBrainzTaggingPlan {
 
 @MainActor
 final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
+    final class PerformanceProbe {
+        private(set) var planBuildCount = 0
+        private(set) var planRowBuildCount = 0
+
+        fileprivate func didBuildPlan() {
+            planBuildCount += 1
+        }
+
+        fileprivate func didBuildPlanRow() {
+            planRowBuildCount += 1
+        }
+    }
+
     struct AssignmentDraft: Identifiable, Hashable {
         let fileInput: MusicBrainzFileSearchInput
         let initialTrackID: String?
@@ -451,9 +464,13 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     @Published private(set) var recordingPreloadTargetIDs: Set<String> = []
 
     private let browserStore: MusicBrainzBrowserStore
+    private let performanceProbe: PerformanceProbe?
+    private let tracksByID: [String: MusicBrainzReleaseMatchTrack]
     private var recordingLoadTask: Task<Void, Never>?
     private var pendingRecordingIDs: Set<String> = []
     private var recordingLoadOperationID = UUID()
+    private var cachedPlan: MusicBrainzTaggingPlan?
+    private var cachedPlanRowsByAssignmentID: [String: MusicBrainzTaggingPlanRow] = [:]
     private let releaseArtistCredit: String
     private let publisherName: String
     private let primaryCatalogNumber: String
@@ -464,12 +481,15 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         release: MusicBrainzReleaseDetail,
         preview: MusicBrainzReleaseMatchPreview,
         loadedFiles: [AudioFile],
-        browserStore: MusicBrainzBrowserStore
+        browserStore: MusicBrainzBrowserStore,
+        performanceProbe: PerformanceProbe? = nil
     ) {
         self.release = release
         self.browserStore = browserStore
+        self.performanceProbe = performanceProbe
         let flattenedTracks = Self.flattenedTracks(from: release)
         self.availableTracks = flattenedTracks
+        self.tracksByID = Dictionary(uniqueKeysWithValues: flattenedTracks.map { ($0.id, $0) })
         self.loadedFilesByInputID = Dictionary(
             uniqueKeysWithValues: loadedFiles.map { ($0.id.uuidString, $0) }
         )
@@ -517,21 +537,33 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     var plan: MusicBrainzTaggingPlan {
+        if let cachedPlan {
+            return cachedPlan
+        }
+
+        performanceProbe?.didBuildPlan()
         let selectedFields = selectedAvailableFields
-        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.id, $0) })
-        return MusicBrainzTaggingPlan(
+        let plan = MusicBrainzTaggingPlan(
             rows: assignments.map { assignment in
-                buildPlanRow(
+                if let cachedRow = cachedPlanRowsByAssignmentID[assignment.id] {
+                    return cachedRow
+                }
+
+                let row = buildPlanRow(
                     for: assignment,
                     selectedFields: selectedFields,
                     selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
                 )
+                performanceProbe?.didBuildPlanRow()
+                cachedPlanRowsByAssignmentID[assignment.id] = row
+                return row
             }
         )
+        cachedPlan = plan
+        return plan
     }
 
     var availableFields: [MusicBrainzTagWriteField] {
-        let tracksByID = Dictionary(uniqueKeysWithValues: availableTracks.map { ($0.id, $0) })
         let selectedTracks = assignments.compactMap { assignment in
             assignment.selectedTrackID.flatMap { tracksByID[$0] }
         }
@@ -651,6 +683,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     func refreshLoadedFiles(_ files: [AudioFile]) {
+        invalidateAllPlanRows()
         loadedFilesByInputID = Dictionary(
             uniqueKeysWithValues: files.map { ($0.id.uuidString, $0) }
         )
@@ -662,17 +695,26 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func setFieldSelected(_ isSelected: Bool, for field: MusicBrainzTagWriteField) {
         if isSelected {
-            selectedFields.insert(field)
+            if !selectedFields.contains(field) {
+                invalidateAllPlanRows()
+                selectedFields.insert(field)
+            }
             if field.requiresRecordingDetail {
                 ensureRecordingDataIfNeeded()
             }
         } else {
+            guard selectedFields.contains(field) else { return }
+            invalidateAllPlanRows()
             selectedFields.remove(field)
         }
     }
 
     func selectAllAvailableFields() {
-        selectedFields = Set(availableFields)
+        let fields = Set(availableFields)
+        if fields != selectedFields {
+            invalidateAllPlanRows()
+            selectedFields = fields
+        }
 
         if selectedAvailableFields.contains(where: \.requiresRecordingDetail) {
             ensureRecordingDataIfNeeded()
@@ -680,6 +722,8 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     func deselectAllFields() {
+        guard !selectedFields.isEmpty else { return }
+        invalidateAllPlanRows()
         selectedFields.removeAll()
     }
 
@@ -689,6 +733,14 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func updateSelectedTrack(_ trackID: String?, for assignmentID: String) {
         guard let index = assignments.firstIndex(where: { $0.id == assignmentID }) else { return }
+        guard assignments[index].selectedTrackID != trackID else {
+            refreshRecordingPreloadTargets()
+            if selectedAvailableFields.contains(where: \.requiresRecordingDetail) {
+                ensureRecordingDataIfNeeded()
+            }
+            return
+        }
+        invalidatePlanRow(for: assignmentID)
         assignments[index].selectedTrackID = trackID
 
         refreshRecordingPreloadTargets()
@@ -700,7 +752,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     func track(for assignment: AssignmentDraft) -> MusicBrainzReleaseMatchTrack? {
         guard let selectedTrackID = assignment.selectedTrackID else { return nil }
-        return availableTracks.first(where: { $0.id == selectedTrackID })
+        return tracksByID[selectedTrackID]
     }
 
     func isDuplicateAssignment(_ assignment: AssignmentDraft) -> Bool {
@@ -814,6 +866,9 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         operationID: UUID
     ) {
         guard recordingLoadOperationID == operationID else { return }
+        if selectedFields.contains(where: \.requiresRecordingDetail) {
+            invalidatePlanRows(forRecordingID: recordingID)
+        }
         recordingStates[recordingID] = state
     }
 
@@ -821,6 +876,29 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         guard recordingLoadOperationID == operationID else { return }
         recordingLoadTask = nil
         startRecordingLoadIfNeeded()
+    }
+
+    private func invalidateAllPlanRows() {
+        cachedPlan = nil
+        cachedPlanRowsByAssignmentID.removeAll(keepingCapacity: true)
+    }
+
+    private func invalidatePlanRow(for assignmentID: String) {
+        cachedPlan = nil
+        cachedPlanRowsByAssignmentID[assignmentID] = nil
+    }
+
+    private func invalidatePlanRows(forRecordingID recordingID: String) {
+        cachedPlan = nil
+        for assignment in assignments {
+            guard
+                let trackID = assignment.selectedTrackID,
+                tracksByID[trackID]?.recordingID == recordingID
+            else {
+                continue
+            }
+            cachedPlanRowsByAssignmentID[assignment.id] = nil
+        }
     }
 
     private func buildPlanRow(

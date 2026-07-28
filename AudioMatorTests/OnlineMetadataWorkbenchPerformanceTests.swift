@@ -136,6 +136,47 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    func testTwoHundredTrackAssignmentsUseNativeVirtualizedRows() async throws {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
+        let viewModel = makeViewModel(files: scenario.files)
+
+        let musicBrainzStore = makeMusicBrainzStore(
+            scenario: scenario,
+            client: SuspendedWorkbenchMusicBrainzClient()
+        )
+        let musicBrainzHosted = HostedWorkbench(
+            rootView: MusicBrainzTaggingWorkbenchView(
+                store: musicBrainzStore,
+                viewModel: viewModel
+            )
+        )
+        try await musicBrainzHosted.stabilizeAsync()
+        try await musicBrainzHosted.scrollDownAsync(distance: 1_000)
+        assertVirtualizedAssignmentTable(
+            in: musicBrainzHosted,
+            expectedRowCount: scenario.files.count,
+            provider: "MusicBrainz"
+        )
+        musicBrainzStore.cancelPendingRecordingLoads()
+        musicBrainzHosted.tearDown()
+
+        let iTunesStore = makeiTunesStore(scenario: scenario)
+        let iTunesHosted = HostedWorkbench(
+            rootView: iTunesTaggingWorkbenchView(
+                store: iTunesStore,
+                viewModel: viewModel
+            )
+        )
+        try await iTunesHosted.stabilizeAsync()
+        try await iTunesHosted.scrollDownAsync(distance: 1_000)
+        assertVirtualizedAssignmentTable(
+            in: iTunesHosted,
+            expectedRowCount: scenario.files.count,
+            provider: "iTunes"
+        )
+        iTunesHosted.tearDown()
+    }
+
     func testSelectAllThenPreDiffScrollUsesWarmMedianSamples() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(
             trackCount: 21,
@@ -578,6 +619,29 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         }
     }
 
+    private func assertVirtualizedAssignmentTable<Content: View>(
+        in hosted: HostedWorkbench<Content>,
+        expectedRowCount: Int,
+        provider: String
+    ) {
+        let tables = hosted.descendants(of: NSTableView.self)
+        XCTAssertEqual(tables.count, 1, "\(provider) assignments must use one native virtualized table")
+        guard let table = tables.first else { return }
+
+        XCTAssertEqual(table.numberOfRows, expectedRowCount)
+        let materializedRowCount = (0..<table.numberOfRows).reduce(into: 0) { count, row in
+            if table.rowView(atRow: row, makeIfNecessary: false) != nil {
+                count += 1
+            }
+        }
+        XCTAssertGreaterThan(materializedRowCount, 0, "The test must scroll far enough to materialize assignment rows")
+        XCTAssertLessThan(
+            materializedRowCount,
+            expectedRowCount / 2,
+            "\(provider) must not materialize all assignment rows inside the outer review scroll view"
+        )
+    }
+
     private func waitUntil(
         timeout: Duration,
         condition: @escaping @MainActor () -> Bool
@@ -651,6 +715,10 @@ private final class HostedWorkbench<Content: View> {
         window.contentView = nil
     }
 
+    func descendants<ViewType: NSView>(of type: ViewType.Type) -> [ViewType] {
+        descendants(of: type, in: host)
+    }
+
     private func drainMainQueue() {
         var completed = false
         DispatchQueue.main.async {
@@ -671,6 +739,14 @@ private final class HostedWorkbench<Content: View> {
             }
         }
         return nil
+    }
+
+    private func descendants<ViewType: NSView>(of type: ViewType.Type, in view: NSView) -> [ViewType] {
+        var matches = view is ViewType ? [view as! ViewType] : []
+        for subview in view.subviews {
+            matches.append(contentsOf: descendants(of: type, in: subview))
+        }
+        return matches
     }
 }
 

@@ -102,6 +102,107 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    func testPageSectionContainerDoesNotNestLazyStacks() {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 10)
+        let viewModel = makeViewModel(files: scenario.files)
+
+        let musicBrainzStore = makeMusicBrainzStore(
+            scenario: scenario,
+            client: SuspendedWorkbenchMusicBrainzClient()
+        )
+        let musicBrainzBody = MusicBrainzTaggingWorkbenchView(
+            store: musicBrainzStore,
+            viewModel: viewModel
+        ).body
+        XCTAssertFalse(
+            containsLazyVStack(in: musicBrainzBody),
+            "The page-level section container must stay eager so row-level lazy stacks do not enter a layout-estimation cycle."
+        )
+        musicBrainzStore.cancelPendingRecordingLoads()
+
+        let iTunesStore = makeiTunesStore(scenario: scenario)
+        let iTunesBody = iTunesTaggingWorkbenchView(
+            store: iTunesStore,
+            viewModel: viewModel
+        ).body
+        XCTAssertFalse(
+            containsLazyVStack(in: iTunesBody),
+            "The page-level section container must stay eager so row-level lazy stacks do not enter a layout-estimation cycle."
+        )
+    }
+
+    func testSelectAllThenPreDiffScrollUsesWarmMedianSamples() async throws {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(
+            trackCount: 21,
+            musicBrainzTrackCount: 16
+        )
+        var musicBrainzSamples: [Double] = []
+        var iTunesSamples: [Double] = []
+
+        for iteration in 0..<6 {
+            let viewModel = makeViewModel(files: scenario.files)
+            let store = makeMusicBrainzStore(
+                scenario: scenario,
+                client: RelationHeavyWorkbenchMusicBrainzClient()
+            )
+            let hosted = HostedWorkbench(
+                rootView: NavigationStack {
+                    MusicBrainzTaggingWorkbenchView(store: store, viewModel: viewModel)
+                }
+            )
+            try await hosted.stabilizeAsync()
+            try await waitUntil(timeout: .seconds(5)) {
+                store.recordingPreloadTotalCount > 0 &&
+                    store.recordingPreloadCompletedCount == store.recordingPreloadTotalCount
+            }
+            store.selectAllAvailableFields()
+            try await hosted.stabilizeAsync()
+
+            let clock = ContinuousClock()
+            let start = clock.now
+            try await hosted.scrollDownAsync(distance: 7_000)
+            let elapsed = durationMilliseconds(start.duration(to: clock.now))
+            if iteration > 0 {
+                musicBrainzSamples.append(elapsed)
+            }
+            hosted.tearDown()
+            store.cancelPendingRecordingLoads()
+        }
+
+        for iteration in 0..<6 {
+            let viewModel = makeViewModel(files: scenario.files)
+            let store = makeiTunesStore(scenario: scenario)
+            store.selectAllAvailableFields()
+            let hosted = HostedWorkbench(
+                rootView: NavigationStack {
+                    iTunesTaggingWorkbenchView(store: store, viewModel: viewModel)
+                }
+            )
+            try await hosted.stabilizeAsync()
+
+            let clock = ContinuousClock()
+            let start = clock.now
+            try await hosted.scrollDownAsync(distance: 7_000)
+            let elapsed = durationMilliseconds(start.duration(to: clock.now))
+            if iteration > 0 {
+                iTunesSamples.append(elapsed)
+            }
+            hosted.tearDown()
+        }
+
+        let musicBrainzMedian = median(musicBrainzSamples)
+        let iTunesMedian = median(iTunesSamples)
+        XCTAssertLessThan(musicBrainzMedian, 750)
+        XCTAssertLessThan(iTunesMedian, 750)
+        recordPerformanceReport(
+            named: "Select All pre-diff scroll medians",
+            lines: [
+                measurementLine("musicbrainz.pre-diff-scroll", trackCount: 21, milliseconds: musicBrainzMedian),
+                measurementLine("itunes.pre-diff-scroll", trackCount: 21, milliseconds: iTunesMedian)
+            ]
+        )
+    }
+
     func testFieldToggleUpdateUsesWarmMedianSamplesForTwoHundredTracks() {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         let viewModel = makeViewModel(files: scenario.files)
@@ -385,7 +486,18 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
     }
 
     private func makeViewModel(files: [AudioFile]) -> AudioViewModel {
-        let viewModel = AudioViewModel()
+        let suiteName = "AudioMator.OnlineMetadataWorkbenchPerformanceTests.\(UUID().uuidString)"
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+        let viewModel = AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: userDefaults),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            saveIssueLogStore: SaveIssueLogStore()
+        )
         viewModel.files = files
         viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
         return viewModel
@@ -446,6 +558,19 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(value, 0)
     }
 
+    private func containsLazyVStack(in value: Any, depth: Int = 0) -> Bool {
+        guard depth < 24 else { return false }
+        if String(reflecting: type(of: value)).hasPrefix("SwiftUI.LazyVStack<") {
+            return true
+        }
+
+        let mirror = Mirror(reflecting: value)
+        guard mirror.displayStyle != .class else { return false }
+        return mirror.children.contains { child in
+            containsLazyVStack(in: child.value, depth: depth + 1)
+        }
+    }
+
     private func waitUntil(
         timeout: Duration,
         condition: @escaping @MainActor () -> Bool
@@ -485,6 +610,36 @@ private final class HostedWorkbench<Content: View> {
         host.layoutSubtreeIfNeeded()
     }
 
+    func stabilizeAsync() async throws {
+        host.layoutSubtreeIfNeeded()
+        await Task.yield()
+        try await Task.sleep(for: .milliseconds(20))
+        host.layoutSubtreeIfNeeded()
+    }
+
+    func scrollDownAsync(distance: CGFloat) async throws {
+        try await stabilizeAsync()
+        guard let scrollView = firstScrollView(in: host), let documentView = scrollView.documentView else {
+            XCTFail("Unable to locate offscreen workbench scroll view")
+            return
+        }
+
+        documentView.layoutSubtreeIfNeeded()
+        let viewportHeight = max(scrollView.contentView.bounds.height, 1)
+        let maximumY = max(0, documentView.bounds.height - viewportHeight)
+        let destinationY = min(distance, maximumY)
+        var targetY = 0.0
+
+        while targetY < destinationY {
+            targetY = min(targetY + viewportHeight / 2, destinationY)
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: targetY))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            host.layoutSubtreeIfNeeded()
+            await Task.yield()
+        }
+        host.layoutSubtreeIfNeeded()
+    }
+
     func tearDown() {
         window.contentView = nil
     }
@@ -497,6 +652,18 @@ private final class HostedWorkbench<Content: View> {
         while !completed {
             RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
         }
+    }
+
+    private func firstScrollView(in view: NSView) -> NSScrollView? {
+        if let scrollView = view as? NSScrollView {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if let scrollView = firstScrollView(in: subview) {
+                return scrollView
+            }
+        }
+        return nil
     }
 }
 
@@ -523,6 +690,55 @@ private actor SuspendedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
 
 private enum WorkbenchRecordingClientError: Error {
     case syntheticFailure
+}
+
+private actor RelationHeavyWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {
+    func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults {
+        .recordings([])
+    }
+
+    func recordingDetail(
+        id: String,
+        fallbackReleases: [MusicBrainzRecordingResult.Release]
+    ) async throws -> MusicBrainzRecordingDetail {
+        let relationshipTitles = [
+            "Composer",
+            "Lyricist",
+            "Producer",
+            "Engineer",
+            "Remixer",
+            "Phonographic copyright (℗) by"
+        ]
+        let relationshipGroups = (0..<24).map { groupIndex in
+            let valueCount = groupIndex < 18 ? 2 : 1
+            return MusicBrainzRelationshipGroup(
+                title: relationshipTitles[groupIndex % relationshipTitles.count],
+                values: (0..<valueCount).map { valueIndex in
+                    "Relationship Credit \(id) \(groupIndex)-\(valueIndex) with deterministic long text"
+                }
+            )
+        }
+
+        return MusicBrainzRecordingDetail(
+            id: id,
+            title: "Remote Recording \(id)",
+            artistCredit: "Remote Recording Artist",
+            disambiguation: "offline relationship-heavy detail",
+            firstReleaseDate: "2026-07-28",
+            durationMilliseconds: 240_000,
+            annotation: String(repeating: "Long offline annotation. ", count: 20),
+            isrcs: ["OFFLINEISRC"],
+            genres: [MusicBrainzTerm(name: "Rock", count: 10)],
+            tags: [MusicBrainzTerm(name: "fixture", count: 5)],
+            rating: nil,
+            releases: fallbackReleases,
+            relationshipGroups: relationshipGroups
+        )
+    }
+
+    func releaseDetail(id: String) async throws -> MusicBrainzReleaseDetail {
+        throw WorkbenchRecordingClientError.syntheticFailure
+    }
 }
 
 private actor MixedWorkbenchMusicBrainzClient: MusicBrainzBrowserClient {

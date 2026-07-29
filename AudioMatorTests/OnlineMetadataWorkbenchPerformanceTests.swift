@@ -152,10 +152,30 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
         try await musicBrainzHosted.stabilizeAsync()
         try await musicBrainzHosted.scrollDownAsync(distance: 1_000)
-        assertVirtualizedAssignmentTable(
+        let musicBrainzListMetrics = assertVirtualizedAssignmentList(
             in: musicBrainzHosted,
             expectedRowCount: scenario.files.count,
             provider: "MusicBrainz"
+        )
+        let musicBrainzPopUp = try XCTUnwrap(
+            musicBrainzHosted.descendants(of: OnlineMetadataVirtualizedPopUpButton.self).first { popUp in
+                guard let assignmentID = popUp.rowID?.base as? String else { return false }
+                return musicBrainzStore.selectedTrackID(for: assignmentID) != nil
+            }
+        )
+        XCTAssertEqual(musicBrainzPopUp.numberOfItems, 1, "Track options must remain deferred until the menu opens")
+        XCTAssertEqual(musicBrainzPopUp.frame.width, 380, accuracy: 1)
+        let musicBrainzAssignmentID = try XCTUnwrap(musicBrainzPopUp.rowID?.base as? String)
+        musicBrainzPopUp.selectItem(at: 0)
+        _ = musicBrainzPopUp.sendAction(musicBrainzPopUp.action, to: musicBrainzPopUp.target)
+        XCTAssertNil(musicBrainzStore.selectedTrackID(for: musicBrainzAssignmentID))
+        let musicBrainzMenu = try XCTUnwrap(musicBrainzPopUp.menu)
+        musicBrainzPopUp.menuNeedsUpdate(musicBrainzMenu)
+        musicBrainzPopUp.selectItem(at: 2)
+        _ = musicBrainzPopUp.sendAction(musicBrainzPopUp.action, to: musicBrainzPopUp.target)
+        XCTAssertEqual(
+            musicBrainzStore.selectedTrackID(for: musicBrainzAssignmentID),
+            musicBrainzStore.availableTracks.first?.id
         )
         musicBrainzStore.cancelPendingRecordingLoads()
         musicBrainzHosted.tearDown()
@@ -169,12 +189,40 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
         try await iTunesHosted.stabilizeAsync()
         try await iTunesHosted.scrollDownAsync(distance: 1_000)
-        assertVirtualizedAssignmentTable(
+        let iTunesListMetrics = assertVirtualizedAssignmentList(
             in: iTunesHosted,
             expectedRowCount: scenario.files.count,
             provider: "iTunes"
         )
+        let iTunesPopUp = try XCTUnwrap(
+            iTunesHosted.descendants(of: OnlineMetadataVirtualizedPopUpButton.self).first { popUp in
+                guard let assignmentID = popUp.rowID?.base as? String else { return false }
+                return iTunesStore.selectedTrackID(for: assignmentID) != nil
+            }
+        )
+        XCTAssertEqual(iTunesPopUp.numberOfItems, 1, "Track options must remain deferred until the menu opens")
+        XCTAssertEqual(iTunesPopUp.frame.width, 380, accuracy: 1)
+        let iTunesAssignmentID = try XCTUnwrap(iTunesPopUp.rowID?.base as? String)
+        iTunesPopUp.selectItem(at: 0)
+        _ = iTunesPopUp.sendAction(iTunesPopUp.action, to: iTunesPopUp.target)
+        XCTAssertNil(iTunesStore.selectedTrackID(for: iTunesAssignmentID))
+        let iTunesMenu = try XCTUnwrap(iTunesPopUp.menu)
+        iTunesPopUp.menuNeedsUpdate(iTunesMenu)
+        iTunesPopUp.selectItem(at: 2)
+        _ = iTunesPopUp.sendAction(iTunesPopUp.action, to: iTunesPopUp.target)
+        XCTAssertEqual(
+            iTunesStore.selectedTrackID(for: iTunesAssignmentID),
+            iTunesStore.availableTracks.first?.trackID
+        )
         iTunesHosted.tearDown()
+
+        recordPerformanceReport(
+            named: "Virtualized assignment row counts",
+            lines: [
+                "musicbrainz.assignment-materialized,tracks=200,rows=\(musicBrainzListMetrics.materialized),height_measures=\(musicBrainzListMetrics.measured)",
+                "itunes.assignment-materialized,tracks=200,rows=\(iTunesListMetrics.materialized),height_measures=\(iTunesListMetrics.measured)"
+            ]
+        )
     }
 
     func testSelectAllThenPreDiffScrollUsesWarmMedianSamples() async throws {
@@ -184,6 +232,8 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
         var musicBrainzSamples: [Double] = []
         var iTunesSamples: [Double] = []
+        var musicBrainzStructuralSamples: [String] = []
+        var iTunesStructuralSamples: [String] = []
 
         for iteration in 0..<6 {
             let viewModel = makeViewModel(files: scenario.files)
@@ -206,6 +256,16 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
             let start = clock.now
             try await hosted.scrollDownAsync(distance: 7_000)
             let elapsed = durationMilliseconds(start.duration(to: clock.now))
+            if let list = hosted.descendants(of: OnlineMetadataVirtualizedListContainer.self).first {
+                XCTAssertLessThanOrEqual(
+                    list.totalRowHeightMeasurementCount,
+                    scenario.files.count * 8,
+                    "Scrolling must reuse the bounded set of SwiftUI proposal-width measurements"
+                )
+                musicBrainzStructuralSamples.append(
+                    "iteration=\(iteration),builds=\(list.totalMaterializedRowBuildCount),height_measures=\(list.totalRowHeightMeasurementCount)"
+                )
+            }
             if iteration > 0 {
                 musicBrainzSamples.append(elapsed)
             }
@@ -232,6 +292,16 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
             let start = clock.now
             try await hosted.scrollDownAsync(distance: 7_000)
             let elapsed = durationMilliseconds(start.duration(to: clock.now))
+            if let list = hosted.descendants(of: OnlineMetadataVirtualizedListContainer.self).first {
+                XCTAssertLessThanOrEqual(
+                    list.totalRowHeightMeasurementCount,
+                    scenario.files.count * 8,
+                    "Scrolling must reuse the bounded set of SwiftUI proposal-width measurements"
+                )
+                iTunesStructuralSamples.append(
+                    "iteration=\(iteration),builds=\(list.totalMaterializedRowBuildCount),height_measures=\(list.totalRowHeightMeasurementCount)"
+                )
+            }
             if iteration > 0 {
                 iTunesSamples.append(elapsed)
             }
@@ -240,14 +310,26 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
 
         let musicBrainzMedian = median(musicBrainzSamples)
         let iTunesMedian = median(iTunesSamples)
-        XCTAssertLessThan(musicBrainzMedian, 750)
-        XCTAssertLessThan(iTunesMedian, 750)
+        XCTAssertLessThan(
+            musicBrainzMedian,
+            750,
+            musicBrainzStructuralSamples.joined(separator: " | ")
+        )
+        XCTAssertLessThan(
+            iTunesMedian,
+            750,
+            iTunesStructuralSamples.joined(separator: " | ")
+        )
         recordPerformanceReport(
             named: "Select All pre-diff scroll medians",
             lines: [
                 measurementLine("musicbrainz.pre-diff-scroll", trackCount: 21, milliseconds: musicBrainzMedian),
                 measurementLine("itunes.pre-diff-scroll", trackCount: 21, milliseconds: iTunesMedian)
             ]
+        )
+        recordPerformanceReport(
+            named: "Select All pre-diff scroll structure",
+            lines: ["musicbrainz"] + musicBrainzStructuralSamples + ["itunes"] + iTunesStructuralSamples
         )
     }
 
@@ -619,27 +701,29 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         }
     }
 
-    private func assertVirtualizedAssignmentTable<Content: View>(
+    private func assertVirtualizedAssignmentList<Content: View>(
         in hosted: HostedWorkbench<Content>,
         expectedRowCount: Int,
         provider: String
-    ) {
-        let tables = hosted.descendants(of: NSTableView.self)
-        XCTAssertEqual(tables.count, 1, "\(provider) assignments must use one native virtualized table")
-        guard let table = tables.first else { return }
+    ) -> (materialized: Int, measured: Int) {
+        let lists = hosted.descendants(of: OnlineMetadataVirtualizedListContainer.self)
+        XCTAssertEqual(lists.count, 1, "\(provider) assignments must use one native virtualized list")
+        guard let list = lists.first else { return (0, 0) }
 
-        XCTAssertEqual(table.numberOfRows, expectedRowCount)
-        let materializedRowCount = (0..<table.numberOfRows).reduce(into: 0) { count, row in
-            if table.rowView(atRow: row, makeIfNecessary: false) != nil {
-                count += 1
-            }
-        }
+        XCTAssertEqual(list.totalRowCount, expectedRowCount)
+        let materializedRowCount = list.materializedRowCount
         XCTAssertGreaterThan(materializedRowCount, 0, "The test must scroll far enough to materialize assignment rows")
-        XCTAssertLessThan(
+        XCTAssertLessThanOrEqual(
             materializedRowCount,
-            expectedRowCount / 2,
+            40,
             "\(provider) must not materialize all assignment rows inside the outer review scroll view"
         )
+        XCTAssertLessThanOrEqual(
+            list.totalRowHeightMeasurementCount,
+            40,
+            "\(provider) must measure exact text height only for rows near the viewport"
+        )
+        return (materializedRowCount, list.totalRowHeightMeasurementCount)
     }
 
     private func waitUntil(

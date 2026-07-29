@@ -360,7 +360,7 @@ private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
 }
 
 #if os(macOS)
-private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
+private struct MusicBrainzAssignmentsAppKitList: View {
     let assignments: [MusicBrainzTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [MusicBrainzReleaseMatchTrack]
     let isApplying: Bool
@@ -369,105 +369,67 @@ private struct MusicBrainzAssignmentsAppKitList: NSViewRepresentable {
     let isDuplicate: (MusicBrainzTaggingWorkbenchStore.AssignmentDraft) -> Bool
     let onSelectTrack: (String?, String) -> Void
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    func makeNSView(context: Context) -> MusicBrainzWorkbenchContainerView {
-        MusicBrainzWorkbenchContainerView()
-    }
-
-    func updateNSView(_ nsView: MusicBrainzWorkbenchContainerView, context: Context) {
-        context.coordinator.parent = self
-        let snapshot = Snapshot(
-            assignments: assignments.map { assignment in
-                AssignmentSnapshot(
-                    id: assignment.id,
-                    displayTitle: assignment.fileInput.preferredDisplayTitle,
-                    artist: assignment.fileInput.artist,
-                    album: assignment.fileInput.album,
-                    initialReason: assignment.initialReason,
-                    selectedTrackID: selectedTrackID(assignment),
-                    isDuplicate: isDuplicate(assignment)
-                )
-            },
-            tracks: tracks.map { track in
-                TrackSnapshot(
-                    id: track.id,
-                    number: track.number,
-                    title: track.title,
-                    artistCredit: track.artistCredit,
-                    mediumTitle: track.mediumTitle,
-                    mediumFormat: track.mediumFormat,
-                    mediumPosition: track.mediumPosition,
-                    releaseMediumCount: track.releaseMediumCount
-                )
-            },
-            isApplying: isApplying
-        )
-        guard snapshot != context.coordinator.lastSnapshot else { return }
-        context.coordinator.lastSnapshot = snapshot
-
-        var views: [NSView] = []
-        for (index, assignment) in assignments.enumerated() {
-            views.append(MusicBrainzWorkbenchAppKitFactory.assignmentRow(
+    var body: some View {
+        let rows = assignments.map { assignment in
+            AssignmentSnapshot(
                 assignment: assignment,
-                tracks: tracks,
-                isDuplicate: isDuplicate(assignment),
                 selectedTrackID: selectedTrackID(assignment),
                 selectedTrack: selectedTrack(assignment),
-                isApplying: isApplying,
-                target: context.coordinator,
-                action: #selector(Coordinator.selectTrack(_:))
-            ))
-            if index < assignments.count - 1 {
-                views.append(MusicBrainzWorkbenchAppKitFactory.divider())
+                isDuplicate: isDuplicate(assignment)
+            )
+        }
+
+        OnlineMetadataVirtualizedList(
+            rows: rows,
+            contentVersion: contentVersion,
+            rowID: { AnyHashable($0.id) },
+            estimatedRowHeight: { row in
+                MusicBrainzWorkbenchAppKitFactory.assignmentRowEstimatedHeight(
+                    assignment: row.assignment,
+                    selectedTrack: row.selectedTrack,
+                    isDuplicate: row.isDuplicate
+                )
+            },
+            rowHeight: { row, width, textHeightCache in
+                MusicBrainzWorkbenchAppKitFactory.assignmentRowHeight(
+                    assignment: row.assignment,
+                    selectedTrack: row.selectedTrack,
+                    isDuplicate: row.isDuplicate,
+                    width: width,
+                    textHeightCache: textHeightCache
+                )
+            },
+            makeRowView: { row in
+                MusicBrainzWorkbenchAppKitFactory.assignmentRow(
+                    assignment: row.assignment,
+                    tracks: tracks,
+                    isDuplicate: row.isDuplicate,
+                    selectedTrackID: row.selectedTrackID,
+                    selectedTrack: row.selectedTrack,
+                    isApplying: isApplying,
+                    onSelectTrack: { trackID in
+                        onSelectTrack(trackID, row.id)
+                    }
+                )
             }
-        }
-        nsView.replaceArrangedSubviews(with: views)
+        )
     }
 
-    struct Snapshot: Equatable {
-        let assignments: [AssignmentSnapshot]
-        let tracks: [TrackSnapshot]
-        let isApplying: Bool
+    private var contentVersion: String {
+        ([isApplying ? "applying" : "editing"] + tracks.map {
+            [$0.id, $0.number, $0.title, $0.artistCredit, $0.mediumTitle, $0.mediumFormat].joined(separator: "\u{1f}")
+        }).joined(separator: "\u{1e}")
     }
 
-    struct AssignmentSnapshot: Equatable {
-        let id: String
-        let displayTitle: String
-        let artist: String
-        let album: String
-        let initialReason: String?
+    private struct AssignmentSnapshot: Identifiable, Equatable {
+        let assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft
         let selectedTrackID: String?
+        let selectedTrack: MusicBrainzReleaseMatchTrack?
         let isDuplicate: Bool
+
+        var id: String { assignment.id }
     }
 
-    struct TrackSnapshot: Equatable {
-        let id: String
-        let number: String
-        let title: String
-        let artistCredit: String
-        let mediumTitle: String
-        let mediumFormat: String
-        let mediumPosition: Int
-        let releaseMediumCount: Int
-    }
-
-    final class Coordinator: NSObject {
-        var parent: MusicBrainzAssignmentsAppKitList
-        var lastSnapshot: Snapshot?
-
-        init(parent: MusicBrainzAssignmentsAppKitList) {
-            self.parent = parent
-        }
-
-        @objc
-        func selectTrack(_ sender: MusicBrainzAssignmentPopUpButton) {
-            guard sender.indexOfSelectedItem >= 0, sender.indexOfSelectedItem < sender.selectionValues.count else { return }
-            parent.onSelectTrack(sender.selectionValues[sender.indexOfSelectedItem], sender.assignmentID)
-        }
-    }
 }
 
 private struct MusicBrainzDiffPreviewAppKitList: NSViewRepresentable {
@@ -540,22 +502,6 @@ private final class MusicBrainzWorkbenchContainerView: NSView {
     }
 }
 
-private final class MusicBrainzAssignmentPopUpButton: NSPopUpButton {
-    let assignmentID: String
-    let selectionValues: [String?]
-
-    init(assignmentID: String, selectionValues: [String?]) {
-        self.assignmentID = assignmentID
-        self.selectionValues = selectionValues
-        super.init(frame: .zero, pullsDown: false)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-}
-
 private enum MusicBrainzWorkbenchAppKitFactory {
     static func assignmentRow(
         assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft,
@@ -564,44 +510,68 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         selectedTrackID: String?,
         selectedTrack: MusicBrainzReleaseMatchTrack?,
         isApplying: Bool,
-        target: AnyObject,
-        action: Selector
+        onSelectTrack: @escaping (String?) -> Void
     ) -> NSView {
-        let titleStack = verticalStack(spacing: 4, views: [
-            label(assignment.fileInput.preferredDisplayTitle, font: .systemFont(ofSize: 13, weight: .medium), color: .labelColor),
-            fileSubtitle(for: assignment).isEmpty ? nil : label(fileSubtitle(for: assignment), font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-        ].compactMap { $0 })
+        let selectedOptionIndex = selectedTrackID.flatMap { selectedID in
+            tracks.firstIndex { $0.id == selectedID }
+        }
+        let values = OnlineMetadataWorkbenchPopUpMapping.selectionValues(for: tracks.map(\.id))
+        return OnlineMetadataAssignmentRowView(
+            rowID: AnyHashable(assignment.id),
+            title: assignment.fileInput.preferredDisplayTitle,
+            subtitle: fileSubtitle(for: assignment),
+            detailLines: [
+                selectedTrack.map(trackDetailLine),
+                assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" }
+            ].compactMap { $0 },
+            warning: isDuplicate ? "This MusicBrainz track is assigned to more than one file." : nil,
+            optionTitles: tracks.map(trackOptionTitle),
+            selectedOptionIndex: selectedOptionIndex,
+            isEnabled: !isApplying
+        ) { index in
+            guard values.indices.contains(index) else { return }
+            onSelectTrack(values[index])
+        }
+    }
 
-        let popUp = assignmentPopUp(
-            assignmentID: assignment.id,
-            tracks: tracks,
-            selectedTrackID: selectedTrackID,
-            isEnabled: !isApplying,
-            target: target,
-            action: action
-        )
-        popUp.widthAnchor.constraint(equalToConstant: 380).isActive = true
-
-        let group = verticalStack(spacing: 10)
-        addFullWidthArrangedSubview(horizontalStack(spacing: 18, alignment: .top, views: [
-            titleStack,
-            spacer(),
-            popUp
-        ]), to: group)
-
+    static func assignmentRowHeight(
+        assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft,
+        selectedTrack: MusicBrainzReleaseMatchTrack?,
+        isDuplicate: Bool,
+        width: CGFloat,
+        textHeightCache: OnlineMetadataTextHeightCache
+    ) -> CGFloat {
+        let selectedTrackDetail: String?
         if let selectedTrack {
-            addFullWidthArrangedSubview(label(trackDetailLine(for: selectedTrack), font: .systemFont(ofSize: 11), color: .secondaryLabelColor), to: group)
+            selectedTrackDetail = trackDetailLine(for: selectedTrack)
+        } else {
+            selectedTrackDetail = nil
         }
+        return OnlineMetadataAssignmentRowLayout.height(
+            width: width,
+            title: assignment.fileInput.preferredDisplayTitle,
+            subtitle: fileSubtitle(for: assignment),
+            detailLines: [
+                selectedTrackDetail,
+                assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" },
+                isDuplicate ? "This MusicBrainz track is assigned to more than one file." : nil
+            ].compactMap { $0 },
+            textHeightCache: textHeightCache
+        )
+    }
 
-        if let initialReason = assignment.initialReason, !initialReason.isEmpty {
-            addFullWidthArrangedSubview(label("Auto-match: \(initialReason)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor), to: group)
-        }
-
-        if isDuplicate {
-            addFullWidthArrangedSubview(iconText("This MusicBrainz track is assigned to more than one file.", symbolName: "exclamationmark.triangle.fill", color: .systemOrange), to: group)
-        }
-
-        return padded(group, top: 12, left: 18, bottom: 12, right: 18)
+    static func assignmentRowEstimatedHeight(
+        assignment: MusicBrainzTaggingWorkbenchStore.AssignmentDraft,
+        selectedTrack: MusicBrainzReleaseMatchTrack?,
+        isDuplicate: Bool
+    ) -> CGFloat {
+        let detailLineCount = (selectedTrack == nil ? 0 : 1)
+            + ((assignment.initialReason?.isEmpty == false) ? 1 : 0)
+            + (isDuplicate ? 1 : 0)
+        return OnlineMetadataAssignmentRowLayout.estimatedHeight(
+            hasSubtitle: !fileSubtitle(for: assignment).isEmpty,
+            detailLineCount: detailLineCount
+        )
     }
 
     static func planRow(
@@ -694,34 +664,6 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         guard let track = row.track else { return nil }
         let number = track.number.isEmpty ? "" : "\(track.number) "
         return label("MusicBrainz: \(number)\(track.title)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-    }
-
-    private static func assignmentPopUp(
-        assignmentID: String,
-        tracks: [MusicBrainzReleaseMatchTrack],
-        selectedTrackID: String?,
-        isEnabled: Bool,
-        target: AnyObject,
-        action: Selector
-    ) -> MusicBrainzAssignmentPopUpButton {
-        let values = OnlineMetadataWorkbenchPopUpMapping.selectionValues(for: tracks.map(\.id))
-        let popUp = MusicBrainzAssignmentPopUpButton(assignmentID: assignmentID, selectionValues: values)
-        popUp.translatesAutoresizingMaskIntoConstraints = false
-        popUp.controlSize = .regular
-        popUp.isEnabled = isEnabled
-        popUp.addItem(withTitle: L10n.string("Unassigned"))
-        popUp.menu?.addItem(.separator())
-        for track in tracks {
-            popUp.addItem(withTitle: trackOptionTitle(track))
-        }
-        if let selectedTrackID, let index = values.firstIndex(of: selectedTrackID) {
-            popUp.selectItem(at: index)
-        } else {
-            popUp.selectItem(at: 0)
-        }
-        popUp.target = target
-        popUp.action = action
-        return popUp
     }
 
     private static func trackOptionTitle(_ track: MusicBrainzReleaseMatchTrack) -> String {
@@ -945,7 +887,32 @@ struct MusicBrainzAssignmentSection: View, Equatable {
     var body: some View {
         let tracksByID = Dictionary(uniqueKeysWithValues: tracks.map { ($0.id, $0) })
 
-        MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
+        MetadataSectionCard(
+            title: "Assignments",
+            symbolName: "link",
+            lazyContent: {
+                #if os(macOS)
+                false
+                #else
+                true
+                #endif
+            }()
+        ) {
+            #if os(macOS)
+            MusicBrainzAssignmentsAppKitList(
+                assignments: assignments,
+                tracks: tracks,
+                isApplying: isApplying,
+                selectedTrackID: { $0.selectedTrackID },
+                selectedTrack: { assignment in
+                    assignment.selectedTrackID.flatMap { tracksByID[$0] }
+                },
+                isDuplicate: { assignment in
+                    assignment.selectedTrackID.map(duplicateTrackIDs.contains) ?? false
+                },
+                onSelectTrack: onSelectTrack
+            )
+            #else
             ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
                 AssignmentEditorRow(
                     assignment: assignment,
@@ -963,6 +930,7 @@ struct MusicBrainzAssignmentSection: View, Equatable {
                     MetadataCardDivider()
                 }
             }
+            #endif
         }
     }
 }

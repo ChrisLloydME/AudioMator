@@ -137,7 +137,30 @@ struct iTunesTaggingWorkbenchView: View {
     }
 
     private var assignmentSection: some View {
-        MetadataSectionCard(title: "Assignments", symbolName: "link", lazyContent: true) {
+        MetadataSectionCard(
+            title: "Assignments",
+            symbolName: "link",
+            lazyContent: {
+                #if os(macOS)
+                false
+                #else
+                true
+                #endif
+            }()
+        ) {
+            #if os(macOS)
+            iTunesAssignmentsAppKitList(
+                assignments: store.assignments,
+                tracks: store.availableTracks,
+                isApplying: isApplying,
+                selectedTrackID: { store.selectedTrackID(for: $0.id) },
+                selectedTrack: { store.track(for: $0) },
+                isDuplicate: { store.isDuplicateAssignment($0) },
+                onSelectTrack: { trackID, assignmentID in
+                    store.updateSelectedTrack(trackID, for: assignmentID)
+                }
+            )
+            #else
             ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
                 iTunesAssignmentRow(
                     assignment: assignment,
@@ -152,6 +175,7 @@ struct iTunesTaggingWorkbenchView: View {
                     MetadataCardDivider()
                 }
             }
+            #endif
         }
     }
 
@@ -305,7 +329,7 @@ private struct iTunesWorkbenchFrameModifier: ViewModifier {
 }
 
 #if os(macOS)
-private struct iTunesAssignmentsAppKitList: NSViewRepresentable {
+private struct iTunesAssignmentsAppKitList: View {
     let assignments: [iTunesTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [iTunesTrackResult]
     let isApplying: Bool
@@ -314,48 +338,72 @@ private struct iTunesAssignmentsAppKitList: NSViewRepresentable {
     let isDuplicate: (iTunesTaggingWorkbenchStore.AssignmentDraft) -> Bool
     let onSelectTrack: (Int?, String) -> Void
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    func makeNSView(context: Context) -> iTunesWorkbenchContainerView {
-        iTunesWorkbenchContainerView()
-    }
-
-    func updateNSView(_ nsView: iTunesWorkbenchContainerView, context: Context) {
-        context.coordinator.parent = self
-
-        var views: [NSView] = []
-        for (index, assignment) in assignments.enumerated() {
-            views.append(iTunesWorkbenchAppKitFactory.assignmentRow(
+    var body: some View {
+        let rows = assignments.map { assignment in
+            AssignmentSnapshot(
                 assignment: assignment,
-                tracks: tracks,
-                isDuplicate: isDuplicate(assignment),
                 selectedTrackID: selectedTrackID(assignment),
                 selectedTrack: selectedTrack(assignment),
-                isApplying: isApplying,
-                target: context.coordinator,
-                action: #selector(Coordinator.selectTrack(_:))
-            ))
-            if index < assignments.count - 1 {
-                views.append(iTunesWorkbenchAppKitFactory.divider())
-            }
+                isDuplicate: isDuplicate(assignment)
+            )
         }
-        nsView.replaceArrangedSubviews(with: views)
+
+        OnlineMetadataVirtualizedList(
+            rows: rows,
+            contentVersion: contentVersion,
+            rowID: { AnyHashable($0.id) },
+            estimatedRowHeight: { row in
+                iTunesWorkbenchAppKitFactory.assignmentRowEstimatedHeight(
+                    assignment: row.assignment,
+                    selectedTrack: row.selectedTrack,
+                    isDuplicate: row.isDuplicate
+                )
+            },
+            rowHeight: { row, width, textHeightCache in
+                iTunesWorkbenchAppKitFactory.assignmentRowHeight(
+                    assignment: row.assignment,
+                    selectedTrack: row.selectedTrack,
+                    isDuplicate: row.isDuplicate,
+                    width: width,
+                    textHeightCache: textHeightCache
+                )
+            },
+            makeRowView: { row in
+                iTunesWorkbenchAppKitFactory.assignmentRow(
+                    assignment: row.assignment,
+                    tracks: tracks,
+                    isDuplicate: row.isDuplicate,
+                    selectedTrackID: row.selectedTrackID,
+                    selectedTrack: row.selectedTrack,
+                    isApplying: isApplying,
+                    onSelectTrack: { trackID in
+                        onSelectTrack(trackID, row.id)
+                    }
+                )
+            }
+        )
     }
 
-    final class Coordinator: NSObject {
-        var parent: iTunesAssignmentsAppKitList
+    private var contentVersion: String {
+        ([isApplying ? "applying" : "editing"] + tracks.map {
+            [
+                String($0.trackID),
+                String($0.trackNumber),
+                $0.trackName,
+                $0.artistName,
+                $0.primaryGenreName,
+                $0.releaseDate
+            ].joined(separator: "\u{1f}")
+        }).joined(separator: "\u{1e}")
+    }
 
-        init(parent: iTunesAssignmentsAppKitList) {
-            self.parent = parent
-        }
+    private struct AssignmentSnapshot: Identifiable, Equatable {
+        let assignment: iTunesTaggingWorkbenchStore.AssignmentDraft
+        let selectedTrackID: Int?
+        let selectedTrack: iTunesTrackResult?
+        let isDuplicate: Bool
 
-        @objc
-        func selectTrack(_ sender: iTunesAssignmentPopUpButton) {
-            guard sender.indexOfSelectedItem >= 0, sender.indexOfSelectedItem < sender.selectionValues.count else { return }
-            parent.onSelectTrack(sender.selectionValues[sender.indexOfSelectedItem], sender.assignmentID)
-        }
+        var id: String { assignment.id }
     }
 }
 
@@ -428,22 +476,6 @@ private final class iTunesWorkbenchContainerView: NSView {
     }
 }
 
-private final class iTunesAssignmentPopUpButton: NSPopUpButton {
-    let assignmentID: String
-    let selectionValues: [Int?]
-
-    init(assignmentID: String, selectionValues: [Int?]) {
-        self.assignmentID = assignmentID
-        self.selectionValues = selectionValues
-        super.init(frame: .zero, pullsDown: false)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-}
-
 private enum iTunesWorkbenchAppKitFactory {
     static func assignmentRow(
         assignment: iTunesTaggingWorkbenchStore.AssignmentDraft,
@@ -452,44 +484,68 @@ private enum iTunesWorkbenchAppKitFactory {
         selectedTrackID: Int?,
         selectedTrack: iTunesTrackResult?,
         isApplying: Bool,
-        target: AnyObject,
-        action: Selector
+        onSelectTrack: @escaping (Int?) -> Void
     ) -> NSView {
-        let titleStack = verticalStack(spacing: 4, views: [
-            label(assignment.fileInput.preferredDisplayTitle, font: .systemFont(ofSize: 13, weight: .medium), color: .labelColor),
-            fileSubtitle(for: assignment).isEmpty ? nil : label(fileSubtitle(for: assignment), font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-        ].compactMap { $0 })
+        let selectedOptionIndex = selectedTrackID.flatMap { selectedID in
+            tracks.firstIndex { $0.trackID == selectedID }
+        }
+        let values = OnlineMetadataWorkbenchPopUpMapping.selectionValues(for: tracks.map(\.trackID))
+        return OnlineMetadataAssignmentRowView(
+            rowID: AnyHashable(assignment.id),
+            title: assignment.fileInput.preferredDisplayTitle,
+            subtitle: fileSubtitle(for: assignment),
+            detailLines: [
+                selectedTrack.map(trackDetailLine),
+                assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" }
+            ].compactMap { $0 },
+            warning: isDuplicate ? "This iTunes track is assigned to more than one file." : nil,
+            optionTitles: tracks.map(trackOptionTitle),
+            selectedOptionIndex: selectedOptionIndex,
+            isEnabled: !isApplying
+        ) { index in
+            guard values.indices.contains(index) else { return }
+            onSelectTrack(values[index])
+        }
+    }
 
-        let popUp = assignmentPopUp(
-            assignmentID: assignment.id,
-            tracks: tracks,
-            selectedTrackID: selectedTrackID,
-            isEnabled: !isApplying,
-            target: target,
-            action: action
-        )
-        popUp.widthAnchor.constraint(equalToConstant: 380).isActive = true
-
-        let group = verticalStack(spacing: 10)
-        addFullWidthArrangedSubview(horizontalStack(spacing: 18, alignment: .top, views: [
-            titleStack,
-            spacer(),
-            popUp
-        ]), to: group)
-
+    static func assignmentRowHeight(
+        assignment: iTunesTaggingWorkbenchStore.AssignmentDraft,
+        selectedTrack: iTunesTrackResult?,
+        isDuplicate: Bool,
+        width: CGFloat,
+        textHeightCache: OnlineMetadataTextHeightCache
+    ) -> CGFloat {
+        let selectedTrackDetail: String?
         if let selectedTrack {
-            addFullWidthArrangedSubview(label(trackDetailLine(for: selectedTrack), font: .systemFont(ofSize: 11), color: .secondaryLabelColor), to: group)
+            selectedTrackDetail = trackDetailLine(for: selectedTrack)
+        } else {
+            selectedTrackDetail = nil
         }
+        return OnlineMetadataAssignmentRowLayout.height(
+            width: width,
+            title: assignment.fileInput.preferredDisplayTitle,
+            subtitle: fileSubtitle(for: assignment),
+            detailLines: [
+                selectedTrackDetail,
+                assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" },
+                isDuplicate ? "This iTunes track is assigned to more than one file." : nil
+            ].compactMap { $0 },
+            textHeightCache: textHeightCache
+        )
+    }
 
-        if let reason = assignment.initialReason, !reason.isEmpty {
-            addFullWidthArrangedSubview(label("Auto-match: \(reason)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor), to: group)
-        }
-
-        if isDuplicate {
-            addFullWidthArrangedSubview(iconText("This iTunes track is assigned to more than one file.", symbolName: "exclamationmark.triangle.fill", color: .systemOrange), to: group)
-        }
-
-        return padded(group, top: 12, left: 18, bottom: 12, right: 18)
+    static func assignmentRowEstimatedHeight(
+        assignment: iTunesTaggingWorkbenchStore.AssignmentDraft,
+        selectedTrack: iTunesTrackResult?,
+        isDuplicate: Bool
+    ) -> CGFloat {
+        let detailLineCount = (selectedTrack == nil ? 0 : 1)
+            + ((assignment.initialReason?.isEmpty == false) ? 1 : 0)
+            + (isDuplicate ? 1 : 0)
+        return OnlineMetadataAssignmentRowLayout.estimatedHeight(
+            hasSubtitle: !fileSubtitle(for: assignment).isEmpty,
+            detailLineCount: detailLineCount
+        )
     }
 
     static func planRow(_ row: iTunesTaggingPlanRow) -> NSView {
@@ -571,34 +627,6 @@ private enum iTunesWorkbenchAppKitFactory {
 
         guard let track = row.track else { return nil }
         return label("iTunes: \(track.trackNumber > 0 ? "\(track.trackNumber) " : "")\(track.trackName)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-    }
-
-    private static func assignmentPopUp(
-        assignmentID: String,
-        tracks: [iTunesTrackResult],
-        selectedTrackID: Int?,
-        isEnabled: Bool,
-        target: AnyObject,
-        action: Selector
-    ) -> iTunesAssignmentPopUpButton {
-        let values = OnlineMetadataWorkbenchPopUpMapping.selectionValues(for: tracks.map(\.trackID))
-        let popUp = iTunesAssignmentPopUpButton(assignmentID: assignmentID, selectionValues: values)
-        popUp.translatesAutoresizingMaskIntoConstraints = false
-        popUp.controlSize = .regular
-        popUp.isEnabled = isEnabled
-        popUp.addItem(withTitle: L10n.string("Unassigned"))
-        popUp.menu?.addItem(.separator())
-        for track in tracks {
-            popUp.addItem(withTitle: trackOptionTitle(track))
-        }
-        if let selectedTrackID, let index = values.firstIndex(of: selectedTrackID) {
-            popUp.selectItem(at: index)
-        } else {
-            popUp.selectItem(at: 0)
-        }
-        popUp.target = target
-        popUp.action = action
-        return popUp
     }
 
     private static func trackOptionTitle(_ track: iTunesTrackResult) -> String {

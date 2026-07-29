@@ -222,7 +222,12 @@ struct MetadataExchangeTemplateEditor: NSViewRepresentable {
                 case .literal(let literal):
                     attributed.append(NSAttributedString(string: literal, attributes: literalAttributes()))
                 case .field(let field):
-                    attributed.append(NSAttributedString(attachment: MetadataExchangeFieldAttachment(field: field)))
+                    attributed.append(NSAttributedString(
+                        attachment: MetadataExchangeFieldAttachment(
+                            field: field,
+                            editorFont: MetadataExchangeTemplateEditor.editorFont
+                        )
+                    ))
                 }
             }
 
@@ -299,10 +304,10 @@ struct MetadataExchangeTemplateEditor: NSViewRepresentable {
 private final class MetadataExchangeFieldAttachment: NSTextAttachment {
     let field: MetadataExchangeField
 
-    init(field: MetadataExchangeField) {
+    init(field: MetadataExchangeField, editorFont: NSFont) {
         self.field = field
         super.init(data: nil, ofType: nil)
-        attachmentCell = NSTextAttachmentCell(imageCell: FileRenameFieldAttachment.makeChipImage(title: field.displayName))
+        configureChipImage(title: field.displayName, editorFont: editorFont)
     }
 
     required init?(coder: NSCoder) {
@@ -524,7 +529,12 @@ struct FileRenameTemplateEditor: NSViewRepresentable {
                 case .literal(let literal):
                     attributed.append(NSAttributedString(string: literal, attributes: literalAttributes()))
                 case .field(let field):
-                    attributed.append(NSAttributedString(attachment: FileRenameFieldAttachment(field: field)))
+                    attributed.append(NSAttributedString(
+                        attachment: FileRenameFieldAttachment(
+                            field: field,
+                            editorFont: FileRenameTemplateEditor.editorFont
+                        )
+                    ))
                 }
             }
 
@@ -601,10 +611,10 @@ struct FileRenameTemplateEditor: NSViewRepresentable {
 private final class FileRenameFieldAttachment: NSTextAttachment {
     let field: FileRenameMetadataField
 
-    init(field: FileRenameMetadataField) {
+    init(field: FileRenameMetadataField, editorFont: NSFont) {
         self.field = field
         super.init(data: nil, ofType: nil)
-        attachmentCell = NSTextAttachmentCell(imageCell: Self.makeChipImage(title: field.displayName))
+        configureChipImage(title: field.displayName, editorFont: editorFont)
     }
 
     required init?(coder: NSCoder) {
@@ -652,6 +662,20 @@ private final class FileRenameFieldAttachment: NSTextAttachment {
 
         image.unlockFocus()
         return image
+    }
+}
+
+private extension NSTextAttachment {
+    func configureChipImage(title: String, editorFont: NSFont) {
+        let chipImage = FileRenameFieldAttachment.makeChipImage(title: title)
+        image = chipImage
+        attachmentCell = NSTextAttachmentCell(imageCell: chipImage)
+        bounds = NSRect(
+            x: 0,
+            y: (editorFont.ascender + editorFont.descender - chipImage.size.height) / 2,
+            width: chipImage.size.width,
+            height: chipImage.size.height
+        )
     }
 }
 #endif

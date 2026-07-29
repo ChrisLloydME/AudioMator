@@ -308,6 +308,7 @@ struct MetadataTextUtilitiesSheet: View {
                     }
                 }
             }
+            .defaultScrollAnchor(.topLeading, for: .alignment)
             .background(Color(nsColor: .textBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(

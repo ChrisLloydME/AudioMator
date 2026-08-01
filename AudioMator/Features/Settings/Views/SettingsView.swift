@@ -480,13 +480,15 @@ private struct GeneralSettingsTab: View {
 }
 
 private struct MacSettingsSection<Content: View>: View {
-    let title: String
+    let title: String?
     @ViewBuilder let content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
+            if let title {
+                Text(title)
+                    .font(.headline)
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 content
@@ -543,6 +545,7 @@ private struct MacSettingsRow<Accessory: View>: View {
             Spacer(minLength: 24)
 
             accessory
+                .controlSize(.small)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, detail == nil ? 10 : 8)
@@ -587,6 +590,7 @@ private struct ColumnVisibilitySettingsTab: View {
                             .disabled(isLastVisibleColumn(column))
                     }
                 }
+                .controlSize(.small)
 
                 Divider()
 
@@ -599,6 +603,7 @@ private struct ColumnVisibilitySettingsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                .controlSize(.small)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -612,11 +617,6 @@ private struct ToolbarSettingsTab: View {
     @ObservedObject var sharedState: SharedState
     let toolbarButtonVisibilityBinding: (ToolbarButtonOption) -> Binding<Bool>
 
-    private let buttonGridColumns: [GridItem] = [
-        GridItem(.flexible(minimum: 220), alignment: .leading),
-        GridItem(.flexible(minimum: 220), alignment: .leading)
-    ]
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -628,9 +628,22 @@ private struct ToolbarSettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
 
-                LazyVGrid(columns: buttonGridColumns, alignment: .leading, spacing: 12) {
+                MacSettingsSection(title: nil) {
                     ForEach(ToolbarButtonOption.allCases) { button in
-                        Toggle(button.displayName, isOn: toolbarButtonVisibilityBinding(button))
+                        MacSettingsRow(
+                            title: button.displayName,
+                            detail: button.settingsDescription,
+                            systemImage: button.systemImage
+                        ) {
+                            Toggle(button.displayName, isOn: toolbarButtonVisibilityBinding(button))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .accessibilityLabel(button.displayName)
+                        }
+
+                        if button != ToolbarButtonOption.allCases.last {
+                            MacSettingsDivider()
+                        }
                     }
                 }
 
@@ -645,8 +658,11 @@ private struct ToolbarSettingsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                .controlSize(.small)
             }
             .padding(20)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
@@ -681,6 +697,7 @@ private struct InspectorSettingsTab: View {
                             .disabled(isLastVisibleMetadataField(field))
                     }
                 }
+                .controlSize(.small)
 
                 Divider()
 
@@ -693,6 +710,7 @@ private struct InspectorSettingsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                .controlSize(.small)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -754,6 +772,7 @@ private struct SaveIssueLogSettingsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                .controlSize(.small)
             }
             .padding(20)
             .padding(.bottom, 28)
@@ -999,23 +1018,20 @@ private struct AboutSettingsTab: View {
                 } label: {
                     Label("Check for Updates…", systemImage: "arrow.down.circle")
                 }
-                .controlSize(.large)
 
                 Button("Release Notes…") {
                     isReleaseNotesPresented = true
                 }
-                .controlSize(.large)
 
                 Button("Acknowledgements…") {
                     isAcknowledgementsPresented = true
                 }
-                .controlSize(.large)
 
                 Button("Privacy…") {
                     isPrivacyPresented = true
                 }
-                .controlSize(.large)
             }
+            .controlSize(.small)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

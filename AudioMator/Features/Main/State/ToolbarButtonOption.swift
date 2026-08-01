@@ -59,5 +59,28 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         }
     }
 
+    var settingsDescription: String {
+        switch self {
+        case .addFiles:
+            return L10n.string("Choose audio files for one-off editing in Current Session.")
+        case .tagInspector:
+            return L10n.string("Inspect a complete, read-only view of raw tags and file properties for troubleshooting.")
+        case .renumberTracks:
+            return L10n.string("Automatically assign track numbers from the order shown in the center list.")
+        case .onlineMetadataBrowser:
+            return L10n.string("Access metadata and lyrics from MusicBrainz, iTunes, and LRCLIB.")
+        case .renameFiles:
+            return L10n.string("Generate filenames, text, or CSV from metadata, or extract metadata from them.")
+        case .metadataEditor:
+            return L10n.string("Add, remove, and edit all available metadata fields for the selected files.")
+        case .clearList:
+            return L10n.string("Unload every track from Current Session without deleting files from disk.")
+        case .cancelEdits:
+            return L10n.string("Revert unsaved changes made in the Inspector.")
+        case .saveEdits:
+            return L10n.string("Write pending Inspector changes to the selected files.")
+        }
+    }
+
     static let defaultVisibleButtons: [ToolbarButtonOption] = Self.allCases
 }

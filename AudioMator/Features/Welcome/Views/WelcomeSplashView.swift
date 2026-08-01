@@ -80,8 +80,7 @@ enum WelcomeSplashPage: Int, CaseIterable {
                         title: "Feels native on \(Self.platformName)",
                         description: "Uses familiar windows, sheets, and inspectors."
                     )
-                ],
-                topPadding: 0
+                ]
             )
         case .features:
             WelcomeSplashPageContent(

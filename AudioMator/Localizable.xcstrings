@@ -1200,16 +1200,7 @@
     "Allow Folder Access" : {
 
     },
-    "Allow Safe File Saving" : {
-
-    },
-    "Allow your user folder now, or choose another folder that contains the audio files you edit." : {
-
-    },
     "Any" : {
-
-    },
-    "Apple protects your files" : {
 
     },
     "Applied" : {
@@ -1621,9 +1612,6 @@
     "AudioMator couldn't save access to %lld selected folders." : {
 
     },
-    "AudioMator follows the macOS App Sandbox and only changes files in locations you authorize." : {
-
-    },
     "AudioMator keeps each file's current extension. The template changes only the filename." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:546.",
       "localizations" : {
@@ -1706,7 +1694,13 @@
         }
       }
     },
-    "AudioMator writes and verifies a temporary copy before replacing the original audio file." : {
+    "AudioMator uses transactional saves to reduce the chance that a failed operation leaves an audio file partially written." : {
+
+    },
+    "Authorize Folder…" : {
+
+    },
+    "Authorize now, or when needed" : {
 
     },
     "Auto Apply Best Matches" : {
@@ -1837,6 +1831,12 @@
           }
         }
       }
+    },
+    "Because the temporary file must be created beside the original, macOS requires access to the containing folder. Permission for an individual audio file is not enough." : {
+
+    },
+    "Before saving, AudioMator checks that the file has not changed. It then writes the update to a temporary file in the same folder, replaces the original, and reloads the saved file." : {
+
     },
     "BETA" : {
 
@@ -2603,9 +2603,6 @@
         }
       }
     },
-    "Choose one trusted folder" : {
-
-    },
     "Choose or paste text to preview imported metadata." : {
 
     },
@@ -2731,9 +2728,6 @@
           }
         }
       }
-    },
-    "Choosing individual files allows access to those files, but not permission to create a verified copy beside them." : {
-
     },
     "Clean" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:441, AudioMator/Features/Main/Views/InspectorPane.swift:922, AudioMator/Features/iPad/Views/IPadInspectorView.swift:212.",
@@ -5560,6 +5554,9 @@
           }
         }
       }
+    },
+    "If you authorize a folder now, AudioMator remembers that permission for later saves inside it. Authorizing does not save or change any file." : {
+
     },
     "Ignore" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:138, AudioMator/Domain/Rename/FileRenameTemplate.swift:54.",
@@ -8739,6 +8736,9 @@
         }
       }
     },
+    "Not Now" : {
+
+    },
     "Nothing to Preview" : {
 
     },
@@ -9593,6 +9593,9 @@
           }
         }
       }
+    },
+    "Protect Your Files While Saving" : {
+
     },
     "Publisher" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:53, AudioMator/Domain/UIState/MiddleListColumn.swift:55, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:134, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:326.",
@@ -11072,9 +11075,6 @@
       }
     },
     "Review recent save warnings and failures shown by the save status HUD." : {
-
-    },
-    "Safe saves use a nearby copy" : {
 
     },
     "Same" : {
@@ -14126,6 +14126,9 @@
     "Watched folders stay in the sidebar across launches." : {
 
     },
+    "Why folder access is required" : {
+
+    },
     "Write" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:69, AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift:49, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:169, AudioMator/Features/Main/ViewModels/AudioViewModel+Import.swift:32.",
       "localizations" : {
@@ -14254,6 +14257,9 @@
           }
         }
       }
+    },
+    "You can skip this step. When a save needs access, AudioMator will ask for the exact containing folder." : {
+
     },
     "YYYY" : {
 

@@ -598,10 +598,6 @@ private struct ColumnVisibilitySettingsTab: View {
                     Button("Restore Default Columns") {
                         sharedState.visibleMiddleListColumns = Set(MiddleListColumn.defaultVisibleColumns)
                     }
-
-                    Text("Changes apply immediately. At least one column must remain visible.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
                 .controlSize(.small)
             }
@@ -653,10 +649,6 @@ private struct ToolbarSettingsTab: View {
                     Button("Restore Default Buttons") {
                         sharedState.visibleToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)
                     }
-
-                    Text("Changes apply immediately in the main window toolbar.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
                 .controlSize(.small)
             }
@@ -705,10 +697,6 @@ private struct InspectorSettingsTab: View {
                     Button("Restore Default Metadata Fields") {
                         sharedState.visibleInspectorMetadataFields = Set(InspectorMetadataField.defaultVisibleFields)
                     }
-
-                    Text("Changes apply immediately. At least one metadata field must remain visible.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
                 .controlSize(.small)
             }

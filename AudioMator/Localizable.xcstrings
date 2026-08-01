@@ -2054,6 +2054,7 @@
     },
     "Changes apply immediately in the main window toolbar." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:633.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2095,6 +2096,7 @@
     },
     "Changes apply immediately. At least one column must remain visible." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:587.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2136,6 +2138,7 @@
     },
     "Changes apply immediately. At least one metadata field must remain visible." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:681.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

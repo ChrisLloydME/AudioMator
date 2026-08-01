@@ -56,7 +56,6 @@ struct MacWelcomeSplashView: View {
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(width: 750, height: 700)
         .background(MacWelcomeWindowConfigurator())
-        .animation(.easeInOut(duration: 0.18), value: currentPage)
     }
 
     private func advance() {

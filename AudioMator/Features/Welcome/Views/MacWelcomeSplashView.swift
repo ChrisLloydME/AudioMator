@@ -28,7 +28,6 @@ struct MacWelcomeSplashView: View {
         ScrollView(.vertical) {
             MacWelcomeSplashPageView(
                 content: currentPage.content,
-                fileAccessGrantPath: fileAccessGrantPath,
                 fileAccessErrorMessage: fileAccessErrorMessage
             )
                 .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -47,7 +46,8 @@ struct MacWelcomeSplashView: View {
                 onQuit: onQuit,
                 onBack: retreat,
                 onSkip: advance,
-                onContinue: continueFromCurrentPage
+                onContinue: continueFromCurrentPage,
+                hasFileAccessGrant: fileAccessGrantPath != nil
             )
             .padding(.horizontal, 30)
             .padding(.top, 14)
@@ -94,65 +94,102 @@ struct MacWelcomeSplashView: View {
 
 private struct MacWelcomeSplashPageView: View {
     let content: WelcomeSplashPageContent
-    let fileAccessGrantPath: String?
     let fileAccessErrorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: content.page == .welcome ? 28 : 26) {
             MacWelcomeSplashHeader(title: content.title, subtitle: content.subtitle)
 
-            GroupBox {
-                VStack(alignment: .leading, spacing: content.page == .features ? 23 : 24) {
-                    ForEach(content.rows) { row in
-                        MacWelcomeSplashRow(row: row)
-                    }
+            if content.page == .fileAccess {
+                MacWelcomeFileAccessExplanation()
+            } else {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: content.page == .features ? 23 : 24) {
+                        ForEach(content.rows) { row in
+                            MacWelcomeSplashRow(row: row)
+                        }
 
-                    if content.page == .privacy {
-                        Text(WelcomeSplashPage.domainSummary)
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 66)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if content.page == .privacy {
+                            Text(WelcomeSplashPage.domainSummary)
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 66)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
+                    .padding(.vertical, content.page == .features || content.page == .privacy ? 20 : 22)
                 }
-                .padding(.vertical, content.page == .features || content.page == .privacy ? 20 : 22)
             }
 
-            if content.page == .fileAccess {
-                MacWelcomeFileAccessStatus(
-                    grantPath: fileAccessGrantPath,
-                    errorMessage: fileAccessErrorMessage
-                )
+            if content.page == .fileAccess, let fileAccessErrorMessage {
+                Text(fileAccessErrorMessage)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.top, content.topPadding)
     }
 }
 
-private struct MacWelcomeFileAccessStatus: View {
-    let grantPath: String?
-    let errorMessage: String?
-
+private struct MacWelcomeFileAccessExplanation: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let grantPath {
-                Label {
-                    Text(grantPath)
-                        .textSelection(.enabled)
-                } icon: {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-                .font(.callout)
-            }
+        GroupBox {
+            VStack(alignment: .leading, spacing: 22) {
+                explanationSection(
+                    title: String(localized: "Why folder access is required")
+                ) {
+                    Text(
+                        String(
+                            localized: "Before saving, AudioMator checks that the file has not changed. It then writes the update to a temporary file in the same folder, replaces the original, and reloads the saved file."
+                        )
+                    )
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.callout)
-                    .foregroundStyle(.red)
+                    Text(
+                        String(
+                            localized: "Because the temporary file must be created beside the original, macOS requires access to the containing folder. Permission for an individual audio file is not enough."
+                        )
+                    )
+                }
+
+                Divider()
+
+                explanationSection(
+                    title: String(localized: "Authorize now, or when needed")
+                ) {
+                    Text(
+                        String(
+                            localized: "If you authorize a folder now, AudioMator remembers that permission for later saves inside it. Authorizing does not save or change any file."
+                        )
+                    )
+
+                    Text(
+                        String(
+                            localized: "You can skip this step. When a save needs access, AudioMator will ask for the exact containing folder."
+                        )
+                    )
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 22)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func explanationSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+
+            VStack(alignment: .leading, spacing: 10) {
+                content()
+            }
+            .font(.system(size: 15))
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -217,6 +254,7 @@ private struct MacWelcomeSplashButtonBar: View {
     let onBack: () -> Void
     let onSkip: () -> Void
     let onContinue: () -> Void
+    let hasFileAccessGrant: Bool
 
     var body: some View {
         HStack {
@@ -233,14 +271,26 @@ private struct MacWelcomeSplashButtonBar: View {
             Spacer()
 
             if currentPage == .fileAccess {
-                Button("Skip", action: onSkip)
+                Button("Not Now", action: onSkip)
                     .buttonStyle(MacWelcomeGlassButtonStyle())
             }
 
-            Button(currentPage.next == nil ? "Get Started" : "Continue", action: onContinue)
+            Button(primaryButtonTitle, action: onContinue)
                 .buttonStyle(MacWelcomeGlassButtonStyle(isProminent: true))
                 .keyboardShortcut(.defaultAction)
         }
+    }
+
+    private var primaryButtonTitle: LocalizedStringKey {
+        if currentPage.next == nil {
+            return "Get Started"
+        }
+
+        if currentPage == .fileAccess, !hasFileAccessGrant {
+            return "Authorize Folder…"
+        }
+
+        return "Continue"
     }
 }
 

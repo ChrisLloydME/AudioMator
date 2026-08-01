@@ -115,33 +115,11 @@ enum WelcomeSplashPage: Int, CaseIterable {
         case .fileAccess:
             WelcomeSplashPageContent(
                 page: self,
-                title: String(localized: "Allow Safe File Saving"),
+                title: String(localized: "Protect Your Files While Saving"),
                 subtitle: String(
-                    localized: "AudioMator follows the macOS App Sandbox and only changes files in locations you authorize."
+                    localized: "AudioMator uses transactional saves to reduce the chance that a failed operation leaves an audio file partially written."
                 ),
-                rows: [
-                    WelcomeSplashRowContent(
-                        symbol: "lock.shield",
-                        title: String(localized: "Apple protects your files"),
-                        description: String(
-                            localized: "Choosing individual files allows access to those files, but not permission to create a verified copy beside them."
-                        )
-                    ),
-                    WelcomeSplashRowContent(
-                        symbol: "doc.on.doc",
-                        title: String(localized: "Safe saves use a nearby copy"),
-                        description: String(
-                            localized: "AudioMator writes and verifies a temporary copy before replacing the original audio file."
-                        )
-                    ),
-                    WelcomeSplashRowContent(
-                        symbol: "folder.badge.plus",
-                        title: String(localized: "Choose one trusted folder"),
-                        description: String(
-                            localized: "Allow your user folder now, or choose another folder that contains the audio files you edit."
-                        )
-                    )
-                ]
+                rows: []
             )
         #endif
         case .onlineMetadata:

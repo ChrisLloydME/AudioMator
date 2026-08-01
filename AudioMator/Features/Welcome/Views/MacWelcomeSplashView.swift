@@ -107,14 +107,6 @@ private struct MacWelcomeSplashPageView: View {
                         ForEach(content.rows) { row in
                             MacWelcomeSplashRow(row: row)
                         }
-
-                        if content.page == .privacy {
-                            Text(WelcomeSplashPage.domainSummary)
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .padding(.leading, 66)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
                     }
                     .padding(.vertical, content.page == .features || content.page == .privacy ? 20 : 22)
                 }

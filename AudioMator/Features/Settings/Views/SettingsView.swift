@@ -423,6 +423,7 @@ private struct GeneralSettingsTab: View {
                             Toggle("Show Welcome Screen on Launch", isOn: $showWelcomeScreenOnLaunch)
                                 .labelsHidden()
                                 .toggleStyle(.switch)
+                                .controlSize(.small)
                                 .accessibilityLabel("Show Welcome Screen on Launch")
                         }
 
@@ -451,6 +452,7 @@ private struct GeneralSettingsTab: View {
                             )
                             .labelsHidden()
                             .toggleStyle(.switch)
+                            .controlSize(.small)
                             .accessibilityLabel("Warn Before Discarding Inspector Edits")
                         }
                     }
@@ -464,6 +466,7 @@ private struct GeneralSettingsTab: View {
                             Toggle("MuseAmp Compatibility", isOn: $isMuseAmpSupportEnabled)
                                 .labelsHidden()
                                 .toggleStyle(.switch)
+                                .controlSize(.small)
                                 .accessibilityLabel("Enable MuseAmp Compatibility")
                         }
                     }
@@ -545,7 +548,6 @@ private struct MacSettingsRow<Accessory: View>: View {
             Spacer(minLength: 24)
 
             accessory
-                .controlSize(.small)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, detail == nil ? 10 : 8)
@@ -590,8 +592,6 @@ private struct ColumnVisibilitySettingsTab: View {
                             .disabled(isLastVisibleColumn(column))
                     }
                 }
-                .controlSize(.small)
-
                 Divider()
 
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
@@ -599,7 +599,6 @@ private struct ColumnVisibilitySettingsTab: View {
                         sharedState.visibleMiddleListColumns = Set(MiddleListColumn.defaultVisibleColumns)
                     }
                 }
-                .controlSize(.small)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -634,6 +633,7 @@ private struct ToolbarSettingsTab: View {
                             Toggle(button.displayName, isOn: toolbarButtonVisibilityBinding(button))
                                 .labelsHidden()
                                 .toggleStyle(.switch)
+                                .controlSize(.small)
                                 .accessibilityLabel(button.displayName)
                         }
 
@@ -650,7 +650,6 @@ private struct ToolbarSettingsTab: View {
                         sharedState.visibleToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)
                     }
                 }
-                .controlSize(.small)
             }
             .padding(20)
             .padding(.bottom, 28)
@@ -689,8 +688,6 @@ private struct InspectorSettingsTab: View {
                             .disabled(isLastVisibleMetadataField(field))
                     }
                 }
-                .controlSize(.small)
-
                 Divider()
 
                 HStack(alignment: .firstTextBaseline, spacing: 16) {
@@ -698,7 +695,6 @@ private struct InspectorSettingsTab: View {
                         sharedState.visibleInspectorMetadataFields = Set(InspectorMetadataField.defaultVisibleFields)
                     }
                 }
-                .controlSize(.small)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -760,7 +756,6 @@ private struct SaveIssueLogSettingsTab: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                .controlSize(.small)
             }
             .padding(20)
             .padding(.bottom, 28)
@@ -1006,20 +1001,23 @@ private struct AboutSettingsTab: View {
                 } label: {
                     Label("Check for Updates…", systemImage: "arrow.down.circle")
                 }
+                .controlSize(.large)
 
                 Button("Release Notes…") {
                     isReleaseNotesPresented = true
                 }
+                .controlSize(.large)
 
                 Button("Acknowledgements…") {
                     isAcknowledgementsPresented = true
                 }
+                .controlSize(.large)
 
                 Button("Privacy…") {
                     isPrivacyPresented = true
                 }
+                .controlSize(.large)
             }
-            .controlSize(.small)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

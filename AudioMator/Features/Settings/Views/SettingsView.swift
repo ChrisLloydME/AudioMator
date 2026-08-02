@@ -462,7 +462,15 @@ private struct GeneralSettingsTab: View {
                         MacSettingsRow(
                             title: "MuseAmp Compatibility",
                             detail: "Enable MuseAmp ID actions in track list context menus.",
-                            systemImage: "music.note.list"
+                            systemImage: "music.note.list",
+                            info: MacSettingsInfo(
+                                title: String(localized: "About MuseAmp Compatibility"),
+                                message: String(localized: "MuseAmp ID generation is provided for compatibility with MuseAmp."),
+                                linkTitle: String(localized: "View MuseAmp on GitHub"),
+                                linkURL: URL(string: "https://github.com/Lakr233/MuseAmp"),
+                                disclaimer: String(localized: "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers."),
+                                credit: String(localized: "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors.")
+                            )
                         ) {
                             Toggle("MuseAmp Compatibility", isOn: $isMuseAmpSupportEnabled)
                                 .labelsHidden()
@@ -507,21 +515,34 @@ private struct MacSettingsSection<Content: View>: View {
     }
 }
 
+private struct MacSettingsInfo {
+    let title: String
+    let message: String
+    let linkTitle: String?
+    let linkURL: URL?
+    let disclaimer: String?
+    let credit: String?
+}
+
 private struct MacSettingsRow<Accessory: View>: View {
     let title: String
     let detail: String?
     let systemImage: String
+    let info: MacSettingsInfo?
     @ViewBuilder let accessory: Accessory
+    @State private var isInfoPresented: Bool = false
 
     init(
         title: String,
         detail: String? = nil,
         systemImage: String,
+        info: MacSettingsInfo? = nil,
         @ViewBuilder accessory: () -> Accessory
     ) {
         self.title = title
         self.detail = detail
         self.systemImage = systemImage
+        self.info = info
         self.accessory = accessory()
     }
 
@@ -533,10 +554,62 @@ private struct MacSettingsRow<Accessory: View>: View {
                 .frame(width: 26, height: 26)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.body)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                HStack(spacing: 5) {
+                    Text(title)
+                        .font(.body)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+
+                    if let info {
+                        Button {
+                            isInfoPresented.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 18, height: 18)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(info.title)
+                        .accessibilityLabel(info.title)
+                        .popover(isPresented: $isInfoPresented, arrowEdge: .bottom) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Label(info.title, systemImage: "info.circle.fill")
+                                    .font(.headline)
+
+                                Text(info.message)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                if let linkTitle = info.linkTitle, let linkURL = info.linkURL {
+                                    Link(linkTitle, destination: linkURL)
+                                        .font(.callout)
+                                }
+
+                                if info.disclaimer != nil || info.credit != nil {
+                                    Divider()
+                                }
+
+                                if let disclaimer = info.disclaimer {
+                                    Text(disclaimer)
+                                        .font(.callout)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                if let credit = info.credit {
+                                    Text(credit)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(16)
+                            .frame(width: 320, alignment: .leading)
+                        }
+                    }
+                }
 
                 if let detail {
                     Text(detail)

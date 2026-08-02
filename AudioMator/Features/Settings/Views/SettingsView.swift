@@ -10,9 +10,7 @@ enum AppSettingsTab: String, Hashable {
     #if os(macOS)
     case fileAccess
     #endif
-    case toolbar
-    case columns
-    case inspector
+    case interface
     case logs
     case about
 }
@@ -60,34 +58,18 @@ struct SettingsView: View {
                 .tag(AppSettingsTab.fileAccess)
             #endif
 
-            ToolbarSettingsTab(
+            InterfaceSettingsTab(
                 sharedState: sharedState,
-                toolbarButtonVisibilityBinding: toolbarButtonVisibilityBinding(for:)
-            )
-            .tabItem {
-                Label("Toolbar", systemImage: "switch.2")
-            }
-            .tag(AppSettingsTab.toolbar)
-
-            ColumnVisibilitySettingsTab(
-                sharedState: sharedState,
+                toolbarButtonVisibilityBinding: toolbarButtonVisibilityBinding(for:),
                 columnVisibilityBinding: columnVisibilityBinding(for:),
-                isLastVisibleColumn: isLastVisibleColumn
-            )
-            .tabItem {
-                Label("Columns", systemImage: "rectangle.split.3x1")
-            }
-            .tag(AppSettingsTab.columns)
-
-            InspectorSettingsTab(
-                sharedState: sharedState,
+                isLastVisibleColumn: isLastVisibleColumn,
                 metadataFieldVisibilityBinding: metadataFieldVisibilityBinding(for:),
                 isLastVisibleMetadataField: isLastVisibleMetadataField
             )
             .tabItem {
-                Label("Inspector", systemImage: "sidebar.right")
+                Label("Interface", systemImage: "macwindow")
             }
-            .tag(AppSettingsTab.inspector)
+            .tag(AppSettingsTab.interface)
 
             SaveIssueLogSettingsTab(store: saveIssueLogStore)
                 .tabItem {
@@ -111,7 +93,14 @@ struct SettingsView: View {
 
     private var selectedTabBinding: Binding<AppSettingsTab> {
         Binding(
-            get: { AppSettingsTab(rawValue: selectedTabRawValue) ?? .general },
+            get: {
+                switch selectedTabRawValue {
+                case "toolbar", "columns", "inspector":
+                    return .interface
+                default:
+                    return AppSettingsTab(rawValue: selectedTabRawValue) ?? .general
+                }
+            },
             set: { selectedTabRawValue = $0.rawValue }
         )
     }
@@ -577,91 +566,31 @@ private struct MacSettingsDivider: View {
     }
 }
 
-private struct ColumnVisibilitySettingsTab: View {
+private struct InterfaceSettingsTab: View {
     @ObservedObject var sharedState: SharedState
+    let toolbarButtonVisibilityBinding: (ToolbarButtonOption) -> Binding<Bool>
     let columnVisibilityBinding: (MiddleListColumn) -> Binding<Bool>
     let isLastVisibleColumn: (MiddleListColumn) -> Bool
+    let metadataFieldVisibilityBinding: (InspectorMetadataField) -> Binding<Bool>
+    let isLastVisibleMetadataField: (InspectorMetadataField) -> Bool
 
-    private let columnGridColumns: [GridItem] = [
+    private let optionGridColumns: [GridItem] = [
         GridItem(.flexible(minimum: 220), alignment: .leading),
         GridItem(.flexible(minimum: 220), alignment: .leading)
     ]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Middle List Columns")
-                        .font(.title3.weight(.semibold))
-
-                    Text("Choose which columns appear in the main track list.")
-                        .foregroundStyle(.secondary)
-                }
-
-                LazyVGrid(columns: columnGridColumns, alignment: .leading, spacing: 12) {
-                    ForEach(MiddleListColumn.allCases) { column in
-                        Toggle(column.displayName, isOn: columnVisibilityBinding(column))
-                            .disabled(isLastVisibleColumn(column))
-                    }
-                }
-                Divider()
-
-                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    Button("Restore Default Columns") {
-                        sharedState.visibleMiddleListColumns = Set(MiddleListColumn.defaultVisibleColumns)
-                    }
-                }
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-}
-
-private struct ToolbarSettingsTab: View {
-    @ObservedObject var sharedState: SharedState
-    let toolbarButtonVisibilityBinding: (ToolbarButtonOption) -> Binding<Bool>
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Toolbar Buttons")
-                        .font(.title3.weight(.semibold))
-
-                    Text("Choose which actions appear in the main window toolbar.")
-                        .foregroundStyle(.secondary)
-                }
-
-                MacSettingsSection(title: nil) {
-                    ForEach(ToolbarButtonOption.allCases) { button in
-                        MacSettingsRow(
-                            title: button.displayName,
-                            detail: button.settingsDescription,
-                            systemImage: button.systemImage
-                        ) {
-                            Toggle(button.displayName, isOn: toolbarButtonVisibilityBinding(button))
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .controlSize(.small)
-                                .accessibilityLabel(button.displayName)
-                        }
-
-                        if button != ToolbarButtonOption.allCases.last {
-                            MacSettingsDivider()
-                        }
-                    }
-                }
+            VStack(alignment: .leading, spacing: 24) {
+                toolbarSection
 
                 Divider()
 
-                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    Button("Restore Default Buttons") {
-                        sharedState.visibleToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)
-                    }
-                }
+                columnsSection
+
+                Divider()
+
+                inspectorSection
             }
             .padding(20)
             .padding(.bottom, 28)
@@ -671,48 +600,91 @@ private struct ToolbarSettingsTab: View {
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-}
 
-private struct InspectorSettingsTab: View {
-    @ObservedObject var sharedState: SharedState
-    let metadataFieldVisibilityBinding: (InspectorMetadataField) -> Binding<Bool>
-    let isLastVisibleMetadataField: (InspectorMetadataField) -> Bool
+    private var toolbarSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingsSectionHeader(
+                title: "Toolbar Buttons",
+                detail: "Choose which actions appear in the main window toolbar."
+            )
 
-    private let fieldGridColumns: [GridItem] = [
-        GridItem(.flexible(minimum: 220), alignment: .leading),
-        GridItem(.flexible(minimum: 220), alignment: .leading)
-    ]
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Inspector Metadata Fields")
-                        .font(.title3.weight(.semibold))
-
-                    Text("Choose which metadata fields appear in the right inspector.")
-                        .foregroundStyle(.secondary)
-                }
-
-                LazyVGrid(columns: fieldGridColumns, alignment: .leading, spacing: 12) {
-                    ForEach(InspectorMetadataField.allCases) { field in
-                        Toggle(field.displayName, isOn: metadataFieldVisibilityBinding(field))
-                            .disabled(isLastVisibleMetadataField(field))
+            MacSettingsSection(title: nil) {
+                ForEach(ToolbarButtonOption.allCases) { button in
+                    MacSettingsRow(
+                        title: button.displayName,
+                        detail: button.settingsDescription,
+                        systemImage: button.systemImage
+                    ) {
+                        Toggle(button.displayName, isOn: toolbarButtonVisibilityBinding(button))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .accessibilityLabel(button.displayName)
                     }
-                }
-                Divider()
 
-                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                    Button("Restore Default Metadata Fields") {
-                        sharedState.visibleInspectorMetadataFields = Set(InspectorMetadataField.defaultVisibleFields)
+                    if button != ToolbarButtonOption.allCases.last {
+                        MacSettingsDivider()
                     }
                 }
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            Button("Restore Toolbar") {
+                sharedState.visibleToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)
+            }
         }
-        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var columnsSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingsSectionHeader(
+                title: "Middle List Columns",
+                detail: "Choose which columns appear in the main track list."
+            )
+
+            LazyVGrid(columns: optionGridColumns, alignment: .leading, spacing: 12) {
+                ForEach(MiddleListColumn.allCases) { column in
+                    Toggle(column.displayName, isOn: columnVisibilityBinding(column))
+                        .disabled(isLastVisibleColumn(column))
+                }
+            }
+
+            Button("Restore List Columns") {
+                sharedState.visibleMiddleListColumns = Set(MiddleListColumn.defaultVisibleColumns)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var inspectorSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingsSectionHeader(
+                title: "Inspector Metadata Fields",
+                detail: "Choose which metadata fields appear in the right inspector."
+            )
+
+            LazyVGrid(columns: optionGridColumns, alignment: .leading, spacing: 12) {
+                ForEach(InspectorMetadataField.allCases) { field in
+                    Toggle(field.displayName, isOn: metadataFieldVisibilityBinding(field))
+                        .disabled(isLastVisibleMetadataField(field))
+                }
+            }
+
+            Button("Restore Inspector Metadata Fields") {
+                sharedState.visibleInspectorMetadataFields = Set(InspectorMetadataField.defaultVisibleFields)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func settingsSectionHeader(title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+
+            Text(detail)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

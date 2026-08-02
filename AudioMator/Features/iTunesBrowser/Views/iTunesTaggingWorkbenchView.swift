@@ -629,13 +629,13 @@ private enum iTunesWorkbenchAppKitFactory {
         return label("iTunes: \(track.trackNumber > 0 ? "\(track.trackNumber) " : "")\(track.trackName)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
     }
 
-    private static func trackOptionTitle(_ track: iTunesTrackResult) -> String {
+    nonisolated private static func trackOptionTitle(_ track: iTunesTrackResult) -> String {
         let number = track.trackNumber > 0 ? "\(track.trackNumber) " : ""
         let discPrefix = track.discCount > 1 ? "Disc \(track.discNumber) • " : ""
         return discPrefix + number + track.trackName
     }
 
-    private static func trackDetailLine(for track: iTunesTrackResult) -> String {
+    nonisolated private static func trackDetailLine(for track: iTunesTrackResult) -> String {
         [track.artistName, track.primaryGenreName, track.releaseDate].filter { !$0.isEmpty }.joined(separator: " • ")
     }
 

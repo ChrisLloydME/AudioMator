@@ -582,6 +582,9 @@
         }
       }
     },
+    "About Folder Access" : {
+
+    },
     "Acknowledgements" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:18.",
       "localizations" : {
@@ -1197,9 +1200,6 @@
     "Allow" : {
 
     },
-    "Allow AudioMator to access the folders below between launches." : {
-
-    },
     "Allow File Access" : {
 
     },
@@ -1702,6 +1702,9 @@
           }
         }
       }
+    },
+    "AudioMator runs in the macOS App Sandbox. It can read and edit files only in folders you choose." : {
+
     },
     "AudioMator uses transactional saves to reduce the chance that a failed operation leaves an audio file partially written." : {
 
@@ -2696,6 +2699,9 @@
           }
         }
       }
+    },
+    "Choose which folders AudioMator can access between launches." : {
+
     },
     "Choose which metadata fields appear in the right inspector." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:663.",
@@ -5528,6 +5534,9 @@
           }
         }
       }
+    },
+    "If a folder is moved or renamed, macOS may require you to authorize it again." : {
+
     },
     "If that's unexpected, make sure the file is an MP3 and TagLib can read it." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:88.",
@@ -10581,6 +10590,9 @@
           }
         }
       }
+    },
+    "Removing a folder from this list removes AudioMator's saved access. It does not delete or modify the folder or any files inside it." : {
+
     },
     "Rename" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:67, AudioMator/Domain/Rename/FileRenameTemplate.swift:4, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:4.",

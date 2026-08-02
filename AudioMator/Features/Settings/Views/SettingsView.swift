@@ -7,6 +7,9 @@ let settingsSelectedTabDefaultsKey = "settings.selectedTab"
 
 enum AppSettingsTab: String, Hashable {
     case general
+    #if os(macOS)
+    case fileAccess
+    #endif
     case toolbar
     case columns
     case inspector
@@ -26,6 +29,7 @@ private func formattedAboutDescription(copyright: String) -> String {
 }
 
 struct SettingsView: View {
+    @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var sharedState: SharedState
     @ObservedObject var saveIssueLogStore: SaveIssueLogStore
 
@@ -47,6 +51,14 @@ struct SettingsView: View {
                 Label("General", systemImage: "gearshape")
             }
             .tag(AppSettingsTab.general)
+
+            #if os(macOS)
+            FileAccessSettingsTab(viewModel: viewModel)
+                .tabItem {
+                    Label("File Access", systemImage: "folder")
+                }
+                .tag(AppSettingsTab.fileAccess)
+            #endif
 
             ToolbarSettingsTab(
                 sharedState: sharedState,
@@ -1630,6 +1642,10 @@ private struct ReleaseMarkdownText: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        SettingsView(sharedState: SharedState(), saveIssueLogStore: SaveIssueLogStore())
+        SettingsView(
+            viewModel: AudioViewModel(),
+            sharedState: SharedState(),
+            saveIssueLogStore: SaveIssueLogStore()
+        )
     }
 }

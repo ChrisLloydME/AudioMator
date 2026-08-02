@@ -891,6 +891,9 @@
         }
       }
     },
+    "Add Folder" : {
+
+    },
     "Add Folder…" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1192,6 +1195,9 @@
       }
     },
     "Allow" : {
+
+    },
+    "Allow AudioMator to access the folders below between launches." : {
 
     },
     "Allow File Access" : {
@@ -1610,6 +1616,9 @@
 
     },
     "AudioMator couldn't save access to %lld selected folders." : {
+
+    },
+    "AudioMator couldn't save access to this folder." : {
 
     },
     "AudioMator keeps each file's current extension. The template changes only the filename." : {
@@ -3383,6 +3392,9 @@
         }
       }
     },
+    "Couldn't Add Folder" : {
+
+    },
     "Create IDs" : {
 
     },
@@ -4931,6 +4943,9 @@
           }
         }
       }
+    },
+    "File Access" : {
+
     },
     "File Exists" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:120.",
@@ -8056,6 +8071,9 @@
         }
       }
     },
+    "No Authorized Folders" : {
+
+    },
     "No Candidate Selected" : {
 
     },
@@ -10467,7 +10485,13 @@
         }
       }
     },
+    "Remove" : {
+
+    },
     "Remove Folder" : {
+
+    },
+    "Remove Selected Folder" : {
 
     },
     "Remove watched folder" : {
@@ -13945,6 +13969,9 @@
 
     },
     "Use Selected Artwork" : {
+
+    },
+    "Use the add button to grant access to a folder." : {
 
     },
     "Utilities…" : {

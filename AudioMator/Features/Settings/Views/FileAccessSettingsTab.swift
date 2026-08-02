@@ -96,6 +96,17 @@ struct FileAccessSettingsTab: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+
+            Spacer()
+
+            Button {
+                PlatformWorkspace.open(grant.url)
+            } label: {
+                Label(String(localized: "Open Folder"), systemImage: "arrow.up.forward")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Open Folder"))
         }
         .contextMenu {
             Button(String(localized: "Remove"), role: .destructive) {

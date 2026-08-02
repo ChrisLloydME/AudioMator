@@ -585,6 +585,47 @@
     "About Folder Access" : {
 
     },
+    "About MuseAmp Compatibility" : {
+      "comment" : "Title for the popup explaining how AudioMator works with MuseAmp.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About MuseAmp Compatibility"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About MuseAmp Compatibility"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于 MuseAmp 兼容性"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 MuseAmp 相容性"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 MuseAmp 相容性"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 MuseAmp 相容性"
+          }
+        }
+      }
+    },
     "Acknowledgements" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:18.",
       "localizations" : {
@@ -1551,6 +1592,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AudioMator"
+          }
+        }
+      }
+    },
+    "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers." : {
+      "comment" : "Disclaimer clarifying that AudioMator is independent from MuseAmp and its developers.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是一个独立项目，与 MuseAmp 或其开发者没有隶属、认可、赞助或其他关联关系。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是獨立專案，與 MuseAmp 或其開發者不存在隸屬、認可、贊助或其他關聯。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是獨立專案，與 MuseAmp 或其開發者不存在隸屬、認可、贊助或其他關聯。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是獨立專案，與 MuseAmp 或其開發者不存在隸屬、認可、贊助或其他關聯。"
           }
         }
       }
@@ -7493,6 +7575,129 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "多檔案在線封面查找需要共享的 iTunes 專輯 ID 或專輯值。"
+          }
+        }
+      }
+    },
+    "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors." : {
+      "comment" : "Credits MuseAmp's upstream project and original contributors.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始应用、架构和核心设计的全部荣誉归于上游项目及其原始贡献者。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始應用程式、架構及核心設計的全部榮譽歸於上游專案及其原始貢獻者。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始應用程式、架構及核心設計的全部榮譽歸於上游專案及其原始貢獻者。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始應用程式、架構及核心設計的全部榮譽歸於上游專案及其原始貢獻者。"
+          }
+        }
+      }
+    },
+    "MuseAmp ID generation is provided for compatibility with MuseAmp." : {
+      "comment" : "Explains why AudioMator provides MuseAmp ID generation.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MuseAmp ID generation is provided for compatibility with MuseAmp."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MuseAmp ID generation is provided for compatibility with MuseAmp."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MuseAmp ID 生成功能用于兼容 MuseAmp。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供 MuseAmp ID 生成功能是為了相容 MuseAmp。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供 MuseAmp ID 生成功能是為了相容 MuseAmp。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供 MuseAmp ID 生成功能是為了相容 MuseAmp。"
+          }
+        }
+      }
+    },
+    "View MuseAmp on GitHub" : {
+      "comment" : "Link title opening the MuseAmp repository on GitHub.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View MuseAmp on GitHub"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View MuseAmp on GitHub"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上查看 MuseAmp"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上檢視 MuseAmp"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上檢視 MuseAmp"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上檢視 MuseAmp"
           }
         }
       }

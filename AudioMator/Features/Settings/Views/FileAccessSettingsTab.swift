@@ -9,40 +9,36 @@ struct FileAccessSettingsTab: View {
     @State private var isFileAccessInfoPresented = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "File Access"))
-                        .font(.title3.weight(.semibold))
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(localized: "File Access"))
+                    .font(.title3.weight(.semibold))
 
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(String(localized: "Choose which folders AudioMator can access between launches."))
-                            .foregroundStyle(.secondary)
-
-                        Button {
-                            isFileAccessInfoPresented.toggle()
-                        } label: {
-                            Label(String(localized: "About Folder Access"), systemImage: "info.circle")
-                                .labelStyle(.iconOnly)
-                        }
-                        .buttonStyle(.borderless)
-                        .controlSize(.small)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(String(localized: "Choose which folders AudioMator can access between launches."))
                         .foregroundStyle(.secondary)
-                        .help(String(localized: "About Folder Access"))
-                        .popover(isPresented: $isFileAccessInfoPresented) {
-                            fileAccessInfoPopover
-                        }
+
+                    Button {
+                        isFileAccessInfoPresented.toggle()
+                    } label: {
+                        Label(String(localized: "About Folder Access"), systemImage: "info.circle")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .foregroundStyle(.secondary)
+                    .help(String(localized: "About Folder Access"))
+                    .popover(isPresented: $isFileAccessInfoPresented) {
+                        fileAccessInfoPopover
                     }
                 }
-
-                authorizedFoldersList
             }
-            .padding(20)
-            .padding(.bottom, 28)
-            .frame(maxWidth: 760, alignment: .topLeading)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            authorizedFoldersList
         }
-        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .padding(20)
+        .padding(.bottom, 28)
+        .frame(maxWidth: 760, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
             guard let selectedGrantID, !grantIDs.contains(selectedGrantID) else { return }
@@ -60,47 +56,39 @@ struct FileAccessSettingsTab: View {
 
     private var authorizedFoldersList: some View {
         GroupBox {
-            List(selection: $selectedGrantID) {
+            VStack(spacing: 0) {
                 if viewModel.fileAccessGrants.isEmpty {
                     ContentUnavailableView(
                         String(localized: "No Authorized Folders"),
                         systemImage: "folder",
                         description: Text(String(localized: "Use the add button to grant access to a folder."))
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ForEach(viewModel.fileAccessGrants) { grant in
-                        folderRow(grant)
-                            .tag(grant.id)
+                    List(selection: $selectedGrantID) {
+                        ForEach(viewModel.fileAccessGrants) { grant in
+                            folderRow(grant)
+                                .tag(grant.id)
+                        }
                     }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal, -8)
+                    .padding(.top, 4)
                 }
 
+                Divider()
+
                 folderActions
+                    .frame(height: 20)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .padding(.horizontal, -8)
-            .padding(.top, 4)
         }
         .frame(height: authorizedFoldersListHeight)
         .onDeleteCommand(perform: removeSelectedFolder)
     }
 
     private var authorizedFoldersListHeight: CGFloat {
-        let folderRowHeight: CGFloat = 39
-        let actionsHeight: CGFloat = 24
-        let containerVerticalInsets: CGFloat = 12
-        let folderContentHeight: CGFloat
-
-        if viewModel.fileAccessGrants.isEmpty {
-            folderContentHeight = 96
-        } else {
-            folderContentHeight = CGFloat(viewModel.fileAccessGrants.count) * folderRowHeight
-        }
-
-        return min(
-            folderContentHeight + actionsHeight + containerVerticalInsets,
-            352
-        )
+        280
     }
 
     private var fileAccessInfoPopover: some View {
@@ -183,6 +171,7 @@ struct FileAccessSettingsTab: View {
             .help(String(localized: "Add Folder"))
 
             Divider()
+                .frame(height: 16)
 
             Button(action: removeSelectedFolder) {
                 Label(String(localized: "Remove Selected Folder"), systemImage: "minus")

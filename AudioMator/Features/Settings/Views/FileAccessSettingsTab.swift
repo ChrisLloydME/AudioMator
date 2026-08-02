@@ -8,14 +8,13 @@ struct FileAccessSettingsTab: View {
     @State private var authorizationError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading) {
             Text(String(localized: "File Access"))
-                .font(.title3.weight(.semibold))
+                .font(.headline)
 
             authorizedFoldersList
         }
-        .padding(20)
-        .padding(.bottom, 8)
+        .padding()
         .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
@@ -34,63 +33,59 @@ struct FileAccessSettingsTab: View {
 
     private var authorizedFoldersList: some View {
         GroupBox {
-            VStack(spacing: 0) {
-                List(selection: $selectedGrantID) {
-                    Text(
-                        String(
-                            localized: "Allow AudioMator to access the folders below between launches."
-                        )
+            List(selection: $selectedGrantID) {
+                Text(
+                    String(
+                        localized: "Allow AudioMator to access the folders below between launches."
                     )
-                    .foregroundStyle(.secondary)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+                )
+                .foregroundStyle(.secondary)
 
-                    if viewModel.fileAccessGrants.isEmpty {
-                        ContentUnavailableView(
-                            String(localized: "No Authorized Folders"),
-                            systemImage: "folder",
-                            description: Text(String(localized: "Use the add button to grant access to a folder."))
-                        )
-                        .listRowInsets(EdgeInsets(top: 12, leading: 10, bottom: 12, trailing: 10))
-                    } else {
-                        ForEach(viewModel.fileAccessGrants) { grant in
-                            folderRow(grant)
-                                .tag(grant.id)
-                                .listRowInsets(EdgeInsets(top: 3, leading: 10, bottom: 3, trailing: 10))
-                        }
+                if viewModel.fileAccessGrants.isEmpty {
+                    ContentUnavailableView(
+                        String(localized: "No Authorized Folders"),
+                        systemImage: "folder",
+                        description: Text(String(localized: "Use the add button to grant access to a folder."))
+                    )
+                } else {
+                    ForEach(viewModel.fileAccessGrants) { grant in
+                        folderRow(grant)
+                            .tag(grant.id)
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .contentMargins(.horizontal, 0, for: .scrollContent)
-                .contentMargins(.vertical, 0, for: .scrollContent)
-
-                Divider()
 
                 folderActions
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
         .frame(height: authorizedFoldersListHeight)
         .onDeleteCommand(perform: removeSelectedFolder)
     }
 
     private var authorizedFoldersListHeight: CGFloat {
-        let descriptionHeight: CGFloat = 36
-        let toolbarHeight: CGFloat = 29
-        let groupInsets: CGFloat = 18
-        let contentHeight: CGFloat
+        let descriptionHeight: CGFloat = 26
+        let folderRowHeight: CGFloat = 39
+        let actionsHeight: CGFloat = 24
+        let containerInsets: CGFloat = 12
+        let folderContentHeight: CGFloat
 
         if viewModel.fileAccessGrants.isEmpty {
-            contentHeight = 120
+            folderContentHeight = 72
         } else {
-            contentHeight = min(CGFloat(viewModel.fileAccessGrants.count) * 40, 280)
+            folderContentHeight = CGFloat(viewModel.fileAccessGrants.count) * folderRowHeight
         }
 
-        return descriptionHeight + contentHeight + toolbarHeight + groupInsets
+        return min(
+            descriptionHeight + folderContentHeight + actionsHeight + containerInsets,
+            352
+        )
     }
 
     private func folderRow(_ grant: FileAccessGrant) -> some View {
-        Label {
+        HStack(alignment: .center) {
+            Image(systemName: "folder")
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(grant.displayName)
                     .lineLimit(1)
@@ -101,8 +96,6 @@ struct FileAccessSettingsTab: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-        } icon: {
-            Image(systemName: "folder")
         }
         .contextMenu {
             Button(String(localized: "Remove"), role: .destructive) {
@@ -115,41 +108,26 @@ struct FileAccessSettingsTab: View {
     }
 
     private var folderActions: some View {
-        HStack(spacing: 0) {
-            folderActionButton(
-                systemImage: "plus",
-                accessibilityLabel: String(localized: "Add Folder"),
-                action: addFolder
-            )
+        HStack {
+            Button(action: addFolder) {
+                Label(String(localized: "Add Folder"), systemImage: "plus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Add Folder"))
 
             Divider()
-                .frame(height: 16)
 
-            folderActionButton(
-                systemImage: "minus",
-                accessibilityLabel: String(localized: "Remove Selected Folder"),
-                action: removeSelectedFolder
-            )
+            Button(action: removeSelectedFolder) {
+                Label(String(localized: "Remove Selected Folder"), systemImage: "minus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
             .disabled(selectedGrantID == nil)
+            .help(String(localized: "Remove Selected Folder"))
 
             Spacer()
         }
-        .padding(.leading, 4)
-        .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-    }
-
-    private func folderActionButton(
-        systemImage: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .frame(width: 28, height: 28)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(accessibilityLabel)
-        .help(accessibilityLabel)
     }
 
     private var authorizationErrorBinding: Binding<Bool> {

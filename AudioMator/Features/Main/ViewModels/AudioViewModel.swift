@@ -490,14 +490,21 @@ final class AudioViewModel: ObservableObject {
     }
 
     func removeWatchedFolder(id: UUID) {
-        guard watchedFolders.contains(where: { $0.id == id }) else { return }
+        removeWatchedFolders(ids: [id])
+    }
 
-        stopWatchingFolder(id: id)
-        watchedFolders.removeAll { $0.id == id }
-        watchedFolderFiles[id] = nil
-        watchedFolderScanFailureCounts[id] = nil
-        watchedFolderMetadataReadFailureCounts[id] = nil
-        folderScanTokens[id] = nil
+    func removeWatchedFolders(ids: Set<UUID>) {
+        let existingIDs = ids.intersection(watchedFolders.map(\.id))
+        guard !existingIDs.isEmpty else { return }
+
+        for id in existingIDs {
+            stopWatchingFolder(id: id)
+            watchedFolderFiles[id] = nil
+            watchedFolderScanFailureCounts[id] = nil
+            watchedFolderMetadataReadFailureCounts[id] = nil
+            folderScanTokens[id] = nil
+        }
+        watchedFolders.removeAll { existingIDs.contains($0.id) }
 
         persistWatchedFolders()
 

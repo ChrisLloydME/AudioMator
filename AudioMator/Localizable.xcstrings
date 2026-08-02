@@ -5321,6 +5321,9 @@
     "Folder Not Added" : {
 
     },
+    "Folders" : {
+
+    },
     "Format" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:71, AudioMator/Domain/AudioFiles/AudioFile.swift:556, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:232, AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:3.",
       "localizations" : {
@@ -13987,6 +13990,9 @@
 
     },
     "Use the add button to grant access to a folder." : {
+
+    },
+    "Use the add button to watch a folder." : {
 
     },
     "Utilities…" : {

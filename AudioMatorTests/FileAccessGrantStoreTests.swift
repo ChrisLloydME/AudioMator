@@ -89,6 +89,40 @@ final class FileAccessGrantStoreTests: XCTestCase {
         )
     }
 
+    func testViewModelRemovesMultipleSelectedGrantsTogether() throws {
+        let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Could not create isolated defaults.")
+        }
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let folderURLs = (0..<3).map { index in
+            FileManager.default.temporaryDirectory
+                .appendingPathComponent("AudioMatorFileAccessGrant-\(index)-\(UUID().uuidString)", isDirectory: true)
+        }
+        for folderURL in folderURLs {
+            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        }
+        defer {
+            for folderURL in folderURLs {
+                try? FileManager.default.removeItem(at: folderURL)
+            }
+        }
+
+        let fileAccessGrantStore = FileAccessGrantStore(userDefaults: defaults)
+        let grants = try folderURLs.map(fileAccessGrantStore.makeGrant)
+        fileAccessGrantStore.saveGrants(grants)
+        let viewModel = makeViewModel(defaults: defaults)
+
+        viewModel.removeFileAccessGrants(ids: [grants[0].id, grants[2].id])
+
+        XCTAssertEqual(viewModel.fileAccessGrants.map(\.id), [grants[1].id])
+        XCTAssertEqual(
+            FileAccessGrantStore(userDefaults: defaults).loadGrants().map(\.id),
+            [grants[1].id]
+        )
+    }
+
     func testViewModelIgnoresRemovalOfUnknownGrant() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

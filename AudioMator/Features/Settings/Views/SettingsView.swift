@@ -709,7 +709,19 @@ private struct SaveIssueLogSettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
 
-                MacSettingsSection(title: "Recent Save Issues") {
+                HStack(spacing: 12) {
+                    Button("Copy All") {
+                        copyEntriesToPasteboard()
+                    }
+                    .disabled(store.entries.isEmpty)
+
+                    Button("Clear Logs", role: .destructive) {
+                        store.clear()
+                    }
+                    .disabled(store.entries.isEmpty)
+                }
+
+                MacSettingsSection(title: nil) {
                     if store.entries.isEmpty {
                         emptyState
                     } else {
@@ -723,22 +735,6 @@ private struct SaveIssueLogSettingsTab: View {
                             }
                         }
                     }
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Button("Copy All") {
-                        copyEntriesToPasteboard()
-                    }
-                    .disabled(store.entries.isEmpty)
-
-                    Button("Clear Logs", role: .destructive) {
-                        store.clear()
-                    }
-                    .disabled(store.entries.isEmpty)
-
-                    Text("\(store.entries.count) saved issue\(store.entries.count == 1 ? "" : "s").")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
             }
             .padding(20)

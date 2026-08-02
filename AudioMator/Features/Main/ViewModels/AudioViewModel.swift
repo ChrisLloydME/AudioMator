@@ -725,7 +725,7 @@ final class AudioViewModel: ObservableObject {
         #if os(macOS)
         let homeURL = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = true
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
@@ -733,30 +733,45 @@ final class AudioViewModel: ObservableObject {
         panel.title = String(localized: "Allow File Access")
         panel.prompt = String(localized: "Allow")
         panel.message = String(
-            localized: "Select your user folder, or another folder containing the audio files you edit."
+            localized: "Select one or more folders containing the audio files you edit, such as your user folder."
         )
 
-        guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
+        guard panel.runModal() == .OK else {
             return .cancelled
         }
 
-        do {
-            let grant = try registerFileAccessGrant(for: selectedURL)
-            return .authorized(path: grant.url.path)
-        } catch {
-            return .failure((error as NSError).localizedDescription)
+        let selectedURLs = panel.urls.map(\.standardizedFileURL)
+        guard !selectedURLs.isEmpty else { return .cancelled }
+
+        var firstGrant: FileAccessGrant?
+        for selectedURL in selectedURLs {
+            do {
+                let grant = try registerFileAccessGrant(for: selectedURL)
+                firstGrant = firstGrant ?? grant
+            } catch {
+                return .failure((error as NSError).localizedDescription)
+            }
         }
+
+        return .authorized(path: firstGrant?.url.path ?? selectedURLs[0].path)
         #else
         return .failure(String(localized: "Folder preauthorization is available on macOS only."))
         #endif
     }
 
     func removeFileAccessGrant(id: UUID) {
-        guard fileAccessGrants.contains(where: { $0.id == id }) else { return }
+        removeFileAccessGrants(ids: [id])
+    }
 
-        securityScopedFileAccessGrantURLs.removeValue(forKey: id)?
-            .stopAccessingSecurityScopedResource()
-        fileAccessGrants.removeAll { $0.id == id }
+    func removeFileAccessGrants(ids: Set<UUID>) {
+        let existingIDs = ids.intersection(fileAccessGrants.map(\.id))
+        guard !existingIDs.isEmpty else { return }
+
+        for id in existingIDs {
+            securityScopedFileAccessGrantURLs.removeValue(forKey: id)?
+                .stopAccessingSecurityScopedResource()
+        }
+        fileAccessGrants.removeAll { existingIDs.contains($0.id) }
         fileAccessGrantStore.saveGrants(fileAccessGrants)
     }
 

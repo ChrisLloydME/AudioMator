@@ -10503,7 +10503,7 @@
     "Remove Folder" : {
 
     },
-    "Remove Selected Folder" : {
+    "Remove Selected Folders" : {
 
     },
     "Remove watched folder" : {
@@ -11839,7 +11839,7 @@
     "Select the exact folder “%@” to continue." : {
 
     },
-    "Select your user folder, or another folder containing the audio files you edit." : {
+    "Select one or more folders containing the audio files you edit, such as your user folder." : {
 
     },
     "Selected Fields" : {

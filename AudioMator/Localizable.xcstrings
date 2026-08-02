@@ -5678,6 +5678,7 @@
     },
     "Inspector" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/App/AppNotifications.swift:10, AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3, AudioMator/Domain/UIState/ToolbarButtonOption.swift:5.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5763,6 +5764,47 @@
     },
     "Instrumental Result" : {
 
+    },
+    "Interface" : {
+      "comment" : "Settings tab containing toolbar, track-list column, and inspector visibility options.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "界面"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面"
+          }
+        }
+      }
     },
     "ISRC" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:343, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:3191, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:64, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzBrowserStore.swift:85.",
@@ -10943,12 +10985,6 @@
     "Reset" : {
 
     },
-    "Restore Default Buttons" : {
-
-    },
-    "Restore Default Columns" : {
-
-    },
     "Restore Default Metadata Fields" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:298.",
       "localizations" : {
@@ -10989,6 +11025,15 @@
           }
         }
       }
+    },
+    "Restore Inspector Metadata Fields" : {
+
+    },
+    "Restore List Columns" : {
+
+    },
+    "Restore Toolbar" : {
+
     },
     "Results" : {
 
@@ -11839,10 +11884,10 @@
     "Select one or more files to preview text export." : {
 
     },
-    "Select the exact folder “%@” to continue." : {
+    "Select one or more folders containing the audio files you edit, such as your user folder." : {
 
     },
-    "Select one or more folders containing the audio files you edit, such as your user folder." : {
+    "Select the exact folder “%@” to continue." : {
 
     },
     "Selected Fields" : {
@@ -13225,9 +13270,6 @@
           }
         }
       }
-    },
-    "Toolbar" : {
-
     },
     "Toolbar Buttons" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:613.",

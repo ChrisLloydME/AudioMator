@@ -1,11 +1,31 @@
 #if os(macOS)
 import SwiftUI
 
+struct WatchedFolderSettingsSelection {
+    var ids: Set<WatchedFolder.ID> = []
+
+    mutating func retainAvailableFolders(_ availableIDs: Set<WatchedFolder.ID>) {
+        ids.formIntersection(availableIDs)
+    }
+
+    mutating func selectNewFolders(
+        previousIDs: Set<WatchedFolder.ID>,
+        currentIDs: Set<WatchedFolder.ID>
+    ) {
+        ids = currentIDs.subtracting(previousIDs)
+    }
+
+    mutating func consumeForRemoval() -> Set<WatchedFolder.ID> {
+        defer { ids.removeAll() }
+        return ids
+    }
+}
+
 struct FileAccessSettingsTab: View {
     @ObservedObject var viewModel: AudioViewModel
 
     @State private var selectedFileAccessGrantIDs: Set<FileAccessGrant.ID> = []
-    @State private var selectedWatchedFolderIDs: Set<WatchedFolder.ID> = []
+    @State private var watchedFolderSelection = WatchedFolderSettingsSelection()
     @State private var authorizationError: String?
     @State private var isFileAccessInfoPresented = false
 
@@ -28,7 +48,7 @@ struct FileAccessSettingsTab: View {
             selectedFileAccessGrantIDs.formIntersection(grantIDs)
         }
         .onChange(of: viewModel.watchedFolders.map(\.id)) { _, folderIDs in
-            selectedWatchedFolderIDs.formIntersection(folderIDs)
+            watchedFolderSelection.retainAvailableFolders(Set(folderIDs))
         }
         .alert(
             String(localized: "Couldn't Add Folder"),
@@ -136,7 +156,7 @@ struct FileAccessSettingsTab: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(selection: $selectedWatchedFolderIDs) {
+                    List(selection: $watchedFolderSelection.ids) {
                         ForEach(viewModel.watchedFolders) { folder in
                             watchedFolderRow(folder)
                                 .tag(folder.id)
@@ -219,7 +239,7 @@ struct FileAccessSettingsTab: View {
         )
         .contextMenu {
             Button(String(localized: "Remove"), role: .destructive) {
-                if selectedWatchedFolderIDs.contains(folder.id) {
+                if watchedFolderSelection.ids.contains(folder.id) {
                     removeSelectedWatchedFolders()
                 } else {
                     viewModel.removeWatchedFolder(id: folder.id)
@@ -315,7 +335,7 @@ struct FileAccessSettingsTab: View {
                     .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
-            .disabled(selectedWatchedFolderIDs.isEmpty)
+            .disabled(watchedFolderSelection.ids.isEmpty)
             .help(String(localized: "Remove Selected Folders"))
 
             Spacer()
@@ -348,7 +368,10 @@ struct FileAccessSettingsTab: View {
     private func addWatchedFolders() {
         let existingIDs = Set(viewModel.watchedFolders.map(\.id))
         _ = viewModel.addWatchedFolders()
-        selectedWatchedFolderIDs = Set(viewModel.watchedFolders.map(\.id)).subtracting(existingIDs)
+        watchedFolderSelection.selectNewFolders(
+            previousIDs: existingIDs,
+            currentIDs: Set(viewModel.watchedFolders.map(\.id))
+        )
     }
 
     private func removeSelectedFileAccessFolders() {
@@ -358,9 +381,9 @@ struct FileAccessSettingsTab: View {
     }
 
     private func removeSelectedWatchedFolders() {
-        guard !selectedWatchedFolderIDs.isEmpty else { return }
-        viewModel.removeWatchedFolders(ids: selectedWatchedFolderIDs)
-        selectedWatchedFolderIDs.removeAll()
+        let selectedIDs = watchedFolderSelection.consumeForRemoval()
+        guard !selectedIDs.isEmpty else { return }
+        viewModel.removeWatchedFolders(ids: selectedIDs)
     }
 }
 #endif

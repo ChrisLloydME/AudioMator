@@ -421,16 +421,6 @@
         }
       }
     },
-    "%lld saved issue%@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$lld saved issue%2$@."
-          }
-        }
-      }
-    },
     "%lld%%" : {
 
     },

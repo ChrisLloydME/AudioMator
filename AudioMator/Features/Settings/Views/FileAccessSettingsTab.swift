@@ -78,6 +78,8 @@ struct FileAccessSettingsTab: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            .padding(.horizontal, -8)
+            .padding(.top, 4)
         }
         .frame(height: authorizedFoldersListHeight)
         .onDeleteCommand(perform: removeSelectedFolder)
@@ -86,7 +88,7 @@ struct FileAccessSettingsTab: View {
     private var authorizedFoldersListHeight: CGFloat {
         let folderRowHeight: CGFloat = 39
         let actionsHeight: CGFloat = 24
-        let containerInsets: CGFloat = 12
+        let containerVerticalInsets: CGFloat = 12
         let folderContentHeight: CGFloat
 
         if viewModel.fileAccessGrants.isEmpty {
@@ -96,7 +98,7 @@ struct FileAccessSettingsTab: View {
         }
 
         return min(
-            folderContentHeight + actionsHeight + containerInsets,
+            folderContentHeight + actionsHeight + containerVerticalInsets,
             352
         )
     }
@@ -192,6 +194,7 @@ struct FileAccessSettingsTab: View {
 
             Spacer()
         }
+        .controlSize(.small)
     }
 
     private var authorizationErrorBinding: Binding<Bool> {

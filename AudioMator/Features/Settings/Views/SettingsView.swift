@@ -50,14 +50,6 @@ struct SettingsView: View {
             }
             .tag(AppSettingsTab.general)
 
-            #if os(macOS)
-            FileAccessSettingsTab(viewModel: viewModel)
-                .tabItem {
-                    Label("Folders", systemImage: "folder")
-                }
-                .tag(AppSettingsTab.fileAccess)
-            #endif
-
             InterfaceSettingsTab(
                 sharedState: sharedState,
                 toolbarButtonVisibilityBinding: toolbarButtonVisibilityBinding(for:),
@@ -70,6 +62,14 @@ struct SettingsView: View {
                 Label("Interface", systemImage: "macwindow")
             }
             .tag(AppSettingsTab.interface)
+
+            #if os(macOS)
+            FileAccessSettingsTab(viewModel: viewModel)
+                .tabItem {
+                    Label("Folders", systemImage: "folder")
+                }
+                .tag(AppSettingsTab.fileAccess)
+            #endif
 
             SaveIssueLogSettingsTab(store: saveIssueLogStore)
                 .tabItem {

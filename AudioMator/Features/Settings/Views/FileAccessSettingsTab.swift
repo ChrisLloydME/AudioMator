@@ -6,16 +6,43 @@ struct FileAccessSettingsTab: View {
 
     @State private var selectedGrantID: FileAccessGrant.ID?
     @State private var authorizationError: String?
+    @State private var isFileAccessInfoPresented = false
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Text(String(localized: "File Access"))
-                .font(.headline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "File Access"))
+                        .font(.title3.weight(.semibold))
 
-            authorizedFoldersList
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(localized: "Choose which folders AudioMator can access between launches."))
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            isFileAccessInfoPresented.toggle()
+                        } label: {
+                            Label(String(localized: "About Folder Access"), systemImage: "info.circle")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                        .foregroundStyle(.secondary)
+                        .help(String(localized: "About Folder Access"))
+                        .popover(isPresented: $isFileAccessInfoPresented) {
+                            fileAccessInfoPopover
+                        }
+                    }
+                }
+
+                authorizedFoldersList
+            }
+            .padding(20)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding()
-        .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
             guard let selectedGrantID, !grantIDs.contains(selectedGrantID) else { return }
@@ -34,13 +61,6 @@ struct FileAccessSettingsTab: View {
     private var authorizedFoldersList: some View {
         GroupBox {
             List(selection: $selectedGrantID) {
-                Text(
-                    String(
-                        localized: "Allow AudioMator to access the folders below between launches."
-                    )
-                )
-                .foregroundStyle(.secondary)
-
                 if viewModel.fileAccessGrants.isEmpty {
                     ContentUnavailableView(
                         String(localized: "No Authorized Folders"),
@@ -64,22 +84,55 @@ struct FileAccessSettingsTab: View {
     }
 
     private var authorizedFoldersListHeight: CGFloat {
-        let descriptionHeight: CGFloat = 26
         let folderRowHeight: CGFloat = 39
         let actionsHeight: CGFloat = 24
         let containerInsets: CGFloat = 12
         let folderContentHeight: CGFloat
 
         if viewModel.fileAccessGrants.isEmpty {
-            folderContentHeight = 72
+            folderContentHeight = 96
         } else {
             folderContentHeight = CGFloat(viewModel.fileAccessGrants.count) * folderRowHeight
         }
 
         return min(
-            descriptionHeight + folderContentHeight + actionsHeight + containerInsets,
+            folderContentHeight + actionsHeight + containerInsets,
             352
         )
+    }
+
+    private var fileAccessInfoPopover: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(String(localized: "Why folder access is required"), systemImage: "info.circle")
+                .font(.headline)
+
+            Text(
+                String(
+                    localized: "AudioMator runs in the macOS App Sandbox. It can read and edit files only in folders you choose."
+                )
+            )
+
+            Text(
+                String(
+                    localized: "If you authorize a folder now, AudioMator remembers that permission for later saves inside it. Authorizing does not save or change any file."
+                )
+            )
+
+            Text(
+                String(
+                    localized: "Removing a folder from this list removes AudioMator's saved access. It does not delete or modify the folder or any files inside it."
+                )
+            )
+
+            Text(
+                String(
+                    localized: "If a folder is moved or renamed, macOS may require you to authorize it again."
+                )
+            )
+            .foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(width: 360, alignment: .leading)
     }
 
     private func folderRow(_ grant: FileAccessGrant) -> some View {

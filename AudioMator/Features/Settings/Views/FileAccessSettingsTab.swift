@@ -4,7 +4,7 @@ import SwiftUI
 struct FileAccessSettingsTab: View {
     @ObservedObject var viewModel: AudioViewModel
 
-    @State private var selectedGrantID: FileAccessGrant.ID?
+    @State private var selectedGrantIDs: Set<FileAccessGrant.ID> = []
     @State private var authorizationError: String?
     @State private var isFileAccessInfoPresented = false
 
@@ -41,8 +41,7 @@ struct FileAccessSettingsTab: View {
         .frame(maxWidth: 760, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
-            guard let selectedGrantID, !grantIDs.contains(selectedGrantID) else { return }
-            self.selectedGrantID = nil
+            selectedGrantIDs.formIntersection(grantIDs)
         }
         .alert(
             String(localized: "Couldn't Add Folder"),
@@ -65,7 +64,7 @@ struct FileAccessSettingsTab: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(selection: $selectedGrantID) {
+                    List(selection: $selectedGrantIDs) {
                         ForEach(viewModel.fileAccessGrants) { grant in
                             folderRow(grant)
                                 .tag(grant.id)
@@ -84,7 +83,7 @@ struct FileAccessSettingsTab: View {
             }
         }
         .frame(height: authorizedFoldersListHeight)
-        .onDeleteCommand(perform: removeSelectedFolder)
+        .onDeleteCommand(perform: removeSelectedFolders)
     }
 
     private var authorizedFoldersListHeight: CGFloat {
@@ -153,8 +152,11 @@ struct FileAccessSettingsTab: View {
         }
         .contextMenu {
             Button(String(localized: "Remove"), role: .destructive) {
-                selectedGrantID = grant.id
-                removeSelectedFolder()
+                if selectedGrantIDs.contains(grant.id) {
+                    removeSelectedFolders()
+                } else {
+                    viewModel.removeFileAccessGrant(id: grant.id)
+                }
             }
         }
         .accessibilityLabel(grant.displayName)
@@ -173,13 +175,13 @@ struct FileAccessSettingsTab: View {
             Divider()
                 .frame(height: 16)
 
-            Button(action: removeSelectedFolder) {
-                Label(String(localized: "Remove Selected Folder"), systemImage: "minus")
+            Button(action: removeSelectedFolders) {
+                Label(String(localized: "Remove Selected Folders"), systemImage: "minus")
                     .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
-            .disabled(selectedGrantID == nil)
-            .help(String(localized: "Remove Selected Folder"))
+            .disabled(selectedGrantIDs.isEmpty)
+            .help(String(localized: "Remove Selected Folders"))
 
             Spacer()
         }
@@ -200,7 +202,7 @@ struct FileAccessSettingsTab: View {
     private func addFolder() {
         switch viewModel.authorizeDefaultFileAccessFolder() {
         case .authorized:
-            selectedGrantID = nil
+            selectedGrantIDs.removeAll()
         case .cancelled:
             break
         case .failure(let message):
@@ -208,10 +210,10 @@ struct FileAccessSettingsTab: View {
         }
     }
 
-    private func removeSelectedFolder() {
-        guard let selectedGrantID else { return }
-        viewModel.removeFileAccessGrant(id: selectedGrantID)
-        self.selectedGrantID = nil
+    private func removeSelectedFolders() {
+        guard !selectedGrantIDs.isEmpty else { return }
+        viewModel.removeFileAccessGrants(ids: selectedGrantIDs)
+        selectedGrantIDs.removeAll()
     }
 }
 #endif

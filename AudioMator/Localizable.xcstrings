@@ -421,16 +421,6 @@
         }
       }
     },
-    "%lld saved issue%@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$lld saved issue%2$@."
-          }
-        }
-      }
-    },
     "%lld%%" : {
 
     },
@@ -578,6 +568,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關於 AudioMator"
+          }
+        }
+      }
+    },
+    "About Folder Access" : {
+
+    },
+    "About MuseAmp Compatibility" : {
+      "comment" : "Title for the popup explaining how AudioMator works with MuseAmp.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About MuseAmp Compatibility"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About MuseAmp Compatibility"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于 MuseAmp 兼容性"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 MuseAmp 相容性"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 MuseAmp 相容性"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 MuseAmp 相容性"
           }
         }
       }
@@ -890,6 +924,9 @@
           }
         }
       }
+    },
+    "Add Folder" : {
+
     },
     "Add Folder…" : {
       "localizations" : {
@@ -1549,6 +1586,47 @@
         }
       }
     },
+    "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers." : {
+      "comment" : "Disclaimer clarifying that AudioMator is independent from MuseAmp and its developers.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是一个独立项目，与 MuseAmp 或其开发者没有隶属、认可、赞助或其他关联关系。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是獨立專案，與 MuseAmp 或其開發者不存在隸屬、認可、贊助或其他關聯。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是獨立專案，與 MuseAmp 或其開發者不存在隸屬、認可、贊助或其他關聯。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMator 是獨立專案，與 MuseAmp 或其開發者不存在隸屬、認可、贊助或其他關聯。"
+          }
+        }
+      }
+    },
     "AudioMator builds on the following third-party projects and ideas." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:995.",
       "localizations" : {
@@ -1610,6 +1688,9 @@
 
     },
     "AudioMator couldn't save access to %lld selected folders." : {
+
+    },
+    "AudioMator couldn't save access to this folder." : {
 
     },
     "AudioMator keeps each file's current extension. The template changes only the filename." : {
@@ -1693,6 +1774,9 @@
           }
         }
       }
+    },
+    "AudioMator runs in the macOS App Sandbox. It can read and edit files only in folders you choose." : {
+
     },
     "AudioMator uses transactional saves to reduce the chance that a failed operation leaves an audio file partially written." : {
 
@@ -2688,6 +2772,9 @@
         }
       }
     },
+    "Choose which folders AudioMator can access between launches." : {
+
+    },
     "Choose which metadata fields appear in the right inspector." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:663.",
       "localizations" : {
@@ -3382,6 +3469,9 @@
           }
         }
       }
+    },
+    "Couldn't Add Folder" : {
+
     },
     "Create IDs" : {
 
@@ -4932,6 +5022,9 @@
         }
       }
     },
+    "File Access" : {
+
+    },
     "File Exists" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:120.",
       "localizations" : {
@@ -5300,6 +5393,9 @@
     "Folder Not Added" : {
 
     },
+    "Folders" : {
+
+    },
     "Format" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:71, AudioMator/Domain/AudioFiles/AudioFile.swift:556, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:232, AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:3.",
       "localizations" : {
@@ -5514,6 +5610,9 @@
         }
       }
     },
+    "If a folder is moved or renamed, macOS may require you to authorize it again." : {
+
+    },
     "If that's unexpected, make sure the file is an MP3 and TagLib can read it." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:88.",
       "localizations" : {
@@ -5651,6 +5750,7 @@
     },
     "Inspector" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/App/AppNotifications.swift:10, AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3, AudioMator/Domain/UIState/ToolbarButtonOption.swift:5.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5736,6 +5836,47 @@
     },
     "Instrumental Result" : {
 
+    },
+    "Interface" : {
+      "comment" : "Settings tab containing toolbar, track-list column, and inspector visibility options.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interface"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "界面"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "介面"
+          }
+        }
+      }
     },
     "ISRC" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:343, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:3191, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:64, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzBrowserStore.swift:85.",
@@ -7428,6 +7569,129 @@
         }
       }
     },
+    "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors." : {
+      "comment" : "Credits MuseAmp's upstream project and original contributors.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始应用、架构和核心设计的全部荣誉归于上游项目及其原始贡献者。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始應用程式、架構及核心設計的全部榮譽歸於上游專案及其原始貢獻者。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始應用程式、架構及核心設計的全部榮譽歸於上游專案及其原始貢獻者。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始應用程式、架構及核心設計的全部榮譽歸於上游專案及其原始貢獻者。"
+          }
+        }
+      }
+    },
+    "MuseAmp ID generation is provided for compatibility with MuseAmp." : {
+      "comment" : "Explains why AudioMator provides MuseAmp ID generation.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MuseAmp ID generation is provided for compatibility with MuseAmp."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MuseAmp ID generation is provided for compatibility with MuseAmp."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MuseAmp ID 生成功能用于兼容 MuseAmp。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供 MuseAmp ID 生成功能是為了相容 MuseAmp。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供 MuseAmp ID 生成功能是為了相容 MuseAmp。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供 MuseAmp ID 生成功能是為了相容 MuseAmp。"
+          }
+        }
+      }
+    },
+    "View MuseAmp on GitHub" : {
+      "comment" : "Link title opening the MuseAmp repository on GitHub.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View MuseAmp on GitHub"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View MuseAmp on GitHub"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上查看 MuseAmp"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上檢視 MuseAmp"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上檢視 MuseAmp"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 GitHub 上檢視 MuseAmp"
+          }
+        }
+      }
+    },
     "MuseAmp Compatibility" : {
 
     },
@@ -8055,6 +8319,9 @@
           }
         }
       }
+    },
+    "No Authorized Folders" : {
+
     },
     "No Candidate Selected" : {
 
@@ -8955,6 +9222,9 @@
           }
         }
       }
+    },
+    "Open Folder" : {
+
     },
     "Open MusicBrainz Browser" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: MusicBrainz lookup, matching, or tag-writing workflow. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -10467,7 +10737,13 @@
         }
       }
     },
+    "Remove" : {
+
+    },
     "Remove Folder" : {
+
+    },
+    "Remove Selected Folders" : {
 
     },
     "Remove watched folder" : {
@@ -10554,6 +10830,9 @@
           }
         }
       }
+    },
+    "Removing a folder from this list removes AudioMator's saved access. It does not delete or modify the folder or any files inside it." : {
+
     },
     "Rename" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:67, AudioMator/Domain/Rename/FileRenameTemplate.swift:4, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:4.",
@@ -10901,12 +11180,6 @@
     "Reset" : {
 
     },
-    "Restore Default Buttons" : {
-
-    },
-    "Restore Default Columns" : {
-
-    },
     "Restore Default Metadata Fields" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:298.",
       "localizations" : {
@@ -10947,6 +11220,15 @@
           }
         }
       }
+    },
+    "Restore Inspector Metadata Fields" : {
+
+    },
+    "Restore List Columns" : {
+
+    },
+    "Restore Toolbar" : {
+
     },
     "Results" : {
 
@@ -11797,10 +12079,10 @@
     "Select one or more files to preview text export." : {
 
     },
-    "Select the exact folder “%@” to continue." : {
+    "Select one or more folders containing the audio files you edit, such as your user folder." : {
 
     },
-    "Select your user folder, or another folder containing the audio files you edit." : {
+    "Select the exact folder “%@” to continue." : {
 
     },
     "Selected Fields" : {
@@ -13184,9 +13466,6 @@
         }
       }
     },
-    "Toolbar" : {
-
-    },
     "Toolbar Buttons" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:613.",
       "localizations" : {
@@ -13945,6 +14224,12 @@
 
     },
     "Use Selected Artwork" : {
+
+    },
+    "Use the add button to grant access to a folder." : {
+
+    },
+    "Use the add button to watch a folder." : {
 
     },
     "Utilities…" : {

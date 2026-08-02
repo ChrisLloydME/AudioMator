@@ -666,13 +666,13 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         return label("MusicBrainz: \(number)\(track.title)", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
     }
 
-    private static func trackOptionTitle(_ track: MusicBrainzReleaseMatchTrack) -> String {
+    nonisolated private static func trackOptionTitle(_ track: MusicBrainzReleaseMatchTrack) -> String {
         let number = track.number.isEmpty ? "" : "\(track.number) "
         let discPrefix = track.releaseMediumCount > 1 ? "Disc \(track.mediumPosition) • " : ""
         return discPrefix + number + track.title
     }
 
-    private static func trackDetailLine(for track: MusicBrainzReleaseMatchTrack) -> String {
+    nonisolated private static func trackDetailLine(for track: MusicBrainzReleaseMatchTrack) -> String {
         [
             track.artistCredit,
             track.mediumFormat.isEmpty ? track.mediumTitle : track.mediumFormat

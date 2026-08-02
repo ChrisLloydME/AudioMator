@@ -55,7 +55,7 @@ struct SettingsView: View {
             #if os(macOS)
             FileAccessSettingsTab(viewModel: viewModel)
                 .tabItem {
-                    Label("File Access", systemImage: "folder")
+                    Label("Folders", systemImage: "folder")
                 }
                 .tag(AppSettingsTab.fileAccess)
             #endif

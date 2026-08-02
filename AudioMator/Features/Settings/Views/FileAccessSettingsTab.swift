@@ -4,12 +4,44 @@ import SwiftUI
 struct FileAccessSettingsTab: View {
     @ObservedObject var viewModel: AudioViewModel
 
-    @State private var selectedGrantIDs: Set<FileAccessGrant.ID> = []
+    @State private var selectedFileAccessGrantIDs: Set<FileAccessGrant.ID> = []
+    @State private var selectedWatchedFolderIDs: Set<WatchedFolder.ID> = []
     @State private var authorizationError: String?
     @State private var isFileAccessInfoPresented = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                fileAccessSection
+                watchedFoldersSection
+            }
+            .padding(20)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        .scrollIndicators(.automatic, axes: .vertical)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
+            selectedFileAccessGrantIDs.formIntersection(grantIDs)
+        }
+        .onChange(of: viewModel.watchedFolders.map(\.id)) { _, folderIDs in
+            selectedWatchedFolderIDs.formIntersection(folderIDs)
+        }
+        .alert(
+            String(localized: "Couldn't Add Folder"),
+            isPresented: authorizationErrorBinding
+        ) {
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(authorizationError ?? String(localized: "AudioMator couldn't save access to this folder."))
+        }
+    }
+
+    private var fileAccessSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "File Access"))
                     .font(.title3.weight(.semibold))
@@ -36,26 +68,28 @@ struct FileAccessSettingsTab: View {
 
             authorizedFoldersList
         }
-        .padding(20)
-        .padding(.bottom, 28)
-        .frame(maxWidth: 760, alignment: .topLeading)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
-            selectedGrantIDs.formIntersection(grantIDs)
-        }
-        .alert(
-            String(localized: "Couldn't Add Folder"),
-            isPresented: authorizationErrorBinding
-        ) {
-            Button(String(localized: "OK"), role: .cancel) {}
-        } message: {
-            Text(authorizationError ?? String(localized: "AudioMator couldn't save access to this folder."))
+    }
+
+    private var watchedFoldersSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(localized: "Watched Folders"))
+                    .font(.title3.weight(.semibold))
+
+                Text(String(localized: "Watched folders stay in the sidebar across launches."))
+                    .foregroundStyle(.secondary)
+            }
+
+            watchedFoldersList
         }
     }
 
     private var authorizedFoldersList: some View {
         GroupBox {
             VStack(spacing: 0) {
+                Divider()
+                    .padding(.top, 8)
+
                 if viewModel.fileAccessGrants.isEmpty {
                     ContentUnavailableView(
                         String(localized: "No Authorized Folders"),
@@ -64,29 +98,69 @@ struct FileAccessSettingsTab: View {
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List(selection: $selectedGrantIDs) {
+                    List(selection: $selectedFileAccessGrantIDs) {
                         ForEach(viewModel.fileAccessGrants) { grant in
-                            folderRow(grant)
+                            fileAccessFolderRow(grant)
                                 .tag(grant.id)
                         }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .scrollIndicators(.visible, axes: .vertical)
+                    .scrollIndicatorsFlash(onAppear: true)
+                    .contentMargins(.top, 0, for: .scrollContent)
                     .padding(.horizontal, -8)
-                    .padding(.top, 4)
                 }
 
                 Divider()
 
-                folderActions
+                fileAccessFolderActions
                     .frame(height: 20)
             }
         }
-        .frame(height: authorizedFoldersListHeight)
-        .onDeleteCommand(perform: removeSelectedFolders)
+        .frame(height: folderListHeight)
+        .onDeleteCommand(perform: removeSelectedFileAccessFolders)
     }
 
-    private var authorizedFoldersListHeight: CGFloat {
+    private var watchedFoldersList: some View {
+        GroupBox {
+            VStack(spacing: 0) {
+                Divider()
+                    .padding(.top, 8)
+
+                if viewModel.watchedFolders.isEmpty {
+                    ContentUnavailableView(
+                        String(localized: "No watched folders yet"),
+                        systemImage: "folder",
+                        description: Text(String(localized: "Use the add button to watch a folder."))
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(selection: $selectedWatchedFolderIDs) {
+                        ForEach(viewModel.watchedFolders) { folder in
+                            watchedFolderRow(folder)
+                                .tag(folder.id)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .scrollIndicators(.visible, axes: .vertical)
+                    .scrollIndicatorsFlash(onAppear: true)
+                    .contentMargins(.top, 0, for: .scrollContent)
+                    .padding(.horizontal, -8)
+                }
+
+                Divider()
+
+                watchedFolderActions
+                    .frame(height: 20)
+            }
+        }
+        .frame(height: folderListHeight)
+        .onDeleteCommand(perform: removeSelectedWatchedFolders)
+    }
+
+    private var folderListHeight: CGFloat {
         280
     }
 
@@ -124,15 +198,49 @@ struct FileAccessSettingsTab: View {
         .frame(width: 360, alignment: .leading)
     }
 
-    private func folderRow(_ grant: FileAccessGrant) -> some View {
+    private func fileAccessFolderRow(_ grant: FileAccessGrant) -> some View {
+        folderRow(displayName: grant.displayName, url: grant.url)
+        .contextMenu {
+            Button(String(localized: "Remove"), role: .destructive) {
+                if selectedFileAccessGrantIDs.contains(grant.id) {
+                    removeSelectedFileAccessFolders()
+                } else {
+                    viewModel.removeFileAccessGrant(id: grant.id)
+                }
+            }
+        }
+    }
+
+    private func watchedFolderRow(_ folder: WatchedFolder) -> some View {
+        folderRow(
+            displayName: folder.displayName,
+            url: folder.url,
+            monitoringStatus: viewModel.directoryMonitoringStatuses[folder.id]
+        )
+        .contextMenu {
+            Button(String(localized: "Remove"), role: .destructive) {
+                if selectedWatchedFolderIDs.contains(folder.id) {
+                    removeSelectedWatchedFolders()
+                } else {
+                    viewModel.removeWatchedFolder(id: folder.id)
+                }
+            }
+        }
+    }
+
+    private func folderRow(
+        displayName: String,
+        url: URL,
+        monitoringStatus: DirectoryMonitoringStatus? = nil
+    ) -> some View {
         HStack(alignment: .center) {
             Image(systemName: "folder")
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(grant.displayName)
+                Text(displayName)
                     .lineLimit(1)
 
-                Text(grant.url.path(percentEncoded: false))
+                Text(url.path(percentEncoded: false))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -141,8 +249,16 @@ struct FileAccessSettingsTab: View {
 
             Spacer()
 
+            if let monitoringStatus, monitoringStatus.isDegraded {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .help(monitoringStatus.message)
+                    .accessibilityLabel(String(localized: "Folder monitoring degraded"))
+                    .accessibilityValue(monitoringStatus.message)
+            }
+
             Button {
-                PlatformWorkspace.open(grant.url)
+                PlatformWorkspace.open(url)
             } label: {
                 Label(String(localized: "Open Folder"), systemImage: "arrow.up.forward")
                     .labelStyle(.iconOnly)
@@ -150,22 +266,13 @@ struct FileAccessSettingsTab: View {
             .buttonStyle(.borderless)
             .help(String(localized: "Open Folder"))
         }
-        .contextMenu {
-            Button(String(localized: "Remove"), role: .destructive) {
-                if selectedGrantIDs.contains(grant.id) {
-                    removeSelectedFolders()
-                } else {
-                    viewModel.removeFileAccessGrant(id: grant.id)
-                }
-            }
-        }
-        .accessibilityLabel(grant.displayName)
-        .accessibilityValue(grant.url.path(percentEncoded: false))
+        .accessibilityLabel(displayName)
+        .accessibilityValue(url.path(percentEncoded: false))
     }
 
-    private var folderActions: some View {
+    private var fileAccessFolderActions: some View {
         HStack {
-            Button(action: addFolder) {
+            Button(action: addFileAccessFolder) {
                 Label(String(localized: "Add Folder"), systemImage: "plus")
                     .labelStyle(.iconOnly)
             }
@@ -175,12 +282,37 @@ struct FileAccessSettingsTab: View {
             Divider()
                 .frame(height: 16)
 
-            Button(action: removeSelectedFolders) {
+            Button(action: removeSelectedFileAccessFolders) {
                 Label(String(localized: "Remove Selected Folders"), systemImage: "minus")
                     .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
-            .disabled(selectedGrantIDs.isEmpty)
+            .disabled(selectedFileAccessGrantIDs.isEmpty)
+            .help(String(localized: "Remove Selected Folders"))
+
+            Spacer()
+        }
+        .controlSize(.small)
+    }
+
+    private var watchedFolderActions: some View {
+        HStack {
+            Button(action: addWatchedFolders) {
+                Label(String(localized: "Add Folder"), systemImage: "plus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Add Watched Folder…"))
+
+            Divider()
+                .frame(height: 16)
+
+            Button(action: removeSelectedWatchedFolders) {
+                Label(String(localized: "Remove Selected Folders"), systemImage: "minus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .disabled(selectedWatchedFolderIDs.isEmpty)
             .help(String(localized: "Remove Selected Folders"))
 
             Spacer()
@@ -199,10 +331,10 @@ struct FileAccessSettingsTab: View {
         )
     }
 
-    private func addFolder() {
+    private func addFileAccessFolder() {
         switch viewModel.authorizeDefaultFileAccessFolder() {
         case .authorized:
-            selectedGrantIDs.removeAll()
+            selectedFileAccessGrantIDs.removeAll()
         case .cancelled:
             break
         case .failure(let message):
@@ -210,10 +342,22 @@ struct FileAccessSettingsTab: View {
         }
     }
 
-    private func removeSelectedFolders() {
-        guard !selectedGrantIDs.isEmpty else { return }
-        viewModel.removeFileAccessGrants(ids: selectedGrantIDs)
-        selectedGrantIDs.removeAll()
+    private func addWatchedFolders() {
+        let existingIDs = Set(viewModel.watchedFolders.map(\.id))
+        _ = viewModel.addWatchedFolders()
+        selectedWatchedFolderIDs = Set(viewModel.watchedFolders.map(\.id)).subtracting(existingIDs)
+    }
+
+    private func removeSelectedFileAccessFolders() {
+        guard !selectedFileAccessGrantIDs.isEmpty else { return }
+        viewModel.removeFileAccessGrants(ids: selectedFileAccessGrantIDs)
+        selectedFileAccessGrantIDs.removeAll()
+    }
+
+    private func removeSelectedWatchedFolders() {
+        guard !selectedWatchedFolderIDs.isEmpty else { return }
+        viewModel.removeWatchedFolders(ids: selectedWatchedFolderIDs)
+        selectedWatchedFolderIDs.removeAll()
     }
 }
 #endif

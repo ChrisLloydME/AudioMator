@@ -88,6 +88,49 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertEqual(Set(persistedRecords.map(\.id)), Set([unresolvedID, validFolder.id]))
     }
 
+    @MainActor
+    func testViewModelRemovesMultipleWatchedFoldersTogether() throws {
+        let suiteName = "AudioMator.WatchedFolderMultipleRemovalTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let folderURLs = (0..<3).map { index in
+            FileManager.default.temporaryDirectory
+                .appendingPathComponent("AudioMator-WatchedFolder-\(index)-\(UUID().uuidString)", isDirectory: true)
+        }
+        for folderURL in folderURLs {
+            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+        }
+        defer {
+            for folderURL in folderURLs {
+                try? FileManager.default.removeItem(at: folderURL)
+            }
+        }
+
+        let watchedFolderStore = WatchedFolderStore(userDefaults: userDefaults)
+        let folders = try folderURLs.map(watchedFolderStore.makeFolder)
+        watchedFolderStore.saveFolders(folders)
+        let viewModel = AudioViewModel(
+            watchedFolderStore: watchedFolderStore,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            saveIssueLogStore: SaveIssueLogStore()
+        )
+        defer {
+            viewModel.removeWatchedFolders(ids: Set(viewModel.watchedFolders.map(\.id)))
+        }
+
+        viewModel.removeWatchedFolders(ids: [folders[0].id, folders[2].id])
+
+        XCTAssertEqual(viewModel.watchedFolders.map(\.id), [folders[1].id])
+        XCTAssertEqual(
+            WatchedFolderStore(userDefaults: userDefaults).loadFolders().map(\.id),
+            [folders[1].id]
+        )
+    }
+
     func testPlanIsBoundedAndAlwaysPrioritizesRootDirectory() {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorMonitorRoot", isDirectory: true)

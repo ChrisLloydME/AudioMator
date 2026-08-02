@@ -235,14 +235,16 @@ struct FileAccessSettingsTab: View {
     ) -> some View {
         HStack(alignment: .center) {
             Image(systemName: "folder")
+                .foregroundStyle(.primary.opacity(0.65))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(displayName)
+                    .foregroundStyle(.primary.opacity(0.82))
                     .lineLimit(1)
 
                 Text(url.path(percentEncoded: false))
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondary.opacity(0.82))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -264,6 +266,7 @@ struct FileAccessSettingsTab: View {
                     .labelStyle(.iconOnly)
             }
             .buttonStyle(.borderless)
+            .foregroundStyle(.secondary.opacity(0.82))
             .help(String(localized: "Open Folder"))
         }
         .accessibilityLabel(displayName)

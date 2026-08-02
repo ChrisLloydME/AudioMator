@@ -55,7 +55,7 @@ enum ToolbarButtonOption: String, CaseIterable, Identifiable {
         case .cancelEdits:
             return "xmark.circle"
         case .saveEdits:
-            return "square.and.arrow.down"
+            return "checkmark.circle"
         }
     }
 

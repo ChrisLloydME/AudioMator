@@ -751,6 +751,15 @@ final class AudioViewModel: ObservableObject {
         #endif
     }
 
+    func removeFileAccessGrant(id: UUID) {
+        guard fileAccessGrants.contains(where: { $0.id == id }) else { return }
+
+        securityScopedFileAccessGrantURLs.removeValue(forKey: id)?
+            .stopAccessingSecurityScopedResource()
+        fileAccessGrants.removeAll { $0.id == id }
+        fileAccessGrantStore.saveGrants(fileAccessGrants)
+    }
+
     func registerMovedFiles(_ changes: [(id: UUID, oldURL: URL, newURL: URL)]) {
         guard !changes.isEmpty else { return }
 

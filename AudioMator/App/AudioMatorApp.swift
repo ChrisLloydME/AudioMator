@@ -75,7 +75,11 @@ struct AudioMatorApp: App {
         .defaultSize(width: 900, height: 600)
 
         Settings {
-            SettingsView(sharedState: sharedState, saveIssueLogStore: saveIssueLogStore)
+            SettingsView(
+                viewModel: viewModel,
+                sharedState: sharedState,
+                saveIssueLogStore: saveIssueLogStore
+            )
         }
         .defaultSize(width: 700, height: 480)
 

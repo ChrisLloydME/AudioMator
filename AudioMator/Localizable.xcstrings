@@ -8974,6 +8974,9 @@
         }
       }
     },
+    "Open Folder" : {
+
+    },
     "Open MusicBrainz Browser" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: MusicBrainz lookup, matching, or tag-writing workflow. Usage may be indirect through localized keys or generated SwiftUI extraction.",
       "extractionState" : "stale",

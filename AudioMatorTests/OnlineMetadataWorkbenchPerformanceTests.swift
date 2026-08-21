@@ -126,13 +126,18 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         musicBrainzStore.cancelPendingRecordingLoads()
 
         let iTunesStore = makeiTunesStore(scenario: scenario)
-        let iTunesBody = iTunesTaggingWorkbenchView(
+        let iTunesView = iTunesTaggingWorkbenchView(
             store: iTunesStore,
             viewModel: viewModel
-        ).body
+        )
+        let iTunesBody = iTunesView.body
         XCTAssertFalse(
             containsLazyVStack(in: iTunesBody),
             "The page-level section container must stay eager so row-level lazy stacks do not enter a layout-estimation cycle."
+        )
+        XCTAssertTrue(
+            String(reflecting: type(of: iTunesView.assignmentSection)).contains("EquatableView"),
+            "iTunes assignments must stay behind an equatable boundary so field and plan publications cannot invalidate their native list while the user scrolls."
         )
     }
 

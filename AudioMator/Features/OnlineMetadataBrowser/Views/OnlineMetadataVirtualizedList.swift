@@ -40,6 +40,7 @@ struct OnlineMetadataVirtualizedList<Row: Equatable>: NSViewRepresentable {
         }
 
         func update(parent: OnlineMetadataVirtualizedList, container: OnlineMetadataVirtualizedListContainer) {
+            container.totalConfigurationUpdateCount += 1
             let previousRows = renderedRows
             let previousIDs = previousRows.map(self.parent.rowID)
             let nextIDs = parent.rows.map(parent.rowID)
@@ -527,6 +528,7 @@ protocol OnlineMetadataVirtualizedListContainerDelegate: AnyObject {
 final class OnlineMetadataVirtualizedListContainer: NSView {
     weak var listDelegate: OnlineMetadataVirtualizedListContainerDelegate?
     fileprivate(set) var totalRowCount = 0
+    fileprivate(set) var totalConfigurationUpdateCount = 0
     fileprivate(set) var totalMaterializedRowBuildCount = 0
     fileprivate(set) var totalRowHeightMeasurementCount = 0
     private weak var observedClipView: NSClipView?

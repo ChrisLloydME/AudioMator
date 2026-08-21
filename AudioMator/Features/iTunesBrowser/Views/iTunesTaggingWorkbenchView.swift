@@ -136,47 +136,18 @@ struct iTunesTaggingWorkbenchView: View {
         .controlSize(.small)
     }
 
-    private var assignmentSection: some View {
-        MetadataSectionCard(
-            title: "Assignments",
-            symbolName: "link",
-            lazyContent: {
-                #if os(macOS)
-                false
-                #else
-                true
-                #endif
-            }()
-        ) {
-            #if os(macOS)
-            iTunesAssignmentsAppKitList(
-                assignments: store.assignments,
-                tracks: store.availableTracks,
-                isApplying: isApplying,
-                selectedTrackID: { store.selectedTrackID(for: $0.id) },
-                selectedTrack: { store.track(for: $0) },
-                isDuplicate: { store.isDuplicateAssignment($0) },
-                onSelectTrack: { trackID, assignmentID in
-                    store.updateSelectedTrack(trackID, for: assignmentID)
-                }
-            )
-            #else
-            ForEach(Array(store.assignments.enumerated()), id: \.element.id) { index, assignment in
-                iTunesAssignmentRow(
-                    assignment: assignment,
-                    tracks: store.availableTracks,
-                    isDuplicate: store.isDuplicateAssignment(assignment),
-                    selection: trackSelectionBinding(for: assignment),
-                    selectedTrack: store.track(for: assignment)
-                )
-                .disabled(isApplying)
-
-                if index < store.assignments.count - 1 {
-                    MetadataCardDivider()
-                }
+    var assignmentSection: some View {
+        iTunesAssignmentSection(
+            storeID: store.id,
+            assignments: store.assignments,
+            tracks: store.availableTracks,
+            duplicateTrackIDs: store.duplicateTrackIDs,
+            isApplying: isApplying,
+            onSelectTrack: { trackID, assignmentID in
+                store.updateSelectedTrack(trackID, for: assignmentID)
             }
-            #endif
-        }
+        )
+        .equatable()
     }
 
     private func diffSection(plan: iTunesTaggingPlan) -> some View {
@@ -251,13 +222,6 @@ struct iTunesTaggingWorkbenchView: View {
         )
     }
 
-    private func trackSelectionBinding(for assignment: iTunesTaggingWorkbenchStore.AssignmentDraft) -> Binding<Int?> {
-        Binding(
-            get: { store.selectedTrackID(for: assignment.id) },
-            set: { store.updateSelectedTrack($0, for: assignment.id) }
-        )
-    }
-
     private func applyTags(plan: iTunesTaggingPlan) {
         let entries = plan.writeEntries
         guard !entries.isEmpty, viewModel.metadataSaveProgress == nil else { return }
@@ -272,6 +236,73 @@ struct iTunesTaggingWorkbenchView: View {
             await viewModel.applyiTunesTaggingPlan(entries)
             guard !Task.isCancelled else { return }
             store.refreshLoadedFiles(viewModel.files)
+        }
+    }
+}
+
+struct iTunesAssignmentSection: View, Equatable {
+    let storeID: UUID
+    let assignments: [iTunesTaggingWorkbenchStore.AssignmentDraft]
+    let tracks: [iTunesTrackResult]
+    let duplicateTrackIDs: Set<Int>
+    let isApplying: Bool
+    let onSelectTrack: (Int?, String) -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.storeID == rhs.storeID &&
+            lhs.assignments == rhs.assignments &&
+            lhs.tracks == rhs.tracks &&
+            lhs.duplicateTrackIDs == rhs.duplicateTrackIDs &&
+            lhs.isApplying == rhs.isApplying
+    }
+
+    var body: some View {
+        let tracksByID = Dictionary(uniqueKeysWithValues: tracks.map { ($0.trackID, $0) })
+
+        MetadataSectionCard(
+            title: "Assignments",
+            symbolName: "link",
+            lazyContent: {
+                #if os(macOS)
+                false
+                #else
+                true
+                #endif
+            }()
+        ) {
+            #if os(macOS)
+            iTunesAssignmentsAppKitList(
+                assignments: assignments,
+                tracks: tracks,
+                isApplying: isApplying,
+                selectedTrackID: { $0.selectedTrackID },
+                selectedTrack: { assignment in
+                    assignment.selectedTrackID.flatMap { tracksByID[$0] }
+                },
+                isDuplicate: { assignment in
+                    assignment.selectedTrackID.map(duplicateTrackIDs.contains) ?? false
+                },
+                onSelectTrack: onSelectTrack
+            )
+            #else
+            ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
+                iTunesAssignmentRow(
+                    assignment: assignment,
+                    tracks: tracks,
+                    isDuplicate: assignment.selectedTrackID.map(duplicateTrackIDs.contains) ?? false,
+                    selection: Binding(
+                        get: { assignment.selectedTrackID },
+                        set: { onSelectTrack($0, assignment.id) }
+                    ),
+                    selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
+                )
+                .disabled(isApplying)
+
+                if index < assignments.count - 1 {
+                    MetadataCardDivider()
+                }
+            }
+            #endif
         }
     }
 }

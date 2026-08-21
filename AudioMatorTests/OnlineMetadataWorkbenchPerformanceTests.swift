@@ -230,6 +230,56 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    func testiTunesFieldChangesDoNotInvalidateNativeAssignments() async throws {
+        let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 50)
+        let viewModel = makeViewModel(files: scenario.files)
+        let store = makeiTunesStore(scenario: scenario)
+        let hosted = HostedWorkbench(
+            rootView: iTunesTaggingWorkbenchView(store: store, viewModel: viewModel)
+        )
+
+        try await hosted.stabilizeAsync()
+        try await hosted.scrollDownAsync(distance: 1_000)
+        try await hosted.stabilizeAsync()
+
+        let list = try XCTUnwrap(
+            hosted.descendants(of: OnlineMetadataVirtualizedListContainer.self).first
+        )
+        let configurationCount = list.totalConfigurationUpdateCount
+        let field = try XCTUnwrap(iTunesTagWriteField.allCases.first)
+
+        store.setFieldSelected(!store.isFieldSelected(field), for: field)
+        try await hosted.stabilizeAsync()
+
+        let listAfterFieldChange = try XCTUnwrap(
+            hosted.descendants(of: OnlineMetadataVirtualizedListContainer.self).first
+        )
+        XCTAssertTrue(listAfterFieldChange === list)
+        XCTAssertEqual(
+            listAfterFieldChange.totalConfigurationUpdateCount,
+            configurationCount,
+            "Field and plan publications must not reconfigure an unchanged native assignment list."
+        )
+
+        let assignment = try XCTUnwrap(store.assignments.first)
+        let replacementTrackID = assignment.selectedTrackID == nil
+            ? store.availableTracks.first?.trackID
+            : nil
+        store.updateSelectedTrack(replacementTrackID, for: assignment.id)
+        try await hosted.stabilizeAsync()
+
+        let listAfterAssignmentChange = try XCTUnwrap(
+            hosted.descendants(of: OnlineMetadataVirtualizedListContainer.self).first
+        )
+        XCTAssertTrue(listAfterAssignmentChange === list)
+        XCTAssertGreaterThan(
+            listAfterAssignmentChange.totalConfigurationUpdateCount,
+            configurationCount,
+            "A real assignment change must still update the native list."
+        )
+        hosted.tearDown()
+    }
+
     func testSelectAllThenPreDiffScrollUsesWarmMedianSamples() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(
             trackCount: 21,

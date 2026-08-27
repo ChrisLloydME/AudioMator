@@ -555,6 +555,7 @@ final class AudioViewModel: ObservableObject {
                 from: candidateURLs,
                 fileIDsByKey: context.fileIDsByKey,
                 metadataPipeline: context.metadataPipeline,
+                retryTransientFailures: true,
                 onBatchLoaded: { [weak self] batch in
                     guard !batch.isEmpty, !Task.isCancelled else { return }
                     await MainActor.run { [weak self] in
@@ -1208,6 +1209,7 @@ final class AudioViewModel: ObservableObject {
         from urls: [URL],
         fileIDsByKey: [String: UUID],
         metadataPipeline: any AudioMetadataPipeline,
+        retryTransientFailures: Bool = false,
         onBatchLoaded: (@Sendable ([AudioFile]) async -> Void)? = nil
     ) async -> AudioFileLoadResult {
         let inputs: [(index: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
@@ -1244,7 +1246,12 @@ final class AudioViewModel: ObservableObject {
                 group.addTask {
                     guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
                     do {
-                        let file = try await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
+                        let file = try await loadAudioFile(
+                            at: input.url,
+                            id: input.id,
+                            metadataPipeline: metadataPipeline,
+                            retryTransientFailures: retryTransientFailures
+                        )
                         return (
                             input.index,
                             input.url,
@@ -1310,7 +1317,12 @@ final class AudioViewModel: ObservableObject {
                 group.addTask {
                     guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
                     do {
-                        let file = try await metadataPipeline.loadAudioFile(at: input.url, id: input.id)
+                        let file = try await loadAudioFile(
+                            at: input.url,
+                            id: input.id,
+                            metadataPipeline: metadataPipeline,
+                            retryTransientFailures: retryTransientFailures
+                        )
                         return (
                             input.index,
                             input.url,
@@ -1336,6 +1348,28 @@ final class AudioViewModel: ObservableObject {
             files: loadedByIndex.map(\.1),
             failures: failuresByIndex.map(\.1)
         )
+    }
+
+    nonisolated private static func loadAudioFile(
+        at url: URL,
+        id: UUID,
+        metadataPipeline: any AudioMetadataPipeline,
+        retryTransientFailures: Bool
+    ) async throws -> AudioFile {
+        do {
+            return try await metadataPipeline.loadAudioFile(at: url, id: id)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            guard retryTransientFailures, !Task.isCancelled else { throw error }
+
+            // A newly selected security-scoped or file-provider URL can be briefly
+            // unavailable while macOS grants access or materializes its contents.
+            // Keep the scope alive and retry the read once instead of requiring the
+            // user to select the same file again.
+            try await Task.sleep(for: .milliseconds(200))
+            return try await metadataPipeline.loadAudioFile(at: url, id: id)
+        }
     }
 
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {

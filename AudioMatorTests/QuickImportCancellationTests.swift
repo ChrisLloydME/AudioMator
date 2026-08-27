@@ -140,6 +140,21 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    func testQuickImportRetriesTransientInitialReadFailure() async throws {
+        let fileURL = URL(fileURLWithPath: "/tmp/transient-first-read-failure.mp3")
+        let control = TransientQuickImportReadControl()
+        let pipeline = TransientlyFailingQuickImportMetadataPipeline(control: control)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+
+        viewModel.importQuickFiles(from: [fileURL])
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
+        let attemptCount = await control.attemptCount(for: fileURL)
+
+        XCTAssertEqual(viewModel.files.map(\.url), [fileURL])
+        XCTAssertEqual(attemptCount, 2)
+        XCTAssertNil(viewModel.metadataWriteHUD)
+    }
+
     func testWatchedFolderRefreshRetainsLastKnownFileWhenMetadataReadFails() async throws {
         let suiteName = "AudioMator.WatchedFolderReadFailureTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -366,6 +381,55 @@ private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPi
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         if url == unreadableURL {
             throw CocoaError(.fileReadNoPermission)
+        }
+        return await AudioFileTestFactory.make(id: id, url: url)
+    }
+
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+    nonisolated func writeTrackNumberText(
+        _ trackNumberText: String,
+        discNumberText: String?,
+        to url: URL,
+        verifyAfterWrite: Bool
+    ) throws -> AudioMetadataWriteResult {
+        AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private actor TransientQuickImportReadControl {
+    private var attemptCountsByURL: [URL: Int] = [:]
+
+    func recordAttempt(for url: URL) -> Int {
+        attemptCountsByURL[url, default: 0] += 1
+        return attemptCountsByURL[url, default: 0]
+    }
+
+    func attemptCount(for url: URL) -> Int {
+        attemptCountsByURL[url, default: 0]
+    }
+}
+
+private final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private let control: TransientQuickImportReadControl
+
+    init(control: TransientQuickImportReadControl) {
+        self.control = control
+    }
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        let attempt = await control.recordAttempt(for: url)
+        guard attempt > 1 else {
+            throw CocoaError(.fileReadUnknown)
         }
         return await AudioFileTestFactory.make(id: id, url: url)
     }

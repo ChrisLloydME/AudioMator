@@ -70,6 +70,36 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testConcurrentM4AReadsRemainStable() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-Concurrent-M4A-Reads-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: temporaryDirectory)
+        }
+
+        let fixtureURLs = try (0..<12).map { index in
+            let copyURL = temporaryDirectory.appendingPathComponent("fixture-\(index).m4a")
+            try FileManager.default.copyItem(at: fixtureURL, to: copyURL)
+            return copyURL
+        }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for fixtureURL in fixtureURLs {
+                group.addTask {
+                    for _ in 0..<25 {
+                        let metadata = try TagLibMetadataManager.readMetadataResult(from: fixtureURL)
+                        guard metadata.duration > 0 else {
+                            throw ConcurrentM4AReadTestError.missingDuration(fixtureURL)
+                        }
+                    }
+                }
+            }
+            try await group.waitForAll()
+        }
+    }
+
     func testRawMetadataInspectionLoadsAcrossAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
 
@@ -688,4 +718,8 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
     private func removeTemporaryFixtureDirectory(containing workingURL: URL) {
         try? FileManager.default.removeItem(at: workingURL.deletingLastPathComponent())
     }
+}
+
+private enum ConcurrentM4AReadTestError: Error {
+    case missingDuration(URL)
 }

@@ -590,7 +590,7 @@
 			repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 0.4.4;
+				minimumVersion = 0.4.5;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

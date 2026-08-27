@@ -148,7 +148,7 @@ final class QuickImportCancellationTests: XCTestCase {
 
         viewModel.importQuickFiles(from: [fileURL])
         try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
-        let attemptCount = await control.attemptCount
+        let attemptCount = await control.attemptCount(for: fileURL)
 
         XCTAssertEqual(viewModel.files.map(\.url), [fileURL])
         XCTAssertEqual(attemptCount, 2)
@@ -407,11 +407,15 @@ private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPi
 }
 
 private actor TransientQuickImportReadControl {
-    private(set) var attemptCount = 0
+    private var attemptCountsByURL: [URL: Int] = [:]
 
-    func recordAttempt() -> Int {
-        attemptCount += 1
-        return attemptCount
+    func recordAttempt(for url: URL) -> Int {
+        attemptCountsByURL[url, default: 0] += 1
+        return attemptCountsByURL[url, default: 0]
+    }
+
+    func attemptCount(for url: URL) -> Int {
+        attemptCountsByURL[url, default: 0]
     }
 }
 
@@ -423,7 +427,7 @@ private final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadata
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        let attempt = await control.recordAttempt()
+        let attempt = await control.recordAttempt(for: url)
         guard attempt > 1 else {
             throw CocoaError(.fileReadUnknown)
         }

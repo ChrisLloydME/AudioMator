@@ -8,6 +8,8 @@ private extension MusicBrainzClientError {
 }
 
 actor MusicBrainzRateLimiter {
+    nonisolated static let shared = MusicBrainzRateLimiter()
+
     private let minimumIntervalNanoseconds: UInt64
     private var lastRequestUptimeNanoseconds: UInt64?
 
@@ -29,6 +31,64 @@ actor MusicBrainzRateLimiter {
     }
 }
 
+nonisolated struct MusicBrainzRetryPolicy: Sendable {
+    static let production = MusicBrainzRetryPolicy(maximumRetryCount: 2, baseDelaySeconds: 2)
+    static let disabled = MusicBrainzRetryPolicy(maximumRetryCount: 0, baseDelaySeconds: 0)
+
+    let maximumRetryCount: Int
+    let baseDelaySeconds: Int
+
+    func delay(forRetry retry: Int) -> Duration {
+        let exponent = min(max(0, retry), 8)
+        let multiplier = 1 << exponent
+        let deterministicJitterMilliseconds = 150 * (retry + 1)
+        return .milliseconds(
+            (max(0, baseDelaySeconds) * multiplier * 1_000) + deterministicJitterMilliseconds
+        )
+    }
+}
+
+actor MusicBrainzResponseCache {
+    private struct Entry {
+        let data: Data
+        let expiresAt: Date
+    }
+
+    private var entriesByURL: [URL: Entry] = [:]
+    private var inFlightTasksByURL: [URL: Task<Data, Error>] = [:]
+
+    func data(
+        for url: URL,
+        timeToLive: TimeInterval,
+        loader: @escaping @Sendable () async throws -> Data
+    ) async throws -> Data {
+        let now = Date()
+        if let entry = entriesByURL[url], entry.expiresAt > now {
+            return entry.data
+        }
+        entriesByURL[url] = nil
+
+        if let inFlightTask = inFlightTasksByURL[url] {
+            return try await inFlightTask.value
+        }
+
+        let task = Task { try await loader() }
+        inFlightTasksByURL[url] = task
+        do {
+            let data = try await task.value
+            entriesByURL[url] = Entry(
+                data: data,
+                expiresAt: now.addingTimeInterval(max(0, timeToLive))
+            )
+            inFlightTasksByURL[url] = nil
+            return data
+        } catch {
+            inFlightTasksByURL[url] = nil
+            throw error
+        }
+    }
+}
+
 nonisolated protocol MusicBrainzBrowserClient: Sendable {
     func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults
     func recordingDetail(
@@ -46,14 +106,20 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private let session: URLSession
     private let decoder: JSONDecoder
     private let rateLimiter: MusicBrainzRateLimiter
+    private let responseCache: MusicBrainzResponseCache
+    private let retryPolicy: MusicBrainzRetryPolicy
     private let userAgent: String
 
     init(
         session: URLSession = .shared,
-        rateLimiter: MusicBrainzRateLimiter = MusicBrainzRateLimiter()
+        rateLimiter: MusicBrainzRateLimiter = .shared,
+        responseCache: MusicBrainzResponseCache = MusicBrainzResponseCache(),
+        retryPolicy: MusicBrainzRetryPolicy = .production
     ) {
         self.session = session
         self.rateLimiter = rateLimiter
+        self.responseCache = responseCache
+        self.retryPolicy = retryPolicy
 
         let decoder = JSONDecoder()
         self.decoder = decoder
@@ -722,19 +788,48 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let preparedRequest = request
 
-        try await rateLimiter.waitIfNeeded()
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MusicBrainzClientError.invalidResponse
+        let cacheTimeToLive: TimeInterval = id == nil ? 30 * 60 : 7 * 24 * 60 * 60
+        return try await responseCache.data(for: url, timeToLive: cacheTimeToLive) {
+            try await Self.execute(
+                preparedRequest,
+                session: session,
+                rateLimiter: rateLimiter,
+                retryPolicy: retryPolicy
+            )
         }
+    }
 
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
+    private static func execute(
+        _ request: URLRequest,
+        session: URLSession,
+        rateLimiter: MusicBrainzRateLimiter,
+        retryPolicy: MusicBrainzRetryPolicy
+    ) async throws -> Data {
+        var retry = 0
+
+        while true {
+            try Task.checkCancellation()
+            try await rateLimiter.waitIfNeeded()
+            let (data, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw MusicBrainzClientError.invalidResponse
+            }
+
+            if httpResponse.statusCode == 503, retry < retryPolicy.maximumRetryCount {
+                try await Task.sleep(for: retryPolicy.delay(forRetry: retry))
+                retry += 1
+                continue
+            }
+
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+
+            return data
         }
-
-        return data
     }
 
     private static func describeDecodingError(_ error: DecodingError) -> String {

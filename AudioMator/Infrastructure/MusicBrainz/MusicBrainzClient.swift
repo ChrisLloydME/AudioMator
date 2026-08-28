@@ -141,18 +141,24 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         }
 
         let strongQueries = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQueries(from: query)
-        if !strongQueries.isEmpty {
+        if let strongQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
+            from: strongQueries,
+            maximumClauseCount: Self.multiFileFallbackQueryLimit
+        ) {
             candidates.append(contentsOf: try await searchReleases(
-                luceneQueries: Array(strongQueries.prefix(Self.multiFileFallbackQueryLimit)),
+                luceneQueries: [strongQuery],
                 limit: 12
             ))
         }
 
         if candidates.isEmpty {
             let broadQueries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(from: query)
-            if !broadQueries.isEmpty {
+            if let broadQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
+                from: broadQueries,
+                maximumClauseCount: Self.multiFileFallbackQueryLimit
+            ) {
                 candidates.append(contentsOf: try await searchReleases(
-                    luceneQueries: Array(broadQueries.prefix(Self.multiFileFallbackQueryLimit)),
+                    luceneQueries: [broadQuery],
                     limit: 20
                 ))
             }
@@ -331,8 +337,12 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             MusicBrainzLuceneQueryBuilder.fileStrongSearchQueries(from: query),
             maximumCount: fallbackQueryLimit
         )
-        if !strongQueries.isEmpty {
-            let exactMatches = try await searchRecordings(luceneQueries: strongQueries, limit: 15)
+        let preparedStrongQueries = Self.preparedFallbackQueries(
+            strongQueries,
+            maximumCount: fallbackQueryLimit
+        )
+        if !preparedStrongQueries.isEmpty {
+            let exactMatches = try await searchRecordings(luceneQueries: preparedStrongQueries, limit: 15)
             candidates.append(contentsOf: exactMatches)
             preferredRecordingIDs.formUnion(exactMatches.map(\.id))
         }
@@ -341,8 +351,12 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             MusicBrainzLuceneQueryBuilder.fileSearchQueries(from: query),
             maximumCount: fallbackQueryLimit
         )
-        if !broadQueries.isEmpty {
-            candidates.append(contentsOf: try await searchRecordings(luceneQueries: broadQueries, limit: limit))
+        let preparedBroadQueries = Self.preparedFallbackQueries(
+            broadQueries,
+            maximumCount: fallbackQueryLimit
+        )
+        if !preparedBroadQueries.isEmpty {
+            candidates.append(contentsOf: try await searchRecordings(luceneQueries: preparedBroadQueries, limit: limit))
         }
 
         let deduplicatedCandidates = Self.deduplicatedRecordings(candidates)
@@ -591,6 +605,20 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static func limitedQueries(_ queries: [String], maximumCount: Int?) -> [String] {
         guard let maximumCount else { return queries }
         return Array(queries.prefix(max(0, maximumCount)))
+    }
+
+    private static func preparedFallbackQueries(
+        _ queries: [String],
+        maximumCount: Int?
+    ) -> [String] {
+        guard let maximumCount else { return queries }
+        guard let combinedQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
+            from: queries,
+            maximumClauseCount: maximumCount
+        ) else {
+            return []
+        }
+        return [combinedQuery]
     }
 
     private static func deduplicatedReleases(_ releases: [MusicBrainzReleaseSearchResult]) -> [MusicBrainzReleaseSearchResult] {

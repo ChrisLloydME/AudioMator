@@ -2,6 +2,18 @@ import XCTest
 @testable import AudioMator
 
 final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
+    func testCombinedSearchQueryPreservesPriorityDeduplicatesAndCapsClauses() throws {
+        let combined = try XCTUnwrap(
+            MusicBrainzProviderLuceneQueryBuilder.combinedSearchQuery(
+                from: ["strict", "fallback", "strict", "broad", "unused"],
+                maximumClauseCount: 3
+            )
+        )
+
+        XCTAssertEqual(combined, "(strict OR fallback OR broad)")
+        XCTAssertFalse(combined.contains("unused"))
+    }
+
     func testRecordingSearchQueriesEscapeReservedLuceneCharacters() {
         let query = MusicBrainzSearchQuery(
             mode: .track,

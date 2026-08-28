@@ -182,6 +182,52 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
     }
 
+    func testMusicBrainzMultiFileNoResultSearchHasBoundedFallbackRequests() async throws {
+        let requestRecorder = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requestRecorder.record(request)
+            let data = request.url?.path.contains("/release") == true
+                ? Data(#"{"releases":[]}"#.utf8)
+                : Data(#"{"recordings":[]}"#.utf8)
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )
+            )
+            return (response, data)
+        }
+        let files = (1...3).map { trackNumber in
+            MusicBrainzFileSearchInput(
+                id: "file-\(trackNumber)",
+                displayTitle: "Track \(trackNumber)",
+                title: "Track \(trackNumber)",
+                artist: "Artist",
+                albumArtist: "Artist",
+                album: "Album",
+                trackNumber: String(trackNumber),
+                trackTotal: 3,
+                durationMilliseconds: 180_000
+            )
+        }
+        let query = MusicBrainzSearchQuery(mode: .file, fileInputs: files)
+        let client = MusicBrainzClient(
+            session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0)
+        )
+
+        let results = try await client.search(matching: query, limit: 25)
+
+        XCTAssertEqual(results, .releases([]))
+        XCTAssertLessThanOrEqual(
+            requestRecorder.requestCount,
+            9,
+            "A no-result fallback must stay below the browser's overall search deadline."
+        )
+    }
+
     func testArtworkNormalizerDownsamplesBeforePNGEncoding() throws {
         let sourceData = try XCTUnwrap(
             Data(
@@ -388,6 +434,10 @@ private final class ProviderRequestRecorder: @unchecked Sendable {
 
     var hosts: [String] {
         lock.withLock { recordedRequests.compactMap(\.host) }
+    }
+
+    var requestCount: Int {
+        lock.withLock { recordedRequests.count }
     }
 
     func record(_ request: URLRequest) {

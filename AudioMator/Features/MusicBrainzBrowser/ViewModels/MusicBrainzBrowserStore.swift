@@ -252,6 +252,9 @@ final class MusicBrainzBrowserStore: ObservableObject {
 
     func handleModeChange(from oldMode: MusicBrainzSearchMode, to newMode: MusicBrainzSearchMode) {
         guard oldMode != newMode else { return }
+        // Seeding can update the mode and immediately start a search before SwiftUI
+        // delivers its deferred onChange notification. Do not cancel that search.
+        guard lastSubmittedQuery?.mode != newMode else { return }
         cancelSearch()
         resetNavigation()
         isSearching = false

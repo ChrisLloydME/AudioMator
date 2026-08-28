@@ -4,6 +4,40 @@ import XCTest
 #if os(macOS)
 @MainActor
 final class ProviderSearchRestartTests: XCTestCase {
+    func testMusicBrainzSeededModeNotificationDoesNotCancelInitialSearch() {
+        let gate = NonCooperativeProviderSearchGate()
+        let store = MusicBrainzBrowserStore(
+            client: NonCooperativeMusicBrainzBrowserClient(gate: gate)
+        )
+        store.apply(seed: MusicBrainzSearchSeed(
+            mode: .file,
+            title: "Track",
+            artist: "Artist",
+            albumArtist: "Artist",
+            album: "Album",
+            trackNumber: "1",
+            trackTotal: 1,
+            durationMilliseconds: 180_000,
+            releaseDate: "",
+            isrc: "",
+            barcode: "",
+            musicBrainzAlbumID: "",
+            musicBrainzTrackID: "",
+            fileInputs: [],
+            link: "",
+            sourceDescription: "Test selection"
+        ))
+
+        store.search()
+        store.handleModeChange(from: .track, to: .file)
+
+        XCTAssertTrue(
+            store.isSearching,
+            "The deferred mode notification from seeding must not cancel the initial search."
+        )
+        store.closeWindowSession()
+    }
+
     func testiTunesAlbumMatchingDoesNotBlockMainActor() async throws {
         let matchingGate = BlockingSynchronousGate()
         let detail = makeAlbumDetail()

@@ -41,6 +41,7 @@ nonisolated protocol MusicBrainzBrowserClient: Sendable {
 nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static let baseURL = URL(string: "https://\(NetworkServiceDisclosure.MusicBrainz.host)/ws/2")!
     private static let multiFileFallbackQueryLimit = 3
+    private static let maximumReleaseDetailCandidates = 3
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -200,7 +201,9 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         }
 
         var matchedResults: [MusicBrainzReleaseSearchResult] = []
-        for candidate in orderedCandidates.prefix(6) {
+        for (candidateIndex, candidate) in orderedCandidates
+            .prefix(Self.maximumReleaseDetailCandidates)
+            .enumerated() {
             try Task.checkCancellation()
             do {
                 let detail = try await releaseDetail(id: candidate.id)
@@ -214,6 +217,15 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                         selectionMatchScore: preview.overallScore
                     )
                 )
+                let nextCandidate = orderedCandidates.dropFirst(candidateIndex + 1).first
+                if Self.shouldStopReleaseDetailVerification(
+                    candidate: candidate,
+                    nextCandidate: nextCandidate,
+                    preview: preview,
+                    evidence: filenameEvidenceByReleaseID[candidate.id] ?? 0
+                ) {
+                    break
+                }
             } catch {
                 try Task.checkCancellation()
                 matchedResults.append(candidate)
@@ -632,23 +644,58 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         return orderedResults
     }
 
-    private static func representativeFilesForReleaseLookup(
+    static func representativeFilesForReleaseLookup(
         from files: [MusicBrainzFileSearchInput]
     ) -> [MusicBrainzFileSearchInput] {
-        let orderedFiles = files
+        files
             .filter { !$0.preferredDisplayTitle.isEmpty }
             .sorted {
-                ($0.normalizedDiscNumber ?? 0, $0.normalizedTrackNumber ?? 0, $0.preferredDisplayTitle)
+                let lhsScore = representativeInformationScore($0)
+                let rhsScore = representativeInformationScore($1)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                return ($0.normalizedDiscNumber ?? 0, $0.normalizedTrackNumber ?? 0, $0.preferredDisplayTitle)
                     < ($1.normalizedDiscNumber ?? 0, $1.normalizedTrackNumber ?? 0, $1.preferredDisplayTitle)
             }
+    }
 
-        guard orderedFiles.count > 3 else {
-            return orderedFiles
+    static func shouldStopReleaseDetailVerification(
+        candidate: MusicBrainzReleaseSearchResult,
+        nextCandidate: MusicBrainzReleaseSearchResult?,
+        preview: MusicBrainzReleaseMatchPreview,
+        evidence: Double
+    ) -> Bool {
+        guard !preview.selectionLooksMixed else { return false }
+        guard preview.totalSelectedFiles > 0 else { return false }
+        let coverage = Double(preview.matchedFileCount) / Double(preview.totalSelectedFiles)
+        guard coverage >= 0.9 else { return false }
+        guard preview.averageTrackScore >= 0.88 else { return false }
+        guard preview.unmatchedFiles.isEmpty else { return false }
+
+        if evidence >= 1 {
+            return true
         }
 
-        let positions = [0, orderedFiles.count / 2, orderedFiles.count - 1]
-        let uniquePositions = Array(NSOrderedSet(array: positions)) as? [Int] ?? positions
-        return uniquePositions.map { orderedFiles[$0] }
+        guard candidate.score >= 90 else { return false }
+        guard let nextCandidate else { return true }
+        return candidate.score - nextCandidate.score >= 8
+    }
+
+    private static func representativeInformationScore(
+        _ file: MusicBrainzFileSearchInput
+    ) -> Int {
+        var score = 0
+        if file.musicBrainzTrackID.validMBID != nil { score += 100 }
+        if !file.isrc.isEmpty { score += 80 }
+        if !file.title.isEmpty { score += 24 }
+        if !file.artist.isEmpty { score += 18 }
+        if !file.albumArtist.isEmpty { score += 12 }
+        if !file.album.isEmpty { score += 12 }
+        if file.normalizedTrackNumber != nil { score += 8 }
+        if file.durationMilliseconds != nil { score += 8 }
+        if !file.normalizedReleaseYear.isEmpty { score += 4 }
+        return score
     }
 
     private func performRequest(

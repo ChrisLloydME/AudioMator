@@ -4,6 +4,35 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
     nonisolated private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
     nonisolated private static let maxPreferredClauseCount = 6
     nonisolated private static let maxPreferredClauseLength = 420
+    nonisolated private static let maxCombinedQueryLength = 900
+
+    static func combinedSearchQuery(
+        from queries: [String],
+        maximumClauseCount: Int
+    ) -> String? {
+        let normalizedQueries = deduplicatedClauses(queries)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(max(0, maximumClauseCount))
+
+        var acceptedQueries: [String] = []
+        for query in normalizedQueries {
+            let candidate = acceptedQueries.isEmpty
+                ? query
+                : anyOf(acceptedQueries + [query])
+            guard candidate.count <= maxCombinedQueryLength else { break }
+            acceptedQueries.append(query)
+        }
+
+        switch acceptedQueries.count {
+        case 0:
+            return nil
+        case 1:
+            return acceptedQueries[0]
+        default:
+            return anyOf(acceptedQueries)
+        }
+    }
 
     static func recordingSearchQueries(from query: MusicBrainzProviderSearchQuery) -> [String] {
         finalizedPreferredClauses(

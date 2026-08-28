@@ -1,6 +1,16 @@
 import Foundation
 
 nonisolated enum MusicBrainzLuceneQueryBuilder {
+    static func combinedSearchQuery(
+        from queries: [String],
+        maximumClauseCount: Int
+    ) -> String? {
+        MusicBrainzProviderLuceneQueryBuilder.combinedSearchQuery(
+            from: queries,
+            maximumClauseCount: maximumClauseCount
+        )
+    }
+
     static func recordingSearchQueries(from query: MusicBrainzSearchQuery) -> [String] {
         MusicBrainzProviderLuceneQueryBuilder.recordingSearchQueries(from: query.providerSearchQuery)
     }

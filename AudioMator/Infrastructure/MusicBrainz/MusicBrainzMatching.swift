@@ -38,7 +38,7 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
             releaseArtistCredit: release.artistCredit,
             exactOnly: true
         )
-        let exactAssignments = greedyAssignments(from: exactCandidates)
+        let exactAssignments = optimalAssignments(from: exactCandidates)
 
         let assignedFileIDs = Set(exactAssignments.map(\.file.id))
         let assignedTrackIDs = Set(exactAssignments.map(\.track.id))
@@ -52,7 +52,7 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
             releaseArtistCredit: release.artistCredit,
             exactOnly: false
         )
-        let similarityAssignments = greedyAssignments(from: similarityCandidates)
+        let similarityAssignments = optimalAssignments(from: similarityCandidates)
 
         let allAssignments = (exactAssignments + similarityAssignments)
             .sorted {
@@ -182,23 +182,121 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         }
     }
 
-    private static func greedyAssignments(
+    static func optimalAssignments(
         from candidates: [MusicBrainzReleaseMatchAssignment]
     ) -> [MusicBrainzReleaseMatchAssignment] {
-        var assignedFileIDs: Set<String> = []
-        var assignedTrackIDs: Set<String> = []
-        var assignments: [MusicBrainzReleaseMatchAssignment] = []
+        guard !candidates.isEmpty else { return [] }
 
+        let files = candidates.reduce(into: [String: MusicBrainzFileSearchInput]()) {
+            $0[$1.file.id] = $1.file
+        }
+        .values
+        .sorted { $0.id < $1.id }
+        let tracks = candidates.reduce(into: [String: MusicBrainzReleaseMatchTrack]()) {
+            $0[$1.track.id] = $1.track
+        }
+        .values
+        .sorted { $0.id < $1.id }
+        guard !files.isEmpty, !tracks.isEmpty else { return [] }
+
+        var bestCandidateByPair: [String: MusicBrainzReleaseMatchAssignment] = [:]
         for candidate in candidates {
-            guard !assignedFileIDs.contains(candidate.file.id) else { continue }
-            guard !assignedTrackIDs.contains(candidate.track.id) else { continue }
-
-            assignedFileIDs.insert(candidate.file.id)
-            assignedTrackIDs.insert(candidate.track.id)
-            assignments.append(candidate)
+            let key = assignmentKey(fileID: candidate.file.id, trackID: candidate.track.id)
+            if candidate.score > (bestCandidateByPair[key]?.score ?? -.infinity) {
+                bestCandidateByPair[key] = candidate
+            }
         }
 
-        return assignments
+        let realTrackCount = tracks.count
+        let columnCount = realTrackCount + files.count
+        let costs = files.map { file in
+            tracks.map { track in
+                let key = assignmentKey(fileID: file.id, trackID: track.id)
+                return 1 - (bestCandidateByPair[key]?.score ?? 0)
+            } + Array(repeating: 1.0, count: files.count)
+        }
+        let assignedColumnByRow = minimumCostColumns(costs, columnCount: columnCount)
+
+        return assignedColumnByRow.enumerated().compactMap { row, column in
+            guard column >= 0, column < realTrackCount else { return nil }
+            let key = assignmentKey(fileID: files[row].id, trackID: tracks[column].id)
+            return bestCandidateByPair[key]
+        }
+        .sorted {
+            if $0.score == $1.score {
+                return $0.id < $1.id
+            }
+            return $0.score > $1.score
+        }
+    }
+
+    private static func assignmentKey(fileID: String, trackID: String) -> String {
+        "\(fileID)\u{1F}\(trackID)"
+    }
+
+    /// Rectangular Hungarian assignment. Extra zero-value columns let files
+    /// remain unmatched instead of forcing a low-confidence edge.
+    private static func minimumCostColumns(
+        _ costs: [[Double]],
+        columnCount: Int
+    ) -> [Int] {
+        let rowCount = costs.count
+        guard rowCount > 0, columnCount >= rowCount else { return [] }
+
+        var rowPotential = Array(repeating: 0.0, count: rowCount + 1)
+        var columnPotential = Array(repeating: 0.0, count: columnCount + 1)
+        var matchedRowByColumn = Array(repeating: 0, count: columnCount + 1)
+        var previousColumn = Array(repeating: 0, count: columnCount + 1)
+
+        for row in 1...rowCount {
+            matchedRowByColumn[0] = row
+            var currentColumn = 0
+            var minimumReducedCost = Array(repeating: Double.infinity, count: columnCount + 1)
+            var usedColumns = Array(repeating: false, count: columnCount + 1)
+
+            repeat {
+                usedColumns[currentColumn] = true
+                let currentRow = matchedRowByColumn[currentColumn]
+                var delta = Double.infinity
+                var nextColumn = 0
+
+                for column in 1...columnCount where !usedColumns[column] {
+                    let reducedCost = costs[currentRow - 1][column - 1]
+                        - rowPotential[currentRow]
+                        - columnPotential[column]
+                    if reducedCost < minimumReducedCost[column] {
+                        minimumReducedCost[column] = reducedCost
+                        previousColumn[column] = currentColumn
+                    }
+                    if minimumReducedCost[column] < delta {
+                        delta = minimumReducedCost[column]
+                        nextColumn = column
+                    }
+                }
+
+                for column in 0...columnCount {
+                    if usedColumns[column] {
+                        rowPotential[matchedRowByColumn[column]] += delta
+                        columnPotential[column] -= delta
+                    } else {
+                        minimumReducedCost[column] -= delta
+                    }
+                }
+                currentColumn = nextColumn
+            } while matchedRowByColumn[currentColumn] != 0
+
+            repeat {
+                let predecessor = previousColumn[currentColumn]
+                matchedRowByColumn[currentColumn] = matchedRowByColumn[predecessor]
+                currentColumn = predecessor
+            } while currentColumn != 0
+        }
+
+        var assignedColumnByRow = Array(repeating: -1, count: rowCount)
+        for column in 1...columnCount where matchedRowByColumn[column] > 0 {
+            assignedColumnByRow[matchedRowByColumn[column] - 1] = column - 1
+        }
+        return assignedColumnByRow
     }
 
     private static func candidateAssignment(

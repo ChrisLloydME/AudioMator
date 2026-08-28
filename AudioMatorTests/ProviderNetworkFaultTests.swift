@@ -223,8 +223,8 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertEqual(results, .releases([]))
         XCTAssertLessThanOrEqual(
             requestRecorder.requestCount,
-            9,
-            "A no-result fallback must stay below the browser's overall search deadline."
+            3,
+            "Each multi-file fallback stage should be represented by at most one request."
         )
     }
 

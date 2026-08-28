@@ -40,6 +40,7 @@ nonisolated protocol MusicBrainzBrowserClient: Sendable {
 
 nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static let baseURL = URL(string: "https://\(NetworkServiceDisclosure.MusicBrainz.host)/ws/2")!
+    private static let multiFileFallbackQueryLimit = 3
 
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -141,17 +142,30 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 
         let strongQueries = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQueries(from: query)
         if !strongQueries.isEmpty {
-            candidates.append(contentsOf: try await searchReleases(luceneQueries: strongQueries, limit: 12))
+            candidates.append(contentsOf: try await searchReleases(
+                luceneQueries: Array(strongQueries.prefix(Self.multiFileFallbackQueryLimit)),
+                limit: 12
+            ))
         }
 
-        let broadQueries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(from: query)
-        if !broadQueries.isEmpty {
-            candidates.append(contentsOf: try await searchReleases(luceneQueries: broadQueries, limit: 20))
+        if candidates.isEmpty {
+            let broadQueries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(from: query)
+            if !broadQueries.isEmpty {
+                candidates.append(contentsOf: try await searchReleases(
+                    luceneQueries: Array(broadQueries.prefix(Self.multiFileFallbackQueryLimit)),
+                    limit: 20
+                ))
+            }
         }
 
-        for candidate in try await releaseCandidatesFromRepresentativeFiles(selectionSummary, filters: query.releaseFilters) {
-            candidates.append(candidate.release)
-            filenameEvidenceByReleaseID[candidate.release.id, default: 0] += candidate.evidence
+        if candidates.isEmpty {
+            for candidate in try await releaseCandidatesFromRepresentativeFiles(
+                selectionSummary,
+                filters: query.releaseFilters
+            ) {
+                candidates.append(candidate.release)
+                filenameEvidenceByReleaseID[candidate.release.id, default: 0] += candidate.evidence
+            }
         }
 
         let deduplicatedCandidates = Self.deduplicatedReleases(candidates)
@@ -231,7 +245,9 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 
         var evidenceByReleaseID: [String: Double] = [:]
 
-        for (fileIndex, file) in representativeFiles.enumerated() {
+        // One representative recording is enough to discover release IDs. The
+        // full selection is compared against release details later in the flow.
+        for (fileIndex, file) in representativeFiles.prefix(1).enumerated() {
             try Task.checkCancellation()
             let title = file.title.isEmpty ? file.preferredDisplayTitle : file.title
             guard !title.isEmpty else { continue }
@@ -255,7 +271,11 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                 releaseFilters: filters
             )
 
-            let recordings = try await searchFiles(matching: query, limit: 6)
+            let recordings = try await searchFiles(
+                matching: query,
+                limit: 6,
+                fallbackQueryLimit: Self.multiFileFallbackQueryLimit
+            )
             let fileWeight = max(0.45, 1.0 - (Double(fileIndex) * 0.2))
 
             for (recordingIndex, recording) in recordings.prefix(4).enumerated() {
@@ -295,7 +315,11 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         return candidates
     }
 
-    func searchFiles(matching query: MusicBrainzSearchQuery, limit: Int = 50) async throws -> [MusicBrainzRecordingResult] {
+    func searchFiles(
+        matching query: MusicBrainzSearchQuery,
+        limit: Int = 50,
+        fallbackQueryLimit: Int? = nil
+    ) async throws -> [MusicBrainzRecordingResult] {
         guard !query.isEmpty else {
             throw MusicBrainzClientError.emptyQuery
         }
@@ -303,14 +327,20 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         var candidates: [MusicBrainzRecordingResult] = []
         var preferredRecordingIDs: Set<String> = []
 
-        let strongQueries = MusicBrainzLuceneQueryBuilder.fileStrongSearchQueries(from: query)
+        let strongQueries = Self.limitedQueries(
+            MusicBrainzLuceneQueryBuilder.fileStrongSearchQueries(from: query),
+            maximumCount: fallbackQueryLimit
+        )
         if !strongQueries.isEmpty {
             let exactMatches = try await searchRecordings(luceneQueries: strongQueries, limit: 15)
             candidates.append(contentsOf: exactMatches)
             preferredRecordingIDs.formUnion(exactMatches.map(\.id))
         }
 
-        let broadQueries = MusicBrainzLuceneQueryBuilder.fileSearchQueries(from: query)
+        let broadQueries = Self.limitedQueries(
+            MusicBrainzLuceneQueryBuilder.fileSearchQueries(from: query),
+            maximumCount: fallbackQueryLimit
+        )
         if !broadQueries.isEmpty {
             candidates.append(contentsOf: try await searchRecordings(luceneQueries: broadQueries, limit: limit))
         }
@@ -556,6 +586,11 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         }
 
         return orderedResults
+    }
+
+    private static func limitedQueries(_ queries: [String], maximumCount: Int?) -> [String] {
+        guard let maximumCount else { return queries }
+        return Array(queries.prefix(max(0, maximumCount)))
     }
 
     private static func deduplicatedReleases(_ releases: [MusicBrainzReleaseSearchResult]) -> [MusicBrainzReleaseSearchResult] {

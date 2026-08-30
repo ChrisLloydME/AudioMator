@@ -8,6 +8,8 @@ private extension MusicBrainzClientError {
 }
 
 actor MusicBrainzRateLimiter {
+    nonisolated static let shared = MusicBrainzRateLimiter()
+
     private let minimumIntervalNanoseconds: UInt64
     private var lastRequestUptimeNanoseconds: UInt64?
 
@@ -29,6 +31,64 @@ actor MusicBrainzRateLimiter {
     }
 }
 
+nonisolated struct MusicBrainzRetryPolicy: Sendable {
+    static let production = MusicBrainzRetryPolicy(maximumRetryCount: 2, baseDelaySeconds: 2)
+    static let disabled = MusicBrainzRetryPolicy(maximumRetryCount: 0, baseDelaySeconds: 0)
+
+    let maximumRetryCount: Int
+    let baseDelaySeconds: Int
+
+    func delay(forRetry retry: Int) -> Duration {
+        let exponent = min(max(0, retry), 8)
+        let multiplier = 1 << exponent
+        let deterministicJitterMilliseconds = 150 * (retry + 1)
+        return .milliseconds(
+            (max(0, baseDelaySeconds) * multiplier * 1_000) + deterministicJitterMilliseconds
+        )
+    }
+}
+
+actor MusicBrainzResponseCache {
+    private struct Entry {
+        let data: Data
+        let expiresAt: Date
+    }
+
+    private var entriesByURL: [URL: Entry] = [:]
+    private var inFlightTasksByURL: [URL: Task<Data, Error>] = [:]
+
+    func data(
+        for url: URL,
+        timeToLive: TimeInterval,
+        loader: @escaping @Sendable () async throws -> Data
+    ) async throws -> Data {
+        let now = Date()
+        if let entry = entriesByURL[url], entry.expiresAt > now {
+            return entry.data
+        }
+        entriesByURL[url] = nil
+
+        if let inFlightTask = inFlightTasksByURL[url] {
+            return try await inFlightTask.value
+        }
+
+        let task = Task { try await loader() }
+        inFlightTasksByURL[url] = task
+        do {
+            let data = try await task.value
+            entriesByURL[url] = Entry(
+                data: data,
+                expiresAt: now.addingTimeInterval(max(0, timeToLive))
+            )
+            inFlightTasksByURL[url] = nil
+            return data
+        } catch {
+            inFlightTasksByURL[url] = nil
+            throw error
+        }
+    }
+}
+
 nonisolated protocol MusicBrainzBrowserClient: Sendable {
     func search(matching query: MusicBrainzSearchQuery, limit: Int) async throws -> MusicBrainzSearchResults
     func recordingDetail(
@@ -41,18 +101,25 @@ nonisolated protocol MusicBrainzBrowserClient: Sendable {
 nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static let baseURL = URL(string: "https://\(NetworkServiceDisclosure.MusicBrainz.host)/ws/2")!
     private static let multiFileFallbackQueryLimit = 3
+    private static let maximumReleaseDetailCandidates = 3
 
     private let session: URLSession
     private let decoder: JSONDecoder
     private let rateLimiter: MusicBrainzRateLimiter
+    private let responseCache: MusicBrainzResponseCache
+    private let retryPolicy: MusicBrainzRetryPolicy
     private let userAgent: String
 
     init(
         session: URLSession = .shared,
-        rateLimiter: MusicBrainzRateLimiter = MusicBrainzRateLimiter()
+        rateLimiter: MusicBrainzRateLimiter = .shared,
+        responseCache: MusicBrainzResponseCache = MusicBrainzResponseCache(),
+        retryPolicy: MusicBrainzRetryPolicy = .production
     ) {
         self.session = session
         self.rateLimiter = rateLimiter
+        self.responseCache = responseCache
+        self.retryPolicy = retryPolicy
 
         let decoder = JSONDecoder()
         self.decoder = decoder
@@ -141,24 +208,36 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         }
 
         let strongQueries = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQueries(from: query)
-        if !strongQueries.isEmpty {
+        if let strongQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
+            from: strongQueries,
+            maximumClauseCount: Self.multiFileFallbackQueryLimit
+        ) {
             candidates.append(contentsOf: try await searchReleases(
-                luceneQueries: Array(strongQueries.prefix(Self.multiFileFallbackQueryLimit)),
+                luceneQueries: [strongQuery],
                 limit: 12
             ))
         }
 
-        if candidates.isEmpty {
+        if !MusicBrainzResultRanker.hasCredibleReleaseCandidate(
+            candidates,
+            query: selectionQuery
+        ) {
             let broadQueries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(from: query)
-            if !broadQueries.isEmpty {
+            if let broadQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
+                from: broadQueries,
+                maximumClauseCount: Self.multiFileFallbackQueryLimit
+            ) {
                 candidates.append(contentsOf: try await searchReleases(
-                    luceneQueries: Array(broadQueries.prefix(Self.multiFileFallbackQueryLimit)),
+                    luceneQueries: [broadQuery],
                     limit: 20
                 ))
             }
         }
 
-        if candidates.isEmpty {
+        if !MusicBrainzResultRanker.hasCredibleReleaseCandidate(
+            candidates,
+            query: selectionQuery
+        ) {
             for candidate in try await releaseCandidatesFromRepresentativeFiles(
                 selectionSummary,
                 filters: query.releaseFilters
@@ -194,7 +273,9 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         }
 
         var matchedResults: [MusicBrainzReleaseSearchResult] = []
-        for candidate in orderedCandidates.prefix(6) {
+        for (candidateIndex, candidate) in orderedCandidates
+            .prefix(Self.maximumReleaseDetailCandidates)
+            .enumerated() {
             try Task.checkCancellation()
             do {
                 let detail = try await releaseDetail(id: candidate.id)
@@ -208,6 +289,15 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                         selectionMatchScore: preview.overallScore
                     )
                 )
+                let nextCandidate = orderedCandidates.dropFirst(candidateIndex + 1).first
+                if Self.shouldStopReleaseDetailVerification(
+                    candidate: candidate,
+                    nextCandidate: nextCandidate,
+                    preview: preview,
+                    evidence: filenameEvidenceByReleaseID[candidate.id] ?? 0
+                ) {
+                    break
+                }
             } catch {
                 try Task.checkCancellation()
                 matchedResults.append(candidate)
@@ -331,8 +421,12 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             MusicBrainzLuceneQueryBuilder.fileStrongSearchQueries(from: query),
             maximumCount: fallbackQueryLimit
         )
-        if !strongQueries.isEmpty {
-            let exactMatches = try await searchRecordings(luceneQueries: strongQueries, limit: 15)
+        let preparedStrongQueries = Self.preparedFallbackQueries(
+            strongQueries,
+            maximumCount: fallbackQueryLimit
+        )
+        if !preparedStrongQueries.isEmpty {
+            let exactMatches = try await searchRecordings(luceneQueries: preparedStrongQueries, limit: 15)
             candidates.append(contentsOf: exactMatches)
             preferredRecordingIDs.formUnion(exactMatches.map(\.id))
         }
@@ -341,8 +435,12 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             MusicBrainzLuceneQueryBuilder.fileSearchQueries(from: query),
             maximumCount: fallbackQueryLimit
         )
-        if !broadQueries.isEmpty {
-            candidates.append(contentsOf: try await searchRecordings(luceneQueries: broadQueries, limit: limit))
+        let preparedBroadQueries = Self.preparedFallbackQueries(
+            broadQueries,
+            maximumCount: fallbackQueryLimit
+        )
+        if !preparedBroadQueries.isEmpty {
+            candidates.append(contentsOf: try await searchRecordings(luceneQueries: preparedBroadQueries, limit: limit))
         }
 
         let deduplicatedCandidates = Self.deduplicatedRecordings(candidates)
@@ -593,6 +691,20 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         return Array(queries.prefix(max(0, maximumCount)))
     }
 
+    private static func preparedFallbackQueries(
+        _ queries: [String],
+        maximumCount: Int?
+    ) -> [String] {
+        guard let maximumCount else { return queries }
+        guard let combinedQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
+            from: queries,
+            maximumClauseCount: maximumCount
+        ) else {
+            return []
+        }
+        return [combinedQuery]
+    }
+
     private static func deduplicatedReleases(_ releases: [MusicBrainzReleaseSearchResult]) -> [MusicBrainzReleaseSearchResult] {
         var seenIDs: Set<String> = []
         var orderedResults: [MusicBrainzReleaseSearchResult] = []
@@ -604,23 +716,67 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         return orderedResults
     }
 
-    private static func representativeFilesForReleaseLookup(
+    static func representativeFilesForReleaseLookup(
         from files: [MusicBrainzFileSearchInput]
     ) -> [MusicBrainzFileSearchInput] {
-        let orderedFiles = files
+        files
             .filter { !$0.preferredDisplayTitle.isEmpty }
             .sorted {
-                ($0.normalizedDiscNumber ?? 0, $0.normalizedTrackNumber ?? 0, $0.preferredDisplayTitle)
+                let lhsScore = representativeInformationScore($0)
+                let rhsScore = representativeInformationScore($1)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                return ($0.normalizedDiscNumber ?? 0, $0.normalizedTrackNumber ?? 0, $0.preferredDisplayTitle)
                     < ($1.normalizedDiscNumber ?? 0, $1.normalizedTrackNumber ?? 0, $1.preferredDisplayTitle)
             }
+    }
 
-        guard orderedFiles.count > 3 else {
-            return orderedFiles
+    static func shouldStopReleaseDetailVerification(
+        candidate: MusicBrainzReleaseSearchResult,
+        nextCandidate: MusicBrainzReleaseSearchResult?,
+        preview: MusicBrainzReleaseMatchPreview,
+        evidence: Double
+    ) -> Bool {
+        guard !preview.selectionLooksMixed else { return false }
+        guard preview.totalSelectedFiles > 0 else { return false }
+        let coverage = Double(preview.matchedFileCount) / Double(preview.totalSelectedFiles)
+        guard coverage >= 0.9 else { return false }
+        guard preview.averageTrackScore >= 0.88 else { return false }
+        guard preview.unmatchedFiles.isEmpty else { return false }
+
+        if evidence >= 1 {
+            return true
         }
 
-        let positions = [0, orderedFiles.count / 2, orderedFiles.count - 1]
-        let uniquePositions = Array(NSOrderedSet(array: positions)) as? [Int] ?? positions
-        return uniquePositions.map { orderedFiles[$0] }
+        guard candidate.score >= 90 else { return false }
+        guard let nextCandidate else { return true }
+        return candidate.score - nextCandidate.score >= 8
+    }
+
+    private static func representativeInformationScore(
+        _ file: MusicBrainzFileSearchInput
+    ) -> Int {
+        var score = 0
+        if file.musicBrainzTrackID.validMBID != nil { score += 100 }
+        if !file.isrc.isEmpty { score += 80 }
+        if !file.title.isEmpty { score += 24 }
+        if !file.artist.isEmpty { score += 18 }
+        if !file.albumArtist.isEmpty { score += 12 }
+        if !file.album.isEmpty { score += 12 }
+        if file.normalizedTrackNumber != nil { score += 8 }
+        if file.durationMilliseconds != nil { score += 8 }
+        if !file.normalizedReleaseYear.isEmpty { score += 4 }
+        score += min(8, file.title.count / 6)
+
+        let albumTitleVariants = MusicBrainzProviderLuceneQueryBuilder.releaseTitleVariants(file.album)
+        let titleDuplicatesAlbum = albumTitleVariants.contains {
+            FuzzyStringSimilarity.score(file.title, $0) >= 0.9
+        }
+        if titleDuplicatesAlbum {
+            score -= 20
+        }
+        return score
     }
 
     private func performRequest(
@@ -647,19 +803,48 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let preparedRequest = request
 
-        try await rateLimiter.waitIfNeeded()
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw MusicBrainzClientError.invalidResponse
+        let cacheTimeToLive: TimeInterval = id == nil ? 30 * 60 : 7 * 24 * 60 * 60
+        return try await responseCache.data(for: url, timeToLive: cacheTimeToLive) {
+            try await Self.execute(
+                preparedRequest,
+                session: session,
+                rateLimiter: rateLimiter,
+                retryPolicy: retryPolicy
+            )
         }
+    }
 
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
+    private static func execute(
+        _ request: URLRequest,
+        session: URLSession,
+        rateLimiter: MusicBrainzRateLimiter,
+        retryPolicy: MusicBrainzRetryPolicy
+    ) async throws -> Data {
+        var retry = 0
+
+        while true {
+            try Task.checkCancellation()
+            try await rateLimiter.waitIfNeeded()
+            let (data, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw MusicBrainzClientError.invalidResponse
+            }
+
+            if httpResponse.statusCode == 503, retry < retryPolicy.maximumRetryCount {
+                try await Task.sleep(for: retryPolicy.delay(forRetry: retry))
+                retry += 1
+                continue
+            }
+
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                throw MusicBrainzClientError.requestFailed(statusCode: httpResponse.statusCode)
+            }
+
+            return data
         }
-
-        return data
     }
 
     private static func describeDecodingError(_ error: DecodingError) -> String {

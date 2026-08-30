@@ -38,7 +38,7 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
             releaseArtistCredit: release.artistCredit,
             exactOnly: true
         )
-        let exactAssignments = greedyAssignments(from: exactCandidates)
+        let exactAssignments = optimalAssignments(from: exactCandidates)
 
         let assignedFileIDs = Set(exactAssignments.map(\.file.id))
         let assignedTrackIDs = Set(exactAssignments.map(\.track.id))
@@ -52,7 +52,7 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
             releaseArtistCredit: release.artistCredit,
             exactOnly: false
         )
-        let similarityAssignments = greedyAssignments(from: similarityCandidates)
+        let similarityAssignments = optimalAssignments(from: similarityCandidates)
 
         let allAssignments = (exactAssignments + similarityAssignments)
             .sorted {
@@ -63,7 +63,12 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         let finalAssignedFileIDs = Set(allAssignments.map(\.file.id))
         let finalAssignedTrackIDs = Set(allAssignments.map(\.track.id))
         let unmatchedFiles = selection.files.filter { !finalAssignedFileIDs.contains($0.id) }
-        let unassignedTracks = releaseTracks.filter { !finalAssignedTrackIDs.contains($0.id) }
+        let relevantTracks = relevantReleaseTracks(
+            releaseTracks,
+            assignments: allAssignments,
+            files: selection.files
+        )
+        let unassignedTracks = relevantTracks.filter { !finalAssignedTrackIDs.contains($0.id) }
 
         let averageTrackScore: Double
         if allAssignments.isEmpty {
@@ -182,23 +187,121 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         }
     }
 
-    private static func greedyAssignments(
+    static func optimalAssignments(
         from candidates: [MusicBrainzReleaseMatchAssignment]
     ) -> [MusicBrainzReleaseMatchAssignment] {
-        var assignedFileIDs: Set<String> = []
-        var assignedTrackIDs: Set<String> = []
-        var assignments: [MusicBrainzReleaseMatchAssignment] = []
+        guard !candidates.isEmpty else { return [] }
 
+        let files = candidates.reduce(into: [String: MusicBrainzFileSearchInput]()) {
+            $0[$1.file.id] = $1.file
+        }
+        .values
+        .sorted { $0.id < $1.id }
+        let tracks = candidates.reduce(into: [String: MusicBrainzReleaseMatchTrack]()) {
+            $0[$1.track.id] = $1.track
+        }
+        .values
+        .sorted { $0.id < $1.id }
+        guard !files.isEmpty, !tracks.isEmpty else { return [] }
+
+        var bestCandidateByPair: [String: MusicBrainzReleaseMatchAssignment] = [:]
         for candidate in candidates {
-            guard !assignedFileIDs.contains(candidate.file.id) else { continue }
-            guard !assignedTrackIDs.contains(candidate.track.id) else { continue }
-
-            assignedFileIDs.insert(candidate.file.id)
-            assignedTrackIDs.insert(candidate.track.id)
-            assignments.append(candidate)
+            let key = assignmentKey(fileID: candidate.file.id, trackID: candidate.track.id)
+            if candidate.score > (bestCandidateByPair[key]?.score ?? -.infinity) {
+                bestCandidateByPair[key] = candidate
+            }
         }
 
-        return assignments
+        let realTrackCount = tracks.count
+        let columnCount = realTrackCount + files.count
+        let costs = files.map { file in
+            tracks.map { track in
+                let key = assignmentKey(fileID: file.id, trackID: track.id)
+                return 1 - (bestCandidateByPair[key]?.score ?? 0)
+            } + Array(repeating: 1.0, count: files.count)
+        }
+        let assignedColumnByRow = minimumCostColumns(costs, columnCount: columnCount)
+
+        return assignedColumnByRow.enumerated().compactMap { row, column in
+            guard column >= 0, column < realTrackCount else { return nil }
+            let key = assignmentKey(fileID: files[row].id, trackID: tracks[column].id)
+            return bestCandidateByPair[key]
+        }
+        .sorted {
+            if $0.score == $1.score {
+                return $0.id < $1.id
+            }
+            return $0.score > $1.score
+        }
+    }
+
+    private static func assignmentKey(fileID: String, trackID: String) -> String {
+        "\(fileID)\u{1F}\(trackID)"
+    }
+
+    /// Rectangular Hungarian assignment. Extra zero-value columns let files
+    /// remain unmatched instead of forcing a low-confidence edge.
+    private static func minimumCostColumns(
+        _ costs: [[Double]],
+        columnCount: Int
+    ) -> [Int] {
+        let rowCount = costs.count
+        guard rowCount > 0, columnCount >= rowCount else { return [] }
+
+        var rowPotential = Array(repeating: 0.0, count: rowCount + 1)
+        var columnPotential = Array(repeating: 0.0, count: columnCount + 1)
+        var matchedRowByColumn = Array(repeating: 0, count: columnCount + 1)
+        var previousColumn = Array(repeating: 0, count: columnCount + 1)
+
+        for row in 1...rowCount {
+            matchedRowByColumn[0] = row
+            var currentColumn = 0
+            var minimumReducedCost = Array(repeating: Double.infinity, count: columnCount + 1)
+            var usedColumns = Array(repeating: false, count: columnCount + 1)
+
+            repeat {
+                usedColumns[currentColumn] = true
+                let currentRow = matchedRowByColumn[currentColumn]
+                var delta = Double.infinity
+                var nextColumn = 0
+
+                for column in 1...columnCount where !usedColumns[column] {
+                    let reducedCost = costs[currentRow - 1][column - 1]
+                        - rowPotential[currentRow]
+                        - columnPotential[column]
+                    if reducedCost < minimumReducedCost[column] {
+                        minimumReducedCost[column] = reducedCost
+                        previousColumn[column] = currentColumn
+                    }
+                    if minimumReducedCost[column] < delta {
+                        delta = minimumReducedCost[column]
+                        nextColumn = column
+                    }
+                }
+
+                for column in 0...columnCount {
+                    if usedColumns[column] {
+                        rowPotential[matchedRowByColumn[column]] += delta
+                        columnPotential[column] -= delta
+                    } else {
+                        minimumReducedCost[column] -= delta
+                    }
+                }
+                currentColumn = nextColumn
+            } while matchedRowByColumn[currentColumn] != 0
+
+            repeat {
+                let predecessor = previousColumn[currentColumn]
+                matchedRowByColumn[currentColumn] = matchedRowByColumn[predecessor]
+                currentColumn = predecessor
+            } while currentColumn != 0
+        }
+
+        var assignedColumnByRow = Array(repeating: -1, count: rowCount)
+        for column in 1...columnCount where matchedRowByColumn[column] > 0 {
+            assignedColumnByRow[matchedRowByColumn[column] - 1] = column - 1
+        }
+        return assignedColumnByRow
     }
 
     private static func candidateAssignment(
@@ -274,7 +377,10 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         selection: MusicBrainzFileSelectionSummary,
         release: MusicBrainzReleaseDetail
     ) -> Double {
-        let albumScore = weightedSimilarity(selection.albumCandidate, release.title) * 260
+        let albumScore = bestSimilarity(
+            MusicBrainzProviderLuceneQueryBuilder.releaseTitleVariants(selection.albumCandidate),
+            candidates: [release.title]
+        ) * 260
         let artistScore = bestSimilarity(
             [selection.albumArtistCandidate, selection.primaryArtistCandidate].filter { !$0.isEmpty },
             candidates: [release.artistCredit]
@@ -282,7 +388,7 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         let yearScore = yearSimilarity(selection.releaseYearCandidate, candidateDate: release.date) * 70
         let trackCountScore = releaseTrackCountSimilarity(
             selectedCount: selection.totalSelectedFiles,
-            releaseTrackCount: totalTrackCount(in: release)
+            release: release
         ) * 110
 
         var total = albumScore + artistScore + yearScore + trackCountScore
@@ -308,6 +414,19 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         return max(summed, release.media.flatMap(\.tracks).count)
     }
 
+    private static func releaseTrackCountSimilarity(
+        selectedCount: Int,
+        release: MusicBrainzReleaseDetail
+    ) -> Double {
+        let candidateTrackCounts = release.media.map {
+            max($0.trackCount, $0.tracks.count)
+        } + [totalTrackCount(in: release)]
+
+        return candidateTrackCounts
+            .map { releaseTrackCountSimilarity(selectedCount: selectedCount, releaseTrackCount: $0) }
+            .max() ?? 0
+    }
+
     private static func releaseTrackCountSimilarity(selectedCount: Int, releaseTrackCount: Int) -> Double {
         guard selectedCount > 0, releaseTrackCount > 0 else { return 0 }
         if selectedCount == releaseTrackCount {
@@ -317,6 +436,20 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
             return 0.3
         }
         return 0
+    }
+
+    private static func relevantReleaseTracks(
+        _ releaseTracks: [MusicBrainzReleaseMatchTrack],
+        assignments: [MusicBrainzReleaseMatchAssignment],
+        files: [MusicBrainzFileSearchInput]
+    ) -> [MusicBrainzReleaseMatchTrack] {
+        var relevantMediumPositions = Set(assignments.map(\.track.mediumPosition))
+        if relevantMediumPositions.isEmpty {
+            relevantMediumPositions = Set(files.compactMap(\.normalizedDiscNumber))
+        }
+        guard !relevantMediumPositions.isEmpty else { return releaseTracks }
+
+        return releaseTracks.filter { relevantMediumPositions.contains($0.mediumPosition) }
     }
 
     private static func trackIndexSimilarity(_ expected: Int?, candidateValue: String) -> Double {
@@ -385,6 +518,27 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
 }
 
 nonisolated enum MusicBrainzResultRanker {
+    static func hasCredibleReleaseCandidate(
+        _ results: [MusicBrainzReleaseSearchResult],
+        query: MusicBrainzSearchQuery
+    ) -> Bool {
+        let titleVariants = MusicBrainzProviderLuceneQueryBuilder.releaseTitleVariants(
+            query.album.isEmpty ? query.title : query.album
+        )
+        let artistCandidates = query.artistCandidates
+
+        return results.contains { result in
+            let titleSimilarity = bestReleaseSimilarity(titleVariants, candidates: [result.title])
+            let artistSimilarity = bestReleaseSimilarity(artistCandidates, candidates: [result.artistCredit])
+            let titleIsCredible = titleVariants.isEmpty || titleSimilarity >= 0.86
+            let artistIsCredible = artistCandidates.isEmpty || artistSimilarity >= 0.82
+            let hasQueryEvidence = !titleVariants.isEmpty || !artistCandidates.isEmpty
+
+            return hasQueryEvidence && titleIsCredible && artistIsCredible &&
+                (result.score >= 70 || titleSimilarity >= 0.96)
+        }
+    }
+
     static func rerankRecordings(
         _ results: [MusicBrainzRecordingResult],
         query: MusicBrainzSearchQuery,
@@ -500,6 +654,22 @@ nonisolated enum MusicBrainzResultRanker {
         }
 
         return bestSimilarity * weight
+    }
+
+    private static func bestReleaseSimilarity(
+        _ queries: [String],
+        candidates: [String]
+    ) -> Double {
+        var bestSimilarity = 0.0
+        for query in queries {
+            for candidate in candidates {
+                bestSimilarity = max(
+                    bestSimilarity,
+                    FuzzyStringSimilarity.score(query, candidate)
+                )
+            }
+        }
+        return bestSimilarity
     }
 
     private static func durationScore(_ lhs: Int, _ rhs: Int) -> Double {

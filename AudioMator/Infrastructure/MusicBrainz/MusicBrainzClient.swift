@@ -218,7 +218,10 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             ))
         }
 
-        if candidates.isEmpty {
+        if !MusicBrainzResultRanker.hasCredibleReleaseCandidate(
+            candidates,
+            query: selectionQuery
+        ) {
             let broadQueries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(from: query)
             if let broadQuery = MusicBrainzLuceneQueryBuilder.combinedSearchQuery(
                 from: broadQueries,
@@ -231,7 +234,10 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             }
         }
 
-        if candidates.isEmpty {
+        if !MusicBrainzResultRanker.hasCredibleReleaseCandidate(
+            candidates,
+            query: selectionQuery
+        ) {
             for candidate in try await releaseCandidatesFromRepresentativeFiles(
                 selectionSummary,
                 filters: query.releaseFilters

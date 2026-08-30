@@ -116,4 +116,32 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
         XCTAssertTrue(queries.contains { $0.contains("release:\"The EP\"") })
         XCTAssertFalse(queries.contains { $0.contains("release:\"The\"") })
     }
+
+    func testFileClusterBroadQueriesDoNotFallBackToArtistAloneWhenAlbumIsKnown() {
+        let files = (1...6).map { trackNumber in
+            MusicBrainzFileSearchInput(
+                id: "file-\(trackNumber)",
+                displayTitle: "Track \(trackNumber)",
+                title: "Track \(trackNumber)",
+                artist: "Taylor Swift",
+                albumArtist: "Taylor Swift",
+                album: "Beautiful Eyes - EP",
+                trackNumber: String(trackNumber),
+                trackTotal: 6,
+                releaseDate: "2008"
+            )
+        }
+
+        let queries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(
+            from: MusicBrainzSearchQuery(mode: .file, fileInputs: files)
+        )
+
+        XCTAssertFalse(queries.contains("artist:\"Taylor Swift\""))
+        XCTAssertFalse(queries.contains("(Taylor AND Swift)"))
+        XCTAssertTrue(
+            queries.contains {
+                $0.contains("Beautiful") && $0.contains("Eyes") && $0.contains("artist:\"Taylor Swift\"")
+            }
+        )
+    }
 }

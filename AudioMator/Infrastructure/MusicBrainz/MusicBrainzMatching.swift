@@ -483,6 +483,27 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
 }
 
 nonisolated enum MusicBrainzResultRanker {
+    static func hasCredibleReleaseCandidate(
+        _ results: [MusicBrainzReleaseSearchResult],
+        query: MusicBrainzSearchQuery
+    ) -> Bool {
+        let titleVariants = MusicBrainzProviderLuceneQueryBuilder.releaseTitleVariants(
+            query.album.isEmpty ? query.title : query.album
+        )
+        let artistCandidates = query.artistCandidates
+
+        return results.contains { result in
+            let titleSimilarity = bestReleaseSimilarity(titleVariants, candidates: [result.title])
+            let artistSimilarity = bestReleaseSimilarity(artistCandidates, candidates: [result.artistCredit])
+            let titleIsCredible = titleVariants.isEmpty || titleSimilarity >= 0.86
+            let artistIsCredible = artistCandidates.isEmpty || artistSimilarity >= 0.82
+            let hasQueryEvidence = !titleVariants.isEmpty || !artistCandidates.isEmpty
+
+            return hasQueryEvidence && titleIsCredible && artistIsCredible &&
+                (result.score >= 70 || titleSimilarity >= 0.96)
+        }
+    }
+
     static func rerankRecordings(
         _ results: [MusicBrainzRecordingResult],
         query: MusicBrainzSearchQuery,
@@ -598,6 +619,22 @@ nonisolated enum MusicBrainzResultRanker {
         }
 
         return bestSimilarity * weight
+    }
+
+    private static func bestReleaseSimilarity(
+        _ queries: [String],
+        candidates: [String]
+    ) -> Double {
+        var bestSimilarity = 0.0
+        for query in queries {
+            for candidate in candidates {
+                bestSimilarity = max(
+                    bestSimilarity,
+                    FuzzyStringSimilarity.score(query, candidate)
+                )
+            }
+        }
+        return bestSimilarity
     }
 
     private static func durationScore(_ lhs: Int, _ rhs: Int) -> Double {

@@ -13,7 +13,8 @@ final class ProviderNetworkFaultTests: XCTestCase {
         ProviderFaultURLProtocol.requestHandler = response(statusCode: 503, data: Data())
         let client = MusicBrainzClient(
             session: makeSession(),
-            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0)
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0),
+            retryPolicy: .disabled
         )
 
         do {
@@ -223,9 +224,78 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertEqual(results, .releases([]))
         XCTAssertLessThanOrEqual(
             requestRecorder.requestCount,
-            9,
-            "A no-result fallback must stay below the browser's overall search deadline."
+            3,
+            "Each multi-file fallback stage should be represented by at most one request."
         )
+    }
+
+    func testMusicBrainzReusesSuccessfulIdenticalSearchResponse() async throws {
+        let requestRecorder = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requestRecorder.record(request)
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )
+            )
+            return (
+                response,
+                Data(#"{"created":"","count":0,"offset":0,"recordings":[]}"#.utf8)
+            )
+        }
+        let client = MusicBrainzClient(
+            session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0)
+        )
+        let query = MusicBrainzSearchQuery(title: "Cached Search")
+
+        _ = try await client.search(matching: query, limit: 25)
+        let firstSearchRequestCount = requestRecorder.requestCount
+        _ = try await client.search(matching: query, limit: 25)
+
+        XCTAssertGreaterThan(firstSearchRequestCount, 0)
+        XCTAssertEqual(requestRecorder.requestCount, firstSearchRequestCount)
+    }
+
+    func testMusicBrainzRetriesServiceUnavailableOnce() async throws {
+        let requestRecorder = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requestRecorder.record(request)
+            let statusCode = requestRecorder.requestCount == 1 ? 503 : 200
+            let response = try XCTUnwrap(
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: statusCode,
+                    httpVersion: nil,
+                    headerFields: nil
+                )
+            )
+            let data = statusCode == 503
+                ? Data()
+                : Data(
+                    #"{"created":"","count":1,"offset":0,"recordings":[{"id":"00000000-0000-0000-0000-000000000001","title":"Retry Result","score":100}]}"#.utf8
+                )
+            return (response, data)
+        }
+        let client = MusicBrainzClient(
+            session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0),
+            retryPolicy: MusicBrainzRetryPolicy(maximumRetryCount: 1, baseDelaySeconds: 0)
+        )
+
+        let results = try await client.search(
+            matching: MusicBrainzSearchQuery(title: "Retry Result"),
+            limit: 1
+        )
+
+        XCTAssertEqual(requestRecorder.requestCount, 2)
+        guard case let .recordings(recordings) = results else {
+            return XCTFail("Expected recording results after retrying the request.")
+        }
+        XCTAssertEqual(recordings.map(\.title), ["Retry Result"])
     }
 
     func testArtworkNormalizerDownsamplesBeforePNGEncoding() throws {

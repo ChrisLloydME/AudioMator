@@ -4,6 +4,35 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
     nonisolated private static let reservedCharacters: Set<Character> = Set(#"+-&|!(){}[]^"~*?:\/"#)
     nonisolated private static let maxPreferredClauseCount = 6
     nonisolated private static let maxPreferredClauseLength = 420
+    nonisolated private static let maxCombinedQueryLength = 900
+
+    static func combinedSearchQuery(
+        from queries: [String],
+        maximumClauseCount: Int
+    ) -> String? {
+        let normalizedQueries = deduplicatedClauses(queries)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(max(0, maximumClauseCount))
+
+        var acceptedQueries: [String] = []
+        for query in normalizedQueries {
+            let candidate = acceptedQueries.isEmpty
+                ? query
+                : anyOf(acceptedQueries + [query])
+            guard candidate.count <= maxCombinedQueryLength else { break }
+            acceptedQueries.append(query)
+        }
+
+        switch acceptedQueries.count {
+        case 0:
+            return nil
+        case 1:
+            return acceptedQueries[0]
+        default:
+            return anyOf(acceptedQueries)
+        }
+    }
 
     static func recordingSearchQueries(from query: MusicBrainzProviderSearchQuery) -> [String] {
         finalizedPreferredClauses(
@@ -13,17 +42,20 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
 
     static func releaseSearchQueries(from query: MusicBrainzProviderSearchQuery) -> [String] {
         var clauses: [String] = []
+        let releaseTitles = releaseTitleVariants(query.album)
 
-        if !query.album.isEmpty, !query.artist.isEmpty {
-            clauses.append(allOf([
-                fieldClause(name: "release", value: query.album),
-                fieldClause(name: "artist", value: query.artist)
-            ]))
+        if !releaseTitles.isEmpty, !query.artist.isEmpty {
+            for releaseTitle in releaseTitles {
+                clauses.append(allOf([
+                    fieldClause(name: "release", value: releaseTitle),
+                    fieldClause(name: "artist", value: query.artist)
+                ]))
+            }
         }
 
-        if !query.album.isEmpty {
-            clauses.append(fieldClause(name: "release", value: query.album))
-            clauses.append(generalClause(query.album))
+        if !releaseTitles.isEmpty {
+            clauses.append(contentsOf: releaseTitles.map { fieldClause(name: "release", value: $0) })
+            clauses.append(contentsOf: releaseTitles.map(generalClause))
         } else if !query.title.isEmpty {
             clauses.append(fieldClause(name: "release", value: query.title))
             clauses.append(generalClause(query.title))
@@ -47,10 +79,15 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
         guard let summary = query.selectionSummary else { return [] }
 
         var clauses: [String] = []
-        let releaseClause = summary.albumCandidate.isEmpty ? "" : fieldClause(name: "release", value: summary.albumCandidate)
+        let releaseClauses = releaseTitleVariants(summary.albumCandidate)
+            .map { fieldClause(name: "release", value: $0) }
         let artistClauses = [summary.albumArtistCandidate, summary.primaryArtistCandidate]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .reduce(into: [String]()) { values, value in
+                guard !values.contains(value) else { return }
+                values.append(value)
+            }
             .map { fieldClause(name: "artist", value: $0) }
         let trackCountClause = summary.trackCountCandidate > 0
             ? numericClause(name: "tracks", value: summary.trackCountCandidate)
@@ -67,24 +104,28 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
             clauses.append(fieldClause(name: "barcode", value: summary.barcodeCandidate))
         }
 
-        if !releaseClause.isEmpty && !artistClauses.isEmpty && !trackCountClause.isEmpty {
-            for artistClause in artistClauses {
-                clauses.append(allOf([releaseClause, artistClause, trackCountClause]))
+        if !releaseClauses.isEmpty && !artistClauses.isEmpty && !trackCountClause.isEmpty {
+            for releaseClause in releaseClauses {
+                for artistClause in artistClauses {
+                    clauses.append(allOf([releaseClause, artistClause, trackCountClause]))
+                }
             }
         }
 
-        if !releaseClause.isEmpty && !artistClauses.isEmpty {
-            for artistClause in artistClauses {
-                clauses.append(allOf([releaseClause, artistClause]))
+        if !releaseClauses.isEmpty && !artistClauses.isEmpty {
+            for releaseClause in releaseClauses {
+                for artistClause in artistClauses {
+                    clauses.append(allOf([releaseClause, artistClause]))
+                }
             }
         }
 
-        if !releaseClause.isEmpty && !trackCountClause.isEmpty {
-            clauses.append(allOf([releaseClause, trackCountClause]))
+        if !releaseClauses.isEmpty && !trackCountClause.isEmpty {
+            clauses.append(contentsOf: releaseClauses.map { allOf([$0, trackCountClause]) })
         }
 
-        if !releaseClause.isEmpty && !yearClause.isEmpty {
-            clauses.append(allOf([releaseClause, yearClause]))
+        if !releaseClauses.isEmpty && !yearClause.isEmpty {
+            clauses.append(contentsOf: releaseClauses.map { allOf([$0, yearClause]) })
         }
 
         return finalizedPreferredClauses(applyingFilters(to: clauses, filters: query.releaseFilters))
@@ -95,17 +136,24 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
 
         var clauses: [String] = []
 
-        if !summary.albumCandidate.isEmpty {
-            clauses.append(fieldClause(name: "release", value: summary.albumCandidate))
-            clauses.append(generalClause(summary.albumCandidate))
+        let releaseTitles = releaseTitleVariants(summary.albumCandidate)
+        let artist = summary.albumArtistCandidate.isEmpty
+            ? summary.primaryArtistCandidate
+            : summary.albumArtistCandidate
+        let artistClause = artist.isEmpty ? "" : fieldClause(name: "artist", value: artist)
+
+        if !releaseTitles.isEmpty, !artistClause.isEmpty {
+            clauses.append(contentsOf: releaseTitles.map {
+                allOf([generalClause($0), artistClause])
+            })
         }
 
-        if !summary.albumArtistCandidate.isEmpty {
-            clauses.append(fieldClause(name: "artist", value: summary.albumArtistCandidate))
-            clauses.append(generalClause(summary.albumArtistCandidate))
-        } else if !summary.primaryArtistCandidate.isEmpty {
-            clauses.append(fieldClause(name: "artist", value: summary.primaryArtistCandidate))
-            clauses.append(generalClause(summary.primaryArtistCandidate))
+        if !releaseTitles.isEmpty {
+            clauses.append(contentsOf: releaseTitles.map(generalClause))
+            clauses.append(contentsOf: releaseTitles.map { fieldClause(name: "release", value: $0) })
+        } else if !artistClause.isEmpty {
+            clauses.append(artistClause)
+            clauses.append(generalClause(artist))
         }
 
         if summary.trackCountCandidate > 0 {
@@ -304,6 +352,27 @@ nonisolated enum MusicBrainzProviderLuceneQueryBuilder {
             .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             .map(String.init)
             .filter { !$0.isEmpty }
+    }
+
+    nonisolated static func releaseTitleVariants(_ raw: String) -> [String] {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var variants: [String] = []
+        let trailingReleaseTypePattern = #"\s*(?:[-–—:]\s*(?:EP|Single|Album)|\((?:EP|Single|Album)\)|\[(?:EP|Single|Album)\])\s*$"#
+        if let suffixRange = trimmed.range(
+            of: trailingReleaseTypePattern,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            let canonicalTitle = trimmed[..<suffixRange.lowerBound]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !canonicalTitle.isEmpty, canonicalTitle != trimmed {
+                variants.append(canonicalTitle)
+            }
+        }
+        variants.append(trimmed)
+
+        return deduplicatedClauses(variants)
     }
 
     private static func recordingSearchClauses(from query: MusicBrainzProviderSearchQuery) -> [String] {

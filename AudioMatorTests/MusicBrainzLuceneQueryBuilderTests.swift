@@ -2,6 +2,18 @@ import XCTest
 @testable import AudioMator
 
 final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
+    func testCombinedSearchQueryPreservesPriorityDeduplicatesAndCapsClauses() throws {
+        let combined = try XCTUnwrap(
+            MusicBrainzProviderLuceneQueryBuilder.combinedSearchQuery(
+                from: ["strict", "fallback", "strict", "broad", "unused"],
+                maximumClauseCount: 3
+            )
+        )
+
+        XCTAssertEqual(combined, "(strict OR fallback OR broad)")
+        XCTAssertFalse(combined.contains("unused"))
+    }
+
     func testRecordingSearchQueriesEscapeReservedLuceneCharacters() {
         let query = MusicBrainzSearchQuery(
             mode: .track,
@@ -59,5 +71,77 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
 
         XCTAssertEqual(queries, Array(NSOrderedSet(array: queries)) as? [String])
         XCTAssertLessThanOrEqual(queries.count, 6)
+    }
+
+    func testFileClusterQueriesIncludeAlbumVariantWithoutTrailingReleaseType() {
+        let files = (1...6).map { trackNumber in
+            MusicBrainzFileSearchInput(
+                id: "beautiful-eyes-\(trackNumber)",
+                displayTitle: "Track \(trackNumber)",
+                title: "Track \(trackNumber)",
+                artist: "Taylor Swift",
+                albumArtist: "Taylor Swift",
+                album: "Beautiful Eyes - EP",
+                trackNumber: String(trackNumber),
+                trackTotal: 6,
+                releaseDate: "2008-07-15"
+            )
+        }
+        let query = MusicBrainzSearchQuery(mode: .file, fileInputs: files)
+
+        let strongQueries = MusicBrainzLuceneQueryBuilder
+            .fileClusterStrongReleaseSearchQueries(from: query)
+        let broadQueries = MusicBrainzLuceneQueryBuilder
+            .fileClusterBroadReleaseSearchQueries(from: query)
+
+        XCTAssertTrue(
+            strongQueries.contains { $0.contains("release:\"Beautiful Eyes\"") },
+            "The strict stage must try the canonical MusicBrainz title as well as the tagged title."
+        )
+        XCTAssertTrue(
+            broadQueries.contains { $0.contains("release:\"Beautiful Eyes\"") },
+            "The fallback stage must preserve the canonical album-title variant."
+        )
+    }
+
+    func testAlbumVariantDoesNotRemoveUnqualifiedReleaseTypeWord() {
+        let query = MusicBrainzSearchQuery(
+            mode: .album,
+            artist: "Artist",
+            album: "The EP"
+        )
+
+        let queries = MusicBrainzLuceneQueryBuilder.releaseSearchQueries(from: query)
+
+        XCTAssertTrue(queries.contains { $0.contains("release:\"The EP\"") })
+        XCTAssertFalse(queries.contains { $0.contains("release:\"The\"") })
+    }
+
+    func testFileClusterBroadQueriesDoNotFallBackToArtistAloneWhenAlbumIsKnown() {
+        let files = (1...6).map { trackNumber in
+            MusicBrainzFileSearchInput(
+                id: "file-\(trackNumber)",
+                displayTitle: "Track \(trackNumber)",
+                title: "Track \(trackNumber)",
+                artist: "Taylor Swift",
+                albumArtist: "Taylor Swift",
+                album: "Beautiful Eyes - EP",
+                trackNumber: String(trackNumber),
+                trackTotal: 6,
+                releaseDate: "2008"
+            )
+        }
+
+        let queries = MusicBrainzLuceneQueryBuilder.fileClusterBroadReleaseSearchQueries(
+            from: MusicBrainzSearchQuery(mode: .file, fileInputs: files)
+        )
+
+        XCTAssertFalse(queries.contains("artist:\"Taylor Swift\""))
+        XCTAssertFalse(queries.contains("(Taylor AND Swift)"))
+        XCTAssertTrue(
+            queries.contains {
+                $0.contains("Beautiful") && $0.contains("Eyes") && $0.contains("artist:\"Taylor Swift\"")
+            }
+        )
     }
 }

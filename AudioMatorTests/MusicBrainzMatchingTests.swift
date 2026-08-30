@@ -81,6 +81,44 @@ final class MusicBrainzMatchingTests: XCTestCase {
         ))
     }
 
+    func testReleaseCandidateCredibilityRejectsArtistOnlyNoise() {
+        let query = MusicBrainzSearchQuery(
+            mode: .album,
+            artist: "Taylor Swift",
+            album: "Beautiful Eyes - EP",
+            releaseDate: "2008"
+        )
+        let target = MusicBrainzReleaseSearchResult(
+            id: "target",
+            title: "Beautiful Eyes",
+            artistCredit: "Taylor Swift",
+            score: 100,
+            date: "2008-07-15",
+            country: "US",
+            status: "Official",
+            mediaFormats: ["CD"],
+            releaseGroup: nil,
+            selectionMatchPreview: nil,
+            selectionMatchScore: nil
+        )
+        let noise = MusicBrainzReleaseSearchResult(
+            id: "noise",
+            title: "Back to December",
+            artistCredit: "Taylor Swift",
+            score: 49,
+            date: "2013-06-04",
+            country: "JP",
+            status: "Withdrawn",
+            mediaFormats: ["Digital Media"],
+            releaseGroup: nil,
+            selectionMatchPreview: nil,
+            selectionMatchScore: nil
+        )
+
+        XCTAssertTrue(MusicBrainzResultRanker.hasCredibleReleaseCandidate([target], query: query))
+        XCTAssertFalse(MusicBrainzResultRanker.hasCredibleReleaseCandidate([noise], query: query))
+    }
+
     private func makeFile(id: String) -> MusicBrainzFileSearchInput {
         MusicBrainzFileSearchInput(
             id: id,

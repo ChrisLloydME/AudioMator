@@ -72,4 +72,48 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
         XCTAssertEqual(queries, Array(NSOrderedSet(array: queries)) as? [String])
         XCTAssertLessThanOrEqual(queries.count, 6)
     }
+
+    func testFileClusterQueriesIncludeAlbumVariantWithoutTrailingReleaseType() {
+        let files = (1...6).map { trackNumber in
+            MusicBrainzFileSearchInput(
+                id: "beautiful-eyes-\(trackNumber)",
+                displayTitle: "Track \(trackNumber)",
+                title: "Track \(trackNumber)",
+                artist: "Taylor Swift",
+                albumArtist: "Taylor Swift",
+                album: "Beautiful Eyes - EP",
+                trackNumber: String(trackNumber),
+                trackTotal: 6,
+                releaseDate: "2008-07-15"
+            )
+        }
+        let query = MusicBrainzSearchQuery(mode: .file, fileInputs: files)
+
+        let strongQueries = MusicBrainzLuceneQueryBuilder
+            .fileClusterStrongReleaseSearchQueries(from: query)
+        let broadQueries = MusicBrainzLuceneQueryBuilder
+            .fileClusterBroadReleaseSearchQueries(from: query)
+
+        XCTAssertTrue(
+            strongQueries.contains { $0.contains("release:\"Beautiful Eyes\"") },
+            "The strict stage must try the canonical MusicBrainz title as well as the tagged title."
+        )
+        XCTAssertTrue(
+            broadQueries.contains { $0.contains("release:\"Beautiful Eyes\"") },
+            "The fallback stage must preserve the canonical album-title variant."
+        )
+    }
+
+    func testAlbumVariantDoesNotRemoveUnqualifiedReleaseTypeWord() {
+        let query = MusicBrainzSearchQuery(
+            mode: .album,
+            artist: "Artist",
+            album: "The EP"
+        )
+
+        let queries = MusicBrainzLuceneQueryBuilder.releaseSearchQueries(from: query)
+
+        XCTAssertTrue(queries.contains { $0.contains("release:\"The EP\"") })
+        XCTAssertFalse(queries.contains { $0.contains("release:\"The\"") })
+    }
 }

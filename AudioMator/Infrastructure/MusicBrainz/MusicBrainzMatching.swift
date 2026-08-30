@@ -63,7 +63,12 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         let finalAssignedFileIDs = Set(allAssignments.map(\.file.id))
         let finalAssignedTrackIDs = Set(allAssignments.map(\.track.id))
         let unmatchedFiles = selection.files.filter { !finalAssignedFileIDs.contains($0.id) }
-        let unassignedTracks = releaseTracks.filter { !finalAssignedTrackIDs.contains($0.id) }
+        let relevantTracks = relevantReleaseTracks(
+            releaseTracks,
+            assignments: allAssignments,
+            files: selection.files
+        )
+        let unassignedTracks = relevantTracks.filter { !finalAssignedTrackIDs.contains($0.id) }
 
         let averageTrackScore: Double
         if allAssignments.isEmpty {
@@ -372,7 +377,10 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         selection: MusicBrainzFileSelectionSummary,
         release: MusicBrainzReleaseDetail
     ) -> Double {
-        let albumScore = weightedSimilarity(selection.albumCandidate, release.title) * 260
+        let albumScore = bestSimilarity(
+            MusicBrainzProviderLuceneQueryBuilder.releaseTitleVariants(selection.albumCandidate),
+            candidates: [release.title]
+        ) * 260
         let artistScore = bestSimilarity(
             [selection.albumArtistCandidate, selection.primaryArtistCandidate].filter { !$0.isEmpty },
             candidates: [release.artistCredit]
@@ -380,7 +388,7 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         let yearScore = yearSimilarity(selection.releaseYearCandidate, candidateDate: release.date) * 70
         let trackCountScore = releaseTrackCountSimilarity(
             selectedCount: selection.totalSelectedFiles,
-            releaseTrackCount: totalTrackCount(in: release)
+            release: release
         ) * 110
 
         var total = albumScore + artistScore + yearScore + trackCountScore
@@ -406,6 +414,19 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
         return max(summed, release.media.flatMap(\.tracks).count)
     }
 
+    private static func releaseTrackCountSimilarity(
+        selectedCount: Int,
+        release: MusicBrainzReleaseDetail
+    ) -> Double {
+        let candidateTrackCounts = release.media.map {
+            max($0.trackCount, $0.tracks.count)
+        } + [totalTrackCount(in: release)]
+
+        return candidateTrackCounts
+            .map { releaseTrackCountSimilarity(selectedCount: selectedCount, releaseTrackCount: $0) }
+            .max() ?? 0
+    }
+
     private static func releaseTrackCountSimilarity(selectedCount: Int, releaseTrackCount: Int) -> Double {
         guard selectedCount > 0, releaseTrackCount > 0 else { return 0 }
         if selectedCount == releaseTrackCount {
@@ -415,6 +436,20 @@ nonisolated enum MusicBrainzFileSelectionMatcher {
             return 0.3
         }
         return 0
+    }
+
+    private static func relevantReleaseTracks(
+        _ releaseTracks: [MusicBrainzReleaseMatchTrack],
+        assignments: [MusicBrainzReleaseMatchAssignment],
+        files: [MusicBrainzFileSearchInput]
+    ) -> [MusicBrainzReleaseMatchTrack] {
+        var relevantMediumPositions = Set(assignments.map(\.track.mediumPosition))
+        if relevantMediumPositions.isEmpty {
+            relevantMediumPositions = Set(files.compactMap(\.normalizedDiscNumber))
+        }
+        guard !relevantMediumPositions.isEmpty else { return releaseTracks }
+
+        return releaseTracks.filter { relevantMediumPositions.contains($0.mediumPosition) }
     }
 
     private static func trackIndexSimilarity(_ expected: Int?, candidateValue: String) -> Double {

@@ -767,6 +767,15 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         if file.normalizedTrackNumber != nil { score += 8 }
         if file.durationMilliseconds != nil { score += 8 }
         if !file.normalizedReleaseYear.isEmpty { score += 4 }
+        score += min(8, file.title.count / 6)
+
+        let albumTitleVariants = MusicBrainzProviderLuceneQueryBuilder.releaseTitleVariants(file.album)
+        let titleDuplicatesAlbum = albumTitleVariants.contains {
+            FuzzyStringSimilarity.score(file.title, $0) >= 0.9
+        }
+        if titleDuplicatesAlbum {
+            score -= 20
+        }
         return score
     }
 

@@ -50,6 +50,37 @@ final class MusicBrainzMatchingTests: XCTestCase {
         XCTAssertEqual(representatives.first?.id, "identified")
     }
 
+    func testRepresentativeLookupAvoidsTitleThatDuplicatesAlbumName() {
+        let titleTrack = MusicBrainzFileSearchInput(
+            id: "title-track",
+            displayTitle: "Beautiful Eyes",
+            title: "Beautiful Eyes",
+            artist: "Taylor Swift",
+            albumArtist: "Taylor Swift",
+            album: "Beautiful Eyes - EP",
+            trackNumber: "1",
+            trackTotal: 6,
+            releaseDate: "2008"
+        )
+        let distinctiveTrack = MusicBrainzFileSearchInput(
+            id: "distinctive-track",
+            displayTitle: "Should've Said No (Alternate Version)",
+            title: "Should've Said No (Alternate Version)",
+            artist: "Taylor Swift",
+            albumArtist: "Taylor Swift",
+            album: "Beautiful Eyes - EP",
+            trackNumber: "2",
+            trackTotal: 6,
+            releaseDate: "2008"
+        )
+
+        let representatives = MusicBrainzClient.representativeFilesForReleaseLookup(
+            from: [titleTrack, distinctiveTrack]
+        )
+
+        XCTAssertEqual(representatives.first?.id, "distinctive-track")
+    }
+
     func testReleaseDetailVerificationStopsOnlyForClearHighConfidenceLead() {
         let file = makeFile(id: "a")
         let track = makeTrack(id: "x")
@@ -119,6 +150,70 @@ final class MusicBrainzMatchingTests: XCTestCase {
         XCTAssertFalse(MusicBrainzResultRanker.hasCredibleReleaseCandidate([noise], query: query))
     }
 
+    func testMultiMediumReleaseIgnoresUnselectedVideoMedium() {
+        let files = (1...6).map { trackNumber in
+            MusicBrainzFileSearchInput(
+                id: "file-\(trackNumber)",
+                displayTitle: "Track \(trackNumber)",
+                title: "Track \(trackNumber)",
+                artist: "Taylor Swift",
+                albumArtist: "Taylor Swift",
+                album: "Beautiful Eyes - EP",
+                trackNumber: String(trackNumber),
+                discNumber: "1",
+                trackTotal: 6,
+                releaseDate: "2008"
+            )
+        }
+        let audioTracks = (1...6).map { trackNumber in
+            makeDetailTrack(
+                id: "audio-\(trackNumber)",
+                number: String(trackNumber),
+                title: "Track \(trackNumber)"
+            )
+        }
+        let videoTracks = (1...9).map { trackNumber in
+            makeDetailTrack(
+                id: "video-\(trackNumber)",
+                number: String(trackNumber),
+                title: "Video \(trackNumber)"
+            )
+        }
+        let release = makeReleaseDetail(
+            media: [
+                MusicBrainzReleaseDetail.Medium(
+                    id: "cd",
+                    title: "",
+                    format: "CD",
+                    trackCount: 6,
+                    discIDs: [],
+                    tracks: audioTracks
+                ),
+                MusicBrainzReleaseDetail.Medium(
+                    id: "dvd",
+                    title: "",
+                    format: "DVD-Video",
+                    trackCount: 9,
+                    discIDs: [],
+                    tracks: videoTracks
+                )
+            ]
+        )
+
+        let preview = MusicBrainzFileSelectionMatcher.match(
+            selection: MusicBrainzFileSelectionSummary(files: files),
+            release: release
+        )
+
+        XCTAssertEqual(preview.matchedFileCount, 6)
+        XCTAssertTrue(preview.unmatchedFiles.isEmpty)
+        XCTAssertTrue(
+            preview.unassignedTracks.isEmpty,
+            "Tracks on an unselected DVD medium must not count as missing album tracks."
+        )
+        XCTAssertGreaterThan(preview.overallScore, 1_300)
+    }
+
     private func makeFile(id: String) -> MusicBrainzFileSearchInput {
         MusicBrainzFileSearchInput(
             id: id,
@@ -145,6 +240,51 @@ final class MusicBrainzMatchingTests: XCTestCase {
             durationMilliseconds: nil,
             recordingID: id,
             isrcs: []
+        )
+    }
+
+    private func makeDetailTrack(
+        id: String,
+        number: String,
+        title: String
+    ) -> MusicBrainzReleaseDetail.Medium.Track {
+        MusicBrainzReleaseDetail.Medium.Track(
+            id: id,
+            number: number,
+            title: title,
+            artistCredit: "Taylor Swift",
+            durationMilliseconds: nil,
+            recordingID: id,
+            isrcs: []
+        )
+    }
+
+    private func makeReleaseDetail(
+        media: [MusicBrainzReleaseDetail.Medium]
+    ) -> MusicBrainzReleaseDetail {
+        MusicBrainzReleaseDetail(
+            id: "beautiful-eyes",
+            title: "Beautiful Eyes",
+            artistCredit: "Taylor Swift",
+            date: "2008-07-15",
+            country: "US",
+            status: "Official",
+            barcode: "",
+            packaging: "",
+            asin: "",
+            quality: "normal",
+            language: "eng",
+            script: "Latn",
+            annotation: "",
+            genres: [],
+            tags: [],
+            releaseGroupTitle: "Beautiful Eyes",
+            releaseGroupID: "beautiful-eyes-group",
+            releaseGroupPrimaryType: "EP",
+            releaseGroupSecondaryTypes: [],
+            labels: [],
+            media: media,
+            selectionMatchPreview: nil
         )
     }
 

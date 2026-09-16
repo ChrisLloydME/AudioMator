@@ -24,7 +24,7 @@ enum MetadataFileMutationResult: Sendable {
 struct MetadataFileMutationExecutor: Sendable {
     let metadataPipeline: any AudioMetadataPipeline
     let fileMutationCoordinator: FileMutationCoordinator
-    let mutationTimeout: Duration
+    let reloadTimeout: Duration
 
     init(
         metadataPipeline: any AudioMetadataPipeline,
@@ -33,7 +33,7 @@ struct MetadataFileMutationExecutor: Sendable {
     ) {
         self.metadataPipeline = metadataPipeline
         self.fileMutationCoordinator = fileMutationCoordinator
-        self.mutationTimeout = mutationTimeout
+        self.reloadTimeout = mutationTimeout
     }
 
     func execute(
@@ -45,42 +45,43 @@ struct MetadataFileMutationExecutor: Sendable {
         do {
             let pipeline = metadataPipeline
             let coordinator = fileMutationCoordinator
-            return try await withAsyncTimeout(
-                mutationTimeout,
-                operationName: "Metadata write and reload",
-                priority: .userInitiated
-            ) {
-                try await coordinator.withExclusiveAccess(to: [url]) {
-                    await Task.detached(priority: .userInitiated) {
-                        do {
-                            try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
-                            let writeResult = try write(pipeline, url)
+            let reloadTimeout = reloadTimeout
+            return try await coordinator.withExclusiveAccess(to: [url]) {
+                await Task.detached(priority: .userInitiated) {
+                    do {
+                        try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
+                        let writeResult = try write(pipeline, url)
 
-                            do {
-                                let reloadedFile = try await pipeline.loadAudioFile(at: url, id: id)
-                                return .success(
-                                    MetadataFileMutationSuccess(
-                                        writeResult: writeResult,
-                                        reloadedFile: reloadedFile,
-                                        reloadErrorDescription: nil
-                                    )
-                                )
-                            } catch {
-                                return .success(
-                                    MetadataFileMutationSuccess(
-                                        writeResult: writeResult,
-                                        reloadedFile: nil,
-                                        reloadErrorDescription: (error as NSError).localizedDescription
-                                    )
-                                )
+                        do {
+                            let reloadedFile = try await withAsyncTimeout(
+                                reloadTimeout,
+                                operationName: "Metadata reload",
+                                priority: .userInitiated
+                            ) {
+                                try await pipeline.loadAudioFile(at: url, id: id)
                             }
-                        } catch is CancellationError {
-                            return .cancelled
+                            return .success(
+                                MetadataFileMutationSuccess(
+                                    writeResult: writeResult,
+                                    reloadedFile: reloadedFile,
+                                    reloadErrorDescription: nil
+                                )
+                            )
                         } catch {
-                            return .failure((error as NSError).localizedDescription)
+                            return .success(
+                                MetadataFileMutationSuccess(
+                                    writeResult: writeResult,
+                                    reloadedFile: nil,
+                                    reloadErrorDescription: (error as NSError).localizedDescription
+                                )
+                            )
                         }
-                    }.value
-                }
+                    } catch is CancellationError {
+                        return .cancelled
+                    } catch {
+                        return .failure((error as NSError).localizedDescription)
+                    }
+                }.value
             }
         } catch is CancellationError {
             return .cancelled

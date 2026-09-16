@@ -77,7 +77,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
     }
 
-    func testTimedOutReloadReleasesCallerButKeepsReservationUntilUnderlyingWorkEnds() async throws {
+    func testTimedOutReloadReportsPersistedWriteAsSuccessAndReleasesReservation() async throws {
         let pipeline = ReloadGatedMutationPipeline()
         let coordinator = FileMutationCoordinator()
         let executor = MetadataFileMutationExecutor(
@@ -99,10 +99,11 @@ final class FileMutationSerializationTests: XCTestCase {
         await pipeline.reloadStarted.wait()
         let result = await mutationTask.value
 
-        guard case .failure(let message) = result else {
-            return XCTFail("The UI-facing mutation must return when reload exceeds its deadline.")
+        guard case .success(let success) = result else {
+            return XCTFail("A post-commit reload timeout must not turn a successful write into a failure.")
         }
-        XCTAssertTrue(message.contains("timed out"))
+        XCTAssertFalse(success.didReloadFile)
+        XCTAssertTrue(success.reloadErrorDescription?.contains("timed out") == true)
 
         let followUpEntered = AsyncTestLatch()
         let followUpTask = Task {
@@ -110,17 +111,41 @@ final class FileMutationSerializationTests: XCTestCase {
                 await followUpEntered.signal()
             }
         }
-        let didQueueFollowUp = try await waitUntil {
-            await coordinator.queuedMutationCount == 1
+        let didEnterBeforeReloadFinished = try await waitUntil {
+            await followUpEntered.isSignaled
         }
-        let didEnterBeforeReloadFinished = await followUpEntered.isSignaled
-        XCTAssertTrue(didQueueFollowUp)
-        XCTAssertFalse(didEnterBeforeReloadFinished)
+        XCTAssertTrue(didEnterBeforeReloadFinished)
 
         await pipeline.allowReload.signal()
         try await followUpTask.value
-        let didEnterAfterReloadFinished = await followUpEntered.isSignaled
-        XCTAssertTrue(didEnterAfterReloadFinished)
+    }
+
+    func testSynchronousWriteIsNotReportedTimedOutWhileItCanStillCommit() async throws {
+        let pipeline = BlockingMutationPipeline()
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: FileMutationCoordinator(),
+            mutationTimeout: .milliseconds(30)
+        )
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorSlowWrite.mp3")
+
+        let task = Task {
+            await executor.execute(
+                at: fileURL,
+                id: UUID(),
+                expectedFileFingerprint: nil
+            ) { pipeline, url in
+                try pipeline.eraseAllMetadata(at: url)
+            }
+        }
+        let didStart = try await waitUntil { pipeline.totalMutationCount == 1 }
+        XCTAssertTrue(didStart)
+        try await Task.sleep(for: .milliseconds(80))
+        pipeline.releaseFirstMutation()
+
+        guard case .success = await task.value else {
+            return XCTFail("The caller must wait for a non-cancellable write's real outcome.")
+        }
     }
 
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {

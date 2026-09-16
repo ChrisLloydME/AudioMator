@@ -75,6 +75,11 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Passed after intent-delta change: incremental generic macOS build and focused `TagLibReadWriteIntegrationTests` for patch shape and exact untouched-value preservation.
 - Passed after date integration: full serial `TagLibReadWriteIntegrationTests`, including FLAC independent-date behavior and MP4 unsupported Year behavior.
 - Passed after protocol hardening: test-target compilation plus `AudioMetadataPipelineContractTests` (0 failures).
+- Final package gate: sibling `swift test` passed 122 tests with 2 opt-in skips and 0 failures.
+- Final app fast gate: `swift test --filter AudioMatorCoreLogicTests` passed 49 tests with 0 failures.
+- Final app-hosted gate: the complete serial macOS suite passed 339 tests with 0 skips and 0 failures. The result retains one known SwiftUI test-harness runtime warning about reading `State` outside an installed view.
+- Final build gates: forced generic macOS build and generic iOS build both passed with code signing disabled where applicable; no simulator was launched.
+- The first full-suite run exposed one migrated LRCLIB test backend that recorded only a raw delta while its assertion inspected the resulting map. The backend now applies `RawMetadataPatch` to its baseline, its focused regression passes, and the subsequent full suite is green.
 
 ## Commits
 
@@ -85,3 +90,5 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `8fac01b` — `fix: build inspector writes from intent deltas`
 - `97035c0` — `fix: preserve independent year and release date edits`
 - `89110d7` — `refactor: require precise metadata pipeline operations`
+- `5ce0996` — `docs: clarify package integration modes`
+- `6731089` — `test: apply raw patches in lyrics backend`

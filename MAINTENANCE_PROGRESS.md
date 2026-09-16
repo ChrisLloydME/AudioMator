@@ -14,6 +14,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - The raw editor's canonical model is `[String: [String]]`. Newlines are only the UI representation for ordered values; duplicates, empty values, whitespace, and literal semicolons are not normalized.
 - TagLibAudioMetadata is authoritative for editable semantic tags. AVFoundation remains for technical and display-only enrichment rather than overriding publisher, copyright, artwork, or advisory values.
 - Second-pass finding confirmed: the Inspector dirty check was field-by-field, but `MetadataEditPayload` discarded the baseline and the TagLib adapter emitted a full scalar snapshot. This could rewrite untouched multi-value fields through their scalar UI projection.
+- Year/release-date diagnosis confirmed. The former adapter collapsed both controls into `.releaseDate`, ignored a Year edit whenever Release Date was nonempty, and converted an explicit Release Date removal back into Year.
 
 ## Confirmed hypotheses
 
@@ -40,6 +41,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Preserve user-file compatibility and explicitly distinguish package defects from application workarounds.
 - Keep the UI's own file fingerprint for file-management diagnostics, but use the package version token as the metadata transaction concurrency authority.
 - Treat multi-file operations as per-file transactions: each file is atomic, while a batch may still report partial success across files.
+- Year maps to the package's recording-date semantic field; Release Date maps only to release date. ID3/Xiph-style formats can store both independently. MP4 exposes `©day` as release date and rejects an independent Year edit instead of silently overwriting `©day`.
 
 ## Completed tasks
 
@@ -53,6 +55,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Updated user and architecture documentation to describe the PropertyMap editing boundary, package-owned container behavior, and amended timeout semantics.
 - Changed every `persistMetadataEdit` path to construct a baseline-aware intent delta. Only changed semantic fields enter `MetadataPatch`; unchanged advisory, formatted numbers, and artwork are absent. Empty deltas are handled by the package's existing no-op fast path.
 - Added an app-hosted regression that writes multi-value Artist/Genre plus duplicate, whitespace-sensitive, and semicolon-bearing custom values, changes only Title, and compares exact raw arrays before and after.
+- Removed the `effectiveReleaseDate` fallback. Baseline-aware payloads now emit `.date` only for Year changes and `.releaseDate` only for Release Date changes/removal.
+- Added application integration tests for independent FLAC Year/Release Date edit and removal behavior, plus explicit rejection and byte preservation for an unsupported MP4 Year edit.
 
 ## Tests and validation
 
@@ -64,6 +68,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Passed: full serial macOS app-hosted suite (335 tests, 0 skips, 0 failures). The result bundle reported one pre-existing SwiftUI test-harness runtime warning about reading `State` outside an installed view.
 - Environment note: `/Applications/Xcode-beta.app` is absent; `/Applications/Xcode.app` reports Xcode 27.0 (27A266a).
 - Passed after intent-delta change: incremental generic macOS build and focused `TagLibReadWriteIntegrationTests` for patch shape and exact untouched-value preservation.
+- Passed after date integration: full serial `TagLibReadWriteIntegrationTests`, including FLAC independent-date behavior and MP4 unsupported Year behavior.
 
 ## Commits
 
@@ -71,3 +76,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `dba9098` — `refactor: route metadata saves through package patches`
 - `d4cde34` — `fix: preserve exact raw metadata value arrays`
 - `d953af4` — `fix: do not time out non-cancellable metadata writes`
+- `8fac01b` — `fix: build inspector writes from intent deltas`

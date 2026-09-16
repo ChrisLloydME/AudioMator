@@ -88,6 +88,74 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testInspectorYearAndReleaseDateEditsRemainIndependentOnFLAC() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(fields: [
+                .date: .text("2020"),
+                .releaseDate: .text("2020-05-31"),
+            ]),
+            to: workingURL
+        )
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        var edit = SingleFileEditModel(from: baseline)
+        edit.year = "2021"
+        var payload = MetadataEditPayload(edit, comparedTo: baseline)
+        var patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+        XCTAssertEqual(patch.fields, [.date: .text("2021")])
+
+        _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
+        var snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "DATE" }?.values, ["2021"])
+        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "RELEASEDATE" }?.values, ["2020-05-31"])
+
+        baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        edit = SingleFileEditModel(from: baseline)
+        edit.releaseDate = ""
+        payload = MetadataEditPayload(edit, comparedTo: baseline)
+        patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+        XCTAssertEqual(patch.fields, [.releaseDate: .remove])
+
+        _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
+        snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "DATE" }?.values, ["2021"])
+        XCTAssertNil(snapshot.raw.properties.first { $0.key == "RELEASEDATE" })
+    }
+
+    func testInspectorYearEditIsExplicitlyUnsupportedForMP4() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(fields: [.releaseDate: .text("2020-05-31")]),
+            to: workingURL
+        )
+        let pipeline = TagLibAudioMetadataPipeline()
+        let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        var edit = SingleFileEditModel(from: baseline)
+        edit.year = "2021"
+        let payload = MetadataEditPayload(edit, comparedTo: baseline)
+        let before = try Data(contentsOf: workingURL)
+
+        XCTAssertThrowsError(try pipeline.writeMetadata(
+            payload,
+            to: workingURL,
+            expectedVersion: baseline.metadataFileVersion
+        )) { error in
+            XCTAssertEqual(
+                error as? MetadataPatchValidationError,
+                .unsupportedFieldForFormat(field: .date, format: "mp4")
+            )
+        }
+        XCTAssertEqual(try Data(contentsOf: workingURL), before)
+    }
+
     func testAudioFileLoadingRejectsMissingSourceFile() async {
         let missingURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMator-Missing-Load-\(UUID().uuidString).mp3")

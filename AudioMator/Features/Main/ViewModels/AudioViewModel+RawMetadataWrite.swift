@@ -12,7 +12,7 @@ struct RawMetadataApplyResult {
 extension AudioViewModel {
     @discardableResult
     func applyRawMetadataPropertyMaps(
-        _ propertyMaps: [AudioFile.ID: [String: String]],
+        _ propertyMaps: [AudioFile.ID: RawMetadataValueMap],
         to targets: [MetadataEditorTarget]
     ) async -> RawMetadataApplyResult {
         guard !targets.isEmpty else {
@@ -64,7 +64,11 @@ extension AudioViewModel {
                 expectedFileFingerprint: target.expectedFileFingerprint,
                 syncInspectorAfterReload: false
             ) { metadataPipeline, url in
-                try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+                try metadataPipeline.writeRawMetadataValueMap(
+                    propertyMap,
+                    to: url,
+                    expectedVersion: target.expectedMetadataVersion
+                )
             }
 
             switch result {

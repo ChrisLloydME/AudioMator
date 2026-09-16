@@ -11,11 +11,13 @@ struct MetadataEditorTarget: Identifiable, Hashable {
     let id: AudioFile.ID
     let url: URL
     let expectedFileFingerprint: AudioFileFingerprint?
+    let expectedMetadataVersion: MetadataFileVersion?
 
     init(file: AudioFile) {
         self.id = file.id
         self.url = file.url
         self.expectedFileFingerprint = file.fileFingerprint
+        self.expectedMetadataVersion = file.metadataFileVersion
     }
 
     nonisolated var fileName: String {
@@ -34,13 +36,13 @@ private struct MetadataTextUtilitiesContext: Identifiable {
 @MainActor
 final class MetadataEditorStore: ObservableObject {
     private struct LoadedState {
-        let propertyMaps: [AudioFile.ID: [String: String]]
+        let propertyMaps: [AudioFile.ID: RawMetadataValueMap]
         let errorMessage: String?
     }
 
     @Published private(set) var targets: [MetadataEditorTarget] = []
-    @Published private(set) var originalPropertyMaps: [AudioFile.ID: [String: String]] = [:]
-    @Published private(set) var draftPropertyMaps: [AudioFile.ID: [String: String]] = [:]
+    @Published private(set) var originalPropertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
+    @Published private(set) var draftPropertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var loadErrorMessage: String?
     @Published var selectedFieldKeys: Set<String> = []
@@ -164,13 +166,13 @@ final class MetadataEditorStore: ObservableObject {
         guard isEditable, let key = selectedFieldKey else { return nil }
 
         let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
-        let firstValue = values.first ?? ""
-        let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
+        let firstValues = values.first ?? []
+        let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValues }
 
         return MetadataFieldEditorContext(
             mode: .edit,
             key: key,
-            initialValue: isUniform ? firstValue : "",
+            initialValue: isUniform ? firstValues.joined(separator: "\n") : "",
             isMixed: !isUniform
         )
     }
@@ -178,13 +180,11 @@ final class MetadataEditorStore: ObservableObject {
     func upsertField(key: String, value: String) {
         guard isEditable else { return }
         let normalizedKey = Self.normalizedFieldKey(key)
-        let normalizedValue = Self.normalizedFieldValue(value)
-
-        guard !normalizedKey.isEmpty, !normalizedValue.isEmpty else { return }
+        guard !normalizedKey.isEmpty else { return }
 
         for target in targets {
             var propertyMap = draftPropertyMaps[target.id] ?? [:]
-            propertyMap[normalizedKey] = normalizedValue
+            propertyMap[normalizedKey] = Self.exactFieldValues(value)
             draftPropertyMaps[target.id] = propertyMap
         }
 
@@ -197,19 +197,12 @@ final class MetadataEditorStore: ObservableObject {
         value: String
     ) {
         guard isEditable else { return }
-        let normalizedValue = Self.normalizedFieldValue(value)
-
         switch context.mode {
         case .add:
-            upsertField(key: key, value: normalizedValue)
+            upsertField(key: key, value: value)
         case .edit:
             guard let originalKey = context.key else { return }
-
-            if normalizedValue.isEmpty {
-                deleteField(named: originalKey)
-            } else {
-                upsertField(key: originalKey, value: normalizedValue)
-            }
+            upsertField(key: originalKey, value: value)
         }
     }
 
@@ -225,7 +218,8 @@ final class MetadataEditorStore: ObservableObject {
 
         return targets.flatMap { target in
             sortedKeys.compactMap { key in
-                guard let currentValue = draftPropertyMaps[target.id]?[key] else { return nil }
+                guard let currentValues = draftPropertyMaps[target.id]?[key] else { return nil }
+                let currentValue = currentValues.joined(separator: "\n")
                 return MetadataTextUtilityPreviewRow(
                     targetID: target.id,
                     fileName: target.fileName,
@@ -247,14 +241,8 @@ final class MetadataEditorStore: ObservableObject {
             var propertyMap = draftPropertyMaps[target.id] ?? [:]
 
             for key in fieldKeys {
-                guard let currentValue = propertyMap[key] else { continue }
-                let nextValue = pipeline.applying(to: currentValue)
-
-                if nextValue.isEmpty {
-                    propertyMap.removeValue(forKey: key)
-                } else {
-                    propertyMap[key] = nextValue
-                }
+                guard let currentValues = propertyMap[key] else { continue }
+                propertyMap[key] = currentValues.map { pipeline.applying(to: $0) }
             }
 
             draftPropertyMaps[target.id] = propertyMap
@@ -299,12 +287,12 @@ final class MetadataEditorStore: ObservableObject {
         for targets: [MetadataEditorTarget],
         metadataPipeline: any AudioMetadataPipeline
     ) -> LoadedState {
-        var propertyMaps: [AudioFile.ID: [String: String]] = [:]
+        var propertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
         var failures: [String] = []
 
         for target in targets {
             do {
-                propertyMaps[target.id] = try metadataPipeline.rawMetadataPropertyMap(for: target.url)
+                propertyMaps[target.id] = try metadataPipeline.rawMetadataValueMap(for: target.url)
             } catch {
                 failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
             }
@@ -326,8 +314,8 @@ final class MetadataEditorStore: ObservableObject {
         MetadataFieldSuggestion.resolvedKey(for: key)
     }
 
-    nonisolated private static func normalizedFieldValue(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    nonisolated private static func exactFieldValues(_ value: String) -> [String] {
+        value.components(separatedBy: "\n")
     }
 }
 

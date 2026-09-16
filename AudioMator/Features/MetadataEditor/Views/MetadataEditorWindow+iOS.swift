@@ -1,16 +1,19 @@
 #if os(iOS)
 import SwiftUI
 import Combine
+import TagLibAudioMetadata
 
 struct MetadataEditorTarget: Identifiable, Hashable {
     let id: AudioFile.ID
     let url: URL
     let expectedFileFingerprint: AudioFileFingerprint?
+    let expectedMetadataVersion: MetadataFileVersion?
 
     init(file: AudioFile) {
         self.id = file.id
         self.url = file.url
         self.expectedFileFingerprint = file.fileFingerprint
+        self.expectedMetadataVersion = file.metadataFileVersion
     }
 
     nonisolated var fileName: String {
@@ -36,13 +39,13 @@ private struct MetadataFieldEditorContext: Identifiable {
 @MainActor
 final class MetadataEditorStore: ObservableObject {
     private struct LoadedState {
-        let propertyMaps: [AudioFile.ID: [String: String]]
+        let propertyMaps: [AudioFile.ID: RawMetadataValueMap]
         let errorMessage: String?
     }
 
     @Published private(set) var targets: [MetadataEditorTarget] = []
-    @Published private(set) var originalPropertyMaps: [AudioFile.ID: [String: String]] = [:]
-    @Published private(set) var draftPropertyMaps: [AudioFile.ID: [String: String]] = [:]
+    @Published private(set) var originalPropertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
+    @Published private(set) var draftPropertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var loadErrorMessage: String?
     @Published var selectedFieldKey: String?
@@ -75,9 +78,9 @@ final class MetadataEditorStore: ObservableObject {
         let allKeys = Set(draftPropertyMaps.values.flatMap(\.keys))
         return allKeys.sorted().map { key in
             let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
-            let firstValue = values.first ?? ""
-            let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
-            return IOSMetadataEditorRow(key: key, value: firstValue, isMixed: !isUniform)
+            let firstValues = values.first ?? []
+            let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValues }
+            return IOSMetadataEditorRow(key: key, value: firstValues.joined(separator: "\n"), isMixed: !isUniform)
         }
     }
 
@@ -130,20 +133,22 @@ final class MetadataEditorStore: ObservableObject {
     fileprivate func makeEditFieldContext() -> MetadataFieldEditorContext? {
         guard isEditable, let selectedFieldKey else { return nil }
         let values = targets.compactMap { draftPropertyMaps[$0.id]?[selectedFieldKey] }
-        let firstValue = values.first ?? ""
-        let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
-        return MetadataFieldEditorContext(key: selectedFieldKey, initialValue: isUniform ? firstValue : "")
+        let firstValues = values.first ?? []
+        let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValues }
+        return MetadataFieldEditorContext(
+            key: selectedFieldKey,
+            initialValue: isUniform ? firstValues.joined(separator: "\n") : ""
+        )
     }
 
     func upsertField(key: String, value: String) {
         guard isEditable else { return }
         let normalizedKey = MetadataFieldSuggestion.resolvedKey(for: key)
-        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedKey.isEmpty, !normalizedValue.isEmpty else { return }
+        guard !normalizedKey.isEmpty else { return }
 
         for target in targets {
             var propertyMap = draftPropertyMaps[target.id] ?? [:]
-            propertyMap[normalizedKey] = normalizedValue
+            propertyMap[normalizedKey] = value.components(separatedBy: "\n")
             draftPropertyMaps[target.id] = propertyMap
         }
 
@@ -152,16 +157,10 @@ final class MetadataEditorStore: ObservableObject {
 
     fileprivate func commitFieldEntry(context: MetadataFieldEditorContext, key: String, value: String) {
         guard isEditable else { return }
-        let normalizedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-
         if let existingKey = context.key {
-            if normalizedValue.isEmpty {
-                deleteField(named: existingKey)
-            } else {
-                upsertField(key: existingKey, value: normalizedValue)
-            }
+            upsertField(key: existingKey, value: value)
         } else {
-            upsertField(key: key, value: normalizedValue)
+            upsertField(key: key, value: value)
         }
     }
 
@@ -186,12 +185,12 @@ final class MetadataEditorStore: ObservableObject {
         for targets: [MetadataEditorTarget],
         metadataPipeline: any AudioMetadataPipeline
     ) -> LoadedState {
-        var propertyMaps: [AudioFile.ID: [String: String]] = [:]
+        var propertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
         var failures: [String] = []
 
         for target in targets {
             do {
-                propertyMaps[target.id] = try metadataPipeline.rawMetadataPropertyMap(for: target.url)
+                propertyMaps[target.id] = try metadataPipeline.rawMetadataValueMap(for: target.url)
             } catch {
                 failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
             }

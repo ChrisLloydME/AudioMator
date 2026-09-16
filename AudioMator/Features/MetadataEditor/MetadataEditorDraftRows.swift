@@ -15,19 +15,19 @@ struct MetadataEditorRow: Identifiable, Hashable {
 enum MetadataEditorDraftRows {
     static func makeRows(
         targets: [MetadataEditorTarget],
-        draftPropertyMaps: [AudioFile.ID: [String: String]]
+        draftPropertyMaps: [AudioFile.ID: RawMetadataValueMap]
     ) -> [MetadataEditorRow] {
         let allKeys = Set(draftPropertyMaps.values.flatMap(\.keys))
 
         return allKeys
             .map { key in
                 let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
-                let firstValue = values.first ?? ""
-                let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValue }
+                let firstValues = values.first ?? []
+                let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValues }
 
                 return MetadataEditorRow(
                     key: key,
-                    value: firstValue,
+                    value: firstValues.joined(separator: "\n"),
                     isMixed: !isUniform
                 )
             }

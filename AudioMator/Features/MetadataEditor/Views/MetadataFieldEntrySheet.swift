@@ -49,17 +49,8 @@ struct MetadataFieldEntrySheet: View {
         fieldKey.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var trimmedFieldValue: String {
-        fieldValue.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     private var canSave: Bool {
-        switch context.mode {
-        case .add:
-            return !trimmedFieldKey.isEmpty && !trimmedFieldValue.isEmpty
-        case .edit:
-            return !trimmedFieldKey.isEmpty
-        }
+        !trimmedFieldKey.isEmpty
     }
 
     private var titleText: String {
@@ -74,12 +65,12 @@ struct MetadataFieldEntrySheet: View {
     private var descriptionText: String {
         switch context.mode {
         case .add:
-            return L10n.string("Enter the property-map field name and the value to write.")
+            return L10n.string("Enter the property-map field name and its values, one value per line.")
         case .edit:
             if context.isMixed {
-                return L10n.string("Selected files currently contain different values. Saving replaces them with one shared value.")
+                return L10n.string("Selected files currently contain different values. Saving replaces them with the same value list, one value per line.")
             }
-            return L10n.string("Update the selected metadata field for every file in the current selection.")
+            return L10n.string("Update the selected metadata field for every file in the current selection. Each line is one exact value.")
         }
     }
 
@@ -146,7 +137,7 @@ struct MetadataFieldEntrySheet: View {
                 }
 
                 Button(context.mode == .add ? "Add" : "Save") {
-                    onSave(trimmedFieldKey, trimmedFieldValue)
+                    onSave(trimmedFieldKey, fieldValue)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)

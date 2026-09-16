@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 extension AudioViewModel {
     func applyLRCLIBSyncedLyrics(_ syncedLyrics: String, to fileID: AudioFile.ID) async -> Bool {
@@ -37,9 +38,11 @@ extension AudioViewModel {
             expectedFileFingerprint: file.fileFingerprint,
             syncInspectorAfterReload: true
         ) { metadataPipeline, url in
-            var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
-            propertyMap["LYRICS"] = normalizedLyrics
-            return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+            try metadataPipeline.writeRawMetadataPatch(
+                RawMetadataPatch(valuesToSet: ["LYRICS": [normalizedLyrics]]),
+                to: url,
+                expectedVersion: file.metadataFileVersion
+            )
         }
 
         switch result {
@@ -158,9 +161,11 @@ extension AudioViewModel {
                 expectedFileFingerprint: file.fileFingerprint,
                 syncInspectorAfterReload: false
             ) { metadataPipeline, url in
-                var propertyMap = try metadataPipeline.rawMetadataPropertyMap(for: url)
-                propertyMap["LYRICS"] = normalizedLyrics
-                return try metadataPipeline.writeRawMetadataPropertyMap(propertyMap, to: url)
+                try metadataPipeline.writeRawMetadataPatch(
+                    RawMetadataPatch(valuesToSet: ["LYRICS": [normalizedLyrics]]),
+                    to: url,
+                    expectedVersion: file.metadataFileVersion
+                )
             }
 
             switch result {

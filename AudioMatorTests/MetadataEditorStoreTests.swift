@@ -25,15 +25,15 @@ final class MetadataEditorStoreTests: XCTestCase {
         try await waitUntilLoaded(store)
 
         XCTAssertEqual(store.targets.map(\.id), [firstID, secondID])
-        XCTAssertEqual(store.originalPropertyMaps[firstID], ["TITLE": "First", "ALBUM": "Shared Album"])
-        XCTAssertEqual(store.draftPropertyMaps[secondID], ["TITLE": "Second", "ALBUM": "Shared Album"])
+        XCTAssertEqual(store.originalPropertyMaps[firstID], ["TITLE": ["First"], "ALBUM": ["Shared Album"]])
+        XCTAssertEqual(store.draftPropertyMaps[secondID], ["TITLE": ["Second"], "ALBUM": ["Shared Album"]])
         XCTAssertEqual(store.selectedFieldKey, "ALBUM")
         XCTAssertFalse(store.hasUnsavedChanges)
         XCTAssertNil(store.loadErrorMessage)
         XCTAssertEqual(store.selectionSummaryText, "2 selected files")
     }
 
-    func testUpsertFieldTrimsValueAndAppliesToEveryTarget() async throws {
+    func testUpsertFieldPreservesExactValuesAndAppliesToEveryTarget() async throws {
         let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
         let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
         let store = MetadataEditorStore(
@@ -47,13 +47,13 @@ final class MetadataEditorStoreTests: XCTestCase {
         try await waitUntilLoaded(store)
         store.upsertField(key: " CUSTOMFIELD ", value: "  Shared Value\n")
 
-        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["CUSTOMFIELD"], "Shared Value")
-        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["CUSTOMFIELD"], "Shared Value")
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["CUSTOMFIELD"], ["  Shared Value", ""])
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["CUSTOMFIELD"], ["  Shared Value", ""])
         XCTAssertEqual(store.selectedFieldKey, "CUSTOMFIELD")
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
-    func testUpsertFieldIgnoresEmptyKeysAndValues() async throws {
+    func testUpsertFieldIgnoresEmptyKeysButPreservesWhitespaceAndEmptyValueBoundaries() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
         let initialMap = ["TITLE": "Original"]
         let store = MetadataEditorStore(
@@ -65,8 +65,9 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.upsertField(key: "   ", value: "Ignored")
         store.upsertField(key: "CUSTOMFIELD", value: " \n ")
 
-        XCTAssertEqual(store.draftPropertyMaps[file.id], initialMap)
-        XCTAssertFalse(store.hasUnsavedChanges)
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["Original"])
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["CUSTOMFIELD"], [" ", " "])
+        XCTAssertTrue(store.hasUnsavedChanges)
     }
 
     func testDeleteSelectedFieldRemovesFieldFromEveryTargetAndRealignsSelection() async throws {
@@ -105,7 +106,7 @@ final class MetadataEditorStoreTests: XCTestCase {
 
         store.deleteSelectedField()
 
-        XCTAssertEqual(store.draftPropertyMaps[file.id], ["TITLE": "Title"])
+        XCTAssertEqual(store.draftPropertyMaps[file.id], ["TITLE": ["Title"]])
         XCTAssertEqual(store.selectedFieldKey, "TITLE")
         XCTAssertTrue(store.hasUnsavedChanges)
     }
@@ -133,10 +134,10 @@ final class MetadataEditorStoreTests: XCTestCase {
 
         store.applyTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
 
-        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["TITLE"], "First")
-        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["ARTIST"], "Artist")
-        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["TITLE"], "Second")
-        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["ARTIST"], "Artist")
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["TITLE"], ["First"])
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["ARTIST"], ["Artist"])
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["TITLE"], ["Second"])
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["ARTIST"], ["Artist"])
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
@@ -160,8 +161,8 @@ final class MetadataEditorStoreTests: XCTestCase {
             fieldKeys: ["ARTIST"]
         )
 
-        XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], "  Title")
-        XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], "Artist  ")
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["  Title"])
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], ["Artist  "])
     }
 
     func testDiscardChangesRestoresOriginalMaps() async throws {
@@ -178,7 +179,7 @@ final class MetadataEditorStoreTests: XCTestCase {
 
         store.discardChanges()
 
-        XCTAssertEqual(store.draftPropertyMaps[file.id], originalMap)
+        XCTAssertEqual(store.draftPropertyMaps[file.id], ["TITLE": ["Original"]])
         XCTAssertEqual(store.selectedFieldKey, "TITLE")
         XCTAssertFalse(store.hasUnsavedChanges)
     }
@@ -250,7 +251,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(firstResult.didApplyAllChanges)
         XCTAssertEqual(store.targets.map(\.id), [secondFile.id])
         XCTAssertEqual(store.pendingTargets.map(\.id), [secondFile.id])
-        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["ALBUM"], "Shared Draft")
+        XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["ALBUM"], ["Shared Draft"])
         XCTAssertEqual(pipeline.writeAttemptCount(for: firstFile.url), 1)
         XCTAssertEqual(pipeline.writeAttemptCount(for: secondFile.url), 1)
 
@@ -290,7 +291,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         try await waitUntilLoaded(store)
         store.upsertField(key: "ALBUM", value: "Must Not Apply")
 
-        XCTAssertEqual(store.originalPropertyMaps[readableFile.id], ["TITLE": "Keep Me"])
+        XCTAssertEqual(store.originalPropertyMaps[readableFile.id], ["TITLE": ["Keep Me"]])
         XCTAssertNil(store.originalPropertyMaps[unreadableFile.id])
         XCTAssertEqual(store.draftPropertyMaps, store.originalPropertyMaps)
         XCTAssertFalse(store.hasUnsavedChanges)

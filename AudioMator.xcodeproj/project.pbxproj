@@ -172,7 +172,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				6E1F4D582FAD100000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
-				6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */,
+				6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6ED09D172ED1ED550031CDAD /* Products */;
@@ -576,6 +576,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../TagLibAudioMetadata;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		6E1F4D582FAD100000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -585,16 +592,12 @@
 				minimumVersion = 2.0.0;
 			};
 		};
-		6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../TagLibAudioMetadata;
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		6EC21B332F9D0EE60020DADE /* TagLibAudioMetadata */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */;
+			package = 6EC21B322F9D0EE60020DADE /* XCLocalSwiftPackageReference "../TagLibAudioMetadata" */;
 			productName = TagLibAudioMetadata;
 		};
 /* End XCSwiftPackageProductDependency section */

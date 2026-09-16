@@ -6,7 +6,7 @@ AudioMator is built from the Xcode project. A SwiftPM core-logic test target and
 
 - macOS development environment.
 - Xcode capable of opening `AudioMator.xcodeproj`.
-- Swift Package Manager for resolving `TagLibAudioMetadata` and Sparkle package references.
+- Swift Package Manager for resolving the local `TagLibAudioMetadata` package and the remote Sparkle package reference.
 - Network access when resolving packages or using online app features.
 
 The app target currently declares macOS `26.0` and iOS/iPadOS `26.0` deployment targets. The SwiftPM fast-test package declares macOS `.v15` because it includes only selected non-UI, non-TagLib, non-network core logic.
@@ -21,6 +21,28 @@ open AudioMator.xcodeproj
 
 Select the `AudioMator` scheme. macOS is the primary full desktop workflow. For iPadOS compile checks, prefer generic iOS destination builds unless simulator validation is specifically needed.
 
+## Dependency Modes
+
+The current coordinated-maintenance checkout uses an Xcode local package
+reference at `../TagLibAudioMetadata`. Clone both repositories as siblings:
+
+```text
+parent/
+├── AudioMator/
+└── TagLibAudioMetadata/
+```
+
+This is intentional while AudioMator is integrating unreleased package API and
+semantic changes. `Package.resolved` therefore contains Sparkle but no remote
+TagLibAudioMetadata pin.
+
+Release builds are intended to use the published TagLibAudioMetadata repository,
+not require a sibling checkout. After the package changes are tagged, replace the
+local reference with the remote SwiftPM URL and an explicit compatible version,
+resolve dependencies, run the full build/test gates, and commit both the project
+reference and regenerated pin together. Do not perform that switch against an
+unpublished revision.
+
 ## Resolve Dependencies
 
 Xcode usually resolves Swift packages automatically. To resolve them manually:
@@ -29,7 +51,10 @@ Xcode usually resolves Swift packages automatically. To resolve them manually:
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The current project resolution includes `https://github.com/ChrisLloydME/TagLibAudioMetadata.git` and `https://github.com/sparkle-project/Sparkle`.
+In the current maintenance mode, this resolves `../TagLibAudioMetadata` and
+`https://github.com/sparkle-project/Sparkle`. A release-ready project will
+instead resolve TagLibAudioMetadata from its published Git repository as
+described above.
 
 ## Fast Tests
 

@@ -8,7 +8,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Current findings
 
-- **Current dependency state:** `AudioMator.xcodeproj` uses the local package reference `../TagLibAudioMetadata`; `Package.resolved` contains no TagLibAudioMetadata pin. This was intentionally changed in `b78c1be` for coordinated maintenance. Before that change, the release configuration used remote TagLibAudioMetadata 0.4.5.
+- **Current dependency state:** `AudioMator.xcodeproj` resolves the remote `TagLibAudioMetadata` package at exact version `0.5.1`. The former sibling-checkout reference was removed after the matching upstream release became available.
 - One inspector Save now constructs one package `MetadataPatch` containing ordinary fields, formatted track/disc intent, artwork, and all four advisory states. AudioMator no longer performs follow-up advisory, alias, or MP4 cleanup transactions.
 - Editable metadata is loaded from one `MetadataSnapshot`; its `MetadataFileVersion` remains attached to the `AudioFile` edit snapshot and is supplied at every inspector, raw editor, erase, lyrics, and track-renumber transaction boundary.
 - The raw editor's canonical model is `[String: [String]]`. Newlines are only the UI representation for ordered values; duplicates, empty values, whitespace, and literal semicolons are not normalized.
@@ -20,7 +20,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
-- Dependency coordination: the historical 0.4.5 remote pin was confirmed, but the earlier journal conclusion that it remained current was false. The active project uses the sibling checkout; release mode must be restored only after the new package API is published.
+- Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
 - Raw editor lossiness: confirmed. The previous `[String: String]` join/trim/split path could not distinguish one semicolon-bearing value from multiple values and rewrote the whole map.
 - Stale edit race: confirmed. The app fingerprint check occurred before the package established its transaction baseline; retaining and passing `MetadataFileVersion` closes that window.
 - Timeout diagnosis: confirmed. Swift Task cancellation could not stop the synchronous TagLib mutation, so a reported timeout could later commit. The write now waits for its real outcome; only post-commit reload is bounded.
@@ -30,7 +30,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- Publish TagLibAudioMetadata 0.6.0 (or select an explicit release revision), then resolve AudioMator's remote SwiftPM dependency and commit the regenerated pin. Until publication, local integrated tests use the sibling checkout.
+- Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
 - Raw-editor newline boundary ambiguity remains explicitly deferred: a newline inside one raw value and the UI separator between values are not yet distinguishable.

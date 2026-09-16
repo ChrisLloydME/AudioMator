@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import TagLibAudioMetadata
 @testable import AudioMator
 
 final class LRCLIBLyricsTests: XCTestCase {
@@ -457,22 +458,33 @@ private final class RecordingRawMetadataPipeline: AudioMetadataPipeline, @unchec
         nil
     }
 
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
-        initialPropertyMap
+    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
+        initialPropertyMap.mapValues { [$0] }
     }
 
-    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
-    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func writeRawMetadataPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         lock.withLock {
-            _writtenPropertyMap = propertyMap
+            _writtenPropertyMap = patch.valuesToSet.mapValues { $0.joined(separator: "; ") }
         }
         return AudioMetadataWriteResult(warnings: [])
     }
 
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func eraseAllMetadata(
+        at url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
@@ -480,7 +492,8 @@ private final class RecordingRawMetadataPipeline: AudioMetadataPipeline, @unchec
         _ trackNumberText: String,
         discNumberText: String?,
         to url: URL,
-        verifyAfterWrite: Bool
+        verifyAfterWrite: Bool,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }

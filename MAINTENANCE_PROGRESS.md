@@ -57,6 +57,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Added an app-hosted regression that writes multi-value Artist/Genre plus duplicate, whitespace-sensitive, and semicolon-bearing custom values, changes only Title, and compares exact raw arrays before and after.
 - Removed the `effectiveReleaseDate` fallback. Baseline-aware payloads now emit `.date` only for Year changes and `.releaseDate` only for Release Date changes/removal.
 - Added application integration tests for independent FLAC Year/Release Date edit and removal behavior, plus explicit rejection and byte preservation for an unsupported MP4 Year edit.
+- Hardened `AudioMetadataPipeline` so conformers must implement exact raw-value reads, delta patches, and version-aware mutation entry points. Legacy scalar and unversioned conveniences are now one-way adapters built on those strong primitives rather than lossy fallback requirements.
+- Added a protocol contract regression proving that whole-map convenience writes preserve exact arrays, compute removals as a delta, and forward the caller's `MetadataFileVersion`.
 
 ## Tests and validation
 
@@ -69,6 +71,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Environment note: `/Applications/Xcode-beta.app` is absent; `/Applications/Xcode.app` reports Xcode 27.0 (27A266a).
 - Passed after intent-delta change: incremental generic macOS build and focused `TagLibReadWriteIntegrationTests` for patch shape and exact untouched-value preservation.
 - Passed after date integration: full serial `TagLibReadWriteIntegrationTests`, including FLAC independent-date behavior and MP4 unsupported Year behavior.
+- Passed after protocol hardening: test-target compilation plus `AudioMetadataPipelineContractTests` (0 failures).
 
 ## Commits
 
@@ -77,3 +80,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `d4cde34` — `fix: preserve exact raw metadata value arrays`
 - `d953af4` — `fix: do not time out non-cancellable metadata writes`
 - `8fac01b` — `fix: build inspector writes from intent deltas`
+- `97035c0` — `fix: preserve independent year and release date edits`

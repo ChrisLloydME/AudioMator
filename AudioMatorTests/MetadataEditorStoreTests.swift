@@ -1,4 +1,5 @@
 import XCTest
+import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
@@ -347,23 +348,34 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
         nil
     }
 
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
+    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
         if let failure = failuresByURL[url] {
             throw failure
         }
 
-        return propertyMapsByURL[url] ?? [:]
+        return (propertyMapsByURL[url] ?? [:]).mapValues { [$0] }
     }
 
-    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
-    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func writeRawMetadataPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func eraseAllMetadata(
+        at url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
@@ -371,7 +383,8 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
         _ trackNumberText: String,
         discNumberText: String?,
         to url: URL,
-        verifyAfterWrite: Bool
+        verifyAfterWrite: Bool,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
@@ -408,20 +421,22 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
 
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
-        propertyMapsByURL[url] ?? [:]
+    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
+        (propertyMapsByURL[url] ?? [:]).mapValues { [$0] }
     }
 
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
-        to url: URL
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
-    nonisolated func writeRawMetadataPropertyMap(
-        _ propertyMap: [String: String],
-        to url: URL
+    nonisolated func writeRawMetadataPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         let shouldFail = lock.withLock {
             writeAttemptsByURL[url, default: 0] += 1
@@ -433,7 +448,10 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
         return AudioMetadataWriteResult(warnings: [])
     }
 
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+    nonisolated func eraseAllMetadata(
+        at url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
@@ -441,7 +459,8 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
         _ trackNumberText: String,
         discNumberText: String?,
         to url: URL,
-        verifyAfterWrite: Bool
+        verifyAfterWrite: Bool,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }

@@ -1,12 +1,68 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum AudiomatorScrollEdgeEffectStyle {
+    case soft
+}
+
 extension View {
+    @ViewBuilder
     func audiomatorScrollEdgeEffect(
-        _ style: ScrollEdgeEffectStyle = .soft,
+        _ style: AudiomatorScrollEdgeEffectStyle = .soft,
         for edges: Edge.Set = .all
     ) -> some View {
-        scrollEdgeEffectStyle(style, for: edges)
+        if #available(macOS 26.0, iOS 26.0, *) {
+            switch style {
+            case .soft:
+                scrollEdgeEffectStyle(.soft, for: edges)
+            }
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func audiomatorSafeAreaBar<Content: View>(
+        edge: VerticalEdge,
+        spacing: CGFloat? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if #available(macOS 26.0, iOS 26.0, *) {
+            safeAreaBar(edge: edge, spacing: spacing, content: content)
+        } else {
+            safeAreaInset(edge: edge, spacing: spacing, content: content)
+        }
+    }
+
+    @ViewBuilder
+    func audiomatorRegularGlassRoundedRectangle(cornerRadius: CGFloat) -> some View {
+        if #available(macOS 26.0, iOS 26.0, *) {
+            glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
+        }
+    }
+
+    @ViewBuilder
+    func audiomatorRegularGlassCapsule() -> some View {
+        if #available(macOS 26.0, iOS 26.0, *) {
+            glassEffect(.regular, in: .capsule)
+        } else {
+            background(.regularMaterial, in: Capsule())
+        }
+    }
+
+    @ViewBuilder
+    func audiomatorNavigationSubtitle(_ subtitle: String) -> some View {
+        #if os(macOS)
+        navigationSubtitle(subtitle)
+        #else
+        if #available(iOS 26.0, *) {
+            navigationSubtitle(subtitle)
+        } else {
+            self
+        }
+        #endif
     }
 }
 
@@ -132,7 +188,7 @@ private struct AudiomatorMacTitlebarScrollEdgeBarModifier: ViewModifier {
                 }
             }
             .onPreferenceChange(AudiomatorMacSafeAreaTopPreferenceKey.self) { safeAreaTop = $0 }
-            .safeAreaBar(edge: .top, spacing: 0) {
+            .audiomatorSafeAreaBar(edge: .top, spacing: 0) {
                 Color.clear
                     .frame(height: barHeight)
                     .background(AudiomatorMacTitlebarInsetReader(inset: $titlebarHeight))

@@ -683,7 +683,7 @@ struct MetadataSaveProgressOverlay: View {
             }
             .padding(20)
             .frame(width: 380)
-            .glassEffect(.regular, in: .rect(cornerRadius: 26.0))
+            .audiomatorRegularGlassRoundedRectangle(cornerRadius: 26)
             .shadow(color: .black.opacity(0.18), radius: 28, x: 0, y: 18)
             .allowsHitTesting(true)
         }

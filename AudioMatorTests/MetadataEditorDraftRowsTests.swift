@@ -10,8 +10,8 @@ final class MetadataEditorDraftRowsTests: XCTestCase {
         let rows = MetadataEditorDraftRows.makeRows(
             targets: targets,
             draftPropertyMaps: [
-                first.id: ["TITLE": "One", "ALBUM": "Shared"],
-                second.id: ["TITLE": "Two", "ALBUM": "Shared", "ARTIST": "Only Second"]
+                first.id: ["TITLE": ["One"], "ALBUM": ["Shared"]],
+                second.id: ["TITLE": ["Two"], "ALBUM": ["Shared"], "ARTIST": ["Only Second"]]
             ]
         )
 

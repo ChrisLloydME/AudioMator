@@ -427,8 +427,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         let applyResult = await viewModel.applyRawMetadataPropertyMaps(
             [
-                firstID: ["TITLE": "Raw First", "CUSTOM": "One"],
-                secondID: ["TITLE": "Raw Second"]
+                firstID: ["TITLE": ["Raw First"], "CUSTOM": ["One"]],
+                secondID: ["TITLE": ["Raw Second"]]
             ],
             to: [
                 MetadataEditorTarget(file: first),
@@ -486,7 +486,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
         await viewModel.applyRawMetadataPropertyMaps(
-            [file.id: ["TITLE": "Stale Draft"]],
+            [file.id: ["TITLE": ["Stale Draft"]]],
             to: [MetadataEditorTarget(file: file)]
         )
 

@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 extension AudioViewModel {
     // MARK: - Inspector Writes (TagLib)
@@ -35,12 +36,15 @@ extension AudioViewModel {
         )
         let expectedFileFingerprint = inspectorEditSourceFilesByID[id]?.fileFingerprint
             ?? file.fileFingerprint
+        let expectedMetadataVersion = inspectorEditSourceFilesByID[id]?.metadataFileVersion
+            ?? file.metadataFileVersion
 
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
-                expectedFileFingerprint: expectedFileFingerprint
+                expectedFileFingerprint: expectedFileFingerprint,
+                expectedMetadataVersion: expectedMetadataVersion
             )
             self.updateMetadataSaveProgress(
                 subtitle: file.url.lastPathComponent,
@@ -83,6 +87,7 @@ extension AudioViewModel {
 
         let editSnapshot = multiEdit
         let expectedFileFingerprints = inspectorEditSourceFilesByID.mapValues(\.fileFingerprint)
+        let expectedMetadataVersions = inspectorEditSourceFilesByID.compactMapValues(\.metadataFileVersion)
 
         beginMetadataSaveProgress(
             title: "Saving Album Artwork",
@@ -105,7 +110,9 @@ extension AudioViewModel {
                     to: file,
                     syncInspectorAfterReload: false,
                     expectedFileFingerprint: expectedFileFingerprints[file.id]
-                        ?? file.fileFingerprint
+                        ?? file.fileFingerprint,
+                    expectedMetadataVersion: expectedMetadataVersions[file.id]
+                        ?? file.metadataFileVersion
                 )
 
                 switch result {
@@ -149,7 +156,8 @@ extension AudioViewModel {
         _ edit: SingleFileEditModel,
         to file: AudioFile,
         syncInspectorAfterReload: Bool = true,
-        expectedFileFingerprint: AudioFileFingerprint? = nil
+        expectedFileFingerprint: AudioFileFingerprint? = nil,
+        expectedMetadataVersion: MetadataFileVersion? = nil
     ) async -> MetadataWriteExecutionResult {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             return .failure("This format does not support metadata writing yet.")
@@ -163,7 +171,11 @@ extension AudioViewModel {
             expectedFileFingerprint: expectedFileFingerprint,
             syncInspectorAfterReload: syncInspectorAfterReload
         ) { metadataPipeline, url in
-            try metadataPipeline.writeMetadata(editPayload, to: url)
+            try metadataPipeline.writeMetadata(
+                editPayload,
+                to: url,
+                expectedVersion: expectedMetadataVersion ?? file.metadataFileVersion
+            )
         }
     }
 

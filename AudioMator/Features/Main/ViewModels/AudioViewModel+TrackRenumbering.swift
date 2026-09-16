@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 extension AudioViewModel {
     // MARK: - Batch Track Renumbering by List Order
@@ -29,8 +30,8 @@ extension AudioViewModel {
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
-        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?)] =
-            targetFiles.map { ($0.id, $0.url, $0.fileFingerprint) }
+        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?)] =
+            targetFiles.map { ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion) }
 
         guard !writeTargets.isEmpty else {
             return .empty
@@ -105,7 +106,8 @@ extension AudioViewModel {
                         formattedTrackNumber,
                         discNumberText: nil,
                         to: url,
-                        verifyAfterWrite: true
+                        verifyAfterWrite: true,
+                        expectedVersion: target.expectedMetadataVersion
                     )
                 }
 

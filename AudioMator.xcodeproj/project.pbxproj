@@ -586,12 +586,8 @@
 			};
 		};
 		6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git";
-			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 0.4.5;
-			};
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../TagLibAudioMetadata;
 		};
 /* End XCRemoteSwiftPackageReference section */
 

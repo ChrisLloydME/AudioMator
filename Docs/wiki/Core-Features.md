@@ -7,7 +7,7 @@ AudioMator is organized around local audio metadata inspection, editing, verific
 AudioMator has two editing surfaces:
 
 - Inspector: a simpler interface for common fields and everyday metadata edits.
-- Metadata Editor: a more advanced interface for adding, removing, and editing available metadata fields.
+- Metadata Editor: a lower-level editor for TagLib PropertyMap fields. Its canonical model preserves ordered value arrays, duplicates, whitespace, empty values, and literal semicolons; one line in the editor represents one value.
 
 Related code is under `AudioMator/Features/Main/Views/InspectorPane.swift`, `AudioMator/Features/MetadataEditor/`, and the metadata-write extensions in `AudioMator/Features/Main/ViewModels/`.
 
@@ -52,7 +52,7 @@ Implementations are under `AudioMator/Infrastructure/MusicBrainz/`, `AudioMator/
 
 ## Tag Inspector and Raw Metadata
 
-Tag Inspector is a read-only view for raw tags and file properties detected by AudioMator. The test suite also covers raw metadata inspection, raw property-map removal, and TagLib structured reads.
+Tag Inspector is a read-only view for raw tags and file properties detected by AudioMator. The editable raw surface is TagLib's PropertyMap projection, not every container-native frame or atom. Saves are delta based, so an edited key does not reconstruct unrelated metadata. The test suite covers exact multi-value round trips, raw property-map removal, and TagLib structured reads.
 
 ## Metadata Editor Utilities
 

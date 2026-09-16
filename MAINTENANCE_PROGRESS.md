@@ -1,6 +1,6 @@
 # Metadata Architecture Maintenance Progress
 
-Last updated: 2026-09-15
+Last updated: 2026-09-16
 
 ## Scope
 
@@ -8,42 +8,62 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Current findings
 
-- AudioMator currently declares TagLibAudioMetadata `upToNextMinorVersion` from `0.4.5`; `Package.resolved` selects version `0.4.5` at revision `107e7d7b1a4148fe4b3aa9845a296b4934b1a790`.
-- The sibling TagLibAudioMetadata checkout is not automatically used by Xcode and contains newer snapshot/patch APIs absent from the resolved release.
-- `TagLibAudioMetadataPipeline.writeMetadata` currently performs the ordinary metadata write before `MetadataPipelineSupport.writeContentAdvisory`, so one user save can span independently committed mutations.
-- The compatibility metadata object is populated through `edit.isExplicit`, which collapses the four-state advisory model before a follow-up advisory correction.
-- The pipeline still owns app-side MP4-like classification and property-map/advisory cleanup behavior.
+- The original released dependency was TagLibAudioMetadata 0.4.5. Integrated validation for this maintenance pass uses the authorized sibling checkout because the required facade changes are not published yet.
+- One inspector Save now constructs one package `MetadataPatch` containing ordinary fields, formatted track/disc intent, artwork, and all four advisory states. AudioMator no longer performs follow-up advisory, alias, or MP4 cleanup transactions.
+- Editable metadata is loaded from one `MetadataSnapshot`; its `MetadataFileVersion` remains attached to the `AudioFile` edit snapshot and is supplied at every inspector, raw editor, erase, lyrics, and track-renumber transaction boundary.
+- The raw editor's canonical model is `[String: [String]]`. Newlines are only the UI representation for ordered values; duplicates, empty values, whitespace, and literal semicolons are not normalized.
+- TagLibAudioMetadata is authoritative for editable semantic tags. AVFoundation remains for technical and display-only enrichment rather than overriding publisher, copyright, artwork, or advisory values.
 
 ## Confirmed hypotheses
 
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: confirmed; the application is on released package 0.4.5, not the sibling checkout.
+- Raw editor lossiness: confirmed. The previous `[String: String]` join/trim/split path could not distinguish one semicolon-bearing value from multiple values and rewrote the whole map.
+- Stale edit race: confirmed. The app fingerprint check occurred before the package established its transaction baseline; retaining and passing `MetadataFileVersion` closes that window.
+- Timeout diagnosis: confirmed. Swift Task cancellation could not stop the synchronous TagLib mutation, so a reported timeout could later commit. The write now waits for its real outcome; only post-commit reload is bounded.
+- Competing editable authorities: confirmed for several fields and fixed by using the package snapshot as the editable-tag authority.
+- App-side container compatibility: confirmed and removed from the save path. Runtime format discovery through `AudioFormatSupport` remains intentional capability discovery, not container mutation logic.
+- Large `AudioViewModel`: reviewed but not mechanically split. Mutation orchestration already has a feature-level executor/coordinator boundary; a broad service extraction was not necessary for the correctness fixes and would expand risk.
 
 ## Pending verification
 
-- Characterize partial-failure behavior and existing fault-injection seams.
-- Trace raw metadata storage and editing end to end for lossiness and whole-map reconstruction.
-- Trace edit-session concurrency tokens and timeout behavior.
-- Verify AVFoundation overrides, remaining format checks, WAV behavior, and documentation claims.
-- Select and implement the package release/revision integration strategy after package work passes tests.
+- Publish TagLibAudioMetadata 0.6.0 (or select an explicit release revision), then resolve AudioMator's remote SwiftPM dependency and commit the regenerated pin. Until publication, local integrated tests use the sibling checkout.
+- Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
+- Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
 
 ## Architectural direction
 
 - AudioMator should construct semantic edits and delegate container representation plus atomic commit to TagLibAudioMetadata.
 - Do not introduce new container-specific behavior in AudioMator while migrating.
 - Preserve user-file compatibility and explicitly distinguish package defects from application workarounds.
+- Keep the UI's own file fingerprint for file-management diagnostics, but use the package version token as the metadata transaction concurrency authority.
+- Treat multi-file operations as per-file transactions: each file is atomic, while a batch may still report partial success across files.
 
 ## Completed tasks
 
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
+- Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
+- Removed application-side MP4 atom cleanup, alias cleanup, advisory encoding, and extension-family mutation branches.
+- Made raw metadata editing exact-value-array based and delta committed; LRCLIB now changes only `LYRICS` through `RawMetadataPatch`.
+- Retained snapshot version tokens through inspector and raw editor lifecycles; erase and track-renumber paths also pass expected versions.
+- Removed mutation timeout from non-cancellable writes. Reload timeout is reported as persisted success with a refresh warning and releases the path reservation.
+- Updated user and architecture documentation to describe the PropertyMap editing boundary, package-owned container behavior, and amended timeout semantics.
 
 ## Tests and validation
 
-- Not yet run for this maintenance series.
+- Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
+- Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
+- Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
+- Passed: generic iOS build with `CODE_SIGNING_ALLOWED=NO`; no simulator was launched.
+- Passed: `swift test --filter AudioMatorCoreLogicTests` (49 tests, 0 failures).
+- Passed: full serial macOS app-hosted suite (335 tests, 0 skips, 0 failures). The result bundle reported one pre-existing SwiftUI test-harness runtime warning about reading `State` outside an installed view.
+- Environment note: `/Applications/Xcode-beta.app` is absent; `/Applications/Xcode.app` reports Xcode 27.0 (27A266a).
 
 ## Commits
 
-- Pending.
-
+- `643e8a6` — `docs: start metadata maintenance journal`
+- `dba9098` — `refactor: route metadata saves through package patches`
+- `d4cde34` — `fix: preserve exact raw metadata value arrays`
+- `d953af4` — `fix: do not time out non-cancellable metadata writes`

@@ -1,5 +1,5 @@
 {
-  "originHash" : "304c350f6746832da42b2064d8685cd29af60e87c9f4799ec66764512f870b9c",
+  "originHash" : "c2c2e0529f4aa42642c26712e92e2fb278de348e20d32cb6ee2e6dca84ca97c1",
   "pins" : [
     {
       "identity" : "sparkle",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "b6496a74a087257ef5e6da1c5b29a447a60f5bd7",
         "version" : "2.9.4"
-      }
-    },
-    {
-      "identity" : "taglibaudiometadata",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ChrisLloydME/TagLibAudioMetadata.git",
-      "state" : {
-        "revision" : "107e7d7b1a4148fe4b3aa9845a296b4934b1a790",
-        "version" : "0.4.5"
       }
     }
   ],

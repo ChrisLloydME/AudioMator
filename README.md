@@ -45,7 +45,7 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 
   **Inspector** offers a more approachable editing experience for common metadata fields. It is designed for everyday metadata editing, with a simpler interface and a focus on frequently used fields.
 
-  **Metadata Editor** is a more advanced editing interface. It allows users to add, remove, and edit all available metadata fields, making it suitable for more detailed or professional metadata workflows.
+  **Metadata Editor** is a more advanced PropertyMap interface. It preserves each field's ordered value list—including duplicates, whitespace, empty values, and literal semicolons—and writes only changed keys. Container-native structures that TagLib does not project into PropertyMap remain available through Tag Inspector rather than this editor.
 
   <img src="Docs/Images/AudioMator Metadata Editor.png">
 
@@ -132,11 +132,7 @@ This matters because common containers do not all store numbering the same way. 
 
 ### Write behavior
 
-- ID3v2-style formats use canonical `TRCK` and `TPOS` values.
-- PropertyMap-style formats use `TRACKNUMBER`, `TRACKTOTAL`, `DISCNUMBER`, `DISCTOTAL`, and compatible aliases where needed.
-- MP4/M4A writes standard `trkn` and `disk` numeric pairs.
-- MP4/M4A also uses internal freeform preservation data where available so formatting such as zero padding can survive a round trip.
-- Post-write verification compares numeric values and text forms separately so a harmless container normalization is reported differently from a real write mismatch.
+AudioMator sends semantic fields, four-state advisory values, artwork, and formatted number intent to `TagLibAudioMetadata` as one patch. The package owns ID3, MP4, Xiph/PropertyMap, and WAV representation, verification, and atomic commit. Containers may split a value such as `02/09` into number and total fields; verification accepts that equivalent native representation while retaining exact combined text where the container supports it.
 
 ## Supported Formats
 

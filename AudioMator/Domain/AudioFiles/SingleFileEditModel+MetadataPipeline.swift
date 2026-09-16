@@ -3,9 +3,13 @@ import TagLibAudioMetadata
 
 extension MetadataEditPayload {
     init(_ edit: SingleFileEditModel) {
+        var changedFields = Set(Self.textFieldMappings.map(\.key))
+        if edit.year.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            changedFields.remove(.date)
+        }
         self.init(
             edit,
-            changedFields: Set(Self.textFieldMappings.map(\.key)),
+            changedFields: changedFields,
             contentAdvisoryChanged: true,
             trackNumberTextChanged: true,
             discNumberTextChanged: true

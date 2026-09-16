@@ -476,7 +476,14 @@ private final class RecordingRawMetadataPipeline: AudioMetadataPipeline, @unchec
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         lock.withLock {
-            _writtenPropertyMap = patch.valuesToSet.mapValues { $0.joined(separator: "; ") }
+            var updatedMap = initialPropertyMap.mapValues { [$0] }
+            for key in patch.removingKeys {
+                updatedMap.removeValue(forKey: key)
+            }
+            for (key, values) in patch.valuesToSet {
+                updatedMap[key] = values
+            }
+            _writtenPropertyMap = updatedMap.mapValues { $0.joined(separator: "; ") }
         }
         return AudioMetadataWriteResult(warnings: [])
     }

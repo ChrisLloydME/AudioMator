@@ -1,5 +1,4 @@
 import SwiftUI
-import WebKit
 
 struct iTunesBrowserView: View {
     @StateObject private var store = iTunesBrowserStore()

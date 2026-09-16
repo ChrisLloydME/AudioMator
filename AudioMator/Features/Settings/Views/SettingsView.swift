@@ -1295,7 +1295,7 @@ private struct AcknowledgementsSheet: View {
                 .padding(.bottom, 24)
                 #endif
             }
-            .safeAreaBar(edge: .bottom, spacing: 0) {
+            .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
                 HStack {
                     Spacer()
 
@@ -1421,7 +1421,7 @@ private struct PrivacySheet: View {
                 .padding(.bottom, 24)
                 #endif
             }
-            .safeAreaBar(edge: .bottom, spacing: 0) {
+            .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
                 HStack {
                     Spacer()
 
@@ -1466,7 +1466,7 @@ private struct ReleaseNotesSheet: View {
             .padding(.bottom, 18)
 
             content
-                .safeAreaBar(edge: .bottom, spacing: 0) {
+                .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
                     HStack {
                         Spacer()
 

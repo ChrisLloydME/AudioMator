@@ -1,5 +1,4 @@
 import SwiftUI
-import WebKit
 
 struct iTunesTrackDetailView: View {
     let track: iTunesTrackResult
@@ -686,21 +685,18 @@ private struct iTunesEmbeddedWebPageView: View {
     let title: String
     let url: URL
 
-    @State private var page = WebPage()
+    @State private var reloadToken = 0
 
     var body: some View {
-        WebView(page)
+        EmbeddedWebView(url: url, reloadToken: reloadToken)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(platformColor: .audiomatorWindowBackground))
             .navigationTitle(title)
-            .navigationSubtitle(url.host() ?? "iTunes")
-            .task(id: url) {
-                page.load(URLRequest(url: url))
-            }
+            .audiomatorNavigationSubtitle(url.host() ?? "iTunes")
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     Button {
-                        page.load(URLRequest(url: url))
+                        reloadToken += 1
                     } label: {
                         Label("Reload", systemImage: "arrow.clockwise")
                     }

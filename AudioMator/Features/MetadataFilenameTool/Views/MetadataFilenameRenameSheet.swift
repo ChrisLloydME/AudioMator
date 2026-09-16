@@ -550,7 +550,7 @@ struct MetadataFilenameWindowView: View {
             .padding(.top, contentInset)
             .padding(.bottom, contentInset)
         }
-        .safeAreaBar(edge: .bottom, spacing: 0) {
+        .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
@@ -738,7 +738,7 @@ struct MetadataFilenameWindowView: View {
                 chooseExternalTextFile(for: selectedMode)
             }
         )
-        .safeAreaBar(edge: .bottom, spacing: 0) {
+        .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)

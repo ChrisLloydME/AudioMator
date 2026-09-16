@@ -13,6 +13,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Editable metadata is loaded from one `MetadataSnapshot`; its `MetadataFileVersion` remains attached to the `AudioFile` edit snapshot and is supplied at every inspector, raw editor, erase, lyrics, and track-renumber transaction boundary.
 - The raw editor's canonical model is `[String: [String]]`. Newlines are only the UI representation for ordered values; duplicates, empty values, whitespace, and literal semicolons are not normalized.
 - TagLibAudioMetadata is authoritative for editable semantic tags. AVFoundation remains for technical and display-only enrichment rather than overriding publisher, copyright, artwork, or advisory values.
+- Second-pass finding confirmed: the Inspector dirty check was field-by-field, but `MetadataEditPayload` discarded the baseline and the TagLib adapter emitted a full scalar snapshot. This could rewrite untouched multi-value fields through their scalar UI projection.
 
 ## Confirmed hypotheses
 
@@ -50,6 +51,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Retained snapshot version tokens through inspector and raw editor lifecycles; erase and track-renumber paths also pass expected versions.
 - Removed mutation timeout from non-cancellable writes. Reload timeout is reported as persisted success with a refresh warning and releases the path reservation.
 - Updated user and architecture documentation to describe the PropertyMap editing boundary, package-owned container behavior, and amended timeout semantics.
+- Changed every `persistMetadataEdit` path to construct a baseline-aware intent delta. Only changed semantic fields enter `MetadataPatch`; unchanged advisory, formatted numbers, and artwork are absent. Empty deltas are handled by the package's existing no-op fast path.
+- Added an app-hosted regression that writes multi-value Artist/Genre plus duplicate, whitespace-sensitive, and semicolon-bearing custom values, changes only Title, and compares exact raw arrays before and after.
 
 ## Tests and validation
 
@@ -60,6 +63,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Passed: `swift test --filter AudioMatorCoreLogicTests` (49 tests, 0 failures).
 - Passed: full serial macOS app-hosted suite (335 tests, 0 skips, 0 failures). The result bundle reported one pre-existing SwiftUI test-harness runtime warning about reading `State` outside an installed view.
 - Environment note: `/Applications/Xcode-beta.app` is absent; `/Applications/Xcode.app` reports Xcode 27.0 (27A266a).
+- Passed after intent-delta change: incremental generic macOS build and focused `TagLibReadWriteIntegrationTests` for patch shape and exact untouched-value preservation.
 
 ## Commits
 

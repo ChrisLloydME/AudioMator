@@ -163,7 +163,7 @@ extension AudioViewModel {
             return .failure("This format does not support metadata writing yet.")
         }
 
-        let editPayload = MetadataEditPayload(edit)
+        let editPayload = MetadataEditPayload(edit, comparedTo: file)
 
         return await executeMetadataFileMutation(
             at: file.url,

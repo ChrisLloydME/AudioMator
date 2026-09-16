@@ -73,96 +73,6 @@ extension AudioFile {
         return ""
     }
 
-    nonisolated private static func readArtworkData(from metadata: [AVMetadataItem]) async -> Data? {
-        let commonArtwork = AVMetadataItem.metadataItems(
-            from: metadata,
-            withKey: AVMetadataKey.commonKeyArtwork,
-            keySpace: .common
-        )
-
-        guard let item = commonArtwork.first else { return nil }
-
-        if let data = try? await item.load(.dataValue) {
-            return data
-        }
-
-        if let value = try? await item.load(.value),
-           let data = value as? Data {
-            return data
-        }
-
-        return nil
-    }
-
-    nonisolated private static func contentAdvisory(from url: URL, fallbackExplicit: Bool) -> ContentAdvisory? {
-        guard let dump = try? TagLibMetadataManager.rawMetadataResult(from: url) else {
-            return fallbackExplicit ? .explicit : nil
-        }
-
-        for property in dump.properties {
-            let key = property.key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            let values = property.values.isEmpty ? [property.value] : property.values
-            for value in values {
-                if let advisory = contentAdvisory(rawValue: value, key: key) {
-                    return advisory
-                }
-            }
-        }
-
-        for frame in dump.id3v2Frames {
-            let frameID = frame.frameID.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            let description = frame.description?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() ?? ""
-            guard frameID == "TXXX", description == "ITUNESADVISORY" || description == "EXPLICIT" else { continue }
-            if let advisory = contentAdvisory(rawValue: frame.value, key: "ITUNESADVISORY") {
-                return advisory
-            }
-        }
-
-        return fallbackExplicit ? .explicit : nil
-    }
-
-    nonisolated private static func contentAdvisory(rawValue: String, key: String) -> ContentAdvisory? {
-        let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let advisoryKey: String?
-        switch normalizedKey {
-        case "ITUNESADVISORY", "ADVISORY", "EXPLICITCONTENT", "EXPLICIT", "RTNG":
-            advisoryKey = normalizedKey
-        case let key where key.hasSuffix(":ITUNESADVISORY") || key.hasSuffix(".ITUNESADVISORY"):
-            advisoryKey = "ITUNESADVISORY"
-        default:
-            advisoryKey = nil
-        }
-
-        guard let advisoryKey else { return nil }
-
-        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !normalized.isEmpty else { return nil }
-
-        if advisoryKey == "RTNG" {
-            switch normalized {
-            case "0", "none", "not explicit", "notexplicit":
-                return .notExplicit
-            case "2", "clean":
-                return .clean
-            case "1", "explicit", "true", "yes":
-                return .explicit
-            default:
-                return nil
-            }
-        }
-
-        switch normalized {
-        case "0", "none", "not explicit", "notexplicit", "false", "no":
-            return .notExplicit
-        case "1", "explicit", "true", "yes":
-            return .explicit
-        case "2", "clean":
-            return .clean
-        default:
-            return nil
-        }
-    }
-
     nonisolated init(url: URL, id: UUID = UUID()) async throws {
         self.id = id
         self.url = url
@@ -170,7 +80,9 @@ extension AudioFile {
         // MARK: – Basic tags via TagLib
         //
         // A failed source read must remain a load failure so import and rescan recovery can react.
-        let tag = try TagLibMetadataManager.readMetadataResult(from: url)
+        let snapshot = try TagLibMetadataManager.readSnapshot(from: url)
+        let tag = snapshot.basic
+        self.metadataFileVersion = snapshot.fileVersion
 
         self.title       = tag.title
         self.artist      = tag.artist
@@ -217,27 +129,21 @@ extension AudioFile {
         self.releaseType = tag.releaseType
         self.catalogNumber = tag.catalogNumber
         self.releaseCountry = tag.releaseCountry
-        self.contentAdvisory = AudioFile.contentAdvisory(from: url, fallbackExplicit: tag.isExplicit)
+        self.contentAdvisory = switch tag.explicitAdvisory {
+        case .unspecified: nil
+        case .notExplicit: .notExplicit
+        case .clean: .clean
+        case .explicit: .explicit
+        }
 
         let asset = AVURLAsset(url: url)
 
-        // MARK: – Publisher / Copyright / Credits via AVFoundation (best effort)
+        // MARK: – Editable tags remain TagLib-authoritative; credits are display-only AVFoundation data.
 
         let allMetadataItems = (try? await asset.load(.metadata)) ?? []
 
-        let publisherFromAV = await AudioFile.readMetadata(
-            from: allMetadataItems,
-            commonKeys: [.commonKeyPublisher],
-            id3Keys: ["TPUB"]
-        )
-        self.publisher = publisherFromAV.isEmpty ? tag.publisher : publisherFromAV
-
-        let copyrightFromAV = await AudioFile.readMetadata(
-            from: allMetadataItems,
-            commonKeys: [.commonKeyCopyrights],
-            id3Keys: ["TCOP"]
-        )
-        self.copyright = copyrightFromAV.isEmpty ? tag.copyright : copyrightFromAV
+        self.publisher = tag.publisher
+        self.copyright = tag.copyright
 
         self.credits = await AudioFile.readMetadata(
             from: allMetadataItems,
@@ -305,9 +211,9 @@ extension AudioFile {
         self.channels = channelsCount
         self.format = formatName.isEmpty ? url.pathExtension.uppercased() : formatName
 
-        // MARK: – Artwork with TagLib fallback
+        // MARK: – Artwork via the same authoritative editable metadata source
 
-        let artworkData = await AudioFile.readArtworkData(from: allMetadataItems) ?? tag.artworkData
+        let artworkData = tag.artworkData
         if let artworkData {
             self.artwork = PlatformImage(data: artworkData)
             self.artworkFingerprint = AudioFile.artworkFingerprint(for: artworkData)

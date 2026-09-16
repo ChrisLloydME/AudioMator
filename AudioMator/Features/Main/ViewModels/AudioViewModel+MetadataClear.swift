@@ -142,7 +142,10 @@ extension AudioViewModel {
             expectedFileFingerprint: file.fileFingerprint,
             syncInspectorAfterReload: syncInspectorAfterReload
         ) { metadataPipeline, url in
-            try metadataPipeline.eraseAllMetadata(at: url)
+            try metadataPipeline.eraseAllMetadata(
+                at: url,
+                expectedVersion: file.metadataFileVersion
+            )
         }
     }
 

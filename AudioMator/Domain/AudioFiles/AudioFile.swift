@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import TagLibAudioMetadata
 
 // Loaded off the main actor and then treated as an immutable snapshot in the UI.
 struct AudioFile: Identifiable, @unchecked Sendable {
@@ -63,6 +64,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let artwork: PlatformImage?
     let artworkFingerprint: Int?
     let fileFingerprint: AudioFileFingerprint?
+    let metadataFileVersion: MetadataFileVersion?
 
     // Stable content fingerprint for middle-list row refresh decisions.
     var middleListContentFingerprint: Int {
@@ -155,7 +157,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         format: String,
         artwork: PlatformImage?,
         artworkFingerprint: Int?,
-        fileFingerprint: AudioFileFingerprint? = nil
+        fileFingerprint: AudioFileFingerprint? = nil,
+        metadataFileVersion: MetadataFileVersion? = nil
     ) {
         self.id = id
         self.url = url
@@ -204,6 +207,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.artwork = artwork
         self.artworkFingerprint = artworkFingerprint
         self.fileFingerprint = fileFingerprint
+        self.metadataFileVersion = metadataFileVersion
     }
 
     nonisolated func withUpdatedURL(_ url: URL) -> AudioFile {
@@ -254,7 +258,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             format: format,
             artwork: artwork,
             artworkFingerprint: artworkFingerprint,
-            fileFingerprint: try? AudioFileFingerprint.capture(at: url)
+            fileFingerprint: try? AudioFileFingerprint.capture(at: url),
+            metadataFileVersion: try? TagLibMetadataManager.fileVersion(at: url)
         )
     }
 
@@ -313,7 +318,8 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             format: format,
             artwork: artwork,
             artworkFingerprint: artworkFingerprint,
-            fileFingerprint: try? AudioFileFingerprint.capture(at: url)
+            fileFingerprint: try? AudioFileFingerprint.capture(at: url),
+            metadataFileVersion: try? TagLibMetadataManager.fileVersion(at: url)
         )
     }
 

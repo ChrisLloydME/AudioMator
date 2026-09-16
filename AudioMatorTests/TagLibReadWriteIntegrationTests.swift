@@ -21,23 +21,19 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
     private static let expectedNumberTextAfterTrackTextWrite = [
         "testAudioFile.mp3": ("07/12", "2/3", false),
         "testAudioFile.m4a": ("07/12", "2/3", false),
-        "testAudioFile.flac": ("07", "2", true),
-        "testAudioFile.aac": ("07", "2", true),
-        "testAudioFile.ogg": ("07", "2", true),
-        "testAudioFile.wav": ("07", "2", true)
+        "testAudioFile.flac": ("07", "2", false),
+        "testAudioFile.aac": ("07", "2", false),
+        "testAudioFile.ogg": ("07", "2", false),
+        "testAudioFile.wav": ("07/12", "2/3", false)
     ]
 
-    func testMetadataPayloadConstructionFailsAtSourceReadBoundary() {
-        let missingURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMator-Missing-\(UUID().uuidString).mp3")
+    func testMetadataPatchConstructionDoesNotReadTheSourceFile() {
         let payload = MetadataEditPayload(SingleFileEditModel())
+        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
 
-        XCTAssertThrowsError(
-            try TagLibAudioMetadataPipeline.metadataForWrite(
-                from: payload,
-                sourceURL: missingURL
-            )
-        )
+        XCTAssertEqual(patch.explicitAdvisory, .unspecified)
+        XCTAssertEqual(patch.numberText?.trackNumberText, "")
+        XCTAssertEqual(patch.numberText?.discNumberText, "")
     }
 
     func testAudioFileLoadingRejectsMissingSourceFile() async {
@@ -370,48 +366,22 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
-            let metadata = TagLibAudioMetadata()
-            metadata.title = "Artwork Round Trip"
-            metadata.artworkData = artworkData
-            metadata.artworkMimeType = "image/jpeg"
-
-            _ = try TagLibMetadataManager.writeTagMetadata(
-                metadata,
-                to: workingURL,
-                verification: .init(
-                    expectedTrackNumber: nil,
-                    expectedTrackTotal: nil,
-                    expectedTrackNumberText: nil,
-                    expectedDiscNumber: nil,
-                    expectedDiscTotal: nil,
-                    expectedDiscNumberText: nil,
-                    expectedExplicitContent: nil,
-                    artworkExpectation: .present,
-                    customFieldKeys: []
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(
+                    fields: [.title: .text("Artwork Round Trip")],
+                    artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])
                 ),
-                failurePolicy: .warn
+                to: workingURL,
+                failurePolicy: .throw
             )
 
             let withArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertNotNil(withArtwork.artworkData, "\(fixtureName) should contain artwork after write.")
 
-            let remover = TagLibAudioMetadata()
-            remover.removeArtwork = true
-            _ = try TagLibMetadataManager.writeTagMetadata(
-                remover,
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(artwork: .removeAll),
                 to: workingURL,
-                verification: .init(
-                    expectedTrackNumber: nil,
-                    expectedTrackTotal: nil,
-                    expectedTrackNumberText: nil,
-                    expectedDiscNumber: nil,
-                    expectedDiscTotal: nil,
-                    expectedDiscNumberText: nil,
-                    expectedExplicitContent: nil,
-                    artworkExpectation: .absent,
-                    customFieldKeys: []
-                ),
-                failurePolicy: .warn
+                failurePolicy: .throw
             )
 
             let withoutArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
@@ -438,6 +408,61 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         let removalWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
         XCTAssertFalse(removalWarnings.contains { $0.contains("ITUNSMPB") }, removalWarnings.joined(separator: "\n"))
         XCTAssertNil(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNSMPB"])
+    }
+
+    func testLosslessRawValueMapPreservesArraysDuplicatesWhitespaceAndLiteralSemicolons() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let exactValues = ["A; B", "duplicate", "duplicate", "  spaced  "]
+        _ = try TagLibMetadataManager.applyRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["X-AUDIOMATOR-ROUNDTRIP": exactValues]),
+            to: workingURL
+        )
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        var valueMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertEqual(valueMap["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
+
+        let expectedVersion = try TagLibMetadataManager.readSnapshot(from: workingURL).fileVersion
+        valueMap["LYRICS"] = ["[00:01.00] one; two"]
+        _ = try pipeline.writeRawMetadataValueMap(
+            valueMap,
+            to: workingURL,
+            expectedVersion: expectedVersion
+        )
+
+        let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertEqual(readBack["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
+        XCTAssertEqual(readBack["LYRICS"], ["[00:01.00] one; two"])
+    }
+
+    func testInspectorSaveRejectsSnapshotVersionThatPredatesExternalMetadataEdit() throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let staleSnapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(fields: [.title: .text("External Edit")]),
+            to: workingURL
+        )
+
+        var edit = SingleFileEditModel()
+        edit.title = "Stale Inspector Edit"
+        XCTAssertThrowsError(
+            try TagLibAudioMetadataPipeline().writeMetadata(
+                MetadataEditPayload(edit),
+                to: workingURL,
+                expectedVersion: staleSnapshot.fileVersion
+            )
+        ) { error in
+            guard case TagLibManagerError.fileChanged = error else {
+                return XCTFail("Expected a package version conflict, got \(error)")
+            }
+        }
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: workingURL).title, "External Edit")
     }
 
     func testRawPropertyMapWriteRemovesTrackTotalWithoutDroppingTrackNumber() throws {
@@ -516,8 +541,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack.genre, edit.genre)
         XCTAssertEqual(readBack.comment, edit.comment)
 
+        let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        XCTAssertEqual(snapshot.basic.explicitAdvisory, .clean)
         let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(rawMap["ITUNESADVISORY"], "2")
         XCTAssertEqual(rawMap["TITLE"], edit.title)
         XCTAssertEqual(rawMap["ARTIST"], edit.artist)
         XCTAssertEqual(rawMap["ALBUM"], edit.album)
@@ -535,8 +561,8 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
 
-        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(rawMap["ITUNESADVISORY"], "1")
+        let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        XCTAssertEqual(snapshot.basic.explicitAdvisory, .explicit)
     }
 
     func testInspectorStyleNotExplicitAdvisoryDoesNotBecomeExplicitAfterSave() async throws {
@@ -551,8 +577,8 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
 
-        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(rawMap["ITUNESADVISORY"], "0")
+        let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        XCTAssertEqual(snapshot.basic.explicitAdvisory, .notExplicit)
 
         let reloaded = try await AudioFile(url: workingURL)
         XCTAssertEqual(reloaded.contentAdvisory, .notExplicit)
@@ -571,8 +597,8 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
 
-        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertNil(rawMap["ITUNESADVISORY"])
+        let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+        XCTAssertEqual(snapshot.basic.explicitAdvisory, .unspecified)
 
         let reloaded = try await AudioFile(url: workingURL)
         XCTAssertNil(reloaded.contentAdvisory)

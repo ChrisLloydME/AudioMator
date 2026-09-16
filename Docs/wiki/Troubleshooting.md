@@ -2,18 +2,16 @@
 
 ## Swift package resolution fails
 
-For the current coordinated-maintenance configuration, first confirm that the
-TagLibAudioMetadata repository exists at `../TagLibAudioMetadata`. Sparkle still
-requires GitHub network access. Then run:
+The project requires GitHub network access to resolve both Swift packages. Then
+run:
 
 ```bash
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The current project resolves TagLibAudioMetadata locally and Sparkle remotely.
-TagLibAudioMetadata is required for the app metadata pipeline. If the project
-has been restored to release mode, verify the remote package version and the
-committed `Package.resolved` pin instead of checking for a sibling directory.
+The current project resolves TagLibAudioMetadata remotely at version `0.5.1` and
+Sparkle remotely. TagLibAudioMetadata is required for the app metadata pipeline;
+verify the remote package version and the committed `Package.resolved` pin.
 
 ## `swift test` fails
 

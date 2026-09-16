@@ -170,17 +170,15 @@ private enum MetadataPipelineSupport {
             return trimmed.isEmpty ? .remove : .text(trimmed)
         }
 
-        let releaseDate = normalizedFieldComponent(edit.releaseDate)
-        let year = normalizedFieldComponent(edit.year)
-        let effectiveReleaseDate = releaseDate.isEmpty ? year : releaseDate
-        let fields: [MetadataFieldKey: MetadataPatchValue] = [
+        let candidateFields: [MetadataFieldKey: MetadataPatchValue] = [
             .title: textValue(edit.title),
             .artist: textValue(edit.artist),
             .album: textValue(edit.album),
             .composer: textValue(edit.composer),
             .genre: textValue(edit.genre),
             .comment: textValue(edit.comment),
-            .releaseDate: textValue(effectiveReleaseDate),
+            .date: textValue(edit.year),
+            .releaseDate: textValue(edit.releaseDate),
             .albumArtist: textValue(edit.albumArtist),
             .publisher: textValue(edit.publisher),
             .isrc: textValue(edit.isrc),
@@ -202,6 +200,7 @@ private enum MetadataPipelineSupport {
             .releaseCountry: textValue(edit.releaseCountry),
             .copyright: textValue(edit.copyright),
         ]
+        let fields = candidateFields.filter { edit.changedFields.contains($0.key) }
 
         let trackText = normalizedNumberText(
             edit.trackNumberText,
@@ -213,11 +212,15 @@ private enum MetadataPipelineSupport {
             number: edit.discNumber,
             total: edit.discTotal
         )
-        let advisory: ExplicitAdvisory = switch edit.contentAdvisory {
-        case nil: .unspecified
-        case .notExplicit: .notExplicit
-        case .clean: .clean
-        case .explicit: .explicit
+        let advisory: ExplicitAdvisory? = if edit.contentAdvisoryChanged {
+            switch edit.contentAdvisory {
+            case nil: .unspecified
+            case .notExplicit: .notExplicit
+            case .clean: .clean
+            case .explicit: .explicit
+            }
+        } else {
+            nil
         }
         let artwork: MetadataArtworkPatch = switch edit.artwork {
         case .unchanged:
@@ -228,14 +231,20 @@ private enum MetadataPipelineSupport {
             .removeAll
         }
 
+        let numberText: MetadataNumberTextPatch? = if edit.trackNumberTextChanged || edit.discNumberTextChanged {
+            MetadataNumberTextPatch(
+                trackNumberText: trackText,
+                discNumberText: edit.discNumberTextChanged ? discText : nil
+            )
+        } else {
+            nil
+        }
+
         return MetadataPatch(
             fields: fields,
             explicitAdvisory: advisory,
             artwork: artwork,
-            numberText: MetadataNumberTextPatch(
-                trackNumberText: trackText,
-                discNumberText: discText
-            )
+            numberText: numberText
         )
     }
 

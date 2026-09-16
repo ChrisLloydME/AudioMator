@@ -45,6 +45,10 @@ struct MetadataEditPayload: Sendable {
     var contentAdvisory: ContentAdvisory?
     nonisolated var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
     var artwork: MetadataArtworkChange
+    var changedFields: Set<MetadataFieldKey>
+    var contentAdvisoryChanged: Bool
+    var trackNumberTextChanged: Bool
+    var discNumberTextChanged: Bool
 }
 
 struct AudioMetadataWriteResult: Sendable {

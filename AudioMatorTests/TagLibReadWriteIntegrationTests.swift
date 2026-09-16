@@ -27,13 +27,65 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.wav": ("07/12", "2/3", false)
     ]
 
-    func testMetadataPatchConstructionDoesNotReadTheSourceFile() {
-        let payload = MetadataEditPayload(SingleFileEditModel())
+    func testMetadataPatchConstructionContainsOnlyChangedIntent() {
+        let file = AudioFileTestFactory.make(
+            title: "Old Title",
+            artist: "A; B",
+            album: "Untouched Album",
+            trackNumberText: "07/12",
+            discNumberText: "2/3",
+            contentAdvisory: .clean
+        )
+        var edit = SingleFileEditModel(from: file)
+        edit.title = "New Title"
+        let payload = MetadataEditPayload(edit, comparedTo: file)
         let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
 
-        XCTAssertEqual(patch.explicitAdvisory, .unspecified)
-        XCTAssertEqual(patch.numberText?.trackNumberText, "")
-        XCTAssertEqual(patch.numberText?.discNumberText, "")
+        XCTAssertEqual(patch.fields, [.title: .text("New Title")])
+        XCTAssertNil(patch.explicitAdvisory)
+        XCTAssertNil(patch.numberText)
+        XCTAssertEqual(patch.artwork, .unchanged)
+    }
+
+    func testTitleOnlyInspectorWritePreservesUntouchedRawValueStructure() async throws {
+        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
+        let workingURL = try makeWritableCopy(of: fixtureURL)
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let exactUntouchedValues: RawMetadataValueMap = [
+            "ARTIST": ["A", "B"],
+            "GENRE": ["Rock", "Alternative"],
+            "X-AUDIOMATOR-PRESERVATION": ["duplicate", "duplicate", "  padded  ", "literal;semicolon"],
+        ]
+        _ = try TagLibMetadataManager.applyRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: exactUntouchedValues),
+            to: workingURL
+        )
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        let before = try pipeline.rawMetadataValueMap(for: workingURL)
+        var edit = SingleFileEditModel(from: baseline)
+        edit.title = "Intent Delta Title"
+        let payload = MetadataEditPayload(edit, comparedTo: baseline)
+        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+
+        XCTAssertEqual(patch.fields, [.title: .text("Intent Delta Title")])
+        XCTAssertNil(patch.explicitAdvisory)
+        XCTAssertNil(patch.numberText)
+        XCTAssertEqual(patch.artwork, .unchanged)
+
+        _ = try pipeline.writeMetadata(
+            payload,
+            to: workingURL,
+            expectedVersion: baseline.metadataFileVersion
+        )
+        let after = try pipeline.rawMetadataValueMap(for: workingURL)
+
+        for (key, values) in exactUntouchedValues {
+            XCTAssertEqual(before[key], values, "Fixture setup should preserve exact values for \(key)")
+            XCTAssertEqual(after[key], before[key], "Title-only save changed untouched raw values for \(key)")
+        }
     }
 
     func testAudioFileLoadingRejectsMissingSourceFile() async {

@@ -61,17 +61,9 @@ protocol AudioMetadataPipeline: Sendable {
     nonisolated var requiresTransactionalDirectoryAccess: Bool { get }
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile
     nonisolated func rawMetadataDumpText(for url: URL) -> String?
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String]
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap
-    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult
-    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult
-    nonisolated func writeRawMetadataValueMap(
-        _ valueMap: RawMetadataValueMap,
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
@@ -80,16 +72,9 @@ protocol AudioMetadataPipeline: Sendable {
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult
     nonisolated func eraseAllMetadata(
         at url: URL,
         expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool
     ) throws -> AudioMetadataWriteResult
     nonisolated func writeTrackNumberText(
         _ trackNumberText: String,
@@ -103,16 +88,26 @@ protocol AudioMetadataPipeline: Sendable {
 extension AudioMetadataPipeline {
     nonisolated var requiresTransactionalDirectoryAccess: Bool { false }
 
-    nonisolated func writeMetadata(
-        _ edit: MetadataEditPayload,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        try writeMetadata(edit, to: url)
+    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
+        try rawMetadataValueMap(for: url).mapValues { $0.joined(separator: "; ") }
     }
 
-    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
-        try rawMetadataPropertyMap(for: url).mapValues { [$0] }
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        try writeMetadata(edit, to: url, expectedVersion: nil)
+    }
+
+    nonisolated func writeRawMetadataPropertyMap(
+        _ propertyMap: [String: String],
+        to url: URL
+    ) throws -> AudioMetadataWriteResult {
+        try writeRawMetadataValueMap(
+            propertyMap.mapValues { [$0] },
+            to: url,
+            expectedVersion: nil
+        )
     }
 
     nonisolated func writeRawMetadataValueMap(
@@ -120,44 +115,32 @@ extension AudioMetadataPipeline {
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        let propertyMap = valueMap.mapValues { $0.joined(separator: "; ") }
-        return try writeRawMetadataPropertyMap(propertyMap, to: url)
+        let original = try rawMetadataValueMap(for: url)
+        let changedValues = valueMap.filter { original[$0.key] != $0.value }
+        let removedKeys = Set(original.keys).subtracting(valueMap.keys)
+        return try writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: changedValues, removingKeys: removedKeys),
+            to: url,
+            expectedVersion: expectedVersion
+        )
     }
 
-    nonisolated func writeRawMetadataPatch(
-        _ patch: RawMetadataPatch,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        var propertyMap = try rawMetadataPropertyMap(for: url)
-        for key in patch.removingKeys {
-            propertyMap.removeValue(forKey: key)
-        }
-        for (key, values) in patch.valuesToSet {
-            propertyMap[key] = values.joined(separator: "; ")
-        }
-        return try writeRawMetadataPropertyMap(propertyMap, to: url)
-    }
-
-    nonisolated func eraseAllMetadata(
-        at url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        try eraseAllMetadata(at: url)
+    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+        try eraseAllMetadata(at: url, expectedVersion: nil)
     }
 
     nonisolated func writeTrackNumberText(
         _ trackNumberText: String,
         discNumberText: String?,
         to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
+        verifyAfterWrite: Bool
     ) throws -> AudioMetadataWriteResult {
         try writeTrackNumberText(
             trackNumberText,
             discNumberText: discNumberText,
             to: url,
-            verifyAfterWrite: verifyAfterWrite
+            verifyAfterWrite: verifyAfterWrite,
+            expectedVersion: nil
         )
     }
 }

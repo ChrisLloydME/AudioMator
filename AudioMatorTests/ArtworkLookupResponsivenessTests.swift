@@ -1,4 +1,5 @@
 import XCTest
+import TagLibAudioMetadata
 @testable import AudioMator
 
 @MainActor
@@ -239,23 +240,28 @@ private final class ArtworkLookupMetadataPipeline: AudioMetadataPipeline, @unche
     }
 
     func rawMetadataDumpText(for url: URL) -> String? { nil }
-    func rawMetadataPropertyMap(for url: URL) throws -> [String: String] { [:] }
+    func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap { [:] }
 
     func writeMetadata(
         _ edit: MetadataEditPayload,
-        to url: URL
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
-    func writeRawMetadataPropertyMap(
-        _ propertyMap: [String: String],
-        to url: URL
+    func writeRawMetadataPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
-    func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
+    func eraseAllMetadata(
+        at url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 
@@ -263,7 +269,8 @@ private final class ArtworkLookupMetadataPipeline: AudioMetadataPipeline, @unche
         _ trackNumberText: String,
         discNumberText: String?,
         to url: URL,
-        verifyAfterWrite: Bool
+        verifyAfterWrite: Bool,
+        expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }

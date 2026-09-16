@@ -32,7 +32,7 @@ swift test
 - `SensitiveLoggingPolicyTests.swift`
 - MusicBrainz, iTunes, LRCLIB, metadata exchange, and filename template tests.
 
-App-hosted coverage includes TagLib structured reads, raw metadata inspection, read/write round trips, artwork writes, full metadata erase, raw property-map removal, inspector-style clearing, and track/disc normalization.
+App-hosted coverage includes TagLib structured reads, raw metadata inspection, exact multi-value PropertyMap round trips, delta-based lyrics writes, optimistic version conflicts, four-state advisory writes, artwork writes, full metadata erase, inspector-style clearing, and track/disc normalization.
 
 ## CI
 

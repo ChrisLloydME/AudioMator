@@ -187,7 +187,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             try TagLibMetadataManager.writeMetadataWithVerification(
                 metadata,
                 to: workingURL,
-                failurePolicy: .warn
+                failurePolicy: .throw
             )
 
             let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)

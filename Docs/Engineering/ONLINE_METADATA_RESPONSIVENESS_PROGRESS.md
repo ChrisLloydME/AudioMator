@@ -140,8 +140,8 @@ Required fix and regression sensors:
 
 - MusicBrainz/iTunes detail preparation, workbench apply, and MusicBrainz recording-detail tasks now have explicit owners and are cancelled when their page disappears. Cancelled recording loads return to an idle state without publishing late data.
 - Provider apply functions clear the shared metadata progress overlay with `defer`, including early cancellation exits between files and after writes.
-- Metadata write/reload now has a finite UI-facing deadline. Timeout or cancellation releases the caller while the underlying non-cancellable transaction retains its per-file reservation until it actually finishes, preventing overlapping TagLib writes.
-- Added regression sensors for cancellation during a non-cooperative provider reload and timeout during reload with a queued same-file mutation.
+- Superseded by the 2026-09-16 metadata correctness pass: non-cancellable TagLib writes no longer have an artificial UI deadline and callers wait for the real commit outcome. Only post-commit reload has a deadline; reload timeout returns persisted success with a refresh warning and releases the reservation.
+- Regression sensors now cover a slow synchronous write that outlives the reload budget, reload timeout as persisted success, and reservation release after that timeout.
 - Targeted result: `FileMutationSerializationTests` plus the provider apply cancellation regression, 7 tests passed serially on macOS.
 
 ### Batch 4 — artwork processing and comparison refresh isolation

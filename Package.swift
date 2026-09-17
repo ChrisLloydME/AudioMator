@@ -80,6 +80,7 @@ let package = Package(
                 "Infrastructure/LRCLIB/LRCLIBRequestBuilder.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzProviderLuceneQueryBuilder.swift",
                 "Infrastructure/MusicBrainz/MusicBrainzProviderCore.swift",
+                "Infrastructure/MusicBrainz/MusicBrainzRequestScheduling.swift",
                 "Infrastructure/OnlineMetadata/OnlineMetadataSelectionCore.swift"
             ]
         ),

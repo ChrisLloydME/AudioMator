@@ -60,6 +60,12 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   and temporary Mach lookup exceptions remained. These inactive surfaces were
   removed; the app now keeps only sandbox, user-selected file, and outbound
   network entitlements required by current behavior.
+- Build/test-world lead I is confirmed for CI but revised for module structure.
+  The root Swift package deliberately compiles a selected set of the same
+  production source files as a fast deterministic sensor; it is not consumed by
+  the app and must not be described as its production Core module. A broad module
+  extraction would mix a risky ownership migration into correctness maintenance.
+  The actionable gap was that CI never exercised the authoritative Xcode graph.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -72,8 +78,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- The broader 2026-09-17 maintenance audit remains active. CI/module structure
-  is not yet resolved. Swift 6 migration
+- The broader 2026-09-17 maintenance audit remains active. Swift 6 migration
   remains a separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
@@ -128,6 +133,13 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   acknowledgement text, and Sparkle-only sandbox/hardened-runtime exceptions.
   The supported update flow remains the explicit GitHub Releases check and manual
   download handoff, and its documentation now reflects build-number comparison.
+- Expanded CI from the SwiftPM fast lane to two independent jobs. The new Xcode
+  lane builds the actual application host and runs the complete app-hosted suite
+  serially, while the selected-source SwiftPM package remains an explicitly
+  documented fast test harness rather than a claimed production module.
+- Added the extracted Foundation-only MusicBrainz scheduler/cache implementation
+  to the fast package and moved its five deterministic tests there. This resolves
+  an unhandled-source warning and increases the fast lane from 51 to 56 tests.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -168,6 +180,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   byte limits, oversized-response bypass, and concurrent request coalescing.
 - Passed package resolution and a forced generic macOS build after removing
   Sparkle; the resolved graph now contains only `TagLibAudioMetadata`.
+- Passed the expanded SwiftPM fast suite: 56 tests, 0 failures, with no unhandled
+  source warning.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -205,3 +219,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `1d75524` — `fix: reject stale mutation reloads`
 - `340cbdf` — `refactor: make audio file snapshots sendable`
 - `681dfdc` — `fix: bound MusicBrainz response caching`
+- `502162b` — `chore: remove dormant Sparkle configuration`

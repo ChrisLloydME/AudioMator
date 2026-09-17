@@ -1,6 +1,6 @@
 # AudioMator Wiki
 
-AudioMator is a local-first audio metadata editor for macOS and iPadOS. It is built around a TagLib-powered metadata pipeline and focuses on inspecting, organizing, editing, verifying, and enriching local music files.
+AudioMator is a local-first audio metadata editor for macOS. It is built around a TagLib-powered metadata pipeline and focuses on inspecting, organizing, editing, verifying, and enriching local music files.
 
 ## Navigation
 
@@ -27,5 +27,3 @@ Developers and maintainers should start with [Architecture](Architecture.md), [R
 ## Project Boundaries
 
 AudioMator performs ordinary metadata editing locally. Network access happens only when a user explicitly starts an online feature such as MusicBrainz lookup, iTunes metadata or artwork lookup, LRCLIB lyrics lookup, GitHub release-note lookup, or the manual macOS update check.
-
-The iPadOS app is intentionally not a full macOS feature clone. It uses document picking and sheet-based tools, while watched folders and the multi-window desktop workflow are macOS-only.

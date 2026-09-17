@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 
 struct ToolbarEditCommands: Commands {
@@ -96,4 +95,3 @@ struct ToolbarEditCommands: Commands {
         notificationCenter.post(name: .requestSidebarSelectionChange, object: selection)
     }
 }
-#endif

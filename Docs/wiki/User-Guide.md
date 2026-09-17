@@ -4,9 +4,7 @@ Exact button placement may change as the UI evolves, but the main workflows are 
 
 ## Import Files
 
-On macOS, AudioMator supports current-session imports and persistent watched folders. Session import is useful for one-off edits. Watched folders keep folders available across launches and are shown in the sidebar.
-
-On iPadOS, files are imported through session-scoped document picking. The app does not keep a watched-folder model on iPadOS.
+AudioMator supports current-session imports and persistent watched folders. Session import is useful for one-off edits. Watched folders keep folders available across launches and are shown in the sidebar.
 
 ## Inspect and Edit Common Fields
 
@@ -43,16 +41,14 @@ MusicBrainz is suited to releases, recordings, relationships, credits, identifie
 
 ## Customize the Workspace
 
-On macOS, Settings includes General, Toolbar, Columns, Inspector, and About tabs. Toolbar settings control which toolbar buttons are visible. Column settings control the center list. Inspector settings control which metadata fields appear in the right-side inspector.
-
-On iPadOS, Settings focuses on list metadata and About information.
+Settings includes General, Toolbar, Columns, Inspector, and About tabs. Toolbar settings control which toolbar buttons are visible. Column settings control the center list. Inspector settings control which metadata fields appear in the right-side inspector.
 
 ## Inspect Raw Tags
 
 Use Tag Inspector to see raw tags and file properties detected by AudioMator. This is the first place to check when a written value looks different after saving, when a container normalizes track/disc text, or when TagLib behavior differs by format.
 
-## Check for Updates on macOS
+## Check for Updates
 
-The macOS app includes a manual Check for Updates flow. It queries GitHub Releases, compares the release tag version in the form `V{version}B{build}`, and opens the GitHub Releases page when a download is available.
+The app includes a manual Check for Updates flow. It queries GitHub Releases, compares the release tag version in the form `V{version}B{build}`, and opens the GitHub Releases page when a download is available.
 
 The update dialog opens GitHub Releases for manual download. It does not silently install updates.

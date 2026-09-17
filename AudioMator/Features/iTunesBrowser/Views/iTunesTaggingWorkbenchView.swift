@@ -1,7 +1,5 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
 struct iTunesTaggingWorkbenchView: View {
     @ObservedObject var store: iTunesTaggingWorkbenchStore
@@ -108,9 +106,7 @@ struct iTunesTaggingWorkbenchView: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        #if os(macOS)
                         .toggleStyle(.checkbox)
-                        #endif
                         .disabled(isApplying)
                     }
                 }
@@ -263,14 +259,9 @@ struct iTunesAssignmentSection: View, Equatable {
             title: "Assignments",
             symbolName: "link",
             lazyContent: {
-                #if os(macOS)
                 false
-                #else
-                true
-                #endif
             }()
         ) {
-            #if os(macOS)
             iTunesAssignmentsAppKitList(
                 assignments: assignments,
                 tracks: tracks,
@@ -284,25 +275,6 @@ struct iTunesAssignmentSection: View, Equatable {
                 },
                 onSelectTrack: onSelectTrack
             )
-            #else
-            ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
-                iTunesAssignmentRow(
-                    assignment: assignment,
-                    tracks: tracks,
-                    isDuplicate: assignment.selectedTrackID.map(duplicateTrackIDs.contains) ?? false,
-                    selection: Binding(
-                        get: { assignment.selectedTrackID },
-                        set: { onSelectTrack($0, assignment.id) }
-                    ),
-                    selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
-                )
-                .disabled(isApplying)
-
-                if index < assignments.count - 1 {
-                    MetadataCardDivider()
-                }
-            }
-            #endif
         }
     }
 }
@@ -342,10 +314,6 @@ private struct iTunesWarningLabel: View {
 
 private struct iTunesWorkbenchFrameModifier: ViewModifier {
     func body(content: Content) -> some View {
-        #if os(iOS)
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        #else
         content
             .frame(
                 minWidth: 920,
@@ -355,11 +323,9 @@ private struct iTunesWorkbenchFrameModifier: ViewModifier {
                 idealHeight: 640,
                 maxHeight: 820
             )
-        #endif
     }
 }
 
-#if os(macOS)
 private struct iTunesAssignmentsAppKitList: View {
     let assignments: [iTunesTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [iTunesTrackResult]
@@ -821,7 +787,6 @@ private extension iTunesTaggingFieldChange.Status {
         }
     }
 }
-#endif
 
 private struct iTunesAssignmentRow: View {
     let assignment: iTunesTaggingWorkbenchStore.AssignmentDraft

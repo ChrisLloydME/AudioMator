@@ -80,7 +80,6 @@ struct OnlineMetadataBrowserView: View {
                         selectMetadataSource(source)
                     }
                     .navigationTitle(AppWindowTitle.onlineMetadata)
-                    #if os(macOS)
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             Color.clear
@@ -88,7 +87,6 @@ struct OnlineMetadataBrowserView: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    #endif
                 }
                 .frame(minWidth: 920, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -113,29 +111,6 @@ struct OnlineMetadataBrowserView: View {
                 content
             }
             .audiomatorMacTitlebarScrollEdgeBar()
-            #if os(iOS)
-            .navigationTitle(AppWindowTitle.onlineMetadata)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
-                        dismiss()
-                    }
-                }
-
-                if navigationPath.isEmpty {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            store.search()
-                        } label: {
-                            Label("Search", systemImage: "magnifyingglass")
-                        }
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!store.hasSearchText || store.isSearching)
-                    }
-                }
-            }
-            #endif
             .navigationDestination(for: MusicBrainzBrowserDestination.self) { destination in
                 MusicBrainzMetadataDetailView(
                     store: store,
@@ -153,7 +128,6 @@ struct OnlineMetadataBrowserView: View {
         .onChange(of: store.navigationResetToken) { _, _ in
             navigationPath.removeAll()
         }
-        #if os(macOS)
         .toolbar {
             if navigationPath.isEmpty {
                 ToolbarItem(placement: .navigation) {
@@ -184,7 +158,6 @@ struct OnlineMetadataBrowserView: View {
                 }
             }
         }
-        #endif
     }
 
     private func selectMetadataSource(_ source: MetadataBrowserSource) {
@@ -205,9 +178,6 @@ struct OnlineMetadataBrowserView: View {
 
     private var searchHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
-            #if os(iOS)
-            modePicker
-            #endif
 
             searchFields
 
@@ -326,20 +296,11 @@ struct OnlineMetadataBrowserView: View {
     }
 
     private var searchResultsList: some View {
-        #if os(iOS)
-        List {
-            Section {
-                searchResultRows
-            }
-        }
-        .iPadRoundedGroupedListStyle()
-        #else
         List {
             searchResultRows
         }
         .listStyle(.inset)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-        #endif
     }
 
     @ViewBuilder

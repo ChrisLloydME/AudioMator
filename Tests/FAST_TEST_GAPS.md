@@ -14,4 +14,4 @@ Remaining behavior that still needs app-hosted Xcode tests or future small helpe
 - MusicBrainz Lucene query construction and link parsing now have fast core coverage through provider-core helpers, with app-hosted tests retaining client type adaptation and error mapping coverage.
 - Full iTunes and MusicBrainz album/track matching still embedded in provider result types where extracting it would require a broader model move.
 - Embedded lyrics application paths that flow through full TagLib-backed writes beyond the current `AudioViewModel` raw property-map LRCLIB coverage.
-- Platform-specific SwiftUI/AppKit/iPad view state that is best verified by app-hosted tests or compile/build checks.
+- SwiftUI/AppKit view state that is best verified by app-hosted tests or compile/build checks.

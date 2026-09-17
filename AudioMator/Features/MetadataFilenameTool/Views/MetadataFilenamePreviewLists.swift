@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 struct MetadataConverterPreviewCard<Content: View>: View {
@@ -828,4 +827,3 @@ private extension FileRenameMetadataField {
         }
     }
 }
-#endif

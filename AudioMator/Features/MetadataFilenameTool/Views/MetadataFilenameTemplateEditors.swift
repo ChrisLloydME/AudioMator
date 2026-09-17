@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 struct MetadataExchangeTemplateEditorInsertion: Equatable {
@@ -678,4 +677,3 @@ private extension NSTextAttachment {
         )
     }
 }
-#endif

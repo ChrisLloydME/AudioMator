@@ -7,9 +7,7 @@
 
 import Foundation
 import Combine
-#if os(macOS)
 import AppKit
-#endif
 
 private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
 
@@ -183,11 +181,7 @@ final class AudioViewModel: ObservableObject {
             : []
         self.watchedFolders = restoredFolders
 
-        #if os(macOS)
         let restoredFileAccessGrants = fileAccessGrantStore.loadGrants()
-        #else
-        let restoredFileAccessGrants: [FileAccessGrant] = []
-        #endif
         self.fileAccessGrants = restoredFileAccessGrants
 
         for grant in restoredFileAccessGrants {
@@ -410,7 +404,6 @@ final class AudioViewModel: ObservableObject {
     func addWatchedFolders() -> SidebarSelection? {
         guard PlatformApplication.supportsWatchedFolders else { return nil }
 
-        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = true
@@ -476,9 +469,6 @@ final class AudioViewModel: ObservableObject {
         }
 
         return .watchedLibrary
-        #else
-        return nil
-        #endif
     }
 
     nonisolated static func watchedFolderAccessFailureMessage(for displayNames: [String]) -> String {
@@ -730,7 +720,6 @@ final class AudioViewModel: ObservableObject {
     }
 
     func authorizeDefaultFileAccessFolder() -> FileAccessAuthorizationOutcome {
-        #if os(macOS)
         let homeURL = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
@@ -762,9 +751,6 @@ final class AudioViewModel: ObservableObject {
         }
 
         return .authorized(path: firstGrant?.url.path ?? selectedURLs[0].path)
-        #else
-        return .failure(String(localized: "Folder preauthorization is available on macOS only."))
-        #endif
     }
 
     func removeFileAccessGrant(id: UUID) {
@@ -1086,7 +1072,6 @@ final class AudioViewModel: ObservableObject {
         let displayName = FileManager.default.displayName(atPath: directoryURL.path)
         let key = Self.urlKey(for: directoryURL)
 
-        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
@@ -1115,17 +1100,8 @@ final class AudioViewModel: ObservableObject {
                 localized: "AudioMator couldn't save access to “\(displayName)”: \((error as NSError).localizedDescription)"
             )
         }
-        #else
-        if directoryURL.startAccessingSecurityScopedResource() {
-            securityScopedSupplementalMutationDirectoryURLs[key] = directoryURL
-            return nil
-        }
-
-        return "iPadOS can't request extra folder access here. Keep renamed files inside the imported session scope."
-        #endif
     }
 
-    #if os(macOS)
     private func registerFileAccessGrant(for url: URL) throws -> FileAccessGrant {
         let normalizedURL = url.standardizedFileURL
         let key = Self.urlKey(for: normalizedURL)
@@ -1157,7 +1133,6 @@ final class AudioViewModel: ObservableObject {
         fileAccessGrantStore.saveGrants(fileAccessGrants)
         return grant
     }
-    #endif
 
     private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {
         guard let rootURL = watchedFolders.first(where: { $0.id == folderID })?.url else { return }

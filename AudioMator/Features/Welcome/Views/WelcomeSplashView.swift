@@ -7,7 +7,6 @@ struct WelcomeSplashView: View {
     let onAuthorizeFileAccess: () -> FileAccessAuthorizationOutcome
 
     var body: some View {
-        #if os(macOS)
         MacWelcomeSplashView(
             onQuit: onQuit,
             onContinue: onContinue,
@@ -15,9 +14,6 @@ struct WelcomeSplashView: View {
             onAuthorizeFileAccess: onAuthorizeFileAccess
         )
             .frame(width: 750, height: 700)
-        #else
-        SwiftUIWelcomeSplashView(onQuit: onQuit, onContinue: onContinue)
-        #endif
     }
 }
 
@@ -42,9 +38,7 @@ struct WelcomeSplashRowContent: Identifiable {
 enum WelcomeSplashPage: Int, CaseIterable {
     case welcome
     case features
-    #if os(macOS)
     case fileAccess
-    #endif
     case onlineMetadata
     case artwork
     case privacy
@@ -110,7 +104,6 @@ enum WelcomeSplashPage: Int, CaseIterable {
                     )
                 ]
             )
-        #if os(macOS)
         case .fileAccess:
             WelcomeSplashPageContent(
                 page: self,
@@ -120,7 +113,6 @@ enum WelcomeSplashPage: Int, CaseIterable {
                 ),
                 rows: []
             )
-        #endif
         case .onlineMetadata:
             WelcomeSplashPageContent(
                 page: self,
@@ -194,26 +186,14 @@ enum WelcomeSplashPage: Int, CaseIterable {
     }
 
     private static var platformDeviceName: String {
-        #if os(macOS)
         "your Mac"
-        #else
-        "your iPad"
-        #endif
     }
 
     private static var platformName: String {
-        #if os(macOS)
         "macOS"
-        #else
-        "iPadOS"
-        #endif
     }
 
     private static var platformNativeSymbol: String {
-        #if os(macOS)
         "macwindow"
-        #else
-        "ipad"
-        #endif
     }
 }

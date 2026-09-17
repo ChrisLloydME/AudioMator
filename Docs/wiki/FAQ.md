@@ -6,10 +6,6 @@ Not for ordinary local editing. Metadata reading, metadata writing, local artwor
 
 Online lookup features may send search terms or identifiers such as title, artist, album, duration, ISRC, barcode, MusicBrainz links, Apple Music/iTunes links, or storefront country.
 
-## Is the iPadOS app the same as the macOS app?
-
-No. The macOS app is the full desktop workflow with watched folders, a three-pane window, Finder-style actions, and separate tool windows. The iPadOS app is session-only, uses document picking, and presents tools as sheets.
-
 ## Which audio formats are supported?
 
 AudioMator asks `TagLibAudioMetadata` for readable and writable extensions at runtime. Actual field read/write behavior depends on TagLib support and the underlying container. The committed test fixtures currently cover `mp3`, `m4a`, `flac`, `aac`, `ogg`, and `wav`.

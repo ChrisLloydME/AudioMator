@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 
 struct WatchedFolderSettingsSelection {
@@ -386,4 +385,3 @@ struct FileAccessSettingsTab: View {
         viewModel.removeWatchedFolders(ids: selectedIDs)
     }
 }
-#endif

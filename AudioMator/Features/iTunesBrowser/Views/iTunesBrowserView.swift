@@ -46,7 +46,6 @@ struct iTunesBrowserView: View {
                     iTunesAlbumDetailView(album: album, store: store, viewModel: viewModel)
                 }
             }
-            #if os(macOS)
             .toolbar {
                 if navigationPath.isEmpty {
                     ToolbarItem(placement: .navigation) {
@@ -77,29 +76,6 @@ struct iTunesBrowserView: View {
                     }
                 }
             }
-            #endif
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
-                        dismiss()
-                    }
-                }
-
-                if navigationPath.isEmpty {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            store.search()
-                        } label: {
-                            Label("Search", systemImage: "magnifyingglass")
-                        }
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!store.hasSearchText || store.isSearching)
-                    }
-                }
-            }
-            #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(platformColor: .audiomatorWindowBackground))
@@ -126,9 +102,6 @@ struct iTunesBrowserView: View {
 
     private var searchHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
-            #if os(iOS)
-            modePicker
-            #endif
 
             searchFields
 
@@ -248,20 +221,11 @@ struct iTunesBrowserView: View {
     }
 
     private var searchResultsList: some View {
-        #if os(iOS)
-        List {
-            Section {
-                searchResultRows
-            }
-        }
-        .iPadRoundedGroupedListStyle()
-        #else
             List {
                 searchResultRows
             }
             .listStyle(.inset)
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-        #endif
     }
 
     @ViewBuilder

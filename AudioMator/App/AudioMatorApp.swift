@@ -6,15 +6,11 @@
 //
 
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
 @main
 struct AudioMatorApp: App {
-    #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    #endif
     private let metadataPipeline: any AudioMetadataPipeline
     @StateObject private var viewModel: AudioViewModel
     @StateObject private var sharedState: SharedState
@@ -45,7 +41,6 @@ struct AudioMatorApp: App {
     }
 
     var body: some Scene {
-        #if os(macOS)
         WindowGroup {
             ContentView(
                 viewModel: viewModel,
@@ -110,18 +105,5 @@ struct AudioMatorApp: App {
             .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 920, height: 640)
-        #else
-        WindowGroup {
-            ContentView(
-                viewModel: viewModel,
-                state: sharedState,
-                onlineMetadataBrowserStore: onlineMetadataBrowserStore,
-                lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
-                metadataFilenameToolStore: metadataFilenameToolStore,
-                metadataEditorStore: metadataEditorStore,
-                metadataPipeline: metadataPipeline
-            )
-        }
-        #endif
     }
 }

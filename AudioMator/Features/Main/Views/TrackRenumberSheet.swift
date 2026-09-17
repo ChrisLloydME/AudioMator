@@ -127,11 +127,7 @@ struct TrackRenumberSheet: View {
         }
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .scrollBounceBehavior(.basedOnSize)
-        #if os(iOS)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #else
         .frame(width: 640, height: 560)
-        #endif
     }
 
     private var header: some View {
@@ -171,22 +167,6 @@ struct TrackRenumberSheet: View {
                 .foregroundStyle(.secondary)
 
             Group {
-                #if os(iOS)
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        configurationControls
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        previewCard
-                            .frame(width: 176)
-                    }
-
-                    VStack(alignment: .leading, spacing: 14) {
-                        configurationControls
-                        previewCard
-                    }
-                }
-                #else
                 HStack(alignment: .top, spacing: 16) {
                     configurationControls
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -194,7 +174,6 @@ struct TrackRenumberSheet: View {
                     previewCard
                         .frame(width: 176)
                 }
-                #endif
             }
             .padding(setupSectionInset)
             .background(
@@ -227,11 +206,7 @@ struct TrackRenumberSheet: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
-                #if os(macOS)
                 .frame(width: 220)
-                #else
-                .frame(maxWidth: 260)
-                #endif
                 .disabled(isTrackRenumberRunning)
             }
 
@@ -264,9 +239,7 @@ struct TrackRenumberSheet: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            #if os(macOS)
             .toggleStyle(.checkbox)
-            #endif
             .disabled(isTrackRenumberRunning)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -301,14 +274,10 @@ struct TrackRenumberSheet: View {
         }
         .frame(maxWidth: .infinity, minHeight: 188, alignment: .topLeading)
         .padding(cardInset)
-        #if os(iOS)
-        .iPadRoundedGroupedSurface()
-        #else
         .background(
             RoundedRectangle(cornerRadius: previewInnerRadius)
                 .fill(Color.secondary.opacity(0.08))
         )
-        #endif
     }
 
     private var resultSection: some View {
@@ -351,14 +320,10 @@ struct TrackRenumberSheet: View {
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(cardInset)
-                                    #if os(iOS)
-                                    .iPadRoundedGroupedSurface()
-                                    #else
                                     .background(
                                         RoundedRectangle(cornerRadius: previewInnerRadius)
                                             .fill(Color.secondary.opacity(0.08))
                                     )
-                                    #endif
                                 }
                             }
                         }
@@ -387,14 +352,10 @@ struct TrackRenumberSheet: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(cardInset)
-                            #if os(iOS)
-                            .iPadRoundedGroupedSurface()
-                            #else
                             .background(
                                 RoundedRectangle(cornerRadius: previewInnerRadius)
                                     .fill(Color.secondary.opacity(0.08))
                             )
-                            #endif
                         }
                     }
                 }
@@ -435,25 +396,6 @@ struct TrackRenumberSheet: View {
         caption: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        #if os(iOS)
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 16) {
-                configurationLabel(title: title, caption: caption)
-                    .frame(width: 144, alignment: .leading)
-
-                Spacer(minLength: 12)
-
-                content()
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                configurationLabel(title: title, caption: caption)
-
-                content()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        #else
         HStack(alignment: .top, spacing: 16) {
             configurationLabel(title: title, caption: caption)
             .frame(width: 144, alignment: .leading)
@@ -462,7 +404,6 @@ struct TrackRenumberSheet: View {
 
             content()
         }
-        #endif
     }
 
     private func configurationLabel(title: String, caption: String) -> some View {
@@ -496,14 +437,10 @@ struct TrackRenumberSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(cardInset)
-        #if os(iOS)
-        .iPadRoundedGroupedSurface()
-        #else
         .background(
             RoundedRectangle(cornerRadius: previewInnerRadius)
                 .fill(Color.secondary.opacity(0.08))
         )
-        #endif
     }
 
     private func resultMetricSymbol(for title: String) -> String {

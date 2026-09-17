@@ -34,7 +34,7 @@ This record describes the completed behavior-preserving hardening work and the r
 - Live MusicBrainz/iTunes/LRCLIB requests, remote rate-limit behavior, and production API drift remain nondeterministic network boundaries. Current tests cover request construction, deterministic matching, model adaptation, and error presentation, not live services.
 - Further splitting `MusicBrainzClient.swift` would require widening private DTO visibility or first adding sanitized response fixtures. The current request/DTO/mapping/rate-limit unit is intentionally retained to avoid an unproved boundary change.
 - `MetadataFilenameRenameSheet.swift` remains the stateful workflow shell. Additional extraction would move file-panel, security-scope, or mutation ownership and therefore needs focused UI/application-state characterization first.
-- Watched-folder monitoring, real user-library batch actions, and platform-specific SwiftUI/AppKit/iPad interaction remain manual or system-integration concerns. Automated tests use temporary files only.
+- Watched-folder monitoring, real user-library batch actions, and SwiftUI/AppKit interaction remain manual or system-integration concerns. Automated tests use temporary files only.
 - Embedded-lyrics behavior beyond the tested LRCLIB raw property-map write path remains dependent on TagLib format support.
 
 ## Decisions Needed

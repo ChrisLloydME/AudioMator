@@ -2,11 +2,7 @@ import AVFoundation
 import CoreMedia
 import Foundation
 import TagLibAudioMetadata
-#if os(macOS)
 import AppKit
-#else
-import UIKit
-#endif
 
 extension AudioFile {
     nonisolated private static func artworkFingerprint(for data: Data) -> Int {

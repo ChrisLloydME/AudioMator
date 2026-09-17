@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 struct MetadataTextExportPreviewList: View {
@@ -627,4 +626,3 @@ private extension MetadataExchangePreviewStatus {
         }
     }
 }
-#endif

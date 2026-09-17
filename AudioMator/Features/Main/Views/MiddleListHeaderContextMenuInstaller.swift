@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 struct MiddleListHeaderContextMenuInstaller: NSViewRepresentable {
@@ -147,4 +146,3 @@ extension MiddleListHeaderContextMenuInstaller {
         }
     }
 }
-#endif

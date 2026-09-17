@@ -9,7 +9,7 @@ AudioMator is built from the Xcode project. A SwiftPM core-logic test target and
 - Swift Package Manager for resolving the remote `TagLibAudioMetadata` and Sparkle package references.
 - Network access when resolving packages or using online app features.
 
-The app target currently declares macOS `26.0` and iOS/iPadOS `26.0` deployment targets. The SwiftPM fast-test package declares macOS `.v15` because it includes only selected non-UI, non-TagLib, non-network core logic.
+The app target and SwiftPM fast-test package currently declare macOS `15.0` deployment targets.
 
 ## Open the Project
 
@@ -19,7 +19,7 @@ Open the Xcode project:
 open AudioMator.xcodeproj
 ```
 
-Select the `AudioMator` scheme. macOS is the primary full desktop workflow. For iPadOS compile checks, prefer generic iOS destination builds unless simulator validation is specifically needed.
+Select the `AudioMator` scheme and a macOS destination.
 
 ## Dependency Modes
 

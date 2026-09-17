@@ -25,10 +25,6 @@ If a change affects user-visible behavior, privacy disclosure, or third-party us
 
 Preserve the existing metadata write pipeline. Do not write container-specific metadata directly from UI code. For rename operations, metadata writes, raw property-map writes, or batch file actions, respect the file mutation coordination boundary.
 
-## Platform Differences
-
-macOS and iPadOS intentionally differ. macOS supports watched folders, Finder-style actions, and multiple windows. iPadOS uses session-only document workflows and sheet-based tools. Do not force behavior from one platform onto the other without a clear product and code reason.
-
 ## Testing Expectations
 
 Run the smallest relevant check:

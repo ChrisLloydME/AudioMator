@@ -8,9 +8,7 @@ Do not introduce broad shared abstractions for a single feature. The project pre
 
 ## UI Technology
 
-AudioMator is SwiftUI-first, not SwiftUI-only. Use AppKit or UIKit when they produce a more complete native result, reduce implementation complexity, or improve performance for a specific feature.
-
-Respect platform differences. macOS is the full desktop workflow. iPadOS is session-only. Do not force feature parity where platform behavior intentionally differs.
+AudioMator is SwiftUI-first, not SwiftUI-only. Use AppKit when it produces a more complete native result, reduces implementation complexity, or improves performance for a specific feature.
 
 ## Metadata Writes
 

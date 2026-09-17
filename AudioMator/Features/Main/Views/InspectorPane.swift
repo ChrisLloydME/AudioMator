@@ -417,11 +417,9 @@ struct InspectorPane: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(file.url.lastPathComponent)
                     .font(.headline)
-                #if os(macOS)
                 Text(file.url.path)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                #endif
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } label: {
@@ -964,7 +962,6 @@ struct InspectorPane: View {
     }
 }
 
- #if os(macOS)
 struct ScrollableInspectorValueText: NSViewRepresentable {
     let text: String
     let width: CGFloat
@@ -988,22 +985,6 @@ struct ScrollableInspectorValueText: NSViewRepresentable {
         )
     }
 }
-#else
-struct ScrollableInspectorValueText: View {
-    let text: String
-    let width: CGFloat
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            Text(text)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: width, alignment: .trailing)
-        }
-        .audiomatorScrollEdgeEffect(.soft, for: .horizontal)
-    }
-}
-#endif
 
 struct FlexibleScrollableInspectorValueText: View {
     let text: String
@@ -1075,7 +1056,6 @@ struct InspectorEditableValueField: View {
     }
 }
 
- #if os(macOS)
 final class InspectorValueScrollView: NSScrollView {
     private let containerView = WheelForwardingStackView()
     private let spacerView = NSView(frame: .zero)
@@ -1203,4 +1183,3 @@ final class WheelForwardingLabel: NSTextField {
         enclosingScrollView?.scrollWheel(with: event)
     }
 }
- #endif

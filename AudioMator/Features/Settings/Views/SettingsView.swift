@@ -1,15 +1,11 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
 let settingsSelectedTabDefaultsKey = "settings.selectedTab"
 
 enum AppSettingsTab: String, Hashable {
     case general
-    #if os(macOS)
     case fileAccess
-    #endif
     case interface
     case logs
     case about
@@ -63,13 +59,11 @@ struct SettingsView: View {
             }
             .tag(AppSettingsTab.interface)
 
-            #if os(macOS)
             FileAccessSettingsTab(viewModel: viewModel)
                 .tabItem {
                     Label("Folders", systemImage: "folder")
                 }
                 .tag(AppSettingsTab.fileAccess)
-            #endif
 
             SaveIssueLogSettingsTab(store: saveIssueLogStore)
                 .tabItem {
@@ -214,188 +208,6 @@ struct SettingsView: View {
     }
 }
 
-#if os(iOS)
-private enum IPadSettingsTab: String, Hashable {
-    case leftList
-    case about
-}
-
-struct IPadSettingsView: View {
-    @ObservedObject var sharedState: SharedState
-
-    @AppStorage("ipad.settings.selectedTab") private var selectedTabRawValue: String = IPadSettingsTab.leftList.rawValue
-
-    var body: some View {
-        TabView(selection: selectedTabBinding) {
-            IPadLeftListMetadataSettingsTab(sharedState: sharedState)
-                .tabItem {
-                    Label("List", systemImage: "list.bullet.rectangle")
-                }
-                .tag(IPadSettingsTab.leftList)
-
-            AboutSettingsTab(
-                appDisplayName: appDisplayName,
-                shortVersionString: shortVersionString,
-                buildNumber: buildNumber,
-                aboutDescription: aboutDescription
-            )
-            .tabItem {
-                Label("About", systemImage: "info.circle")
-            }
-            .tag(IPadSettingsTab.about)
-        }
-        .frame(minWidth: 540, minHeight: 520)
-    }
-
-    private var selectedTabBinding: Binding<IPadSettingsTab> {
-        Binding(
-            get: { IPadSettingsTab(rawValue: selectedTabRawValue) ?? .leftList },
-            set: { selectedTabRawValue = $0.rawValue }
-        )
-    }
-
-    private var appDisplayName: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
-            ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)
-            ?? "AudioMator"
-    }
-
-    private var shortVersionString: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "Unknown"
-    }
-
-    private var buildNumber: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "Unknown"
-    }
-
-    private var aboutDescription: String {
-        let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        return formattedAboutDescription(copyright: copyright)
-    }
-}
-
-private struct IPadLeftListMetadataSettingsTab: View {
-    @ObservedObject var sharedState: SharedState
-
-    var body: some View {
-        List {
-            Section {
-                IPadLeftListMetadataPreviewRow(
-                    fields: SharedState.normalizedIPadLeftListMetadataFields(sharedState.iPadLeftListMetadataFields)
-                )
-                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-            } header: {
-                Text("Preview")
-            }
-
-            Section {
-                ForEach(0..<IPadLeftListMetadataField.defaultConfiguration.count, id: \.self) { index in
-                    Picker("Field \(index + 1)", selection: metadataFieldBinding(at: index)) {
-                        ForEach(IPadLeftListMetadataField.allCases) { field in
-                            Text(field.displayName)
-                                .tag(field)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-            } header: {
-                Text("Left List Metadata Fields")
-            } footer: {
-                Text("Fields 1-2 and 5-6 appear on the left side of the two metadata rows. Fields 3-4 and 7-8 appear on the right side.")
-            }
-
-            Section {
-                Button("Restore Default Metadata Fields") {
-                    sharedState.iPadLeftListMetadataFields = IPadLeftListMetadataField.defaultConfiguration
-                }
-            }
-        }
-        .iPadRoundedGroupedListStyle()
-        .background(Color(uiColor: .systemGroupedBackground))
-    }
-
-    private func metadataFieldBinding(at index: Int) -> Binding<IPadLeftListMetadataField> {
-        Binding(
-            get: {
-                let fields = SharedState.normalizedIPadLeftListMetadataFields(sharedState.iPadLeftListMetadataFields)
-                return fields[index]
-            },
-            set: { field in
-                var fields = SharedState.normalizedIPadLeftListMetadataFields(sharedState.iPadLeftListMetadataFields)
-                fields[index] = field
-                sharedState.iPadLeftListMetadataFields = fields
-            }
-        )
-    }
-}
-
-private struct IPadLeftListMetadataPreviewRow: View {
-    let fields: [IPadLeftListMetadataField]
-
-    private var normalizedFields: [IPadLeftListMetadataField] {
-        SharedState.normalizedIPadLeftListMetadataFields(fields)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            artworkPlaceholder
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Title")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                metadataRow(leftPositions: [0, 1], rightPositions: [2, 3])
-                metadataRow(leftPositions: [4, 5], rightPositions: [6, 7])
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private func metadataRow(leftPositions: [Int], rightPositions: [Int]) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            metadataGroupText(for: leftPositions, alignment: .leading)
-
-            Spacer(minLength: 16)
-
-            metadataGroupText(for: rightPositions, alignment: .trailing)
-        }
-    }
-
-    private func metadataGroupText(for positions: [Int], alignment: TextAlignment) -> some View {
-        Text(fieldNames(for: positions))
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(alignment)
-            .lineLimit(1)
-    }
-
-    private func fieldNames(for positions: [Int]) -> String {
-        positions
-            .compactMap { position -> String? in
-                guard normalizedFields.indices.contains(position) else { return nil }
-                return normalizedFields[position].displayName
-            }
-            .joined(separator: " · ")
-    }
-
-    private var artworkPlaceholder: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.secondary.opacity(0.12))
-            .frame(width: 44, height: 44)
-            .overlay {
-                Image(systemName: "music.note")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-    }
-}
-#endif
 
 private struct GeneralSettingsTab: View {
     @Binding var showWelcomeScreenOnLaunch: Bool
@@ -843,10 +655,8 @@ private struct SaveIssueLogSettingsTab: View {
     private func copyEntriesToPasteboard() {
         let text = store.entries.map { renderEntryForCopy($0) }.joined(separator: "\n\n")
 
-        #if os(macOS)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        #endif
     }
 
     private func renderEntryForCopy(_ entry: SaveIssueLogEntry) -> String {
@@ -957,50 +767,6 @@ private struct AboutSettingsTab: View {
     @State private var isReleaseNotesPresented: Bool = false
 
     var body: some View {
-        #if os(iOS)
-        List {
-            Section {
-                IPadAboutHeroCard(
-                    title: "AudioMator",
-                    copyrightText: copyrightText,
-                    contactEmail: contactEmail
-                )
-                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-                .listRowBackground(Color.clear)
-            }
-
-            Section {
-                AboutNavigationRow("Release Notes…") {
-                    isReleaseNotesPresented = true
-                }
-
-                AboutNavigationRow("Acknowledgements…") {
-                    isAcknowledgementsPresented = true
-                }
-
-                AboutNavigationRow("Privacy…") {
-                    isPrivacyPresented = true
-                }
-            }
-        }
-        .iPadRoundedGroupedListStyle()
-        .background(Color(uiColor: .systemGroupedBackground))
-        .sheet(isPresented: $isAcknowledgementsPresented) {
-            IPadDismissibleSheet(title: "Acknowledgements") {
-                AcknowledgementsSheet()
-            }
-        }
-        .sheet(isPresented: $isPrivacyPresented) {
-            IPadDismissibleSheet(title: "Privacy") {
-                PrivacySheet()
-            }
-        }
-        .sheet(isPresented: $isReleaseNotesPresented) {
-            IPadDismissibleSheet(title: "Release Notes") {
-                ReleaseNotesSheet()
-            }
-        }
-        #else
         VStack(spacing: 0) {
             Spacer(minLength: 28)
 
@@ -1083,7 +849,6 @@ private struct AboutSettingsTab: View {
         .sheet(isPresented: $isReleaseNotesPresented) {
             ReleaseNotesSheet()
         }
-        #endif
     }
 
     private var copyrightText: String {
@@ -1098,80 +863,6 @@ private struct AboutSettingsTab: View {
     }
 }
 
-#if os(iOS)
-private struct IPadAboutHeroCard: View {
-    let title: String
-    let copyrightText: String
-    let contactEmail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Image("AppIconPreview")
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 96, height: 96)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: .black.opacity(0.16), radius: 18, y: 8)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.title.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                Text(copyrightText)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Link(destination: URL(string: "mailto:\(contactEmail)")!) {
-                    Label(contactEmail, systemImage: "envelope")
-                        .font(.body.weight(.medium))
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 28)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color(uiColor: .separator).opacity(0.24), lineWidth: 1)
-        }
-    }
-}
-
-private struct AboutNavigationRow: View {
-    let title: String
-    let action: () -> Void
-
-    init(_ title: String, action: @escaping () -> Void) {
-        self.title = title
-        self.action = action
-    }
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Text(title)
-                    .foregroundStyle(.primary)
-
-                Spacer(minLength: 12)
-
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title.replacingOccurrences(of: "…", with: ""))
-    }
-}
-#endif
 
 private struct AboutAppIconView: View {
     let size: CGFloat
@@ -1254,28 +945,6 @@ private struct AcknowledgementsSheet: View {
             .padding(.bottom, 18)
 
             ScrollView {
-                #if os(iOS)
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(acknowledgements, id: \.title) { item in
-                        IPadRoundedRowGroup {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(item.title)
-                                    .font(.headline)
-
-                                ForEach(item.details, id: \.self) { detail in
-                                    Text(detail)
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .padding(16)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                #else
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(acknowledgements, id: \.title) { item in
                         VStack(alignment: .leading, spacing: 6) {
@@ -1293,7 +962,6 @@ private struct AcknowledgementsSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
-                #endif
             }
             .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
                 HStack {
@@ -1310,11 +978,7 @@ private struct AcknowledgementsSheet: View {
             }
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        #if os(iOS)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #else
         .frame(width: 560, height: 460)
-        #endif
     }
 }
 
@@ -1380,28 +1044,6 @@ private struct PrivacySheet: View {
             .padding(.bottom, 18)
 
             ScrollView {
-                #if os(iOS)
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(sections, id: \.title) { section in
-                        IPadRoundedRowGroup {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(section.title)
-                                    .font(.headline)
-
-                                ForEach(section.details, id: \.self) { detail in
-                                    Text(detail)
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .padding(16)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                #else
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(sections, id: \.title) { section in
                         VStack(alignment: .leading, spacing: 6) {
@@ -1419,7 +1061,6 @@ private struct PrivacySheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
-                #endif
             }
             .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
                 HStack {
@@ -1437,11 +1078,7 @@ private struct PrivacySheet: View {
             }
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        #if os(iOS)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #else
         .frame(width: 580, height: 500)
-        #endif
     }
 }
 
@@ -1482,11 +1119,7 @@ private struct ReleaseNotesSheet: View {
                 }
                 .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        #if os(iOS)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #else
         .frame(width: 640, height: 430)
-        #endif
         .task {
             await loadReleaseNotes()
         }
@@ -1601,11 +1234,7 @@ private struct ReleaseNoteCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        #if os(iOS)
-        .iPadRoundedGroupedSurface()
-        #else
         .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        #endif
     }
 }
 

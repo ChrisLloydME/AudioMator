@@ -1,11 +1,8 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 import Combine
 import TagLibAudioMetadata
 
-#if os(macOS)
 
 struct MetadataEditorTarget: Identifiable, Hashable {
     let id: AudioFile.ID
@@ -505,5 +502,3 @@ struct MetadataEditorWindowView: View {
         dismiss()
     }
 }
-
-#endif

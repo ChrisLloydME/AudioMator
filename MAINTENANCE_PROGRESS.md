@@ -27,6 +27,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Bookmark persistence lead F is confirmed for both file-access grants and
   watched folders: top-level decode failure returned an ordinary empty array,
   and later saves could overwrite the only copy of unreadable persisted data.
+- Privacy disclosure lead G is confirmed: LRCLIB endpoint/data constants existed
+  and the documentation mentioned the service, but the Settings Privacy sheet
+  manually assembled other services and omitted LRCLIB.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -66,6 +69,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   quarantined the original corrupt blob, blocked ordinary overwrites (including
   save-before-load), surfaced recovery warnings in File Access settings, and
   rolled back newly added grants/folders when persistence is protected.
+- Replaced the hand-built Privacy sheet list with a declarative production
+  network-service registry. LRCLIB now appears automatically alongside iTunes,
+  MusicBrainz, release notes, and update checks.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -92,6 +98,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Passed focused `FileAccessGrantStoreTests` and `DirectoryMonitoringPlanTests`
   covering corruption quarantine, save preflight, overwrite prevention, and
   user-visible view-model diagnostics.
+- Passed focused `NetworkServiceDisclosureTests`, which require one complete
+  registry entry per service and exact coverage of all production client hosts.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -123,3 +131,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `ae78991` — `fix: compare update release build numbers`
 - `6697faa` — `fix: reserve MusicBrainz request slots atomically`
 - `23ae6f9` — `fix: prevent file mutation waiter starvation`
+- `dd95ff8` — `fix: preserve corrupt bookmark collections`

@@ -3,7 +3,9 @@ import Foundation
 final class WatchedFolderStore {
     private let userDefaults: UserDefaults
     private let storageKey = "watchedFolderRecords"
+    private let corruptBackupKey = "watchedFolderRecords.corruptBackup"
     private var unresolvedRecords: [WatchedFolderRecord] = []
+    private(set) var loadState: BookmarkCollectionLoadState = .notLoaded
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
@@ -11,10 +13,14 @@ final class WatchedFolderStore {
 
     func loadFolders() -> [WatchedFolder] {
         unresolvedRecords = []
-        guard let data = userDefaults.data(forKey: storageKey) else { return [] }
+        guard let data = userDefaults.data(forKey: storageKey) else {
+            loadState = .empty
+            return []
+        }
 
         do {
             let records = try JSONDecoder().decode([WatchedFolderRecord].self, from: data)
+            loadState = records.isEmpty ? .empty : .loaded(recordCount: records.count)
             var folders: [WatchedFolder] = []
             var refreshedRecords: [WatchedFolderRecord] = []
             var needsSave = false
@@ -59,11 +65,15 @@ final class WatchedFolderStore {
 
             return folders
         } catch {
+            loadState = .corrupt
+            quarantineCorruptData(data)
             return []
         }
     }
 
-    func saveFolders(_ folders: [WatchedFolder]) {
+    @discardableResult
+    func saveFolders(_ folders: [WatchedFolder]) -> Bool {
+        guard prepareForSave() else { return false }
         let resolvedRecords = folders.map {
             WatchedFolderRecord(
                 id: $0.id,
@@ -74,14 +84,43 @@ final class WatchedFolderStore {
         let resolvedIDs = Set(resolvedRecords.map(\.id))
         let records = resolvedRecords + unresolvedRecords.filter { !resolvedIDs.contains($0.id) }
 
-        saveRecords(records)
+        return saveRecords(records)
     }
 
-    private func saveRecords(_ records: [WatchedFolderRecord]) {
+    @discardableResult
+    private func saveRecords(_ records: [WatchedFolderRecord]) -> Bool {
+        guard loadState != .corrupt else { return false }
         do {
             let data = try JSONEncoder().encode(records)
             userDefaults.set(data, forKey: storageKey)
-        } catch {}
+            loadState = records.isEmpty ? .empty : .loaded(recordCount: records.count)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func prepareForSave() -> Bool {
+        guard loadState == .notLoaded else { return loadState != .corrupt }
+        guard let data = userDefaults.data(forKey: storageKey) else {
+            loadState = .empty
+            return true
+        }
+        do {
+            let records = try JSONDecoder().decode([WatchedFolderRecord].self, from: data)
+            loadState = records.isEmpty ? .empty : .loaded(recordCount: records.count)
+            return true
+        } catch {
+            loadState = .corrupt
+            quarantineCorruptData(data)
+            return false
+        }
+    }
+
+    private func quarantineCorruptData(_ data: Data) {
+        if userDefaults.data(forKey: corruptBackupKey) == nil {
+            userDefaults.set(data, forKey: corruptBackupKey)
+        }
     }
 
     func makeFolder(from url: URL) throws -> WatchedFolder {

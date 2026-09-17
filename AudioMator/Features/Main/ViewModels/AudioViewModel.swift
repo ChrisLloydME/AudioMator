@@ -65,6 +65,7 @@ final class AudioViewModel: ObservableObject {
     @Published var metadataSaveProgress: MetadataSaveProgress?
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
     @Published private(set) var fileAccessGrants: [FileAccessGrant] = []
+    @Published private(set) var bookmarkPersistenceWarnings: [String] = []
 
     private let watchedFolderStore: WatchedFolderStore
     private let fileAccessGrantStore: FileAccessGrantStore
@@ -183,6 +184,17 @@ final class AudioViewModel: ObservableObject {
 
         let restoredFileAccessGrants = fileAccessGrantStore.loadGrants()
         self.fileAccessGrants = restoredFileAccessGrants
+
+        if watchedFolderStore.loadState == .corrupt {
+            bookmarkPersistenceWarnings.append(
+                String(localized: "Saved watched folders could not be read. The original data was preserved for recovery and will not be overwritten.")
+            )
+        }
+        if fileAccessGrantStore.loadState == .corrupt {
+            bookmarkPersistenceWarnings.append(
+                String(localized: "Saved file-access folders could not be read. The original data was preserved for recovery and will not be overwritten.")
+            )
+        }
 
         for grant in restoredFileAccessGrants {
             beginAccessingFileAccessGrant(grant)
@@ -454,7 +466,16 @@ final class AudioViewModel: ObservableObject {
         }
 
         watchedFolders.append(contentsOf: addedFolders)
-        persistWatchedFolders()
+        guard persistWatchedFolders() else {
+            let addedIDs = Set(addedFolders.map(\.id))
+            watchedFolders.removeAll { addedIDs.contains($0.id) }
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: String(localized: "Folder Not Added"),
+                subtitle: String(localized: "AudioMator preserved unreadable saved-folder data instead of overwriting it.")
+            )
+            return duplicateSelection ?? .watchedLibrary
+        }
 
         for folder in addedFolders {
             beginAccessingWatchedFolder(folder)
@@ -1130,7 +1151,12 @@ final class AudioViewModel: ObservableObject {
         fileAccessGrants.append(grant)
         fileAccessGrants.sort { Self.compareURLs($0.url, $1.url) }
         securityScopedFileAccessGrantURLs[grant.id] = normalizedURL
-        fileAccessGrantStore.saveGrants(fileAccessGrants)
+        guard fileAccessGrantStore.saveGrants(fileAccessGrants) else {
+            fileAccessGrants.removeAll { $0.id == grant.id }
+            securityScopedFileAccessGrantURLs.removeValue(forKey: grant.id)?
+                .stopAccessingSecurityScopedResource()
+            throw CocoaError(.fileWriteUnknown)
+        }
         return grant
     }
 
@@ -1176,7 +1202,8 @@ final class AudioViewModel: ObservableObject {
         )
     }
 
-    private func persistWatchedFolders() {
+    @discardableResult
+    private func persistWatchedFolders() -> Bool {
         watchedFolderStore.saveFolders(watchedFolders)
     }
 

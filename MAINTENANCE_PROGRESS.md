@@ -52,6 +52,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 - Removed the discontinued iPadOS application and configuration as a standalone first commit; updated current product/build/privacy documentation and validated the macOS build plus 49 fast tests.
 - Replaced marketing-only update comparison with `ReleaseVersion`, which parses both bundle version fields and compares marketing version before build number. Corrected the old equality regression and added same-marketing-version/newer-build coverage.
+- Replaced the reentrant MusicBrainz timestamp check with atomic future-slot reservation. Concurrent callers now reserve distinct globally spaced turns before suspension; cancellation preserves an already-reserved slot so later reservations cannot be pulled forward.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -72,6 +73,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 ## Tests and validation
 
 - Passed focused `UpdateCheckerTests` after adding release build-number comparison.
+- Added concurrency and cancellation coverage for `MusicBrainzRateLimiter`.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.

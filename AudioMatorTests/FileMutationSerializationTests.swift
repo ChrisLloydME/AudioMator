@@ -311,6 +311,66 @@ final class FileMutationSerializationTests: XCTestCase {
         )
     }
 
+    func testOlderBroadWaiterCannotBeStarvedByLaterOverlappingTraffic() async throws {
+        let coordinator = FileMutationCoordinator()
+        let firstURL = URL(fileURLWithPath: "/tmp/AudioMatorFairness-A.mp3")
+        let secondURL = URL(fileURLWithPath: "/tmp/AudioMatorFairness-B.mp3")
+        let independentURL = URL(fileURLWithPath: "/tmp/AudioMatorFairness-C.mp3")
+        let activeEntered = AsyncTestLatch()
+        let releaseActive = AsyncTestLatch()
+        let broadEntered = AsyncTestLatch()
+        let releaseBroad = AsyncTestLatch()
+        let laterOverlapEntered = AsyncTestLatch()
+        let independentEntered = AsyncTestLatch()
+
+        let activeTask = Task {
+            try await coordinator.withExclusiveAccess(to: [firstURL]) {
+                await activeEntered.signal()
+                await releaseActive.wait()
+            }
+        }
+        await activeEntered.wait()
+
+        let broadTask = Task {
+            try await coordinator.withExclusiveAccess(to: [firstURL, secondURL]) {
+                await broadEntered.signal()
+                await releaseBroad.wait()
+            }
+        }
+        let broadDidQueue = try await waitUntil { await coordinator.queuedMutationCount == 1 }
+        XCTAssertTrue(broadDidQueue)
+
+        let laterOverlapTask = Task {
+            try await coordinator.withExclusiveAccess(to: [secondURL]) {
+                await laterOverlapEntered.signal()
+            }
+        }
+        let independentTask = Task {
+            try await coordinator.withExclusiveAccess(to: [independentURL]) {
+                await independentEntered.signal()
+            }
+        }
+
+        let overlapDidQueue = try await waitUntil { await coordinator.queuedMutationCount == 2 }
+        let independentDidEnter = try await waitUntil { await independentEntered.isSignaled }
+        let overlapEnteredEarly = await laterOverlapEntered.isSignaled
+        XCTAssertTrue(overlapDidQueue)
+        XCTAssertTrue(independentDidEnter)
+        XCTAssertFalse(overlapEnteredEarly)
+
+        await releaseActive.signal()
+        _ = try await activeTask.value
+        let broadDidEnter = try await waitUntil { await broadEntered.isSignaled }
+        let overlapEnteredBeforeBroadFinished = await laterOverlapEntered.isSignaled
+        XCTAssertTrue(broadDidEnter)
+        XCTAssertFalse(overlapEnteredBeforeBroadFinished)
+
+        await releaseBroad.signal()
+        _ = try await (broadTask.value, laterOverlapTask.value, independentTask.value)
+        let overlapEventuallyEntered = await laterOverlapEntered.isSignaled
+        XCTAssertTrue(overlapEventuallyEntered)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @escaping () async -> Bool

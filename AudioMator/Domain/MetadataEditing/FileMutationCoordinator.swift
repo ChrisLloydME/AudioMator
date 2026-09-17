@@ -41,7 +41,8 @@ actor FileMutationCoordinator {
         guard !keys.isEmpty else { return }
         try Task.checkCancellation()
 
-        if reservedKeys.isDisjoint(with: keys) {
+        if reservedKeys.isDisjoint(with: keys),
+           waiters.allSatisfy({ $0.keys.isDisjoint(with: keys) }) {
             reservedKeys.formUnion(keys)
             return
         }
@@ -69,7 +70,8 @@ actor FileMutationCoordinator {
             return
         }
 
-        if reservedKeys.isDisjoint(with: waiter.keys) {
+        if reservedKeys.isDisjoint(with: waiter.keys),
+           waiters.allSatisfy({ $0.keys.isDisjoint(with: waiter.keys) }) {
             pendingWaiterIDs.remove(waiter.id)
             reservedKeys.formUnion(waiter.keys)
             waiter.continuation.resume()
@@ -86,6 +88,7 @@ actor FileMutationCoordinator {
             let waiter = waiters.remove(at: index)
             pendingWaiterIDs.remove(id)
             waiter.continuation.resume(throwing: CancellationError())
+            scheduleEligibleWaiters()
         } else {
             cancelledWaiterIDs.insert(id)
         }
@@ -95,10 +98,20 @@ actor FileMutationCoordinator {
         guard !keys.isEmpty else { return }
         reservedKeys.subtract(keys)
 
+        scheduleEligibleWaiters()
+    }
+
+    /// Grants a later waiter only when it conflicts with neither active work nor
+    /// any older waiter that is still blocked. This preserves useful concurrency
+    /// without allowing a broad, older reservation to starve under new traffic.
+    private func scheduleEligibleWaiters() {
         var index = 0
+        var earlierWaitingKeys: Set<String> = []
         while index < waiters.count {
             let waiter = waiters[index]
-            guard reservedKeys.isDisjoint(with: waiter.keys) else {
+            guard reservedKeys.isDisjoint(with: waiter.keys),
+                  earlierWaitingKeys.isDisjoint(with: waiter.keys) else {
+                earlierWaitingKeys.formUnion(waiter.keys)
                 index += 1
                 continue
             }

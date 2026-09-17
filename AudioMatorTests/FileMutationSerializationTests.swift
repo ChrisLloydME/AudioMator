@@ -6,6 +6,31 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class FileMutationSerializationTests: XCTestCase {
+    func testOlderMutationReloadCannotReplaceNewerAppliedFileModel() {
+        let viewModel = AudioViewModel(metadataPipeline: ReloadFailingMutationPipeline())
+        let fileID = UUID()
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorReloadGeneration.mp3")
+        viewModel.mergeQuickImportFiles([
+            AudioFileTestFactory.make(id: fileID, url: fileURL, title: "Original")
+        ])
+        let olderGeneration = viewModel.makeFileModelRefreshGeneration()
+        let newerGeneration = viewModel.makeFileModelRefreshGeneration()
+
+        XCTAssertTrue(
+            viewModel.replaceLoadedFile(
+                AudioFileTestFactory.make(id: fileID, url: fileURL, title: "Newer"),
+                refreshGeneration: newerGeneration
+            )
+        )
+        XCTAssertFalse(
+            viewModel.replaceLoadedFile(
+                AudioFileTestFactory.make(id: fileID, url: fileURL, title: "Older"),
+                refreshGeneration: olderGeneration
+            )
+        )
+        XCTAssertEqual(viewModel.files.first?.title, "Newer")
+    }
+
     func testMetadataMutationKeepsReservationUntilPersistedSnapshotReloads() async throws {
         let pipeline = ReloadGatedMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -147,6 +172,48 @@ final class FileMutationSerializationTests: XCTestCase {
         guard case .success = await task.value else {
             return XCTFail("The caller must wait for a non-cancellable write's real outcome.")
         }
+    }
+
+    func testCancellationAfterReservationStillObservesCommitAndHoldsReservation() async throws {
+        let pipeline = BlockingMutationPipeline()
+        let coordinator = FileMutationCoordinator()
+        let executor = MetadataFileMutationExecutor(
+            metadataPipeline: pipeline,
+            fileMutationCoordinator: coordinator
+        )
+        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorCancelledCommit.mp3")
+
+        let commitTask = Task {
+            await executor.execute(
+                at: fileURL,
+                id: UUID(),
+                expectedFileFingerprint: nil
+            ) { pipeline, url in
+                try pipeline.eraseAllMetadata(at: url)
+            }
+        }
+        let didStartCommit = try await waitUntil { pipeline.totalMutationCount == 1 }
+        XCTAssertTrue(didStartCommit)
+        commitTask.cancel()
+
+        let followUpEntered = AsyncTestLatch()
+        let followUpTask = Task {
+            try await coordinator.withExclusiveAccess(to: [fileURL]) {
+                await followUpEntered.signal()
+            }
+        }
+        let didQueueFollowUp = try await waitUntil { await coordinator.queuedMutationCount == 1 }
+        XCTAssertTrue(didQueueFollowUp)
+        let didEnterDuringCommit = await followUpEntered.isSignaled
+        XCTAssertFalse(didEnterDuringCommit)
+
+        pipeline.releaseFirstMutation()
+        guard case .success = await commitTask.value else {
+            return XCTFail("Cancellation after commit begins must not hide its real outcome.")
+        }
+        try await followUpTask.value
+        let didEnterAfterCommit = await followUpEntered.isSignaled
+        XCTAssertTrue(didEnterAfterCommit)
     }
 
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {

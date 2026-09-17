@@ -16,11 +16,15 @@ enum MetadataFileMutationResult: Sendable {
     case cancelled
 }
 
-/// Owns one file's persistence boundary from stale-file validation through reload.
+/// Owns one file's persistence lifecycle from stale-file validation through reload.
 ///
-/// The path reservation intentionally remains held while the persisted snapshot is
-/// reloaded. A rename or second write therefore cannot interleave between the
-/// successful write and the snapshot that represents it.
+/// Cancellation is honored while the operation is queued. After the reservation is
+/// acquired, validation, synchronous commit, and observation of the real commit
+/// outcome run to completion even if the caller is cancelled. A successful commit
+/// then enters an independently bounded reload phase. A reload timeout discards the
+/// late result and releases the reservation; it never changes the commit outcome.
+/// `AudioViewModel` generations prevent an older completed reload from replacing a
+/// newer file model if their MainActor handoffs arrive out of order.
 struct MetadataFileMutationExecutor: Sendable {
     let metadataPipeline: any AudioMetadataPipeline
     let fileMutationCoordinator: FileMutationCoordinator

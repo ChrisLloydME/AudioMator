@@ -35,6 +35,11 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   caches, watched-folder scans, and selection checks used case-sensitive path
   strings. This produced different identities for the same entry depending on
   the workflow and was wrong for case-sensitive volumes.
+- Mutation lifecycle lead E was partly confirmed and partly revised. A timed-out
+  reload is detached but its result is resolved through a single-winner completion
+  and therefore cannot update UI state later. The remaining real race was after a
+  successful reload: two mutation tasks could reach MainActor model replacement
+  out of completion order after their reservations had ended.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -47,9 +52,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- The broader 2026-09-17 maintenance audit remains active. Mutation reload
-  generations, app/package coupling, sendability, provider cache bounds, and
-  CI/module structure are not yet resolved.
+- The broader 2026-09-17 maintenance audit remains active. App/package coupling,
+  sendability, provider cache bounds, and CI/module structure are not yet resolved.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
@@ -85,6 +89,12 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   Mutation reservations, quick-import deduplication, security-scope caches,
   watched-folder monitoring, rename collision planning, and descendant checks
   now share that rule.
+- Defined the mutation lifecycle explicitly: queued operations are cancellable;
+  after reservation acquisition, the synchronous commit's real outcome is always
+  observed; reload has an independent deadline; late timed-out reload results are
+  discarded. MainActor file-model refresh generations now reject an older reload
+  handoff after a newer generation has already been applied, including delayed
+  batch track-renumber refreshes.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -117,6 +127,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   and explicit case-sensitive versus case-insensitive path-key coverage.
 - Passed the incremental generic macOS build after centralizing filesystem path
   semantics.
+- Passed focused `FileMutationSerializationTests` after adding post-reservation
+  cancellation/commit coverage and out-of-order reload-generation coverage.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -150,3 +162,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `23ae6f9` — `fix: prevent file mutation waiter starvation`
 - `dd95ff8` — `fix: preserve corrupt bookmark collections`
 - `6839a0a` — `fix: derive privacy UI from network registry`
+- `01636f3` — `fix: unify filesystem path identity`

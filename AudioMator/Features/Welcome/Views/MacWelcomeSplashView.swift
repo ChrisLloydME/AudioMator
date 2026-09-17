@@ -36,11 +36,11 @@ struct MacWelcomeSplashView: View {
                 .padding(.bottom, 24)
         }
         .scrollIndicators(.hidden)
-        .safeAreaBar(edge: .top, spacing: 0) {
+        .audiomatorSafeAreaBar(edge: .top, spacing: 0) {
             Color.clear
                 .frame(height: 18)
         }
-        .safeAreaBar(edge: .bottom, spacing: 0) {
+        .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
             MacWelcomeSplashButtonBar(
                 currentPage: currentPage,
                 onQuit: onQuit,
@@ -296,7 +296,7 @@ private struct MacWelcomeGlassButtonStyle: ButtonStyle {
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
             .background(prominentFill(configuration: configuration))
-            .glassEffect(.regular, in: .capsule)
+            .audiomatorRegularGlassCapsule()
             .shadow(color: shadowColor(configuration: configuration), radius: 11, x: 0, y: 6)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

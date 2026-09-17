@@ -7,18 +7,9 @@
 
 import SwiftUI
 import AVFoundation
-#if os(macOS)
 import AppKit
-#endif
 
 struct ContentView: View {
-    private enum PendingDiscardAction {
-        case selection(Set<AudioFile.ID>)
-        case sidebarSelection(SidebarSelection?)
-        case removeWatchedFolder(UUID)
-        case hideInspector
-    }
-
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
     @ObservedObject var onlineMetadataBrowserStore: MusicBrainzBrowserStore
@@ -26,21 +17,13 @@ struct ContentView: View {
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @ObservedObject var metadataEditorStore: MetadataEditorStore
     let metadataPipeline: any AudioMetadataPipeline
-    #if os(macOS)
     @Environment(\.openWindow) private var openWindow
-    #endif
 
     @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
     @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
     @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
-    @State private var isOnlineMetadataBrowserPresented: Bool = false
-    @State private var isMetadataFilenameToolPresented: Bool = false
-    @State private var isMetadataEditorPresented: Bool = false
-    @State private var isSettingsPresented: Bool = false
-    @State private var isDiscardInspectorAlertPresented: Bool = false
-    @State private var pendingDiscardAction: PendingDiscardAction?
 
     // Full metadata dump (user-facing feature)
     @State private var isMetadataDumpPresented: Bool = false
@@ -65,34 +48,12 @@ struct ContentView: View {
     var body: some View {
         rootContent
             .sheet(isPresented: $isMetadataDumpPresented) {
-                #if os(iOS)
-                IPadDismissibleSheet(title: AppWindowTitle.rawMetadata) {
-                    MetadataDumpSheet(
-                        metadataDumpText: metadataDumpText,
-                        onClose: { isMetadataDumpPresented = false }
-                    )
-                }
-                #else
                 MetadataDumpSheet(
                     metadataDumpText: metadataDumpText,
                     onClose: { isMetadataDumpPresented = false }
                 )
-                #endif
             }
             .sheet(isPresented: $isTrackRenumberPresented) {
-                #if os(iOS)
-                IPadDismissibleSheet(title: AppWindowTitle.renumberTracks, isCloseDisabled: isTrackRenumberRunning) {
-                    TrackRenumberSheet(
-                        viewModel: viewModel,
-                        state: state,
-                        isPresented: $isTrackRenumberPresented,
-                        trackRenumberOptions: $trackRenumberOptions,
-                        trackRenumberStartText: $trackRenumberStartText,
-                        isTrackRenumberRunning: $isTrackRenumberRunning,
-                        trackRenumberResult: $trackRenumberResult
-                    )
-                }
-                #else
                 TrackRenumberSheet(
                     viewModel: viewModel,
                     state: state,
@@ -102,7 +63,6 @@ struct ContentView: View {
                     isTrackRenumberRunning: $isTrackRenumberRunning,
                     trackRenumberResult: $trackRenumberResult
                 )
-                #endif
             }
             .sheet(isPresented: $isWelcomeSplashPresented) {
                 WelcomeSplashView(
@@ -112,61 +72,7 @@ struct ContentView: View {
                     onAuthorizeFileAccess: viewModel.authorizeDefaultFileAccessFolder
                 )
             }
-            #if os(iOS)
-            .sheet(isPresented: $isOnlineMetadataBrowserPresented) {
-                OnlineMetadataBrowserView(
-                    store: onlineMetadataBrowserStore,
-                    lrclibStore: lrclibLyricsBrowserStore,
-                    viewModel: viewModel
-                )
-            }
-            .sheet(isPresented: $isMetadataFilenameToolPresented) {
-                MetadataFilenameWindowView(
-                    viewModel: viewModel,
-                    store: metadataFilenameToolStore
-                )
-            }
-            .sheet(isPresented: $isMetadataEditorPresented) {
-                MetadataEditorWindowView(
-                    viewModel: viewModel,
-                    store: metadataEditorStore
-                )
-            }
-            .sheet(isPresented: $isSettingsPresented) {
-                IPadDismissibleSheet(title: AppWindowTitle.settings) {
-                    IPadSettingsView(sharedState: state)
-                }
-            }
-            .confirmationDialog(
-                "Discard Inspector Edits?",
-                isPresented: $isDiscardInspectorAlertPresented,
-                titleVisibility: .visible
-            ) {
-                Button("Discard Edits", role: .destructive) {
-                    performPendingDiscardAction()
-                }
-                Button("Always Discard Without Asking", role: .destructive) {
-                    suppressesUnsavedInspectorDiscardWarning = true
-                    performPendingDiscardAction()
-                }
-                Button("Cancel", role: .cancel) {
-                    pendingDiscardAction = nil
-                }
-            } message: {
-                Text("To continue, AudioMator needs to discard your unsaved inspector edits.")
-            }
-            #endif
-            #if os(macOS)
             .background(MetadataWriteHUDScreenPresenter(hud: viewModel.metadataWriteHUD))
-            #else
-            .overlay(alignment: .bottom) {
-                if let hud = viewModel.metadataWriteHUD {
-                    MetadataWriteHUDView(hud: hud)
-                        .id(hud.id)
-                        .padding(.bottom, 40)
-                }
-            }
-            #endif
             .overlay {
                 if let progress = viewModel.metadataSaveProgress {
                     MetadataSaveProgressOverlay(progress: progress)
@@ -211,7 +117,6 @@ struct ContentView: View {
 
     @ViewBuilder
     private var rootContent: some View {
-        #if os(macOS)
         NavigationSplitView {
             SidebarPane(
                 viewModel: viewModel,
@@ -232,23 +137,6 @@ struct ContentView: View {
                 }
         }
         .navigationSplitViewStyle(.balanced)
-        #else
-        IPadWorkspaceView(
-            viewModel: viewModel,
-            state: state,
-            selection: guardedSelection,
-            onAddFiles: viewModel.addFiles,
-            onShowMetadataDump: presentMetadataDump,
-            onOpenOnlineMetadataBrowser: openOnlineMetadataBrowser,
-            onOpenMetadataFilenameTool: openMetadataFilenameTool,
-            onOpenMetadataEditor: openMetadataEditor,
-            onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
-            onOpenTrackRenumber: openTrackRenumberSheet,
-            onOpenSettings: openSettings,
-            onCancelEdits: viewModel.cancelEditing,
-            onSaveEdits: viewModel.saveInspectorEdits
-        )
-        #endif
     }
 
     private var contentPane: some View {
@@ -281,11 +169,7 @@ struct ContentView: View {
         let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
         onlineMetadataBrowserStore.apply(seed: seed)
         seedLRCLIBLyricsBrowser()
-        #if os(macOS)
         openWindow(id: OnlineMetadataBrowserView.windowID)
-        #else
-        isOnlineMetadataBrowserPresented = true
-        #endif
 
         if onlineMetadataBrowserStore.hasSearchText {
             onlineMetadataBrowserStore.search()
@@ -297,22 +181,14 @@ struct ContentView: View {
 
         onlineMetadataBrowserStore.apply(seed: seed)
         seedLRCLIBLyricsBrowser()
-        #if os(macOS)
         openWindow(id: OnlineMetadataBrowserView.windowID)
-        #else
-        isOnlineMetadataBrowserPresented = true
-        #endif
         onlineMetadataBrowserStore.search()
     }
 
     private func openMetadataFilenameTool(targetFileIDs: [AudioFile.ID]) {
         guard !targetFileIDs.isEmpty else { return }
         metadataFilenameToolStore.present(targetFileIDs: targetFileIDs)
-        #if os(macOS)
         openWindow(id: MetadataFilenameWindowView.windowID)
-        #else
-        isMetadataFilenameToolPresented = true
-        #endif
     }
 
     private func openMetadataEditor(targetFileIDs: [AudioFile.ID]) {
@@ -323,18 +199,8 @@ struct ContentView: View {
         guard !targets.isEmpty else { return }
 
         metadataEditorStore.present(targetFiles: targets)
-        #if os(macOS)
         openWindow(id: MetadataEditorWindowView.windowID)
-        #else
-        isMetadataEditorPresented = true
-        #endif
     }
-
-    #if os(iOS)
-    private func openSettings() {
-        isSettingsPresented = true
-    }
-    #endif
 
     private func dismissWelcomeSplash() {
         hasCompletedWelcomeSplash = true
@@ -361,7 +227,7 @@ struct ContentView: View {
     private func attemptSelectionChange(to newSelection: Set<AudioFile.ID>) {
         guard newSelection != viewModel.selectedAudioIDs else { return }
 
-        confirmDiscardUnsavedInspectorEditsIfNeeded(pendingAction: .selection(newSelection)) {
+        confirmDiscardUnsavedInspectorEditsIfNeeded {
             viewModel.setSelectedAudioIDs(newSelection)
         }
     }
@@ -369,7 +235,6 @@ struct ContentView: View {
     private func attemptSidebarSelectionChange(to newSelection: SidebarSelection?) {
         guard newSelection != state.selectedSidebarItem else { return }
 
-        #if os(macOS)
         Self.performSidebarSelectionChange(
             hasUnsavedInspectorChanges: viewModel.hasUnsavedInspectorChanges,
             suppressesDiscardWarning: suppressesUnsavedInspectorDiscardWarning,
@@ -378,16 +243,8 @@ struct ContentView: View {
         ) {
             state.selectedSidebarItem = newSelection
         }
-        #else
-        confirmDiscardUnsavedInspectorEditsIfNeeded(
-            pendingAction: .sidebarSelection(newSelection)
-        ) {
-            state.selectedSidebarItem = newSelection
-        }
-        #endif
     }
 
-    #if os(macOS)
     static func performSidebarSelectionChange(
         hasUnsavedInspectorChanges: Bool,
         suppressesDiscardWarning: Bool,
@@ -411,7 +268,6 @@ struct ContentView: View {
             requestDiscardConfirmation(continueAction)
         }
     }
-    #endif
 
     private func attemptWatchedFolderRemoval(_ folder: WatchedFolder) {
         guard watchedFolderRemovalCanAffectInspectorSelection(folder) else {
@@ -419,9 +275,7 @@ struct ContentView: View {
             return
         }
 
-        confirmDiscardUnsavedInspectorEditsIfNeeded(
-            pendingAction: .removeWatchedFolder(folder.id)
-        ) {
+        confirmDiscardUnsavedInspectorEditsIfNeeded {
             removeWatchedFolderAndUpdateSelection(id: folder.id)
         }
     }
@@ -456,10 +310,7 @@ struct ContentView: View {
         viewModel.cancelEditing()
     }
 
-    private func confirmDiscardUnsavedInspectorEditsIfNeeded(
-        pendingAction: PendingDiscardAction,
-        _ action: @escaping () -> Void
-    ) {
+    private func confirmDiscardUnsavedInspectorEditsIfNeeded(_ action: @escaping () -> Void) {
         guard viewModel.hasUnsavedInspectorChanges else {
             action()
             return
@@ -475,15 +326,9 @@ struct ContentView: View {
             return
         }
 
-        #if os(macOS)
         presentUnsavedInspectorDiscardAlert(onContinue: continueAction)
-        #else
-        pendingDiscardAction = pendingAction
-        isDiscardInspectorAlertPresented = true
-        #endif
     }
 
-    #if os(macOS)
     private func presentUnsavedInspectorDiscardAlert(onContinue: @escaping () -> Void) {
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -511,7 +356,6 @@ struct ContentView: View {
             handleResponse(response)
         }
     }
-    #endif
 
     private func setInspectorVisibility(_ isVisible: Bool) {
         withAnimation(.easeInOut(duration: 0.18)) {
@@ -622,7 +466,7 @@ struct ContentView: View {
 
     private func toggleInspector() {
         if isInspectorVisible {
-            confirmDiscardUnsavedInspectorEditsIfNeeded(pendingAction: .hideInspector) {
+            confirmDiscardUnsavedInspectorEditsIfNeeded {
                 setInspectorVisibility(false)
             }
         } else {
@@ -630,23 +474,6 @@ struct ContentView: View {
         }
     }
 
-    private func performPendingDiscardAction() {
-        defer { pendingDiscardAction = nil }
-
-        discardInspectorEditsIfNeeded()
-
-        guard let pendingDiscardAction else { return }
-        switch pendingDiscardAction {
-        case .selection(let newSelection):
-            viewModel.setSelectedAudioIDs(newSelection)
-        case .sidebarSelection(let newSelection):
-            state.selectedSidebarItem = newSelection
-        case .removeWatchedFolder(let id):
-            removeWatchedFolderAndUpdateSelection(id: id)
-        case .hideInspector:
-            setInspectorVisibility(false)
-        }
-    }
 }
 
 struct MetadataSaveProgressOverlay: View {
@@ -734,7 +561,6 @@ private struct MetadataWriteHUDView: View {
     }
 }
 
-#if os(macOS)
 private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
     let hud: MetadataWriteHUD?
 
@@ -874,7 +700,6 @@ private struct MetadataWriteHUDScreenRoot: View {
         .background(Color.clear)
     }
 }
-#endif
 
 private struct MetadataWriteHUDIcon: View {
     let style: MetadataWriteHUDStyle

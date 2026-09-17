@@ -1,7 +1,5 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
 struct MusicBrainzTaggingWorkbenchView: View {
     @ObservedObject var store: MusicBrainzTaggingWorkbenchStore
@@ -162,9 +160,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
-                            #if os(macOS)
                             .toggleStyle(.checkbox)
-                            #endif
                             .disabled(isApplying)
                         }
                     }
@@ -342,10 +338,6 @@ private struct WarningLabel: View {
 
 private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
     func body(content: Content) -> some View {
-        #if os(iOS)
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        #else
         content
             .frame(
                 minWidth: 920,
@@ -355,11 +347,9 @@ private struct MusicBrainzWorkbenchFrameModifier: ViewModifier {
                 idealHeight: 640,
                 maxHeight: 820
             )
-        #endif
     }
 }
 
-#if os(macOS)
 private struct MusicBrainzAssignmentsAppKitList: View {
     let assignments: [MusicBrainzTaggingWorkbenchStore.AssignmentDraft]
     let tracks: [MusicBrainzReleaseMatchTrack]
@@ -866,7 +856,6 @@ private extension MusicBrainzTaggingFieldChange.Status {
         }
     }
 }
-#endif
 
 struct MusicBrainzAssignmentSection: View, Equatable {
     let storeID: UUID
@@ -891,14 +880,9 @@ struct MusicBrainzAssignmentSection: View, Equatable {
             title: "Assignments",
             symbolName: "link",
             lazyContent: {
-                #if os(macOS)
                 false
-                #else
-                true
-                #endif
             }()
         ) {
-            #if os(macOS)
             MusicBrainzAssignmentsAppKitList(
                 assignments: assignments,
                 tracks: tracks,
@@ -912,25 +896,6 @@ struct MusicBrainzAssignmentSection: View, Equatable {
                 },
                 onSelectTrack: onSelectTrack
             )
-            #else
-            ForEach(Array(assignments.enumerated()), id: \.element.id) { index, assignment in
-                AssignmentEditorRow(
-                    assignment: assignment,
-                    tracks: tracks,
-                    isDuplicate: assignment.selectedTrackID.map(duplicateTrackIDs.contains) ?? false,
-                    selection: Binding(
-                        get: { assignment.selectedTrackID },
-                        set: { onSelectTrack($0, assignment.id) }
-                    ),
-                    selectedTrack: assignment.selectedTrackID.flatMap { tracksByID[$0] }
-                )
-                .disabled(isApplying)
-
-                if index < assignments.count - 1 {
-                    MetadataCardDivider()
-                }
-            }
-            #endif
         }
     }
 }

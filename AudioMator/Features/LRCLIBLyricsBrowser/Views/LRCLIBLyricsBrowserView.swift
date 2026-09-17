@@ -31,7 +31,6 @@ struct LRCLIBLyricsBrowserView: View {
                 store.searchCurrentFile()
             }
         }
-        #if os(macOS)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
@@ -55,7 +54,6 @@ struct LRCLIBLyricsBrowserView: View {
                 }
             }
         }
-        #endif
     }
 
     private var header: some View {

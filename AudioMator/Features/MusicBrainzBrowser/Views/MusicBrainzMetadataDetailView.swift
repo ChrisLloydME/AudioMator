@@ -45,7 +45,6 @@ struct MusicBrainzMetadataDetailView: View {
             recordingWorkbenchTask = nil
             isPreparingRecordingWorkbench = false
         }
-        #if os(macOS)
         .sheet(item: $workbenchStore) { workbenchStore in
             NavigationStack {
                 MusicBrainzTaggingWorkbenchView(
@@ -54,7 +53,6 @@ struct MusicBrainzMetadataDetailView: View {
                 )
             }
         }
-        #endif
     }
 
     private func detailContent(_ loadedMetadata: LoadedMetadata) -> some View {
@@ -229,26 +227,6 @@ struct MusicBrainzMetadataDetailView: View {
                 if preview.totalSelectedFiles > 0 {
                     MetadataCardDivider()
 
-                    #if os(iOS)
-                    NavigationLink {
-                        MusicBrainzTaggingWorkbenchView(
-                            store: MusicBrainzTaggingWorkbenchStore(
-                                release: detail,
-                                preview: preview,
-                                loadedFiles: viewModel.files,
-                                browserStore: store
-                            ),
-                            viewModel: viewModel
-                        )
-                    } label: {
-                        MetadataDetailNavigationRow(
-                            title: "Review & Apply Tags",
-                            subtitle: "Adjust assignments and choose exactly which fields to write",
-                            symbolName: "square.and.pencil"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    #else
                     MetadataButtonRow(
                         title: "Review & Apply Tags",
                         subtitle: "Adjust assignments and choose exactly which fields to write",
@@ -261,7 +239,6 @@ struct MusicBrainzMetadataDetailView: View {
                             browserStore: store
                         )
                     }
-                    #endif
                 }
 
                 if !preview.matchedAssignments.isEmpty {

@@ -10,7 +10,6 @@ struct EmbeddedWebView: View {
     }
 }
 
-#if os(macOS)
 private struct WebViewRepresentable: NSViewRepresentable {
     let url: URL
     let reloadToken: Int
@@ -31,28 +30,6 @@ private struct WebViewRepresentable: NSViewRepresentable {
         )
     }
 }
-#else
-private struct WebViewRepresentable: UIViewRepresentable {
-    let url: URL
-    let reloadToken: Int
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeUIView(context: Context) -> WKWebView {
-        WKWebView()
-    }
-
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        context.coordinator.loadIfNeeded(
-            url: url,
-            reloadToken: reloadToken,
-            in: webView
-        )
-    }
-}
-#endif
 
 private final class Coordinator {
     private var loadedURL: URL?

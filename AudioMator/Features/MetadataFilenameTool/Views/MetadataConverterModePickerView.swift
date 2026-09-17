@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 struct MetadataConverterModePickerView: View {
     let onSelect: (MetadataConverterMode) -> Void
 
@@ -93,4 +92,3 @@ private extension MetadataConverterMode {
         }
     }
 }
-#endif

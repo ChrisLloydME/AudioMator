@@ -80,4 +80,4 @@ Run destructive write smoke tests on temporary copies, not on a real music libra
 - No committed aiff or opus fixture exists, so those formats are not claimed as integration-tested.
 - Full `AudioViewModel` selection sync, HUDs, watched-folder scans, filesystem writes, and user-initiated batch actions still need app-hosted or integration validation.
 - Live MusicBrainz/iTunes/LRCLIB requests, remote rate limits, and API drift remain nondeterministic network boundaries.
-- Platform-specific SwiftUI/AppKit/iPad interactions are best covered by UI automation, app-hosted tests, or compile/build checks.
+- SwiftUI/AppKit interactions are best covered by UI automation, app-hosted tests, or compile/build checks.

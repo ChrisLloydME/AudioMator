@@ -1,33 +1,21 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
-#endif
 
 struct MetadataFieldValueEditor: View {
     @Binding var text: String
     let placeholder: String
     var minimumHeight: CGFloat = 300
 
-    #if os(macOS)
     private let editorFont = NSFont(name: "Menlo-Regular", size: 13) ??
         NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-    #endif
 
     private var backgroundColor: Color {
-        #if os(macOS)
         Color(nsColor: .textBackgroundColor)
-        #else
-        Color(.secondarySystemBackground)
-        #endif
     }
 
     private var borderColor: Color {
-        #if os(macOS)
         Color(nsColor: .separatorColor).opacity(0.55)
-        #else
-        Color.secondary.opacity(0.25)
-        #endif
     }
 
     var body: some View {
@@ -35,14 +23,8 @@ struct MetadataFieldValueEditor: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(backgroundColor)
 
-            #if os(macOS)
             MetadataFieldValueTextEditor(text: $text, font: editorFont)
                 .padding(1)
-            #else
-            TextEditor(text: $text)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .padding(8)
-            #endif
 
             if text.isEmpty {
                 Text(placeholder)
@@ -61,7 +43,6 @@ struct MetadataFieldValueEditor: View {
     }
 }
 
-#if os(macOS)
 private struct MetadataFieldValueTextEditor: NSViewRepresentable {
     @Binding var text: String
     let font: NSFont
@@ -370,4 +351,3 @@ private enum MetadataInvisibleMarker {
         }
     }
 }
-#endif

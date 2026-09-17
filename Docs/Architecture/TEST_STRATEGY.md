@@ -36,8 +36,8 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug
 ## Build matrix
 
 - 每批：相关测试 + SwiftPM 快速测试 + `bash scripts/codex-build.sh`（涉及 app code 时）。
-- 最终：目标文件列出的 SwiftPM、强制 build、完整 macOS tests、generic macOS build、generic iOS build、临时夹具 smoke、`git diff --check` 和干净工作树。
-- 所有 Xcode 构建共用 `.deriveddata-codex`；不启动 iPad simulator。
+- 最终：目标文件列出的 SwiftPM、强制 build、完整 macOS tests、generic macOS build、临时夹具 smoke、`git diff --check` 和干净工作树。
+- 所有 Xcode 构建共用 `.deriveddata-codex`。
 
 ## Manual smoke boundary
 

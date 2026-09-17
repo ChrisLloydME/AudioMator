@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 struct MacWelcomeSplashView: View {
@@ -354,4 +353,3 @@ private final class MacWelcomeWindowObserverView: NSView {
         window.maxSize = NSSize(width: 750, height: 700)
     }
 }
-#endif

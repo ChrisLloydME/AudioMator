@@ -11,7 +11,7 @@ extension View {
         _ style: AudiomatorScrollEdgeEffectStyle = .soft,
         for edges: Edge.Set = .all
     ) -> some View {
-        if #available(macOS 26.0, iOS 26.0, *) {
+        if #available(macOS 26.0, *) {
             switch style {
             case .soft:
                 scrollEdgeEffectStyle(.soft, for: edges)
@@ -27,7 +27,7 @@ extension View {
         spacing: CGFloat? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        if #available(macOS 26.0, iOS 26.0, *) {
+        if #available(macOS 26.0, *) {
             safeAreaBar(edge: edge, spacing: spacing, content: content)
         } else {
             safeAreaInset(edge: edge, spacing: spacing, content: content)
@@ -36,7 +36,7 @@ extension View {
 
     @ViewBuilder
     func audiomatorRegularGlassRoundedRectangle(cornerRadius: CGFloat) -> some View {
-        if #available(macOS 26.0, iOS 26.0, *) {
+        if #available(macOS 26.0, *) {
             glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
             background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
@@ -45,7 +45,7 @@ extension View {
 
     @ViewBuilder
     func audiomatorRegularGlassCapsule() -> some View {
-        if #available(macOS 26.0, iOS 26.0, *) {
+        if #available(macOS 26.0, *) {
             glassEffect(.regular, in: .capsule)
         } else {
             background(.regularMaterial, in: Capsule())
@@ -54,19 +54,10 @@ extension View {
 
     @ViewBuilder
     func audiomatorNavigationSubtitle(_ subtitle: String) -> some View {
-        #if os(macOS)
         navigationSubtitle(subtitle)
-        #else
-        if #available(iOS 26.0, *) {
-            navigationSubtitle(subtitle)
-        } else {
-            self
-        }
-        #endif
     }
 }
 
-#if os(macOS)
 import AppKit
 
 typealias PlatformImage = NSImage
@@ -245,200 +236,37 @@ private final class AudiomatorMacTitlebarInsetObserverView: NSView {
         onUpdate?(self)
     }
 }
-#else
-import UIKit
-
-typealias PlatformImage = UIImage
-typealias PlatformFont = UIFont
-typealias PlatformColor = UIColor
-
-extension Image {
-    init(platformImage: PlatformImage) {
-        self.init(uiImage: platformImage)
-    }
-}
-
-extension Color {
-    init(platformColor: PlatformColor) {
-        self.init(uiColor: platformColor)
-    }
-}
-
-extension PlatformImage {
-    var audiomatorPNGData: Data? {
-        pngData()
-    }
-}
-
-extension PlatformColor {
-    static var audiomatorWindowBackground: PlatformColor { .systemBackground }
-    static var audiomatorControlBackground: PlatformColor { .secondarySystemGroupedBackground }
-    static var audiomatorTextBackground: PlatformColor { .secondarySystemBackground }
-    static var audiomatorSeparator: PlatformColor { .separator }
-    static var audiomatorLabel: PlatformColor { .label }
-    static var audiomatorSecondaryLabel: PlatformColor { .secondaryLabel }
-    static var audiomatorTertiaryLabel: PlatformColor { .tertiaryLabel }
-}
-
-extension View {
-    func audiomatorMacWindowChrome() -> some View {
-        self
-    }
-
-    func audiomatorMacTitlebarScrollEdgeBar(
-        minHeight: CGFloat = 0,
-        subtractsExistingSafeArea: Bool = true
-    ) -> some View {
-        self
-    }
-
-    @ViewBuilder
-    func iPadRoundedGroupedListStyle() -> some View {
-        self
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .audiomatorScrollEdgeEffect()
-    }
-
-    @ViewBuilder
-    func iPadRoundedGroupedFormStyle() -> some View {
-        self
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
-            .background(Color(uiColor: .systemGroupedBackground))
-            .audiomatorScrollEdgeEffect()
-    }
-
-    @ViewBuilder
-    func iPadRoundedGroupedSurface(cornerRadius: CGFloat = 20) -> some View {
-        self
-            .background(
-                Color(uiColor: .secondarySystemGroupedBackground),
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color(uiColor: .separator).opacity(0.35), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-}
-
-struct IPadRoundedRowGroup<Content: View>: View {
-    let cornerRadius: CGFloat
-    let content: Content
-
-    init(cornerRadius: CGFloat = 20, @ViewBuilder content: () -> Content) {
-        self.cornerRadius = cornerRadius
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            content
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .iPadRoundedGroupedSurface(cornerRadius: cornerRadius)
-    }
-}
-
-struct IPadDismissibleSheet<Content: View>: View {
-    let title: String
-    let isCloseDisabled: Bool
-    @ViewBuilder var content: () -> Content
-
-    @Environment(\.dismiss) private var dismiss
-
-    init(
-        title: String = "",
-        isCloseDisabled: Bool = false,
-        @ViewBuilder content: @escaping () -> Content
-    ) {
-        self.title = title
-        self.isCloseDisabled = isCloseDisabled
-        self.content = content
-    }
-
-    var body: some View {
-        NavigationStack {
-            content()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") {
-                            dismiss()
-                        }
-                        .disabled(isCloseDisabled)
-                    }
-                }
-        }
-        .presentationDetents([.large])
-    }
-}
-#endif
 
 enum PlatformApplication {
-    static var supportsWatchedFolders: Bool {
-        #if os(macOS)
-        true
-        #else
-        false
-        #endif
-    }
+    static let supportsWatchedFolders = true
 
     static func terminate() {
-        #if os(macOS)
         NSApplication.shared.terminate(nil)
-        #endif
     }
 
     static var appIconImage: PlatformImage? {
-        #if os(macOS)
         NSApplication.shared.applicationIconImage
-        #else
-        UIImage(named: "AppIconPreview")
-        #endif
     }
 }
 
 enum PlatformPasteboard {
     static func copy(_ text: String) {
-        #if os(macOS)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        #else
-        UIPasteboard.general.string = text
-        #endif
     }
 
     static var image: PlatformImage? {
-        #if os(macOS)
-        return NSPasteboard.general.readObjects(forClasses: [NSImage.self])?.first as? NSImage
-        #else
-        return UIPasteboard.general.image
-        #endif
+        NSPasteboard.general.readObjects(forClasses: [NSImage.self])?.first as? NSImage
     }
 }
 
 enum PlatformWorkspace {
     static func open(_ url: URL) {
-        #if os(macOS)
         NSWorkspace.shared.open(url)
-        #else
-        UIApplication.shared.open(url)
-        #endif
     }
 
     static func reveal(_ urls: [URL]) {
-        #if os(macOS)
         NSWorkspace.shared.activateFileViewerSelecting(urls)
-        #else
-        guard let firstURL = urls.first else { return }
-        UIApplication.shared.open(firstURL)
-        #endif
     }
 }
 
@@ -462,7 +290,6 @@ enum SecurityScopedResourceAccess {
 
 enum PlatformDocumentPicker {
     static func pickAudioFiles(completion: @escaping ([URL]) -> Void) {
-        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -470,17 +297,9 @@ enum PlatformDocumentPicker {
         panel.allowedContentTypes = AudioFormatSupport.openPanelContentTypes
         panel.title = "Choose Audio Files"
         completion(panel.runModal() == .OK ? panel.urls : [])
-        #else
-        present(
-            contentTypes: AudioFormatSupport.openPanelContentTypes,
-            allowsMultipleSelection: true,
-            completion: completion
-        )
-        #endif
     }
 
     static func pickImage(completion: @escaping (URL?) -> Void) {
-        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -488,15 +307,9 @@ enum PlatformDocumentPicker {
         panel.allowedContentTypes = [.image]
         panel.title = "Choose Artwork Image"
         completion(panel.runModal() == .OK ? panel.url : nil)
-        #else
-        present(contentTypes: [.image], allowsMultipleSelection: false) { urls in
-            completion(urls.first)
-        }
-        #endif
     }
 
     static func pickTextFile(completion: @escaping (URL?) -> Void) {
-        #if os(macOS)
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -506,80 +319,5 @@ enum PlatformDocumentPicker {
         panel.title = "Choose a Text File"
         panel.prompt = "Choose"
         completion(panel.runModal() == .OK ? panel.url : nil)
-        #else
-        present(contentTypes: [.plainText, .utf8PlainText, .text], allowsMultipleSelection: false) { urls in
-            completion(urls.first)
-        }
-        #endif
     }
-
-    #if os(iOS)
-    private static var activeDelegates: [DocumentPickerDelegate] = []
-
-    private static func present(
-        contentTypes: [UTType],
-        allowsMultipleSelection: Bool,
-        completion: @escaping ([URL]) -> Void
-    ) {
-        guard let presenter = topViewController() else {
-            completion([])
-            return
-        }
-
-        let delegate = DocumentPickerDelegate(completion: completion)
-        activeDelegates.append(delegate)
-
-        let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: contentTypes,
-            asCopy: false
-        )
-        picker.allowsMultipleSelection = allowsMultipleSelection
-        picker.delegate = delegate
-        delegate.onFinish = {
-            activeDelegates.removeAll { $0 === delegate }
-        }
-
-        presenter.present(picker, animated: true)
-    }
-
-    private static func topViewController() -> UIViewController? {
-        let windowScene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }
-        let root = windowScene?.windows.first { $0.isKeyWindow }?.rootViewController
-        return topViewController(from: root)
-    }
-
-    private static func topViewController(from controller: UIViewController?) -> UIViewController? {
-        if let navigationController = controller as? UINavigationController {
-            return topViewController(from: navigationController.visibleViewController)
-        }
-        if let tabBarController = controller as? UITabBarController {
-            return topViewController(from: tabBarController.selectedViewController)
-        }
-        if let presented = controller?.presentedViewController {
-            return topViewController(from: presented)
-        }
-        return controller
-    }
-
-    private final class DocumentPickerDelegate: NSObject, UIDocumentPickerDelegate {
-        let completion: ([URL]) -> Void
-        var onFinish: (() -> Void)?
-
-        init(completion: @escaping ([URL]) -> Void) {
-            self.completion = completion
-        }
-
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            completion(urls)
-            onFinish?()
-        }
-
-        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            completion([])
-            onFinish?()
-        }
-    }
-    #endif
 }

@@ -2,7 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "CFBundleDisplayName" : {
-      "comment" : "Bundle display name shown by macOS/iOS; keep the product name unless the locale has an official localized brand.",
+      "comment" : "Bundle display name shown by macOS; keep the product name unless the locale has an official localized brand.",
       "localizations" : {
         "en" : {
           "stringUnit" : {

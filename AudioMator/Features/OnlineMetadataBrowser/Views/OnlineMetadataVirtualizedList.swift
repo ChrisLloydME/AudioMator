@@ -1,4 +1,3 @@
-#if os(macOS)
 import AppKit
 import SwiftUI
 
@@ -630,4 +629,3 @@ private final class OnlineMetadataVirtualizedRowView: NSView {
         divider.frame = NSRect(x: 18, y: bounds.height - 1, width: max(bounds.width - 18, 0), height: 1)
     }
 }
-#endif

@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 // MARK: - Read-only monospaced text view (AppKit-backed)
@@ -59,22 +58,3 @@ struct ReadOnlyMonospacedTextView: NSViewRepresentable {
         }
     }
 }
-#else
-struct ReadOnlyMonospacedTextView: View {
-    var text: String
-    var font: PlatformFont = PlatformFont.monospacedSystemFont(ofSize: 14, weight: .regular)
-    var textColor: PlatformColor = .audiomatorLabel
-
-    var body: some View {
-        ScrollView([.horizontal, .vertical]) {
-            Text(text)
-                .font(.system(size: font.pointSize, weight: .regular, design: .monospaced))
-                .foregroundStyle(Color(platformColor: textColor))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-        }
-        .audiomatorScrollEdgeEffect(.soft)
-    }
-}
-#endif

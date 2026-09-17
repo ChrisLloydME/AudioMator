@@ -26,7 +26,7 @@ This map records the current automated coverage baseline for the main app behavi
 | Watched folders | App-hosted tests cover bounded directory-monitor planning and degraded status text. Current UI persistence and bookmark failures remain best-effort and compile-guarded. | `DirectoryMonitoringPlanTests.swift` |
 | Updates and release notes | App-hosted tests cover semantic version comparison, update result mapping, GitHub release metadata, rate-limit mapping, and markdown block parsing. | `UpdateCheckerTests.swift`, `GitHubAPIRequestTests.swift`, `ReleaseMarkdownBlockTests.swift` |
 | Logging/privacy hygiene | App-hosted policy tests prevent reintroducing metadata value logging, warning payload printing, and app-source `print`/`debugPrint`/`NSLog` calls. | `SensitiveLoggingPolicyTests.swift` |
-| Platform-specific UI | Covered mainly by app build checks and focused view-model/presentation tests. Full SwiftUI/AppKit/iPad interaction remains outside fast deterministic coverage. | `AudioMatorTests`, Xcode build |
+| Platform UI | Covered mainly by app build checks and focused view-model/presentation tests. Full SwiftUI/AppKit interaction remains outside fast deterministic coverage. | `AudioMatorTests`, Xcode build |
 
 ## Metadata Pipeline Risk List
 
@@ -46,4 +46,4 @@ This map records the current automated coverage baseline for the main app behavi
 - Full end-to-end `AudioViewModel` orchestration for watched-folder scans, filesystem write failures, HUD timing, and user-initiated batch UI actions.
 - Live provider network execution, DTO/rate-limit behavior beyond deterministic client/request tests, and service-side changes.
 - Embedded lyrics paths that require full TagLib-backed format writes beyond the current LRCLIB raw property-map path.
-- Platform-specific SwiftUI/AppKit/iPad UI behavior that is best covered by app-hosted UI tests, manual QA, or future helper extraction.
+- SwiftUI/AppKit UI behavior that is best covered by app-hosted UI tests, manual QA, or future helper extraction.

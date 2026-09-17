@@ -93,7 +93,6 @@ final class FileAccessGrantStore {
     }
 
     private func resolveURL(from bookmarkData: Data, isStale: inout Bool) throws -> URL {
-        #if os(macOS)
         do {
             return try URL(
                 resolvingBookmarkData: bookmarkData,
@@ -109,18 +108,9 @@ final class FileAccessGrantStore {
                 bookmarkDataIsStale: &isStale
             )
         }
-        #else
-        return try URL(
-            resolvingBookmarkData: bookmarkData,
-            options: [.withoutUI],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        )
-        #endif
     }
 
     private func makeBookmarkData(for url: URL) throws -> Data {
-        #if os(macOS)
         do {
             return try url.bookmarkData(
                 options: [.withSecurityScope],
@@ -134,12 +124,5 @@ final class FileAccessGrantStore {
                 relativeTo: nil
             )
         }
-        #else
-        return try url.bookmarkData(
-            options: [],
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
-        #endif
     }
 }

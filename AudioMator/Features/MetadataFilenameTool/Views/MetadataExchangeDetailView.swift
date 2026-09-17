@@ -1,6 +1,5 @@
 import SwiftUI
 
-#if os(macOS)
 import AppKit
 
 struct MetadataExchangeDetailView: View {
@@ -340,4 +339,3 @@ struct MetadataExchangeDetailView: View {
         }
     }
 }
-#endif

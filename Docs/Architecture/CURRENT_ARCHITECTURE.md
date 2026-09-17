@@ -4,12 +4,12 @@
 
 ## Composition
 
-`AudioMatorApp` 创建 `TagLibAudioMetadataPipeline`、`AudioViewModel`、`SharedState`、各 provider store 与工具 store，并注入 SwiftUI scene。macOS 通过独立 window 展示在线 metadata、文件名工具和 raw metadata editor；iPadOS 使用 sheet 与 session-only 文件导入。
+`AudioMatorApp` 创建 `TagLibAudioMetadataPipeline`、`AudioViewModel`、`SharedState`、各 provider store 与工具 store，并注入 SwiftUI scene。独立 window 展示在线 metadata、文件名工具和 raw metadata editor。
 
 ## Layers
 
 - `App`：应用入口、scene、commands、notifications、macOS delegate 与更新装配。
-- `Features`：SwiftUI/AppKit/UIKit 视图、provider store、工具 store、`AudioViewModel`、feature state 及 mutation presentation。
+- `Features`：SwiftUI/AppKit 视图、provider store、工具 store、`AudioViewModel`、feature state 及 mutation presentation。
 - `Domain`：metadata/rename/exchange/renumber 语义、`AudioFile`/draft 模型与 metadata pipeline contract。`AudioFile` retains the package's `MetadataFileVersion` token so edit sessions can participate in transaction-boundary optimistic concurrency; other editable tag representation remains behind the pipeline contract.
 - `Infrastructure`：watched-folder、directory monitor、网络 client、update service、provider core，以及 `Infrastructure/TagLib` 下的 metadata pipeline 与 `AudioFile` loading adapter。
 

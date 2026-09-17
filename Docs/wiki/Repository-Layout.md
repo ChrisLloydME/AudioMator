@@ -45,7 +45,7 @@ Docs/wiki/
 
 ## Features
 
-`AudioMator/Features/` groups SwiftUI views and feature-owned view models by workflow. Current directories include `Main`, `MetadataEditor`, `MetadataFilenameTool`, `OnlineMetadataBrowser`, `MusicBrainzBrowser`, `iTunesBrowser`, `LRCLIBLyricsBrowser`, `MetadataInspector`, `Settings`, `Welcome`, and `iPad`.
+`AudioMator/Features/` groups SwiftUI views and feature-owned view models by workflow. Current directories include `Main`, `MetadataEditor`, `MetadataFilenameTool`, `OnlineMetadataBrowser`, `MusicBrainzBrowser`, `iTunesBrowser`, `LRCLIBLyricsBrowser`, `MetadataInspector`, `Settings`, and `Welcome`.
 
 `OnlineMetadataBrowser` owns the shared Online Metadata window shell and source picker. Provider-specific flows stay in their own browser folders so MusicBrainz, iTunes, and LRCLIB concerns do not become hidden dependencies of the shared entry point.
 

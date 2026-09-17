@@ -394,14 +394,10 @@ struct ContentPane: View {
 private extension View {
     @ViewBuilder
     func toolbarControlGroupCompatibilityStyle() -> some View {
-        #if os(macOS)
         if #available(macOS 27.0, *) {
             controlGroupStyle(.navigation)
         } else {
             self
         }
-        #else
-        self
-        #endif
     }
 }

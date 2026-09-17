@@ -58,7 +58,6 @@ struct MetadataInspectorSheet: View {
             Text(fileName)
                 .font(.headline)
 
-            #if os(macOS)
             HStack(spacing: 6) {
                 Text(filePath)
                     .font(.subheadline)
@@ -75,7 +74,6 @@ struct MetadataInspectorSheet: View {
                 }
                 .buttonStyle(.link)
             }
-            #endif
         }
     }
 
@@ -98,14 +96,10 @@ struct MetadataInspectorSheet: View {
                     .padding(12)
             }
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
-            #if os(iOS)
-            .iPadRoundedGroupedSurface()
-            #else
             .background {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(.quaternary.opacity(0.35))
             }
-            #endif
         }
     }
 

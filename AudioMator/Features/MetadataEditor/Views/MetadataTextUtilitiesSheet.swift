@@ -1,9 +1,6 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
-#if os(macOS)
 
 struct MetadataTextUtilityPreviewRow: Identifiable, Hashable {
     let targetID: AudioFile.ID
@@ -380,5 +377,3 @@ private struct MetadataTextUtilityPreviewGridRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-#endif

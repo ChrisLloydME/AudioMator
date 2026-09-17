@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 
 struct ViewLayoutCommands: Commands {
@@ -12,4 +11,3 @@ struct ViewLayoutCommands: Commands {
         }
     }
 }
-#endif

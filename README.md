@@ -18,7 +18,7 @@
 
 ## Overview
 
-AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps users inspect, organize, and edit music files through common tagging workflows, including metadata editing, artwork replacement, automatic track numbering, filename-based metadata conversion, raw metadata inspection, and online metadata lookup. For more detailed feature information, see [AudioMator Feature Overview](#audiomator-feature-overview).
+AudioMator is a local-first audio metadata editor for macOS. It helps users inspect, organize, and edit music files through common tagging workflows, including metadata editing, artwork replacement, automatic track numbering, filename-based metadata conversion, raw metadata inspection, and online metadata lookup. For more detailed feature information, see [AudioMator Feature Overview](#audiomator-feature-overview).
 
 > [!CAUTION]
 >
@@ -86,9 +86,7 @@ AudioMator is a local-first audio metadata editor for macOS and iPadOS. It helps
 
 ## Platform Model
 
-### macOS
-
-The macOS build is the full desktop workflow:
+AudioMator is a macOS application with a full desktop workflow:
 
 - Current Session import for one-off work.
 - Persistent watched folders with automatic rescans.
@@ -99,25 +97,6 @@ The macOS build is the full desktop workflow:
 - Configurable toolbar buttons.
 - Configurable list columns.
 - Settings tabs for General, Toolbar, Columns, and About.
-
-### iPadOS
-
-The iPadOS build intentionally avoids pretending to be macOS:
-
-- Session-only document workflow.
-- No persistent watched folders.
-- No desktop-style sidebar.
-- Content + inspector workspace optimized for touch.
-- Tools appear as in-page sheets instead of extra windows.
-- Document picking uses security-scoped access during the active session.
-- File-path presentation is hidden where it does not fit iPadOS.
-- Settings focus on iPad-specific list metadata and About information.
-
-> [!IMPORTANT]
->
-> #### About iPadOS Support
->
-> I do not have an Apple Developer Program membership and there are currently no plans to commercialize AudioMator. The iPadOS version is being developed separately from the macOS release cycle and should be considered more of a personal side project and platform experiment rather than a feature-parity target.
 
 ## Track And Disc Number Handling
 
@@ -202,11 +181,11 @@ E-mail: AudioMator@lloydME.com
 - `AudioMator/App/`
   App entry point, commands, notifications, and platform delegates.
 - `AudioMator/Core/`
-  Shared platform compatibility, network disclosure, and audio-format support.
+  AppKit compatibility helpers, network disclosure, and audio-format support.
 - `AudioMator/Domain/`
   Metadata pipeline models, audio-file models, rename templates, file sources, track renumbering, and UI state.
 - `AudioMator/Features/`
-  SwiftUI feature areas for the main window, iPad workspace, online metadata browser, provider-specific metadata and lyrics browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
+  SwiftUI feature areas for the main window, online metadata browser, provider-specific metadata and lyrics browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
 - `AudioMator/Infrastructure/`
   File-system monitoring, MusicBrainz, iTunes Search API/artwork, LRCLIB lyrics lookup, GitHub release-note services, and macOS manual update checks.
 - `Config/`

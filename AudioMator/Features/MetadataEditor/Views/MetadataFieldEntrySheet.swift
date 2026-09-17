@@ -1,9 +1,6 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
-#if os(macOS)
 
 enum MetadataFieldEditorMode {
     case add
@@ -649,5 +646,3 @@ private final class MetadataFieldSuggestionCellView: NSTableCellView {
         ])
     }
 }
-
-#endif

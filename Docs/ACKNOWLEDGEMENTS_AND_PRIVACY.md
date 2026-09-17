@@ -59,9 +59,7 @@ AudioMator is designed to work directly on local files.
 - The app does not upload your audio files for ordinary editing.
 - The app does not upload embedded artwork from your files as part of routine editing.
 
-## Platform-Specific File Access
-
-### macOS
+## File Access
 
 - Supports session imports for one-off work.
 - Supports persistent watched folders.
@@ -72,14 +70,6 @@ AudioMator is designed to work directly on local files.
 - Can reveal files in Finder.
 - Can open files with the default system app.
 - Can copy file paths for desktop workflows.
-
-### iPadOS
-
-- Uses session-scoped document picking.
-- Does not keep a watched-folder model.
-- Does not expose desktop-style folder monitoring.
-- Keeps imported files inside the active editing session model.
-- Presents secondary tools as sheets instead of separate desktop windows.
 
 ## Network Activity
 
@@ -124,7 +114,6 @@ AudioMator only uses the network for optional features that you explicitly invok
 - It does not upload local audio files for ordinary metadata editing.
 - It does not upload embedded album artwork from your files as part of routine editing.
 - It does not require network access for local editing, raw inspection, renaming, track/disc number maintenance, or text-file metadata import.
-- It does not use watched folders on iPadOS.
 - It does not run Sparkle update checks or install updates automatically.
 
 ## Practical Privacy Summary

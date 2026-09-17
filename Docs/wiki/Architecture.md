@@ -6,7 +6,7 @@ AudioMator uses a layered source layout: App for entry points and system integra
 
 `AudioMator/App/AudioMatorApp.swift` is the `@main` entry. It creates a `TagLibAudioMetadataPipeline` and injects that pipeline into the main `AudioViewModel` and `MetadataEditorStore`. It also creates shared UI state and stores for MusicBrainz, LRCLIB lyrics, filename/metadata tooling, and metadata editing.
 
-On macOS, the app declares the main window, Settings window, Online Metadata window, Filename & Metadata window, and Metadata Editor window. It also registers app info, sidebar, toolbar edit, and view layout commands. On iPadOS, it uses a single `WindowGroup`.
+The app declares the main window, Settings window, Online Metadata window, Filename & Metadata window, and Metadata Editor window. It also registers app info, sidebar, toolbar edit, and view layout commands.
 
 ## Metadata Pipeline
 
@@ -50,7 +50,7 @@ Network-backed features should remain explicit and user initiated.
 - `MetadataFilenameTool`: filename/metadata conversion.
 - `OnlineMetadataBrowser`: shared Online Metadata window shell and source picker.
 - `MusicBrainzBrowser`, `iTunesBrowser`, `LRCLIBLyricsBrowser`: provider-specific online workflows hosted by the shared entry point.
-- `MetadataInspector`, `Settings`, `Welcome`, and `iPad`: raw inspection, settings, welcome screens, and iPad workspace.
+- `MetadataInspector`, `Settings`, and `Welcome`: raw inspection, settings, and welcome screens.
 
 ## File Mutation Coordination
 

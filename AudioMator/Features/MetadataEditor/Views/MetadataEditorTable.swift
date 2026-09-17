@@ -1,9 +1,6 @@
 import SwiftUI
-#if os(macOS)
 import AppKit
-#endif
 
-#if os(macOS)
 
 struct MetadataEditorTable: NSViewRepresentable {
     let rows: [MetadataEditorRow]
@@ -364,5 +361,3 @@ private final class MetadataEditorCellView: NSTableCellView {
         label.usesSingleLineMode = !wraps
     }
 }
-
-#endif

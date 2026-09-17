@@ -6,15 +6,14 @@ The main project is `AudioMator.xcodeproj`, and the main scheme is `AudioMator`.
 
 Visible app target settings include:
 
-- `MARKETING_VERSION = 2.5`
-- `CURRENT_PROJECT_VERSION = 26601`
+- `MARKETING_VERSION = 2.6`
+- `CURRENT_PROJECT_VERSION = 2691`
 - `PRODUCT_BUNDLE_IDENTIFIER = com.LloydME.AudioMator`
 - Beta/debug bundle identifier: `com.TheLloydME.AudioMator.Beta`
-- `SUPPORTED_PLATFORMS = iphoneos iphonesimulator macosx`
-- `MACOSX_DEPLOYMENT_TARGET = 26.0`
-- `IPHONEOS_DEPLOYMENT_TARGET = 26.0`
+- `SUPPORTED_PLATFORMS = macosx`
+- `MACOSX_DEPLOYMENT_TARGET = 15.0`
 
-The test target uses `com.TheLloydME.AudioMatorTests` and macOS deployment target `26.0`.
+The test target uses `com.TheLloydME.AudioMatorTests` and macOS deployment target `15.0`.
 
 ## Info.plist
 

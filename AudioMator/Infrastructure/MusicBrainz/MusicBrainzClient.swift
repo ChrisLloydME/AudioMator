@@ -11,23 +11,33 @@ actor MusicBrainzRateLimiter {
     nonisolated static let shared = MusicBrainzRateLimiter()
 
     private let minimumIntervalNanoseconds: UInt64
-    private var lastRequestUptimeNanoseconds: UInt64?
+    private var nextAvailableUptimeNanoseconds: UInt64 = 0
+    private var reservationCount: UInt64 = 0
 
     init(minimumIntervalNanoseconds: UInt64 = 1_100_000_000) {
         self.minimumIntervalNanoseconds = minimumIntervalNanoseconds
     }
 
     func waitIfNeeded() async throws {
-        let now = DispatchTime.now().uptimeNanoseconds
+        try Task.checkCancellation()
 
-        if let lastRequestUptimeNanoseconds {
-            let elapsed = now &- lastRequestUptimeNanoseconds
-            if elapsed < minimumIntervalNanoseconds {
-                try await Task.sleep(nanoseconds: minimumIntervalNanoseconds - elapsed)
-            }
+        let now = DispatchTime.now().uptimeNanoseconds
+        let reservedUptimeNanoseconds = max(now, nextAvailableUptimeNanoseconds)
+        let (nextAvailable, overflowed) = reservedUptimeNanoseconds.addingReportingOverflow(minimumIntervalNanoseconds)
+        nextAvailableUptimeNanoseconds = overflowed ? UInt64.max : nextAvailable
+        reservationCount &+= 1
+
+        guard reservedUptimeNanoseconds > now else {
+            return
         }
 
-        lastRequestUptimeNanoseconds = DispatchTime.now().uptimeNanoseconds
+        // A cancelled caller keeps its reservation. Collapsing it could move a later
+        // already-reserved caller forward and violate the global spacing guarantee.
+        try await Task.sleep(nanoseconds: reservedUptimeNanoseconds - now)
+    }
+
+    func scheduledTurnCount() -> UInt64 {
+        reservationCount
     }
 }
 

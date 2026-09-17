@@ -986,48 +986,24 @@ private struct PrivacySheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private var sections: [(title: String, details: [String])] {
-        [
+        let overview = (
+            title: "Overview",
+            details: [
+                "AudioMator's local metadata reading and writing runs on your Mac.",
+                "Your music files themselves are not uploaded."
+            ]
+        )
+        let services = NetworkServiceDisclosure.allDisclosures.map { disclosure in
             (
-                title: "Overview",
+                title: disclosure.title,
                 details: [
-                    "AudioMator's local metadata reading and writing runs on your Mac.",
-                    "Your music files themselves are not uploaded."
-                ]
-            ),
-            (
-                title: "iTunes Search API and artwork lookup",
-                details: [
-                    "Target hosts: \(NetworkServiceDisclosure.iTunesArtwork.domains.joined(separator: ", "))",
-                    NetworkServiceDisclosure.iTunesArtwork.sentDataSummary,
-                    "Purpose: searching Apple catalog metadata, reviewing album and track results, preparing selected metadata writes, previewing artwork, downloading selected artwork, and applying chosen values locally."
-                ]
-            ),
-            (
-                title: "MusicBrainz browser and search",
-                details: [
-                    "Target host: \(NetworkServiceDisclosure.MusicBrainz.domains.joined(separator: ", ")) (/ws/2 API and selected MusicBrainz pages)",
-                    NetworkServiceDisclosure.MusicBrainz.sentDataSummary,
-                    "Purpose: searching, reviewing, and applying MusicBrainz metadata."
-                ]
-            ),
-            (
-                title: "Release notes",
-                details: [
-                    "Target host: \(NetworkServiceDisclosure.ReleaseNotes.host)",
-                    "Sent data: request headers and the release list request only. No audio file content is sent.",
-                    "Purpose: loading published release notes for AudioMator."
-                ]
-            ),
-            (
-                title: "Software update checks",
-                details: [
-                    "Target hosts: \(NetworkServiceDisclosure.SoftwareUpdates.domains.joined(separator: ", "))",
-                    NetworkServiceDisclosure.SoftwareUpdates.sentDataSummary,
-                    "Purpose: detecting whether a newer AudioMator release exists and opening GitHub Releases when you choose to download it manually.",
-                    "AudioMator does not silently install updates in this lightweight update flow."
+                    disclosure.hostLabel,
+                    disclosure.sentDataSummary,
+                    "Purpose: \(disclosure.purpose)"
                 ]
             )
-        ]
+        }
+        return [overview] + services
     }
 
     var body: some View {

@@ -22,18 +22,10 @@ enum FileMutationDirectoryAccessPlan {
     }
 
     nonisolated static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
-        let normalizedURL = normalizedPath(for: url)
-        let normalizedAncestorURL = normalizedPath(for: ancestorURL)
-
-        if normalizedURL == normalizedAncestorURL {
-            return true
-        }
-
-        let ancestorPrefix = normalizedAncestorURL == "/" ? "/" : normalizedAncestorURL + "/"
-        return normalizedURL.hasPrefix(ancestorPrefix)
+        FileSystemPathSemantics.isSameOrDescendant(url, of: ancestorURL)
     }
 
     nonisolated private static func normalizedPath(for url: URL) -> String {
-        url.standardizedFileURL.resolvingSymlinksInPath().path
+        FileSystemPathSemantics.key(for: url)
     }
 }

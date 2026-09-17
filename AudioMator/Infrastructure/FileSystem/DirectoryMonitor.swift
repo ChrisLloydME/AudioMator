@@ -16,12 +16,12 @@ struct DirectoryMonitoringPlan: Equatable, Sendable {
 
         for url in directories + [rootURL] {
             let normalizedURL = url.standardizedFileURL
-            let path = normalizedURL.resolvingSymlinksInPath().path
+            let path = FileSystemPathSemantics.key(for: normalizedURL)
             urlsByPath[path] = normalizedURL
         }
 
         let normalizedRootURL = rootURL.standardizedFileURL
-        let normalizedRootPath = normalizedRootURL.resolvingSymlinksInPath().path
+        let normalizedRootPath = FileSystemPathSemantics.key(for: normalizedRootURL)
         let nestedURLs = urlsByPath
             .filter { $0.key != normalizedRootPath }
             .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }

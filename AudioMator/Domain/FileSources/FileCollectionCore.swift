@@ -44,6 +44,6 @@ enum FileCollectionCore {
     }
 
     nonisolated private static func normalizedPath(_ file: CoreAudioFileReference) -> String {
-        URL(fileURLWithPath: file.path).standardizedFileURL.path.lowercased()
+        FileSystemPathSemantics.key(for: URL(fileURLWithPath: file.path))
     }
 }

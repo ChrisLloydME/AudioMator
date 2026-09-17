@@ -4,6 +4,83 @@ import XCTest
 final class AudioMatorCoreLogicTests: XCTestCase {
     private let locale = Locale(identifier: "en_US_POSIX")
 
+    func testFileSystemPathKeysRespectVolumeCaseSemantics() throws {
+        XCTAssertNotEqual(
+            FileSystemPathSemantics.comparisonKey(
+                forCanonicalPath: "/Volumes/CaseSensitive/Album/Track.flac",
+                isCaseSensitive: true
+            ),
+            FileSystemPathSemantics.comparisonKey(
+                forCanonicalPath: "/Volumes/CaseSensitive/Album/track.flac",
+                isCaseSensitive: true
+            )
+        )
+        XCTAssertEqual(
+            FileSystemPathSemantics.comparisonKey(
+                forCanonicalPath: "/Volumes/CaseInsensitive/Album/Track.flac",
+                isCaseSensitive: false
+            ),
+            FileSystemPathSemantics.comparisonKey(
+                forCanonicalPath: "/Volumes/CaseInsensitive/Album/track.flac",
+                isCaseSensitive: false
+            )
+        )
+
+        let temporaryDirectoryURL = FileManager.default.temporaryDirectory
+        let volumeValues = try temporaryDirectoryURL.resourceValues(
+            forKeys: [.volumeSupportsCaseSensitiveNamesKey]
+        )
+        let upperFutureURL = temporaryDirectoryURL.appendingPathComponent("AudioMator-Future.flac")
+        let lowerFutureURL = temporaryDirectoryURL.appendingPathComponent("audiomator-future.flac")
+
+        if volumeValues.volumeSupportsCaseSensitiveNames == true {
+            XCTAssertNotEqual(
+                FileSystemPathSemantics.key(for: upperFutureURL),
+                FileSystemPathSemantics.key(for: lowerFutureURL)
+            )
+        } else {
+            XCTAssertEqual(
+                FileSystemPathSemantics.key(for: upperFutureURL),
+                FileSystemPathSemantics.key(for: lowerFutureURL)
+            )
+        }
+    }
+
+    func testFileSystemPathKeysResolveStandardizedAndSymlinkAliases() throws {
+        let testRootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorPathSemantics-\(UUID().uuidString)", isDirectory: true)
+        let realDirectoryURL = testRootURL.appendingPathComponent("real", isDirectory: true)
+        let aliasDirectoryURL = testRootURL.appendingPathComponent("alias", isDirectory: true)
+        let fileURL = realDirectoryURL.appendingPathComponent("track.flac")
+
+        try FileManager.default.createDirectory(at: realDirectoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: testRootURL) }
+        try Data().write(to: fileURL)
+        try FileManager.default.createSymbolicLink(at: aliasDirectoryURL, withDestinationURL: realDirectoryURL)
+
+        let standardizedAliasURL = realDirectoryURL
+            .appendingPathComponent("unused", isDirectory: true)
+            .appendingPathComponent("..", isDirectory: true)
+            .appendingPathComponent("track.flac")
+        let symlinkAliasURL = aliasDirectoryURL.appendingPathComponent("track.flac")
+
+        XCTAssertEqual(
+            FileSystemPathSemantics.key(for: fileURL),
+            FileSystemPathSemantics.key(for: standardizedAliasURL)
+        )
+        XCTAssertEqual(
+            FileSystemPathSemantics.key(for: fileURL),
+            FileSystemPathSemantics.key(for: symlinkAliasURL)
+        )
+        XCTAssertTrue(FileSystemPathSemantics.isSameOrDescendant(fileURL, of: aliasDirectoryURL))
+        XCTAssertFalse(
+            FileSystemPathSemantics.isSameOrDescendant(
+                testRootURL.appendingPathComponent("real-copy/track.flac"),
+                of: realDirectoryURL
+            )
+        )
+    }
+
     func testMutationDirectoryAccessTreatsAuthorizedHomeAsCoveringDescendantFiles() {
         let homeURL = URL(fileURLWithPath: "/Users/example", isDirectory: true)
         let fileURLs = [

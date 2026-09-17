@@ -58,6 +58,7 @@ let package = Package(
                 "Core/Audio/AudioTagNumberText.swift",
                 "Core/Audio/AudioNumericConversion.swift",
                 "Core/Audio/AudioFormatSupportCore.swift",
+                "Core/FileSystem/FileSystemPathSemantics.swift",
                 "Core/Text/FuzzyStringSimilarity.swift",
                 "Domain/AudioFiles/AudioMetadataModelCore.swift",
                 "Domain/AudioFiles/AudioFileFingerprint.swift",

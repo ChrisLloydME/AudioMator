@@ -4227,7 +4227,7 @@
       }
     },
     "E" : {
-      "comment" : "Short UI label. Short UI token; keep compact and verify it still fits in tight controls. Used around: AudioMator/App/AppNotifications.swift:8, AudioMator/App/AudioMatorApp.swift:24, AudioMator/App/SparkleUpdater.swift:1, AudioMator/Domain/UIState/SharedState.swift:4.",
+      "comment" : "Short UI label. Short UI token; keep compact and verify it still fits in tight controls. Used around: AudioMator/App/AppNotifications.swift:8, AudioMator/App/AudioMatorApp.swift:24, AudioMator/Domain/UIState/SharedState.swift:4.",
       "localizations" : {
         "en" : {
           "stringUnit" : {

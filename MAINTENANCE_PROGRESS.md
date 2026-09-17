@@ -54,6 +54,12 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   cache retained every successful URL payload until process exit, despite search
   URLs having high cardinality. The client file also owned rate limiting, retry,
   and cache mechanics alongside transport, DTOs, mapping, and fallback logic.
+- Entitlement/dependency lead L is confirmed. Sparkle was neither linked nor used
+  by the active update flow, but its remote package pin, compile-gated source,
+  Info.plist build settings, acknowledgement copy, disabled library validation,
+  and temporary Mach lookup exceptions remained. These inactive surfaces were
+  removed; the app now keeps only sandbox, user-selected file, and outbound
+  network entitlements required by current behavior.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -66,8 +72,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- The broader 2026-09-17 maintenance audit remains active. Entitlements and
-  CI/module structure are not yet resolved. Swift 6 migration
+- The broader 2026-09-17 maintenance audit remains active. CI/module structure
+  is not yet resolved. Swift 6 migration
   remains a separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
@@ -118,6 +124,10 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   request coalescing. Moved rate limiting, retry policy, and response caching into
   `MusicBrainzRequestScheduling.swift`; DTO/mapping extraction was deferred because
   it would be a high-churn mechanical split without changing ownership or behavior.
+- Removed dormant Sparkle source, package resolution, build settings, user-facing
+  acknowledgement text, and Sparkle-only sandbox/hardened-runtime exceptions.
+  The supported update flow remains the explicit GitHub Releases check and manual
+  download handoff, and its documentation now reflects build-number comparison.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -156,6 +166,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   after moving artwork image construction to the presentation layer.
 - Passed focused `MusicBrainzResponseCacheTests` covering LRU count eviction,
   byte limits, oversized-response bypass, and concurrent request coalescing.
+- Passed package resolution and a forced generic macOS build after removing
+  Sparkle; the resolved graph now contains only `TagLibAudioMetadata`.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -192,3 +204,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `01636f3` — `fix: unify filesystem path identity`
 - `1d75524` — `fix: reject stale mutation reloads`
 - `340cbdf` — `refactor: make audio file snapshots sendable`
+- `681dfdc` — `fix: bound MusicBrainz response caching`

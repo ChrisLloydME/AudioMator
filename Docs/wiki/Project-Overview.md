@@ -24,5 +24,4 @@ The app target currently uses:
 
 - `TagLibAudioMetadata`: Swift Package Manager dependency that exposes the TagLib-powered metadata manager consumed by the app pipeline.
 - TagLib: low-level audio metadata library used through `TagLibAudioMetadata`.
-- Sparkle: package reference present in the Xcode project. The active update-check code path uses GitHub Releases through `GitHubUpdateReleaseClient` and `UpdateChecker`.
 - MusicBrainz, Apple iTunes Search API, LRCLIB, and GitHub Releases: user-triggered network service boundaries.

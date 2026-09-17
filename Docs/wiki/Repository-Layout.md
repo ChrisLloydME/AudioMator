@@ -55,7 +55,7 @@ Docs/wiki/
 
 ## Config
 
-`Config/` contains target configuration inputs. `Info.plist` defines bundle display name, category, copyright, and version-field references. `AudioMator.entitlements` enables sandboxing, user-selected file read/write access, network client access, and Sparkle-related temporary mach lookup exceptions.
+`Config/` contains target configuration inputs. `Info.plist` defines bundle display name, category, copyright, and version-field references. `AudioMator.entitlements` enables sandboxing, user-selected file read/write access, and network client access.
 
 These configuration inputs stay outside the synchronized source root so Xcode treats them as build settings inputs rather than bundle resources.
 

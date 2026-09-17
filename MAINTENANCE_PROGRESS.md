@@ -21,6 +21,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 - Update comparison lead A is confirmed in the current implementation: `SemanticVersion(releaseTag:)` validates but discards the `B{build}` suffix, and `UpdateChecker` reads only `CFBundleShortVersionString`. The existing equality tests encode the incorrect behavior and must be replaced.
 - MusicBrainz rate-limiter lead B is confirmed in the current implementation: the actor reads its last request time, suspends, and only then updates it, allowing reentrant callers to share a wait and release together.
+- File-mutation fairness lead D is confirmed: a later reservation could acquire
+  inactive keys even when those keys overlapped an older waiter blocked on a
+  different active key, allowing the older broad reservation to starve.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -53,6 +56,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Removed the discontinued iPadOS application and configuration as a standalone first commit; updated current product/build/privacy documentation and validated the macOS build plus 49 fast tests.
 - Replaced marketing-only update comparison with `ReleaseVersion`, which parses both bundle version fields and compares marketing version before build number. Corrected the old equality regression and added same-marketing-version/newer-build coverage.
 - Replaced the reentrant MusicBrainz timestamp check with atomic future-slot reservation. Concurrent callers now reserve distinct globally spaced turns before suspension; cancellation preserves an already-reserved slot so later reservations cannot be pulled forward.
+- Added conflict-aware FIFO scheduling to `FileMutationCoordinator`: later work
+  may bypass only when it conflicts with neither active reservations nor older
+  blocked waiters. Cancelling a blocker immediately reschedules eligible work.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -74,6 +80,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 - Passed focused `UpdateCheckerTests` after adding release build-number comparison.
 - Added concurrency and cancellation coverage for `MusicBrainzRateLimiter`.
+- Passed focused `FileMutationSerializationTests`, including an older A+B waiter,
+  later B-only traffic, and independent C traffic proving fairness plus concurrency.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -102,3 +110,5 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `89110d7` — `refactor: require precise metadata pipeline operations`
 - `5ce0996` — `docs: clarify package integration modes`
 - `6731089` — `test: apply raw patches in lyrics backend`
+- `ae78991` — `fix: compare update release build numbers`
+- `6697faa` — `fix: reserve MusicBrainz request slots atomically`

@@ -30,6 +30,11 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Privacy disclosure lead G is confirmed: LRCLIB endpoint/data constants existed
   and the documentation mentioned the service, but the Settings Privacy sheet
   manually assembled other services and omitted LRCLIB.
+- Filesystem identity lead C is confirmed: rename collision checks and the fast
+  import core lowercased every path, while mutation scheduling, security-scope
+  caches, watched-folder scans, and selection checks used case-sensitive path
+  strings. This produced different identities for the same entry depending on
+  the workflow and was wrong for case-sensitive volumes.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -42,7 +47,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- The broader 2026-09-17 maintenance audit remains active. Filesystem identity/fairness, persistence corruption states, mutation reload generations, public package boundaries, and CI/module structure are not yet resolved.
+- The broader 2026-09-17 maintenance audit remains active. Mutation reload
+  generations, app/package coupling, sendability, provider cache bounds, and
+  CI/module structure are not yet resolved.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
@@ -72,6 +79,12 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Replaced the hand-built Privacy sheet list with a declarative production
   network-service registry. LRCLIB now appears automatically alongside iTunes,
   MusicBrainz, release notes, and update checks.
+- Centralized path identity in `FileSystemPathSemantics`. Existing symlink and
+  standardized aliases now converge, while case folding is selected from the
+  containing volume and therefore also works for future rename destinations.
+  Mutation reservations, quick-import deduplication, security-scope caches,
+  watched-folder monitoring, rename collision planning, and descendant checks
+  now share that rule.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -100,6 +113,10 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   user-visible view-model diagnostics.
 - Passed focused `NetworkServiceDisclosureTests`, which require one complete
   registry entry per service and exact coverage of all production client hosts.
+- Passed 51 fast core tests after adding real symlink/standardized-alias coverage
+  and explicit case-sensitive versus case-insensitive path-key coverage.
+- Passed the incremental generic macOS build after centralizing filesystem path
+  semantics.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -132,3 +149,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `6697faa` — `fix: reserve MusicBrainz request slots atomically`
 - `23ae6f9` — `fix: prevent file mutation waiter starvation`
 - `dd95ff8` — `fix: preserve corrupt bookmark collections`
+- `6839a0a` — `fix: derive privacy UI from network registry`

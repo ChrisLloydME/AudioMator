@@ -285,12 +285,9 @@ struct ContentView: View {
         case .watchedFolder(let id):
             return id == folder.id
         case .watchedLibrary:
-            let folderPath = folder.url.standardizedFileURL.resolvingSymlinksInPath().path
-            let folderPrefix = folderPath == "/" ? "/" : folderPath + "/"
             return viewModel.files.contains { file in
                 guard viewModel.selectedAudioIDs.contains(file.id) else { return false }
-                let filePath = file.url.standardizedFileURL.resolvingSymlinksInPath().path
-                return filePath == folderPath || filePath.hasPrefix(folderPrefix)
+                return FileSystemPathSemantics.isSameOrDescendant(file.url, of: folder.url)
             }
         case .quickImport, .none:
             return false

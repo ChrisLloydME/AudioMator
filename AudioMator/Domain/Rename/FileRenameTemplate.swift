@@ -445,8 +445,5 @@ private func makeRenamedFileURL(from sourceURL: URL, baseName: String) -> URL {
 }
 
 private func fileRenameCollisionKey(for url: URL) -> String {
-    url.standardizedFileURL
-        .resolvingSymlinksInPath()
-        .path
-        .lowercased()
+    FileSystemPathSemantics.key(for: url)
 }

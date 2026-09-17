@@ -1463,19 +1463,11 @@ final class AudioViewModel: ObservableObject {
     }
 
     nonisolated private static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
-        let normalizedURL = url.standardizedFileURL.resolvingSymlinksInPath().path
-        let normalizedAncestorURL = ancestorURL.standardizedFileURL.resolvingSymlinksInPath().path
-
-        if normalizedURL == normalizedAncestorURL {
-            return true
-        }
-
-        let ancestorPrefix = normalizedAncestorURL == "/" ? "/" : normalizedAncestorURL + "/"
-        return normalizedURL.hasPrefix(ancestorPrefix)
+        FileSystemPathSemantics.isSameOrDescendant(url, of: ancestorURL)
     }
 
     nonisolated private static func urlKey(for url: URL) -> String {
-        url.standardizedFileURL.resolvingSymlinksInPath().path
+        FileSystemPathSemantics.key(for: url)
     }
 
     nonisolated private static func compareAudioFiles(_ lhs: AudioFile, _ rhs: AudioFile) -> Bool {

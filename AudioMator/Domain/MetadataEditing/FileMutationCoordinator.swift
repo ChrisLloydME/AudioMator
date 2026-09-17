@@ -33,8 +33,7 @@ actor FileMutationCoordinator {
     }
 
     nonisolated static func normalizedFileKey(for url: URL) -> String {
-        let normalizedURL = url.standardizedFileURL.resolvingSymlinksInPath()
-        return normalizedURL.path.precomposedStringWithCanonicalMapping
+        FileSystemPathSemantics.key(for: url)
     }
 
     private func acquire(_ keys: Set<String>) async throws {

@@ -97,6 +97,7 @@ extension AudioViewModel {
             metadataPipeline: metadataPipeline,
             fileMutationCoordinator: fileMutationCoordinator
         )
+        let refreshGeneration = makeFileModelRefreshGeneration()
         let result = await executor.execute(
             at: url,
             id: id,
@@ -106,9 +107,13 @@ extension AudioViewModel {
 
         switch result {
         case .success(let success):
+            var didApplyReloadedFile = false
             if let reloadedFile = success.reloadedFile {
-                replaceLoadedFile(reloadedFile)
-                if syncInspectorAfterReload, selectedAudioIDs.contains(id) {
+                didApplyReloadedFile = replaceLoadedFile(
+                    reloadedFile,
+                    refreshGeneration: refreshGeneration
+                )
+                if didApplyReloadedFile, syncInspectorAfterReload, selectedAudioIDs.contains(id) {
                     updateEditForSelection()
                 }
             }
@@ -123,7 +128,7 @@ extension AudioViewModel {
             return .success(
                 MetadataWriteSuccessOutcome(
                     warnings: warnings,
-                    didRefreshFileModel: success.didReloadFile
+                    didRefreshFileModel: didApplyReloadedFile
                 )
             )
 

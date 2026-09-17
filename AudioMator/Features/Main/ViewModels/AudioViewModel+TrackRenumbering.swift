@@ -30,8 +30,10 @@ extension AudioViewModel {
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
-        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?)] =
-            targetFiles.map { ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion) }
+        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, refreshGeneration: UInt64)] =
+            targetFiles.map {
+                ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion, makeFileModelRefreshGeneration())
+            }
 
         guard !writeTargets.isEmpty else {
             return .empty
@@ -82,7 +84,7 @@ extension AudioViewModel {
                 failures: [],
                 warnings: []
             )
-            var reloadedFiles: [AudioFile] = []
+            var reloadedFiles: [(file: AudioFile, refreshGeneration: UInt64)] = []
 
             for (idx, target) in writeTargets.enumerated() {
                 let newNumber = numbers[idx]
@@ -115,7 +117,7 @@ extension AudioViewModel {
                 case .success(let success):
                     result.succeeded += 1
                     if let reloadedFile = success.reloadedFile {
-                        reloadedFiles.append(reloadedFile)
+                        reloadedFiles.append((reloadedFile, target.refreshGeneration))
                     }
 
                     var warningMessages = success.writeResult.warnings
@@ -152,8 +154,16 @@ extension AudioViewModel {
         }.value
 
         if !writeOutcome.1.isEmpty {
-            replaceLoadedFiles(writeOutcome.1)
-            updateEditForSelection()
+            var didApplyReloadedFile = false
+            for reload in writeOutcome.1 {
+                didApplyReloadedFile = replaceLoadedFile(
+                    reload.file,
+                    refreshGeneration: reload.refreshGeneration
+                ) || didApplyReloadedFile
+            }
+            if didApplyReloadedFile {
+                updateEditForSelection()
+            }
         }
 
         return writeOutcome.0

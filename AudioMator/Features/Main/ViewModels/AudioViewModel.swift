@@ -99,6 +99,8 @@ final class AudioViewModel: ObservableObject {
     private var securityScopedFileAccessGrantURLs: [UUID: URL] = [:]
     private var securityScopedSupplementalMutationDirectoryURLs: [String: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
+    private var nextFileModelRefreshGeneration: UInt64 = 0
+    private var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
 
     convenience init() {
         self.init(
@@ -636,6 +638,25 @@ final class AudioViewModel: ObservableObject {
         }
 
         rebuildVisibleFiles()
+    }
+
+    func makeFileModelRefreshGeneration() -> UInt64 {
+        nextFileModelRefreshGeneration &+= 1
+        return nextFileModelRefreshGeneration
+    }
+
+    /// Applies mutation reloads monotonically. An older mutation can finish its
+    /// UI handoff after a newer one; its snapshot must not replace newer state.
+    @discardableResult
+    func replaceLoadedFile(
+        _ reloaded: AudioFile,
+        refreshGeneration: UInt64
+    ) -> Bool {
+        let appliedGeneration = appliedFileModelRefreshGenerations[reloaded.id] ?? 0
+        guard refreshGeneration > appliedGeneration else { return false }
+        appliedFileModelRefreshGenerations[reloaded.id] = refreshGeneration
+        replaceLoadedFile(reloaded)
+        return true
     }
 
     func replaceLoadedFiles(_ reloadedFiles: [AudioFile]) {

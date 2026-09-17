@@ -1,4 +1,4 @@
-name: Core Logic
+name: Validation
 
 on:
   pull_request:
@@ -19,3 +19,22 @@ jobs:
 
       - name: Run core logic tests
         run: swift test
+
+  xcode-test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run app-hosted tests
+        run: |
+          xcodebuild \
+            -project AudioMator.xcodeproj \
+            -scheme AudioMator \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/AudioMatorDerivedData" \
+            -parallel-testing-enabled NO \
+            -maximum-parallel-testing-workers 1 \
+            test

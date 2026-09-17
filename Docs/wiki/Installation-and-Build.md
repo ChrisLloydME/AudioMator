@@ -44,7 +44,10 @@ Run the fastest local regression check:
 swift test --filter AudioMatorCoreLogicTests
 ```
 
-The GitHub Actions workflow in `.github/workflows/core-logic.yml` runs `swift test` on a macOS 15 runner for pull requests and pushes to `main`.
+The GitHub Actions workflow in `.github/workflows/core-logic.yml` runs two independent validation jobs on macOS 15 for pull requests and pushes to `main`:
+
+- `swift test` exercises the small deterministic core-logic package.
+- A serial `xcodebuild test` builds the real application/test graph and runs the app-hosted `AudioMatorTests` suite.
 
 ## Codex Build Script
 

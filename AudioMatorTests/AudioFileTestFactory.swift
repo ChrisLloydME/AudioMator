@@ -32,6 +32,7 @@ enum AudioFileTestFactory {
         releaseDate: String = "",
         contentAdvisory: ContentAdvisory? = nil,
         duration: Double = 0,
+        artworkData: Data? = nil,
         fileFingerprint: AudioFileFingerprint? = nil,
         includeDefaultFileFingerprint: Bool = true
     ) -> AudioFile {
@@ -80,8 +81,12 @@ enum AudioFileTestFactory {
             sampleRate: 0,
             channels: 0,
             format: "",
-            artwork: nil,
-            artworkFingerprint: nil,
+            artworkData: artworkData,
+            artworkFingerprint: artworkData.map { data in
+                var hasher = Hasher()
+                hasher.combine(data)
+                return hasher.finalize()
+            },
             fileFingerprint: fileFingerprint ?? (includeDefaultFileFingerprint ? fingerprint(for: url) : nil)
         )
     }

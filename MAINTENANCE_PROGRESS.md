@@ -50,6 +50,10 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   safety without making the current single app target independently buildable.
   Raw patch and field-key ownership remain candidates if a real domain module is
   extracted; they should move with that module instead of gaining mirror types now.
+- MusicBrainz maintainability/cache lead K is confirmed in part. The response
+  cache retained every successful URL payload until process exit, despite search
+  URLs having high cardinality. The client file also owned rate limiting, retry,
+  and cache mechanics alongside transport, DTOs, mapping, and fallback logic.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -62,8 +66,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- The broader 2026-09-17 maintenance audit remains active. Provider cache bounds,
-  entitlements, and CI/module structure are not yet resolved. Swift 6 migration
+- The broader 2026-09-17 maintenance audit remains active. Entitlements and
+  CI/module structure are not yet resolved. Swift 6 migration
   remains a separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
@@ -109,6 +113,11 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Replaced `AudioFile`'s stored `NSImage` and `@unchecked Sendable` conformance
   with immutable artwork `Data` and compiler-checked `Sendable`. AppKit image
   decoding is now a MainActor-only presentation projection.
+- Bounded the MusicBrainz response cache to 128 entries and 16 MiB with LRU
+  eviction, expired-entry pruning, and oversized-response bypass while retaining
+  request coalescing. Moved rate limiting, retry policy, and response caching into
+  `MusicBrainzRequestScheduling.swift`; DTO/mapping extraction was deferred because
+  it would be a high-churn mechanical split without changing ownership or behavior.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -145,6 +154,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   cancellation/commit coverage and out-of-order reload-generation coverage.
 - Passed the generic macOS build with compiler-checked `AudioFile: Sendable`
   after moving artwork image construction to the presentation layer.
+- Passed focused `MusicBrainzResponseCacheTests` covering LRU count eviction,
+  byte limits, oversized-response bypass, and concurrent request coalescing.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -180,3 +191,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `6839a0a` — `fix: derive privacy UI from network registry`
 - `01636f3` — `fix: unify filesystem path identity`
 - `1d75524` — `fix: reject stale mutation reloads`
+- `340cbdf` — `refactor: make audio file snapshots sendable`

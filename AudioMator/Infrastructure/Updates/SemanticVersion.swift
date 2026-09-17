@@ -3,38 +3,16 @@ import Foundation
 struct SemanticVersion: Comparable, Equatable, Sendable {
     let numbers: [Int]
 
-    init?(appVersion rawValue: String) {
+    nonisolated init?(_ rawValue: String) {
         guard let parsedNumbers = Self.parseVersionCore(rawValue.trimmingCharacters(in: .whitespacesAndNewlines)) else { return nil }
         self.numbers = parsedNumbers
     }
 
-    init?(releaseTag rawValue: String) {
-        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard normalized.hasPrefix("V"),
-              let buildSeparator = normalized.firstIndex(of: "B")
-        else {
-            return nil
-        }
-
-        let versionCore = String(normalized[normalized.index(after: normalized.startIndex)..<buildSeparator])
-        let buildNumber = normalized[normalized.index(after: buildSeparator)...]
-
-        guard !buildNumber.isEmpty,
-              buildNumber.allSatisfy(\.isNumber),
-              let parsedNumbers = Self.parseVersionCore(versionCore)
-        else {
-            return nil
-        }
-
-        self.numbers = parsedNumbers
-    }
-
-    static func == (lhs: SemanticVersion, rhs: SemanticVersion) -> Bool {
+    nonisolated static func == (lhs: SemanticVersion, rhs: SemanticVersion) -> Bool {
         !(lhs < rhs) && !(rhs < lhs)
     }
 
-    static func < (lhs: SemanticVersion, rhs: SemanticVersion) -> Bool {
+    nonisolated static func < (lhs: SemanticVersion, rhs: SemanticVersion) -> Bool {
         let maxCount = max(lhs.numbers.count, rhs.numbers.count)
 
         for index in 0..<maxCount {
@@ -49,7 +27,7 @@ struct SemanticVersion: Comparable, Equatable, Sendable {
         return false
     }
 
-    private static func parseVersionCore(_ rawValue: String) -> [Int]? {
+    nonisolated private static func parseVersionCore(_ rawValue: String) -> [Int]? {
         let components = rawValue.split(separator: ".", omittingEmptySubsequences: false)
 
         guard !components.isEmpty else { return nil }
@@ -61,5 +39,44 @@ struct SemanticVersion: Comparable, Equatable, Sendable {
 
         guard parsedNumbers.count == components.count else { return nil }
         return parsedNumbers
+    }
+}
+
+struct ReleaseVersion: Comparable, Equatable, Sendable {
+    let marketingVersion: SemanticVersion
+    let buildNumber: Int
+
+    nonisolated init?(marketingVersion: String, buildNumber: String) {
+        let normalizedBuild = buildNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let marketingVersion = SemanticVersion(marketingVersion),
+              !normalizedBuild.isEmpty,
+              normalizedBuild.allSatisfy(\.isNumber),
+              let parsedBuildNumber = Int(normalizedBuild)
+        else {
+            return nil
+        }
+
+        self.marketingVersion = marketingVersion
+        self.buildNumber = parsedBuildNumber
+    }
+
+    nonisolated init?(releaseTag rawValue: String) {
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.hasPrefix("V"),
+              let buildSeparator = normalized.firstIndex(of: "B")
+        else {
+            return nil
+        }
+
+        let marketingVersion = String(normalized[normalized.index(after: normalized.startIndex)..<buildSeparator])
+        let buildNumber = String(normalized[normalized.index(after: buildSeparator)...])
+        self.init(marketingVersion: marketingVersion, buildNumber: buildNumber)
+    }
+
+    nonisolated static func < (lhs: ReleaseVersion, rhs: ReleaseVersion) -> Bool {
+        if lhs.marketingVersion != rhs.marketingVersion {
+            return lhs.marketingVersion < rhs.marketingVersion
+        }
+        return lhs.buildNumber < rhs.buildNumber
     }
 }

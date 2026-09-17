@@ -1,7 +1,7 @@
 import Foundation
 
 struct UpdateReleaseMetadata: Equatable, Sendable {
-    let version: SemanticVersion
+    let version: ReleaseVersion
     let tagName: String
     let displayName: String
     let releaseURL: URL
@@ -41,12 +41,17 @@ protocol UpdateReleaseProviding: Sendable {
 
 struct UpdateChecker: Sendable {
     private let releaseProvider: any UpdateReleaseProviding
-    private let currentVersionProvider: @Sendable () -> String?
+    private let currentVersionProvider: @Sendable () -> ReleaseVersion?
 
     init(
         releaseProvider: any UpdateReleaseProviding = GitHubUpdateReleaseClient(),
-        currentVersionProvider: @escaping @Sendable () -> String? = {
-            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        currentVersionProvider: @escaping @Sendable () -> ReleaseVersion? = {
+            guard let marketingVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+                  let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+            else {
+                return nil
+            }
+            return ReleaseVersion(marketingVersion: marketingVersion, buildNumber: buildNumber)
         }
     ) {
         self.releaseProvider = releaseProvider
@@ -54,13 +59,11 @@ struct UpdateChecker: Sendable {
     }
 
     func checkForUpdates() async throws -> UpdateCheckResult {
-        guard let currentVersionString = currentVersionProvider()?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !currentVersionString.isEmpty,
-            let currentVersion = SemanticVersion(appVersion: currentVersionString)
-        else {
+        guard let currentVersion = currentVersionProvider() else {
             throw UpdateCheckError.missingCurrentVersion
         }
+
+        let currentVersionString = currentVersion.displayString
 
         let latestRelease = try await releaseProvider.fetchLatestRelease()
 
@@ -69,5 +72,11 @@ struct UpdateChecker: Sendable {
         }
 
         return .upToDate(currentVersion: currentVersionString, latestVersion: latestRelease.tagName)
+    }
+}
+
+private extension ReleaseVersion {
+    var displayString: String {
+        "\(marketingVersion.numbers.map(String.init).joined(separator: ".")) (\(buildNumber))"
     }
 }

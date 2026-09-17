@@ -9,45 +9,58 @@ final class UpdateCheckerTests: XCTestCase {
     }
 
     func testSemanticVersionComparisonHandlesAudioMatorVersions() throws {
-        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion(appVersion: "2.4")), try XCTUnwrap(SemanticVersion(appVersion: "2.3")))
-        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion(appVersion: "2.3.1")), try XCTUnwrap(SemanticVersion(appVersion: "2.3")))
-        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion(appVersion: "2.10")), try XCTUnwrap(SemanticVersion(appVersion: "2.9")))
-        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion(appVersion: "2.2")), try XCTUnwrap(SemanticVersion(appVersion: "2.1.20")))
-        XCTAssertEqual(try XCTUnwrap(SemanticVersion(releaseTag: "V2.3B26512")), try XCTUnwrap(SemanticVersion(appVersion: "2.3")))
-        XCTAssertEqual(try XCTUnwrap(SemanticVersion(releaseTag: "V2.3.1B26001")), try XCTUnwrap(SemanticVersion(appVersion: "2.3.1")))
-        XCTAssertNil(SemanticVersion(releaseTag: "v2.3"))
-        XCTAssertNil(SemanticVersion(releaseTag: "2.3"))
-        XCTAssertNil(SemanticVersion(releaseTag: "2.3.0"))
-        XCTAssertNil(SemanticVersion(releaseTag: "2.3-beta.1"))
-        XCTAssertNil(SemanticVersion(releaseTag: "V2.3"))
-        XCTAssertNil(SemanticVersion(releaseTag: "V2.3B"))
-        XCTAssertNil(SemanticVersion(releaseTag: "V2.3b26512"))
-        XCTAssertNil(SemanticVersion(releaseTag: "release-2.3"))
-        XCTAssertNil(SemanticVersion(appVersion: ""))
-        XCTAssertNil(SemanticVersion(appVersion: "V2.3B26512"))
+        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion("2.4")), try XCTUnwrap(SemanticVersion("2.3")))
+        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion("2.3.1")), try XCTUnwrap(SemanticVersion("2.3")))
+        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion("2.10")), try XCTUnwrap(SemanticVersion("2.9")))
+        XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion("2.2")), try XCTUnwrap(SemanticVersion("2.1.20")))
+        XCTAssertNil(SemanticVersion(""))
+        XCTAssertNil(SemanticVersion("V2.3B26512"))
+    }
+
+    func testReleaseVersionComparisonIncludesBuildNumber() throws {
+        let installed = try XCTUnwrap(ReleaseVersion(marketingVersion: "2.6", buildNumber: "2691"))
+        XCTAssertGreaterThan(try XCTUnwrap(ReleaseVersion(releaseTag: "V2.6B2692")), installed)
+        XCTAssertLessThan(try XCTUnwrap(ReleaseVersion(releaseTag: "V2.6B2690")), installed)
+        XCTAssertGreaterThan(try XCTUnwrap(ReleaseVersion(releaseTag: "V2.7B1")), installed)
+        XCTAssertEqual(try XCTUnwrap(ReleaseVersion(releaseTag: "V2.6B2691")), installed)
+        XCTAssertNil(ReleaseVersion(releaseTag: "v2.6B2692"))
+        XCTAssertNil(ReleaseVersion(releaseTag: "V2.6"))
+        XCTAssertNil(ReleaseVersion(releaseTag: "V2.6B"))
+        XCTAssertNil(ReleaseVersion(releaseTag: "V2.6b2692"))
     }
 
     func testUpdateCheckerDetectsNewerRelease() async throws {
         let release = try makeRelease(tagName: "V2.4B26001")
         let checker = UpdateChecker(
             releaseProvider: MockUpdateReleaseProvider(release: release),
-            currentVersionProvider: { "2.3" }
+            currentVersionProvider: { ReleaseVersion(marketingVersion: "2.3", buildNumber: "26512") }
         )
 
         let result = try await checker.checkForUpdates()
 
-        XCTAssertEqual(result, .updateAvailable(release, currentVersion: "2.3"))
+        XCTAssertEqual(result, .updateAvailable(release, currentVersion: "2.3 (26512)"))
+    }
+
+    func testUpdateCheckerDetectsNewerBuildOfSameMarketingVersion() async throws {
+        let release = try makeRelease(tagName: "V2.6B2692")
+        let checker = UpdateChecker(
+            releaseProvider: MockUpdateReleaseProvider(release: release),
+            currentVersionProvider: { ReleaseVersion(marketingVersion: "2.6", buildNumber: "2691") }
+        )
+
+        let result = try await checker.checkForUpdates()
+        XCTAssertEqual(result, .updateAvailable(release, currentVersion: "2.6 (2691)"))
     }
 
     func testUpdateCheckerReportsUpToDateWhenVersionsMatch() async throws {
         let checker = UpdateChecker(
             releaseProvider: MockUpdateReleaseProvider(release: try makeRelease(tagName: "V2.3B26512")),
-            currentVersionProvider: { "2.3" }
+            currentVersionProvider: { ReleaseVersion(marketingVersion: "2.3", buildNumber: "26512") }
         )
 
         let result = try await checker.checkForUpdates()
 
-        XCTAssertEqual(result, .upToDate(currentVersion: "2.3", latestVersion: "V2.3B26512"))
+        XCTAssertEqual(result, .upToDate(currentVersion: "2.3 (26512)", latestVersion: "V2.3B26512"))
     }
 
     func testUpdateCheckerThrowsForMissingCurrentVersion() async throws {
@@ -140,7 +153,7 @@ final class UpdateCheckerTests: XCTestCase {
 
     private func makeRelease(tagName: String) throws -> UpdateReleaseMetadata {
         UpdateReleaseMetadata(
-            version: try XCTUnwrap(SemanticVersion(releaseTag: tagName)),
+            version: try XCTUnwrap(ReleaseVersion(releaseTag: tagName)),
             tagName: tagName,
             displayName: tagName,
             releaseURL: try XCTUnwrap(URL(string: "https://github.com/ChrisLloydME/AudioMator/releases/tag/\(tagName)"))

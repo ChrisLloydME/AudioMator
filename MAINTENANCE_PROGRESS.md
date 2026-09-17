@@ -1,6 +1,6 @@
 # Metadata Architecture Maintenance Progress
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 
 ## Scope
 
@@ -8,6 +8,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Current findings
 
+- **Platform state:** iPadOS was deprecated and removed in commit `fe10c62`. The app target now supports only `macosx`; iPad workspace/tool/welcome sources, iOS conditional branches, iPad assets, deployment settings, and plist keys were removed. Shared domain and service code was retained.
 - **Current dependency state:** `AudioMator.xcodeproj` resolves the remote `TagLibAudioMetadata` package at exact version `0.5.1`. The former sibling-checkout reference was removed after the matching upstream release became available.
 - One inspector Save now constructs one package `MetadataPatch` containing ordinary fields, formatted track/disc intent, artwork, and all four advisory states. AudioMator no longer performs follow-up advisory, alias, or MP4 cleanup transactions.
 - Editable metadata is loaded from one `MetadataSnapshot`; its `MetadataFileVersion` remains attached to the `AudioFile` edit snapshot and is supplied at every inspector, raw editor, erase, lyrics, and track-renumber transaction boundary.
@@ -18,6 +19,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Confirmed hypotheses
 
+- Update comparison lead A is confirmed in the current implementation: `SemanticVersion(releaseTag:)` validates but discards the `B{build}` suffix, and `UpdateChecker` reads only `CFBundleShortVersionString`. The existing equality tests encode the incorrect behavior and must be replaced.
+- MusicBrainz rate-limiter lead B is confirmed in the current implementation: the actor reads its last request time, suspends, and only then updates it, allowing reentrant callers to share a wait and release together.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -30,6 +33,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
+- The broader 2026-09-17 maintenance audit remains active. Filesystem identity/fairness, persistence corruption states, mutation reload generations, public package boundaries, and CI/module structure are not yet resolved.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
@@ -46,6 +50,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Completed tasks
 
+- Removed the discontinued iPadOS application and configuration as a standalone first commit; updated current product/build/privacy documentation and validated the macOS build plus 49 fast tests.
+- Replaced marketing-only update comparison with `ReleaseVersion`, which parses both bundle version fields and compares marketing version before build number. Corrected the old equality regression and added same-marketing-version/newer-build coverage.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -65,6 +71,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Tests and validation
 
+- Passed focused `UpdateCheckerTests` after adding release build-number comparison.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -83,6 +90,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Commits
 
+- `fe10c62` — `chore: remove deprecated iPadOS app`
 - `643e8a6` — `docs: start metadata maintenance journal`
 - `dba9098` — `refactor: route metadata saves through package patches`
 - `d4cde34` — `fix: preserve exact raw metadata value arrays`

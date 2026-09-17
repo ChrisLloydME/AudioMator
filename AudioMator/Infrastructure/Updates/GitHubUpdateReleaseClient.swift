@@ -36,7 +36,7 @@ struct GitHubUpdateReleaseClient: UpdateReleaseProviding {
 
             guard let tagName = release.tagName?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !tagName.isEmpty,
-                  let version = SemanticVersion(releaseTag: tagName)
+                  let version = ReleaseVersion(releaseTag: tagName)
             else {
                 throw UpdateCheckError.missingReleaseVersion
             }

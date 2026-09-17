@@ -3,7 +3,9 @@ import Foundation
 final class FileAccessGrantStore {
     private let userDefaults: UserDefaults
     private let storageKey = "fileAccessGrantRecords"
+    private let corruptBackupKey = "fileAccessGrantRecords.corruptBackup"
     private var unresolvedRecords: [FileAccessGrantRecord] = []
+    private(set) var loadState: BookmarkCollectionLoadState = .notLoaded
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
@@ -11,10 +13,14 @@ final class FileAccessGrantStore {
 
     func loadGrants() -> [FileAccessGrant] {
         unresolvedRecords = []
-        guard let data = userDefaults.data(forKey: storageKey) else { return [] }
+        guard let data = userDefaults.data(forKey: storageKey) else {
+            loadState = .empty
+            return []
+        }
 
         do {
             let records = try JSONDecoder().decode([FileAccessGrantRecord].self, from: data)
+            loadState = records.isEmpty ? .empty : .loaded(recordCount: records.count)
             var grants: [FileAccessGrant] = []
             var refreshedRecords: [FileAccessGrantRecord] = []
             var needsSave = false
@@ -59,11 +65,15 @@ final class FileAccessGrantStore {
 
             return grants
         } catch {
+            loadState = .corrupt
+            quarantineCorruptData(data)
             return []
         }
     }
 
-    func saveGrants(_ grants: [FileAccessGrant]) {
+    @discardableResult
+    func saveGrants(_ grants: [FileAccessGrant]) -> Bool {
+        guard prepareForSave() else { return false }
         let resolvedRecords = grants.map {
             FileAccessGrantRecord(
                 id: $0.id,
@@ -73,7 +83,7 @@ final class FileAccessGrantStore {
         }
         let resolvedIDs = Set(resolvedRecords.map(\.id))
         let records = resolvedRecords + unresolvedRecords.filter { !resolvedIDs.contains($0.id) }
-        saveRecords(records)
+        return saveRecords(records)
     }
 
     func makeGrant(from url: URL) throws -> FileAccessGrant {
@@ -86,10 +96,39 @@ final class FileAccessGrantStore {
         )
     }
 
-    private func saveRecords(_ records: [FileAccessGrantRecord]) {
+    @discardableResult
+    private func saveRecords(_ records: [FileAccessGrantRecord]) -> Bool {
+        guard loadState != .corrupt else { return false }
         do {
             userDefaults.set(try JSONEncoder().encode(records), forKey: storageKey)
-        } catch {}
+            loadState = records.isEmpty ? .empty : .loaded(recordCount: records.count)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func prepareForSave() -> Bool {
+        guard loadState == .notLoaded else { return loadState != .corrupt }
+        guard let data = userDefaults.data(forKey: storageKey) else {
+            loadState = .empty
+            return true
+        }
+        do {
+            let records = try JSONDecoder().decode([FileAccessGrantRecord].self, from: data)
+            loadState = records.isEmpty ? .empty : .loaded(recordCount: records.count)
+            return true
+        } catch {
+            loadState = .corrupt
+            quarantineCorruptData(data)
+            return false
+        }
+    }
+
+    private func quarantineCorruptData(_ data: Data) {
+        if userDefaults.data(forKey: corruptBackupKey) == nil {
+            userDefaults.set(data, forKey: corruptBackupKey)
+        }
     }
 
     private func resolveURL(from bookmarkData: Data, isStale: inout Bool) throws -> URL {

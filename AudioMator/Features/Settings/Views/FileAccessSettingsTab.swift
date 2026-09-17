@@ -31,6 +31,9 @@ struct FileAccessSettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if !viewModel.bookmarkPersistenceWarnings.isEmpty {
+                    persistenceWarningSection
+                }
                 fileAccessSection
                 watchedFoldersSection
             }
@@ -56,6 +59,23 @@ struct FileAccessSettingsTab: View {
             Button(String(localized: "OK"), role: .cancel) {}
         } message: {
             Text(authorizationError ?? String(localized: "AudioMator couldn't save access to this folder."))
+        }
+    }
+
+    private var persistenceWarningSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(viewModel.bookmarkPersistenceWarnings, id: \.self) { warning in
+                    Text(warning)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Label(
+                String(localized: "Saved Folder Access Needs Attention"),
+                systemImage: "exclamationmark.triangle"
+            )
         }
     }
 

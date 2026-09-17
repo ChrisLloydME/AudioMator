@@ -3,6 +3,22 @@ import XCTest
 @testable import AudioMator
 
 final class DirectoryMonitoringPlanTests: XCTestCase {
+    func testCorruptWatchedFolderCollectionIsQuarantinedAndCannotBeSilentlyOverwritten() throws {
+        let suiteName = "AudioMator.WatchedFolderCorruptionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let corruptData = Data("invalid-records".utf8)
+        defaults.set(corruptData, forKey: "watchedFolderRecords")
+
+        let store = WatchedFolderStore(userDefaults: defaults)
+        XCTAssertTrue(store.loadFolders().isEmpty)
+        XCTAssertEqual(store.loadState, .corrupt)
+        XCTAssertEqual(defaults.data(forKey: "watchedFolderRecords.corruptBackup"), corruptData)
+
+        XCTAssertFalse(store.saveFolders([]))
+        XCTAssertEqual(defaults.data(forKey: "watchedFolderRecords"), corruptData)
+    }
+
     func testWatchedFolderAccessFailureMessagesAvoidFullPaths() {
         let single = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music"])
         let multiple = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music", "Archive"])

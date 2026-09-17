@@ -4,6 +4,50 @@ import XCTest
 
 @MainActor
 final class FileAccessGrantStoreTests: XCTestCase {
+    func testCorruptGrantCollectionIsQuarantinedAndCannotBeSilentlyOverwritten() throws {
+        let suiteName = "FileAccessGrantStoreCorruptionTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let corruptData = Data("not-json".utf8)
+        defaults.set(corruptData, forKey: "fileAccessGrantRecords")
+
+        let store = FileAccessGrantStore(userDefaults: defaults)
+        XCTAssertTrue(store.loadGrants().isEmpty)
+        XCTAssertEqual(store.loadState, .corrupt)
+        XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords.corruptBackup"), corruptData)
+
+        XCTAssertFalse(store.saveGrants([]))
+        XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords"), corruptData)
+    }
+
+    func testSaveWithoutPriorLoadStillProtectsCorruptGrantCollection() throws {
+        let suiteName = "FileAccessGrantStorePreflightCorruptionTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let corruptData = Data([0xFF, 0x00, 0x7F])
+        defaults.set(corruptData, forKey: "fileAccessGrantRecords")
+
+        let store = FileAccessGrantStore(userDefaults: defaults)
+        XCTAssertFalse(store.saveGrants([]))
+        XCTAssertEqual(store.loadState, .corrupt)
+        XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords"), corruptData)
+        XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords.corruptBackup"), corruptData)
+    }
+
+    func testViewModelSurfacesCorruptBookmarkCollections() throws {
+        let suiteName = "BookmarkCollectionWarningTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(Data("bad grants".utf8), forKey: "fileAccessGrantRecords")
+        defaults.set(Data("bad folders".utf8), forKey: "watchedFolderRecords")
+
+        let viewModel = makeViewModel(defaults: defaults)
+
+        XCTAssertEqual(viewModel.bookmarkPersistenceWarnings.count, 2)
+        XCTAssertTrue(viewModel.fileAccessGrants.isEmpty)
+        XCTAssertTrue(viewModel.watchedFolders.isEmpty)
+    }
+
     func testGrantRoundTripsAsPersistentFolderBookmark() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {

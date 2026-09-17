@@ -9,7 +9,7 @@ import Foundation
 import TagLibAudioMetadata
 
 // Loaded off the main actor and then treated as an immutable snapshot in the UI.
-struct AudioFile: Identifiable, @unchecked Sendable {
+struct AudioFile: Identifiable, Sendable {
     let id: UUID
 
     // MARK: – Basic Tags
@@ -61,7 +61,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
     let format: String
 
     // MARK: – Artwork
-    let artwork: PlatformImage?
+    let artworkData: Data?
     let artworkFingerprint: Int?
     let fileFingerprint: AudioFileFingerprint?
     let metadataFileVersion: MetadataFileVersion?
@@ -155,7 +155,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         sampleRate: Double,
         channels: Int,
         format: String,
-        artwork: PlatformImage?,
+        artworkData: Data?,
         artworkFingerprint: Int?,
         fileFingerprint: AudioFileFingerprint? = nil,
         metadataFileVersion: MetadataFileVersion? = nil
@@ -204,7 +204,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
         self.sampleRate = sampleRate
         self.channels = channels
         self.format = format
-        self.artwork = artwork
+        self.artworkData = artworkData
         self.artworkFingerprint = artworkFingerprint
         self.fileFingerprint = fileFingerprint
         self.metadataFileVersion = metadataFileVersion
@@ -256,7 +256,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             sampleRate: sampleRate,
             channels: channels,
             format: format,
-            artwork: artwork,
+            artworkData: artworkData,
             artworkFingerprint: artworkFingerprint,
             fileFingerprint: try? AudioFileFingerprint.capture(at: url),
             metadataFileVersion: try? TagLibMetadataManager.fileVersion(at: url)
@@ -316,7 +316,7 @@ struct AudioFile: Identifiable, @unchecked Sendable {
             sampleRate: sampleRate,
             channels: channels,
             format: format,
-            artwork: artwork,
+            artworkData: artworkData,
             artworkFingerprint: artworkFingerprint,
             fileFingerprint: try? AudioFileFingerprint.capture(at: url),
             metadataFileVersion: try? TagLibMetadataManager.fileVersion(at: url)

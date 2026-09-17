@@ -2,7 +2,6 @@ import AVFoundation
 import CoreMedia
 import Foundation
 import TagLibAudioMetadata
-import AppKit
 
 extension AudioFile {
     nonisolated private static func artworkFingerprint(for data: Data) -> Int {
@@ -211,10 +210,10 @@ extension AudioFile {
 
         let artworkData = tag.artworkData
         if let artworkData {
-            self.artwork = PlatformImage(data: artworkData)
+            self.artworkData = artworkData
             self.artworkFingerprint = AudioFile.artworkFingerprint(for: artworkData)
         } else {
-            self.artwork = nil
+            self.artworkData = nil
             self.artworkFingerprint = nil
         }
 

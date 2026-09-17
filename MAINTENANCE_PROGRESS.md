@@ -40,6 +40,16 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   and therefore cannot update UI state later. The remaining real race was after a
   successful reload: two mutation tasks could reach MainActor model replacement
   out of completion order after their reservations had ended.
+- Concurrency lead J is confirmed for `AudioFile`: the immutable snapshot stored
+  an AppKit `NSImage`, was created on detached/background work, and used
+  `@unchecked Sendable` to cross concurrency boundaries.
+- Domain-coupling lead H is more nuanced than the audit described. Direct imports
+  remain outside the TagLib adapter, but `MetadataFileVersion` is an intentionally
+  opaque, hashable, sendable optimistic-concurrency token rather than a container
+  implementation detail. Duplicating or type-erasing it would weaken compile-time
+  safety without making the current single app target independently buildable.
+  Raw patch and field-key ownership remain candidates if a real domain module is
+  extracted; they should move with that module instead of gaining mirror types now.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
 - Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
@@ -52,8 +62,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Pending verification
 
-- The broader 2026-09-17 maintenance audit remains active. App/package coupling,
-  sendability, provider cache bounds, and CI/module structure are not yet resolved.
+- The broader 2026-09-17 maintenance audit remains active. Provider cache bounds,
+  entitlements, and CI/module structure are not yet resolved. Swift 6 migration
+  remains a separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
@@ -95,6 +106,9 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   discarded. MainActor file-model refresh generations now reject an older reload
   handoff after a newer generation has already been applied, including delayed
   batch track-renumber refreshes.
+- Replaced `AudioFile`'s stored `NSImage` and `@unchecked Sendable` conformance
+  with immutable artwork `Data` and compiler-checked `Sendable`. AppKit image
+  decoding is now a MainActor-only presentation projection.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -129,6 +143,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   semantics.
 - Passed focused `FileMutationSerializationTests` after adding post-reservation
   cancellation/commit coverage and out-of-order reload-generation coverage.
+- Passed the generic macOS build with compiler-checked `AudioFile: Sendable`
+  after moving artwork image construction to the presentation layer.
 - Passed: `TagLibReadWriteIntegrationTests` using the sibling package after resolving semantic number-pair verification (all tests in the class, 0 failures).
 - Passed package gate: sibling `swift test` (119 tests, 2 opt-in tests skipped, 0 failures).
 - Passed: forced generic macOS build through `bash scripts/codex-build.sh --force`.
@@ -163,3 +179,4 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `dd95ff8` — `fix: preserve corrupt bookmark collections`
 - `6839a0a` — `fix: derive privacy UI from network registry`
 - `01636f3` — `fix: unify filesystem path identity`
+- `1d75524` — `fix: reject stale mutation reloads`

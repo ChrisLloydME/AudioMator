@@ -6,7 +6,7 @@ AudioMator is built from the Xcode project. A SwiftPM core-logic test target and
 
 - macOS development environment.
 - Xcode capable of opening `AudioMator.xcodeproj`.
-- Swift Package Manager for resolving the remote `TagLibAudioMetadata` and Sparkle package references.
+- Swift Package Manager for resolving the remote `TagLibAudioMetadata` package reference.
 - Network access when resolving packages or using online app features.
 
 The app target and SwiftPM fast-test package currently declare macOS `15.0` deployment targets.
@@ -34,8 +34,7 @@ Xcode usually resolves Swift packages automatically. To resolve them manually:
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-This resolves the published `TagLibAudioMetadata` `0.5.1` release and
-`https://github.com/sparkle-project/Sparkle`.
+This resolves the published `TagLibAudioMetadata` `0.5.1` release.
 
 ## Fast Tests
 

@@ -59,6 +59,6 @@ Then update `NetworkServiceDisclosure`, privacy documentation, and relevant user
 
 ## Third-Party Licensing
 
-AudioMator uses TagLib, TagLibAudioMetadata, Sparkle, and user-triggered services such as Apple iTunes Search API, MusicBrainz, LRCLIB, and GitHub Releases. Before distribution, review upstream license and service obligations as described in `Docs/THIRD_PARTY_NOTICES.md`.
+AudioMator uses TagLib, TagLibAudioMetadata, and user-triggered services such as Apple iTunes Search API, MusicBrainz, LRCLIB, and GitHub Releases. Before distribution, review upstream license and service obligations as described in `Docs/THIRD_PARTY_NOTICES.md`.
 
 Do not describe commercial or legal compliance as complete unless the project has the required review material.

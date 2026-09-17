@@ -34,7 +34,6 @@ The test target uses `com.TheLloydME.AudioMatorTests` and macOS deployment targe
 - App Sandbox.
 - User-selected file read/write access.
 - Network client access.
-- Sparkle-related temporary mach lookup exceptions using `$(PRODUCT_BUNDLE_IDENTIFIER)-spks` and `$(PRODUCT_BUNDLE_IDENTIFIER)-spki`.
 
 These entitlements match the project model: local editing needs user-selected file access, and online lookup or update checks need outbound network access.
 
@@ -42,10 +41,7 @@ These entitlements match the project model: local editing needs user-selected fi
 
 `Package.swift` defines an `AudioMatorCoreLogic` library and an `AudioMatorCoreLogicTests` test target. This package is not the full app target. It excludes App, Features, UI, network clients, TagLib-dependent app paths, and other platform-specific code so fast tests stay deterministic.
 
-The Xcode workspace package resolution includes:
-
-- `TagLibAudioMetadata`
-- `Sparkle`
+The Xcode workspace package resolution includes `TagLibAudioMetadata`.
 
 ## Localization
 
@@ -65,9 +61,7 @@ Example:
 V2.3B26512
 ```
 
-Only the version part before `B` is used for update comparison. The build number is ignored for deciding whether an update exists.
-
-The current update presenter opens GitHub Releases for manual download. Sparkle code is behind the `ENABLE_SPARKLE_UPDATES` compile condition.
+The update checker compares version segments first and then the build number. The current update presenter opens GitHub Releases for manual download; it does not install updates.
 
 ## Network Service Disclosure
 

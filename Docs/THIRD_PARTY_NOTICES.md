@@ -80,16 +80,4 @@ LRCLIB is a public lyrics service, not third-party source code bundled into Audi
 
 ### Service Notice
 
-GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag with the local app version, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`; the update checker ignores the build part after `B` when comparing versions.
-
-## Sparkle
-
-- **Project**: Sparkle
-- **Website**: https://sparkle-project.org/
-- **Source**: https://github.com/sparkle-project/Sparkle
-- **Usage in this repository**: AudioMator keeps dormant macOS Sparkle update infrastructure available, but the current update flow uses GitHub Releases for manual download and does not use Sparkle automatic installation.
-- **Current resolution**: pinned by `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
-
-### Licensing
-
-Sparkle is third-party open-source software. Review Sparkle's upstream license before redistributing the app, and include any notices required by the Sparkle project in distributed builds.
+GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`.

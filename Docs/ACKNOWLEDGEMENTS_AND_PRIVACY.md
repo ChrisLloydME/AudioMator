@@ -33,20 +33,12 @@ AudioMator's current artwork lookup implementation is written in Swift in this r
 
 The iTunes Search API is an Apple web service, not source code bundled with AudioMator. AudioMator uses it only when you explicitly start iTunes metadata or artwork lookup features.
 
-### Sparkle
-
-- Project: <https://github.com/sparkle-project/Sparkle>
-- Website: <https://sparkle-project.org/>
-- Role in AudioMator: dormant macOS update infrastructure.
-
-Sparkle update checking is currently disabled in the app. The package reference and appcast-related project settings are kept in place, but the app target does not link Sparkle by default.
-
 ### GitHub Releases
 
 - Releases: <https://github.com/ChrisLloydME/AudioMator/releases>
 - Role in AudioMator: source of truth for published AudioMator release metadata and manual macOS update checks.
 
-On macOS, AudioMator can ask GitHub Releases for the latest release tag, compare it with the current app version, and open the GitHub Releases page when you choose to download an update. AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.3B26512`. The update check compares only the version part before `B`; the build number is not used to decide whether an update exists.
+On macOS, AudioMator can ask GitHub Releases for the latest release tag, compare it with the current app version and build, and open the GitHub Releases page when you choose to download an update. AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.3B26512`.
 
 ## Local-First Behavior
 
@@ -107,14 +99,14 @@ AudioMator only uses the network for optional features that you explicitly invok
 - Hosts: `api.github.com`, `github.com`
 - Purpose: check GitHub Releases for the latest published AudioMator version and open the GitHub Releases page for manual download.
 - Typical data sent: a standard latest-release request for the repository, not your media files.
-- Installation behavior: AudioMator does not silently install updates, download update archives in the background, or use Sparkle automatic installation in this lightweight flow.
+- Installation behavior: AudioMator does not silently install updates or download update archives in the background.
 
 ## What AudioMator Does Not Send
 
 - It does not upload local audio files for ordinary metadata editing.
 - It does not upload embedded album artwork from your files as part of routine editing.
 - It does not require network access for local editing, raw inspection, renaming, track/disc number maintenance, or text-file metadata import.
-- It does not run Sparkle update checks or install updates automatically.
+- It does not install updates automatically.
 
 ## Practical Privacy Summary
 

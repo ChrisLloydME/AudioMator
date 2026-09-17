@@ -147,9 +147,9 @@ See `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
 
 The macOS app includes a lightweight **Check for Updates...** flow. AudioMator asks the GitHub Releases API for the latest published release, compares the release tag with the app's current version, and opens the GitHub Releases page when you choose to download an update.
 
-AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`. The update checker compares only the version part before `B`; the build number is ignored. Version parts are compared as integer segments, so `2.10` is newer than `2.9`, and `2.2` is newer than `2.1.20`.
+AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`. The update checker compares version segments first and then the build number, so `V2.3B26513` is newer than `V2.3B26512`. Version parts are compared as integer segments, so `2.10` is newer than `2.9`, and `2.2` is newer than `2.1.20`.
 
-This flow does not install updates, download archives in the background, perform delta updates, or require code signing or notarization. Sparkle infrastructure remains dormant for macOS. The app does not start Sparkle at launch and does not link `Sparkle.framework` unless `ENABLE_SPARKLE_UPDATES` is added and the Sparkle package product is linked back into the app target.
+This flow does not install updates, download archives in the background, or perform delta updates. It only reports the available release and opens GitHub Releases when the user chooses to download it.
 
 ## TagLib Bridge Smoke Testing
 

@@ -6,8 +6,8 @@ Use this page to prepare release notes and verify AudioMator version metadata be
 
 The Xcode app target currently uses:
 
-- `MARKETING_VERSION = 2.5`
-- `CURRENT_PROJECT_VERSION = 26601`
+- `MARKETING_VERSION = 2.6`
+- `CURRENT_PROJECT_VERSION = 2691`
 
 Engineering health notes reference a historical baseline tag, `V2.4.1B26516`, and an audited head, `668c6aa`. Treat those as maintenance references, not release notes.
 
@@ -25,7 +25,7 @@ Example:
 V2.3B26512
 ```
 
-Only the version before `B` is used for update comparison. The build number is ignored when deciding whether a newer version exists.
+The version is compared first, followed by the build number. A higher build therefore counts as an update even when the marketing version is unchanged.
 
 ## Pre-Release Checklist
 
@@ -45,7 +45,7 @@ Recommended sections:
 
 - New Features: user-visible capabilities added in the release.
 - Fixes & Improvements: bug fixes, workflow improvements, stability work, and performance work, written in terms of user impact.
-- Compatibility Notes: macOS, iPadOS, TagLib, file-format, or Xcode compatibility notes.
+- Compatibility Notes: macOS, TagLib, file-format, or Xcode compatibility notes.
 - Privacy / Network Notes: any change to network triggers, transmitted fields, service hosts, or update-check behavior.
 - Verification: the test and build commands run for the release.
 
@@ -61,4 +61,4 @@ Before writing a release note, collect the actual release scope from:
 - Updated privacy, third-party, and compatibility notes.
 - Any known platform limitations that users should see before installing.
 
-Current project areas worth checking before the next release include manual update checks, structured track/disc number handling, metadata/text conversion, platform differences between macOS and iPadOS, and privacy boundaries for online metadata sources.
+Current project areas worth checking before the next release include manual update checks, structured track/disc number handling, metadata/text conversion, and privacy boundaries for online metadata sources.

@@ -2,15 +2,15 @@
 
 ## Swift package resolution fails
 
-The project requires GitHub network access to resolve both Swift packages. Then
+The project requires GitHub network access to resolve its Swift package. Then
 run:
 
 ```bash
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The current project resolves TagLibAudioMetadata remotely at version `0.5.1` and
-Sparkle remotely. TagLibAudioMetadata is required for the app metadata pipeline;
+The current project resolves TagLibAudioMetadata remotely at version `0.5.1`.
+TagLibAudioMetadata is required for the app metadata pipeline;
 verify the remote package version and the committed `Package.resolved` pin.
 
 ## `swift test` fails

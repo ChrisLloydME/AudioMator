@@ -171,7 +171,6 @@
 			mainGroup = 6ED09D0D2ED1ED550031CDAD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				6E1F4D582FAD100000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -438,10 +437,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd.";
-				INFOPLIST_KEY_SUEnableAutomaticChecks = NO;
-				INFOPLIST_KEY_SUEnableInstallerLauncherService = YES;
-				INFOPLIST_KEY_SUFeedURL = "https://chrislloydme.github.io/AudioMator/appcast.xml";
-				INFOPLIST_KEY_SUPublicEDKey = REPLACE_WITH_SPARKLE_EDDSA_PUBLIC_KEY;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -496,10 +491,6 @@
 				INFOPLIST_KEY_CFBundleDisplayName = AudioMator;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025-2026 Christopher Lloyd.";
-				INFOPLIST_KEY_SUEnableAutomaticChecks = NO;
-				INFOPLIST_KEY_SUEnableInstallerLauncherService = YES;
-				INFOPLIST_KEY_SUFeedURL = "https://chrislloydme.github.io/AudioMator/appcast.xml";
-				INFOPLIST_KEY_SUPublicEDKey = REPLACE_WITH_SPARKLE_EDDSA_PUBLIC_KEY;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -553,14 +544,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		6E1F4D582FAD100000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
-			};
-		};
 		6EC21B322F9D0EE60020DADE /* XCRemoteSwiftPackageReference "TagLibAudioMetadata" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git";

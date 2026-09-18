@@ -245,7 +245,7 @@ private struct ArtworkLookupResultTile: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.16) : Color(platformColor: .audiomatorWindowBackground))
+                    .fill(isSelected ? Color.accentColor.opacity(0.16) : Color(nsColor: .audiomatorWindowBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: outerCornerRadius, style: .continuous)

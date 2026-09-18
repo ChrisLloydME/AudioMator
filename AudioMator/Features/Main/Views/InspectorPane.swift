@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import AppKit
 
 let inspectorRowContentHeight: CGFloat = 20
 let inspectorRowVerticalPadding: CGFloat = 6
@@ -157,7 +158,7 @@ struct InspectorPane: View {
         )
     }
 
-    private func displayedArtwork(for file: AudioFile) -> PlatformImage? {
+    private func displayedArtwork(for file: AudioFile) -> NSImage? {
         switch currentEdit(for: file)?.artworkEditAction ?? .unchanged {
         case .unchanged:
             return file.artwork
@@ -176,7 +177,7 @@ struct InspectorPane: View {
         viewModel.artworkLookupDisabledReason(for: file)
     }
 
-    private var multiDisplayedArtwork: PlatformImage? {
+    private var multiDisplayedArtwork: NSImage? {
         viewModel.multiEdit?.displayedArtwork
     }
 
@@ -452,7 +453,7 @@ struct InspectorPane: View {
         GroupBox {
             VStack(spacing: 16) {
                 if let image = displayedArtwork(for: file) {
-                    Image(platformImage: image)
+                    Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
@@ -532,7 +533,7 @@ struct InspectorPane: View {
             VStack(spacing: 16) {
                 Group {
                     if let image = multiDisplayedArtwork {
-                        Image(platformImage: image)
+                        Image(nsImage: image)
                             .resizable()
                             .scaledToFit()
                             .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)

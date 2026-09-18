@@ -31,7 +31,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
             actionBar(plan: plan)
         }
         .modifier(MusicBrainzWorkbenchFrameModifier())
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .navigationTitle("Review & Apply Tags")
         .task {
             store.refreshLoadedFiles(viewModel.files)

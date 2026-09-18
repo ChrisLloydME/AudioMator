@@ -964,7 +964,7 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func chooseExternalTextFile(for selectedMode: MetadataConverterMode) {
-        PlatformDocumentPicker.pickTextFile { url in
+        MacDocumentPicker.pickTextFile { url in
             guard let url else { return }
             guard selectedMode == .textToMetadata || selectedMode == .csvToMetadata else { return }
 

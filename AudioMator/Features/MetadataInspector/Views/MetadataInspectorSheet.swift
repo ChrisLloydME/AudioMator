@@ -104,7 +104,7 @@ struct MetadataInspectorSheet: View {
     }
 
     private func copyToPasteboard(_ string: String) {
-        PlatformPasteboard.copy(string)
+        MacPasteboard.copy(string)
     }
 }
 

@@ -19,7 +19,7 @@ struct LRCLIBLyricsBrowserView: View {
         }
         .frame(minWidth: 920, minHeight: 620)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .audiomatorMacTitlebarScrollEdgeBar()
         .onAppear {
             if store.hasFiles {

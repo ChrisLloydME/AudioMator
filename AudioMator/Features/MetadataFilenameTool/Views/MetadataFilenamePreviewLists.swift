@@ -37,11 +37,11 @@ struct MetadataConverterPreviewCard<Content: View>: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: innerCardRadius, style: .continuous)
-                    .fill(Color(platformColor: .audiomatorControlBackground))
+                    .fill(Color(nsColor: .audiomatorControlBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: innerCardRadius, style: .continuous)
-                    .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
+                    .stroke(Color(nsColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
             )
         }
     }

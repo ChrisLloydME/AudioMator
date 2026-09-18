@@ -5,8 +5,8 @@ import AppKit
 // MARK: - Read-only monospaced text view (AppKit-backed)
 struct ReadOnlyMonospacedTextView: NSViewRepresentable {
     var text: String
-    var font: PlatformFont = PlatformFont.monospacedSystemFont(ofSize: PlatformFont.systemFontSize, weight: .regular)
-    var textColor: PlatformColor = .audiomatorLabel
+    var font: NSFont = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    var textColor: NSColor = .audiomatorLabel
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView(frame: .zero)

@@ -299,7 +299,7 @@ struct FileAccessSettingsTab: View {
             }
 
             Button {
-                PlatformWorkspace.open(url)
+                MacWorkspace.open(url)
             } label: {
                 Label(String(localized: "Open Folder"), systemImage: "arrow.up.forward")
                     .labelStyle(.iconOnly)

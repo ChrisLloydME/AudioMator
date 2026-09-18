@@ -57,11 +57,11 @@ enum WelcomeSplashPage: Int, CaseIterable {
             WelcomeSplashPageContent(
                 page: self,
                 title: "Welcome to AudioMator",
-                subtitle: "Inspect, clean up, and rewrite audio metadata on \(Self.platformDeviceName).",
+                subtitle: "Inspect, clean up, and rewrite audio metadata on your Mac.",
                 rows: [
                     WelcomeSplashRowContent(
                         symbol: "music.note",
-                        title: "Edit metadata on \(Self.platformDeviceName)",
+                        title: "Edit metadata on your Mac",
                         description: "Open the tracks you want and work locally."
                     ),
                     WelcomeSplashRowContent(
@@ -70,8 +70,8 @@ enum WelcomeSplashPage: Int, CaseIterable {
                         description: "Spot important fields fast and make precise fixes."
                     ),
                     WelcomeSplashRowContent(
-                        symbol: Self.platformNativeSymbol,
-                        title: "Feels native on \(Self.platformName)",
+                        symbol: "macwindow",
+                        title: "Feels native on macOS",
                         description: "Uses familiar windows, sheets, and inspectors."
                     )
                 ]
@@ -185,15 +185,4 @@ enum WelcomeSplashPage: Int, CaseIterable {
         }
     }
 
-    private static var platformDeviceName: String {
-        "your Mac"
-    }
-
-    private static var platformName: String {
-        "macOS"
-    }
-
-    private static var platformNativeSymbol: String {
-        "macwindow"
-    }
 }

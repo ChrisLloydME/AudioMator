@@ -90,7 +90,7 @@ struct OnlineMetadataBrowserView: View {
                 }
                 .frame(minWidth: 920, minHeight: 620)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(Color(platformColor: .audiomatorWindowBackground))
+                .background(Color(nsColor: .audiomatorWindowBackground))
             }
         }
         .onDisappear {
@@ -121,7 +121,7 @@ struct OnlineMetadataBrowserView: View {
         }
         .frame(minWidth: 920, minHeight: 620)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .onChange(of: store.mode) { oldMode, newMode in
             store.handleModeChange(from: oldMode, to: newMode)
         }
@@ -718,11 +718,11 @@ private struct MusicBrainzFileSelectionSummaryList: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(platformColor: .audiomatorControlBackground))
+                .fill(Color(nsColor: .audiomatorControlBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.3), lineWidth: 1)
+                .stroke(Color(nsColor: .audiomatorSeparator).opacity(0.3), lineWidth: 1)
         )
     }
 }

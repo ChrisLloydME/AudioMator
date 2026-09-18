@@ -175,11 +175,11 @@ private struct iTunesFileSelectionSummaryList: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(platformColor: .audiomatorControlBackground))
+                .fill(Color(nsColor: .audiomatorControlBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.3), lineWidth: 1)
+                .stroke(Color(nsColor: .audiomatorSeparator).opacity(0.3), lineWidth: 1)
         )
     }
 }

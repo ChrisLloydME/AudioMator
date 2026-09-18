@@ -220,7 +220,7 @@ struct ContentView: View {
 
         Task { @MainActor in
             await Task.yield()
-            PlatformApplication.terminate()
+            MacApplication.terminate()
         }
     }
 

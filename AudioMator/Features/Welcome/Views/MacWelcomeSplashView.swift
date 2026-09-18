@@ -189,8 +189,8 @@ private struct MacWelcomeSplashHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if let image = PlatformApplication.appIconImage {
-                Image(platformImage: image)
+            if let image = MacApplication.appIconImage {
+                Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()

@@ -356,24 +356,24 @@ struct ContentPane: View {
 
     private func openSelectedFiles() {
         for file in selectedFiles {
-            PlatformWorkspace.open(file.url)
+            MacWorkspace.open(file.url)
         }
     }
 
     private func revealSelectedFilesInFinder() {
         let urls = selectedFiles.map { $0.url }
         guard !urls.isEmpty else { return }
-        PlatformWorkspace.reveal(urls)
+        MacWorkspace.reveal(urls)
     }
 
     private func copySelectedFilePaths() {
         let text = selectedFiles.map { $0.url.path }.joined(separator: "\n")
-        PlatformPasteboard.copy(text)
+        MacPasteboard.copy(text)
     }
 
     private func copySelectedFileNames() {
         let text = selectedFiles.map { $0.url.lastPathComponent }.joined(separator: "\n")
-        PlatformPasteboard.copy(text)
+        MacPasteboard.copy(text)
     }
 
     private func clearAllMetadataForSelectedFiles() {

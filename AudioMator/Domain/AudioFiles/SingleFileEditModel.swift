@@ -1,7 +1,8 @@
 import Foundation
+import AppKit
 
 struct PendingArtwork {
-    var image: PlatformImage
+    var image: NSImage
     var data: Data
     var mimeType: String
 }
@@ -599,7 +600,7 @@ enum MultiFileExplicitEditState: Hashable, Identifiable {
 
 enum MultiFileArtworkState {
     case none
-    case shared(PlatformImage)
+    case shared(NSImage)
     case mixed
 }
 
@@ -674,7 +675,7 @@ struct MultiFileEditModel {
         }
     }
 
-    var displayedArtwork: PlatformImage? {
+    var displayedArtwork: NSImage? {
         switch artworkEditAction {
         case .unchanged:
             switch initialArtworkState {

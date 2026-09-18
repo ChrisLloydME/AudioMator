@@ -1,5 +1,7 @@
 # Reliability Remediation Evidence
 
+> Historical evidence from the 2026-06-21 remediation. Commands, platform findings, CI scope, versions, and paths below describe that pass only. Current CI also runs the serial app-hosted Xcode suite, and AudioMator is now macOS-only.
+
 This file records the evidence used for the reliability remediation requested on
 2026-06-21. It intentionally contains no user media paths, metadata values,
 credentials, or signing material.

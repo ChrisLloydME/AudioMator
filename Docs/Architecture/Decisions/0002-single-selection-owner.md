@@ -2,10 +2,11 @@
 
 - Status: Accepted and implemented
 - Date: 2026-07-25
+- Amended: 2026-09-18 (iPadOS product removed)
 
 ## Context
 
-`SharedState.selectedAudioIDs` bound the macOS/iPad lists while `AudioViewModel.selectedAudioIDs` drove draft and save behavior. `ContentPane` and `IPadWorkspaceView` copied changes between them with `onChange`/`onAppear`, so a missing or reordered callback could leave presentation selection and mutation targets different.
+At the time of this decision, `SharedState.selectedAudioIDs` bound the macOS/iPad lists while `AudioViewModel.selectedAudioIDs` drove draft and save behavior. `ContentPane` and the former iPad workspace copied changes between them with `onChange`/`onAppear`, so a missing or reordered callback could leave presentation selection and mutation targets different. The iPadOS product was subsequently removed; the single-owner invariant still applies to macOS.
 
 ## Decision
 
@@ -27,4 +28,4 @@
 ## Verification
 
 - App-hosted test covers unknown-ID filtering, single/multi draft transitions, selected-file removal and clear-list pruning.
-- macOS inspector workflow tests and generic iOS compile verify both platform consumers.
+- macOS inspector workflow tests verify the remaining product consumer.

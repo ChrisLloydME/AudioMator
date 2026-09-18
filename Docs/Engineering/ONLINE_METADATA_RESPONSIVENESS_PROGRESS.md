@@ -1,5 +1,7 @@
 # Online Metadata Responsiveness Progress
 
+> Historical snapshot of the 2026-07-25/26 responsiveness pass. Its runtime measurements, test counts, iPadOS references, and toolchain notes are retained as period evidence, not current platform or release guidance. AudioMator is now macOS-only.
+
 ## Goal
 
 Make every reachable MusicBrainz and iTunes browser page recover to an interactive state after success, failure, timeout, cancellation, navigation, source changes, and window closure without changing search semantics, matching rules, or the visible workflow.

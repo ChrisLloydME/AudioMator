@@ -1,5 +1,7 @@
 # AudioMator 架构优化进度
 
+> Historical snapshot from 2026-07-25. Test counts, platform gates, paths, and architecture statements below describe that maintenance pass, not the current repository. AudioMator is now macOS-only; see `MAINTENANCE_PROGRESS.md` and current wiki/architecture documents for present behavior.
+
 ## 检查点
 
 - 审计日期：2026-07-25

@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-AudioMator is a native audio metadata editor for macOS and iPadOS. It uses the `AudioMator.xcodeproj` Xcode project and the `AudioMator` scheme.
+AudioMator is a native audio metadata editor for macOS. It uses the `AudioMator.xcodeproj` Xcode project and the `AudioMator` scheme.
 
-The app is built around a TagLib-powered metadata pipeline from the `TagLibAudioMetadata` Swift package. It supports inspecting and editing audio tags, artwork, filename/metadata conversion, track renumbering, MusicBrainz-assisted tagging, watched folders on macOS, and a session-scoped iPad workflow.
+The app is built around a TagLib-powered metadata pipeline from the `TagLibAudioMetadata` Swift package. It supports inspecting and editing audio tags, artwork, filename/metadata conversion, track renumbering, online metadata assistance, and watched folders.
 
 Use native Apple platform technologies. The project has no preferred native UI framework; choose the implementation that delivers the best performance, platform behavior, and code simplicity for the feature.
 
@@ -13,7 +13,7 @@ Use native Apple platform technologies. The project has no preferred native UI f
 - `AudioMator/App/`: app entry point, commands, notifications, and platform delegates.
 - `AudioMator/Core/`: shared platform, network disclosure, and audio-format support.
 - `AudioMator/Domain/`: metadata models, audio-file models, metadata editing, metadata exchange, rename templates, file sources, track renumbering, and UI state.
-- `AudioMator/Features/`: native UI feature areas for the main window, iPad workspace, shared online metadata entry point, provider-specific metadata/lyrics browsers, metadata editor, filename tools, metadata inspector, settings, and welcome flow.
+- `AudioMator/Features/`: native UI feature areas for the main window, shared online metadata entry point, provider-specific metadata/lyrics browsers, metadata editor, filename tools, metadata inspector, settings, and welcome flow.
 - `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes, LRCLIB, shared online metadata, GitHub release-note, and update-check services.
 - `Config/`: project configuration files that should not be compiled or copied from the synchronized app source root.
 - `Docs/`: maintainer docs, README images, wiki pages, privacy acknowledgements, and third-party notices.
@@ -25,12 +25,7 @@ The app source is attached to the target through Xcode's file-system synchronize
 
 ## Platform Model
 
-- macOS is the full desktop workflow: watched folders, three-pane main window, file paths, Finder-style reveal/open actions, and secondary tool windows.
-- iPadOS is session-only: no watched folders, no desktop folder persistence, content + inspector layout, security-scoped imports, and sheet-based tools.
-
-- iPadOS development is currently in maintenance mode. Keep the iPadOS target compiling successfully, but do not implement new iPad-specific features, UI, or platform optimizations unless the user explicitly requests them. New functionality may remain macOS-only until iPadOS development resumes.
-
-- Gate platform-specific code with existing compatibility patterns in `AudioMator/Core/Platform/PlatformCompatibility.swift`.
+AudioMator is macOS-only. Its product workflow includes watched folders, a three-pane main window, file paths, Finder-style reveal/open actions, and secondary tool windows. Do not reintroduce iPadOS/iOS deployment code or compatibility abstractions without an explicit product decision.
 
 ## Architecture Rules
 
@@ -92,7 +87,6 @@ bash scripts/codex-build.sh
 bash scripts/codex-build.sh --force
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'platform=macOS' -derivedDataPath .deriveddata-codex -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
 
 Use `swift test --filter AudioMatorCoreLogicTests` for the fastest local regression sensors around pure domain logic. This SwiftPM target intentionally includes only selected non-UI source files and should stay free of platform UI frameworks, TagLib, and network-dependent tests. See `Tests/FAST_TEST_GAPS.md` before broad refactors so known app-hosted coverage gaps are not mistaken for covered behavior.
@@ -118,12 +112,10 @@ bash scripts/build-taglib-bridge-smoke.sh
 
 If `xcodebuild` fails in sandboxed environments because it cannot write SwiftPM, Clang, simulator, or Xcode cache files under the user Library, treat that as an environment issue and rerun with appropriate permissions before diagnosing project code.
 
-Do not launch the iPadOS simulator, boot virtual devices, or use simulator-only validation unless the user explicitly asks for it. Prefer generic iOS destination builds for iPadOS compile checks.
-
 ## Dependency Notes
 
 - Swift Package Manager resolves `TagLibAudioMetadata` from `https://github.com/ChrisLloydME/TagLibAudioMetadata.git`.
-- Current app target deployment settings in the project are macOS 26.0 and iOS/iPadOS 26.0; project-level macOS build settings may be newer for local Xcode tooling.
+- The app target deployment setting is macOS 15.0.
 - Do not vendor package source into this repository unless explicitly requested.
 
 ### TagLibAudioMetadata Ownership Boundary

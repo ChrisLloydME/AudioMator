@@ -1,6 +1,6 @@
 # Metadata Architecture Maintenance Progress
 
-Last updated: 2026-09-17
+Last updated: 2026-09-18
 
 ## Scope
 
@@ -8,7 +8,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 ## Current findings
 
-- **Platform state:** iPadOS was deprecated and removed in commit `fe10c62`. The app target now supports only `macosx`; iPad workspace/tool/welcome sources, iOS conditional branches, iPad assets, deployment settings, and plist keys were removed. Shared domain and service code was retained.
+- **Platform state:** iPadOS was deprecated and removed in commit `fe10c62`. The app target now supports only `macosx`; iPad workspace/tool/welcome sources, iOS conditional branches, iPad assets, deployment settings, and plist keys were removed. Commit `84ca385` completed the source cleanup by replacing obsolete `Platform*` aliases and always-true platform branches with direct AppKit types and explicitly macOS-owned helpers.
 - **Current dependency state:** `AudioMator.xcodeproj` resolves the remote `TagLibAudioMetadata` package at exact version `0.5.1`. The former sibling-checkout reference was removed after the matching upstream release became available.
 - One inspector Save now constructs one package `MetadataPatch` containing ordinary fields, formatted track/disc intent, artwork, and all four advisory states. AudioMator no longer performs follow-up advisory, alias, or MP4 cleanup transactions.
 - Editable metadata is loaded from one `MetadataSnapshot`; its `MetadataFileVersion` remains attached to the `AudioFile` edit snapshot and is supplied at every inspector, raw editor, erase, lyrics, and track-renumber transaction boundary.
@@ -76,14 +76,15 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - App-side container compatibility: confirmed and removed from the save path. Runtime format discovery through `AudioFormatSupport` remains intentional capability discovery, not container mutation logic.
 - Large `AudioViewModel`: reviewed but not mechanically split. Mutation orchestration already has a feature-level executor/coordinator boundary; a broad service extraction was not necessary for the correctness fixes and would expand risk.
 
-## Pending verification
+## Remaining follow-ups
 
-- The broader 2026-09-17 maintenance audit remains active. Swift 6 migration
-  remains a separately tracked follow-up after test-double isolation is repaired.
+- The coordinated maintenance audit is complete. Swift 6 migration remains a
+  separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
 - Raw-editor newline boundary ambiguity remains explicitly deferred: a newline inside one raw value and the UI separator between values are not yet distinguishable.
+- AudioMator remains on published TagLibAudioMetadata 0.5.1. The sibling repository fixes status-only false read conflicts and unsolicited optional-read logging in `f0ea153`; those changes require an independent package release before adoption here.
 
 ## Architectural direction
 
@@ -140,6 +141,12 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Added the extracted Foundation-only MusicBrainz scheduler/cache implementation
   to the fast package and moved its five deterministic tests there. This resolves
   an unhandled-source warning and increases the fast lane from 51 to 56 tests.
+- Completed the macOS-only source model: renamed the compatibility file to
+  `MacPlatformSupport.swift`, removed platform image/font/color aliases and
+  always-true watched-folder branching, and made AppKit ownership explicit.
+- Stabilized the app-hosted fixture-readability test by reading private temporary
+  copies. This is a test-only workaround for the published package's status-time
+  read guard and can be reconsidered after AudioMator adopts the package fix.
 - Established clean `main` baseline and current dependency resolution.
 - Created this durable journal before substantive refactoring.
 - Replaced the compatibility-object plus follow-up writes with one semantic package patch per Save, including four-state advisory and artwork.
@@ -154,7 +161,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Added application integration tests for independent FLAC Year/Release Date edit and removal behavior, plus explicit rejection and byte preservation for an unsupported MP4 Year edit.
 - Hardened `AudioMetadataPipeline` so conformers must implement exact raw-value reads, delta patches, and version-aware mutation entry points. Legacy scalar and unversioned conveniences are now one-way adapters built on those strong primitives rather than lossy fallback requirements.
 - Added a protocol contract regression proving that whole-map convenience writes preserve exact arrays, compute removals as a delta, and forward the caller's `MetadataFileVersion`.
-- Normalized the Xcode local-package reference representation and documented the exact current sibling-checkout mode versus the future remote release mode. The remote switch remains blocked on publishing the coordinated package version.
+- During integration, normalized the temporary local-package reference used for coordinated validation. The project subsequently returned to the published remote exact dependency at 0.5.1; newer package fixes remain blocked on an independent release.
 - Re-evaluated Swift 6 and large-module work after the correctness changes. Swift 6 remains a deliberate follow-up because enabling it now exposes actor-isolation work in test doubles and shared-state boundaries; suppressing those diagnostics would not be a sound migration. `AudioViewModel` already delegates mutation execution/coordinating and metadata adaptation, so no additional size-only split was justified in this pass.
 
 ## Tests and validation
@@ -197,6 +204,15 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Final app-hosted gate: the complete serial macOS suite passed 339 tests with 0 skips and 0 failures. The result retains one known SwiftUI test-harness runtime warning about reading `State` outside an installed view.
 - Final build gates: forced generic macOS build and generic iOS build both passed with code signing disabled where applicable; no simulator was launched.
 - The first full-suite run exposed one migrated LRCLIB test backend that recorded only a raw delta while its assertion inspected the resulting map. The backend now applies `RawMetadataPatch` to its baseline, its focused regression passes, and the subsequent full suite is green.
+- Passed the forced universal macOS Debug build after the final AppKit/macOS source cleanup.
+- Passed the focused app-hosted fixture-readability regression after isolating bundled fixtures in temporary copies. The compiler continues to report the already-tracked Swift 6 actor-isolation warnings in lock-protected test doubles.
+- Final current gates on 2026-09-18: the SwiftPM fast harness passed 56 tests;
+  the complete serial app-hosted Xcode suite passed 350 tests with no failures or
+  skips; and the forced universal macOS Debug build succeeded. The Xcode result
+  retains one known SwiftUI test-harness runtime warning about reading `State`
+  outside an installed view.
+- The independent TagLibAudioMetadata suite passed 128 tests with 2 opt-in skips
+  and no failures after its final maintenance commits.
 
 ## Commits
 
@@ -220,3 +236,6 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - `340cbdf` — `refactor: make audio file snapshots sendable`
 - `681dfdc` — `fix: bound MusicBrainz response caching`
 - `502162b` — `chore: remove dormant Sparkle configuration`
+- `e352b1e` — `ci: validate the real Xcode test graph`
+- `84ca385` — `refactor: finish macOS-only platform cleanup`
+- `2a296b0` — `test: isolate bundled metadata fixtures`

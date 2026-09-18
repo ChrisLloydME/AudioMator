@@ -1,5 +1,7 @@
 # AudioMator Release Readiness — 2026-07-25
 
+> Historical release-readiness snapshot for the named date and commits. It does not describe the current version, platform support, dependencies, CI, or release readiness. Use the current project settings, `MAINTENANCE_PROGRESS.md`, and current validation results instead.
+
 ## Verdict
 
 Source, tests, generic platform builds, and disposable-fixture metadata operations are ready for the separately authorized signing/notarization/upload process. This audit did not push, tag, sign a release artifact, notarize, upload, or publish.

@@ -57,7 +57,7 @@ struct iTunesTrackDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
     }
 
     private var overviewItems: [iTunesMetadataInfoItem] {
@@ -277,7 +277,7 @@ struct iTunesAlbumDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
     }
 
     private func matchPreviewSection(
@@ -690,7 +690,7 @@ private struct iTunesEmbeddedWebPageView: View {
     var body: some View {
         EmbeddedWebView(url: url, reloadToken: reloadToken)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(platformColor: .audiomatorWindowBackground))
+            .background(Color(nsColor: .audiomatorWindowBackground))
             .navigationTitle(title)
             .audiomatorNavigationSubtitle(url.host() ?? "iTunes")
             .toolbar {
@@ -702,7 +702,7 @@ private struct iTunesEmbeddedWebPageView: View {
                     }
 
                     Button {
-                        PlatformPasteboard.copy(url.absoluteString)
+                        MacPasteboard.copy(url.absoluteString)
                     } label: {
                         Label("Copy Link", systemImage: "doc.on.doc")
                     }
@@ -776,7 +776,7 @@ private struct iTunesMatchedFilesDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .navigationTitle("Matched Files")
     }
 }
@@ -915,7 +915,7 @@ private struct iTunesMetadataComparisonDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .navigationTitle("Metadata Comparison")
     }
 }

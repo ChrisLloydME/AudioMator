@@ -7,7 +7,7 @@ extension AudioViewModel {
 
     func addFiles() {
         guard currentFileSourceMode == .quickImport else { return }
-        PlatformDocumentPicker.pickAudioFiles { [weak self] urls in
+        MacDocumentPicker.pickAudioFiles { [weak self] urls in
             guard !urls.isEmpty else { return }
             Task { @MainActor in
                 self?.importQuickFiles(from: urls)
@@ -17,7 +17,7 @@ extension AudioViewModel {
 
     func pickArtwork(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
-        PlatformDocumentPicker.pickImage { [weak self] url in
+        MacDocumentPicker.pickImage { [weak self] url in
             guard let self, let url else { return }
 
             Task { @MainActor in
@@ -63,7 +63,7 @@ extension AudioViewModel {
     func importArtworkFromClipboard(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
 
-        guard let image = PlatformPasteboard.image else {
+        guard let image = MacPasteboard.image else {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
                 reason: "No image was found in the clipboard."
@@ -89,7 +89,7 @@ extension AudioViewModel {
 
     func pickArtwork(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
-        PlatformDocumentPicker.pickImage { [weak self] url in
+        MacDocumentPicker.pickImage { [weak self] url in
             guard let self, let url else { return }
 
             Task { @MainActor in
@@ -138,7 +138,7 @@ extension AudioViewModel {
     func importArtworkFromClipboard(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
 
-        guard let image = PlatformPasteboard.image else {
+        guard let image = MacPasteboard.image else {
             presentMetadataWriteHUD(
                 style: .failure,
                 title: "Artwork Update Failed",
@@ -239,7 +239,7 @@ extension AudioViewModel {
         return try pendingArtwork(fromNormalizedPNGData: pngData)
     }
 
-    private func loadPendingArtwork(from image: PlatformImage) throws -> PendingArtwork {
+    private func loadPendingArtwork(from image: NSImage) throws -> PendingArtwork {
         guard let pngData = image.audiomatorPNGData else {
             throw NSError(
                 domain: "AudioMator.Artwork",
@@ -253,7 +253,7 @@ extension AudioViewModel {
     }
 
     private func pendingArtwork(fromNormalizedPNGData pngData: Data) throws -> PendingArtwork {
-        guard let previewImage = PlatformImage(data: pngData) else {
+        guard let previewImage = NSImage(data: pngData) else {
             throw NSError(
                 domain: "AudioMator.Artwork",
                 code: 3,

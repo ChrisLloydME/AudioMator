@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 
 enum AudiomatorScrollEdgeEffectStyle {
     case soft
@@ -58,25 +59,7 @@ extension View {
     }
 }
 
-import AppKit
-
-typealias PlatformImage = NSImage
-typealias PlatformFont = NSFont
-typealias PlatformColor = NSColor
-
-extension Image {
-    init(platformImage: PlatformImage) {
-        self.init(nsImage: platformImage)
-    }
-}
-
-extension Color {
-    init(platformColor: PlatformColor) {
-        self.init(nsColor: platformColor)
-    }
-}
-
-extension PlatformImage {
+extension NSImage {
     var audiomatorPNGData: Data? {
         guard
             let tiffData = tiffRepresentation,
@@ -89,14 +72,14 @@ extension PlatformImage {
     }
 }
 
-extension PlatformColor {
-    static var audiomatorWindowBackground: PlatformColor { .windowBackgroundColor }
-    static var audiomatorControlBackground: PlatformColor { .controlBackgroundColor }
-    static var audiomatorTextBackground: PlatformColor { .textBackgroundColor }
-    static var audiomatorSeparator: PlatformColor { .separatorColor }
-    static var audiomatorLabel: PlatformColor { .labelColor }
-    static var audiomatorSecondaryLabel: PlatformColor { .secondaryLabelColor }
-    static var audiomatorTertiaryLabel: PlatformColor { .tertiaryLabelColor }
+extension NSColor {
+    static var audiomatorWindowBackground: NSColor { .windowBackgroundColor }
+    static var audiomatorControlBackground: NSColor { .controlBackgroundColor }
+    static var audiomatorTextBackground: NSColor { .textBackgroundColor }
+    static var audiomatorSeparator: NSColor { .separatorColor }
+    static var audiomatorLabel: NSColor { .labelColor }
+    static var audiomatorSecondaryLabel: NSColor { .secondaryLabelColor }
+    static var audiomatorTertiaryLabel: NSColor { .tertiaryLabelColor }
 }
 
 extension View {
@@ -237,30 +220,28 @@ private final class AudiomatorMacTitlebarInsetObserverView: NSView {
     }
 }
 
-enum PlatformApplication {
-    static let supportsWatchedFolders = true
-
+enum MacApplication {
     static func terminate() {
         NSApplication.shared.terminate(nil)
     }
 
-    static var appIconImage: PlatformImage? {
+    static var appIconImage: NSImage? {
         NSApplication.shared.applicationIconImage
     }
 }
 
-enum PlatformPasteboard {
+enum MacPasteboard {
     static func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
 
-    static var image: PlatformImage? {
+    static var image: NSImage? {
         NSPasteboard.general.readObjects(forClasses: [NSImage.self])?.first as? NSImage
     }
 }
 
-enum PlatformWorkspace {
+enum MacWorkspace {
     static func open(_ url: URL) {
         NSWorkspace.shared.open(url)
     }
@@ -288,7 +269,7 @@ enum SecurityScopedResourceAccess {
     }
 }
 
-enum PlatformDocumentPicker {
+enum MacDocumentPicker {
     static func pickAudioFiles(completion: @escaping ([URL]) -> Void) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true

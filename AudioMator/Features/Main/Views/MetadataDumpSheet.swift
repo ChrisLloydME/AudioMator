@@ -20,7 +20,7 @@ struct MetadataDumpSheet: View {
                 Spacer()
 
                 Button("Copy") {
-                    PlatformPasteboard.copy(metadataDumpText)
+                    MacPasteboard.copy(metadataDumpText)
                 }
             }
 

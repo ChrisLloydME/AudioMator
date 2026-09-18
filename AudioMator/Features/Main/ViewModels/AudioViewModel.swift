@@ -179,9 +179,7 @@ final class AudioViewModel: ObservableObject {
         self.artworkLookupService = artworkLookupService
         self.artworkLookupOperationTimeout = artworkLookupOperationTimeout
 
-        let restoredFolders = PlatformApplication.supportsWatchedFolders
-            ? watchedFolderStore.loadFolders()
-            : []
+        let restoredFolders = watchedFolderStore.loadFolders()
         self.watchedFolders = restoredFolders
 
         let restoredFileAccessGrants = fileAccessGrantStore.loadGrants()
@@ -416,8 +414,6 @@ final class AudioViewModel: ObservableObject {
 
     @discardableResult
     func addWatchedFolders() -> SidebarSelection? {
-        guard PlatformApplication.supportsWatchedFolders else { return nil }
-
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = true

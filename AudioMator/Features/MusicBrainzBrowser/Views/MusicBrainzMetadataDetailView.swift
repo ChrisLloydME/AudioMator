@@ -74,7 +74,7 @@ struct MusicBrainzMetadataDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
     }
 
     @ViewBuilder
@@ -793,11 +793,11 @@ struct MetadataSectionCard<Content: View>: View {
             contentContainer
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color(platformColor: .audiomatorControlBackground))
+                    .fill(Color(nsColor: .audiomatorControlBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color(platformColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
+                    .stroke(Color(nsColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
             )
         }
     }
@@ -1260,7 +1260,7 @@ private struct MatchedFilesDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .navigationTitle("Matched Files")
     }
 }
@@ -1291,7 +1291,7 @@ private struct MetadataComparisonDetailView: View {
         .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .navigationTitle("Metadata Comparison")
     }
 }
@@ -1441,7 +1441,7 @@ private struct MusicBrainzEmbeddedWebPageView: View {
     var body: some View {
         EmbeddedWebView(url: url, reloadToken: reloadToken)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(platformColor: .audiomatorWindowBackground))
+            .background(Color(nsColor: .audiomatorWindowBackground))
             .navigationTitle(title)
             .audiomatorNavigationSubtitle(url.host() ?? "MusicBrainz")
             .toolbar {
@@ -1453,7 +1453,7 @@ private struct MusicBrainzEmbeddedWebPageView: View {
                     }
 
                     Button {
-                        PlatformPasteboard.copy(url.absoluteString)
+                        MacPasteboard.copy(url.absoluteString)
                     } label: {
                         Label("Copy Link", systemImage: "doc.on.doc")
                     }

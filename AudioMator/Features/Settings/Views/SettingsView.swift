@@ -447,7 +447,7 @@ private struct MacSettingsDivider: View {
         Divider()
             .padding(.leading, 56)
             .padding(.trailing, 18)
-            .overlay(Color(platformColor: .audiomatorSeparator).opacity(0.28))
+            .overlay(Color(nsColor: .audiomatorSeparator).opacity(0.28))
     }
 }
 
@@ -872,8 +872,8 @@ private struct AboutAppIconView: View {
     }
 
     var body: some View {
-        if let applicationIcon = PlatformApplication.appIconImage {
-            Image(platformImage: applicationIcon)
+        if let applicationIcon = MacApplication.appIconImage {
+            Image(nsImage: applicationIcon)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
@@ -1202,7 +1202,7 @@ private struct ReleaseNoteCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(platformColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color(nsColor: .audiomatorControlBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

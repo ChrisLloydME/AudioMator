@@ -4,15 +4,15 @@ extension AudioViewModel {
     // MARK: - Context Menu Actions (Middle List)
 
     func openWithDefaultApp(_ file: AudioFile) {
-        PlatformWorkspace.open(file.url)
+        MacWorkspace.open(file.url)
     }
 
     func revealInFinder(_ file: AudioFile) {
-        PlatformWorkspace.reveal([file.url])
+        MacWorkspace.reveal([file.url])
     }
 
     func copyFilePath(_ file: AudioFile) {
-        PlatformPasteboard.copy(file.url.path)
+        MacPasteboard.copy(file.url.path)
     }
 
     func removeFromList(_ file: AudioFile) {

@@ -78,7 +78,7 @@ struct iTunesBrowserView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .onAppear {
             if store.fileSelectionSummary == nil, !selectedFiles.isEmpty {
                 seedSelection()

@@ -30,7 +30,7 @@ struct iTunesTaggingWorkbenchView: View {
             actionBar(plan: plan)
         }
         .modifier(iTunesWorkbenchFrameModifier())
-        .background(Color(platformColor: .audiomatorWindowBackground))
+        .background(Color(nsColor: .audiomatorWindowBackground))
         .navigationTitle("Review & Apply Tags")
         .task {
             store.refreshLoadedFiles(viewModel.files)

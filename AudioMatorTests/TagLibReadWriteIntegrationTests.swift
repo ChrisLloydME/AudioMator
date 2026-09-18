@@ -174,12 +174,18 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
     func testAudioFixturesAreReadableByTagLib() throws {
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
+            let workingURL = try makeWritableCopy(of: fixtureURL)
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
             XCTAssertTrue(
                 TagLibMetadataManager.isReadableFormat(fixtureURL.pathExtension),
                 "\(fixtureName) should be reported as readable."
             )
 
-            let metadata = try TagLibMetadataManager.readMetadataResult(from: fixtureURL)
+            // Published package version 0.5.1 treats status-only changes as read
+            // conflicts. A private copy prevents test-bundle metadata activity
+            // from making this fixture-readability assertion intermittent.
+            let metadata = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertGreaterThan(metadata.duration, 0, "\(fixtureName) should expose duration.")
             XCTAssertGreaterThan(metadata.sampleRate, 0, "\(fixtureName) should expose sample rate.")
             XCTAssertGreaterThan(metadata.channels, 0, "\(fixtureName) should expose channel count.")

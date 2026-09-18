@@ -16,7 +16,7 @@ Or run the same command used by the current CI workflow:
 swift test
 ```
 
-`Package.swift` defines `AudioMatorCoreLogic` as a selected non-UI, non-TagLib, non-network target. Current fast coverage includes text editing, track/disc parsing, rename template parsing and sanitizing, rename collision policy, filename-to-metadata matching, metadata exchange CSV/import/export planning, LRCLIB request/ranking logic, iTunes artwork/request normalization, iTunes and MusicBrainz provider helpers, fuzzy matching, MuseAmp ID generation, audio-format support policy, file collection ordering/grouping, merged metadata policy, duplicate detection, and artwork replacement decisions.
+`Package.swift` defines `AudioMatorCoreLogic` as a selected non-UI, non-TagLib, non-live-network test harness over production source files. It is not the module consumed by the app. Current fast coverage includes text editing, track/disc parsing, rename template parsing and sanitizing, rename collision policy, filename-to-metadata matching, metadata exchange CSV/import/export planning, LRCLIB request/ranking logic, iTunes artwork/request normalization, iTunes and MusicBrainz provider helpers, MusicBrainz rate scheduling and response caching, fuzzy matching, MuseAmp ID generation, audio-format support policy, file collection ordering/grouping, merged metadata policy, duplicate detection, and artwork replacement decisions.
 
 ## Xcode App-Hosted Tests
 
@@ -36,12 +36,11 @@ App-hosted coverage includes TagLib structured reads, raw metadata inspection, e
 
 ## CI
 
-`.github/workflows/core-logic.yml` defines the current `Core Logic` workflow:
+`.github/workflows/core-logic.yml` defines the current `Validation` workflow:
 
 - Triggers: pull requests and pushes to `main`.
-- Runner: `macos-15`.
-- Command: `swift test`.
-- Timeout: 15 minutes.
+- Fast job: `swift test` on `macos-15`, with a 15-minute timeout.
+- App job: serial `xcodebuild test` on `macos-15`, with a 45-minute timeout. This builds the authoritative Xcode app/test graph and runs `AudioMatorTests` with parallel test workers disabled.
 
 ## Build Validation
 

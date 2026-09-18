@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-25
+- Amended: 2026-09-18
 
 ## Context
 
@@ -13,9 +14,9 @@
 - Move the concrete implementation to `Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift`.
 - Keep the immutable `AudioFile` value and copy helpers in Domain with a nonisolated memberwise initializer.
 - Move async TagLib/AVFoundation loading and native artwork construction to `Infrastructure/TagLib/AudioFile+TagLibLoading.swift`.
-- Keep `PlatformImage?` on the snapshot for now. Inspector and artwork bindings consume the decoded native image directly; replacing it with data would spread decoding and lifecycle work without improving the metadata contract.
+- Store immutable artwork `Data` on the sendable snapshot. Decode `NSImage` only in the MainActor presentation extension so AppKit objects do not cross concurrency boundaries.
 - Do not add another Swift module in this batch. Disk boundaries, dependency rules, and app-hosted integration tests provide the intended control with lower project risk.
 
 ## Consequences
 
-Domain no longer imports TagLib, AVFoundation, CoreMedia, AppKit, or UIKit for `AudioFile` or the pipeline contract. Concrete adapter construction remains at the app composition root. Real format behavior still requires app-hosted TagLib tests; SwiftPM remains a fast pure-logic sensor rather than pretending to cover platform adapters.
+Domain no longer imports TagLib, AVFoundation, CoreMedia, or AppKit for `AudioFile` or the pipeline contract. Concrete adapter construction remains at the app composition root. Real format behavior still requires app-hosted TagLib tests; SwiftPM remains a fast pure-logic sensor rather than pretending to cover platform adapters.

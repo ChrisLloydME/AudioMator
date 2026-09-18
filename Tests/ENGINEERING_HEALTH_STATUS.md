@@ -1,5 +1,7 @@
 # Engineering Health Status
 
+> Historical engineering-health snapshot for the baseline/head named below. Its file sizes, test counts, and deferred risks are not automatically current; use `MAINTENANCE_PROGRESS.md`, `FAST_TEST_GAPS.md`, and `FULL_FUNCTION_COVERAGE_MAP.md` for the maintained state.
+
 Baseline: `V2.4.1B26516` (`67ce047`). Current audited head: `668c6aa`.
 
 This record describes the completed behavior-preserving hardening work and the remaining limits. The tag remains the Expected Behavior baseline; post-tag behavior is accepted only where characterization, integration, build, or source-comparison evidence exists.

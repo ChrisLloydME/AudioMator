@@ -1,5 +1,7 @@
 # AudioMator 系统审计
 
+> Historical snapshot from 2026-07-25. The source counts, test baseline, platform model, and proposed work below are preserved as audit evidence and are not current product documentation. AudioMator is now macOS-only; see `MAINTENANCE_PROGRESS.md` for the current audit.
+
 ## 审计范围与基线
 
 - 日期：2026-07-25

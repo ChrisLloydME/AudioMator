@@ -24,7 +24,7 @@ Select the `AudioMator` scheme and a macOS destination.
 ## Dependency Modes
 
 The project resolves `TagLibAudioMetadata` from its published GitHub repository
-at the exact `0.5.1` version and does not require a sibling checkout.
+at the exact `0.5.2` version and does not require a sibling checkout.
 
 ## Resolve Dependencies
 
@@ -34,7 +34,7 @@ Xcode usually resolves Swift packages automatically. To resolve them manually:
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-This resolves the published `TagLibAudioMetadata` `0.5.1` release.
+This resolves the published `TagLibAudioMetadata` `0.5.2` release.
 
 ## Fast Tests
 

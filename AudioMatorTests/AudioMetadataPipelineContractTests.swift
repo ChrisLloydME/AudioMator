@@ -4,6 +4,18 @@ import XCTest
 @testable import AudioMator
 
 final class AudioMetadataPipelineContractTests: XCTestCase {
+    func testTagLibAdapterTreatsPostCommitDurabilityUncertaintyAsCommitted() throws {
+        let result = try TagLibAudioMetadataPipeline.interpretingWrite {
+            throw TagLibManagerError.committedButDurabilityUncertain("Injected directory sync failure")
+        }
+
+        XCTAssertEqual(
+            result.commitStatus,
+            .durabilityUncertain("Injected directory sync failure")
+        )
+        XCTAssertTrue(result.warnings.isEmpty)
+    }
+
     func testWholeValueMapConvenienceBuildsExactDeltaAndForwardsVersion() throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)

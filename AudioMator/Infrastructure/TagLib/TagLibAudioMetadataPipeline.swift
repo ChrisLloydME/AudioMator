@@ -10,6 +10,19 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         MetadataPipelineSupport.metadataPatch(from: edit)
     }
 
+    nonisolated static func interpretingWrite(
+        _ operation: () throws -> [String]
+    ) throws -> AudioMetadataWriteResult {
+        do {
+            return AudioMetadataWriteResult(warnings: try operation())
+        } catch TagLibManagerError.committedButDurabilityUncertain(let detail) {
+            return AudioMetadataWriteResult(
+                warnings: [],
+                commitStatus: .durabilityUncertain(detail)
+            )
+        }
+    }
+
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         try await AudioFile(url: url, id: id)
     }
@@ -71,13 +84,14 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        let writeResult = try TagLibMetadataManager.applyMetadataPatch(
-            Self.metadataPatchForWrite(from: edit),
-            to: url,
-            expectedVersion: expectedVersion,
-            failurePolicy: .throw
-        )
-        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.applyMetadataPatch(
+                Self.metadataPatchForWrite(from: edit),
+                to: url,
+                expectedVersion: expectedVersion,
+                failurePolicy: .throw
+            ).warnings
+        }
     }
 
     nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
@@ -105,8 +119,13 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        let result = try TagLibMetadataManager.applyRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
-        return AudioMetadataWriteResult(warnings: result.warnings)
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.applyRawMetadataPatch(
+                patch,
+                to: url,
+                expectedVersion: expectedVersion
+            ).warnings
+        }
     }
 
     nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
@@ -117,11 +136,12 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         at url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        let writeResult = try TagLibMetadataManager.eraseAllMetadataWithVerification(
-            from: url,
-            expectedVersion: expectedVersion
-        )
-        return AudioMetadataWriteResult(warnings: writeResult.warnings)
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.eraseAllMetadataWithVerification(
+                from: url,
+                expectedVersion: expectedVersion
+            ).warnings
+        }
     }
 
     nonisolated func writeTrackNumberText(
@@ -146,20 +166,21 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         verifyAfterWrite: Bool,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        let writeResult = try TagLibMetadataManager.writeTrackNumberText(
-            trackNumberText,
-            discNumberText: discNumberText,
-            to: url,
-            verifyAfterWrite: verifyAfterWrite,
-            expectedVersion: expectedVersion
-        )
-        let warnings = MetadataPipelineSupport.numberTextWriteWarnings(
-            writeResult.warnings,
-            expectedTrackNumberText: trackNumberText,
-            expectedDiscNumberText: discNumberText,
-            for: url
-        )
-        return AudioMetadataWriteResult(warnings: warnings)
+        try Self.interpretingWrite {
+            let writeResult = try TagLibMetadataManager.writeTrackNumberText(
+                trackNumberText,
+                discNumberText: discNumberText,
+                to: url,
+                verifyAfterWrite: verifyAfterWrite,
+                expectedVersion: expectedVersion
+            )
+            return MetadataPipelineSupport.numberTextWriteWarnings(
+                writeResult.warnings,
+                expectedTrackNumberText: trackNumberText,
+                expectedDiscNumberText: discNumberText,
+                for: url
+            )
+        }
     }
 }
 

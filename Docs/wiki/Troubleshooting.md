@@ -9,7 +9,7 @@ run:
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The current project resolves TagLibAudioMetadata remotely at version `0.5.1`.
+The current project resolves TagLibAudioMetadata remotely at version `0.5.2`.
 TagLibAudioMetadata is required for the app metadata pipeline;
 verify the remote package version and the committed `Package.resolved` pin.
 

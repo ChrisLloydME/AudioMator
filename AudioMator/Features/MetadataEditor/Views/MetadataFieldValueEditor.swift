@@ -144,7 +144,7 @@ private struct MetadataFieldValueTextEditor: NSViewRepresentable {
     }
 }
 
-private final class MetadataFieldInvisibleLayoutManager: NSLayoutManager {
+nonisolated private final class MetadataFieldInvisibleLayoutManager: NSLayoutManager {
     var drawingFont: NSFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular) {
         didSet {
             guard drawingFont != oldValue else { return }

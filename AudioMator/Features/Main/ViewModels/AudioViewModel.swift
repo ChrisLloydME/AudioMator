@@ -673,17 +673,33 @@ final class AudioViewModel: ObservableObject {
         rebuildVisibleFiles()
     }
 
-    func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) {
-        guard !changes.isEmpty else { return }
+    func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) async -> [String] {
+        guard !changes.isEmpty else { return [] }
 
         var urlsByID: [UUID: URL] = [:]
+        var refreshedByID: [UUID: AudioFile] = [:]
+        var warnings: [String] = []
         for change in changes {
             urlsByID[change.id] = change.newURL
+            do {
+                refreshedByID[change.id] = try await metadataPipeline.loadAudioFile(
+                    at: change.newURL,
+                    id: change.id
+                )
+            } catch {
+                warnings.append(
+                    "\(change.newURL.lastPathComponent): Renamed successfully, but metadata revision refresh failed: \((error as NSError).localizedDescription)"
+                )
+            }
         }
 
         quickImportFiles = quickImportFiles.map { file in
             guard let newURL = urlsByID[file.id] else { return file }
-            return file.withUpdatedURL(newURL)
+            return refreshedByID[file.id] ?? file.withUpdatedURL(
+                newURL,
+                fileFingerprint: nil,
+                metadataFileVersion: nil
+            )
         }
         syncQuickImportSecurityScopedResources()
 
@@ -691,11 +707,16 @@ final class AudioViewModel: ObservableObject {
             guard let folderFiles = watchedFolderFiles[folderID] else { continue }
             watchedFolderFiles[folderID] = folderFiles.map { file in
                 guard let newURL = urlsByID[file.id] else { return file }
-                return file.withUpdatedURL(newURL)
+                return refreshedByID[file.id] ?? file.withUpdatedURL(
+                    newURL,
+                    fileFingerprint: nil,
+                    metadataFileVersion: nil
+                )
             }
         }
 
         rebuildVisibleFiles()
+        return warnings
     }
 
     func withSecurityScopedAccessForQuickImportURLs<T>(
@@ -1274,7 +1295,11 @@ final class AudioViewModel: ObservableObject {
                         return (
                             input.index,
                             input.url,
-                            file.url == input.url ? file : file.withUpdatedURL(input.url),
+                            file.url == input.url ? file : file.withUpdatedURL(
+                                input.url,
+                                fileFingerprint: file.fileFingerprint,
+                                metadataFileVersion: file.metadataFileVersion
+                            ),
                             nil
                         )
                     } catch is CancellationError {
@@ -1345,7 +1370,11 @@ final class AudioViewModel: ObservableObject {
                         return (
                             input.index,
                             input.url,
-                            file.url == input.url ? file : file.withUpdatedURL(input.url),
+                            file.url == input.url ? file : file.withUpdatedURL(
+                                input.url,
+                                fileFingerprint: file.fileFingerprint,
+                                metadataFileVersion: file.metadataFileVersion
+                            ),
                             nil
                         )
                     } catch is CancellationError {

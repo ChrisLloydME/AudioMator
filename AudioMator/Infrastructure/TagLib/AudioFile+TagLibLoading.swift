@@ -4,20 +4,6 @@ import Foundation
 import TagLibAudioMetadata
 
 extension AudioFile {
-    nonisolated private static func artworkFingerprint(for data: Data) -> Int {
-        var hasher = Hasher()
-        hasher.combine(data.count)
-
-        if data.count <= 128 {
-            hasher.combine(data)
-        } else {
-            hasher.combine(data.prefix(64))
-            hasher.combine(data.suffix(64))
-        }
-
-        return hasher.finalize()
-    }
-
     nonisolated private static func readMetadata(from metadata: [AVMetadataItem],
                                      commonKeys: [AVMetadataKey],
                                      id3Keys: [String] = [],
@@ -211,10 +197,8 @@ extension AudioFile {
         let artworkData = tag.artworkData
         if let artworkData {
             self.artworkData = artworkData
-            self.artworkFingerprint = AudioFile.artworkFingerprint(for: artworkData)
         } else {
             self.artworkData = nil
-            self.artworkFingerprint = nil
         }
 
         self.fileFingerprint = try AudioFileFingerprint.capture(at: url)

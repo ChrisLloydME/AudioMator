@@ -781,15 +781,15 @@ struct MultiFileEditModel {
 
     private static func resolveArtworkState(for files: [AudioFile]) -> MultiFileArtworkState {
         guard let firstFile = files.first else { return .none }
-        guard let firstFingerprint = firstFile.artworkFingerprint else {
-            return files.allSatisfy({ $0.artworkFingerprint == nil }) ? .none : .mixed
+        guard let firstArtworkData = firstFile.artworkData else {
+            return files.allSatisfy({ $0.artworkData == nil }) ? .none : .mixed
         }
 
         guard let firstArtwork = firstFile.artwork else {
             return .mixed
         }
 
-        return files.dropFirst().allSatisfy({ $0.artworkFingerprint == firstFingerprint })
+        return files.dropFirst().allSatisfy({ $0.artworkData == firstArtworkData })
             ? .shared(firstArtwork)
             : .mixed
     }

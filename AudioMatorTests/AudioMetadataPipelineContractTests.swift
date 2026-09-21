@@ -16,6 +16,23 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertTrue(result.warnings.isEmpty)
     }
 
+    @MainActor
+    func testMultiFileArtworkComparisonUsesCompletePayload() {
+        var firstBytes = Data(repeating: 0x11, count: 256)
+        var secondBytes = firstBytes
+        firstBytes[128] = 0x22
+        secondBytes[128] = 0x33
+
+        let model = MultiFileEditModel(files: [
+            AudioFileTestFactory.make(artworkData: firstBytes),
+            AudioFileTestFactory.make(artworkData: secondBytes)
+        ])
+
+        guard case .mixed = model.initialArtworkState else {
+            return XCTFail("Same-length artwork with matching edges but different middle bytes must be mixed")
+        }
+    }
+
     func testWholeValueMapConvenienceBuildsExactDeltaAndForwardsVersion() throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)

@@ -62,7 +62,6 @@ struct AudioFile: Identifiable, Sendable {
 
     // MARK: – Artwork
     let artworkData: Data?
-    let artworkFingerprint: Int?
     let fileFingerprint: AudioFileFingerprint?
     let metadataFileVersion: MetadataFileVersion?
 
@@ -156,7 +155,6 @@ struct AudioFile: Identifiable, Sendable {
         channels: Int,
         format: String,
         artworkData: Data?,
-        artworkFingerprint: Int?,
         fileFingerprint: AudioFileFingerprint? = nil,
         metadataFileVersion: MetadataFileVersion? = nil
     ) {
@@ -205,12 +203,15 @@ struct AudioFile: Identifiable, Sendable {
         self.channels = channels
         self.format = format
         self.artworkData = artworkData
-        self.artworkFingerprint = artworkFingerprint
         self.fileFingerprint = fileFingerprint
         self.metadataFileVersion = metadataFileVersion
     }
 
-    nonisolated func withUpdatedURL(_ url: URL) -> AudioFile {
+    nonisolated func withUpdatedURL(
+        _ url: URL,
+        fileFingerprint: AudioFileFingerprint?,
+        metadataFileVersion: MetadataFileVersion?
+    ) -> AudioFile {
         AudioFile(
             id: id,
             url: url,
@@ -257,74 +258,9 @@ struct AudioFile: Identifiable, Sendable {
             channels: channels,
             format: format,
             artworkData: artworkData,
-            artworkFingerprint: artworkFingerprint,
-            fileFingerprint: try? AudioFileFingerprint.capture(at: url),
-            metadataFileVersion: try? TagLibMetadataManager.fileVersion(at: url)
+            fileFingerprint: fileFingerprint,
+            metadataFileVersion: metadataFileVersion
         )
-    }
-
-    func withUpdatedTrackNumberText(_ rawText: String) -> AudioFile {
-        let normalizedRawText = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parsed = AudioFile.parseNumberText(normalizedRawText)
-
-        return AudioFile(
-            id: id,
-            url: url,
-            title: title,
-            artist: artist,
-            album: album,
-            composer: composer,
-            genre: genre,
-            comment: comment,
-            track: parsed.number,
-            trackTotal: parsed.total,
-            disc: disc,
-            discTotal: discTotal,
-            trackNumberText: AudioFile.normalizedNumberText(
-                rawText: normalizedRawText,
-                number: parsed.number,
-                total: parsed.total
-            ),
-            discNumberText: discNumberText,
-            year: year,
-            albumArtist: albumArtist,
-            releaseDate: releaseDate,
-            isrc: isrc,
-            barcode: barcode,
-            itunesAlbumID: itunesAlbumID,
-            itunesArtistID: itunesArtistID,
-            itunesCatalogID: itunesCatalogID,
-            musicBrainzArtistID: musicBrainzArtistID,
-            musicBrainzAlbumID: musicBrainzAlbumID,
-            musicBrainzTrackID: musicBrainzTrackID,
-            musicBrainzReleaseGroupID: musicBrainzReleaseGroupID,
-            publisher: publisher,
-            copyright: copyright,
-            credits: credits,
-            lyricist: lyricist,
-            remixer: remixer,
-            producer: producer,
-            engineer: engineer,
-            language: language,
-            mediaType: mediaType,
-            releaseType: releaseType,
-            catalogNumber: catalogNumber,
-            releaseCountry: releaseCountry,
-            contentAdvisory: contentAdvisory,
-            duration: duration,
-            bitrate: bitrate,
-            sampleRate: sampleRate,
-            channels: channels,
-            format: format,
-            artworkData: artworkData,
-            artworkFingerprint: artworkFingerprint,
-            fileFingerprint: try? AudioFileFingerprint.capture(at: url),
-            metadataFileVersion: try? TagLibMetadataManager.fileVersion(at: url)
-        )
-    }
-
-    nonisolated private static func parseNumberText(_ rawText: String) -> (number: Int, total: Int) {
-        AudioTagNumberText.parsedPair(from: rawText)
     }
 
     // Shared helper for reading metadata values.

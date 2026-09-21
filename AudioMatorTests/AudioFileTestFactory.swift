@@ -82,11 +82,6 @@ enum AudioFileTestFactory {
             channels: 0,
             format: "",
             artworkData: artworkData,
-            artworkFingerprint: artworkData.map { data in
-                var hasher = Hasher()
-                hasher.combine(data)
-                return hasher.finalize()
-            },
             fileFingerprint: fileFingerprint ?? (includeDefaultFileFingerprint ? fingerprint(for: url) : nil)
         )
     }

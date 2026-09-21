@@ -81,7 +81,7 @@ extension AudioViewModel {
         let totalTargets = plan.totalTargets
         let unchangedCount = plan.unchangedCount
         let skippedIssues = plan.issueCount
-        let issueWarnings = fileRenameIssueWarnings(from: plan.rows)
+        var issueWarnings = fileRenameIssueWarnings(from: plan.rows)
         let operations = plan.operations
 
         guard !operations.isEmpty else {
@@ -160,9 +160,9 @@ extension AudioViewModel {
             registerMovedFiles(
                 completedOperations.map { (id: $0.id, oldURL: $0.sourceURL, newURL: $0.destinationURL) }
             )
-            applyMovedFiles(
+            issueWarnings.append(contentsOf: await applyMovedFiles(
                 completedOperations.map { (id: $0.id, newURL: $0.destinationURL) }
-            )
+            ))
 
             if !completedOperations.isEmpty {
                 updateEditForSelection()

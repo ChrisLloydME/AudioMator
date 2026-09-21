@@ -1,6 +1,37 @@
 # Metadata Architecture Maintenance Progress
 
-Last updated: 2026-09-18
+Last updated: 2026-09-21
+
+## 2026-09-21 coordinated reliability pass
+
+### Current status
+
+- Both repository worktrees began clean on `main` at `9d70edc` (AudioMator) and `62dcf9b` (TagLibAudioMetadata).
+- Reopened the prior maintenance work against the current source rather than treating the new external audit as authoritative.
+- Correctness-critical implementation work is in progress; findings below are source-confirmed unless marked pending.
+
+### Newly confirmed findings
+
+- The package's committed-but-durability-uncertain error currently becomes `MetadataFileMutationResult.failure`, so AudioMator can present a committed write as `Save Failed` and does not reload the committed file.
+- `MetadataNumberTextPatch` still requires track text. A disc-only AudioMator edit therefore sends the current track text and requests a track-pair rewrite.
+- Artwork identity hashes only complete small payloads; large same-size payloads with equal 64-byte prefix/suffix are deterministic false matches.
+- `AudioFile.withUpdatedURL(_:)` and `withUpdatedTrackNumberText(_:)` perform hidden filesystem/TagLib reads with `try?`, conflating a value transformation with revision refresh and silently dropping concurrency state on failure.
+- Multi-file metadata save progress still says `Saving Album Artwork` for arbitrary metadata edits.
+- Update checking still merges equal and ahead-of-release versions into `.upToDate`, while the presenter claims the installed version matches the latest release.
+- The SwiftPM fast target remains a selected-source harness rather than the production Xcode module. This was already documented accurately; replacing it is deferred until a real module extraction is justified.
+
+### Revised or already-addressed findings
+
+- The timeout path already prevents a late detached reload result from updating UI through a single-winner timeout plus refresh generations. The remaining detached stale work is a resource/lifecycle concern, not a stale-state corruption path.
+- The package global mutex covers TagLib object access, not the entire filesystem transaction. Per-destination coordination owns transaction serialization.
+- Swift and Objective-C++ transaction implementations serve different public layers; consolidation remains unsafe without a generic internal transaction SPI.
+
+### Immediate implementation order
+
+1. Add a non-throwing typed post-commit durability outcome to the package's high-level write results while retaining compatibility behavior where needed.
+2. Make formatted track and disc patch intent independently expressible and add preservation regressions.
+3. Teach AudioMator's current package adapter/executor to preserve committed outcomes, then fix artwork identity, hidden value-transform I/O, progress copy, and update-state semantics.
+4. Continue capability propagation and public API safety review after those corruption/misleading-state risks are protected.
 
 ## Scope
 

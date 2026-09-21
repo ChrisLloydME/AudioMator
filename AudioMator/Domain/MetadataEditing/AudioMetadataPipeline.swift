@@ -51,8 +51,22 @@ struct MetadataEditPayload: Sendable {
     var discNumberTextChanged: Bool
 }
 
+enum AudioMetadataCommitStatus: Equatable, Sendable {
+    case durable
+    case durabilityUncertain(String)
+}
+
 struct AudioMetadataWriteResult: Sendable {
     let warnings: [String]
+    let commitStatus: AudioMetadataCommitStatus
+
+    nonisolated init(
+        warnings: [String],
+        commitStatus: AudioMetadataCommitStatus = .durable
+    ) {
+        self.warnings = warnings
+        self.commitStatus = commitStatus
+    }
 }
 
 typealias RawMetadataValueMap = [String: [String]]

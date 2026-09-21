@@ -119,6 +119,11 @@ extension AudioViewModel {
             }
 
             var warnings = success.writeResult.warnings
+            if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
+                warnings.append(
+                    "Saved to disk, but macOS could not confirm directory durability. Do not retry this save as though it failed. \(detail)"
+                )
+            }
             if let reloadErrorDescription = success.reloadErrorDescription {
                 warnings.append(
                     "Saved to disk, but the inspector could not refresh: \(reloadErrorDescription)"

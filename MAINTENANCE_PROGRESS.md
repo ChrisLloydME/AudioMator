@@ -33,6 +33,21 @@ Last updated: 2026-09-21
 3. Teach AudioMator's current package adapter/executor to preserve committed outcomes, then fix artwork identity, hidden value-transform I/O, progress copy, and update-state semantics.
 4. Continue capability propagation and public API safety review after those corruption/misleading-state risks are protected.
 
+### Completed in this pass
+
+- Added an AudioMator-owned commit status to the metadata pipeline contract.
+  The TagLib adapter converts the published package's post-rename
+  `committedButDurabilityUncertain` error into committed success, the mutation
+  executor still reloads the on-disk result, and presentation adds a warning
+  that explicitly tells the user not to retry as though the save failed.
+- Added an adapter contract regression for the committed-but-uncertain mapping.
+- Corrected stale dependency documentation from TagLibAudioMetadata 0.5.1 to the
+  actual exact 0.5.2 project requirement.
+
+### Validation in this pass
+
+- Focused serial app-hosted `AudioMetadataPipelineContractTests`: 2 tests, 0 failures.
+
 ## Scope
 
 This journal tracks AudioMator-side work for the coordinated metadata correctness and architecture review. TagLibAudioMetadata remains an independent product and has its own journal in that repository.
@@ -40,7 +55,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 ## Current findings
 
 - **Platform state:** iPadOS was deprecated and removed in commit `fe10c62`. The app target now supports only `macosx`; iPad workspace/tool/welcome sources, iOS conditional branches, iPad assets, deployment settings, and plist keys were removed. Commit `84ca385` completed the source cleanup by replacing obsolete `Platform*` aliases and always-true platform branches with direct AppKit types and explicitly macOS-owned helpers.
-- **Current dependency state:** `AudioMator.xcodeproj` resolves the remote `TagLibAudioMetadata` package at exact version `0.5.1`. The former sibling-checkout reference was removed after the matching upstream release became available.
+- **Current dependency state:** `AudioMator.xcodeproj` resolves the remote `TagLibAudioMetadata` package at exact version `0.5.2`. The former sibling-checkout reference was removed after the matching upstream release became available.
 - One inspector Save now constructs one package `MetadataPatch` containing ordinary fields, formatted track/disc intent, artwork, and all four advisory states. AudioMator no longer performs follow-up advisory, alias, or MP4 cleanup transactions.
 - Editable metadata is loaded from one `MetadataSnapshot`; its `MetadataFileVersion` remains attached to the `AudioFile` edit snapshot and is supplied at every inspector, raw editor, erase, lyrics, and track-renumber transaction boundary.
 - The raw editor's canonical model is `[String: [String]]`. Newlines are only the UI representation for ordered values; duplicates, empty values, whitespace, and literal semicolons are not normalized.
@@ -99,7 +114,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   The actionable gap was that CI never exercised the authoritative Xcode graph.
 - Investigation target 1: confirmed at source level; the current save path has multiple mutation stages.
 - Investigation target 2: confirmed at source level; the main compatibility write receives a Boolean advisory projection before the typed state is repaired later.
-- Dependency coordination: the historical 0.4.5 remote pin was superseded by the matching 0.5.1 upstream release, which is now the project dependency.
+- Dependency coordination: the historical 0.4.5 remote pin was superseded by published package releases; 0.5.2 is now the project dependency.
 - Raw editor lossiness: confirmed. The previous `[String: String]` join/trim/split path could not distinguish one semicolon-bearing value from multiple values and rewrote the whole map.
 - Stale edit race: confirmed. The app fingerprint check occurred before the package established its transaction baseline; retaining and passing `MetadataFileVersion` closes that window.
 - Timeout diagnosis: confirmed. Swift Task cancellation could not stop the synchronous TagLib mutation, so a reported timeout could later commit. The write now waits for its real outcome; only post-commit reload is bounded.
@@ -111,11 +126,11 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 
 - The coordinated maintenance audit is complete. Swift 6 migration remains a
   separately tracked follow-up after test-double isolation is repaired.
-- Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.1.
+- Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.2.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
 - Raw-editor newline boundary ambiguity remains explicitly deferred: a newline inside one raw value and the UI separator between values are not yet distinguishable.
-- AudioMator remains on published TagLibAudioMetadata 0.5.1. The sibling repository fixes status-only false read conflicts and unsolicited optional-read logging in `f0ea153`; those changes require an independent package release before adoption here.
+- AudioMator now uses published TagLibAudioMetadata 0.5.2, which includes the status-only read-conflict and optional-read logging fixes.
 
 ## Architectural direction
 
@@ -192,7 +207,7 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Added application integration tests for independent FLAC Year/Release Date edit and removal behavior, plus explicit rejection and byte preservation for an unsupported MP4 Year edit.
 - Hardened `AudioMetadataPipeline` so conformers must implement exact raw-value reads, delta patches, and version-aware mutation entry points. Legacy scalar and unversioned conveniences are now one-way adapters built on those strong primitives rather than lossy fallback requirements.
 - Added a protocol contract regression proving that whole-map convenience writes preserve exact arrays, compute removals as a delta, and forward the caller's `MetadataFileVersion`.
-- During integration, normalized the temporary local-package reference used for coordinated validation. The project subsequently returned to the published remote exact dependency at 0.5.1; newer package fixes remain blocked on an independent release.
+- During integration, normalized the temporary local-package reference used for coordinated validation. The project subsequently returned to the published remote exact dependency, now at 0.5.2; the 2026-09-21 typed durability and independent number-patch changes still require a later package release before direct adoption.
 - Re-evaluated Swift 6 and large-module work after the correctness changes. Swift 6 remains a deliberate follow-up because enabling it now exposes actor-isolation work in test doubles and shared-state boundaries; suppressing those diagnostics would not be a sound migration. `AudioViewModel` already delegates mutation execution/coordinating and metadata adaptation, so no additional size-only split was justified in this pass.
 
 ## Tests and validation

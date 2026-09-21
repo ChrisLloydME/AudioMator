@@ -56,6 +56,12 @@ Last updated: 2026-09-21
 - Added an explicit `aheadOfLatest` update-check result and presentation so
   development/internal builds newer than GitHub's latest release are not claimed
   to match it.
+- Extended the app-owned format capability snapshot with effective writable
+  field keys derived from the package registry. Semantic inspector writes now
+  compute all requested ordinary, number-pair, advisory, and artwork fields and
+  reject unsupported fields before acquiring a mutation reservation or creating
+  a staged copy. This closes the late-failure path for restricted formats such
+  as tracker modules while retaining AudioMator-owned preflight behavior.
 
 ### Validation in this pass
 
@@ -63,6 +69,8 @@ Last updated: 2026-09-21
 - Focused serial app-hosted metadata-contract/artwork and update-check suites
   completed successfully after these changes. Existing Swift 5 strict-concurrency
   warnings remain confined to lock-protected test doubles and are unchanged.
+- Focused SwiftPM capability snapshot test and serial app-hosted restricted-format
+  contract tests completed successfully.
 
 ## Scope
 

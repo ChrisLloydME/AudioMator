@@ -33,6 +33,23 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testRestrictedFormatFieldsAreRejectedBeforeMutation() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/restricted.xm"),
+            title: "Allowed title",
+            artist: "Original artist"
+        )
+        var edit = SingleFileEditModel(from: file)
+        edit.artist = "Unsupported artist change"
+        let payload = MetadataEditPayload(edit, comparedTo: file)
+
+        XCTAssertEqual(
+            unsupportedMetadataWriteFields(in: payload, forFileExtension: "xm"),
+            [.artist]
+        )
+    }
+
     func testWholeValueMapConvenienceBuildsExactDeltaAndForwardsVersion() throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)

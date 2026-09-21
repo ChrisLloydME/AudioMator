@@ -90,7 +90,7 @@ extension AudioViewModel {
         let expectedMetadataVersions = inspectorEditSourceFilesByID.compactMapValues(\.metadataFileVersion)
 
         beginMetadataSaveProgress(
-            title: "Saving Album Artwork",
+            title: "Saving Metadata",
             subtitle: "Preparing \(targetFiles.count) files…",
             totalUnitCount: targetFiles.count
         )

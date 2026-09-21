@@ -43,10 +43,26 @@ Last updated: 2026-09-21
 - Added an adapter contract regression for the committed-but-uncertain mapping.
 - Corrected stale dependency documentation from TagLibAudioMetadata 0.5.1 to the
   actual exact 0.5.2 project requirement.
+- Removed the sampled artwork fingerprint entirely. Multi-file artwork uniformity
+  now uses exact `Data` equality, with a regression whose equal-length payloads
+  share the first and last 64 bytes but differ in the middle.
+- Made URL replacement a deterministic value transform with explicit revision
+  inputs and removed the unused track-number copy helper that performed hidden
+  best-effort reads. Successful renames now explicitly reload each destination;
+  a refresh failure is surfaced in the rename summary and leaves revision tokens
+  absent rather than silently pretending they were captured.
+- Corrected general batch-save progress from `Saving Album Artwork` to
+  `Saving Metadata`.
+- Added an explicit `aheadOfLatest` update-check result and presentation so
+  development/internal builds newer than GitHub's latest release are not claimed
+  to match it.
 
 ### Validation in this pass
 
 - Focused serial app-hosted `AudioMetadataPipelineContractTests`: 2 tests, 0 failures.
+- Focused serial app-hosted metadata-contract/artwork and update-check suites
+  completed successfully after these changes. Existing Swift 5 strict-concurrency
+  warnings remain confined to lock-protected test doubles and are unchanged.
 
 ## Scope
 

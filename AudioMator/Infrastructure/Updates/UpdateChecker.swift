@@ -10,6 +10,7 @@ struct UpdateReleaseMetadata: Equatable, Sendable {
 enum UpdateCheckResult: Equatable, Sendable {
     case updateAvailable(UpdateReleaseMetadata, currentVersion: String)
     case upToDate(currentVersion: String, latestVersion: String)
+    case aheadOfLatest(currentVersion: String, latestVersion: String)
 }
 
 enum UpdateCheckError: LocalizedError, Equatable {
@@ -69,6 +70,13 @@ struct UpdateChecker: Sendable {
 
         if latestRelease.version > currentVersion {
             return .updateAvailable(latestRelease, currentVersion: currentVersionString)
+        }
+
+        if currentVersion > latestRelease.version {
+            return .aheadOfLatest(
+                currentVersion: currentVersionString,
+                latestVersion: latestRelease.tagName
+            )
         }
 
         return .upToDate(currentVersion: currentVersionString, latestVersion: latestRelease.tagName)

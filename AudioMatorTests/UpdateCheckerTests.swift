@@ -63,6 +63,20 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(result, .upToDate(currentVersion: "2.3 (26512)", latestVersion: "V2.3B26512"))
     }
 
+    func testUpdateCheckerDistinguishesInstalledVersionAheadOfLatestRelease() async throws {
+        let checker = UpdateChecker(
+            releaseProvider: MockUpdateReleaseProvider(release: try makeRelease(tagName: "V2.3B26512")),
+            currentVersionProvider: { ReleaseVersion(marketingVersion: "2.4", buildNumber: "27001") }
+        )
+
+        let result = try await checker.checkForUpdates()
+
+        XCTAssertEqual(
+            result,
+            .aheadOfLatest(currentVersion: "2.4 (27001)", latestVersion: "V2.3B26512")
+        )
+    }
+
     func testUpdateCheckerThrowsForMissingCurrentVersion() async throws {
         let checker = UpdateChecker(
             releaseProvider: MockUpdateReleaseProvider(release: try makeRelease(tagName: "V2.4B26001")),

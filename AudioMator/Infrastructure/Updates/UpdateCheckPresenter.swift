@@ -54,6 +54,13 @@ final class UpdateCheckPresenter {
             alert.informativeText = "You are using AudioMator \(currentVersion), which matches the latest published GitHub release."
             alert.addButton(withTitle: "OK")
             alert.runModal()
+
+        case .aheadOfLatest(let currentVersion, let latestVersion):
+            let alert = NSAlert()
+            alert.messageText = "No Newer Published Release"
+            alert.informativeText = "You are using AudioMator \(currentVersion), which is newer than the latest published GitHub release (\(latestVersion))."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
         }
     }
 

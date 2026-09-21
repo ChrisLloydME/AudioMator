@@ -74,6 +74,10 @@ Last updated: 2026-09-22
 - TagLibAudioMetadata now has a focused Basic snapshot API, but AudioMator remains
   pinned to independently released 0.5.2. Adopting that loading optimization is
   explicitly blocked on a new package release rather than a local checkout.
+- Made the custom metadata-field `NSLayoutManager` explicitly nonisolated so its
+  AppKit override contract is not accidentally changed by the target's
+  MainActor-by-default setting. This removes the production Swift 6 isolation
+  warning without weakening strict-concurrency checking for the target.
 
 ### Validation in this pass
 
@@ -89,6 +93,17 @@ Last updated: 2026-09-22
 - Full serial app-hosted suite passed under the same configuration: 354 tests,
   0 failures. SwiftUI state-installation and Swift 6 migration diagnostics remain
   warnings and did not mask any test failures.
+- Incremental universal macOS Debug build passed after correcting the AppKit
+  layout-manager isolation boundary.
+
+### Commits created in this pass
+
+- `ed8f8fd` — reopen the coordinated reliability journal.
+- `16f9327` — handle committed metadata durability uncertainty.
+- `5e8e84b` — use exact artwork identity and explicit revision refresh.
+- `42c877f` — correct metadata progress and update status semantics.
+- `df5893f` — preserve field-level metadata write capabilities.
+- `7a07812` — enable complete Swift 5 concurrency checking.
 
 ## Scope
 
@@ -172,8 +187,8 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
 - Swift 6 language-mode migration remains separate work. The app still declares
   Swift 5 with `SWIFT_STRICT_CONCURRENCY = complete`; the current compiler reports
-  actor-isolation warnings in AppKit overrides and lock-protected test doubles.
-  Do not flip the language mode until those boundaries are deliberately repaired.
+  actor-isolation warnings in lock-protected test doubles. Do not flip the
+  language mode until those test boundaries are deliberately repaired.
 - Raw-editor newline boundary ambiguity remains explicitly deferred: a newline inside one raw value and the UI separator between values are not yet distinguishable.
 - AudioMator now uses published TagLibAudioMetadata 0.5.2, which includes the status-only read-conflict and optional-read logging fixes.
 

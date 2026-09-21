@@ -41,6 +41,9 @@ Project conventions:
 - Prefer `guard` and early returns to reduce nesting.
 - Use value types unless identity, observation, or platform lifecycle requires a class.
 - Use Swift concurrency where it fits surrounding code.
+- The Xcode app and app-hosted tests use Swift 5 language mode with complete
+  strict-concurrency checking and MainActor default isolation. Treat warnings
+  marked as Swift 6 errors as migration work to fix, not diagnostics to suppress.
 - Keep UI state ownership in feature view models or domain state.
 - Avoid new singletons for feature work.
 - Use `String(localized:)` for user-facing strings.

@@ -1,6 +1,6 @@
 # Metadata Architecture Maintenance Progress
 
-Last updated: 2026-09-21
+Last updated: 2026-09-22
 
 ## 2026-09-21 coordinated reliability pass
 
@@ -62,6 +62,18 @@ Last updated: 2026-09-21
   reject unsupported fields before acquiring a mutation reservation or creating
   a staged copy. This closes the late-failure path for restricted formats such
   as tracker modules while retaining AudioMator-owned preflight behavior.
+- Enabled complete strict-concurrency checking for both application and
+  app-hosted test configurations while retaining Swift 5 language mode. This
+  strengthens production/test diagnostics now without disguising the remaining
+  actor-isolation work behind an unsafe one-step Swift 6 flip.
+- Revised the loading-concurrency finding after tracing the actual stages. Each
+  load task performs the package-serialized TagLib snapshot first and then moves
+  into AVFoundation enrichment, so the existing bounded task group already
+  pipelines the serialized native stage with genuinely concurrent AV work. An
+  additional app-owned TagLib queue would duplicate package serialization.
+- TagLibAudioMetadata now has a focused Basic snapshot API, but AudioMator remains
+  pinned to independently released 0.5.2. Adopting that loading optimization is
+  explicitly blocked on a new package release rather than a local checkout.
 
 ### Validation in this pass
 
@@ -71,6 +83,12 @@ Last updated: 2026-09-21
   warnings remain confined to lock-protected test doubles and are unchanged.
 - Focused SwiftPM capability snapshot test and serial app-hosted restricted-format
   contract tests completed successfully.
+- Incremental universal macOS Debug build passed with complete Swift 5
+  strict-concurrency checking enabled. Existing Swift 6 migration warnings are
+  now explicit compiler output rather than relying on toolchain defaults.
+- Full serial app-hosted suite passed under the same configuration: 354 tests,
+  0 failures. SwiftUI state-installation and Swift 6 migration diagnostics remain
+  warnings and did not mask any test failures.
 
 ## Scope
 
@@ -152,7 +170,10 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
   separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.2.
 - Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
-- Swift 6 language-mode migration remains separate work. The app still declares Swift 5 and the current compiler reports actor-isolation warnings in lock-protected test doubles. Do not flip the language mode until those boundaries are deliberately repaired.
+- Swift 6 language-mode migration remains separate work. The app still declares
+  Swift 5 with `SWIFT_STRICT_CONCURRENCY = complete`; the current compiler reports
+  actor-isolation warnings in AppKit overrides and lock-protected test doubles.
+  Do not flip the language mode until those boundaries are deliberately repaired.
 - Raw-editor newline boundary ambiguity remains explicitly deferred: a newline inside one raw value and the UI separator between values are not yet distinguishable.
 - AudioMator now uses published TagLibAudioMetadata 0.5.2, which includes the status-only read-conflict and optional-read logging fixes.
 

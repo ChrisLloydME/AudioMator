@@ -11,7 +11,12 @@ enum AudioFormatSupport {
                 AudioFormatCapabilityCore(
                     extensions: capability.extensions,
                     isWritable: capability.isWritable,
-                    canWriteArtwork: capability.canWriteArtwork
+                    canWriteArtwork: capability.canWriteArtwork,
+                    writableFieldKeys: Set(
+                        MetadataFieldKey.allCases.compactMap { field in
+                            capability.writeSupport(for: field) == .unsupported ? nil : field.rawValue
+                        }
+                    )
                 )
             }
         )
@@ -32,6 +37,13 @@ enum AudioFormatSupport {
     nonisolated static let readableExtensions: Set<String> = Set(orderedSupportedExtensions)
     nonisolated static let metadataWritableExtensions: Set<String> = Set(orderedWritableExtensions)
     nonisolated static let artworkWritableExtensions: Set<String> = Set(orderedArtworkWritableExtensions)
+
+    nonisolated static func writableMetadataFields(for fileExtension: String) -> Set<MetadataFieldKey>? {
+        guard let rawKeys = supportSnapshot.writableFieldKeysByExtension[fileExtension.lowercased()] else {
+            return nil
+        }
+        return Set(rawKeys.compactMap(MetadataFieldKey.init(rawValue:)))
+    }
 
     nonisolated static let openPanelContentTypes: [UTType] = {
         var seenIdentifiers = Set<String>()

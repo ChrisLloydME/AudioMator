@@ -868,10 +868,10 @@ final class AudioMatorCoreLogicTests: XCTestCase {
             readableExtensions: ["MP3", "Flac", "MP3"],
             writableExtensions: ["MP3", "M4A"],
             capabilities: [
-                AudioFormatCapabilityCore(extensions: ["MP3", "mp3"], isWritable: true, canWriteArtwork: true),
-                AudioFormatCapabilityCore(extensions: ["WAV"], isWritable: true, canWriteArtwork: false),
-                AudioFormatCapabilityCore(extensions: ["FLAC"], isWritable: false, canWriteArtwork: true),
-                AudioFormatCapabilityCore(extensions: ["M4A"], isWritable: true, canWriteArtwork: true)
+                AudioFormatCapabilityCore(extensions: ["MP3", "mp3"], isWritable: true, canWriteArtwork: true, writableFieldKeys: ["title", "artist"]),
+                AudioFormatCapabilityCore(extensions: ["WAV"], isWritable: true, canWriteArtwork: false, writableFieldKeys: ["title"]),
+                AudioFormatCapabilityCore(extensions: ["FLAC"], isWritable: false, canWriteArtwork: true, writableFieldKeys: []),
+                AudioFormatCapabilityCore(extensions: ["M4A"], isWritable: true, canWriteArtwork: true, writableFieldKeys: ["title", "artwork"])
             ]
         )
 
@@ -879,6 +879,8 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(snapshot.metadataWritableExtensions, ["mp3", "m4a"])
         XCTAssertEqual(snapshot.artworkWritableExtensions, ["mp3", "m4a"])
         XCTAssertEqual(snapshot.orderedReadableExtensions, ["mp3", "flac", "mp3"])
+        XCTAssertEqual(snapshot.writableFieldKeysByExtension["mp3"], ["title", "artist"])
+        XCTAssertEqual(snapshot.writableFieldKeysByExtension["wav"], ["title"])
     }
 
     func testMetadataModelCoreMergesDuplicatesAndArtworkDecisions() {

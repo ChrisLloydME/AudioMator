@@ -1,6 +1,34 @@
 import Foundation
 import TagLibAudioMetadata
 
+nonisolated func unsupportedMetadataWriteFields(
+    in editPayload: MetadataEditPayload,
+    forFileExtension fileExtension: String
+) -> Set<MetadataFieldKey> {
+    guard let writableFields = AudioFormatSupport.writableMetadataFields(for: fileExtension) else {
+        return []
+    }
+
+    var requestedFields = editPayload.changedFields
+    if editPayload.contentAdvisoryChanged {
+        requestedFields.insert(.explicitContent)
+    }
+    if editPayload.trackNumberTextChanged {
+        requestedFields.formUnion([.track, .trackTotal])
+    }
+    if editPayload.discNumberTextChanged {
+        requestedFields.formUnion([.disc, .discTotal])
+    }
+    switch editPayload.artwork {
+    case .unchanged:
+        break
+    case .replace, .remove:
+        requestedFields.insert(.artwork)
+    }
+
+    return requestedFields.subtracting(writableFields)
+}
+
 extension AudioViewModel {
     // MARK: - Inspector Writes (TagLib)
 
@@ -164,6 +192,16 @@ extension AudioViewModel {
         }
 
         let editPayload = MetadataEditPayload(edit, comparedTo: file)
+        let unsupportedFields = unsupportedMetadataWriteFields(
+            in: editPayload,
+            forFileExtension: file.url.pathExtension
+        )
+        if !unsupportedFields.isEmpty {
+            let labels = unsupportedFields.map(\.rawValue).sorted().joined(separator: ", ")
+            return .failure(
+                "This format cannot write the requested metadata fields: \(labels). No changes were made."
+            )
+        }
 
         return await executeMetadataFileMutation(
             at: file.url,

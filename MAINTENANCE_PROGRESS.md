@@ -2,6 +2,38 @@
 
 Last updated: 2026-09-22
 
+## 2026-09-22 second maintenance pass
+
+### Current status
+
+- Began from clean `main` at `5d58b68` and updated `AGENTS.md` first, as
+  required. AudioMator is macOS-only and stable Xcode 27 is the normal
+  development environment.
+- Current reported CI failures are being revalidated against source. The Xcode
+  job's first known failure is missing hosted-runner signing credentials; the
+  fast SwiftPM job reaches a MusicBrainz rate-limiter spacing regression.
+- Release-version integration remains explicitly deferred: AudioMator stays on
+  released TagLibAudioMetadata 0.5.2 until release preparation.
+
+### Immediate order
+
+1. Make hosted Xcode tests explicitly unsigned and verify they reach the full
+   application build and serial test suite.
+2. Reproduce and correct actual MusicBrainz grant spacing without weakening the
+   timing contract.
+3. Validate the final Release artifact's macOS minimum version, then audit the
+   remaining specialized metadata preflights and rename/reload fallback.
+
+### Commits
+
+- `0fbdea9` — update agent guidance for stable Xcode 27.
+
+### Deferred release integration
+
+- After the next independent TagLibAudioMetadata release, update the package
+  pin, migrate the adapter to typed commit status, adopt the focused Basic
+  snapshot where appropriate, and run cross-repository integration tests.
+
 ## 2026-09-21 coordinated reliability pass
 
 ### Current status

@@ -20,6 +20,17 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug
 
 职责：TagLib adapter、真实 `AudioFile` loading、temporary fixture copies、main-actor state orchestration、mutation serialization、security scope adapter、platform presentation mapping。所有音频写入只使用临时目录中的 fixture 副本。
 
+测试目录按失败语义和架构层组织，同时保留单一 app-hosted target：
+
+- `Unit/Core` 与 `Unit/Presentation`：无外部 I/O 的值语义和显示映射；
+- `Application`：metadata editing、rename、metadata exchange、watched-folder orchestration；
+- `Integration/TagLib` 与 `Integration/Network`：真实 adapter/fixture 和受控 provider 边界；
+- `Concurrency`：reservation、取消和 stress 行为；
+- `Performance`：吞吐量与响应性测量；
+- `TestSupport`：跨文件共享且边界明确的 fixture factory。
+
+目录层级用于可发现性，不改变 XCTest target 或并行策略。仍在根目录的测试含有仓库路径策略或跨层 contract，移动前需先去除该耦合。
+
 ## Fault injection
 
 使用 protocol fake/spy、continuation gate 和临时目录覆盖：

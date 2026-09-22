@@ -33,12 +33,20 @@ Last updated: 2026-09-22
 - Made the hosted `xcode-test` invocation explicitly unsigned with command-line
   overrides for signing allowance, requirement, identity, and development team.
   Product signing settings remain unchanged for local and distribution builds.
+- Replaced MusicBrainz's independent deadline sleepers with a single FIFO grant
+  queue. Every slot is now delayed from the preceding actual grant, so scheduler
+  stalls cannot produce a catch-up burst. Cancellation resumes promptly while a
+  tombstone retains the reserved slot and prevents later callers moving forward.
 
 ### Tests and validation
 
 - Reproduced the hosted command locally with a clean derived-data root. It passed
   signing, compiled the real application graph, and completed the serial
   app-hosted suite: 354 tests, 0 failures.
+- Expanded the rate-limiter suite with a delayed-first-wake regression. All three
+  spacing, cancellation, and delayed-wake tests passed, and the complete fast
+  SwiftPM suite passed: 57 tests, 0 failures.
+- Incremental universal macOS Debug build passed with the queue implementation.
 
 ### Deferred release integration
 

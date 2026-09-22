@@ -3,28 +3,84 @@ import Foundation
 actor MusicBrainzRateLimiter {
     nonisolated static let shared = MusicBrainzRateLimiter()
 
+    private struct Waiter {
+        let id: UInt64
+        var continuation: CheckedContinuation<Void, Error>?
+    }
+
     private let minimumIntervalNanoseconds: UInt64
-    private var nextAvailableUptimeNanoseconds: UInt64 = 0
+    private let sleep: @Sendable (UInt64) async -> Void
+    private var waiters: [Waiter] = []
+    private var drainTask: Task<Void, Never>?
+    private var lastGrantUptimeNanoseconds: UInt64?
     private var reservationCount: UInt64 = 0
 
-    init(minimumIntervalNanoseconds: UInt64 = 1_100_000_000) {
+    init(
+        minimumIntervalNanoseconds: UInt64 = 1_100_000_000,
+        sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        }
+    ) {
         self.minimumIntervalNanoseconds = minimumIntervalNanoseconds
+        self.sleep = sleep
     }
 
     func waitIfNeeded() async throws {
         try Task.checkCancellation()
 
-        let now = DispatchTime.now().uptimeNanoseconds
-        let reservedUptimeNanoseconds = max(now, nextAvailableUptimeNanoseconds)
-        let (nextAvailable, overflowed) = reservedUptimeNanoseconds.addingReportingOverflow(minimumIntervalNanoseconds)
-        nextAvailableUptimeNanoseconds = overflowed ? UInt64.max : nextAvailable
+        let waiterID = reservationCount
         reservationCount &+= 1
 
-        guard reservedUptimeNanoseconds > now else { return }
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                waiters.append(Waiter(id: waiterID, continuation: continuation))
+                startDrainingIfNeeded()
+            }
+        } onCancel: {
+            Task { await self.cancelWaiter(id: waiterID) }
+        }
+    }
 
-        // A cancelled caller keeps its reservation. Collapsing it could move a later
-        // already-reserved caller forward and violate the global spacing guarantee.
-        try await Task.sleep(nanoseconds: reservedUptimeNanoseconds - now)
+    private func startDrainingIfNeeded() {
+        guard drainTask == nil else { return }
+        drainTask = Task { await self.drainWaiters() }
+    }
+
+    private func drainWaiters() async {
+        while !waiters.isEmpty {
+            await waitUntilNextGrant()
+            lastGrantUptimeNanoseconds = DispatchTime.now().uptimeNanoseconds
+
+            let waiter = waiters.removeFirst()
+            waiter.continuation?.resume()
+        }
+
+        drainTask = nil
+    }
+
+    private func waitUntilNextGrant() async {
+        guard let lastGrantUptimeNanoseconds else { return }
+
+        while true {
+            let now = DispatchTime.now().uptimeNanoseconds
+            let (earliestGrant, overflowed) = lastGrantUptimeNanoseconds
+                .addingReportingOverflow(minimumIntervalNanoseconds)
+            let deadline = overflowed ? UInt64.max : earliestGrant
+            guard now < deadline else { return }
+            await sleep(deadline - now)
+        }
+    }
+
+    private func cancelWaiter(id: UInt64) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }),
+              let continuation = waiters[index].continuation else {
+            return
+        }
+
+        // The queue entry remains as a tombstone. Removing it would collapse an
+        // already-reserved slot and pull later callers forward.
+        waiters[index].continuation = nil
+        continuation.resume(throwing: CancellationError())
     }
 
     func scheduledTurnCount() -> UInt64 {

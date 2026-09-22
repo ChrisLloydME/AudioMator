@@ -20,15 +20,9 @@ struct MetadataConverterModePickerView: View {
                                 .frame(width: 38)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text(mode.title)
-                                        .font(.title3.weight(.semibold))
-                                        .foregroundStyle(.primary)
-
-                                    if mode.showsBetaBadge {
-                                        MetadataConverterModeBetaBadge()
-                                    }
-                                }
+                                Text(mode.title)
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(.primary)
 
                                 Text(mode.subtitle)
                                     .font(.subheadline.weight(.medium))
@@ -61,34 +55,5 @@ struct MetadataConverterModePickerView: View {
             .frame(maxWidth: rowMaxWidth)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-private struct MetadataConverterModeBetaBadge: View {
-    var body: some View {
-        Text("BETA")
-            .font(.system(size: 8, weight: .bold))
-            .foregroundStyle(Color.accentColor)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(
-                Capsule()
-                    .fill(Color.accentColor.opacity(0.14))
-            )
-            .overlay(
-                Capsule()
-                    .stroke(Color.accentColor.opacity(0.28), lineWidth: 0.8)
-            )
-    }
-}
-
-private extension MetadataConverterMode {
-    var showsBetaBadge: Bool {
-        switch self {
-        case .metadataToText, .textToMetadata, .metadataToCSV, .csvToMetadata:
-            return true
-        case .metadataToFilename, .filenameToMetadata:
-            return false
-        }
     }
 }

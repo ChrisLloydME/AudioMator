@@ -1922,9 +1922,6 @@
     "Before saving, AudioMator checks that the file has not changed. It then writes the update to a temporary file in the same folder, replaces the original, and reloads the saved file." : {
 
     },
-    "BETA" : {
-
-    },
     "Bitrate" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:65, AudioMator/Domain/AudioFiles/AudioFile.swift:548, AudioMator/Features/Main/Views/InspectorPane.swift:829, AudioMator/Features/Main/Views/Formatters.swift:18.",
       "localizations" : {

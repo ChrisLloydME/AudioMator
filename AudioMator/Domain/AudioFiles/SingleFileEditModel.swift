@@ -283,7 +283,7 @@ struct SingleFileEditModel {
         case .replace:
             return true
         case .remove:
-            return hasMetadataChanges || file.artwork != nil
+            return hasMetadataChanges || file.artworkData != nil
         }
     }
 

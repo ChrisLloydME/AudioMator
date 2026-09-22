@@ -73,7 +73,7 @@ Last updated: 2026-09-22
 
 - `7acd1f0` — remove AppKit objects from AudioMator edit models.
 - `7d489f9` — reorganize AudioMator tests by architecture layer.
-- The deterministic MusicBrainz test commit follows this journal update.
+- `28e0da0` — make MusicBrainz scheduler tests deterministic.
 
 ### Cross-repository dependencies
 

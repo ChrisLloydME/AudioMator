@@ -72,12 +72,9 @@ Agents are responsible for verifying that their own changes are technically soun
 
 Xcode Configuration:
 
-Development should use the installed Xcode Beta toolchain by default.
-
-- Stable Xcode (App Store): `/Applications/Xcode.app`
-- Xcode Beta: `/Applications/Xcode-beta.app`
-- Use `Xcode-beta.app` and its corresponding SDKs for all project development, builds, testing, and validation unless the user explicitly requests otherwise.
-- If the active developer directory needs to be selected or switched, use the Xcode Beta installation (for example, via `xcode-select`) before invoking Xcode command-line tools.
+Development uses the stable Xcode 27 toolchain and SDKs installed at
+`/Applications/Xcode.app`. Do not add beta-Xcode selection logic or assume a
+separate prerelease toolchain is installed.
 
 Useful commands:
 

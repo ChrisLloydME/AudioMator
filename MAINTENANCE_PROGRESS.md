@@ -28,6 +28,18 @@ Last updated: 2026-09-22
 
 - `0fbdea9` — update agent guidance for stable Xcode 27.
 
+### Completed changes
+
+- Made the hosted `xcode-test` invocation explicitly unsigned with command-line
+  overrides for signing allowance, requirement, identity, and development team.
+  Product signing settings remain unchanged for local and distribution builds.
+
+### Tests and validation
+
+- Reproduced the hosted command locally with a clean derived-data root. It passed
+  signing, compiled the real application graph, and completed the serial
+  app-hosted suite: 354 tests, 0 failures.
+
 ### Deferred release integration
 
 - After the next independent TagLibAudioMetadata release, update the package

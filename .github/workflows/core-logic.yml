@@ -37,4 +37,8 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/AudioMatorDerivedData" \
             -parallel-testing-enabled NO \
             -maximum-parallel-testing-workers 1 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
             test

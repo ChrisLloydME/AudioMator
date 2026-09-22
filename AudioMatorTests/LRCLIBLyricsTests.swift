@@ -228,6 +228,26 @@ final class LRCLIBLyricsTests: XCTestCase {
     }
 
     @MainActor
+    func testApplyingSyncedLyricsRejectsWritableFormatWithoutLyricsCapability() async {
+        let file = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/lyrics-target.xm"),
+            includeDefaultFileFingerprint: false
+        )
+        let pipeline = RecordingRawMetadataPipeline(file: file, initialPropertyMap: [:])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.files = [file]
+
+        let didApply = await viewModel.applyLRCLIBSyncedLyrics(
+            "[00:01.00]Synced line",
+            to: file.id
+        )
+
+        XCTAssertFalse(didApply)
+        XCTAssertNil(pipeline.writtenPropertyMap)
+    }
+
+    @MainActor
     func testRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(),

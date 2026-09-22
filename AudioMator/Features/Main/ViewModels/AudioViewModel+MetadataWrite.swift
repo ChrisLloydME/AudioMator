@@ -5,10 +5,6 @@ nonisolated func unsupportedMetadataWriteFields(
     in editPayload: MetadataEditPayload,
     forFileExtension fileExtension: String
 ) -> Set<MetadataFieldKey> {
-    guard let writableFields = AudioFormatSupport.writableMetadataFields(for: fileExtension) else {
-        return []
-    }
-
     var requestedFields = editPayload.changedFields
     if editPayload.contentAdvisoryChanged {
         requestedFields.insert(.explicitContent)
@@ -26,6 +22,19 @@ nonisolated func unsupportedMetadataWriteFields(
         requestedFields.insert(.artwork)
     }
 
+    return unsupportedMetadataWriteFields(
+        requestedFields,
+        forFileExtension: fileExtension
+    )
+}
+
+nonisolated func unsupportedMetadataWriteFields(
+    _ requestedFields: Set<MetadataFieldKey>,
+    forFileExtension fileExtension: String
+) -> Set<MetadataFieldKey> {
+    guard let writableFields = AudioFormatSupport.writableMetadataFields(for: fileExtension) else {
+        return []
+    }
     return requestedFields.subtracting(writableFields)
 }
 

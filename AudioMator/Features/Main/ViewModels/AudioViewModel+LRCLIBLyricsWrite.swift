@@ -25,6 +25,17 @@ extension AudioViewModel {
             )
             return false
         }
+        guard unsupportedMetadataWriteFields(
+            [.lyrics],
+            forFileExtension: file.url.pathExtension
+        ).isEmpty else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Apply Lyrics Failed",
+                subtitle: "This format cannot write lyrics. No changes were made."
+            )
+            return false
+        }
 
         beginMetadataSaveProgress(
             title: "Applying LRCLIB Lyrics",
@@ -150,6 +161,18 @@ extension AudioViewModel {
                     BatchMetadataWriteIssue(
                         fileName: file.url.lastPathComponent,
                         messages: ["This format does not support metadata writing yet."]
+                    )
+                )
+                continue
+            }
+            guard unsupportedMetadataWriteFields(
+                [.lyrics],
+                forFileExtension: file.url.pathExtension
+            ).isEmpty else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: file.url.lastPathComponent,
+                        messages: ["This format cannot write lyrics. No changes were made."]
                     )
                 )
                 continue

@@ -41,6 +41,11 @@ Last updated: 2026-09-22
   `LSMinimumSystemVersion` to equal 15.0, discovers every Mach-O inside the app,
   requires the macOS platform, and rejects any architecture whose load-command
   minimum exceeds macOS 15.
+- Extended semantic field-capability preflight to the specialized track
+  renumber and LRCLIB lyrics workflows. Both now reject a broadly writable
+  format when its field set excludes track pairs or lyrics. Inspector, provider,
+  filename, exchange, field-import, and MuseAmp writes already converge on the
+  payload preflight; the raw editor intentionally retains a low-level contract.
 
 ### Tests and validation
 
@@ -55,6 +60,8 @@ Last updated: 2026-09-22
   bundle minimum is 15.0; both app slices report `minos 15.0`; both embedded
   TagLib framework slices report `minos 13.0`. The artifact contains no other
   Mach-O files, and the reusable audit script passed all checks.
+- Focused LRCLIB and track-renumber app-hosted suites passed: 12 tests,
+  0 failures, including new restricted-format no-write regressions.
 
 ### Deferred release integration
 

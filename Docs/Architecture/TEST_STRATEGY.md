@@ -10,6 +10,8 @@
 
 当前固定-seed 性质传感器覆盖 CSV quote/delimiter/formula/Unicode round-trip、metadata template syntax code-point preservation、track/disc numeric intent、rename unsafe scalar 清理；全空末尾 CSV record 因文本格式本身与尾随换行不可区分，生成器明确排除该歧义输入。
 
+并发调度测试注入单调时钟并直接验证 grant 序列；不得用宽松的 wall-clock 容差代替 FIFO、最小间隔或 delayed-wake 语义验证。保留少量真实时钟 smoke test，只覆盖实际 Swift task 取消/唤醒集成。
+
 ## App-hosted tests
 
 命令：

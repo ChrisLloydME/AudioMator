@@ -4,28 +4,27 @@ import XCTest
 
 final class MusicBrainzRateLimiterTests: XCTestCase {
     func testConcurrentCallersReceiveGloballySpacedTurns() async throws {
-        let interval: UInt64 = 35_000_000
-        let limiter = MusicBrainzRateLimiter(minimumIntervalNanoseconds: interval)
+        let interval: UInt64 = 35
+        let clock = DeterministicRateLimitClock()
+        let grants = LockedGrantRecorder()
+        let limiter = MusicBrainzRateLimiter(
+            minimumIntervalNanoseconds: interval,
+            now: clock.now,
+            sleep: clock.sleep,
+            grantObserver: grants.record
+        )
 
-        let releaseTimes = try await withThrowingTaskGroup(of: UInt64.self) { group in
+        try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0..<6 {
                 group.addTask {
                     try await limiter.waitIfNeeded()
-                    return DispatchTime.now().uptimeNanoseconds
                 }
             }
 
-            return try await group.reduce(into: []) { $0.append($1) }.sorted()
+            try await group.waitForAll()
         }
 
-        XCTAssertEqual(releaseTimes.count, 6)
-        for (earlier, later) in zip(releaseTimes, releaseTimes.dropFirst()) {
-            XCTAssertGreaterThanOrEqual(
-                later - earlier,
-                25_000_000,
-                "Concurrent callers were released too close together"
-            )
-        }
+        XCTAssertEqual(grants.values, [0, 35, 70, 105, 140, 175])
     }
 
     func testCancellationDoesNotCollapseAlreadyReservedSchedule() async throws {
@@ -59,35 +58,27 @@ final class MusicBrainzRateLimiterTests: XCTestCase {
     }
 
     func testDelayedWakeDoesNotReleaseACatchUpBurst() async throws {
-        let interval: UInt64 = 30_000_000
-        let delayedSleeper = DelayedFirstRateLimitSleeper(
-            firstDelayNanoseconds: interval * 4
-        )
+        let interval: UInt64 = 30
+        let clock = DeterministicRateLimitClock(firstSleepAdditionalDelay: interval * 4)
+        let grants = LockedGrantRecorder()
         let limiter = MusicBrainzRateLimiter(
             minimumIntervalNanoseconds: interval,
-            sleep: { nanoseconds in
-                await delayedSleeper.sleep(requestedNanoseconds: nanoseconds)
-            }
+            now: clock.now,
+            sleep: clock.sleep,
+            grantObserver: grants.record
         )
 
-        let releaseTimes = try await withThrowingTaskGroup(of: UInt64.self) { group in
+        try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0..<6 {
                 group.addTask {
                     try await limiter.waitIfNeeded()
-                    return DispatchTime.now().uptimeNanoseconds
                 }
             }
 
-            return try await group.reduce(into: []) { $0.append($1) }.sorted()
+            try await group.waitForAll()
         }
 
-        for (earlier, later) in zip(releaseTimes, releaseTimes.dropFirst()) {
-            XCTAssertGreaterThanOrEqual(
-                later - earlier,
-                20_000_000,
-                "Delayed wake-up produced a catch-up burst"
-            )
-        }
+        XCTAssertEqual(grants.values, [0, 150, 180, 210, 240, 270])
     }
 }
 
@@ -187,22 +178,49 @@ private actor SuspendedLoader {
     }
 }
 
-private actor DelayedFirstRateLimitSleeper {
-    private let firstDelayNanoseconds: UInt64
-    private var isFirstSleep = true
+private final class DeterministicRateLimitClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var uptimeNanoseconds: UInt64 = 0
+    private var firstSleepAdditionalDelay: UInt64?
 
-    init(firstDelayNanoseconds: UInt64) {
-        self.firstDelayNanoseconds = firstDelayNanoseconds
+    init(firstSleepAdditionalDelay: UInt64? = nil) {
+        self.firstSleepAdditionalDelay = firstSleepAdditionalDelay
+    }
+
+    func now() -> UInt64 {
+        lock.lock()
+        defer { lock.unlock() }
+        return uptimeNanoseconds
     }
 
     func sleep(requestedNanoseconds: UInt64) async {
-        let delay: UInt64
-        if isFirstSleep {
-            isFirstSleep = false
-            delay = firstDelayNanoseconds
-        } else {
-            delay = requestedNanoseconds
-        }
-        try? await Task.sleep(nanoseconds: delay)
+        advance(by: requestedNanoseconds)
+        await Task.yield()
+    }
+
+    private func advance(by requestedNanoseconds: UInt64) {
+        lock.lock()
+        let additionalDelay = firstSleepAdditionalDelay ?? 0
+        firstSleepAdditionalDelay = nil
+        uptimeNanoseconds &+= requestedNanoseconds
+        uptimeNanoseconds &+= additionalDelay
+        lock.unlock()
+    }
+}
+
+private final class LockedGrantRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedValues: [UInt64] = []
+
+    var values: [UInt64] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedValues
+    }
+
+    func record(_ value: UInt64) {
+        lock.lock()
+        recordedValues.append(value)
+        lock.unlock()
     }
 }

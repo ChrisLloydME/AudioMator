@@ -11,8 +11,8 @@ Last updated: 2026-09-22
 - The correctness-critical commit outcome, independent number-pair mutation,
   exact artwork equality, rename refresh protection, rich advisory state,
   safe Basic update, and concrete probing fixes remain present.
-- Domain/presentation cleanup is in progress; broader test reorganization and
-  ownership decomposition are still being evaluated against actual coupling.
+- Domain/presentation cleanup and physical test reorganization are complete for
+  this pass. Broader ownership decomposition remains staged work.
 
 ### Confirmed findings
 
@@ -44,6 +44,9 @@ Last updated: 2026-09-22
   with exact `Data` payloads.
 - Moved artwork decoding, advisory labels, inspector ordering, and multi-edit
   presentation text into `Features/Main/Presentation`.
+- Injected the MusicBrainz rate limiter's monotonic time source and grant
+  observation seam so spacing and delayed-wake behavior can be tested without
+  scheduler timing tolerances.
 
 ### Tests reorganized or added
 
@@ -54,6 +57,9 @@ Last updated: 2026-09-22
 - Repository-path policy tests remain at the target root until their `#filePath`
   assumptions are replaced; the concentrated SwiftPM file remains follow-up
   rather than being mechanically split around shared private fixtures.
+- Replaced wall-clock spacing assertions in the concurrent and delayed-wake
+  rate-limiter tests with a deterministic locked clock. The cancellation case
+  remains a real-clock smoke test.
 
 ### Validation performed
 
@@ -65,7 +71,9 @@ Last updated: 2026-09-22
 
 ### Commits
 
-- Pending for this pass.
+- `7acd1f0` — remove AppKit objects from AudioMator edit models.
+- `7d489f9` — reorganize AudioMator tests by architecture layer.
+- The deterministic MusicBrainz test commit follows this journal update.
 
 ### Cross-repository dependencies
 
@@ -76,11 +84,12 @@ Last updated: 2026-09-22
 
 - Test strategy now documents the app-hosted physical hierarchy and explains
   why the remaining root-level contract tests have not been moved blindly.
+- Test strategy records the deterministic-clock policy for scheduler behavior.
 
 ### Remaining work
 
 - Split the concentrated SwiftPM suite after extracting focused shared fixtures.
-- Complete the documentation audit after implementation settles.
+- Extract reusable fixtures before splitting the concentrated fast-test source.
 
 ### Deferred work
 

@@ -9,7 +9,9 @@ actor MusicBrainzRateLimiter {
     }
 
     private let minimumIntervalNanoseconds: UInt64
+    private let now: @Sendable () -> UInt64
     private let sleep: @Sendable (UInt64) async -> Void
+    private let grantObserver: (@Sendable (UInt64) -> Void)?
     private var waiters: [Waiter] = []
     private var drainTask: Task<Void, Never>?
     private var lastGrantUptimeNanoseconds: UInt64?
@@ -17,12 +19,18 @@ actor MusicBrainzRateLimiter {
 
     init(
         minimumIntervalNanoseconds: UInt64 = 1_100_000_000,
+        now: @escaping @Sendable () -> UInt64 = {
+            DispatchTime.now().uptimeNanoseconds
+        },
         sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
             try? await Task.sleep(nanoseconds: nanoseconds)
-        }
+        },
+        grantObserver: (@Sendable (UInt64) -> Void)? = nil
     ) {
         self.minimumIntervalNanoseconds = minimumIntervalNanoseconds
+        self.now = now
         self.sleep = sleep
+        self.grantObserver = grantObserver
     }
 
     func waitIfNeeded() async throws {
@@ -49,7 +57,9 @@ actor MusicBrainzRateLimiter {
     private func drainWaiters() async {
         while !waiters.isEmpty {
             await waitUntilNextGrant()
-            lastGrantUptimeNanoseconds = DispatchTime.now().uptimeNanoseconds
+            let grantUptimeNanoseconds = now()
+            lastGrantUptimeNanoseconds = grantUptimeNanoseconds
+            grantObserver?(grantUptimeNanoseconds)
 
             let waiter = waiters.removeFirst()
             waiter.continuation?.resume()
@@ -62,7 +72,7 @@ actor MusicBrainzRateLimiter {
         guard let lastGrantUptimeNanoseconds else { return }
 
         while true {
-            let now = DispatchTime.now().uptimeNanoseconds
+            let now = now()
             let (earliestGrant, overflowed) = lastGrantUptimeNanoseconds
                 .addingReportingOverflow(minimumIntervalNanoseconds)
             let deadline = overflowed ? UInt64.max : earliestGrant

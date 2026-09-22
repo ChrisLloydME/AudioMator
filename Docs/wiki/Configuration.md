@@ -6,8 +6,8 @@ The main project is `AudioMator.xcodeproj`, and the main scheme is `AudioMator`.
 
 Visible app target settings include:
 
-- `MARKETING_VERSION = 2.6`
-- `CURRENT_PROJECT_VERSION = 2691`
+- `MARKETING_VERSION = 2.7`
+- `CURRENT_PROJECT_VERSION = 2692`
 - `PRODUCT_BUNDLE_IDENTIFIER = com.LloydME.AudioMator`
 - Beta/debug bundle identifier: `com.TheLloydME.AudioMator.Beta`
 - `SUPPORTED_PLATFORMS = macosx`
@@ -41,7 +41,9 @@ These entitlements match the project model: local editing needs user-selected fi
 
 `Package.swift` defines an `AudioMatorCoreLogic` library and an `AudioMatorCoreLogicTests` test target. This package is not the full app target. It excludes App, Features, UI, network clients, TagLib-dependent app paths, and other platform-specific code so fast tests stay deterministic.
 
-The Xcode workspace package resolution includes `TagLibAudioMetadata`.
+The Xcode workspace resolves the independent `TagLibAudioMetadata` package at
+exact version `0.5.2`. Newer main-branch APIs are not adopted until that package
+is separately released and the app integration is deliberately migrated.
 
 ## Localization
 

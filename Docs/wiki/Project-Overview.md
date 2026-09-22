@@ -16,8 +16,8 @@ The app includes persistent watched folders, a native three-pane main window, fi
 
 The app target currently uses:
 
-- `MARKETING_VERSION = 2.6`
-- `CURRENT_PROJECT_VERSION = 2691`
+- `MARKETING_VERSION = 2.7`
+- `CURRENT_PROJECT_VERSION = 2692`
 - macOS app deployment target: `15.0`
 
 ## Main Dependencies

@@ -39,5 +39,6 @@ rename 的多文件 move 使用同一 reservation 中的两阶段事务和 best-
 - reservation 获取后取消：在进入不可逆写入前检查；写入开始后以真实持久化结果为准，不伪称已回滚。
 - write 失败：disk snapshot 与 draft 保持原状并返回 failure。
 - write 成功、reload 失败：返回 persisted-with-refresh-warning；内存不得伪造新 snapshot，用户可以重新加载。
+- rename 成功、完整 reload 失败：独立读取新路径的 fingerprint 与 metadata revision。两者均成功时可继续 version-checked editing；任一失败时 snapshot 标记为 refresh-required，所有 metadata mutations fail closed 到下一次成功 reload。
 - rename rollback 不完整：返回每个 operation 的实际候选位置和 rollback errors，要求人工恢复。
 - 文件移动、替换或删除：fingerprint 或 load 失败应关闭写入，不自动寻找“看起来相同”的替代文件。

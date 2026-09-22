@@ -47,13 +47,21 @@ Last updated: 2026-09-22
 
 ### Tests reorganized or added
 
-- Pending.
+- Reorganized the app-hosted target into `Unit`, `Application`, `Integration`,
+  `Concurrency`, `Performance`, and `TestSupport` folders while retaining the
+  filesystem-synchronized single target.
+- Moved the existing reusable `AudioFileTestFactory` into explicit TestSupport.
+- Repository-path policy tests remain at the target root until their `#filePath`
+  assumptions are replaced; the concentrated SwiftPM file remains follow-up
+  rather than being mechanically split around shared private fixtures.
 
 ### Validation performed
 
 - Fast SwiftPM suite: 57 tests, 0 failures.
 - Incremental unsigned universal Debug build succeeded.
 - Focused serial app-hosted inspector/pipeline suites: 36 tests, 0 failures.
+- Complete serial app-hosted suite after physical reorganization: 358 tests,
+  0 failures.
 
 ### Commits
 
@@ -66,11 +74,12 @@ Last updated: 2026-09-22
 
 ### Documentation changes
 
-- Pending final architecture and test-layout audit.
+- Test strategy now documents the app-hosted physical hierarchy and explains
+  why the remaining root-level contract tests have not been moved blindly.
 
 ### Remaining work
 
-- Reorganize the clearest test and production ownership boundaries.
+- Split the concentrated SwiftPM suite after extracting focused shared fixtures.
 - Complete the documentation audit after implementation settles.
 
 ### Deferred work

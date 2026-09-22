@@ -64,6 +64,7 @@ struct AudioFile: Identifiable, Sendable {
     let artworkData: Data?
     let fileFingerprint: AudioFileFingerprint?
     let metadataFileVersion: MetadataFileVersion?
+    let requiresMetadataRefreshBeforeWriting: Bool
 
     // Stable content fingerprint for middle-list row refresh decisions.
     var middleListContentFingerprint: Int {
@@ -106,6 +107,7 @@ struct AudioFile: Identifiable, Sendable {
         hasher.combine(channels)
         hasher.combine(format)
         hasher.combine(fileFingerprint)
+        hasher.combine(requiresMetadataRefreshBeforeWriting)
         return hasher.finalize()
     }
 
@@ -156,7 +158,8 @@ struct AudioFile: Identifiable, Sendable {
         format: String,
         artworkData: Data?,
         fileFingerprint: AudioFileFingerprint? = nil,
-        metadataFileVersion: MetadataFileVersion? = nil
+        metadataFileVersion: MetadataFileVersion? = nil,
+        requiresMetadataRefreshBeforeWriting: Bool = false
     ) {
         self.id = id
         self.url = url
@@ -205,12 +208,14 @@ struct AudioFile: Identifiable, Sendable {
         self.artworkData = artworkData
         self.fileFingerprint = fileFingerprint
         self.metadataFileVersion = metadataFileVersion
+        self.requiresMetadataRefreshBeforeWriting = requiresMetadataRefreshBeforeWriting
     }
 
     nonisolated func withUpdatedURL(
         _ url: URL,
         fileFingerprint: AudioFileFingerprint?,
-        metadataFileVersion: MetadataFileVersion?
+        metadataFileVersion: MetadataFileVersion?,
+        requiresMetadataRefreshBeforeWriting: Bool? = nil
     ) -> AudioFile {
         AudioFile(
             id: id,
@@ -259,7 +264,9 @@ struct AudioFile: Identifiable, Sendable {
             format: format,
             artworkData: artworkData,
             fileFingerprint: fileFingerprint,
-            metadataFileVersion: metadataFileVersion
+            metadataFileVersion: metadataFileVersion,
+            requiresMetadataRefreshBeforeWriting:
+                requiresMetadataRefreshBeforeWriting ?? self.requiresMetadataRefreshBeforeWriting
         )
     }
 

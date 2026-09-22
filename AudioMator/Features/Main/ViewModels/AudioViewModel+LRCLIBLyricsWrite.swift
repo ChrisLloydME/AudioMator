@@ -17,6 +17,15 @@ extension AudioViewModel {
             return false
         }
 
+        guard !file.requiresMetadataRefreshBeforeWriting else {
+            presentMetadataWriteHUD(
+                style: .failure,
+                title: "Apply Lyrics Failed",
+                subtitle: "The file revision could not be verified after it moved. Reload the file before applying lyrics."
+            )
+            return false
+        }
+
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             presentMetadataWriteHUD(
                 style: .failure,
@@ -151,6 +160,16 @@ extension AudioViewModel {
                     BatchMetadataWriteIssue(
                         fileName: match.fileName,
                         messages: ["The file is no longer loaded in AudioMator."]
+                    )
+                )
+                continue
+            }
+
+            guard !file.requiresMetadataRefreshBeforeWriting else {
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: file.url.lastPathComponent,
+                        messages: ["The file revision could not be verified after it moved. Reload the file before applying lyrics."]
                     )
                 )
                 continue

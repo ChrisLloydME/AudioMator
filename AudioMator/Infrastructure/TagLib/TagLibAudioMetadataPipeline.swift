@@ -27,6 +27,10 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         try await AudioFile(url: url, id: id)
     }
 
+    nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
+        try TagLibMetadataManager.fileVersion(at: url)
+    }
+
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
         let bridgeText = TagLibMetadataManager.rawMetadataText(from: url)
 

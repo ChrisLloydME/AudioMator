@@ -132,6 +132,11 @@ extension AudioViewModel {
         _ file: AudioFile,
         syncInspectorAfterReload: Bool
     ) async -> MetadataWriteExecutionResult {
+        guard !file.requiresMetadataRefreshBeforeWriting else {
+            return .failure(
+                "The file revision could not be verified after it moved. Reload the file before clearing metadata."
+            )
+        }
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             return .failure("This format does not support metadata writing yet.")
         }

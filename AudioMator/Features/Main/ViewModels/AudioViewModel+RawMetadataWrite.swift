@@ -36,6 +36,17 @@ extension AudioViewModel {
         var failedTargetIDs = Set<AudioFile.ID>()
 
         for target in targets {
+            guard !target.requiresMetadataRefresh else {
+                failedTargetIDs.insert(target.id)
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(
+                        fileName: target.fileName,
+                        messages: [L10n.string("The file revision could not be verified after it moved. Reload the file before editing raw metadata.")]
+                    )
+                )
+                continue
+            }
+
             guard let propertyMap = propertyMaps[target.id] else {
                 failedTargetIDs.insert(target.id)
                 summary.failureIssues.append(

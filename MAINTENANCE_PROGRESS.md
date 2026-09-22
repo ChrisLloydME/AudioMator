@@ -46,6 +46,11 @@ Last updated: 2026-09-22
   format when its field set excludes track pairs or lyrics. Inspector, provider,
   filename, exchange, field-import, and MuseAmp writes already converge on the
   payload preflight; the raw editor intentionally retains a low-level contract.
+- Hardened rename recovery. When a rename succeeds but full model loading fails,
+  AudioMator now reacquires a lightweight filesystem fingerprint and package
+  metadata revision off the main actor. If either safety token is unavailable,
+  the fallback model is explicitly refresh-required and inspector, erase, track,
+  lyrics, provider/import, and raw-editor mutations all fail closed until reload.
 
 ### Tests and validation
 
@@ -62,6 +67,9 @@ Last updated: 2026-09-22
   Mach-O files, and the reusable audit script passed all checks.
 - Focused LRCLIB and track-renumber app-hosted suites passed: 12 tests,
   0 failures, including new restricted-format no-write regressions.
+- Rename-refresh safety tests passed, covering both fail-closed behavior when a
+  revision cannot be recovered and continued guarded editability when the
+  lightweight revision succeeds after a full-load failure.
 
 ### Deferred release integration
 

@@ -2,6 +2,90 @@
 
 Last updated: 2026-09-22
 
+## 2026-09-22 architecture and test-structure pass
+
+### Current status
+
+- Re-established both clean repository baselines and checked the new external
+  audit against current implementation and prior maintenance journals.
+- The correctness-critical commit outcome, independent number-pair mutation,
+  exact artwork equality, rename refresh protection, rich advisory state,
+  safe Basic update, and concrete probing fixes remain present.
+- Domain/presentation cleanup is in progress; broader test reorganization and
+  ownership decomposition are still being evaluated against actual coupling.
+
+### Confirmed findings
+
+- `SingleFileEditModel.swift` imported AppKit, stored `NSImage` in pending and
+  multi-file artwork state, and localized advisory/editor labels in Domain.
+- `AudioMatorCoreLogic` remains a deliberately selected-source fast-test harness
+  rather than the production application module graph.
+- The app-hosted and fast-test directory layouts remain physically flat and the
+  largest files mix multiple responsibilities.
+
+### Rejected or revised findings
+
+- Direct use of the package's stable semantic value types remains an intentional
+  dependency; one-for-one AudioMator wrappers would add conversion surfaces
+  without isolating concrete TagLib I/O.
+- Focused package snapshots cannot be adopted until a separately released
+  TagLibAudioMetadata version is integrated through the normal release process.
+
+### Architecture decisions
+
+- Domain artwork edits own immutable bytes and MIME type only. AppKit decoding
+  and localized editor/advisory presentation live under the Main feature.
+- Metadata import parses stable semantic tokens in Domain; localized display-name
+  parsing is a presentation compatibility concern.
+
+### Completed changes
+
+- Removed AppKit from `SingleFileEditModel.swift` and replaced `NSImage` state
+  with exact `Data` payloads.
+- Moved artwork decoding, advisory labels, inspector ordering, and multi-edit
+  presentation text into `Features/Main/Presentation`.
+
+### Tests reorganized or added
+
+- Pending.
+
+### Validation performed
+
+- Fast SwiftPM suite: 57 tests, 0 failures.
+- Incremental unsigned universal Debug build succeeded.
+- Focused serial app-hosted inspector/pipeline suites: 36 tests, 0 failures.
+
+### Commits
+
+- Pending for this pass.
+
+### Cross-repository dependencies
+
+- AudioMator remains pinned to released TagLibAudioMetadata 0.5.2. No local
+  checkout coupling or package-version change is introduced by this pass.
+
+### Documentation changes
+
+- Pending final architecture and test-layout audit.
+
+### Remaining work
+
+- Reorganize the clearest test and production ownership boundaries.
+- Complete the documentation audit after implementation settles.
+
+### Deferred work
+
+- A true production `AudioMatorCore` module remains a staged migration rather
+  than a test-only target rewrite.
+- Concrete-file capability caching and focused package reads remain release-
+  integration work unless a present correctness defect is found.
+
+### Risks / unresolved questions
+
+- Remaining Domain files still contain workflow-facing localized validation
+  messages. Moving those requires a broader result/error-model design and is not
+  bundled into the artwork/advisory boundary correction.
+
 ## 2026-09-22 second maintenance pass
 
 ### Current status

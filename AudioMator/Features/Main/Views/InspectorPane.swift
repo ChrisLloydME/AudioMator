@@ -163,7 +163,7 @@ struct InspectorPane: View {
         case .unchanged:
             return file.artwork
         case .replace(let artwork):
-            return artwork.image
+            return NSImage(data: artwork.data)
         case .remove:
             return nil
         }

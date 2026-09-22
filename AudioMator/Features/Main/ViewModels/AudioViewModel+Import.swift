@@ -253,16 +253,7 @@ extension AudioViewModel {
     }
 
     private func pendingArtwork(fromNormalizedPNGData pngData: Data) throws -> PendingArtwork {
-        guard let previewImage = NSImage(data: pngData) else {
-            throw NSError(
-                domain: "AudioMator.Artwork",
-                code: 3,
-                userInfo: [NSLocalizedDescriptionKey: "The converted artwork preview could not be generated."]
-            )
-        }
-
         return PendingArtwork(
-            image: previewImage,
             data: pngData,
             mimeType: "image/png"
         )

@@ -1,10 +1,8 @@
 import Foundation
-import AppKit
 
 struct PendingArtwork {
-    var image: NSImage
-    var data: Data
-    var mimeType: String
+    let data: Data
+    let mimeType: String
 }
 
 enum ArtworkEditAction {
@@ -20,40 +18,10 @@ nonisolated enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
 
     var id: Int { rawValue }
 
-    var displayName: String {
-        switch self {
-        case .notExplicit:
-            return L10n.string("Not Explicit")
-        case .explicit:
-            return L10n.string("Explicit")
-        case .clean:
-            return L10n.string("Clean")
-        }
-    }
-
-    var currentValueDescription: String {
-        switch self {
-        case .notExplicit:
-            return L10n.string("Current value: Not Explicit")
-        case .explicit:
-            return L10n.string("Current value: Explicit")
-        case .clean:
-            return L10n.string("Current value: Clean")
-        }
-    }
-
     nonisolated var isExplicit: Bool { self == .explicit }
 
-    static var inspectorSelectionOrder: [ContentAdvisory] { [.explicit, .clean, .notExplicit] }
-
-    static func fromDisplayName(_ value: String) -> ContentAdvisory? {
+    static func fromMetadataText(_ value: String) -> ContentAdvisory? {
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if let localizedMatch = allCases.first(where: {
-            $0.displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
-        }) {
-            return localizedMatch
-        }
-
         switch normalized {
         case "explicit", "yes", "true", "1":
             return .explicit
@@ -111,18 +79,6 @@ enum ExplicitInspectorSelection: Hashable, Identifiable {
         }
     }
 
-    var displayName: String {
-        switch self {
-        case .unset:
-            return L10n.string("Unset")
-        case .advisory(let advisory):
-            return advisory.displayName
-        }
-    }
-
-    static var inspectorSelectionOrder: [ExplicitInspectorSelection] {
-        [.unset] + ContentAdvisory.inspectorSelectionOrder.map(ExplicitInspectorSelection.advisory)
-    }
 }
 
 struct SingleFileEditModel {
@@ -430,41 +386,6 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
     case publisher
     case copyright
 
-    var displayName: String {
-        switch self {
-        case .title:
-            return L10n.string("Title")
-        case .artist:
-            return L10n.string("Artist")
-        case .album:
-            return L10n.string("Album")
-        case .composer:
-            return L10n.string("Composer")
-        case .genre:
-            return L10n.string("Genre")
-        case .year:
-            return L10n.string("Year")
-        case .trackNumber:
-            return L10n.string("Track Number")
-        case .trackTotal:
-            return L10n.string("Total Tracks")
-        case .discNumber:
-            return L10n.string("Disc Number")
-        case .discTotal:
-            return L10n.string("Total Discs")
-        case .comment:
-            return L10n.string("Comment")
-        case .albumArtist:
-            return L10n.string("Album Artist")
-        case .releaseDate:
-            return L10n.string("Release Date")
-        case .publisher:
-            return L10n.string("Publisher")
-        case .copyright:
-            return L10n.string("Copyright")
-        }
-    }
-
     func value(from edit: SingleFileEditModel) -> String {
         switch self {
         case .title:
@@ -586,21 +507,11 @@ enum MultiFileExplicitEditState: Hashable, Identifiable {
         }
     }
 
-    var displayName: String {
-        switch self {
-        case .keepExisting:
-            return L10n.string("Keep Existing")
-        case .set(.none):
-            return L10n.string("Unset")
-        case .set(.some(let advisory)):
-            return advisory.displayName
-        }
-    }
 }
 
 enum MultiFileArtworkState {
     case none
-    case shared(NSImage)
+    case shared(Data)
     case mixed
 }
 
@@ -657,74 +568,6 @@ struct MultiFileEditModel {
 
     func text(for field: MultiFileEditableTextField) -> String {
         field.value(from: values)
-    }
-
-    func placeholder(for field: MultiFileEditableTextField) -> String? {
-        guard mixedTextFields.contains(field), !modifiedTextFields.contains(field) else { return nil }
-        return L10n.string("Multiple Values")
-    }
-
-    var explicitCurrentValueDescription: String {
-        switch initialContentAdvisory {
-        case .some(.some(let advisory)):
-            return advisory.currentValueDescription
-        case .some(.none):
-            return L10n.string("Current value: Unset")
-        case .none:
-            return L10n.string("Current values differ")
-        }
-    }
-
-    var displayedArtwork: NSImage? {
-        switch artworkEditAction {
-        case .unchanged:
-            switch initialArtworkState {
-            case .none, .mixed:
-                return nil
-            case .shared(let image):
-                return image
-            }
-        case .replace(let artwork):
-            return artwork.image
-        case .remove:
-            return nil
-        }
-    }
-
-    var artworkSummary: String {
-        switch artworkEditAction {
-        case .unchanged:
-            switch initialArtworkState {
-            case .none:
-                return L10n.string("No artwork in the current selection")
-            case .shared:
-                return L10n.string("Shared artwork across selected files")
-            case .mixed:
-                return L10n.string("Artwork differs across selected files")
-            }
-        case .replace:
-            return L10n.string("This artwork will be applied to all selected files")
-        case .remove:
-            return L10n.string("Artwork will be removed from all selected files")
-        }
-    }
-
-    var artworkPlaceholderSymbolName: String {
-        switch artworkEditAction {
-        case .unchanged:
-            switch initialArtworkState {
-            case .none:
-                return "photo.badge.exclamationmark"
-            case .shared:
-                return "photo"
-            case .mixed:
-                return "photo.on.rectangle.angled"
-            }
-        case .replace:
-            return "photo"
-        case .remove:
-            return "trash"
-        }
     }
 
     var hasPendingArtworkChange: Bool {
@@ -785,12 +628,8 @@ struct MultiFileEditModel {
             return files.allSatisfy({ $0.artworkData == nil }) ? .none : .mixed
         }
 
-        guard let firstArtwork = firstFile.artwork else {
-            return .mixed
-        }
-
         return files.dropFirst().allSatisfy({ $0.artworkData == firstArtworkData })
-            ? .shared(firstArtwork)
+            ? .shared(firstArtworkData)
             : .mixed
     }
 }

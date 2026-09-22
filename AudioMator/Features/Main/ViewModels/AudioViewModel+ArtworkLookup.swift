@@ -155,11 +155,7 @@ extension AudioViewModel {
                 }
                 try Task.checkCancellation()
 
-                guard let previewImage = NSImage(data: downloadedArtwork.pngData) else {
-                    throw iTunesArtworkServiceError.imageDecodingFailed
-                }
                 let pendingArtwork = PendingArtwork(
-                    image: previewImage,
                     data: downloadedArtwork.pngData,
                     mimeType: "image/png"
                 )

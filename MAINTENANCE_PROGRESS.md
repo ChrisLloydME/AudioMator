@@ -37,6 +37,10 @@ Last updated: 2026-09-22
   queue. Every slot is now delayed from the preceding actual grant, so scheduler
   stalls cannot produce a catch-up burst. Cancellation resumes promptly while a
   tombstone retains the reserved slot and prevents later callers moving forward.
+- Added a Release-artifact compatibility audit to CI. It requires bundle
+  `LSMinimumSystemVersion` to equal 15.0, discovers every Mach-O inside the app,
+  requires the macOS platform, and rejects any architecture whose load-command
+  minimum exceeds macOS 15.
 
 ### Tests and validation
 
@@ -47,6 +51,10 @@ Last updated: 2026-09-22
   spacing, cancellation, and delayed-wake tests passed, and the complete fast
   SwiftPM suite passed: 57 tests, 0 failures.
 - Incremental universal macOS Debug build passed with the queue implementation.
+- An unsigned Release artifact built successfully with Xcode 27. Its generated
+  bundle minimum is 15.0; both app slices report `minos 15.0`; both embedded
+  TagLib framework slices report `minos 13.0`. The artifact contains no other
+  Mach-O files, and the reusable audit script passed all checks.
 
 ### Deferred release integration
 

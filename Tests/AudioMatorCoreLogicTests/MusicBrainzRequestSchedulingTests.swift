@@ -57,6 +57,38 @@ final class MusicBrainzRateLimiterTests: XCTestCase {
         let followingRelease = try await followingWaiter.value
         XCTAssertGreaterThanOrEqual(followingRelease - start, 500_000_000)
     }
+
+    func testDelayedWakeDoesNotReleaseACatchUpBurst() async throws {
+        let interval: UInt64 = 30_000_000
+        let delayedSleeper = DelayedFirstRateLimitSleeper(
+            firstDelayNanoseconds: interval * 4
+        )
+        let limiter = MusicBrainzRateLimiter(
+            minimumIntervalNanoseconds: interval,
+            sleep: { nanoseconds in
+                await delayedSleeper.sleep(requestedNanoseconds: nanoseconds)
+            }
+        )
+
+        let releaseTimes = try await withThrowingTaskGroup(of: UInt64.self) { group in
+            for _ in 0..<6 {
+                group.addTask {
+                    try await limiter.waitIfNeeded()
+                    return DispatchTime.now().uptimeNanoseconds
+                }
+            }
+
+            return try await group.reduce(into: []) { $0.append($1) }.sorted()
+        }
+
+        for (earlier, later) in zip(releaseTimes, releaseTimes.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(
+                later - earlier,
+                20_000_000,
+                "Delayed wake-up produced a catch-up burst"
+            )
+        }
+    }
 }
 
 final class MusicBrainzResponseCacheTests: XCTestCase {
@@ -152,5 +184,25 @@ private actor SuspendedLoader {
     func release(with data: Data) {
         continuation?.resume(returning: data)
         continuation = nil
+    }
+}
+
+private actor DelayedFirstRateLimitSleeper {
+    private let firstDelayNanoseconds: UInt64
+    private var isFirstSleep = true
+
+    init(firstDelayNanoseconds: UInt64) {
+        self.firstDelayNanoseconds = firstDelayNanoseconds
+    }
+
+    func sleep(requestedNanoseconds: UInt64) async {
+        let delay: UInt64
+        if isFirstSleep {
+            isFirstSleep = false
+            delay = firstDelayNanoseconds
+        } else {
+            delay = requestedNanoseconds
+        }
+        try? await Task.sleep(nanoseconds: delay)
     }
 }

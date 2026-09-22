@@ -10,7 +10,7 @@
 
 - `App`：应用入口、scene、commands、notifications、macOS delegate 与更新装配。
 - `Features`：SwiftUI/AppKit 视图、provider store、工具 store、`AudioViewModel`、feature state 及 mutation presentation。
-- `Domain`：metadata/rename/exchange/renumber 语义、`AudioFile`/draft 模型与 metadata pipeline contract。`AudioFile` retains the package's `MetadataFileVersion` token so edit sessions can participate in transaction-boundary optimistic concurrency; other editable tag representation remains behind the pipeline contract.
+- `Domain`：metadata/rename/exchange/renumber 语义、`AudioFile`/draft 模型与 metadata pipeline contract。当前 metadata contract 有意复用 package 的稳定语义类型：`MetadataFieldKey`、`MetadataFileVersion` 和 `RawMetadataPatch`。这些类型分别承载字段能力、事务 revision 和精确 raw delta；Domain 不调用 TagLib 容器 API，也不拥有文件事务。若未来 app 需要独立演进这些语义，再引入 app-owned 类型，而不是为层图机械包装。
 - `Infrastructure`：watched-folder、directory monitor、网络 client、update service、provider core，以及 `Infrastructure/TagLib` 下的 metadata pipeline 与 `AudioFile` loading adapter。
 
 ## Runtime flow
@@ -23,6 +23,8 @@ provider search 由各自 `@MainActor` store 管理。MusicBrainz/iTunes 生成 
 
 ## Adapter boundary
 
-`Domain/MetadataEditing/AudioMetadataPipeline.swift` 声明 write/load contract、payload、精确 raw value map 和结果。`Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift` 把 app intent 转为 package `MetadataPatch` / `RawMetadataPatch`; container aliases, advisory representation, number-pair storage, verification, and atomic commit remain package responsibilities. `AudioFile+TagLibLoading.swift` uses the package snapshot as the editable-tag authority and AVFoundation only for technical/display enrichment. App 在 composition root 注入具体 adapter。
+`Domain/MetadataEditing/AudioMetadataPipeline.swift` 声明 write/load contract、payload、精确 raw value map 和 app-owned commit result，同时复用上述 package semantic types。`Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift` 把 app intent 转为 package `MetadataPatch` / `RawMetadataPatch`; container aliases, advisory representation, number-pair storage, verification, and atomic commit remain package responsibilities. `AudioFile+TagLibLoading.swift` uses the package snapshot as the editable-tag authority and AVFoundation only for technical/display enrichment. App 在 composition root 注入具体 adapter。
+
+普通 semantic writes 通过一个共享 preflight 检查每个 requested field。track renumber 检查 track/total，LRCLIB 检查 lyrics；raw editor 则保留显式 low-level contract。rename 成功但完整 reload 失败时会独立恢复 fingerprint 与 metadata revision；任一 token 缺失都会把 snapshot 标为 refresh-required，并在所有 mutation entry points fail closed。
 
 Metadata exchange 按职责分为 `MetadataExchangeModels`（字段 schema/校验）、`MetadataExchangeTemplate`（字段映射）、`MetadataExchangeTemplateSyntax`（纯模板 tokenizer）和 `MetadataExchangePlanning`（export/import plan 与 matcher）。SwiftPM 直接编译 production syntax parser、CSV parser、resource budget 与 locator index。

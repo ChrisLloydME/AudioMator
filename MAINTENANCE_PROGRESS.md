@@ -9,24 +9,29 @@ Last updated: 2026-09-22
 - Began from clean `main` at `5d58b68` and updated `AGENTS.md` first, as
   required. AudioMator is macOS-only and stable Xcode 27 is the normal
   development environment.
-- Current reported CI failures are being revalidated against source. The Xcode
-  job's first known failure is missing hosted-runner signing credentials; the
-  fast SwiftPM job reaches a MusicBrainz rate-limiter spacing regression.
+- The reported CI failures were reproduced and resolved locally. The Xcode lane
+  failed for missing hosted-runner signing credentials; the SwiftPM lane exposed
+  a real MusicBrainz actual-grant spacing defect after delayed wakes.
 - Release-version integration remains explicitly deferred: AudioMator stays on
   released TagLibAudioMetadata 0.5.2 until release preparation.
+- Implementation and focused regressions are complete. Current work is the final
+  full-suite/build gate and documentation reconciliation.
 
-### Immediate order
+### Remaining work
 
-1. Make hosted Xcode tests explicitly unsigned and verify they reach the full
-   application build and serial test suite.
-2. Reproduce and correct actual MusicBrainz grant spacing without weakening the
-   timing contract.
-3. Validate the final Release artifact's macOS minimum version, then audit the
-   remaining specialized metadata preflights and rename/reload fallback.
+1. Run the complete fast and serial app-hosted suites after all implementation
+   changes, then force the final app build and repeat the artifact audit.
+2. Finish documentation and verify both repositories have clean worktrees.
 
 ### Commits
 
 - `0fbdea9` — update agent guidance for stable Xcode 27.
+- `729affc` — open the second AudioMator maintenance pass.
+- `e2d65ca` — disable development signing for AudioMator CI tests.
+- `869a81e` — prevent MusicBrainz rate-limit catch-up bursts.
+- `75e0499` — audit final AudioMator binaries for macOS 15.
+- `5c616dd` — enforce field capabilities in specialized metadata writes.
+- `785263b` — retain mutation safety after rename refresh failures.
 
 ### Completed changes
 
@@ -51,6 +56,38 @@ Last updated: 2026-09-22
   metadata revision off the main actor. If either safety token is unavailable,
   the fallback model is explicitly refresh-required and inspector, erase, track,
   lyrics, provider/import, and raw-editor mutations all fail closed until reload.
+
+### Rejected or revised findings
+
+- A package-independent Domain is not a current invariant. Domain intentionally
+  reuses `MetadataFieldKey`, `MetadataFileVersion`, and `RawMetadataPatch` as
+  shared semantic contracts, while Infrastructure alone owns concrete TagLib
+  managers, container conversion, and file transactions. Adding wrappers only
+  to satisfy a layer diagram was rejected; the architecture docs now state the
+  controlled dependency.
+- `AudioMatorCoreLogic` remains a selected-source fast harness, not a production
+  module. A module extraction would be a broad ownership migration and is
+  deferred until it has a product or testability benefit beyond architectural
+  purity.
+- Full package verification projections preserve untouched PropertyMap and
+  artwork state; narrowing them without equivalent preservation checks was not
+  accepted as a safe performance optimization.
+
+### New issues discovered
+
+- Clean Release compilation exposes Swift 6 actor-isolation diagnostics in
+  production AppKit helpers as well as test doubles. One stateless invisible-
+  marker helper is safely made `nonisolated`; wholesale Swift 6 language-mode
+  migration remains separate work because the other warnings require deliberate
+  lifecycle and ownership changes.
+
+### Documentation changes
+
+- Current architecture and dependency rules now describe the controlled package
+  semantic-type dependency, field-level preflight, and rename refresh-required
+  state. Wiki configuration uses version 2.7 (2692), CI docs include unsigned
+  hosted tests and the macOS 15 artifact gate, and historical reports remain
+  preserved behind explicit snapshot notices.
 
 ### Tests and validation
 
@@ -259,11 +296,13 @@ This journal tracks AudioMator-side work for the coordinated metadata correctnes
 - The coordinated maintenance audit is complete. Swift 6 migration remains a
   separately tracked follow-up after test-double isolation is repaired.
 - Completed: resolved AudioMator's remote SwiftPM dependency and regenerated the pin for `TagLibAudioMetadata` 0.5.2.
-- Xcode Beta is not installed. All available validation used stable Xcode 27 / Swift 6.4; rerun the documented build/test gates with the beta toolchain when available.
+- Stable Xcode 27 / Swift 6.4 is the normal validation toolchain; no beta
+  installation or beta-specific rerun is required.
 - Swift 6 language-mode migration remains separate work. The app still declares
   Swift 5 with `SWIFT_STRICT_CONCURRENCY = complete`; the current compiler reports
-  actor-isolation warnings in lock-protected test doubles. Do not flip the
-  language mode until those test boundaries are deliberately repaired.
+  actor-isolation warnings in AppKit lifecycle/helpers and lock-protected test
+  doubles. Do not flip the language mode until those boundaries are deliberately
+  repaired.
 - Raw-editor newline boundary ambiguity remains explicitly deferred: a newline inside one raw value and the UI separator between values are not yet distinguishable.
 - AudioMator now uses published TagLibAudioMetadata 0.5.2, which includes the status-only read-conflict and optional-read logging fixes.
 

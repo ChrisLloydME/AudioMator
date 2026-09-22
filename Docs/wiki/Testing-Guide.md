@@ -40,7 +40,7 @@ App-hosted coverage includes TagLib structured reads, raw metadata inspection, e
 
 - Triggers: pull requests and pushes to `main`.
 - Fast job: `swift test` on `macos-15`, with a 15-minute timeout.
-- App job: serial `xcodebuild test` on `macos-15`, with a 45-minute timeout. This builds the authoritative Xcode app/test graph and runs `AudioMatorTests` with parallel test workers disabled.
+- App job: unsigned serial `xcodebuild test` on `macos-15`, with a 45-minute timeout. This builds the authoritative Xcode app/test graph and runs `AudioMatorTests` with parallel test workers disabled. The same job then builds an unsigned Release artifact and validates the bundle plus every Mach-O against the macOS 15 deployment ceiling.
 
 ## Build Validation
 
@@ -57,6 +57,18 @@ bash scripts/codex-build.sh --force
 ```
 
 The script uses `.deriveddata-codex`. Do not create alternate local build roots for agent validation.
+
+Artifact compatibility gate:
+
+```bash
+scripts/validate-macos-artifact.sh \
+  .deriveddata-codex/Build/Products/Release/AudioMator.app \
+  15.0
+```
+
+This checks `LSMinimumSystemVersion`, the app executable, and embedded frameworks
+or dylibs. Passing source compilation alone does not prove binary load
+compatibility on macOS 15.
 
 ## Bridge Smoke Testing
 

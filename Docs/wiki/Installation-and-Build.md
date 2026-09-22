@@ -5,7 +5,7 @@ AudioMator is built from the Xcode project. A SwiftPM core-logic test target and
 ## Requirements
 
 - macOS development environment.
-- Xcode capable of opening `AudioMator.xcodeproj`.
+- Stable Xcode 27, the repository's normal development toolchain.
 - Swift Package Manager for resolving the remote `TagLibAudioMetadata` package reference.
 - Network access when resolving packages or using online app features.
 
@@ -47,7 +47,8 @@ swift test --filter AudioMatorCoreLogicTests
 The GitHub Actions workflow in `.github/workflows/core-logic.yml` runs two independent validation jobs on macOS 15 for pull requests and pushes to `main`:
 
 - `swift test` exercises the small deterministic core-logic package.
-- A serial `xcodebuild test` builds the real application/test graph and runs the app-hosted `AudioMatorTests` suite.
+- An explicitly unsigned serial `xcodebuild test` builds the real application/test graph and runs the app-hosted `AudioMatorTests` suite.
+- The app job also builds an unsigned Release artifact and checks its bundle and every embedded Mach-O with `scripts/validate-macos-artifact.sh`.
 
 ## Codex Build Script
 

@@ -6,8 +6,8 @@ Use this page to prepare release notes and verify AudioMator version metadata be
 
 The Xcode app target currently uses:
 
-- `MARKETING_VERSION = 2.6`
-- `CURRENT_PROJECT_VERSION = 2691`
+- `MARKETING_VERSION = 2.7`
+- `CURRENT_PROJECT_VERSION = 2692`
 
 Engineering health notes reference a historical baseline tag, `V2.4.1B26516`, and an audited head, `668c6aa`. Treat those as maintenance references, not release notes.
 
@@ -31,6 +31,9 @@ The version is compared first, followed by the build number. A higher build ther
 
 - Run `swift test --filter AudioMatorCoreLogicTests` or `swift test`.
 - Run `bash scripts/codex-build.sh --force` for a generic macOS build.
+- Build an unsigned Release artifact and run
+  `scripts/validate-macos-artifact.sh <path-to-AudioMator.app> 15.0` so the
+  bundle metadata, main executable, and every embedded Mach-O are audited.
 - If TagLib bridge or format-write behavior changed, run bridge smoke tests on temporary files.
 - Check whether `README.md` still matches platform, format, privacy, and network behavior.
 - Check whether `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` and `Docs/THIRD_PARTY_NOTICES.md` cover any new service or dependency.

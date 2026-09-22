@@ -12,7 +12,11 @@ The app declares the main window, Settings window, Online Metadata window, Filen
 
 Metadata writes are routed through the app metadata pipeline and `AudioViewModel` write extensions. UI code should not directly write container-specific metadata.
 
+The Domain pipeline contract intentionally reuses three stable package semantic types: `MetadataFieldKey`, `MetadataFileVersion`, and `RawMetadataPatch`. Concrete TagLib managers, snapshot extraction, container conversion, verification, and atomic file transactions remain in `Infrastructure/TagLib`. This is a controlled dependency rather than a claim that Domain is package-independent.
+
 Track and disc values are structured, not just raw strings. `AudioTagNumberPair` and `AudioTagNumberText` preserve numeric intent and user-facing text intent. The write layer then handles container-specific behavior for ID3v2, PropertyMap-style formats, and MP4/M4A where supported.
+
+Semantic writes preflight the exact requested fields against format capabilities. Track renumber and LRCLIB lyrics use the same rule; the advanced raw editor deliberately exposes a lower-level contract. After a rename, failure to recover either the filesystem fingerprint or metadata revision makes the snapshot refresh-required and blocks further writes.
 
 ## Domain Layer
 
@@ -58,6 +62,6 @@ Network-backed features should remain explicit and user initiated.
 
 ## Testability Boundary
 
-`Package.swift` defines an `AudioMatorCoreLogic` SwiftPM target containing selected non-UI, non-TagLib, non-network files. Fast tests cover rename logic, filename metadata matching, metadata exchange, LRCLIB request/ranking, iTunes request normalization, MusicBrainz provider helpers, fuzzy matching, MuseAmp ID generation, audio format policy, file collection ordering, merged metadata policy, duplicate detection, and artwork replacement decisions.
+`Package.swift` defines an `AudioMatorCoreLogic` SwiftPM target containing selected non-UI, non-TagLib, non-network production files. It is a fast test harness, not a production module consumed by the app. Fast tests cover rename logic, filename metadata matching, metadata exchange, LRCLIB request/ranking, iTunes request normalization, MusicBrainz provider helpers and actual-grant rate scheduling, fuzzy matching, MuseAmp ID generation, audio format policy, file collection ordering, merged metadata policy, duplicate detection, and artwork replacement decisions.
 
 TagLib integration, UI behavior, network clients, and full app orchestration are covered outside the fast SwiftPM target through app-hosted Xcode tests and build checks.

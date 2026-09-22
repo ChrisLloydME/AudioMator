@@ -14,7 +14,7 @@ Infrastructure adapters
 
 - `App` 可以依赖所有层，但只负责装配、命令、生命周期和平台入口。
 - `Features` 可以依赖 Domain contract/value 与平台 UI framework；不得直接调用 TagLib 容器 API或实现文件事务。
-- `Domain` 可以依赖 Foundation 和项目内纯逻辑 Core；不得依赖 SwiftUI、AppKit、Combine、TagLib 或具体网络 client，除非文档记录了无法隔离的理由。
+- `Domain` 可以依赖 Foundation 和项目内纯逻辑 Core；不得依赖 SwiftUI、AppKit、Combine、具体网络 client 或 TagLib 容器/文件 API。Metadata boundary 当前有一个记录在 ADR 0003 的例外：复用 `TagLibAudioMetadata` 的 `MetadataFieldKey`、`MetadataFileVersion` 和 `RawMetadataPatch` 语义类型，以保持字段能力、revision 与精确 delta 的单一 contract。具体 manager、snapshot extraction、container conversion 和 transaction implementation 仍只属于 Infrastructure。
 - `Infrastructure` 实现 Domain contract，拥有 TagLib、文件系统、bookmark、directory monitor、URLSession/provider DTO、更新服务和系统 adapter。
 - provider-specific query/DTO/matching 可以留在对应 Infrastructure 目录；跨 provider 抽象必须由至少两条稳定、相同的业务语义证明。
 
@@ -27,7 +27,9 @@ Infrastructure adapters
 
 - UI 只能提交显式 mutation input 并消费结果，不得直接写 TagLib 或移动文件。
 - 所有磁盘 mutation 必须通过共享的路径 reservation。
+- semantic mutation 必须按 requested field 做 format-capability preflight；不能只检查 extension 是否 broadly writable。低层 raw editor 是明确例外。
 - 成功写入后的 reload 属于同一 mutation ownership 范围；UI snapshot replacement 在主 actor 上发生。
+- rename 后若完整 reload 失败，必须恢复 fingerprint 与 metadata revision；无法恢复时 snapshot 标记为 refresh-required，并禁止未受保护的后续写入。
 - 对外结果必须区分：未写入、已写入且刷新成功、已写入但刷新失败、部分批次失败、取消、需要人工恢复。
 
 ## Enforcement

@@ -42,3 +42,20 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             test
+
+      - name: Build and audit macOS 15 Release artifact
+        run: |
+          xcodebuild \
+            -project AudioMator.xcodeproj \
+            -scheme AudioMator \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/AudioMatorDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+          scripts/validate-macos-artifact.sh \
+            "$RUNNER_TEMP/AudioMatorDerivedData/Build/Products/Release/AudioMator.app" \
+            15.0

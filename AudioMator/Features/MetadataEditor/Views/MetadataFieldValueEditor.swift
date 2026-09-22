@@ -327,7 +327,7 @@ nonisolated private final class MetadataFieldInvisibleLayoutManager: NSLayoutMan
     }
 }
 
-private enum MetadataInvisibleMarker {
+nonisolated private enum MetadataInvisibleMarker {
     case space
     case tab
     case lineBreak

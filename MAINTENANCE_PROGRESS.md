@@ -14,14 +14,14 @@ Last updated: 2026-09-22
   a real MusicBrainz actual-grant spacing defect after delayed wakes.
 - Release-version integration remains explicitly deferred: AudioMator stays on
   released TagLibAudioMetadata 0.5.2 until release preparation.
-- Implementation and focused regressions are complete. Current work is the final
-  full-suite/build gate and documentation reconciliation.
+- The second pass is complete locally: implementation, documentation, the full
+  test matrix, Release build, and artifact audit all pass. Hosted CI remains the
+  authority after push.
 
 ### Remaining work
 
-1. Run the complete fast and serial app-hosted suites after all implementation
-   changes, then force the final app build and repeat the artifact audit.
-2. Finish documentation and verify both repositories have clean worktrees.
+- No implementation work remains in this pass. Release-version integration and
+  Swift 6 language-mode migration remain explicitly deferred below.
 
 ### Commits
 
@@ -32,6 +32,8 @@ Last updated: 2026-09-22
 - `75e0499` — audit final AudioMator binaries for macOS 15.
 - `5c616dd` — enforce field capabilities in specialized metadata writes.
 - `785263b` — retain mutation safety after rename refresh failures.
+- `34a6046` — clarify metadata editor helper isolation.
+- `6d5913d` — align AudioMator documentation with current architecture.
 
 ### Completed changes
 
@@ -107,6 +109,14 @@ Last updated: 2026-09-22
 - Rename-refresh safety tests passed, covering both fail-closed behavior when a
   revision cannot be recovered and continued guarded editability when the
   lightweight revision succeeds after a full-load failure.
+- Final fast suite: 57 tests, 0 failures.
+- Final serial app-hosted suite: 358 tests, 0 failures.
+- Final unsigned universal Release build succeeded. The artifact audit again
+  verified bundle minimum 15.0, app arm64/x86_64 `minos 15.0`, embedded TagLib
+  framework arm64/x86_64 `minos 13.0`, and exactly two Mach-O files.
+- Release compilation still emits the separately deferred Swift 6 diagnostics
+  summarized above; none are build failures in the current Swift 5 language
+  mode.
 
 ### Deferred release integration
 

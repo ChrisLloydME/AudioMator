@@ -625,15 +625,17 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             guard components.count <= 2,
                   components.allSatisfy({ component in
                       let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
-                      return !trimmed.isEmpty && Int(trimmed).map { $0 >= 0 } == true
+                      return !trimmed.isEmpty && Int(trimmed).map {
+                          (0...Int(Int32.max)).contains($0)
+                      } == true
                   })
             else {
-                return "\(displayName) must be a non-negative integer, optionally followed by / and a total."
+                return "\(displayName) must be an integer from 0 through \(Int32.max), optionally followed by / and a total in the same range."
             }
         case .trackTotal, .discTotal:
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard Int(trimmed).map({ $0 >= 0 }) == true else {
-                return "\(displayName) must be a non-negative integer."
+            guard Int(trimmed).map({ (0...Int(Int32.max)).contains($0) }) == true else {
+                return "\(displayName) must be an integer from 0 through \(Int32.max)."
             }
         case .contentAdvisory:
             guard ContentAdvisory.fromMetadataText(value) != nil else {

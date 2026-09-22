@@ -33,6 +33,28 @@ The Filename & Metadata tool supports six modes:
 
 Review the preview carefully before applying changes, especially with complex filenames, irregular delimiters, or unusual metadata values.
 
+Text export and import use one record per line and a literal template such as
+`{{fileName}} | {{artist}} | {{title}}`. Plain text has no escaping syntax: use
+CSV if a value can contain a line break or the template's literal separators.
+
+CSV column templates accept comma, semicolon, pipe, or tab delimiters. CSV
+supports quoted fields, doubled quotes, embedded delimiters and line breaks,
+optional headers, and spreadsheet-formula protection on export. AudioMator can
+open UTF-8, UTF-16, Windows-1252, and Mac Roman text files; exported files use
+UTF-8 and CSV rows use CRLF line endings.
+
+Imports with File Name, Base Name, Path, Relative Path, or Index fields match
+each record to the selected files using all supplied locators. Without a locator,
+records match selected files in selection order. Ambiguous matches, duplicate
+records for one file, missing records, extra records, invalid typed values, and
+files changed since preview are not written. Empty imported values are ignored
+unless the clear-empty-values option is enabled.
+
+The converter accepts at most 100,000 files or records and 32 MB of source or
+generated text. Plain-text records are limited to 256 KB and CSV fields to 1 MB.
+Writes are verified per file but are not an all-or-nothing batch transaction, so
+the result summary may contain both successes and failures.
+
 ## Use Online Metadata Sources
 
 The Online Metadata window hosts MusicBrainz, iTunes, and LRCLIB workflows. Using these features sends search terms or identifiers to the selected service. Ordinary local audio file contents are not uploaded for these lookup workflows.

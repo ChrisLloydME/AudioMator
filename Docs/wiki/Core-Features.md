@@ -30,7 +30,7 @@ AudioMator supports six converter modes:
 - Metadata to CSV.
 - CSV to Metadata.
 
-The filename modes keep file extensions intact, parse filename stems through templates, and preview rename or write plans before applying them. Text and CSV modes export one record per selected file or import records back into writable metadata fields.
+The filename modes keep file extensions intact, parse filename stems through templates, and preview rename or write plans before applying them. Text and CSV modes export one record per selected file or import records back into writable metadata fields. CSV supports comma, semicolon, pipe, and tab dialects, RFC-style quoted fields, embedded line breaks, optional headers, and reversible spreadsheet-formula protection. Imports can match by selection order or by unambiguous file-name, base-name, absolute-path, relative-path, and index locators.
 
 Relevant code lives in:
 
@@ -38,7 +38,7 @@ Relevant code lives in:
 - `AudioMator/Domain/MetadataExchange/`
 - `AudioMator/Features/MetadataFilenameTool/`
 
-The tool builds preview plans before applying writes. Review those previews carefully when filenames, delimiters, or source rows are inconsistent.
+The tool builds preview plans before applying writes. Invalid typed values, ambiguous or duplicate matches, missing source fingerprints, and files changed after preview fail closed. Blank cells do not clear tags unless the user enables clearing. Plain-text templates do not escape separators or line breaks, so CSV is the reversible choice for complex values. Batch writes are serialized and reported per file rather than committed atomically as one batch.
 
 ## Online Metadata Lookup
 

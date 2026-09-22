@@ -676,8 +676,10 @@ final class AudioViewModel: ObservableObject {
     func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) async -> [String] {
         guard !changes.isEmpty else { return [] }
 
+        let loadedFilesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         var urlsByID: [UUID: URL] = [:]
         var refreshedByID: [UUID: AudioFile] = [:]
+        var fallbackFilesByID: [UUID: AudioFile] = [:]
         var warnings: [String] = []
         for change in changes {
             urlsByID[change.id] = change.newURL
@@ -687,18 +689,42 @@ final class AudioViewModel: ObservableObject {
                     id: change.id
                 )
             } catch {
-                warnings.append(
-                    "\(change.newURL.lastPathComponent): Renamed successfully, but metadata revision refresh failed: \((error as NSError).localizedDescription)"
-                )
+                let metadataPipeline = self.metadataPipeline
+                let safetyState = await Task.detached(priority: .userInitiated) {
+                    let fingerprint = try? AudioFileFingerprint.capture(at: change.newURL)
+                    let metadataVersion = try? metadataPipeline.metadataFileVersion(at: change.newURL)
+                    return (fingerprint, metadataVersion)
+                }.value
+                if let loadedFile = loadedFilesByID[change.id] {
+                    fallbackFilesByID[change.id] = loadedFile.withUpdatedURL(
+                        change.newURL,
+                        fileFingerprint: safetyState.0,
+                        metadataFileVersion: safetyState.1,
+                        requiresMetadataRefreshBeforeWriting:
+                            safetyState.0 == nil || safetyState.1 == nil
+                    )
+                }
+
+                let detail = (error as NSError).localizedDescription
+                if safetyState.0 != nil, safetyState.1 != nil {
+                    warnings.append(
+                        "\(change.newURL.lastPathComponent): Renamed successfully and recovered its safety revision, but the full metadata refresh failed: \(detail)"
+                    )
+                } else {
+                    warnings.append(
+                        "\(change.newURL.lastPathComponent): Renamed successfully, but its safety revision could not be refreshed. Metadata editing is disabled until the file is reloaded: \(detail)"
+                    )
+                }
             }
         }
 
         quickImportFiles = quickImportFiles.map { file in
             guard let newURL = urlsByID[file.id] else { return file }
-            return refreshedByID[file.id] ?? file.withUpdatedURL(
+            return refreshedByID[file.id] ?? fallbackFilesByID[file.id] ?? file.withUpdatedURL(
                 newURL,
                 fileFingerprint: nil,
-                metadataFileVersion: nil
+                metadataFileVersion: nil,
+                requiresMetadataRefreshBeforeWriting: true
             )
         }
         syncQuickImportSecurityScopedResources()
@@ -707,10 +733,11 @@ final class AudioViewModel: ObservableObject {
             guard let folderFiles = watchedFolderFiles[folderID] else { continue }
             watchedFolderFiles[folderID] = folderFiles.map { file in
                 guard let newURL = urlsByID[file.id] else { return file }
-                return refreshedByID[file.id] ?? file.withUpdatedURL(
+                return refreshedByID[file.id] ?? fallbackFilesByID[file.id] ?? file.withUpdatedURL(
                     newURL,
                     fileFingerprint: nil,
-                    metadataFileVersion: nil
+                    metadataFileVersion: nil,
+                    requiresMetadataRefreshBeforeWriting: true
                 )
             }
         }

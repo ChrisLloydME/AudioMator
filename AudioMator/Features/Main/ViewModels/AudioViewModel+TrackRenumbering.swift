@@ -30,9 +30,9 @@ extension AudioViewModel {
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
-        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, refreshGeneration: UInt64)] =
+        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, requiresMetadataRefresh: Bool, refreshGeneration: UInt64)] =
             targetFiles.map {
-                ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion, makeFileModelRefreshGeneration())
+                ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion, $0.requiresMetadataRefreshBeforeWriting, makeFileModelRefreshGeneration())
             }
 
         guard !writeTargets.isEmpty else {
@@ -88,6 +88,17 @@ extension AudioViewModel {
 
             for (idx, target) in writeTargets.enumerated() {
                 let newNumber = numbers[idx]
+
+                guard !target.requiresMetadataRefresh else {
+                    result.failed += 1
+                    result.failures.append(
+                        TrackRenumberFailure(
+                            fileName: target.url.lastPathComponent,
+                            reason: "The file revision could not be verified after it moved. Reload the file before renumbering tracks."
+                        )
+                    )
+                    continue
+                }
 
                 let ext = target.url.pathExtension.lowercased()
                 guard writableExtensions.contains(ext) else {

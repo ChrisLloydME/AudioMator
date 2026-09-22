@@ -196,6 +196,11 @@ extension AudioViewModel {
         expectedFileFingerprint: AudioFileFingerprint? = nil,
         expectedMetadataVersion: MetadataFileVersion? = nil
     ) async -> MetadataWriteExecutionResult {
+        guard !file.requiresMetadataRefreshBeforeWriting else {
+            return .failure(
+                "The file revision could not be verified after it moved. Reload the file before editing metadata."
+            )
+        }
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             return .failure("This format does not support metadata writing yet.")
         }

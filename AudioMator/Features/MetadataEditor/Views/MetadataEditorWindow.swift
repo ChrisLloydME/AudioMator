@@ -9,12 +9,14 @@ struct MetadataEditorTarget: Identifiable, Hashable {
     let url: URL
     let expectedFileFingerprint: AudioFileFingerprint?
     let expectedMetadataVersion: MetadataFileVersion?
+    let requiresMetadataRefresh: Bool
 
     init(file: AudioFile) {
         self.id = file.id
         self.url = file.url
         self.expectedFileFingerprint = file.fileFingerprint
         self.expectedMetadataVersion = file.metadataFileVersion
+        self.requiresMetadataRefresh = file.requiresMetadataRefreshBeforeWriting
     }
 
     nonisolated var fileName: String {

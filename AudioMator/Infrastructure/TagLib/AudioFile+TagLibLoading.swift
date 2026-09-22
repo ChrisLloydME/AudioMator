@@ -64,6 +64,7 @@ extension AudioFile {
         let snapshot = try TagLibMetadataManager.readSnapshot(from: url)
         let tag = snapshot.basic
         self.metadataFileVersion = snapshot.fileVersion
+        self.requiresMetadataRefreshBeforeWriting = false
 
         self.title       = tag.title
         self.artist      = tag.artist

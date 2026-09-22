@@ -5,8 +5,8 @@ Last updated: 2026-09-22
 ## Current task — text and CSV metadata converters
 
 - [x] Step 1 — Remove converter Beta badges.
-- [ ] Step 2 — Prepare TagLibAudioMetadata documentation for release.
-- [ ] Step 3 — Audit former Beta converter workflows.
+- [x] Step 2 — Prepare TagLibAudioMetadata documentation for release.
+- [x] Step 3 — Audit former Beta converter workflows.
 
 ### Step 1 — Remove converter Beta badges
 
@@ -14,12 +14,178 @@ Last updated: 2026-09-22
   to CSV, and CSV to Metadata without changing converter behavior.
 - Removed the mode-specific Beta predicate, badge view, and unused `BETA`
   string-catalog entry rather than retaining hidden infrastructure.
-- Reviewed current user documentation; it lists the four workflows without
-  describing them as Beta or experimental, so no additional wording was stale.
+- The initial mode-specific scan found no Beta or experimental label in the wiki;
+  the broader Step 3 audit later found and removed a README refinement warning.
 - Validation: source scan found no remaining converter Beta implementation or
-  current Beta/experimental claim for these workflows; incremental application
-  build passed.
+  mode-specific Beta label; incremental application build passed. The broader
+  workflow audit subsequently found and removed a README caution that still
+  described the converters as being under active refinement.
 - Commit: this step's commit (`Promote text and CSV metadata converters from beta`).
+
+### Step 2 — Prepare TagLibAudioMetadata documentation for release
+
+- Audited the package manifest, public read/write/patch/capability APIs,
+  transaction coordinator, errors, and tests before revising package docs.
+- Clarified tagged-release installation versus evaluating `main`, snapshot
+  version usage, same-entry transaction serialization, patch preservation,
+  warnings and errors, and the distinction between configured CI and locally
+  executed validation.
+- Preserved the historical migration report as an explicitly historical record.
+- No tag, release, version number, dependency upgrade, or AudioMator package-pin
+  change was made.
+- Validation in the package repository: 137 tests executed, 2 opt-in tests
+  skipped, 0 failures.
+- Commit: TagLibAudioMetadata `c7741b9` (`Prepare TagLibAudioMetadata documentation for next release`).
+
+### Step 3 — Converter workflow audit
+
+#### Severity summary
+
+- P0: none found.
+- P1: none found.
+- P2 fixed: numeric track/disc imports accepted any non-negative Swift `Int`,
+  while TagLibAudioMetadata 0.5.2 accepts at most `INT_MAX`. Such values could
+  appear Ready in preview and then fail safely during persistence. Preview and
+  execution-time validation now enforce `0...Int32.max` with an actionable
+  message.
+- Documentation fixed: replaced the stale README refinement warning and expanded
+  README/wiki documentation with actual dialects, matching rules, blank-value
+  behavior, encoding, resource limits, preview safeguards, and non-atomic batch
+  semantics.
+
+#### Metadata to Text
+
+- Correctness: the template tokenizer preserves literal Unicode, rejects unknown
+  or unterminated fields, limits templates to 16 KB/256 segments, and renders
+  structured track/disc number and total fields independently. Selection order is
+  stable and duplicate target identifiers are removed.
+- Escaping and ambiguity: plain text intentionally has no escape grammar. Export
+  therefore rejects rendered line breaks and directs complex or multiline values
+  to CSV. Literal separators contained in metadata can make a later text import
+  ambiguous; the importer rejects ambiguous parses rather than guessing.
+- Scale: export is bounded to 100,000 unique files, 256 KB per rendered record,
+  and 32 MB for the complete UTF-8 document. Budget checks include separators.
+- Output: the save path writes UTF-8 atomically. Empty metadata values remain
+  empty template captures; no metadata file is mutated during export.
+
+#### Text to Metadata
+
+- Parsing: UTF-8 BOMs and CR/LF variants are normalized, blank records are
+  skipped unless explicit blank clearing is enabled, and each source line must
+  match the literal template completely. Adjacent fields, conflicting repeated
+  captures, ambiguous backtracking results, and pathological searches fail
+  closed. Matching has explicit step and candidate budgets.
+- Matching: File Name and Base Name use trimmed case/diacritic/width-insensitive
+  keys; Path is an exact standardized absolute path; Relative Path is normalized,
+  cannot escape its synthetic root, and matches an unambiguous suffix; Index is
+  one-based. All supplied locators must agree. Without locators, records use
+  captured selection order. Duplicate external records for one target, duplicate
+  selected IDs, missing records, extra records, no matches, and multiple matches
+  are preview issues and have no write entry.
+- Field semantics: ordinary text, structured track/disc number and total fields,
+  content advisory values, blank-ignore/blank-clear behavior, null rejection, and
+  changed-field-only plans were traced through `SingleFileEditModel` and the
+  delta metadata pipeline. Track/disc imports now validate the package's real
+  `INT_MAX` ceiling before being marked Ready.
+- Limits: source text is capped at 32 MB, 100,000 records, and 256 KB per record.
+  Text captures are trimmed, so CSV is required to preserve intentional leading
+  or trailing field whitespace.
+
+#### Metadata to CSV
+
+- Dialects and round trip: column templates support comma, semicolon, pipe, and
+  tab delimiters. Each cell must be one exact supported token; duplicate writable
+  or locator columns are rejected while Ignore may repeat. Serialization quotes
+  delimiters, quotes, record separators, and boundary whitespace, doubles quotes,
+  emits CRLF, and can emit localized display-name headers.
+- Spreadsheet safety: formula-like cell values are prefixed before serialization;
+  genuine leading apostrophes in that shape are doubled so AudioMator's importer
+  reverses the protection without losing the original value.
+- Data correctness: structured number components and raw content-advisory values
+  round trip through their typed columns. File Name, Base Name, absolute Path,
+  common-root Relative Path, and one-based Index are available as locators.
+- Scale: export is bounded to 100,000 unique files, 1 MB per protected field, and
+  32 MB for the complete serialized document. The export plan is created before
+  the save panel and does not mutate audio files.
+
+#### CSV to Metadata
+
+- Input and dialects: external files are read incrementally with a 32 MB cap and
+  support UTF-8, BOM-marked or heuristically detected UTF-16, Windows-1252, and
+  Mac Roman. The user-authored column template declares the delimiter; source
+  parsing does not guess a different dialect. Comma/semicolon parsing is strict
+  about malformed quotes, while pipe/tab imports allow literal bare quotes.
+- CSV behavior: quoted delimiters, doubled quotes, embedded CR/LF, trailing empty
+  cells, and quoted boundary whitespace are preserved; unquoted boundary
+  whitespace is trimmed. Optional header handling skips the first record after a
+  column-count check; the template, not header labels, remains the schema.
+- Matching, blanks, and typed values use the same fail-closed plan as text import.
+  Missing or extra columns are row errors. Spreadsheet-protection prefixes from
+  AudioMator exports decode reversibly. A completely blank row clears fields only
+  when the explicit clearing option is enabled.
+- Scale: the source is capped at 32 MB, 100,000 data rows, template-derived column
+  count plus one error-detection slot, and 1 MB per decoded field.
+
+#### Preview, mutation safety, and user feedback
+
+- Every import produces row statuses and changed-field previews before mutation;
+  only Ready rows contribute write entries. Execution revalidates unique target
+  IDs, writable fields, typed values, loaded-file identity, and availability of
+  the preview fingerprint.
+- Unsaved Inspector edits and another active metadata save block the operation.
+  Each file write is serialized by the file mutation coordinator, rechecks its
+  filesystem fingerprint inside the reservation, sends the loaded package
+  metadata version to the TagLib transaction, applies only changed fields,
+  enforces per-format field capabilities, reloads the file, and reports warnings
+  or failures per file.
+- Batch imports are deliberately not all-or-nothing. Earlier files may be saved
+  if a later file changes or fails; the progress HUD and final summary report
+  successes, warnings, and failures. The documentation now states this explicitly.
+
+#### Rejected findings
+
+- CSV source delimiter autodetection was not added: the template is the explicit
+  dialect contract, preventing data punctuation from selecting a different parser.
+- Header-name mapping was not inferred: headers are optional presentation labels,
+  while the visible column template is authoritative; width is still checked.
+- Ambiguous filename/relative-path matching was not resolved by taking the first
+  candidate. Failing closed is the required data-safety behavior.
+- Batch rollback was not introduced. Cross-file atomicity is not available from
+  the underlying per-file transaction API, and pretending otherwise would make
+  recovery less truthful.
+
+#### Known limitations and deferred work
+
+- Plain-text records cannot escape line breaks, literal separators, or preserve
+  boundary whitespace. CSV is the documented path for those values.
+- AudioMator remains pinned to released TagLibAudioMetadata 0.5.2. Its formatted
+  number patch requires track text even for a disc-only edit, so the adapter sends
+  the unchanged current track text and may request an unnecessary track-pair
+  rewrite. Current package `main` supports independent formatted track/disc
+  intent; adopting it remains blocked on an independent tagged release and the
+  normal dependency-upgrade/integration pass.
+- Absolute path locator matching is standardized but case-sensitive; filename and
+  basename locators use case/diacritic/width folding. Users moving CSVs between
+  filesystems should prefer Index or an unambiguous Relative Path and inspect the
+  preview.
+- No new tests were added per task instruction. A focused boundary regression for
+  `Int32.max + 1` is intentionally deferred; the implementation was verified by
+  existing suites plus source-level comparison with the pinned package constraint.
+- Interactive UI acceptance, save-panel behavior, and manual spreadsheet import
+  remain maintainer validation. Agent validation did not launch, automate, or
+  screenshot AudioMator outside the app-hosted test runner.
+
+#### Validation
+
+- Fast SwiftPM suite: 57 tests, 0 failures.
+- Focused serial app-hosted exchange, fixture, external-loader/presentation, and
+  metadata-workflow suites: 90 tests, 0 failures.
+- Focused Xcode run compiled the application and package graph successfully;
+  existing Swift 6 isolation warnings remain unchanged and are unrelated to the
+  converter changes.
+- Incremental unsigned universal Debug build passed through
+  `scripts/codex-build.sh`.
+- Commit: this step's commit (`Audit text and CSV metadata workflows`).
 
 ## 2026-09-22 architecture and test-structure pass
 

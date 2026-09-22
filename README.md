@@ -57,14 +57,11 @@ AudioMator is a local-first audio metadata editor for macOS. It helps users insp
 
 - ### Metadata and Text Conversion
 
-  AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Users can extract metadata from filenames or structured text files, and they can also generate filenames or text-based metadata records from existing file metadata.
+  AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Text templates produce or parse one record per line. CSV templates support comma, semicolon, pipe, and tab delimiters, quoted fields, embedded line breaks, optional headers, and explicit file locators for reordered imports. Import previews identify unmatched, ambiguous, invalid, unchanged, and writable rows before any file is changed.
   
   <img src="Docs/Images/Metadata and Text Conversion.png">
 
-
-> [!CAUTION]
->
-> Metadata and Text Conversion is still under active refinement. Some behavior may require further improvement, especially when working with complex filenames, inconsistent TXT/CSV structures, or unusual metadata values. Please use this feature carefully, and manually review the results after applying changes to ensure that the metadata has been interpreted and written correctly.
+  Plain-text templates have no escaping syntax, so use CSV when values can contain line breaks or template separators. Blank imported values are ignored unless the clear-empty-values option is enabled. Imports without a File Name, Base Name, Path, Relative Path, or Index column match records to selected files by selection order; imports with locators require an unambiguous match. Review the generated preview before writing.
 
 - ### Online Metadata Lookup
 

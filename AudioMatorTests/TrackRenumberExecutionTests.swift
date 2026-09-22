@@ -76,6 +76,28 @@ final class TrackRenumberExecutionTests: XCTestCase {
             "Track renumbering must not write when its loaded file fingerprint is stale."
         )
     }
+
+    func testRenumberSkipsWritableFormatWithoutTrackCapability() async {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/restricted-track.xm"),
+            track: 1,
+            trackNumberText: "01",
+            includeDefaultFileFingerprint: false
+        )
+        let pipeline = RenumberRecordingMetadataPipeline(diskReadback: file)
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+
+        let result = await viewModel.renumberTrackNumbers(
+            orderedIDs: [file.id],
+            selectedIDs: [],
+            options: TrackRenumberOptions(startNumber: 7)
+        )
+
+        XCTAssertEqual(result.skippedUnsupported, 1)
+        XCTAssertEqual(result.succeeded, 0)
+        XCTAssertTrue(pipeline.verifyAfterWriteValues.isEmpty)
+    }
 }
 
 private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {

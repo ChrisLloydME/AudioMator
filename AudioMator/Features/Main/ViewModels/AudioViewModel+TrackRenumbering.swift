@@ -94,6 +94,13 @@ extension AudioViewModel {
                     result.skippedUnsupported += 1
                     continue
                 }
+                guard unsupportedMetadataWriteFields(
+                    [.track, .trackTotal],
+                    forFileExtension: ext
+                ).isEmpty else {
+                    result.skippedUnsupported += 1
+                    continue
+                }
 
                 let formattedTrackNumber =
                     padWidth > 0

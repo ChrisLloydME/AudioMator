@@ -2,6 +2,25 @@
 
 Last updated: 2026-09-22
 
+## Current task — text and CSV metadata converters
+
+- [x] Step 1 — Remove converter Beta badges.
+- [ ] Step 2 — Prepare TagLibAudioMetadata documentation for release.
+- [ ] Step 3 — Audit former Beta converter workflows.
+
+### Step 1 — Remove converter Beta badges
+
+- Removed the Beta capsules from Metadata to Text, Text to Metadata, Metadata
+  to CSV, and CSV to Metadata without changing converter behavior.
+- Removed the mode-specific Beta predicate, badge view, and unused `BETA`
+  string-catalog entry rather than retaining hidden infrastructure.
+- Reviewed current user documentation; it lists the four workflows without
+  describing them as Beta or experimental, so no additional wording was stale.
+- Validation: source scan found no remaining converter Beta implementation or
+  current Beta/experimental claim for these workflows; incremental application
+  build passed.
+- Commit: this step's commit (`Promote text and CSV metadata converters from beta`).
+
 ## 2026-09-22 architecture and test-structure pass
 
 ### Current status

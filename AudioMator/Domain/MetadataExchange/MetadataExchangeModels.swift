@@ -601,7 +601,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .musicBrainzReleaseGroupID:
             edit.musicBrainzReleaseGroupID = value
         case .contentAdvisory:
-            edit.contentAdvisory = ContentAdvisory.fromDisplayName(value)
+            edit.contentAdvisory = ContentAdvisory.fromMetadataText(value)
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
             break
         }
@@ -609,7 +609,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
 
     func canonicalImportedValue(_ value: String) -> String {
         guard self == .contentAdvisory, !value.isEmpty else { return value }
-        return ContentAdvisory.fromDisplayName(value).map { String($0.rawValue) } ?? value
+        return ContentAdvisory.fromMetadataText(value).map { String($0.rawValue) } ?? value
     }
 
     func importedValueValidationMessage(_ value: String) -> String? {
@@ -636,7 +636,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
                 return "\(displayName) must be a non-negative integer."
             }
         case .contentAdvisory:
-            guard ContentAdvisory.fromDisplayName(value) != nil else {
+            guard ContentAdvisory.fromMetadataText(value) != nil else {
                 return "Content Advisory must be Explicit, Clean, Not Explicit, Yes, No, True, False, 1, 2, or 0."
             }
         case .fileName, .baseName, .path, .relativePath, .index, .title, .artist,

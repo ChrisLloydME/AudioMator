@@ -48,7 +48,8 @@ nonisolated func withAsyncTimeout<Value: Sendable>(
     }
 }
 
-private nonisolated final class AsyncOperationCompletion<Value>: @unchecked Sendable {
+// The lock protects all mutable state; only Sendable results cross task boundaries.
+private nonisolated final class AsyncOperationCompletion<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Value, Error>?
     private var resolvedResult: Result<Value, Error>?

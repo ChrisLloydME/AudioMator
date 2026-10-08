@@ -36,7 +36,7 @@ enum NetworkServiceDisclosure {
 
     enum MusicBrainz {
         nonisolated static let host = "musicbrainz.org"
-        static let webHost = "www.musicbrainz.org"
+        nonisolated static let webHost = "www.musicbrainz.org"
         nonisolated static let webBaseURLString = "https://\(host)"
 
         static let domains = [

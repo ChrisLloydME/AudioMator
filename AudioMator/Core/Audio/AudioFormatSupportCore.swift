@@ -1,13 +1,13 @@
 import Foundation
 
-struct AudioFormatCapabilityCore: Equatable {
+nonisolated struct AudioFormatCapabilityCore: Equatable, Sendable {
     let extensions: [String]
     let isWritable: Bool
     let canWriteArtwork: Bool
     let writableFieldKeys: Set<String>
 }
 
-struct AudioFormatSupportSnapshot: Equatable {
+nonisolated struct AudioFormatSupportSnapshot: Equatable, Sendable {
     let readableExtensions: Set<String>
     let metadataWritableExtensions: Set<String>
     let artworkWritableExtensions: Set<String>
@@ -15,7 +15,7 @@ struct AudioFormatSupportSnapshot: Equatable {
     let writableFieldKeysByExtension: [String: Set<String>]
 }
 
-enum AudioFormatSupportCore {
+nonisolated enum AudioFormatSupportCore {
     static func snapshot(
         readableExtensions: [String],
         writableExtensions: [String],

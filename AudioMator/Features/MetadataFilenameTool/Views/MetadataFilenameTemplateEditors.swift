@@ -300,9 +300,10 @@ struct MetadataExchangeTemplateEditor: NSViewRepresentable {
     }
 }
 
-private final class MetadataExchangeFieldAttachment: NSTextAttachment {
+nonisolated private final class MetadataExchangeFieldAttachment: NSTextAttachment {
     let field: MetadataExchangeField
 
+    @MainActor
     init(field: MetadataExchangeField, editorFont: NSFont) {
         self.field = field
         super.init(data: nil, ofType: nil)
@@ -607,9 +608,10 @@ struct FileRenameTemplateEditor: NSViewRepresentable {
     }
 }
 
-private final class FileRenameFieldAttachment: NSTextAttachment {
+nonisolated private final class FileRenameFieldAttachment: NSTextAttachment {
     let field: FileRenameMetadataField
 
+    @MainActor
     init(field: FileRenameMetadataField, editorFont: NSFont) {
         self.field = field
         super.init(data: nil, ofType: nil)
@@ -620,6 +622,7 @@ private final class FileRenameFieldAttachment: NSTextAttachment {
         return nil
     }
 
+    @MainActor
     fileprivate static func makeChipImage(title: String) -> NSImage {
         let chipFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
         let horizontalPadding: CGFloat = 10

@@ -669,7 +669,9 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
                 context.duration = 0.12
                 panel.animator().alphaValue = 0
             } completionHandler: {
-                panel.orderOut(nil)
+                Task { @MainActor in
+                    panel.orderOut(nil)
+                }
             }
         }
 

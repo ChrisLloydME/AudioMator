@@ -565,7 +565,7 @@ final class OnlineMetadataVirtualizedListContainer: NSView {
         listDelegate?.visibleRectDidChange(in: self)
     }
 
-    deinit {
+    isolated deinit {
         if let boundsObserver {
             NotificationCenter.default.removeObserver(boundsObserver)
         }

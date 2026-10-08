@@ -1,6 +1,6 @@
 import Foundation
 
-enum MetadataExchangeResourceLimits {
+nonisolated enum MetadataExchangeResourceLimits {
     static let maximumRecordCount = 100_000
     static let maximumDocumentUTF8ByteCount = 32 * 1_024 * 1_024
     static let maximumTextRecordUTF8ByteCount = 262_144

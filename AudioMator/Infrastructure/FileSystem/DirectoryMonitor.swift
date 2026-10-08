@@ -104,7 +104,7 @@ final class DirectoryMonitor {
         self.fileDescriptor = descriptor
     }
 
-    deinit {
+    isolated deinit {
         stop()
     }
 

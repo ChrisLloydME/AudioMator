@@ -525,7 +525,7 @@ struct MultiFileEditModel {
     var explicitEditState: MultiFileExplicitEditState
     var artworkEditAction: ArtworkEditAction
 
-    init(files: [AudioFile]) {
+    init(files: [AudioFile], artworkState: MultiFileArtworkState? = nil) {
         var values = SingleFileEditModel()
         var mixedTextFields = Set<MultiFileEditableTextField>()
 
@@ -558,7 +558,7 @@ struct MultiFileEditModel {
         self.modifiedTextFields = []
         self.mixedTextFields = mixedTextFields
         self.initialContentAdvisory = initialContentAdvisory
-        self.initialArtworkState = MultiFileEditModel.resolveArtworkState(for: files)
+        self.initialArtworkState = artworkState ?? MultiFileEditModel.resolveArtworkState(for: files)
         self.explicitEditState = .keepExisting
         self.artworkEditAction = .unchanged
     }

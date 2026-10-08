@@ -7,6 +7,30 @@ import XCTest
 
 @MainActor
 final class InspectorArtworkPreviewTests: XCTestCase {
+    func testExtendedMultiSelectionReusesExactArtworkComparisonsAndDetectsSameIDReload() {
+        var comparisons = 0
+        let cache = InspectorArtworkComparisonCache {
+            comparisons += 1
+            return $0 == $1
+        }
+        let first = AudioFileTestFactory.make(artworkData: Data(repeating: 1, count: 4096))
+        let second = AudioFileTestFactory.make(artworkData: Data(repeating: 1, count: 4096))
+        let third = AudioFileTestFactory.make(artworkData: Data(repeating: 1, count: 4096))
+        guard case .shared = cache.resolve([first, second]) else { return XCTFail("Expected shared artwork") }
+        guard case .shared = cache.resolve([first, second, third]) else { return XCTFail("Expected shared artwork") }
+        XCTAssertEqual(comparisons, 2)
+        guard case .shared = cache.resolve([first, second]) else { return XCTFail("Expected cached shared artwork") }
+        XCTAssertEqual(comparisons, 2)
+
+        var changed = Data(repeating: 1, count: 4096)
+        changed[2049] = 2
+        let reloaded = AudioFileTestFactory.make(id: second.id, url: second.url, artworkData: changed)
+        guard case .mixed = cache.resolve([first, reloaded]) else { return XCTFail("Exact bytes must detect changed artwork") }
+        XCTAssertEqual(comparisons, 3)
+        guard case .mixed = cache.resolve([first, reloaded]) else { return XCTFail("Expected cached mixed artwork") }
+        XCTAssertEqual(comparisons, 3)
+    }
+
     func testPreviewIsBoundedAndReusesDecodedImageAcrossRefreshesAndReselection() async throws {
         let source = InspectorArtworkSource(id: UUID(), data: try makePNG(width: 1200, height: 800))
         let preview = InspectorArtworkPreview()

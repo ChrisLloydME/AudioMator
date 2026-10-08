@@ -565,11 +565,20 @@ final class OnlineMetadataVirtualizedListContainer: NSView {
         listDelegate?.visibleRectDidChange(in: self)
     }
 
+    // Keep observer cleanup compatible with Xcode 16.4 without experimental features.
+    #if compiler(>=6.2)
     isolated deinit {
         if let boundsObserver {
             NotificationCenter.default.removeObserver(boundsObserver)
         }
     }
+    #else
+    deinit {
+        if let boundsObserver {
+            NotificationCenter.default.removeObserver(boundsObserver)
+        }
+    }
+    #endif
 
     fileprivate func setIntrinsicContentHeight(_ height: CGFloat) {
         guard abs(height - intrinsicHeight) > 0.5 else { return }

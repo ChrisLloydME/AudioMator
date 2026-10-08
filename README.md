@@ -20,6 +20,8 @@
 
 AudioMator is a local-first audio metadata editor for macOS. It helps users inspect, organize, and edit music files through common tagging workflows, including metadata editing, artwork replacement, automatic track numbering, filename-based metadata conversion, raw metadata inspection, and online metadata lookup. For more detailed feature information, see [AudioMator Feature Overview](#audiomator-feature-overview).
 
+Inspector artwork previews decode in the background and reuse a small cache of display-sized thumbnails so switching tracks stays responsive. Original embedded and replacement artwork bytes remain intact for metadata writes.
+
 > [!CAUTION]
 >
 > #### macOS 27 Golden Gate Compatibility Issues

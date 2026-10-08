@@ -57,9 +57,13 @@ final class AudioViewModel: ObservableObject {
             if edit == nil {
                 editSourceFileID = nil
             }
+            refreshInspectorArtworkPreview()
         }
     }
-    @Published var multiEdit: MultiFileEditModel?
+    @Published var multiEdit: MultiFileEditModel? {
+        didSet { refreshInspectorArtworkPreview() }
+    }
+    let inspectorArtworkPreview = InspectorArtworkPreview()
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
@@ -269,10 +273,10 @@ final class AudioViewModel: ObservableObject {
         if selectedAudioIDs.count == 1,
            let selectedID = selectedAudioIDs.first,
            let selectedFile = files.first(where: { $0.id == selectedID }) {
+            inspectorEditSourceFilesByID = [selectedID: selectedFile]
             edit = SingleFileEditModel(from: selectedFile)
             editSourceFileID = selectedID
             multiEdit = nil
-            inspectorEditSourceFilesByID = [selectedID: selectedFile]
             return
         }
 
@@ -287,10 +291,10 @@ final class AudioViewModel: ObservableObject {
 
         edit = nil
         editSourceFileID = nil
-        multiEdit = MultiFileEditModel(files: selectedFiles)
         inspectorEditSourceFilesByID = Dictionary(
             uniqueKeysWithValues: selectedFiles.map { ($0.id, $0) }
         )
+        multiEdit = MultiFileEditModel(files: selectedFiles)
     }
 
     func setSelectedAudioIDs(_ selection: Set<AudioFile.ID>) {

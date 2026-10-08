@@ -5,6 +5,37 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    func testArtworkPreviewTracksSingleMultiReplacementRemovalAndDraftEdits() {
+        let file = AudioFileTestFactory.make(artworkData: Data([1]))
+        let other = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/other-artwork.mp3"), artworkData: Data([1])
+        )
+        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        viewModel.mergeQuickImportFiles([file, other])
+        viewModel.setSelectedAudioIDs([file.id])
+        XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, file.snapshotID)
+        viewModel.edit?.title = "Changed title"
+        XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, file.snapshotID)
+
+        let pending = PendingArtwork(data: Data([2]), mimeType: "image/png")
+        viewModel.edit?.artworkEditAction = .replace(pending)
+        XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, pending.id)
+        viewModel.edit?.artworkEditAction = .remove
+        XCTAssertNil(viewModel.inspectorArtworkPreview.sourceID)
+        viewModel.cancelEditing()
+        XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, file.snapshotID)
+
+        viewModel.setSelectedAudioIDs([file.id, other.id])
+        XCTAssertNotNil(viewModel.inspectorArtworkPreview.sourceID)
+        let sharedSourceID = viewModel.inspectorArtworkPreview.sourceID
+        viewModel.multiEdit?.setText("Changed", for: .title)
+        XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, sharedSourceID)
+        viewModel.multiEdit?.artworkEditAction = .replace(pending)
+        XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, pending.id)
+        viewModel.setSelectedAudioIDs([])
+        XCTAssertNil(viewModel.inspectorArtworkPreview.sourceID)
+    }
+
     func testToolbarAddWatchedFolderRequestsSidebarSelectionChange() {
         let notificationCenter = NotificationCenter()
         let expectedSelection = SidebarSelection.watchedLibrary

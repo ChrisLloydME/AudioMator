@@ -158,27 +158,16 @@ struct InspectorPane: View {
         )
     }
 
-    private func displayedArtwork(for file: AudioFile) -> NSImage? {
-        switch currentEdit(for: file)?.artworkEditAction ?? .unchanged {
-        case .unchanged:
-            return file.artwork
-        case .replace(let artwork):
-            return NSImage(data: artwork.data)
-        case .remove:
-            return nil
-        }
-    }
-
     private func hasArtwork(for file: AudioFile) -> Bool {
-        displayedArtwork(for: file) != nil
+        switch currentEdit(for: file)?.artworkEditAction ?? .unchanged {
+        case .unchanged: return file.artworkData != nil
+        case .replace: return true
+        case .remove: return false
+        }
     }
 
     private func artworkLookupDisabledReason(for file: AudioFile) -> String? {
         viewModel.artworkLookupDisabledReason(for: file)
-    }
-
-    private var multiDisplayedArtwork: NSImage? {
-        viewModel.multiEdit?.displayedArtwork
     }
 
     private var multiArtworkSummary: String {
@@ -452,13 +441,7 @@ struct InspectorPane: View {
 
         GroupBox {
             VStack(spacing: 16) {
-                if let image = displayedArtwork(for: file) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
-                        .cornerRadius(8)
-                } else {
+                InspectorArtworkPreviewView(preview: viewModel.inspectorArtworkPreview) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.secondary.opacity(0.1))
@@ -531,30 +514,22 @@ struct InspectorPane: View {
 
         GroupBox {
             VStack(spacing: 16) {
-                Group {
-                    if let image = multiDisplayedArtwork {
-                        Image(nsImage: image)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: artworkControlWidth, maxHeight: artworkControlWidth)
-                            .cornerRadius(8)
-                    } else {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.secondary.opacity(0.1))
-                                .frame(width: artworkControlWidth, height: artworkControlWidth)
+                InspectorArtworkPreviewView(preview: viewModel.inspectorArtworkPreview) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.secondary.opacity(0.1))
+                            .frame(width: artworkControlWidth, height: artworkControlWidth)
 
-                            VStack(spacing: 10) {
-                                Image(systemName: multiArtworkPlaceholderSymbolName)
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
+                        VStack(spacing: 10) {
+                            Image(systemName: multiArtworkPlaceholderSymbolName)
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
 
-                                Text(multiArtworkSummary)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 20)
-                            }
+                            Text(multiArtworkSummary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
                         }
                     }
                 }

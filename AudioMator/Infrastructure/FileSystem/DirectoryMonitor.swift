@@ -104,9 +104,16 @@ final class DirectoryMonitor {
         self.fileDescriptor = descriptor
     }
 
+    // Xcode 16.4 (CI) predates stable isolated deinitializers and default actor isolation.
+    #if compiler(>=6.2)
     isolated deinit {
         stop()
     }
+    #else
+    deinit {
+        stop()
+    }
+    #endif
 
     func start() {
         guard source == nil, fileDescriptor >= 0 else { return }

@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 
 extension ContentAdvisory {
@@ -85,23 +84,6 @@ extension MultiFileEditModel {
         case .some(.none): L10n.string("Current value: Unset")
         case .none: L10n.string("Current values differ")
         }
-    }
-
-    var displayedArtwork: NSImage? {
-        let data: Data?
-        switch artworkEditAction {
-        case .unchanged:
-            if case .shared(let sharedData) = initialArtworkState {
-                data = sharedData
-            } else {
-                data = nil
-            }
-        case .replace(let artwork):
-            data = artwork.data
-        case .remove:
-            data = nil
-        }
-        return data.flatMap(NSImage.init(data:))
     }
 
     var artworkSummary: String {

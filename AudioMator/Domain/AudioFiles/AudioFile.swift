@@ -11,6 +11,8 @@ import TagLibAudioMetadata
 // Loaded off the main actor and then treated as an immutable snapshot in the UI.
 struct AudioFile: Identifiable, Sendable {
     let id: UUID
+    // A new token for each immutable load/transformation; copies retain it.
+    let snapshotID = UUID()
 
     // MARK: – Basic Tags
     let url: URL

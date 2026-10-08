@@ -1,6 +1,7 @@
 import Foundation
 
 struct PendingArtwork {
+    let id = UUID()
     let data: Data
     let mimeType: String
 }

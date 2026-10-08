@@ -6,6 +6,11 @@ struct MiddleListSort: Equatable {
     let ascending: Bool
 }
 
+struct MiddleListPresentation {
+    let revision = UUID()
+    let files: [AudioFile]
+}
+
 final class SharedState: ObservableObject {
     private static let visibleMiddleListColumnsDefaultsKey = "middleList.visibleColumns"
     private static let visibleToolbarButtonsDefaultsKey = "toolbar.visibleButtons"
@@ -15,10 +20,13 @@ final class SharedState: ObservableObject {
 
     @Published var selectedSidebarItem: SidebarSelection? = .quickImport
     // Custom ordering for the middle list (session-only)
-    @Published var customOrder: [AudioFile.ID] = []
+    @Published var customOrder: [AudioFile.ID] = [] {
+        didSet { middleListCache = nil }
+    }
 
     @Published var middleListSort: MiddleListSort? {
         didSet {
+            middleListCache = nil
             let defaults = UserDefaults.standard
             if let middleListSort {
                 defaults.set(middleListSort.column.rawValue, forKey: Self.middleListSortColumnDefaultsKey)
@@ -29,6 +37,8 @@ final class SharedState: ObservableObject {
             }
         }
     }
+
+    private var middleListCache: (sourceRevision: UUID, presentation: MiddleListPresentation)?
 
     @Published var visibleMiddleListColumns: Set<MiddleListColumn> {
         didSet {
@@ -133,6 +143,17 @@ final class SharedState: ObservableObject {
             return comparison == .orderedDescending
         }
         .map(\.element)
+    }
+
+    /// Selection and inspector edits leave the immutable file collection alone.
+    /// Cache ordering until that collection, the sort, or manual order changes.
+    func middleListPresentation(from files: [AudioFile], revision: UUID) -> MiddleListPresentation {
+        if let middleListCache, middleListCache.sourceRevision == revision {
+            return middleListCache.presentation
+        }
+        let presentation = MiddleListPresentation(files: orderedMiddleListFiles(from: files))
+        middleListCache = (revision, presentation)
+        return presentation
     }
 
     func orderedMiddleListIDs(from files: [AudioFile]) -> [AudioFile.ID] {

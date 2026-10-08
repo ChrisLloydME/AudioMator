@@ -56,7 +56,11 @@ struct ContentPane: View {
     }
 
     private var orderedFiles: [AudioFile] {
-        state.orderedMiddleListFiles(from: viewModel.files)
+        middleListPresentation.files
+    }
+
+    private var middleListPresentation: MiddleListPresentation {
+        state.middleListPresentation(from: viewModel.files, revision: viewModel.filesRevision)
     }
 
     var body: some View {
@@ -138,8 +142,10 @@ struct ContentPane: View {
                     description: Text(emptyStateDescription)
                 )
             } else {
+                let presentation = middleListPresentation
                 MiddleListTable(
-                    files: orderedFiles,
+                    files: presentation.files,
+                    filesRevision: presentation.revision,
                     selection: selection,
                     visibleColumns: $state.visibleMiddleListColumns,
                     customOrder: $state.customOrder,
@@ -157,7 +163,7 @@ struct ContentPane: View {
                 .onAppear {
                     syncCustomOrderWithFiles()
                 }
-                .onChange(of: viewModel.files.map { $0.id }) {
+                .onChange(of: viewModel.filesRevision) {
                     syncCustomOrderWithFiles()
                 }
                 .confirmationDialog(
@@ -322,13 +328,13 @@ struct ContentPane: View {
             return
         }
 
-        // Remove ids that no longer exist
-        state.customOrder.removeAll { !idSet.contains($0) }
-
-        // Append newly added ids
-        let existing = Set(state.customOrder)
+        var order = state.customOrder.filter(idSet.contains)
+        let existing = Set(order)
         for id in ids where !existing.contains(id) {
-            state.customOrder.append(id)
+            order.append(id)
+        }
+        if order != state.customOrder {
+            state.customOrder = order
         }
     }
 

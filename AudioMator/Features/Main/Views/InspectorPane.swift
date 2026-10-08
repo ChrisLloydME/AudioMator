@@ -37,7 +37,7 @@ struct InspectorPane: View {
     }
 
     private var selectedFiles: [AudioFile] {
-        viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
+        viewModel.selectedFiles
     }
 
     private func currentEdit(for file: AudioFile) -> SingleFileEditModel? {
@@ -191,6 +191,7 @@ struct InspectorPane: View {
     }
 
     var body: some View {
+        let selectedFiles = self.selectedFiles
         Group {
             if selectedFiles.count == 1, let file = selectedFiles.first {
                 ScrollView {

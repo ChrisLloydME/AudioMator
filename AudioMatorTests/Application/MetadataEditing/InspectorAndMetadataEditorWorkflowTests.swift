@@ -5,6 +5,29 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    func testVisibleFileRevisionAndSelectionLookupRefreshAfterSameIDReload() {
+        let original = AudioFileTestFactory.make(title: "Original")
+        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        viewModel.files = [original]
+        let revision = viewModel.filesRevision
+        viewModel.setSelectedAudioIDs([original.id, UUID()])
+        XCTAssertEqual(viewModel.selectedAudioIDs, [original.id])
+        XCTAssertEqual(viewModel.filesRevision, revision)
+        viewModel.edit?.title = "Draft"
+        XCTAssertEqual(viewModel.filesRevision, revision)
+
+        let reloaded = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Reloaded")
+        viewModel.files = [reloaded]
+        XCTAssertNotEqual(viewModel.filesRevision, revision)
+        XCTAssertEqual(viewModel.selectedFiles.first?.title, "Reloaded")
+        viewModel.updateEditForSelection()
+        XCTAssertEqual(viewModel.edit?.title, "Reloaded")
+        viewModel.files = []
+        viewModel.setSelectedAudioIDs([original.id])
+        XCTAssertTrue(viewModel.selectedAudioIDs.isEmpty)
+        XCTAssertTrue(viewModel.selectedFiles.isEmpty)
+    }
+
     func testArtworkPreviewTracksSingleMultiReplacementRemovalAndDraftEdits() {
         let file = AudioFileTestFactory.make(artworkData: Data([1]))
         let other = AudioFileTestFactory.make(

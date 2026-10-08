@@ -4,6 +4,7 @@ import AppKit
 
 struct MiddleListTable: NSViewRepresentable {
     let files: [AudioFile]
+    let filesRevision: UUID
     @Binding var selection: Set<AudioFile.ID>
     @Binding var visibleColumns: Set<MiddleListColumn>
     @Binding var customOrder: [AudioFile.ID]
@@ -27,8 +28,7 @@ struct MiddleListTable: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
-        context.coordinator.parent = self
-        context.coordinator.update(scrollView: nsView)
+        context.coordinator.update(parent: self, scrollView: nsView)
     }
 }
 
@@ -46,7 +46,7 @@ extension MiddleListTable {
     final class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource, NSMenuDelegate {
         private struct RowSnapshot: Equatable {
             let id: AudioFile.ID
-            let contentFingerprint: Int
+            let snapshotID: UUID
         }
 
         fileprivate var parent: MiddleListTable
@@ -56,6 +56,8 @@ extension MiddleListTable {
         private var isApplyingSortDescriptors = false
         private var currentColumnLayout: [MiddleListColumn] = []
         private var currentRowSnapshots: [RowSnapshot] = []
+        private var currentFilesRevision: UUID?
+        private var rowIndexesByID: [AudioFile.ID: Int] = [:]
         private var draggedIDs: [AudioFile.ID] = []
         private let rowDragType = NSPasteboard.PasteboardType("com.audiomator.middle-list.row")
 
@@ -96,24 +98,37 @@ extension MiddleListTable {
             return scrollView
         }
 
-        func update(scrollView: NSScrollView) {
+        func update(parent: MiddleListTable, scrollView: NSScrollView) {
+            self.parent = parent
             guard let tableView = scrollView.documentView as? MiddleListNSTableView else { return }
             self.tableView = tableView
             tableView.middleListCoordinator = self
 
             let columnsChanged = configureColumnsIfNeeded(on: tableView)
-            let newSnapshots = makeRowSnapshots(for: parent.files)
-            let fileIDsChanged = newSnapshots.map(\.id) != currentRowSnapshots.map(\.id)
-            let changedRows = rowIndexesNeedingRefresh(from: currentRowSnapshots, to: newSnapshots)
-            currentRowSnapshots = newSnapshots
+            if currentFilesRevision != parent.filesRevision {
+                let newSnapshots = makeRowSnapshots(for: parent.files)
+                let fileIDsChanged = newSnapshots.map(\.id) != currentRowSnapshots.map(\.id)
+                let changedRows = rowIndexesNeedingRefresh(from: currentRowSnapshots, to: newSnapshots)
+                currentRowSnapshots = newSnapshots
+                currentFilesRevision = parent.filesRevision
+                rowIndexesByID = Dictionary(uniqueKeysWithValues: parent.files.enumerated().map { ($0.element.id, $0.offset) })
 
-            if columnsChanged || fileIDsChanged {
+                // reloadData can emit selection notifications. Preserve the ID
+                // selection while native indexes are replaced or reordered.
+                isApplyingSelection = true
+                if columnsChanged || fileIDsChanged {
+                    tableView.reloadData()
+                } else if !changedRows.isEmpty, tableView.numberOfColumns > 0 {
+                    tableView.reloadData(
+                        forRowIndexes: changedRows,
+                        columnIndexes: IndexSet(integersIn: 0..<tableView.numberOfColumns)
+                    )
+                }
+                isApplyingSelection = false
+            } else if columnsChanged {
+                isApplyingSelection = true
                 tableView.reloadData()
-            } else if !changedRows.isEmpty, tableView.numberOfColumns > 0 {
-                tableView.reloadData(
-                    forRowIndexes: changedRows,
-                    columnIndexes: IndexSet(integersIn: 0..<tableView.numberOfColumns)
-                )
+                isApplyingSelection = false
             }
 
             syncSortDescriptors(on: tableView)
@@ -404,10 +419,15 @@ extension MiddleListTable {
         }
 
         private func syncSelection(on tableView: NSTableView) {
+            // Native selection usually already matches. Check selected rows
+            // before looking up the bound selection, including rejected changes.
+            let nativeIDs = Set(tableView.selectedRowIndexes.compactMap { index in
+                guard parent.files.indices.contains(index) else { return nil as AudioFile.ID? }
+                return parent.files[index].id
+            })
+            guard nativeIDs != parent.selection else { return }
             let selectedIndexes = IndexSet(
-                parent.files.enumerated().compactMap { index, file in
-                    parent.selection.contains(file.id) ? index : nil
-                }
+                parent.selection.compactMap { rowIndexesByID[$0] }
             )
 
             guard tableView.selectedRowIndexes != selectedIndexes else { return }
@@ -454,7 +474,7 @@ extension MiddleListTable {
 
         private func makeRowSnapshots(for files: [AudioFile]) -> [RowSnapshot] {
             files.map { file in
-                RowSnapshot(id: file.id, contentFingerprint: file.middleListContentFingerprint)
+                RowSnapshot(id: file.id, snapshotID: file.snapshotID)
             }
         }
 

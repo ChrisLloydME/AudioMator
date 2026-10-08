@@ -46,7 +46,14 @@ final class AudioViewModel: ObservableObject {
     nonisolated private static let maximumDirectoryMonitorsPerFolder = 128
 
     // All audio files currently loaded into the middle list.
-    @Published var files: [AudioFile] = []
+    @Published var files: [AudioFile] = [] {
+        didSet {
+            filesRevision = UUID()
+            visibleFilesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        }
+    }
+    private(set) var filesRevision = UUID()
+    private var visibleFilesByID: [AudioFile.ID: AudioFile] = [:]
     @Published private(set) var watchedFolders: [WatchedFolder] = []
     // Current selection in the middle list. Single-file and multi-file inspector editing both use this selection.
     @Published private(set) var selectedAudioIDs: Set<UUID> = []
@@ -64,6 +71,7 @@ final class AudioViewModel: ObservableObject {
         didSet { refreshInspectorArtworkPreview() }
     }
     let inspectorArtworkPreview = InspectorArtworkPreview()
+    private let inspectorArtworkComparisons = InspectorArtworkComparisonCache()
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
@@ -260,6 +268,14 @@ final class AudioViewModel: ObservableObject {
 
     // MARK: - Selection and Edit Sync
 
+    var selectedFiles: [AudioFile] {
+        if selectedAudioIDs.count == 1, let id = selectedAudioIDs.first {
+            return visibleFilesByID[id].map { [$0] } ?? []
+        }
+        guard !selectedAudioIDs.isEmpty else { return [] }
+        return files.filter { selectedAudioIDs.contains($0.id) }
+    }
+
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
         guard !selectedAudioIDs.isEmpty else {
@@ -272,7 +288,7 @@ final class AudioViewModel: ObservableObject {
 
         if selectedAudioIDs.count == 1,
            let selectedID = selectedAudioIDs.first,
-           let selectedFile = files.first(where: { $0.id == selectedID }) {
+           let selectedFile = visibleFilesByID[selectedID] {
             inspectorEditSourceFilesByID = [selectedID: selectedFile]
             edit = SingleFileEditModel(from: selectedFile)
             editSourceFileID = selectedID
@@ -280,7 +296,7 @@ final class AudioViewModel: ObservableObject {
             return
         }
 
-        let selectedFiles = files.filter { selectedAudioIDs.contains($0.id) }
+        let selectedFiles = self.selectedFiles
         guard !selectedFiles.isEmpty else {
             edit = nil
             editSourceFileID = nil
@@ -294,12 +310,14 @@ final class AudioViewModel: ObservableObject {
         inspectorEditSourceFilesByID = Dictionary(
             uniqueKeysWithValues: selectedFiles.map { ($0.id, $0) }
         )
-        multiEdit = MultiFileEditModel(files: selectedFiles)
+        multiEdit = MultiFileEditModel(
+            files: selectedFiles,
+            artworkState: inspectorArtworkComparisons.resolve(selectedFiles)
+        )
     }
 
     func setSelectedAudioIDs(_ selection: Set<AudioFile.ID>) {
-        let validIDs = Set(files.map(\.id))
-        let normalizedSelection = selection.intersection(validIDs)
+        let normalizedSelection = selection.filter { visibleFilesByID[$0] != nil }
         guard normalizedSelection != selectedAudioIDs else { return }
 
         selectedAudioIDs = normalizedSelection

@@ -32,7 +32,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
-        let bridgeText = TagLibMetadataManager.rawMetadataText(from: url)
+        let bridgeText = TagLibMetadataManager.bestEffortRawMetadataText(from: url)
 
         if let dump = try? TagLibMetadataManager.rawMetadataResult(from: url) {
             let rawText = MetadataPipelineSupport.rawMetadataDumpText(
@@ -92,8 +92,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             try TagLibMetadataManager.applyMetadataPatch(
                 Self.metadataPatchForWrite(from: edit),
                 to: url,
-                expectedVersion: expectedVersion,
-                failurePolicy: .throw
+                expectedVersion: expectedVersion
             ).warnings
         }
     }

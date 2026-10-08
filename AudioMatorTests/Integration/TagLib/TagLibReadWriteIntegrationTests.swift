@@ -235,7 +235,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertTrue(rawText.contains("File: \(fixtureName)"), fixtureName)
             XCTAssertTrue(rawText.contains("[TagLib Properties]"), fixtureName)
 
-            let bridgeText = try XCTUnwrap(TagLibMetadataManager.rawMetadataText(from: fixtureURL))
+            let bridgeText = try XCTUnwrap(TagLibMetadataManager.bestEffortRawMetadataText(from: fixtureURL))
             for sectionHeader in Self.sectionHeaders(after: "TagLib Properties", in: bridgeText) {
                 XCTAssertTrue(
                     rawText.contains("[\(sectionHeader)]"),

@@ -7,6 +7,7 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
     case textToMetadata
     case metadataToCSV
     case csvToMetadata
+    case metadataFieldTransfer
 
     var id: String { rawValue }
 
@@ -24,6 +25,8 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
             return L10n.string("Metadata to CSV")
         case .csvToMetadata:
             return L10n.string("CSV to Metadata")
+        case .metadataFieldTransfer:
+            return String(localized: "Copy or Cut Metadata Fields")
         }
     }
 
@@ -41,6 +44,8 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
             return L10n.string("Export selected files as a column-based CSV.")
         case .csvToMetadata:
             return L10n.string("Import CSV columns into selected file metadata.")
+        case .metadataFieldTransfer:
+            return String(localized: "Copy or cut a field into another field for each selected file.")
         }
     }
 
@@ -58,6 +63,8 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
             return "tablecells"
         case .csvToMetadata:
             return "tablecells.badge.ellipsis"
+        case .metadataFieldTransfer:
+            return "arrow.right.doc.on.clipboard"
         }
     }
 
@@ -65,7 +72,7 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
         switch self {
         case .metadataToFilename:
             return L10n.string("Rename")
-        case .filenameToMetadata, .textToMetadata, .csvToMetadata:
+        case .filenameToMetadata, .textToMetadata, .csvToMetadata, .metadataFieldTransfer:
             return L10n.string("Write Metadata")
         case .metadataToText, .metadataToCSV:
             return L10n.string("Export")
@@ -534,7 +541,11 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         }
     }
 
-    func applyImportedValue(_ value: String, to edit: inout SingleFileEditModel) {
+    func applyImportedValue(
+        _ value: String,
+        to edit: inout SingleFileEditModel,
+        preservingNumberPairComponents: Bool = false
+    ) {
         switch self {
         case .title:
             edit.title = value
@@ -559,11 +570,19 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .year:
             edit.year = value
         case .trackNumber:
-            edit.setTrackNumberText(value)
+            if preservingNumberPairComponents {
+                edit.setTrackNumberFieldText(value)
+            } else {
+                edit.setTrackNumberText(value)
+            }
         case .trackTotal:
             edit.setTrackTotalFieldText(value)
         case .discNumber:
-            edit.setDiscNumberText(value)
+            if preservingNumberPairComponents {
+                edit.setDiscNumberFieldText(value)
+            } else {
+                edit.setDiscNumberText(value)
+            }
         case .discTotal:
             edit.setDiscTotalFieldText(value)
         case .comment:

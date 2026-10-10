@@ -7,7 +7,7 @@ struct MetadataConverterModePickerView: View {
     private let rowMaxWidth: CGFloat = 690
 
     var body: some View {
-        VStack(spacing: 10) {
+        ScrollView {
             VStack(spacing: 10) {
                 ForEach(MetadataConverterMode.allCases) { mode in
                     Button {
@@ -53,7 +53,10 @@ struct MetadataConverterModePickerView: View {
                 }
             }
             .frame(maxWidth: rowMaxWidth)
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity)
         }
+        .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

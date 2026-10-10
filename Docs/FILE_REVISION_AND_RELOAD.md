@@ -188,6 +188,21 @@ real filesystem versions, rather than relying on multi-artwork write support.
 Folder permission UI is excluded from the test adapter; production transactional
 folder access remains unchanged.
 
+### PR review — partial batch save recovery
+
+Inspector multi-file saves retain completed field intent per file after a partial
+failure. Retrying submits only pending fields or intent changed since that file's
+last successful save. Successful targets use their reloaded baseline for later
+edits; failed targets keep the original baseline and draft. This prevents an
+already-committed file from failing the replacement guard on retry and prevents
+reapplying a field discarded by the disk-priority policy. Completion state resets
+when the selection/draft is explicitly reinitialized. New edits made during a batch
+are retained rather than cleared by its final refresh.
+
+Tests cover a conflict followed by a policy change and retry, a temporarily
+unreadable target under disk priority, and a new field edited after a partial save
+while another external edit affects the completed file.
+
 ### Dependency-owner follow-up from artwork fixture setup
 
 An attempted FLAC fixture setup through the public `applyMetadataPatch` API failed
@@ -219,6 +234,10 @@ claim multi-cover dependency write coverage or introduce a workaround for it.
   failed-target retention check, all 28 conflict-policy/editor-store tests passed
   (17 policy tests). All 61 selected SwiftPM core tests also passed. The native
   arm64/x86_64 build passed; no interactive UI acceptance was performed.
+- PR review: corrected independent optional number-pair writes and partial batch
+  retries; all 404 app-hosted tests passed serially, all 61 selected SwiftPM core
+  tests passed, and the arm64/x86_64 build passed. The branch merges with updated
+  main without conflicts; its new upstream commits only change LICENSE.
 - Native app compilation uses `scripts/codex-build.sh` and repository-local
   `.deriveddata-codex`. App-hosted tests use one serial runner. Interactive UI
   acceptance remains the maintainer's responsibility.

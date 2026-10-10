@@ -121,11 +121,15 @@ extension AudioViewModel {
             return
         }
 
-        let targetFiles = files.filter { selectedAudioIDs.contains($0.id) }
+        let completedEdits = completedInspectorEditsByID
+        let targetFiles = files.filter {
+            selectedAudioIDs.contains($0.id) && multiEdit.hasPendingChanges(excluding: completedEdits[$0.id])
+        }
         guard !targetFiles.isEmpty else { return }
         guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         let editSnapshot = multiEdit
+        let selectionSnapshot = selectedAudioIDs
         let expectedFileFingerprints = inspectorEditSourceFilesByID.mapValues(\.fileFingerprint)
         let expectedMetadataVersions = inspectorEditSourceFilesByID.compactMapValues(\.metadataFileVersion)
         let sourceFiles = inspectorEditSourceFilesByID
@@ -146,7 +150,7 @@ extension AudioViewModel {
                 )
 
                 let sourceFile = sourceFiles[file.id] ?? file
-                let effectiveEdit = editSnapshot.applyingChanges(to: sourceFile)
+                let effectiveEdit = editSnapshot.applyingChanges(to: sourceFile, excluding: completedEdits[file.id])
                 let result = await self.persistMetadataEdit(
                     effectiveEdit,
                     to: file,
@@ -160,6 +164,16 @@ extension AudioViewModel {
 
                 switch result {
                 case .success(let success):
+                    // Keep the failed targets' baselines and drafts. A completed
+                    // target starts any further edits from its actual readback.
+                    if self.selectedAudioIDs.contains(file.id),
+                       self.inspectorEditSourceFilesByID[file.id]?.snapshotID == sourceFile.snapshotID {
+                        self.completedInspectorEditsByID[file.id] = editSnapshot
+                        if success.didRefreshFileModel,
+                           let refreshed = self.files.first(where: { $0.id == file.id && $0.url == file.url }) {
+                            self.inspectorEditSourceFilesByID[file.id] = refreshed
+                        }
+                    }
                     summary.succeeded += 1
                     summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
 
@@ -187,7 +201,8 @@ extension AudioViewModel {
             )
             self.endMetadataSaveProgress()
 
-            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
+            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed,
+               self.selectedAudioIDs == selectionSnapshot, !self.hasUnsavedInspectorChanges {
                 self.updateEditForSelection()
             }
 

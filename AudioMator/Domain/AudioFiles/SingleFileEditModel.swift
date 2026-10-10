@@ -1,12 +1,12 @@
 import Foundation
 
-struct PendingArtwork {
+struct PendingArtwork: Equatable {
     let id = UUID()
     let data: Data
     let mimeType: String
 }
 
-enum ArtworkEditAction {
+enum ArtworkEditAction: Equatable {
     case unchanged
     case replace(PendingArtwork)
     case remove
@@ -605,10 +605,24 @@ struct MultiFileEditModel {
         artworkEditAction = action
     }
 
-    func applyingChanges(to file: AudioFile) -> SingleFileEditModel {
+    /// A batch can commit some targets and retain others. Repeating Save must
+    /// submit only new intent for a completed target, including after a disk-
+    /// priority policy deliberately discarded a conflicting draft field.
+    func hasPendingChanges(excluding completed: MultiFileEditModel?) -> Bool {
+        modifiedTextFields.contains { isPendingTextEdit($0, excluding: completed) }
+            || (explicitEditState != .keepExisting && explicitEditState != completed?.explicitEditState)
+            || (hasPendingArtworkChange && artworkEditAction != completed?.artworkEditAction)
+    }
+
+    private func isPendingTextEdit(_ field: MultiFileEditableTextField, excluding completed: MultiFileEditModel?) -> Bool {
+        guard let completed, completed.modifiedTextFields.contains(field) else { return true }
+        return text(for: field) != completed.text(for: field)
+    }
+
+    func applyingChanges(to file: AudioFile, excluding completed: MultiFileEditModel? = nil) -> SingleFileEditModel {
         var result = SingleFileEditModel(from: file)
 
-        for field in modifiedTextFields {
+        for field in modifiedTextFields where isPendingTextEdit(field, excluding: completed) {
             field.apply(field.value(from: values), to: &result)
         }
 
@@ -616,10 +630,14 @@ struct MultiFileEditModel {
         case .keepExisting:
             break
         case .set(let advisory):
-            result.contentAdvisory = advisory
+            if explicitEditState != completed?.explicitEditState {
+                result.contentAdvisory = advisory
+            }
         }
 
-        result.artworkEditAction = artworkEditAction
+        if artworkEditAction != completed?.artworkEditAction {
+            result.artworkEditAction = artworkEditAction
+        }
         return result
     }
 

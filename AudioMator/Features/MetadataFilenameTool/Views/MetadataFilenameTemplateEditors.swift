@@ -84,6 +84,7 @@ struct MetadataExchangeTemplateEditor: NSViewRepresentable {
         weight: .regular
     )
 
+    @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: MetadataExchangeTemplateEditor
         weak var textView: NSTextView?
@@ -397,6 +398,7 @@ struct FileRenameTemplateEditor: NSViewRepresentable {
         weight: .regular
     )
 
+    @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: FileRenameTemplateEditor
         weak var textView: NSTextView?
@@ -668,6 +670,7 @@ nonisolated private final class FileRenameFieldAttachment: NSTextAttachment {
 }
 
 private extension NSTextAttachment {
+    @MainActor
     func configureChipImage(title: String, editorFont: NSFont) {
         let chipImage = FileRenameFieldAttachment.makeChipImage(title: title)
         image = chipImage

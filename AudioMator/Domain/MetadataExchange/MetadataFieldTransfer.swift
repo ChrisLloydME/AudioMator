@@ -6,6 +6,15 @@ enum MetadataFieldTransferOperation: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var progressTitle: String {
+        switch self {
+        case .copy:
+            return String(localized: "Copying Metadata")
+        case .cut:
+            return String(localized: "Moving Metadata")
+        }
+    }
+
     var title: String {
         switch self {
         case .copy:

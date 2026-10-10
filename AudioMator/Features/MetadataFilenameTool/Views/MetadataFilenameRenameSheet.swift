@@ -977,9 +977,10 @@ struct MetadataFilenameWindowView: View {
         let plan = fieldTransferPlan
         guard canApply, plan.canApply else { return }
 
+        let progressTitle = fieldTransferStore.operation.progressTitle
         isApplying = true
         Task { @MainActor in
-            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries, progressTitle: progressTitle)
             isApplying = false
         }
     }

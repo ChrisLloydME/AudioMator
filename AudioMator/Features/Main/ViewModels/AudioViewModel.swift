@@ -75,6 +75,7 @@ final class AudioViewModel: ObservableObject {
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
+    @Published var isReloadingSelectedFiles = false
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
     @Published private(set) var fileAccessGrants: [FileAccessGrant] = []
     @Published private(set) var bookmarkPersistenceWarnings: [String] = []

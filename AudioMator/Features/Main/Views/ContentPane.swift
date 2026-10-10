@@ -22,6 +22,7 @@ struct ContentPane: View {
     @State private var isEraseAllTagsConfirmPresented: Bool = false
     @State private var isMuseAmpIDConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
+    @State private var isReloadDiscardConfirmPresented: Bool = false
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -87,6 +88,19 @@ struct ContentPane: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     trailingToolbarButtons
                 }
+            }
+            .confirmationDialog(
+                String(localized: "Discard edits and reload from disk?"),
+                isPresented: $isReloadDiscardConfirmPresented,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Discard and Reload"), role: .destructive) {
+                    viewModel.updateEditForSelection()
+                    Task { await viewModel.reloadSelectedFilesFromDisk() }
+                }
+                Button(String(localized: "Cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "Unsaved inspector edits will be discarded. The files will be read again from disk."))
             }
             .confirmationDialog(
                 "Clear this list?",
@@ -157,6 +171,14 @@ struct ContentPane: View {
                     onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
                     onRequestCreateMuseAmpIDs: { isMuseAmpIDConfirmPresented = true },
                     onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true },
+                    onReloadSelectedFiles: {
+                        if viewModel.hasUnsavedInspectorChanges {
+                            isReloadDiscardConfirmPresented = true
+                        } else {
+                            Task { await viewModel.reloadSelectedFilesFromDisk() }
+                        }
+                    },
+                    isFileReloadEnabled: viewModel.metadataSaveProgress == nil && !viewModel.isReloadingSelectedFiles,
                     isMuseAmpSupportEnabled: isMuseAmpSupportEnabled,
                     isMuseAmpIDCreationEnabled: viewModel.metadataSaveProgress == nil
                 )

@@ -51,6 +51,8 @@ Inspector artwork previews decode in the background and reuse a small cache of d
 
   Saves validate the file revision read by the editor and reject stale drafts. Filesystem-only changes such as permissions or timestamps can also invalidate a revision even when the audio and tags are unchanged. Inspector saves write only fields changed from the original draft; clicking Save with no pending changes performs no write. See [file revision and reload strategy](Docs/FILE_REVISION_AND_RELOAD.md) for the detection limits and recovery design.
 
+  Use **Reload from Disk** in the track list's context menu to reread selected files in Quick Import or Watched Folders. Reload asks before discarding unsaved inspector edits. Returning to AudioMator also checks selected file revisions and refreshes changed files; automatic refresh preserves pending drafts and their original save revision. A stale Metadata Editor draft must be reopened after reloading the files.
+
   <img src="Docs/Images/AudioMator Metadata Editor.png">
 
 - ### Automatic Track Number Assignment

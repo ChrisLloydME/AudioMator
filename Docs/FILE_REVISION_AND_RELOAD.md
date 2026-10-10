@@ -99,7 +99,40 @@ discarding a dirty draft; background reconciliation must preserve it. Reads must
 share the write coordinator and generation checks, keep failed file models, and
 avoid applying results after a file was removed or moved.
 
+Implemented in this branch:
+
+- **Reload from Disk** in the native list context menu for selected files, with a
+  confirmation before discarding an inspector draft. Raw Metadata Editor drafts
+  remain independent; reopen that editor to start from a refreshed revision.
+- On app activation, compare both the app fingerprint and package version for
+  selected files. Skip unchanged files and reread changed/missing revisions. Including
+  the package version detects `ctime`-only changes the app fingerprint would miss.
+- Serialize these reads with writes, apply results while still reserved, and reject
+  results whose original list snapshot was removed, moved or independently replaced.
+  A 60-second read deadline discards late results. Duplicate refreshes are suppressed.
+  Explicit reload displays progress and holds off new save actions until it finishes.
+- Clean drafts follow readback; dirty drafts (including edits typed during the read)
+  retain their original baseline. Read failures preserve the old model; explicit
+  reload reports them. Automatic reconciliation runs on activation rather than a
+  timer, and checks only the selected files.
+
+`FileReloadWorkflowTests` exercises clean/dirty refreshes, unchanged-revision skips,
+permission-only detection, failure retention, shared reservations, removed files,
+independently refreshed snapshots, and edits made while loading.
+
 Further options: incremental watched rescans using stable revision checks,
 recursive FSEvents with dropped-event recovery, and a modest periodic reconciliation
 for active files on volumes with unreliable notifications. These require separate
 performance/volume testing. Watching alone does not replace validation at save time.
+
+## Verification
+
+- Step 1: four filesystem-revision reproduction tests passed.
+- Step 2: 69 focused app-hosted workflow, pipeline contract, revision and TagLib
+  fixture integration tests passed.
+- Step 3: 91 tests passed, adding reload workflows, native selection and mutation
+  serialization coverage. Reload tests use isolated preferences to avoid restoring
+  unrelated watched-folder scans from the test host.
+- Native app compilation uses `scripts/codex-build.sh` and repository-local
+  `.deriveddata-codex`. App-hosted tests use one serial runner. Interactive UI
+  acceptance remains the maintainer's responsibility.

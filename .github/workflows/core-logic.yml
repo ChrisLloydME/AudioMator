@@ -9,23 +9,36 @@ on:
 permissions:
   contents: read
 
+env:
+  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+
 jobs:
   swift-test:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Verify toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
       - name: Run core logic tests
         run: swift test
 
   xcode-test:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Verify toolchain
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Run app-hosted tests
         run: |

@@ -162,8 +162,9 @@ Raw editor saves submit an exact original-to-draft delta, preserving unrelated
 external additions, arrays and deletions. Opening Metadata Editor also reads a
 coherent fresh baseline before showing its editable values. Track/total and
 disc/total pairs, year/release date, shared musician credits and the entire artwork
-set are grouped conservatively. A disc-only text patch carries the latest unedited
-track pair because the package's number-text API always includes track text.
+set are grouped conservatively. Disc-only text patches leave the track pair unspecified. The public
+number-text API accepts independent optional track/disc edits; the app adapter now
+respects those flags instead of submitting an unedited track pair.
 Unknown raw keys with changed native structures and ASF native changes use
 conservative conflict detection because the registry does not map every native
 alias or role. Some non-overlapping changes may still require a policy choice.

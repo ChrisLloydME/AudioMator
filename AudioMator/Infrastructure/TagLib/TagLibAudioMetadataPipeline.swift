@@ -267,7 +267,7 @@ private enum MetadataPipelineSupport {
 
         let numberText: MetadataNumberTextPatch? = if edit.trackNumberTextChanged || edit.discNumberTextChanged {
             MetadataNumberTextPatch(
-                trackNumberText: trackText,
+                trackNumberText: edit.trackNumberTextChanged ? trackText : nil,
                 discNumberText: edit.discNumberTextChanged ? discText : nil
             )
         } else {

@@ -69,10 +69,10 @@ Add unchanged-byte chmod/xattr/touch cases, changed bytes with restored mtime,
 same-path replacement, and a writer racing the rebase/commit. AudioMator does not
 patch dependency sources or disable their guard as a workaround.
 
-Implemented in this branch: Basic snapshot loading; before/after validation across
+Implemented at step 2: Basic snapshot loading; before/after validation across
 the complete asynchronous load; one bounded retry for a read-time `fileChanged`;
 original-snapshot inspector deltas for single and multi-file drafts; and no mutation
-when the inspector has no changes. No automatic retry/rebase is added to writes.
+when the inspector has no changes. Step 2 did not rebase writes; step 4 below adds explicit conflict policies.
 Workflow and format integration tests cover these changes. The existing provider
 cancellation test now releases its gated post-commit reload before joining the task,
 matching the executor's documented cancellation boundary rather than deadlocking.
@@ -125,6 +125,87 @@ recursive FSEvents with dropped-event recovery, and a modest periodic reconcilia
 for active files on volumes with unreliable notifications. These require separate
 performance/volume testing. Watching alone does not replace validation at save time.
 
+## Step 4 — Settings and draft conflict policies
+
+**Settings → Conflicts** persists the policy under `metadata.conflictPolicy`.
+Missing or unknown values select **Merge non-conflicting changes**. The choice is
+read at the start of each file save, so an open draft can be retried after choosing
+a different strategy without losing its original baseline.
+
+| Policy | Different fields changed | Same edited group changed on disk |
+| --- | --- | --- |
+| Merge non-conflicting changes (default) | Merge silently | Preserve draft and stop; accept exact single-field convergence |
+| Prefer my changes | Merge silently | Apply the user's intended edits; may overwrite conflicting external values |
+| Prefer disk changes | Merge silently | Keep disk group; list discarded draft fields in the save report |
+| Require manual reload | Stop if revision changed | Preserve draft and require reload |
+
+These policies apply to **Inspector and Metadata Editor drafts**. Preview-based
+imports, online plans, renumbering, lyrics application and destructive clear-all
+retain their strict revision guards. No strategy bypasses the dependency's final
+expected-version validation or retries a failed commit.
+
+Each loaded file now retains a full raw/structured semantic baseline from the same
+verified snapshot as its editable fields. This supersedes step 2's Basic-only read:
+value arrays, roles, aliases and secondary artwork are needed to detect conflicts
+that the Basic projection hides. It increases read work and baseline memory compared
+to Basic-only loading. Large-library import optimization can later capture coherent
+baselines only for active editors; it must not mix revisions to save this cost.
+
+Inside the existing per-file mutation reservation, the resolver verifies identity,
+reads a stable current snapshot, compares edited groups and commits against that
+snapshot's version. Same-inode permission/timestamp changes can therefore rebase
+without assuming unchanged audio bytes: the patch is applied to the latest valid
+file and changes only intended metadata. This is semantic merging, not proof of
+byte equality or an app-side weakening of the package's version guard.
+
+Raw editor saves submit an exact original-to-draft delta, preserving unrelated
+external additions, arrays and deletions. Opening Metadata Editor also reads a
+coherent fresh baseline before showing its editable values. Track/total and
+disc/total pairs, year/release date, shared musician credits and the entire artwork
+set are grouped conservatively. A disc-only text patch carries the latest unedited
+track pair because the package's number-text API always includes track text.
+Unknown raw keys with changed native structures and ASF native changes use
+conservative conflict detection because the registry does not map every native
+alias or role. Some non-overlapping changes may still require a policy choice.
+Already-converged or wholly disk-preferred changes perform no redundant write.
+
+All policies refuse same-path replacement (including an external editor's atomic
+replacement), unavailable identity, unstable reads and a change racing the final
+commit. A semantic metadata snapshot cannot prove that a replacement is the same
+audio recording. Automatic reload preserves drafts and their original baselines;
+explicit reload requires a deliberate discard. A raw editor draft remains open on
+failure. Continuous monitoring of every open file is not added by this setting:
+selected-file activation checks and existing watched-folder events still apply.
+
+`MetadataConflictStrategyTests` uses real TagLib writes in test-owned temporary
+files, simulating external in-place changes while retaining inode identity. It
+covers policy persistence/fallback, status-only changes, disjoint/overlapping edits,
+convergence, multi-values, additions, deletion, paired numbers, multi-artwork role projections,
+coherent editor opening, replacement refusal and a writer racing the final guard.
+The artwork-role sensor injects two structured artwork projections while retaining
+real filesystem versions, rather than relying on multi-artwork write support.
+Folder permission UI is excluded from the test adapter; production transactional
+folder access remains unchanged.
+
+### Dependency-owner follow-up from artwork fixture setup
+
+An attempted FLAC fixture setup through the public `applyMetadataPatch` API failed
+with `verificationFailed(["Patched artwork differs after save."])` when replacing
+artwork with two `StructuredArtwork` entries using identical JPEG payloads,
+`pictureTypeCode: 3`/`4`, and a description of `"Before"` on the second entry
+(`pictureType` and `container` left at their API defaults). This occurs before the
+AudioMator conflict resolver runs. It indicates either an undocumented required
+role representation or a package round-trip/verification issue; the cause is not
+established. No dependency sources or checkouts were modified.
+
+The TagLibAudioMetadata owner should add this FLAC reproduction to package tests,
+compare expected/observed count, order, role code, description and bytes, and inspect
+the structured artwork writer and `structuredArtworkMatches` verification path.
+Expected: accepted artwork input should round-trip under documented normalization,
+or fail validation before mutation with a clear unsupported-role diagnosis.
+AudioMator's standard single-cover integration tests still pass. This task does not
+claim multi-cover dependency write coverage or introduce a workaround for it.
+
 ## Verification
 
 - Step 1: four filesystem-revision reproduction tests passed.
@@ -133,6 +214,10 @@ performance/volume testing. Watching alone does not replace validation at save t
 - Step 3: 91 tests passed, adding reload workflows, native selection and mutation
   serialization coverage. Reload tests use isolated preferences to avoid restoring
   unrelated watched-folder scans from the test host.
+- Step 4: 105 focused app-hosted tests passed. After the final no-write sensor and
+  failed-target retention check, all 28 conflict-policy/editor-store tests passed
+  (17 policy tests). All 61 selected SwiftPM core tests also passed. The native
+  arm64/x86_64 build passed; no interactive UI acceptance was performed.
 - Native app compilation uses `scripts/codex-build.sh` and repository-local
   `.deriveddata-codex`. App-hosted tests use one serial runner. Interactive UI
   acceptance remains the maintainer's responsibility.

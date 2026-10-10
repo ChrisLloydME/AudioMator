@@ -82,6 +82,7 @@ final class AudioViewModel: ObservableObject {
 
     private let watchedFolderStore: WatchedFolderStore
     private let fileAccessGrantStore: FileAccessGrantStore
+    let conflictPolicyDefaults: UserDefaults
     let metadataPipeline: any AudioMetadataPipeline
     let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
@@ -183,11 +184,13 @@ final class AudioViewModel: ObservableObject {
         metadataPipeline: any AudioMetadataPipeline,
         saveIssueLogStore: SaveIssueLogStore,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
-        artworkLookupOperationTimeout: Duration = .seconds(30)
+        artworkLookupOperationTimeout: Duration = .seconds(30),
+        conflictPolicyDefaults: UserDefaults = .standard
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.fileAccessGrantStore = fileAccessGrantStore
         self.metadataPipeline = metadataPipeline
+        self.conflictPolicyDefaults = conflictPolicyDefaults
         self.saveIssueLogStore = saveIssueLogStore
         self.artworkLookupService = artworkLookupService
         self.artworkLookupOperationTimeout = artworkLookupOperationTimeout

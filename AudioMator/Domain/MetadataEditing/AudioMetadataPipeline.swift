@@ -74,6 +74,7 @@ typealias RawMetadataValueMap = [String: [String]]
 protocol AudioMetadataPipeline: Sendable {
     nonisolated var requiresTransactionalDirectoryAccess: Bool { get }
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile
+    nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion
     nonisolated func rawMetadataDumpText(for url: URL) -> String?
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap
@@ -102,6 +103,10 @@ protocol AudioMetadataPipeline: Sendable {
 
 extension AudioMetadataPipeline {
     nonisolated var requiresTransactionalDirectoryAccess: Bool { false }
+
+    nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot {
+        throw CocoaError(.featureUnsupported)
+    }
 
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
         throw CocoaError(.featureUnsupported)

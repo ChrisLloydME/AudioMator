@@ -62,8 +62,9 @@ extension AudioFile {
         //
         // A failed source read must remain a load failure so import and rescan recovery can react.
         let fingerprint = try AudioFileFingerprint.capture(at: url)
-        let snapshot = try TagLibMetadataManager.readBasicSnapshot(from: url)
-        let tag = snapshot.metadata
+        let snapshot = try TagLibMetadataManager.readSnapshot(from: url)
+        let tag = snapshot.basic
+        self.metadataConflictBaseline = MetadataConflictBaseline(snapshot)
         self.metadataFileVersion = snapshot.fileVersion
         self.requiresMetadataRefreshBeforeWriting = false
 

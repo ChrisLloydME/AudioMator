@@ -110,6 +110,7 @@ final class MiddleListSelectionTests: XCTestCase {
             onOpenSelectedFiles: {}, onRevealSelectedFilesInFinder: {},
             onCopySelectedFilePaths: {}, onCopySelectedFileNames: {},
             onFindSelectedFileInMusicBrainz: {}, onRequestCreateMuseAmpIDs: {}, onRequestEraseAllTags: {},
+            onReloadSelectedFiles: {}, isFileReloadEnabled: true,
             isMuseAmpSupportEnabled: false, isMuseAmpIDCreationEnabled: true
         )
     }

@@ -47,6 +47,15 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(patch.artwork, .unchanged)
     }
 
+    func testDiscOnlyInspectorPatchLeavesTrackPairUnspecified() {
+        let file = AudioFileTestFactory.make(trackNumberText: "07/12", discNumberText: "1/3")
+        var edit = SingleFileEditModel(from: file)
+        edit.setDiscNumberFieldText("2")
+        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: file))
+        XCTAssertNil(patch.numberText?.trackNumberText)
+        XCTAssertEqual(patch.numberText?.discNumberText, "2/3")
+    }
+
     func testTitleOnlyInspectorWritePreservesUntouchedRawValueStructure() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)

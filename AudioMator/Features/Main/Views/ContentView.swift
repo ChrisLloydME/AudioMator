@@ -81,6 +81,9 @@ struct ContentView: View {
             .onAppear {
                 viewModel.setSidebarSelection(state.selectedSidebarItem)
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                Task { await viewModel.refreshSelectedFilesAfterActivation() }
+            }
             .task {
                 guard shouldPresentWelcomeSplashOnLaunch, !isWelcomeSplashPresented else { return }
                 isWelcomeSplashPresented = true

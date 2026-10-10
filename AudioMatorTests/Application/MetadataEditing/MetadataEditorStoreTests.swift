@@ -294,6 +294,7 @@ final class MetadataEditorStoreTests: XCTestCase {
 
         XCTAssertEqual(store.originalPropertyMaps[readableFile.id], ["TITLE": ["Keep Me"]])
         XCTAssertNil(store.originalPropertyMaps[unreadableFile.id])
+        XCTAssertEqual(store.targets.map(\.id), [readableFile.id, unreadableFile.id])
         XCTAssertEqual(store.draftPropertyMaps, store.originalPropertyMaps)
         XCTAssertFalse(store.hasUnsavedChanges)
         XCTAssertEqual(

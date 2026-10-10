@@ -16,6 +16,8 @@ struct MiddleListTable: NSViewRepresentable {
     let onFindSelectedFileInMusicBrainz: () -> Void
     let onRequestCreateMuseAmpIDs: () -> Void
     let onRequestEraseAllTags: () -> Void
+    let onReloadSelectedFiles: () -> Void
+    let isFileReloadEnabled: Bool
     let isMuseAmpSupportEnabled: Bool
     let isMuseAmpIDCreationEnabled: Bool
 
@@ -283,6 +285,8 @@ extension MiddleListTable {
                     item.isEnabled = hasSelection && parent.isMuseAmpIDCreationEnabled
                 case #selector(requestEraseAllTagsAction):
                     item.isEnabled = hasSelection
+                case #selector(reloadSelectedFilesAction):
+                    item.isEnabled = hasSelection && parent.isFileReloadEnabled
                 default:
                     break
                 }
@@ -322,6 +326,11 @@ extension MiddleListTable {
         @objc
         private func requestEraseAllTagsAction() {
             parent.onRequestEraseAllTags()
+        }
+
+        @objc
+        private func reloadSelectedFilesAction() {
+            parent.onReloadSelectedFiles()
         }
 
         @objc
@@ -498,6 +507,7 @@ extension MiddleListTable {
 
             menu.addItem(makeMenuItem(title: "Open", action: #selector(openSelectedFilesAction)))
             menu.addItem(makeMenuItem(title: "Reveal in Finder", action: #selector(revealSelectedFilesAction)))
+            menu.addItem(makeMenuItem(title: String(localized: "Reload from Disk"), action: #selector(reloadSelectedFilesAction)))
             menu.addItem(.separator())
             menu.addItem(makeMenuItem(title: "Copy Path", action: #selector(copySelectedFilePathsAction)))
             menu.addItem(makeMenuItem(title: "Copy Filename", action: #selector(copySelectedFileNamesAction)))

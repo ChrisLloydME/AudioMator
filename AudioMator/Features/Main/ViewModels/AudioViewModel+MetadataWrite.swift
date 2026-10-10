@@ -43,6 +43,7 @@ extension AudioViewModel {
 
     func saveInspectorEdits() {
         guard metadataSaveProgress == nil else { return }
+        guard hasUnsavedInspectorChanges else { return }
 
         if selectedAudioIDs.count > 1 {
             saveMultiFileEdits()
@@ -75,11 +76,13 @@ extension AudioViewModel {
             ?? file.fileFingerprint
         let expectedMetadataVersion = inspectorEditSourceFilesByID[id]?.metadataFileVersion
             ?? file.metadataFileVersion
+        let sourceFile = inspectorEditSourceFilesByID[id] ?? file
 
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
+                comparedTo: sourceFile,
                 expectedFileFingerprint: expectedFileFingerprint,
                 expectedMetadataVersion: expectedMetadataVersion
             )
@@ -118,13 +121,18 @@ extension AudioViewModel {
             return
         }
 
-        let targetFiles = files.filter { selectedAudioIDs.contains($0.id) }
+        let completedEdits = completedInspectorEditsByID
+        let targetFiles = files.filter {
+            selectedAudioIDs.contains($0.id) && multiEdit.hasPendingChanges(excluding: completedEdits[$0.id])
+        }
         guard !targetFiles.isEmpty else { return }
         guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         let editSnapshot = multiEdit
+        let selectionSnapshot = selectedAudioIDs
         let expectedFileFingerprints = inspectorEditSourceFilesByID.mapValues(\.fileFingerprint)
         let expectedMetadataVersions = inspectorEditSourceFilesByID.compactMapValues(\.metadataFileVersion)
+        let sourceFiles = inspectorEditSourceFilesByID
 
         beginMetadataSaveProgress(
             title: "Saving Metadata",
@@ -141,10 +149,12 @@ extension AudioViewModel {
                     completedUnitCount: index
                 )
 
-                let effectiveEdit = editSnapshot.applyingChanges(to: file)
+                let sourceFile = sourceFiles[file.id] ?? file
+                let effectiveEdit = editSnapshot.applyingChanges(to: sourceFile, excluding: completedEdits[file.id])
                 let result = await self.persistMetadataEdit(
                     effectiveEdit,
                     to: file,
+                    comparedTo: sourceFile,
                     syncInspectorAfterReload: false,
                     expectedFileFingerprint: expectedFileFingerprints[file.id]
                         ?? file.fileFingerprint,
@@ -154,6 +164,16 @@ extension AudioViewModel {
 
                 switch result {
                 case .success(let success):
+                    // Keep the failed targets' baselines and drafts. A completed
+                    // target starts any further edits from its actual readback.
+                    if self.selectedAudioIDs.contains(file.id),
+                       self.inspectorEditSourceFilesByID[file.id]?.snapshotID == sourceFile.snapshotID {
+                        self.completedInspectorEditsByID[file.id] = editSnapshot
+                        if success.didRefreshFileModel,
+                           let refreshed = self.files.first(where: { $0.id == file.id && $0.url == file.url }) {
+                            self.inspectorEditSourceFilesByID[file.id] = refreshed
+                        }
+                    }
                     summary.succeeded += 1
                     summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
 
@@ -181,7 +201,8 @@ extension AudioViewModel {
             )
             self.endMetadataSaveProgress()
 
-            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
+            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed,
+               self.selectedAudioIDs == selectionSnapshot, !self.hasUnsavedInspectorChanges {
                 self.updateEditForSelection()
             }
 
@@ -192,6 +213,7 @@ extension AudioViewModel {
     func persistMetadataEdit(
         _ edit: SingleFileEditModel,
         to file: AudioFile,
+        comparedTo sourceFile: AudioFile? = nil,
         syncInspectorAfterReload: Bool = true,
         expectedFileFingerprint: AudioFileFingerprint? = nil,
         expectedMetadataVersion: MetadataFileVersion? = nil
@@ -205,7 +227,7 @@ extension AudioViewModel {
             return .failure("This format does not support metadata writing yet.")
         }
 
-        let editPayload = MetadataEditPayload(edit, comparedTo: file)
+        let editPayload = MetadataEditPayload(edit, comparedTo: sourceFile ?? file)
         let unsupportedFields = unsupportedMetadataWriteFields(
             in: editPayload,
             forFileExtension: file.url.pathExtension
@@ -217,13 +239,37 @@ extension AudioViewModel {
             )
         }
 
+        let policy = MetadataConflictPolicy.load(from: conflictPolicyDefaults)
+        let baselineFile = sourceFile ?? file
+        let canResolve = sourceFile != nil
+            && baselineFile.metadataConflictBaseline != nil
+            && baselineFile.fileFingerprint != nil
+            && baselineFile.metadataFileVersion != nil
+            && (expectedFileFingerprint == nil || expectedFileFingerprint == baselineFile.fileFingerprint)
+            && (expectedMetadataVersion == nil || expectedMetadataVersion == baselineFile.metadataFileVersion)
+
         return await executeMetadataFileMutation(
             at: file.url,
             id: file.id,
-            expectedFileFingerprint: expectedFileFingerprint,
+            // The resolver performs a fresh read and identity validation inside
+            // the same reservation; strict preview-based writes keep this guard.
+            expectedFileFingerprint: canResolve ? nil : expectedFileFingerprint,
             syncInspectorAfterReload: syncInspectorAfterReload
         ) { metadataPipeline, url in
-            try metadataPipeline.writeMetadata(
+            if canResolve, let baseline = baselineFile.metadataConflictBaseline,
+               let fingerprint = baselineFile.fileFingerprint,
+               let version = baselineFile.metadataFileVersion {
+                return try MetadataConflictResolver.writeMetadata(
+                    editPayload,
+                    original: baseline,
+                    originalFingerprint: fingerprint,
+                    originalVersion: version,
+                    policy: policy,
+                    pipeline: metadataPipeline,
+                    url: url
+                )
+            }
+            return try metadataPipeline.writeMetadata(
                 editPayload,
                 to: url,
                 expectedVersion: expectedMetadataVersion ?? file.metadataFileVersion

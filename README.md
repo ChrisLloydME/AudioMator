@@ -49,6 +49,12 @@ Inspector artwork previews decode in the background and reuse a small cache of d
 
   **Metadata Editor** is a more advanced PropertyMap interface. It preserves each field's ordered value list—including duplicates, whitespace, empty values, and literal semicolons—and writes only changed keys. Container-native structures that TagLib does not project into PropertyMap remain available through Tag Inspector rather than this editor.
 
+  **Settings → Conflicts** offers four save strategies for Inspector and Metadata Editor drafts: **Merge non-conflicting changes** (default), **Prefer my changes**, **Prefer disk changes**, and **Require manual reload**. The default silently merges changes to different fields and keeps the draft when overlapping edits cannot be safely resolved. Priority strategies choose whose conflicting fields to keep; preferring disk reports the draft fields it discarded. Preview-based tools and Clear All Metadata continue to require an unchanged revision.
+
+  Saves retain the final file-version guard. Permission or timestamp changes can be handled by rereading the current file and safely merging the draft; file replacement, unreadable revisions and concurrent changes during saving still stop the operation. Inspector saves write only changed fields, and raw saves preserve unrelated external keys and value arrays. See [file revision and reload strategy](Docs/FILE_REVISION_AND_RELOAD.md) for detection limits and implementation details.
+
+  Use **Reload from Disk** in the track list's context menu to reread selected files in Quick Import or Watched Folders. Reload asks before discarding unsaved inspector edits. Returning to AudioMator also checks selected file revisions and refreshes changed files; automatic refresh preserves pending drafts and their original save baseline. Reopen Metadata Editor to intentionally replace its draft with fresh disk values. The conflict setting does not continuously monitor every open file.
+
   <img src="Docs/Images/AudioMator Metadata Editor.png">
 
 - ### Automatic Track Number Assignment

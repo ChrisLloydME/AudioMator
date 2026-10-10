@@ -66,6 +66,7 @@ struct AudioFile: Identifiable, Sendable {
     let artworkData: Data?
     let fileFingerprint: AudioFileFingerprint?
     let metadataFileVersion: MetadataFileVersion?
+    let metadataConflictBaseline: MetadataConflictBaseline?
     let requiresMetadataRefreshBeforeWriting: Bool
 
     // Stable content fingerprint for middle-list row refresh decisions.
@@ -161,6 +162,7 @@ struct AudioFile: Identifiable, Sendable {
         artworkData: Data?,
         fileFingerprint: AudioFileFingerprint? = nil,
         metadataFileVersion: MetadataFileVersion? = nil,
+        metadataConflictBaseline: MetadataConflictBaseline? = nil,
         requiresMetadataRefreshBeforeWriting: Bool = false
     ) {
         self.id = id
@@ -210,6 +212,7 @@ struct AudioFile: Identifiable, Sendable {
         self.artworkData = artworkData
         self.fileFingerprint = fileFingerprint
         self.metadataFileVersion = metadataFileVersion
+        self.metadataConflictBaseline = metadataConflictBaseline
         self.requiresMetadataRefreshBeforeWriting = requiresMetadataRefreshBeforeWriting
     }
 
@@ -267,6 +270,7 @@ struct AudioFile: Identifiable, Sendable {
             artworkData: artworkData,
             fileFingerprint: fileFingerprint,
             metadataFileVersion: metadataFileVersion,
+            metadataConflictBaseline: metadataConflictBaseline,
             requiresMetadataRefreshBeforeWriting:
                 requiresMetadataRefreshBeforeWriting ?? self.requiresMetadataRefreshBeforeWriting
         )

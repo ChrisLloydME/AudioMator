@@ -7,6 +7,7 @@ enum AppSettingsTab: String, Hashable {
     case general
     case fileAccess
     case interface
+    case conflicts
     case logs
     case about
 }
@@ -64,6 +65,12 @@ struct SettingsView: View {
                     Label("Folders", systemImage: "folder")
                 }
                 .tag(AppSettingsTab.fileAccess)
+
+            ConflictSettingsTab(defaults: viewModel.conflictPolicyDefaults)
+                .tabItem {
+                    Label(String(localized: "Conflicts"), systemImage: "arrow.triangle.branch")
+                }
+                .tag(AppSettingsTab.conflicts)
 
             SaveIssueLogSettingsTab(store: saveIssueLogStore)
                 .tabItem {

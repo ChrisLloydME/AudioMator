@@ -47,6 +47,9 @@ enum MetadataConflictResolver {
     ) throws -> AudioMetadataWriteResult {
         let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint)
         if snapshot.fileVersion == originalVersion {
+            if TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit).isEmpty {
+                return try noWriteResult(pipeline: pipeline, url: url, version: originalVersion)
+            }
             return try pipeline.writeMetadata(edit, to: url, expectedVersion: originalVersion)
         }
         guard policy != .requireReload else { throw TagLibManagerError.fileChanged }
@@ -84,17 +87,6 @@ enum MetadataConflictResolver {
             }
         }
         guard conflicts.isEmpty else { throw MetadataConflictError(fields: conflicts) }
-        // The package's text-pair patch carries track text when changing disc
-        // text. Use the latest track when the user is only changing the disc.
-        if resolved.discNumberTextChanged && !resolved.trackNumberTextChanged {
-            resolved.trackNumberText = AudioFile.normalizedNumberText(
-                rawText: snapshot.basic.trackNumberText,
-                number: snapshot.basic.track,
-                total: snapshot.basic.trackTotal
-            )
-            resolved.trackNumber = snapshot.basic.track
-            resolved.trackTotal = snapshot.basic.trackTotal
-        }
         let resolvedPatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: resolved)
         let result: AudioMetadataWriteResult
         if resolvedPatch.fields.isEmpty, resolvedPatch.explicitAdvisory == nil,

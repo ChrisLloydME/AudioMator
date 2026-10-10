@@ -165,7 +165,9 @@ extension AudioViewModel {
             }
 
             guard entry.values.allSatisfy({ field, value in
-                field.isWritableMetadataField && field.importedValueValidationMessage(value) == nil
+                field.isWritableMetadataField && (entry.preservingNumberPairComponents
+                    ? field.fieldTransferValidationMessage(value)
+                    : field.importedValueValidationMessage(value)) == nil
             }) else {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
@@ -189,7 +191,11 @@ extension AudioViewModel {
             var edit = SingleFileEditModel(from: file)
             for field in MetadataExchangeField.allCases {
                 guard let value = entry.values[field] else { continue }
-                field.applyImportedValue(value, to: &edit)
+                field.applyImportedValue(
+                    value,
+                    to: &edit,
+                    preservingNumberPairComponents: entry.preservingNumberPairComponents
+                )
             }
 
             let result = await persistMetadataEdit(

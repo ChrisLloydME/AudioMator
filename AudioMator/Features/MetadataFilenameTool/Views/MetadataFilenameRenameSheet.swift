@@ -241,6 +241,7 @@ struct MetadataFilenameWindowView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @StateObject private var fieldTransferStore = MetadataFieldTransferStore()
     @State private var selectedConverterMode: MetadataConverterMode?
     @State private var mode: MetadataFilenameToolMode = .metadataToFilename
     @State private var metadataToFilenameTemplate: String = ""
@@ -333,6 +334,10 @@ struct MetadataFilenameWindowView: View {
             targetFiles: targetFiles,
             clearBlankImportedValues: clearBlankCSVImportedValues
         )
+    }
+
+    private var fieldTransferPlan: MetadataExchangeImportPlan {
+        fieldTransferStore.makePlan(targetFiles: targetFiles)
     }
 
     private var activeTemplate: String {
@@ -448,6 +453,8 @@ struct MetadataFilenameWindowView: View {
             return metadataCSVExportPlan.canExport
         case .csvToMetadata:
             return csvMetadataImportPlan.canApply
+        case .metadataFieldTransfer:
+            return fieldTransferPlan.canApply
         }
     }
 
@@ -532,6 +539,17 @@ struct MetadataFilenameWindowView: View {
             filenameMetadataDetail
         case .metadataToText, .textToMetadata, .metadataToCSV, .csvToMetadata:
             metadataExchangeDetail(for: selectedMode)
+        case .metadataFieldTransfer:
+            MetadataFieldTransferDetailView(
+                store: fieldTransferStore,
+                plan: fieldTransferPlan,
+                targetCount: targetFiles.count,
+                isApplying: isApplying
+            )
+            .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) { footer }
+            .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+            .scrollBounceBehavior(.basedOnSize)
         }
     }
 
@@ -561,7 +579,7 @@ struct MetadataFilenameWindowView: View {
             mode = .metadataToFilename
         case .filenameToMetadata:
             mode = .filenameToMetadata
-        case .metadataToText, .textToMetadata, .metadataToCSV, .csvToMetadata:
+        case .metadataToText, .textToMetadata, .metadataToCSV, .csvToMetadata, .metadataFieldTransfer:
             break
         }
         selectedConverterMode = selectedMode
@@ -755,7 +773,7 @@ struct MetadataFilenameWindowView: View {
                     return metadataToCSVTemplate
                 case .csvToMetadata:
                     return csvToMetadataTemplate
-                case .metadataToFilename, .filenameToMetadata:
+                case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
                     return ""
                 }
             },
@@ -769,7 +787,7 @@ struct MetadataFilenameWindowView: View {
                     metadataToCSVTemplate = newValue
                 case .csvToMetadata:
                     csvToMetadataTemplate = newValue
-                case .metadataToFilename, .filenameToMetadata:
+                case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
                     break
                 }
             }
@@ -824,7 +842,9 @@ struct MetadataFilenameWindowView: View {
             .keyboardShortcut(.cancelAction)
             .disabled(isApplying)
 
-            Button(selectedConverterMode?.actionTitle ?? mode.actionTitle) {
+            Button(selectedConverterMode == .metadataFieldTransfer
+                ? fieldTransferStore.operation.title
+                : selectedConverterMode?.actionTitle ?? mode.actionTitle) {
                 applyCurrentMode()
             }
             .keyboardShortcut(.defaultAction)
@@ -884,6 +904,8 @@ struct MetadataFilenameWindowView: View {
             exportMetadataCSV()
         case .csvToMetadata:
             applyCSVMetadata()
+        case .metadataFieldTransfer:
+            applyFieldTransfer()
         }
     }
 
@@ -951,6 +973,17 @@ struct MetadataFilenameWindowView: View {
         }
     }
 
+    private func applyFieldTransfer() {
+        let plan = fieldTransferPlan
+        guard canApply, plan.canApply else { return }
+
+        isApplying = true
+        Task { @MainActor in
+            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+            isApplying = false
+        }
+    }
+
     private func exportMetadataText() {
         let plan = metadataTextExportPlan
         guard canApply, plan.canExport else { return }
@@ -988,7 +1021,7 @@ struct MetadataFilenameWindowView: View {
                     case .csvToMetadata:
                         csvImportSource = text
                         selectedCSVImportURL = url
-                    case .metadataToFilename, .filenameToMetadata, .metadataToText, .metadataToCSV:
+                    case .metadataToFilename, .filenameToMetadata, .metadataToText, .metadataToCSV, .metadataFieldTransfer:
                         break
                     }
                     externalFileLoadID = nil
@@ -1008,6 +1041,7 @@ struct MetadataFilenameWindowView: View {
 
     private func resetForNewPresentation() {
         selectedConverterMode = nil
+        fieldTransferStore.reset()
         mode = .metadataToFilename
         textImportSource = ""
         csvImportSource = ""

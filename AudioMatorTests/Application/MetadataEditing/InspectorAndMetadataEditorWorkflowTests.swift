@@ -852,6 +852,44 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    func testFieldTransferCutWritesDestinationAndSourceClearInOnePayload() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorFieldTransferTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let url = directoryURL.appendingPathComponent("transfer.flac")
+        try Data("fixture".utf8).write(to: url)
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
+        let original = AudioFileTestFactory.make(
+            url: url, title: "Keep Title", comment: "Replace Comment", track: 7, trackTotal: 12,
+            trackNumberText: "007/012", fileFingerprint: fingerprint
+        )
+        let reloaded = AudioFileTestFactory.make(
+            id: original.id, url: url, title: "Keep Title", comment: "007", trackTotal: 12
+        )
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.setSelectedAudioIDs([original.id])
+        viewModel.updateEditForSelection()
+        let plan = MetadataFieldTransferPlanner.makePlan(
+            source: .trackNumber, destination: .comment, operation: .cut, targetFiles: [original]
+        )
+
+        let summary = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+
+        XCTAssertEqual(pipeline.metadataWrites.count, 1)
+        let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
+        XCTAssertEqual(payload.comment, "007")
+        XCTAssertEqual(payload.trackNumber, 0)
+        XCTAssertEqual(payload.trackTotal, 12)
+        XCTAssertEqual(payload.title, "Keep Title")
+        XCTAssertEqual(viewModel.edit?.comment, "007")
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertTrue(summary?.failureIssues.isEmpty == true)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
     func testMetadataPlanWritesRejectDuplicateFileEntries() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/duplicate-plan.flac")

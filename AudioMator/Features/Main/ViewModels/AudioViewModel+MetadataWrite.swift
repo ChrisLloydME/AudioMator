@@ -43,6 +43,7 @@ extension AudioViewModel {
 
     func saveInspectorEdits() {
         guard metadataSaveProgress == nil else { return }
+        guard hasUnsavedInspectorChanges else { return }
 
         if selectedAudioIDs.count > 1 {
             saveMultiFileEdits()
@@ -75,11 +76,13 @@ extension AudioViewModel {
             ?? file.fileFingerprint
         let expectedMetadataVersion = inspectorEditSourceFilesByID[id]?.metadataFileVersion
             ?? file.metadataFileVersion
+        let sourceFile = inspectorEditSourceFilesByID[id] ?? file
 
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
+                comparedTo: sourceFile,
                 expectedFileFingerprint: expectedFileFingerprint,
                 expectedMetadataVersion: expectedMetadataVersion
             )
@@ -125,6 +128,7 @@ extension AudioViewModel {
         let editSnapshot = multiEdit
         let expectedFileFingerprints = inspectorEditSourceFilesByID.mapValues(\.fileFingerprint)
         let expectedMetadataVersions = inspectorEditSourceFilesByID.compactMapValues(\.metadataFileVersion)
+        let sourceFiles = inspectorEditSourceFilesByID
 
         beginMetadataSaveProgress(
             title: "Saving Metadata",
@@ -141,10 +145,12 @@ extension AudioViewModel {
                     completedUnitCount: index
                 )
 
-                let effectiveEdit = editSnapshot.applyingChanges(to: file)
+                let sourceFile = sourceFiles[file.id] ?? file
+                let effectiveEdit = editSnapshot.applyingChanges(to: sourceFile)
                 let result = await self.persistMetadataEdit(
                     effectiveEdit,
                     to: file,
+                    comparedTo: sourceFile,
                     syncInspectorAfterReload: false,
                     expectedFileFingerprint: expectedFileFingerprints[file.id]
                         ?? file.fileFingerprint,
@@ -192,6 +198,7 @@ extension AudioViewModel {
     func persistMetadataEdit(
         _ edit: SingleFileEditModel,
         to file: AudioFile,
+        comparedTo sourceFile: AudioFile? = nil,
         syncInspectorAfterReload: Bool = true,
         expectedFileFingerprint: AudioFileFingerprint? = nil,
         expectedMetadataVersion: MetadataFileVersion? = nil
@@ -205,7 +212,7 @@ extension AudioViewModel {
             return .failure("This format does not support metadata writing yet.")
         }
 
-        let editPayload = MetadataEditPayload(edit, comparedTo: file)
+        let editPayload = MetadataEditPayload(edit, comparedTo: sourceFile ?? file)
         let unsupportedFields = unsupportedMetadataWriteFields(
             in: editPayload,
             forFileExtension: file.url.pathExtension

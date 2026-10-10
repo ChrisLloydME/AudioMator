@@ -365,6 +365,43 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    func testInspectorDeltaUsesOriginalDraftDespiteListRefresh() async throws {
+        let original = AudioFileTestFactory.make(
+            title: "Original", artist: "Original artist", includeDefaultFileFingerprint: false
+        )
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.setSelectedAudioIDs([original.id])
+        viewModel.edit?.title = "User title"
+        viewModel.mergeQuickImportFiles([
+            AudioFileTestFactory.make(
+                id: original.id, url: original.url, title: "Original",
+                artist: "External artist", includeDefaultFileFingerprint: false
+            )
+        ])
+
+        viewModel.saveInspectorEdits()
+        try await waitUntil(viewModel.metadataSaveProgress == nil)
+
+        let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
+        XCTAssertEqual(payload.changedFields, [.title])
+        XCTAssertEqual(payload.title, "User title")
+    }
+
+    func testSavingCleanInspectorDoesNotAttemptAFileMutation() {
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let file = AudioFileTestFactory.make(title: "Unedited")
+        viewModel.mergeQuickImportFiles([file])
+        viewModel.setSelectedAudioIDs([file.id])
+
+        viewModel.saveInspectorEdits()
+
+        XCTAssertNil(viewModel.metadataSaveProgress)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+    }
+
     func testReloadedSnapshotKeepsTheOriginalFingerprintForDirtyInspectorSave() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorInspectorReloadConflict-\(UUID().uuidString)", isDirectory: true)
@@ -1117,7 +1154,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "iTunes Title")
     }
 
-    func testCancelledProviderApplyAlwaysClearsMetadataProgress() async {
+    func testCancelledProviderApplyClearsProgressAfterCommittedReloadCompletes() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/itunes-cancelled-apply.m4a")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
@@ -1138,13 +1175,17 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNotNil(viewModel.metadataSaveProgress)
 
         applyTask.cancel()
+        // Once committed, cancellation does not abandon the protected reload.
+        // Release it before joining the task, otherwise this test deadlocks
+        // against its own latch until the production reload deadline expires.
+        XCTAssertNotNil(viewModel.metadataSaveProgress)
+        await pipeline.allowReload.signal()
         await applyTask.value
 
         XCTAssertNil(
             viewModel.metadataSaveProgress,
-            "Cancelling a provider apply must clear the shared progress overlay immediately."
+            "A cancelled provider apply must clear progress when its committed reload completes."
         )
-        await pipeline.allowReload.signal()
     }
 
     func testExternalMetadataWriteDoesNotDiscardUnsavedInspectorDraft() async {

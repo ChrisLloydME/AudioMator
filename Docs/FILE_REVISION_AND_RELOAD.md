@@ -69,6 +69,14 @@ Add unchanged-byte chmod/xattr/touch cases, changed bytes with restored mtime,
 same-path replacement, and a writer racing the rebase/commit. AudioMator does not
 patch dependency sources or disable their guard as a workaround.
 
+Implemented in this branch: Basic snapshot loading; before/after validation across
+the complete asynchronous load; one bounded retry for a read-time `fileChanged`;
+original-snapshot inspector deltas for single and multi-file drafts; and no mutation
+when the inspector has no changes. No automatic retry/rebase is added to writes.
+Workflow and format integration tests cover these changes. The existing provider
+cancellation test now releases its gated post-commit reload before joining the task,
+matching the executor's documented cancellation boundary rather than deadlocking.
+
 ## Step 3 — Existing reload behavior and improvements
 
 At the investigation baseline:

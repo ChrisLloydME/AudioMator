@@ -24,7 +24,17 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        try await AudioFile(url: url, id: id)
+        do {
+            return try await AudioFile(url: url, id: id)
+        } catch TagLibManagerError.fileChanged {
+            // A read is safe to retry once; a commit must never be retried this way.
+            try Task.checkCancellation()
+            return try await AudioFile(url: url, id: id)
+        }
+    }
+
+    nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot {
+        try TagLibMetadataManager.readSnapshot(from: url)
     }
 
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
@@ -257,7 +267,7 @@ private enum MetadataPipelineSupport {
 
         let numberText: MetadataNumberTextPatch? = if edit.trackNumberTextChanged || edit.discNumberTextChanged {
             MetadataNumberTextPatch(
-                trackNumberText: trackText,
+                trackNumberText: edit.trackNumberTextChanged ? trackText : nil,
                 discNumberText: edit.discNumberTextChanged ? discText : nil
             )
         } else {

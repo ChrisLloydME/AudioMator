@@ -69,13 +69,28 @@ extension AudioViewModel {
                 continue
             }
 
+            let policy = MetadataConflictPolicy.load(from: conflictPolicyDefaults)
+            let canResolve = target.metadataConflictBaseline != nil
+                && target.expectedFileFingerprint != nil && target.expectedMetadataVersion != nil
             let result = await executeMetadataFileMutation(
                 at: target.url,
                 id: target.id,
-                expectedFileFingerprint: target.expectedFileFingerprint,
+                expectedFileFingerprint: canResolve ? nil : target.expectedFileFingerprint,
                 syncInspectorAfterReload: false
             ) { metadataPipeline, url in
-                try metadataPipeline.writeRawMetadataValueMap(
+                if canResolve, let baseline = target.metadataConflictBaseline,
+                   let fingerprint = target.expectedFileFingerprint, let version = target.expectedMetadataVersion {
+                    return try MetadataConflictResolver.writeRawMetadata(
+                        propertyMap,
+                        original: baseline,
+                        originalFingerprint: fingerprint,
+                        originalVersion: version,
+                        policy: policy,
+                        pipeline: metadataPipeline,
+                        url: url
+                    )
+                }
+                return try metadataPipeline.writeRawMetadataValueMap(
                     propertyMap,
                     to: url,
                     expectedVersion: target.expectedMetadataVersion

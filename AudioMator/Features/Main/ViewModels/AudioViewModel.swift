@@ -75,12 +75,14 @@ final class AudioViewModel: ObservableObject {
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
+    @Published var isReloadingSelectedFiles = false
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
     @Published private(set) var fileAccessGrants: [FileAccessGrant] = []
     @Published private(set) var bookmarkPersistenceWarnings: [String] = []
 
     private let watchedFolderStore: WatchedFolderStore
     private let fileAccessGrantStore: FileAccessGrantStore
+    let conflictPolicyDefaults: UserDefaults
     let metadataPipeline: any AudioMetadataPipeline
     let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
@@ -92,6 +94,9 @@ final class AudioViewModel: ObservableObject {
     // The disk snapshots the current inspector drafts were created from. Keep
     // these separate from `files`, which can be refreshed while a draft is open.
     var inspectorEditSourceFilesByID: [UUID: AudioFile] = [:]
+    // Successfully submitted intent per target, retained across a partial batch
+    // failure so retrying does not reapply already handled conflicts.
+    var completedInspectorEditsByID: [UUID: MultiFileEditModel] = [:]
     private var quickImportFiles: [AudioFile] = []
     private var quickImportGeneration: UInt64 = 0
     private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
@@ -182,11 +187,13 @@ final class AudioViewModel: ObservableObject {
         metadataPipeline: any AudioMetadataPipeline,
         saveIssueLogStore: SaveIssueLogStore,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
-        artworkLookupOperationTimeout: Duration = .seconds(30)
+        artworkLookupOperationTimeout: Duration = .seconds(30),
+        conflictPolicyDefaults: UserDefaults = .standard
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.fileAccessGrantStore = fileAccessGrantStore
         self.metadataPipeline = metadataPipeline
+        self.conflictPolicyDefaults = conflictPolicyDefaults
         self.saveIssueLogStore = saveIssueLogStore
         self.artworkLookupService = artworkLookupService
         self.artworkLookupOperationTimeout = artworkLookupOperationTimeout
@@ -244,7 +251,10 @@ final class AudioViewModel: ObservableObject {
 
     var hasUnsavedInspectorChanges: Bool {
         if selectedAudioIDs.count > 1 {
-            return multiEdit?.hasUnsavedChanges ?? false
+            guard let multiEdit else { return false }
+            return selectedAudioIDs.contains {
+                multiEdit.hasPendingChanges(excluding: completedInspectorEditsByID[$0])
+            }
         }
 
         guard
@@ -278,6 +288,7 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
+        completedInspectorEditsByID = [:]
         guard !selectedAudioIDs.isEmpty else {
             edit = nil
             editSourceFileID = nil

@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 extension AudioViewModel {
     /// Explicit reload requires the UI to resolve an existing dirty draft first.

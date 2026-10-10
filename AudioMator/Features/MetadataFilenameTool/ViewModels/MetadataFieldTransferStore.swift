@@ -22,4 +22,3 @@ final class MetadataFieldTransferStore: ObservableObject {
         operation = .copy
     }
 }
-

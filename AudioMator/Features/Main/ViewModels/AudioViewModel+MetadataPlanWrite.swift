@@ -119,7 +119,10 @@ extension AudioViewModel {
     }
 
     @discardableResult
-    func applyMetadataExchangeWriteEntries(_ entries: [MetadataExchangeWriteEntry]) async -> BatchMetadataWriteSummary? {
+    func applyMetadataExchangeWriteEntries(
+        _ entries: [MetadataExchangeWriteEntry],
+        progressTitle: String = String(localized: "Importing Metadata")
+    ) async -> BatchMetadataWriteSummary? {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return nil }
 
         guard !hasUnsavedInspectorChanges else {
@@ -141,7 +144,7 @@ extension AudioViewModel {
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
-            title: String(localized: "Importing Metadata"),
+            title: progressTitle,
             subtitle: String(localized: "Preparing \(entries.count) files..."),
             totalUnitCount: entries.count
         )

@@ -245,6 +245,101 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file.url), bytes)
     }
 
+    func testPartialInspectorBatchRetryDoesNotResaveCompletedFile() async throws {
+        let first = try await loadedFixture()
+        let second = try await loadedFixture()
+        let defaults = isolatedDefaults()
+        let viewModel = selectedViewModel(first, defaults: defaults)
+        viewModel.mergeQuickImportFiles([second])
+        viewModel.setSelectedAudioIDs([first.id, second.id])
+        viewModel.multiEdit?.setText("Batch title", for: .title)
+        try externalChange(["TITLE": ["Second disk title"]], at: second.url)
+
+        viewModel.saveInspectorEdits()
+        try await waitForInspectorSave(viewModel)
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: first.url).title, "Batch title")
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: second.url).title, "Second disk title")
+        XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
+        let firstSavedVersion = try TagLibMetadataManager.fileVersion(at: first.url)
+        defaults.set(MetadataConflictPolicy.preferUserChanges.rawValue, forKey: MetadataConflictPolicy.defaultsKey)
+
+        viewModel.saveInspectorEdits()
+        try await waitForInspectorSave(viewModel)
+        XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: first.url), firstSavedVersion)
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: second.url).title, "Batch title")
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
+    }
+
+    func testPartialDiskPriorityRetryDoesNotReapplyDiscardedField() async throws {
+        let first = try await loadedFixture()
+        let second = try await loadedFixture()
+        let defaults = isolatedDefaults()
+        defaults.set(MetadataConflictPolicy.preferDiskChanges.rawValue, forKey: MetadataConflictPolicy.defaultsKey)
+        let viewModel = selectedViewModel(first, defaults: defaults)
+        viewModel.mergeQuickImportFiles([second])
+        viewModel.setSelectedAudioIDs([first.id, second.id])
+        viewModel.multiEdit?.setText("Batch title", for: .title)
+        viewModel.multiEdit?.setText("Batch album", for: .album)
+        try externalChange(["TITLE": ["First disk title"]], at: first.url)
+        let secondBytes = try Data(contentsOf: second.url)
+        try rewriteInPlace(Data("temporarily unreadable".utf8), at: second.url)
+
+        viewModel.saveInspectorEdits()
+        try await waitForInspectorSave(viewModel)
+        let firstSavedVersion = try TagLibMetadataManager.fileVersion(at: first.url)
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: first.url).title, "First disk title")
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: first.url).album, "Batch album")
+        XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
+        try rewriteInPlace(secondBytes, at: second.url)
+
+        viewModel.saveInspectorEdits()
+        try await waitForInspectorSave(viewModel)
+        XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: first.url), firstSavedVersion)
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: first.url).title, "First disk title")
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: second.url).title, "Batch title")
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
+    }
+
+    func testNewFieldAfterPartialBatchUsesReadbackAndKeepsLaterExternalChanges() async throws {
+        let first = try await loadedFixture()
+        let second = try await loadedFixture()
+        let defaults = isolatedDefaults()
+        let viewModel = selectedViewModel(first, defaults: defaults)
+        viewModel.mergeQuickImportFiles([second])
+        viewModel.setSelectedAudioIDs([first.id, second.id])
+        viewModel.multiEdit?.setText("Batch title", for: .title)
+        try externalChange(["TITLE": ["Second disk title"]], at: second.url)
+        viewModel.saveInspectorEdits()
+        try await waitForInspectorSave(viewModel)
+        try externalChange(["TITLE": ["Later external title"]], at: first.url)
+        viewModel.multiEdit?.setText("New album", for: .album)
+        defaults.set(MetadataConflictPolicy.preferUserChanges.rawValue, forKey: MetadataConflictPolicy.defaultsKey)
+
+        viewModel.saveInspectorEdits()
+        try await waitForInspectorSave(viewModel)
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: first.url).title, "Later external title")
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: first.url).album, "New album")
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: second.url).title, "Batch title")
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: second.url).album, "New album")
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
+    }
+
+    private func waitForInspectorSave(_ viewModel: AudioViewModel) async throws {
+        for _ in 0..<300 {
+            if viewModel.metadataSaveProgress == nil { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Inspector save did not finish")
+    }
+
+    private func rewriteInPlace(_ bytes: Data, at url: URL) throws {
+        let handle = try FileHandle(forUpdating: url)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: 0)
+        try handle.write(contentsOf: bytes)
+        try handle.synchronize()
+    }
+
     private func save(_ draft: SingleFileEditModel, original file: AudioFile, policy: MetadataConflictPolicy) throws -> AudioMetadataWriteResult {
         try MetadataConflictResolver.writeMetadata(
             MetadataEditPayload(draft, comparedTo: file),

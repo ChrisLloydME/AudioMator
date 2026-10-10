@@ -94,6 +94,9 @@ final class AudioViewModel: ObservableObject {
     // The disk snapshots the current inspector drafts were created from. Keep
     // these separate from `files`, which can be refreshed while a draft is open.
     var inspectorEditSourceFilesByID: [UUID: AudioFile] = [:]
+    // Successfully submitted intent per target, retained across a partial batch
+    // failure so retrying does not reapply already handled conflicts.
+    var completedInspectorEditsByID: [UUID: MultiFileEditModel] = [:]
     private var quickImportFiles: [AudioFile] = []
     private var quickImportGeneration: UInt64 = 0
     private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
@@ -248,7 +251,10 @@ final class AudioViewModel: ObservableObject {
 
     var hasUnsavedInspectorChanges: Bool {
         if selectedAudioIDs.count > 1 {
-            return multiEdit?.hasUnsavedChanges ?? false
+            guard let multiEdit else { return false }
+            return selectedAudioIDs.contains {
+                multiEdit.hasPendingChanges(excluding: completedInspectorEditsByID[$0])
+            }
         }
 
         guard
@@ -282,6 +288,7 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
+        completedInspectorEditsByID = [:]
         guard !selectedAudioIDs.isEmpty else {
             edit = nil
             editSourceFileID = nil

@@ -49,6 +49,8 @@ Inspector artwork previews decode in the background and reuse a small cache of d
 
   **Metadata Editor** is a more advanced PropertyMap interface. It preserves each field's ordered value list—including duplicates, whitespace, empty values, and literal semicolons—and writes only changed keys. Container-native structures that TagLib does not project into PropertyMap remain available through Tag Inspector rather than this editor.
 
+  Saves validate the file revision read by the editor and reject stale drafts. Filesystem-only changes such as permissions or timestamps can also invalidate a revision even when the audio and tags are unchanged. Inspector saves write only fields changed from the original draft; clicking Save with no pending changes performs no write. See [file revision and reload strategy](Docs/FILE_REVISION_AND_RELOAD.md) for the detection limits and recovery design.
+
   <img src="Docs/Images/AudioMator Metadata Editor.png">
 
 - ### Automatic Track Number Assignment

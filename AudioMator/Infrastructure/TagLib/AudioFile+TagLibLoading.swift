@@ -61,8 +61,9 @@ extension AudioFile {
         // MARK: – Basic tags via TagLib
         //
         // A failed source read must remain a load failure so import and rescan recovery can react.
-        let snapshot = try TagLibMetadataManager.readSnapshot(from: url)
-        let tag = snapshot.basic
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
+        let snapshot = try TagLibMetadataManager.readBasicSnapshot(from: url)
+        let tag = snapshot.metadata
         self.metadataFileVersion = snapshot.fileVersion
         self.requiresMetadataRefreshBeforeWriting = false
 
@@ -202,6 +203,12 @@ extension AudioFile {
             self.artworkData = nil
         }
 
-        self.fileFingerprint = try AudioFileFingerprint.capture(at: url)
+        // AVFoundation reads above can suspend. Never publish metadata from one
+        // revision paired with the fingerprint of a later revision.
+        guard fingerprint == (try AudioFileFingerprint.capture(at: url)),
+              snapshot.fileVersion == (try TagLibMetadataManager.fileVersion(at: url)) else {
+            throw TagLibManagerError.fileChanged
+        }
+        self.fileFingerprint = fingerprint
     }
 }

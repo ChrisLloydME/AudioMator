@@ -224,13 +224,37 @@ extension AudioViewModel {
             )
         }
 
+        let policy = MetadataConflictPolicy.load(from: conflictPolicyDefaults)
+        let baselineFile = sourceFile ?? file
+        let canResolve = sourceFile != nil
+            && baselineFile.metadataConflictBaseline != nil
+            && baselineFile.fileFingerprint != nil
+            && baselineFile.metadataFileVersion != nil
+            && (expectedFileFingerprint == nil || expectedFileFingerprint == baselineFile.fileFingerprint)
+            && (expectedMetadataVersion == nil || expectedMetadataVersion == baselineFile.metadataFileVersion)
+
         return await executeMetadataFileMutation(
             at: file.url,
             id: file.id,
-            expectedFileFingerprint: expectedFileFingerprint,
+            // The resolver performs a fresh read and identity validation inside
+            // the same reservation; strict preview-based writes keep this guard.
+            expectedFileFingerprint: canResolve ? nil : expectedFileFingerprint,
             syncInspectorAfterReload: syncInspectorAfterReload
         ) { metadataPipeline, url in
-            try metadataPipeline.writeMetadata(
+            if canResolve, let baseline = baselineFile.metadataConflictBaseline,
+               let fingerprint = baselineFile.fileFingerprint,
+               let version = baselineFile.metadataFileVersion {
+                return try MetadataConflictResolver.writeMetadata(
+                    editPayload,
+                    original: baseline,
+                    originalFingerprint: fingerprint,
+                    originalVersion: version,
+                    policy: policy,
+                    pipeline: metadataPipeline,
+                    url: url
+                )
+            }
+            return try metadataPipeline.writeMetadata(
                 editPayload,
                 to: url,
                 expectedVersion: expectedMetadataVersion ?? file.metadataFileVersion

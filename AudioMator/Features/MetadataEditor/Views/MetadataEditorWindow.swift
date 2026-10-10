@@ -9,6 +9,7 @@ struct MetadataEditorTarget: Identifiable, Hashable {
     let url: URL
     let expectedFileFingerprint: AudioFileFingerprint?
     let expectedMetadataVersion: MetadataFileVersion?
+    let metadataConflictBaseline: MetadataConflictBaseline?
     let requiresMetadataRefresh: Bool
 
     init(file: AudioFile) {
@@ -17,6 +18,16 @@ struct MetadataEditorTarget: Identifiable, Hashable {
         self.expectedFileFingerprint = file.fileFingerprint
         self.expectedMetadataVersion = file.metadataFileVersion
         self.requiresMetadataRefresh = file.requiresMetadataRefreshBeforeWriting
+        self.metadataConflictBaseline = file.metadataConflictBaseline
+    }
+
+    nonisolated init(target: MetadataEditorTarget, fingerprint: AudioFileFingerprint, snapshot: MetadataSnapshot) {
+        id = target.id
+        url = target.url
+        expectedFileFingerprint = fingerprint
+        expectedMetadataVersion = snapshot.fileVersion
+        metadataConflictBaseline = MetadataConflictBaseline(snapshot)
+        requiresMetadataRefresh = false
     }
 
     nonisolated var fileName: String {
@@ -35,6 +46,7 @@ private struct MetadataTextUtilitiesContext: Identifiable {
 @MainActor
 final class MetadataEditorStore: ObservableObject {
     private struct LoadedState {
+        let targets: [MetadataEditorTarget]
         let propertyMaps: [AudioFile.ID: RawMetadataValueMap]
         let errorMessage: String?
     }
@@ -123,6 +135,7 @@ final class MetadataEditorStore: ObservableObject {
 
             await MainActor.run {
                 guard self.loadToken == token else { return }
+                self.targets = loadedState.targets
                 self.originalPropertyMaps = loadedState.propertyMaps
                 self.draftPropertyMaps = loadedState.propertyMaps
                 self.loadErrorMessage = loadedState.errorMessage
@@ -288,11 +301,28 @@ final class MetadataEditorStore: ObservableObject {
     ) -> LoadedState {
         var propertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
         var failures: [String] = []
+        var loadedTargets: [MetadataEditorTarget] = []
 
         for target in targets {
             do {
-                propertyMaps[target.id] = try metadataPipeline.rawMetadataValueMap(for: target.url)
+                if target.metadataConflictBaseline != nil, let fingerprint = target.expectedFileFingerprint {
+                    guard !target.requiresMetadataRefresh else { throw TagLibManagerError.fileChanged }
+                    let snapshot = try MetadataConflictResolver.currentSnapshot(
+                        pipeline: metadataPipeline, url: target.url, originalFingerprint: fingerprint
+                    )
+                    let currentFingerprint = try AudioFileFingerprint.capture(at: target.url)
+                    guard snapshot.fileVersion == (try metadataPipeline.metadataFileVersion(at: target.url)) else {
+                        throw TagLibManagerError.fileChanged
+                    }
+                    let refreshed = MetadataEditorTarget(target: target, fingerprint: currentFingerprint, snapshot: snapshot)
+                    loadedTargets.append(refreshed)
+                    propertyMaps[target.id] = refreshed.metadataConflictBaseline?.values
+                } else {
+                    propertyMaps[target.id] = try metadataPipeline.rawMetadataValueMap(for: target.url)
+                    loadedTargets.append(target)
+                }
             } catch {
+                loadedTargets.append(target)
                 failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
             }
         }
@@ -306,7 +336,7 @@ final class MetadataEditorStore: ObservableObject {
             errorMessage = ([ "\(failures.count) files could not be read." ] + failures.prefix(3)).joined(separator: "\n")
         }
 
-        return LoadedState(propertyMaps: propertyMaps, errorMessage: errorMessage)
+        return LoadedState(targets: loadedTargets, propertyMaps: propertyMaps, errorMessage: errorMessage)
     }
 
     nonisolated private static func normalizedFieldKey(_ key: String) -> String {

@@ -33,6 +33,10 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         }
     }
 
+    nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot {
+        try TagLibMetadataManager.readSnapshot(from: url)
+    }
+
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
         try TagLibMetadataManager.fileVersion(at: url)
     }

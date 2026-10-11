@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct MetadataFieldTransferDetailView: View {
     @ObservedObject var store: MetadataFieldTransferStore
@@ -29,17 +30,6 @@ struct MetadataFieldTransferDetailView: View {
     private var transferControls: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Text(String(localized: "\(targetCount) selected files"))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-
-                if isApplying {
-                    ProgressView().controlSize(.small)
-                }
-
-                Spacer()
-
                 Picker(String(localized: "Operation"), selection: $store.operation) {
                     ForEach(MetadataFieldTransferOperation.allCases) { operation in
                         Text(operation.title).tag(operation)
@@ -48,6 +38,10 @@ struct MetadataFieldTransferDetailView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 176)
+
+                if isApplying {
+                    ProgressView().controlSize(.small)
+                }
             }
 
             HStack(alignment: .bottom, spacing: 16) {
@@ -88,16 +82,54 @@ struct MetadataFieldTransferDetailView: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
 
-            Picker(title, selection: selection) {
-                ForEach(MetadataFieldTransferPlanner.fields) { field in
-                    Text(field.displayName).tag(field)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .accessibilityLabel(Text(title))
-            .frame(maxWidth: .infinity, minHeight: 24)
+            MetadataFieldTransferPopUpButton(title: title, selection: selection)
         }
-        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .frame(width: 260, alignment: .leading)
+    }
+}
+
+private struct MetadataFieldTransferPopUpButton: NSViewRepresentable {
+    let title: String
+    @Binding var selection: MetadataExchangeField
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection)
+    }
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: false)
+        button.controlSize = .regular
+        button.font = .systemFont(ofSize: NSFont.systemFontSize)
+        button.addItems(withTitles: MetadataFieldTransferPlanner.fields.map(\.displayName))
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.selectField(_:))
+        return button
+    }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        context.coordinator.selection = $selection
+        if let index = MetadataFieldTransferPlanner.fields.firstIndex(of: selection) {
+            button.selectItem(at: index)
+        }
+        button.isEnabled = context.environment.isEnabled
+        button.setAccessibilityLabel(title)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSPopUpButton, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 260, height: nsView.intrinsicContentSize.height)
+    }
+
+    final class Coordinator: NSObject {
+        var selection: Binding<MetadataExchangeField>
+
+        init(selection: Binding<MetadataExchangeField>) {
+            self.selection = selection
+        }
+
+        @objc func selectField(_ sender: NSPopUpButton) {
+            let fields = MetadataFieldTransferPlanner.fields
+            guard fields.indices.contains(sender.indexOfSelectedItem) else { return }
+            selection.wrappedValue = fields[sender.indexOfSelectedItem]
+        }
     }
 }

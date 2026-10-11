@@ -119,7 +119,10 @@ extension AudioViewModel {
     }
 
     @discardableResult
-    func applyMetadataExchangeWriteEntries(_ entries: [MetadataExchangeWriteEntry]) async -> BatchMetadataWriteSummary? {
+    func applyMetadataExchangeWriteEntries(
+        _ entries: [MetadataExchangeWriteEntry],
+        progressTitle: String = String(localized: "Importing Metadata")
+    ) async -> BatchMetadataWriteSummary? {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return nil }
 
         guard !hasUnsavedInspectorChanges else {
@@ -141,7 +144,7 @@ extension AudioViewModel {
         var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
-            title: String(localized: "Importing Metadata"),
+            title: progressTitle,
             subtitle: String(localized: "Preparing \(entries.count) files..."),
             totalUnitCount: entries.count
         )
@@ -165,7 +168,9 @@ extension AudioViewModel {
             }
 
             guard entry.values.allSatisfy({ field, value in
-                field.isWritableMetadataField && field.importedValueValidationMessage(value) == nil
+                field.isWritableMetadataField && (entry.preservingNumberPairComponents
+                    ? field.fieldTransferValidationMessage(value)
+                    : field.importedValueValidationMessage(value)) == nil
             }) else {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
@@ -189,7 +194,17 @@ extension AudioViewModel {
             var edit = SingleFileEditModel(from: file)
             for field in MetadataExchangeField.allCases {
                 guard let value = entry.values[field] else { continue }
-                field.applyImportedValue(value, to: &edit)
+                field.applyImportedValue(
+                    value,
+                    to: &edit,
+                    preservingNumberPairComponents: entry.preservingNumberPairComponents
+                )
+            }
+
+            if entry.preservingNumberPairComponents,
+               let message = MetadataFieldTransferPlanner.writeSafetyValidationMessage(values: entry.values, edit: edit) {
+                summary.failureIssues.append(BatchMetadataWriteIssue(fileName: entry.fileName, messages: [message]))
+                continue
             }
 
             let result = await persistMetadataEdit(

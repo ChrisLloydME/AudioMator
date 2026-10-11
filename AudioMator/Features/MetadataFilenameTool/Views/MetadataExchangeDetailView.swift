@@ -218,7 +218,7 @@ struct MetadataExchangeDetailView: View {
             MetadataCSVExportPreviewList(plan: metadataCSVExportPlan)
         case .csvToMetadata:
             MetadataExchangeImportPreviewList(plan: csvMetadataImportPlan)
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             EmptyView()
         }
     }
@@ -233,7 +233,7 @@ struct MetadataExchangeDetailView: View {
             return L10n.string("The column template is one delimited row of field tokens. Use commas, semicolons, pipes, or tabs.")
         case .csvToMetadata:
             return L10n.string("The column template maps delimited cells to fields. Include fileName or baseName to match rows by filename, otherwise rows map in selection order.")
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return ""
         }
     }
@@ -244,7 +244,7 @@ struct MetadataExchangeDetailView: View {
             return L10n.string("Column template")
         case .metadataToText, .textToMetadata:
             return L10n.string("Text template")
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return L10n.string("Template")
         }
     }
@@ -255,7 +255,7 @@ struct MetadataExchangeDetailView: View {
             return MetadataExchangeField.exportPalette
         case .textToMetadata, .csvToMetadata:
             return MetadataExchangeField.importPalette
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return []
         }
     }
@@ -304,7 +304,7 @@ struct MetadataExchangeDetailView: View {
                 targetCount: targetCount,
                 plan: csvMetadataImportPlan
             )
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return ""
         }
     }
@@ -319,7 +319,7 @@ struct MetadataExchangeDetailView: View {
             return textMetadataImportPlan.issueCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
         case .csvToMetadata:
             return csvMetadataImportPlan.issueCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return "info.circle.fill"
         }
     }
@@ -334,7 +334,7 @@ struct MetadataExchangeDetailView: View {
             return textMetadataImportPlan.issueCount > 0 ? .orange : .green
         case .csvToMetadata:
             return csvMetadataImportPlan.issueCount > 0 ? .orange : .green
-        case .metadataToFilename, .filenameToMetadata:
+        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return .secondary
         }
     }

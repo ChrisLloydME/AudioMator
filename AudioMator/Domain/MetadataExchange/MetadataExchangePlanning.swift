@@ -98,17 +98,20 @@ struct MetadataExchangeWriteEntry: Identifiable {
     let fileName: String
     let values: [MetadataExchangeField: String]
     let expectedFileFingerprint: AudioFileFingerprint?
+    let preservingNumberPairComponents: Bool
 
     init(
         fileID: AudioFile.ID,
         fileName: String,
         values: [MetadataExchangeField: String],
-        expectedFileFingerprint: AudioFileFingerprint? = nil
+        expectedFileFingerprint: AudioFileFingerprint? = nil,
+        preservingNumberPairComponents: Bool = false
     ) {
         self.fileID = fileID
         self.fileName = fileName
         self.values = values
         self.expectedFileFingerprint = expectedFileFingerprint
+        self.preservingNumberPairComponents = preservingNumberPairComponents
     }
 
     var id: AudioFile.ID { fileID }

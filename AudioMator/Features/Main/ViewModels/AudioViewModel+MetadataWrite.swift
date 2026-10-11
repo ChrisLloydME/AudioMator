@@ -143,15 +143,13 @@ extension AudioViewModel {
         Task(priority: .userInitiated) {
             var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
 
-            for (index, file) in targetFiles.enumerated() {
-                self.updateMetadataSaveProgress(
-                    subtitle: file.url.lastPathComponent,
-                    completedUnitCount: index
-                )
-
+            var completedCount = 0
+            var resultsByIndex: [Int: MetadataWriteExecutionResult] = [:]
+            await MetadataBatchExecutor.execute(count: targetFiles.count) { index in
+                let file = targetFiles[index]
                 let sourceFile = sourceFiles[file.id] ?? file
                 let effectiveEdit = editSnapshot.applyingChanges(to: sourceFile, excluding: completedEdits[file.id])
-                let result = await self.persistMetadataEdit(
+                return await self.persistMetadataEdit(
                     effectiveEdit,
                     to: file,
                     comparedTo: sourceFile,
@@ -161,19 +159,33 @@ extension AudioViewModel {
                     expectedMetadataVersion: expectedMetadataVersions[file.id]
                         ?? file.metadataFileVersion
                 )
+            } onCompletion: { index, result in
+                let file = targetFiles[index]
+                let sourceFile = sourceFiles[file.id] ?? file
+                completedCount += 1
+                resultsByIndex[index] = result
+                self.updateMetadataSaveProgress(
+                    subtitle: file.url.lastPathComponent,
+                    completedUnitCount: completedCount
+                )
+                if case .success(let success) = result,
+                   self.selectedAudioIDs.contains(file.id),
+                   self.inspectorEditSourceFilesByID[file.id]?.snapshotID == sourceFile.snapshotID {
+                    // Advance each successful baseline as soon as its readback
+                    // arrives, even when other targets finish out of order.
+                    self.completedInspectorEditsByID[file.id] = editSnapshot
+                    if success.didRefreshFileModel,
+                       let refreshed = self.loadedFile(withID: file.id), refreshed.url == file.url {
+                        self.inspectorEditSourceFilesByID[file.id] = refreshed
+                    }
+                }
+            }
 
+            // Keep issue presentation in selection order, independent of disk timing.
+            for (index, file) in targetFiles.enumerated() {
+                guard let result = resultsByIndex[index] else { continue }
                 switch result {
                 case .success(let success):
-                    // Keep the failed targets' baselines and drafts. A completed
-                    // target starts any further edits from its actual readback.
-                    if self.selectedAudioIDs.contains(file.id),
-                       self.inspectorEditSourceFilesByID[file.id]?.snapshotID == sourceFile.snapshotID {
-                        self.completedInspectorEditsByID[file.id] = editSnapshot
-                        if success.didRefreshFileModel,
-                           let refreshed = self.loadedFile(withID: file.id), refreshed.url == file.url {
-                            self.inspectorEditSourceFilesByID[file.id] = refreshed
-                        }
-                    }
                     summary.succeeded += 1
                     summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
 

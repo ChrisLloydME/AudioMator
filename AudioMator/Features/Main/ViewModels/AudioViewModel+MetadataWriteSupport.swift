@@ -12,12 +12,12 @@ func isArtworkWriteSupportedExtension(_ ext: String) -> Bool {
     supportedArtworkWriteExtensions.contains(ext.lowercased())
 }
 
-struct MetadataWriteSuccessOutcome {
+struct MetadataWriteSuccessOutcome: Sendable {
     let warnings: [String]
     let didRefreshFileModel: Bool
 }
 
-enum MetadataWriteExecutionResult {
+enum MetadataWriteExecutionResult: Sendable {
     case success(MetadataWriteSuccessOutcome)
     case failure(String)
 }

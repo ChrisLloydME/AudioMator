@@ -56,6 +56,7 @@ struct MetadataConverterModePickerView: View {
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity)
         }
+        .defaultScrollAnchor(.center, for: .alignment)
         .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

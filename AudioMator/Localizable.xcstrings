@@ -1,6 +1,48 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "A total without a number cannot be saved safely. Choose different fields; no changes were made." : {
+      "comment" : "Metadata Exchange field transfer safety guard for total-only number pairs.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A total without a number cannot be saved safely. Choose different fields; no changes were made."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A total without a number cannot be saved safely. Choose different fields; no changes were made."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法安全保存只有总数而没有编号的值。请选择其他字段；未作任何更改。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
+          }
+        }
+      }
+    },
     "" : {
 
     },

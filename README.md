@@ -128,6 +128,8 @@ This matters because common containers do not all store numbering the same way. 
 
 AudioMator sends semantic fields, four-state advisory values, artwork, and formatted number intent to `TagLibAudioMetadata` as one patch. The package owns ID3, MP4, Xiph/PropertyMap, and WAV representation, verification, and atomic commit. Containers may split a value such as `02/09` into number and total fields; verification accepts that equivalent native representation while retaining exact combined text where the container supports it.
 
+Inspector batch saves process up to four independent files concurrently. Each file retains its conflict checks, atomic commit and readback; operations touching the same file remain serialized.
+
 Year and Release Date are separate edit intents. Year maps to the package's
 recording-date field, while Release Date maps only to release date. ID3 and
 Xiph-style formats can retain both independently. MP4 has one standard `©day`

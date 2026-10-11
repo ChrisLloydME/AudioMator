@@ -1,5 +1,9 @@
 # Middle-list selection performance diagnosis
 
+The 2026-10-11 follow-up in [METADATA_IO_PERFORMANCE.md](METADATA_IO_PERFORMANCE.md)
+adds large synthetic batch-save/selection tests, combined list refreshes, bounded
+progress updates, and exact artwork-group reuse beyond the pair-cache capacity.
+
 Date: 2026-10-08. Baseline: `f376ad1`; last tagged release: `V2.6B2691`.
 
 ## Findings

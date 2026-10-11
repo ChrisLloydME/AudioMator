@@ -7,6 +7,32 @@ import XCTest
 
 @MainActor
 final class InspectorArtworkPreviewTests: XCTestCase {
+    func testLargeSharedSelectionDoesNotThrashPairCacheWhenExtendedOrAnchorChanges() {
+        var comparisons = 0
+        let cache = InspectorArtworkComparisonCache {
+            comparisons += 1
+            return $0 == $1
+        }
+        var files = (0..<3_000).map { _ in
+            AudioFileTestFactory.make(artworkData: Data(repeating: 1, count: 4_096))
+        }
+        guard case .shared = cache.resolve(files) else { return XCTFail("Expected shared artwork") }
+        XCTAssertEqual(comparisons, files.count - 1)
+        guard case .shared = cache.resolve(files) else { return XCTFail("Expected cached shared artwork") }
+        XCTAssertEqual(comparisons, files.count - 1)
+        guard case .shared = cache.resolve(Array(files.dropFirst())) else { return XCTFail("Expected shared artwork with another anchor") }
+        XCTAssertEqual(comparisons, files.count - 1)
+        files.append(AudioFileTestFactory.make(artworkData: Data(repeating: 1, count: 4_096)))
+        guard case .shared = cache.resolve(files) else { return XCTFail("Expected extended shared artwork") }
+        XCTAssertEqual(comparisons, files.count - 1)
+        let previous = files[1]
+        var changed = Data(repeating: 1, count: 4_096)
+        changed[2_048] = 2
+        files[1] = AudioFileTestFactory.make(id: previous.id, url: previous.url, artworkData: changed)
+        guard case .mixed = cache.resolve(files) else { return XCTFail("A new snapshot must compare the complete bytes") }
+        XCTAssertEqual(comparisons, files.count)
+    }
+
     func testExtendedMultiSelectionReusesExactArtworkComparisonsAndDetectsSameIDReload() {
         var comparisons = 0
         let cache = InspectorArtworkComparisonCache {

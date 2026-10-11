@@ -24,6 +24,8 @@ Inspector artwork previews decode in the background and reuse a small cache of d
 
 Metadata loading skips redundant AVFoundation Credits reads where the container and TagLib snapshot establish that no ID3 Credits are present. Saving an unchanged revision avoids an extra conflict snapshot while retaining transactional verification and the final file-version guard.
 
+Batch saves combine list refreshes and limit progress redraws so large selections do not rebuild the whole list after every file. Range selections reuse exact artwork comparisons already established for immutable file snapshots. See [metadata performance measurements](Docs/METADATA_IO_PERFORMANCE.md) for automated test scope and results.
+
 > [!CAUTION]
 >
 > #### macOS 27 Golden Gate Compatibility Issues

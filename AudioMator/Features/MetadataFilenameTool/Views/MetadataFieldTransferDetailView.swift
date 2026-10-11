@@ -5,49 +5,88 @@ struct MetadataFieldTransferDetailView: View {
     @ObservedObject var store: MetadataFieldTransferStore
     let plan: MetadataExchangeImportPlan
     let targetCount: Int
+    let selectionSummaryText: String
     let isApplying: Bool
+
+    private let sectionInset: CGFloat = 12
+    private let sectionRadius: CGFloat = 18
+    private let contentInset: CGFloat = 20
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                transferControls
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(String(localized: "Preview"))
-                        .font(.headline)
-                    Text(MetadataFilenameStatusPresentation.importMessage(targetCount: targetCount, plan: plan))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    MetadataExchangeImportPreviewList(plan: plan, isFieldTransfer: true)
-                        .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
-                }
+                header
+                setupSection
+                previewSection
             }
-            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(contentInset)
         }
     }
 
-    private var transferControls: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(String(localized: "Operation"))
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(MetadataConverterMode.metadataFieldTransfer.title)
+                    .font(.title3)
+                    .fontWeight(.semibold)
 
-                    Picker(String(localized: "Operation"), selection: $store.operation) {
-                        ForEach(MetadataFieldTransferOperation.allCases) { operation in
-                            Text(operation.title).tag(operation)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                }
+                Spacer()
 
                 if isApplying {
                     ProgressView().controlSize(.small)
                 }
+            }
+
+            Text(MetadataConverterMode.metadataFieldTransfer.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Label(selectionSummaryText, systemImage: "checkmark.circle")
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.secondary.opacity(0.12)))
+        }
+    }
+
+    private var setupSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(String(localized: "Setup"), systemImage: "slider.horizontal.3")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            transferControls
+                .padding(sectionInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    RoundedRectangle(cornerRadius: sectionRadius)
+                        .fill(Color.secondary.opacity(0.06))
+                }
+        }
+    }
+
+    private var transferControls: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(store.operation == .copy
+                ? String(localized: "Replaces the destination and keeps the source. Empty sources are skipped.")
+                : String(localized: "Replaces the destination and clears the source. Empty sources are skipped."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(String(localized: "Operation"))
+                    .font(.headline)
+
+                Picker(String(localized: "Operation"), selection: $store.operation) {
+                    ForEach(MetadataFieldTransferOperation.allCases) { operation in
+                        Text(operation.title).tag(operation)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
             }
 
             HStack(alignment: .bottom, spacing: 16) {
@@ -62,32 +101,50 @@ struct MetadataFieldTransferDetailView: View {
                 fieldPicker(title: String(localized: "Destination Field"), selection: $store.destination)
             }
             .frame(maxWidth: .infinity)
-
-            Text(store.operation == .copy
-                ? String(localized: "Replaces the destination and keeps the source. Empty sources are skipped.")
-                : String(localized: "Replaces the destination and clears the source. Empty sources are skipped."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .audiomatorControlBackground))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color(nsColor: .audiomatorSeparator).opacity(0.35), lineWidth: 1)
         }
         .disabled(isApplying)
+    }
+
+    private var previewSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(String(localized: "Preview"), systemImage: "list.bullet.rectangle.portrait")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 14) {
+                Label(
+                    MetadataFilenameStatusPresentation.importMessage(targetCount: targetCount, plan: plan),
+                    systemImage: previewStatusSymbol
+                )
+                .font(.subheadline)
+                .foregroundStyle(previewStatusTint)
+
+                MetadataExchangeImportPreviewList(plan: plan, isFieldTransfer: true)
+                    .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(sectionInset)
+            .background {
+                RoundedRectangle(cornerRadius: sectionRadius)
+                    .fill(Color.secondary.opacity(0.06))
+            }
+        }
+    }
+
+    private var previewStatusSymbol: String {
+        if plan.issueCount > 0 { return "exclamationmark.triangle.fill" }
+        return plan.readyCount > 0 ? "checkmark.circle.fill" : "info.circle.fill"
+    }
+
+    private var previewStatusTint: Color {
+        if plan.issueCount > 0 { return .orange }
+        return plan.readyCount > 0 ? .green : .secondary
     }
 
     private func fieldPicker(title: String, selection: Binding<MetadataExchangeField>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(.headline)
 
             MetadataFieldTransferPopUpButton(title: title, selection: selection)
         }

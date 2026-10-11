@@ -93,7 +93,6 @@ struct AudioMatorApp: App {
                 viewModel: viewModel,
                 store: metadataFilenameToolStore
             )
-            .audiomatorMacWindowChrome()
         }
         .defaultSize(width: 860, height: 720)
 

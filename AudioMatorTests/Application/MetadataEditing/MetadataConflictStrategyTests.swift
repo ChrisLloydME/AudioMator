@@ -5,6 +5,111 @@ import XCTest
 
 @MainActor
 final class MetadataConflictStrategyTests: XCTestCase {
+    func testUnchangedRevisionSavesWithoutReadingConflictSnapshot() async throws {
+        for policy in MetadataConflictPolicy.allCases {
+            let file = try await loadedFixture(extra: ["ARTIST": ["A", "B"]])
+            let reads = ConflictSnapshotReadCounter()
+            var draft = SingleFileEditModel(from: file)
+            draft.title = "Fast path title"
+            _ = try MetadataConflictResolver.writeMetadata(
+                MetadataEditPayload(draft, comparedTo: file),
+                original: try XCTUnwrap(file.metadataConflictBaseline),
+                originalFingerprint: try XCTUnwrap(file.fileFingerprint),
+                originalVersion: try XCTUnwrap(file.metadataFileVersion),
+                policy: policy, pipeline: FixtureConflictPipeline(reads: reads), url: file.url
+            )
+            XCTAssertEqual(reads.count, 0)
+            let values = try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: file.url)
+            XCTAssertEqual(values["TITLE"], [draft.title])
+            XCTAssertEqual(values["ARTIST"], ["A", "B"])
+        }
+    }
+
+    func testUnchangedRawRevisionWritesExactDeltaWithoutConflictSnapshot() async throws {
+        let file = try await loadedFixture(extra: ["REMOVE-ME": ["old"], "KEEP-ME": ["one", "two"]])
+        let reads = ConflictSnapshotReadCounter()
+        let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+        var draft = baseline.values
+        draft["ARTIST"] = ["A; B", "same", "same"]
+        draft.removeValue(forKey: "REMOVE-ME")
+        _ = try MetadataConflictResolver.writeRawMetadata(
+            draft, original: baseline,
+            originalFingerprint: try XCTUnwrap(file.fileFingerprint),
+            originalVersion: try XCTUnwrap(file.metadataFileVersion),
+            policy: .mergeNonConflicting, pipeline: FixtureConflictPipeline(reads: reads), url: file.url
+        )
+        XCTAssertEqual(reads.count, 0)
+        let values = try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: file.url)
+        XCTAssertEqual(values, draft)
+    }
+
+    func testUnchangedNoOpKeepsFileVersionWithoutConflictSnapshot() async throws {
+        let file = try await loadedFixture()
+        let reads = ConflictSnapshotReadCounter()
+        let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+        let fingerprint = try XCTUnwrap(file.fileFingerprint)
+        let version = try XCTUnwrap(file.metadataFileVersion)
+        let pipeline = FixtureConflictPipeline(reads: reads)
+        _ = try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(SingleFileEditModel(from: file), comparedTo: file),
+            original: baseline, originalFingerprint: fingerprint, originalVersion: version,
+            policy: .mergeNonConflicting, pipeline: pipeline, url: file.url
+        )
+        _ = try MetadataConflictResolver.writeRawMetadata(
+            baseline.values, original: baseline, originalFingerprint: fingerprint, originalVersion: version,
+            policy: .mergeNonConflicting, pipeline: pipeline, url: file.url
+        )
+        XCTAssertEqual(reads.count, 0)
+        XCTAssertEqual(try pipeline.metadataFileVersion(at: file.url), version)
+    }
+
+    func testChangedRevisionStillReadsConflictSnapshot() async throws {
+        let file = try await loadedFixture()
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
+        let reads = ConflictSnapshotReadCounter()
+        var draft = SingleFileEditModel(from: file)
+        draft.title = "Rebased title"
+        _ = try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(draft, comparedTo: file),
+            original: try XCTUnwrap(file.metadataConflictBaseline),
+            originalFingerprint: try XCTUnwrap(file.fileFingerprint),
+            originalVersion: try XCTUnwrap(file.metadataFileVersion),
+            policy: .mergeNonConflicting, pipeline: FixtureConflictPipeline(reads: reads), url: file.url
+        )
+        XCTAssertEqual(reads.count, 1)
+        XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: file.url).title, draft.title)
+    }
+
+    func testFastPathFinalGuardRejectsConcurrentChangeForTypedAndRawWrites() async throws {
+        for rawWrite in [false, true] {
+            let file = try await loadedFixture()
+            let bytes = try Data(contentsOf: file.url)
+            let reads = ConflictSnapshotReadCounter()
+            let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+            let fingerprint = try XCTUnwrap(file.fileFingerprint)
+            let version = try XCTUnwrap(file.metadataFileVersion)
+            let pipeline = FixtureConflictPipeline(raceBeforeWrite: true, reads: reads)
+            if rawWrite {
+                var draft = baseline.values
+                draft["TITLE"] = ["Must not save"]
+                XCTAssertThrowsError(try MetadataConflictResolver.writeRawMetadata(
+                    draft, original: baseline, originalFingerprint: fingerprint, originalVersion: version,
+                    policy: .preferUserChanges, pipeline: pipeline, url: file.url
+                ))
+            } else {
+                var draft = SingleFileEditModel(from: file)
+                draft.title = "Must not save"
+                XCTAssertThrowsError(try MetadataConflictResolver.writeMetadata(
+                    MetadataEditPayload(draft, comparedTo: file),
+                    original: baseline, originalFingerprint: fingerprint, originalVersion: version,
+                    policy: .preferUserChanges, pipeline: pipeline, url: file.url
+                ))
+            }
+            XCTAssertEqual(reads.count, 0)
+            XCTAssertEqual(try Data(contentsOf: file.url), bytes)
+        }
+    }
+
     func testDefaultAndUnknownPreferenceUseSafeMerge() {
         let defaults = isolatedDefaults()
         XCTAssertEqual(MetadataConflictPolicy.load(from: defaults), .mergeNonConflicting)
@@ -416,14 +521,17 @@ final class MetadataConflictStrategyTests: XCTestCase {
 private struct FixtureConflictPipeline: AudioMetadataPipeline {
     let raceBeforeWrite: Bool
     let artworkOverride: [StructuredArtwork]?
-    nonisolated init(raceBeforeWrite: Bool = false, artworkOverride: [StructuredArtwork]? = nil) {
+    let reads: ConflictSnapshotReadCounter?
+    nonisolated init(raceBeforeWrite: Bool = false, artworkOverride: [StructuredArtwork]? = nil, reads: ConflictSnapshotReadCounter? = nil) {
         self.raceBeforeWrite = raceBeforeWrite
         self.artworkOverride = artworkOverride
+        self.reads = reads
     }
     private let base = TagLibAudioMetadataPipeline()
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile { try await base.loadAudioFile(at: url, id: id) }
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion { try base.metadataFileVersion(at: url) }
     nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot {
+        reads?.record()
         var snapshot = try base.conflictSnapshot(for: url)
         if let artworkOverride { snapshot.structured.artwork = artworkOverride }
         return snapshot
@@ -435,10 +543,18 @@ private struct FixtureConflictPipeline: AudioMetadataPipeline {
         return try base.writeMetadata(edit, to: url, expectedVersion: expectedVersion)
     }
     nonisolated func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
+        if raceBeforeWrite { try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: url.path) }
+        return try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion) }
     nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         try base.writeTrackNumberText(trackNumberText, discNumberText: discNumberText, to: url, verifyAfterWrite: verifyAfterWrite, expectedVersion: expectedVersion)
     }
+}
+
+private final class ConflictSnapshotReadCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var value = 0
+    nonisolated var count: Int { lock.withLock { value } }
+    nonisolated func record() { lock.withLock { value += 1 } }
 }

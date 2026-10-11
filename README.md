@@ -22,6 +22,8 @@ AudioMator is a local-first audio metadata editor for macOS. It helps users insp
 
 Inspector artwork previews decode in the background and reuse a small cache of display-sized thumbnails so switching tracks stays responsive. Original embedded and replacement artwork bytes remain intact for metadata writes.
 
+Metadata loading skips redundant AVFoundation Credits reads where the container and TagLib snapshot establish that no ID3 Credits are present. Saving an unchanged revision avoids an extra conflict snapshot while retaining transactional verification and the final file-version guard.
+
 > [!CAUTION]
 >
 > #### macOS 27 Golden Gate Compatibility Issues

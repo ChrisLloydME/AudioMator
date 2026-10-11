@@ -151,9 +151,11 @@ that the Basic projection hides. It increases read work and baseline memory comp
 to Basic-only loading. Large-library import optimization can later capture coherent
 baselines only for active editors; it must not mix revisions to save this cost.
 
-Inside the existing per-file mutation reservation, the resolver verifies identity,
-reads a stable current snapshot, compares edited groups and commits against that
-snapshot's version. Same-inode permission/timestamp changes can therefore rebase
+Inside the existing per-file mutation reservation, the resolver verifies identity
+and checks the current version. An unchanged version uses the original baseline
+and commits with the same expected-version guard, without an extra conflict read.
+A changed version reads a stable current snapshot, compares edited groups and
+commits against that snapshot's version. Same-inode permission/timestamp changes can therefore rebase
 without assuming unchanged audio bytes: the patch is applied to the latest valid
 file and changes only intended metadata. This is semantic merging, not proof of
 byte equality or an app-side weakening of the package's version guard.

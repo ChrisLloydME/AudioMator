@@ -4,6 +4,23 @@ import Foundation
 import TagLibAudioMetadata
 
 extension AudioFile {
+    /// Only ID3 TEXT contributes to the display-only Credits column. The full
+    /// TagLib snapshot already tells us whether it exists in these containers.
+    /// Retain AVFoundation fallback for formats whose ID3 frames are not exposed
+    /// by the snapshot (including FLAC and ADTS).
+    nonisolated static func needsAVFoundationCreditsRead(
+        fileExtension: String, rawMetadata: RawMetadataDump
+    ) -> Bool {
+        switch fileExtension.lowercased() {
+        case "mp3", "mp2", "wav", "aiff", "aif", "tta":
+            rawMetadata.id3v2Frames.contains { $0.frameID == "TEXT" }
+        case "m4a", "mp4", "ogg", "oga", "opus", "spx":
+            false
+        default:
+            true
+        }
+    }
+
     nonisolated private static func readMetadata(from metadata: [AVMetadataItem],
                                      commonKeys: [AVMetadataKey],
                                      id3Keys: [String] = [],
@@ -124,16 +141,19 @@ extension AudioFile {
 
         // MARK: – Editable tags remain TagLib-authoritative; credits are display-only AVFoundation data.
 
-        let allMetadataItems = (try? await asset.load(.metadata)) ?? []
-
         self.publisher = tag.publisher
         self.copyright = tag.copyright
 
-        self.credits = await AudioFile.readMetadata(
-            from: allMetadataItems,
-            commonKeys: [],
-            id3Keys: ["TEXT"]
-        )
+        if Self.needsAVFoundationCreditsRead(fileExtension: url.pathExtension, rawMetadata: snapshot.raw) {
+            let allMetadataItems = (try? await asset.load(.metadata)) ?? []
+            self.credits = await AudioFile.readMetadata(
+                from: allMetadataItems,
+                commonKeys: [],
+                id3Keys: ["TEXT"]
+            )
+        } else {
+            self.credits = ""
+        }
 
         // MARK: – Technical info with TagLib fallback
 

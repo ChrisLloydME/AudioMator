@@ -10,14 +10,14 @@ struct MetadataConflictError: LocalizedError {
     }
 }
 
-/// Runs inside the file mutation reservation. Every rebased write uses the
-/// version of a newly verified read, including the dependency's final guard.
+/// Runs inside the file mutation reservation. Unchanged revisions use the saved
+/// baseline; rebased writes use a newly verified snapshot. Both retain the
+/// dependency's final expected-version guard.
 enum MetadataConflictResolver {
-    nonisolated static func currentSnapshot(
-        pipeline: any AudioMetadataPipeline,
+    nonisolated private static func validateFileIdentity(
         url: URL,
         originalFingerprint: AudioFileFingerprint
-    ) throws -> MetadataSnapshot {
+    ) throws -> AudioFileFingerprint {
         let before = try AudioFileFingerprint.capture(at: url)
         // A replacement may be a different recording. A metadata projection
         // cannot establish audio identity, so even priority policies stop here.
@@ -27,6 +27,15 @@ enum MetadataConflictResolver {
               before.fileSystemNumber == device, before.fileNumber == inode else {
             throw AudioFileFingerprintValidationError.changedSincePreview(fileName: url.lastPathComponent)
         }
+        return before
+    }
+
+    nonisolated static func currentSnapshot(
+        pipeline: any AudioMetadataPipeline,
+        url: URL,
+        originalFingerprint: AudioFileFingerprint
+    ) throws -> MetadataSnapshot {
+        let before = try validateFileIdentity(url: url, originalFingerprint: originalFingerprint)
         let snapshot = try pipeline.conflictSnapshot(for: url)
         guard let version = snapshot.fileVersion,
               before == (try AudioFileFingerprint.capture(at: url)),
@@ -45,13 +54,14 @@ enum MetadataConflictResolver {
         pipeline: any AudioMetadataPipeline,
         url: URL
     ) throws -> AudioMetadataWriteResult {
-        let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint)
-        if snapshot.fileVersion == originalVersion {
+        _ = try validateFileIdentity(url: url, originalFingerprint: originalFingerprint)
+        if try pipeline.metadataFileVersion(at: url) == originalVersion {
             if TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit).isEmpty {
                 return try noWriteResult(pipeline: pipeline, url: url, version: originalVersion)
             }
             return try pipeline.writeMetadata(edit, to: url, expectedVersion: originalVersion)
         }
+        let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint)
         guard policy != .requireReload else { throw TagLibManagerError.fileChanged }
         let current = MetadataConflictBaseline(snapshot)
         let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
@@ -107,6 +117,16 @@ enum MetadataConflictResolver {
         pipeline: any AudioMetadataPipeline,
         url: URL
     ) throws -> AudioMetadataWriteResult {
+        _ = try validateFileIdentity(url: url, originalFingerprint: originalFingerprint)
+        if try pipeline.metadataFileVersion(at: url) == originalVersion {
+            let delta = RawMetadataPatch(
+                valuesToSet: draft.filter { original.values[$0.key] != $0.value },
+                removingKeys: Set(original.values.keys).subtracting(draft.keys)
+            )
+            return delta.valuesToSet.isEmpty && delta.removingKeys.isEmpty
+                ? try noWriteResult(pipeline: pipeline, url: url, version: originalVersion)
+                : try pipeline.writeRawMetadataPatch(delta, to: url, expectedVersion: originalVersion)
+        }
         let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint)
         let current = MetadataConflictBaseline(snapshot)
         let revisionChanged = snapshot.fileVersion != originalVersion

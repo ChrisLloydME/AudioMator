@@ -8,6 +8,50 @@ import XCTest
 
 nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
     @MainActor
+    func testInspectorBatchOverlapsFourTransactionsAndBoundsQueuedWork() async throws {
+        let files = (0..<13).map { index in
+            AudioFileTestFactory.make(
+                url: URL(fileURLWithPath: "/synthetic/concurrent/\(index).mp3"),
+                title: "Track \(index)", includeDefaultFileFingerprint: false
+            )
+        }
+        let gate = SyntheticReloadGate()
+        let pipeline = SyntheticMetadataFlowPipeline(files: files, reloadGate: gate)
+        let name = "AudioMatorConcurrentFlow-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let viewModel = AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("\(name).json")),
+            conflictPolicyDefaults: defaults
+        )
+        viewModel.mergeQuickImportFiles(files)
+        viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
+        viewModel.multiEdit?.setText("Concurrent title", for: .title)
+        viewModel.saveInspectorEdits()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while pipeline.writeCount < 4, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        // All four reservations remain occupied through their blocked readbacks.
+        // A serial implementation stalls at one; unbounded work writes all 13.
+        XCTAssertEqual(pipeline.writeCount, 4)
+        XCTAssertEqual(pipeline.maximumActiveTransactions, 4)
+        await gate.release()
+        while viewModel.metadataSaveProgress != nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertNil(viewModel.metadataSaveProgress)
+        XCTAssertEqual(pipeline.writeCount, files.count)
+        XCTAssertEqual(pipeline.loadCount, files.count)
+        XCTAssertEqual(pipeline.maximumActiveTransactions, 4)
+        XCTAssertTrue(viewModel.files.allSatisfy { $0.title == "Concurrent title" })
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
+    }
+
+    @MainActor
     func testLargeArtworkRangeReselectionTimings() throws {
         let count = 64
         let bytesPerCover = 2 * 1_024 * 1_024
@@ -150,8 +194,15 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
     nonisolated(unsafe) private var titlesByURL: [URL: String] = [:]
     nonisolated(unsafe) private var writes = 0
     nonisolated(unsafe) private var loads = 0
+    nonisolated(unsafe) private var activeTransactions = 0
+    nonisolated(unsafe) private var maximumActive = 0
+    private let reloadGate: SyntheticReloadGate?
 
-    init(files: [AudioFile]) { filesByURL = Dictionary(uniqueKeysWithValues: files.map { ($0.url, $0) }) }
+    init(files: [AudioFile], reloadGate: SyntheticReloadGate? = nil) {
+        filesByURL = Dictionary(uniqueKeysWithValues: files.map { ($0.url, $0) })
+        self.reloadGate = reloadGate
+    }
+    nonisolated var maximumActiveTransactions: Int { lock.withLock { maximumActive } }
     nonisolated var writeCount: Int { lock.withLock { writes } }
     nonisolated var loadCount: Int { lock.withLock { loads } }
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
@@ -160,6 +211,8 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
             guard let file = filesByURL[url] else { throw CocoaError(.fileNoSuchFile) }
             return (file, titlesByURL[url])
         }
+        if let reloadGate { await reloadGate.wait() }
+        defer { lock.withLock { activeTransactions -= 1 } }
         return await MainActor.run {
             AudioFileTestFactory.make(
                 id: previous.id, url: url, title: title ?? previous.title,
@@ -172,6 +225,8 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
         return try lock.withLock {
             guard filesByURL[url] != nil else { throw CocoaError(.fileNoSuchFile) }
             writes += 1
+            activeTransactions += 1
+            maximumActive = max(maximumActive, activeTransactions)
             if case .text(let title) = patch.fields[.title] { titlesByURL[url] = title }
             return AudioMetadataWriteResult(warnings: [])
         }
@@ -181,4 +236,21 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
     nonisolated func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { throw CocoaError(.featureUnsupported) }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { throw CocoaError(.featureUnsupported) }
     nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { throw CocoaError(.featureUnsupported) }
+}
+
+private actor SyntheticReloadGate {
+    private var released = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !released else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func release() {
+        released = true
+        let pending = waiters
+        waiters.removeAll()
+        for waiter in pending { waiter.resume() }
+    }
 }

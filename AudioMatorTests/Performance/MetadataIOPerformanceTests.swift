@@ -8,6 +8,68 @@ import XCTest
 /// Run this class explicitly to compare the same fixtures/toolchain before and after changes.
 nonisolated final class MetadataIOPerformanceTests: XCTestCase {
     @MainActor
+    func testBoundedConcurrentGuardedWritesAcrossFormats() async throws {
+        let bundle = Bundle(for: Self.self)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AudioMatorConcurrentIO-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        let executor = MetadataFileMutationExecutor(metadataPipeline: pipeline, fileMutationCoordinator: FileMutationCoordinator())
+        var files: [AudioFile] = []
+        for index in 0..<48 {
+            let ext = ["mp3", "m4a", "flac", "aac", "ogg", "wav"][index % 6]
+            let name = "testAudioFile.\(ext)"
+            let source = try XCTUnwrap(bundle.url(forResource: name, withExtension: nil, subdirectory: "Fixtures/Audio")
+                ?? bundle.url(forResource: name, withExtension: nil))
+            let url = directory.appendingPathComponent("\(index).\(ext)")
+            try FileManager.default.copyItem(at: source, to: url)
+            files.append(try await pipeline.loadAudioFile(at: url, id: UUID()))
+        }
+        var timings: [Int: [Double]] = [:]
+        for (round, limit) in [1, 4, 4, 1, 1, 4].enumerated() {
+            let targets = files
+            let title = "Concurrent round \(round)"
+            let payloads = targets.map { file in
+                var draft = SingleFileEditModel(from: file)
+                draft.title = title
+                return MetadataEditPayload(draft, comparedTo: file)
+            }
+            let start = ContinuousClock.now
+            await MetadataBatchExecutor.execute(count: targets.count, maximumConcurrentMutations: limit) { index in
+                let file = targets[index]
+                let payload = payloads[index]
+                let baseline = file.metadataConflictBaseline
+                let fingerprint = file.fileFingerprint
+                let version = file.metadataFileVersion
+                return await executor.execute(at: file.url, id: file.id, expectedFileFingerprint: nil) { pipeline, url in
+                    guard let baseline, let fingerprint, let version else {
+                        throw CocoaError(.fileReadUnknown)
+                    }
+                    return try MetadataConflictResolver.writeMetadata(
+                        payload, original: baseline, originalFingerprint: fingerprint, originalVersion: version,
+                        policy: .mergeNonConflicting, pipeline: pipeline, url: url
+                    )
+                }
+            } onCompletion: { index, result in
+                guard case .success(let outcome) = result, let reloaded = outcome.reloadedFile else {
+                    return XCTFail("Guarded transaction or reload failed at \(index): \(result)")
+                }
+                XCTAssertEqual(reloaded.id, targets[index].id)
+                XCTAssertEqual(reloaded.title, title)
+                XCTAssertEqual(reloaded.artist, targets[index].artist)
+                XCTAssertEqual(reloaded.album, targets[index].album)
+                XCTAssertTrue(outcome.writeResult.warnings.isEmpty)
+                files[index] = reloaded
+            }
+            timings[limit, default: []].append(milliseconds(start.duration(to: .now)))
+        }
+        for limit in [1, 4] {
+            let samples = try XCTUnwrap(timings[limit]).sorted()
+            print("Guarded write + reload 48 files / 6 formats, concurrency=\(limit), samples=\(samples) ms, median=\(samples[1]) ms")
+        }
+    }
+
+    @MainActor
     func testLongMP3MetadataIOStageTimings() async throws {
         let bundle = Bundle(for: Self.self)
         let name = "testAudioFile.mp3"

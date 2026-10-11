@@ -39,6 +39,33 @@ immutable snapshot IDs records covers already proven exactly equal. Extending a
 selection or changing its first row reuses that proof; a new snapshot still
 compares complete bytes. No sampled hashes or approximate artwork equality are used.
 
+## Bounded concurrent Inspector saves
+
+The initial performance fixes retained a serial Inspector batch loop. The follow-up
+uses `MetadataBatchExecutor` with at most four in-flight write/reload transactions,
+submitting one additional target after each completion. Each target still goes
+through `MetadataFileMutationExecutor` and the normalized-path reservation. Writes
+to the same path remain exclusive through readback; expected-version guards,
+conflict policy, cancellation before reservation, atomic commit and durability
+reporting are unchanged. Successful retry baselines advance as their readbacks
+arrive; issue lists retain input order despite out-of-order completions. Progress
+counts completed transactions rather than their input indexes.
+
+The dependency retains a global safety lock around TagLib entry points. Independent
+filesystem copying, durability syncing and asynchronous readback can overlap; this
+does not imply four simultaneous TagLib parses or a fourfold throughput gain. Only
+Inspector batch saves adopt this scheduling in this change. Raw Metadata Editor,
+renumbering and other tool-specific loops retain their existing scheduling.
+
+A deterministic fake-pipeline test blocks reloads: exactly four writes enter while
+the remaining nine targets stay unstarted, then all 13 finish with correct drafts
+and metadata. Real temporary-file tests exercise 48 files across MP3, M4A, FLAC,
+AAC, Ogg and WAV with the production conflict resolver and write/reload executor.
+Three interleaved samples per concurrency level measured a local median of about
+170 ms serial versus 73 ms at concurrency four (about 2.3 times faster). Each
+round verifies reloaded titles, IDs and preserved artist/album values. These small,
+warm fixtures do not predict speedups on every disk or with large artwork.
+
 ## Non-interactive measurements
 
 `MainMetadataFlowPerformanceTests` injects fake metadata into the real
@@ -75,6 +102,12 @@ network volumes, file providers or every real library; filesystem copy and
 durability-sync costs remain in the transactional writer.
 
 ## Verification
+
+Concurrent-save follow-up: all 438 serial app-hosted tests passed. The final
+benchmark sources and batch executor compile without new isolation warnings.
+The initial focused concurrency/conflict run also passed all 44 tests.
+
+Initial performance-fix verification:
 
 - Complete serial app-hosted suite: 436 tests passed.
 - After removing isolation warnings from the new benchmarks, all 23 focused

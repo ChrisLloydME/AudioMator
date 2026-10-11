@@ -66,23 +66,29 @@ struct MetadataCSVExportPreviewList: View {
 
 struct MetadataExchangeImportPreviewList: View {
     let plan: MetadataExchangeImportPlan
+    var isFieldTransfer = false
 
     var body: some View {
         if let validationMessage = plan.validationMessage {
             ContentUnavailableView(
-                "Template Needs More Structure",
+                isFieldTransfer ? String(localized: "Choose Fields") : L10n.string("Template Needs More Structure"),
                 systemImage: "exclamationmark.triangle",
                 description: Text(validationMessage)
             )
         } else if plan.rows.isEmpty {
             ContentUnavailableView(
-                "Add Source Records",
+                isFieldTransfer ? String(localized: "Select Files") : L10n.string("Add Source Records"),
                 systemImage: "doc.text.magnifyingglass",
-                description: Text("Choose or paste text to preview imported metadata.")
+                description: Text(isFieldTransfer
+                    ? String(localized: "Select files in the center list first.")
+                    : L10n.string("Choose or paste text to preview imported metadata."))
             )
         } else {
             MetadataConverterPreviewCard(title: "Metadata Comparison", symbolName: "arrow.left.arrow.right") {
-                MetadataExchangeImportPreviewAppKitList(rows: plan.rows)
+                MetadataExchangeImportPreviewAppKitList(
+                    rows: plan.rows,
+                    newValueTitle: isFieldTransfer ? String(localized: "New Value") : L10n.string("Imported")
+                )
             }
         }
     }
@@ -147,6 +153,7 @@ private struct MetadataCSVExportPreviewAppKitList: NSViewRepresentable {
 
 private struct MetadataExchangeImportPreviewAppKitList: NSViewRepresentable {
     let rows: [MetadataExchangeImportPreviewRow]
+    let newValueTitle: String
 
     func makeNSView(context: Context) -> MetadataExchangePreviewContainerView {
         MetadataExchangePreviewContainerView()
@@ -155,7 +162,7 @@ private struct MetadataExchangeImportPreviewAppKitList: NSViewRepresentable {
     func updateNSView(_ nsView: MetadataExchangePreviewContainerView, context: Context) {
         var views: [NSView] = []
         for (index, row) in rows.enumerated() {
-            views.append(MetadataExchangeAppKitRowFactory.importGroup(row))
+            views.append(MetadataExchangeAppKitRowFactory.importGroup(row, newValueTitle: newValueTitle))
             if index < rows.count - 1 {
                 views.append(MetadataExchangeAppKitRowFactory.divider())
             }
@@ -250,7 +257,7 @@ private enum MetadataExchangeAppKitRowFactory {
         return row
     }
 
-    static func importGroup(_ row: MetadataExchangeImportPreviewRow) -> NSView {
+    static func importGroup(_ row: MetadataExchangeImportPreviewRow, newValueTitle: String) -> NSView {
         let group = verticalStack(spacing: 0)
         let titleStack = verticalStack(spacing: 4, views: [
             label(row.fileName, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor, maximumLines: 1),
@@ -277,7 +284,7 @@ private enum MetadataExchangeAppKitRowFactory {
 
         if !row.changes.isEmpty {
             addFullWidthArrangedSubview(divider(), to: group)
-            addFullWidthArrangedSubview(importHeader(), to: group)
+            addFullWidthArrangedSubview(importHeader(newValueTitle: newValueTitle), to: group)
             for (index, change) in row.changes.enumerated() {
                 addFullWidthArrangedSubview(importChangeRow(change), to: group)
                 if index < row.changes.count - 1 {
@@ -306,9 +313,9 @@ private enum MetadataExchangeAppKitRowFactory {
         return container
     }
 
-    private static func importHeader() -> NSView {
+    private static func importHeader(newValueTitle: String) -> NSView {
         let current = label("Current", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
-        let imported = label("Imported", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
+        let imported = label(newValueTitle, font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor)
         let content = horizontalStack(spacing: 14, alignment: .centerY, views: [
             label("Field", font: .systemFont(ofSize: 10, weight: .semibold), color: .secondaryLabelColor, width: 118),
             current,

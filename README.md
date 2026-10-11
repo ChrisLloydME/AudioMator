@@ -71,6 +71,12 @@ Inspector artwork previews decode in the background and reuse a small cache of d
 
   Plain-text templates have no escaping syntax, so use CSV when values can contain line breaks or template separators. Blank imported values are ignored unless the clear-empty-values option is enabled. Imports without a File Name, Base Name, Path, Relative Path, or Index column match records to selected files by selection order; imports with locators require an unambiguous match. Review the generated preview before writing.
 
+- ### Copy or Cut Metadata Fields
+
+  In Metadata Exchange, choose **Copy or Cut Metadata Fields**, then select a source field, a destination field, and **Copy** or **Cut**. Each selected file uses its own source value and replaces its destination value. Copy keeps the source; Cut clears it in the same metadata save. Files with an empty source are skipped.
+
+  Review the per-file preview before applying. Invalid destination values and files whose version cannot be verified are skipped. The preview follows the writer's whitespace normalization; whitespace-only sources are skipped. Track Number, Total Tracks, Disc Number, and Total Discs are independent fields. Operations that would leave a total without a number are blocked because the current TagLib dependency cannot save them reliably. Some MP3 disc-only and AAC total-clearing operations also fail safely without modifying the file; see [verification notes](Docs/METADATA_FIELD_TRANSFER_VERIFICATION.md). Save or discard pending inspector edits before applying this tool.
+
 - ### Online Metadata Lookup
 
   AudioMator can search for and apply metadata from online sources, including MusicBrainz, iTunes Search, and LRCLIB. MusicBrainz and iTunes Search are used for general music metadata lookup, while LRCLIB is mainly used for finding and applying lyrics metadata.

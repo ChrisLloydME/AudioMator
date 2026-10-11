@@ -27,6 +27,232 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.wav": ("07/12", "2/3", false)
     ]
 
+    func testFieldTransferBlocksTotalOnlyPairsWithoutChangingFile() async throws {
+        for fixtureName in Self.audioFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(numberText: MetadataNumberTextPatch(trackNumberText: "07/12", discNumberText: "02/03")),
+                to: workingURL
+            )
+            let pipeline = TagLibAudioMetadataPipeline()
+            for source in [MetadataExchangeField.trackNumber, .discNumber] {
+                let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+                let before = try Data(contentsOf: workingURL)
+                let plan = MetadataFieldTransferPlanner.makePlan(
+                    source: source, destination: .comment, operation: .cut, targetFiles: [baseline]
+                )
+                XCTAssertFalse(plan.canApply, fixtureName)
+                XCTAssertTrue(plan.writeEntries.isEmpty, fixtureName)
+                XCTAssertEqual(plan.rows.first?.status, .parseError, fixtureName)
+                XCTAssertEqual(try Data(contentsOf: workingURL), before, fixtureName)
+                let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+                XCTAssertEqual(readBack.comment, baseline.comment, fixtureName)
+                XCTAssertEqual(readBack.trackTotal, 12, fixtureName)
+                XCTAssertEqual(readBack.discTotal, 3, fixtureName)
+                XCTAssertEqual(readBack.track, 7, fixtureName)
+                XCTAssertEqual(readBack.disc, 2, fixtureName)
+            }
+        }
+    }
+
+    func testFieldTransferTextMatchesPreviewOnDisk() async throws {
+        for fixtureName in Self.audioFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+            let pipeline = TagLibAudioMetadataPipeline()
+            for sourceValue in ["曲名\nFirst", "Artist; Another Artist"] {
+                for operation in MetadataFieldTransferOperation.allCases {
+                    _ = try TagLibMetadataManager.applyMetadataPatch(
+                        MetadataPatch(fields: [.title: .text(sourceValue), .comment: .text("Old destination")]),
+                        to: workingURL
+                    )
+                    let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+                    XCTAssertEqual(baseline.title, sourceValue, fixtureName)
+                    let payload = try fieldTransferPayload(from: baseline, source: .title, destination: .comment, operation: operation)
+                    _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
+                    let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+                    XCTAssertEqual(readBack.comment, sourceValue, fixtureName)
+                    XCTAssertEqual(readBack.title, operation == .copy ? sourceValue : "", fixtureName)
+                }
+            }
+        }
+    }
+
+    func testFieldTransferCutNumberWithoutTotalRoundTripsOrPreservesFileOnFailure() async throws {
+        for fixtureName in Self.audioFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+            let pipeline = TagLibAudioMetadataPipeline()
+            for source in [MetadataExchangeField.trackNumber, .discNumber] {
+                _ = try TagLibMetadataManager.applyMetadataPatch(
+                    MetadataPatch(numberText: MetadataNumberTextPatch(trackNumberText: "7/0", discNumberText: "2/0")),
+                    to: workingURL
+                )
+                let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+                let sourceValue = source.value(from: baseline, index: 0, relativeBasePath: nil)
+                let payload = try fieldTransferPayload(from: baseline, source: source, destination: .comment, operation: .cut)
+                if fixtureName == "testAudioFile.mp3" && source == .discNumber {
+                    // The same untouched-track normalization defect also affects
+                    // explicit zero-total track text, not only padded numbers.
+                    let before = try Data(contentsOf: workingURL)
+                    XCTAssertThrowsError(try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)) { error in
+                        XCTAssertTrue(String(describing: error).contains("Unedited PropertyMap field TRACKNUMBER changed"))
+                    }
+                    XCTAssertEqual(try Data(contentsOf: workingURL), before)
+                    continue
+                }
+                _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
+                let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+                XCTAssertEqual(readBack.comment, sourceValue, fixtureName)
+                XCTAssertEqual(source.value(from: readBack, index: 0, relativeBasePath: nil), "", fixtureName)
+                XCTAssertEqual(readBack.track, source == .trackNumber ? 0 : 7, fixtureName)
+                XCTAssertEqual(readBack.disc, source == .discNumber ? 0 : 2, fixtureName)
+                XCTAssertEqual(readBack.trackTotal, 0, fixtureName)
+                XCTAssertEqual(readBack.discTotal, 0, fixtureName)
+            }
+        }
+    }
+
+    func testFieldTransferPaddedTextAndWhitespaceOnlySourceOnDisk() async throws {
+        let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: "testAudioFile.flac"))
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        for sourceValue in ["  曲名\nFirst  ", " \n "] {
+            for operation in MetadataFieldTransferOperation.allCases {
+                _ = try TagLibMetadataManager.applyRawMetadataPatch(
+                    RawMetadataPatch(valuesToSet: ["TITLE": [sourceValue], "COMMENT": ["Keep destination"]]),
+                    to: workingURL
+                )
+                let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+                let before = try Data(contentsOf: workingURL)
+                let plan = MetadataFieldTransferPlanner.makePlan(
+                    source: .title, destination: .comment, operation: operation, targetFiles: [baseline]
+                )
+                if sourceValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    XCTAssertFalse(plan.canApply)
+                    XCTAssertTrue(plan.writeEntries.isEmpty)
+                    XCTAssertEqual(try Data(contentsOf: workingURL), before)
+                    continue
+                }
+                XCTAssertEqual(plan.rows.first?.changes.first?.importedValue, "曲名\nFirst")
+                let payload = try fieldTransferPayload(from: baseline, source: .title, destination: .comment, operation: operation)
+                _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
+                let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+                XCTAssertEqual(readBack.comment, "曲名\nFirst")
+                XCTAssertEqual(readBack.title, operation == .cut ? "" : baseline.title)
+            }
+        }
+    }
+
+    func testFieldTransferNumberCombinationsRoundTripOrFailWithoutChangingFile() async throws {
+        let fields: [MetadataExchangeField] = [.trackNumber, .trackTotal, .discNumber, .discTotal]
+        for fixtureName in Self.audioFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+            let pipeline = TagLibAudioMetadataPipeline()
+            for source in fields {
+                for destination in fields where source != destination {
+                    for operation in MetadataFieldTransferOperation.allCases {
+                        let context = "\(fixtureName): \(operation) \(source) → \(destination)"
+                        _ = try TagLibMetadataManager.applyMetadataPatch(
+                            MetadataPatch(numberText: MetadataNumberTextPatch(trackNumberText: "07/12", discNumberText: "02/03")),
+                            to: workingURL
+                        )
+                        let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+                        var expected: [MetadataExchangeField: Int] = [.trackNumber: 7, .trackTotal: 12, .discNumber: 2, .discTotal: 3]
+                        expected[destination] = expected[source]
+                        if operation == .cut { expected[source] = 0 }
+                        if (expected[.trackNumber] == 0 && expected[.trackTotal] != 0) ||
+                           (expected[.discNumber] == 0 && expected[.discTotal] != 0) {
+                            let plan = MetadataFieldTransferPlanner.makePlan(
+                                source: source, destination: destination, operation: operation, targetFiles: [baseline]
+                            )
+                            XCTAssertFalse(plan.canApply, context)
+                            continue
+                        }
+                        let payload = try fieldTransferPayload(from: baseline, source: source, destination: destination, operation: operation)
+                        let before = try Data(contentsOf: workingURL)
+                        // Known external-package failures: disc-only ID3 writes
+                        // normalize an untouched padded track; ADTS retains totals
+                        // when clearing them with number-only text. Verify rollback.
+                        let expectedFailure: String? = if fixtureName == "testAudioFile.mp3" &&
+                            payload.discNumberTextChanged && !payload.trackNumberTextChanged {
+                            "Unedited PropertyMap field TRACKNUMBER changed"
+                        } else if fixtureName == "testAudioFile.aac" && operation == .cut &&
+                            (source == .trackTotal || source == .discTotal) {
+                            "differs after save (expected 0, got"
+                        } else {
+                            nil
+                        }
+                        do {
+                            _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
+                            if let expectedFailure {
+                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context): \(expectedFailure)")
+                            }
+                        } catch {
+                            guard let expectedFailure else {
+                                XCTFail("\(context): \(error)")
+                                continue
+                            }
+                            XCTAssertTrue(String(describing: error).contains(expectedFailure), "\(context): \(error)")
+                            XCTAssertEqual(try Data(contentsOf: workingURL), before, context)
+                            continue
+                        }
+                        let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+                        XCTAssertEqual(readBack.track, expected[.trackNumber], context)
+                        XCTAssertEqual(readBack.trackTotal, expected[.trackTotal], context)
+                        XCTAssertEqual(readBack.disc, expected[.discNumber], context)
+                        XCTAssertEqual(readBack.discTotal, expected[.discTotal], context)
+                    }
+                }
+            }
+        }
+    }
+
+    private func fieldTransferPayload(
+        from file: AudioFile,
+        source: MetadataExchangeField,
+        destination: MetadataExchangeField,
+        operation: MetadataFieldTransferOperation
+    ) throws -> MetadataEditPayload {
+        let plan = MetadataFieldTransferPlanner.makePlan(
+            source: source, destination: destination, operation: operation, targetFiles: [file]
+        )
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        var edit = SingleFileEditModel(from: file)
+        for field in MetadataExchangeField.allCases {
+            guard let value = entry.values[field] else { continue }
+            field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: entry.preservingNumberPairComponents)
+        }
+        return MetadataEditPayload(edit, comparedTo: file)
+    }
+
+    func testFieldTransferRejectedWritesLeaveSourceAndFileIntact() async throws {
+        let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: "testAudioFile.m4a"))
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(fields: [.title: .text("2026"), .comment: .text("Original comment")]), to: workingURL
+        )
+        let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        let unsupportedPayload = try fieldTransferPayload(from: baseline, source: .title, destination: .year, operation: .cut)
+        let beforeUnsupportedWrite = try Data(contentsOf: workingURL)
+        XCTAssertThrowsError(try pipeline.writeMetadata(unsupportedPayload, to: workingURL, expectedVersion: baseline.metadataFileVersion))
+        XCTAssertEqual(try Data(contentsOf: workingURL), beforeUnsupportedWrite)
+
+        let stalePayload = try fieldTransferPayload(from: baseline, source: .title, destination: .comment, operation: .cut)
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(fields: [.comment: .text("External change")]), to: workingURL
+        )
+        let beforeStaleWrite = try Data(contentsOf: workingURL)
+        XCTAssertThrowsError(try pipeline.writeMetadata(stalePayload, to: workingURL, expectedVersion: baseline.metadataFileVersion))
+        XCTAssertEqual(try Data(contentsOf: workingURL), beforeStaleWrite)
+        let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+        XCTAssertEqual(readBack.title, "2026")
+        XCTAssertEqual(readBack.comment, "External change")
+    }
+
     func testMetadataPatchConstructionContainsOnlyChangedIntent() {
         let file = AudioFileTestFactory.make(
             title: "Old Title",

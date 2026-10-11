@@ -29,15 +29,21 @@ struct MetadataFieldTransferDetailView: View {
 
     private var transferControls: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Picker(String(localized: "Operation"), selection: $store.operation) {
-                    ForEach(MetadataFieldTransferOperation.allCases) { operation in
-                        Text(operation.title).tag(operation)
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(String(localized: "Operation"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+
+                    Picker(String(localized: "Operation"), selection: $store.operation) {
+                        ForEach(MetadataFieldTransferOperation.allCases) { operation in
+                            Text(operation.title).tag(operation)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 176)
 
                 if isApplying {
                     ProgressView().controlSize(.small)
@@ -55,6 +61,7 @@ struct MetadataFieldTransferDetailView: View {
 
                 fieldPicker(title: String(localized: "Destination Field"), selection: $store.destination)
             }
+            .frame(maxWidth: .infinity)
 
             Text(store.operation == .copy
                 ? String(localized: "Replaces the destination and keeps the source. Empty sources are skipped.")
@@ -84,7 +91,7 @@ struct MetadataFieldTransferDetailView: View {
 
             MetadataFieldTransferPopUpButton(title: title, selection: selection)
         }
-        .frame(width: 260, alignment: .leading)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
     }
 }
 

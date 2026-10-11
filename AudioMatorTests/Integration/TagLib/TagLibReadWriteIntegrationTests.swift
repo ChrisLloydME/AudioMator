@@ -1,8 +1,53 @@
+import AVFoundation
 import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
 final class TagLibReadWriteIntegrationTests: XCTestCase {
+    func testCreditsOptimizationPreservesAVFoundationValuesAcrossFixtures() async throws {
+        for fixtureName in Self.audioFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+            for lyricist in [nil, "Credits writer"] as [String?] {
+                if let lyricist {
+                    _ = try TagLibMetadataManager.applyMetadataPatch(
+                        MetadataPatch(fields: [.lyricist: .text(lyricist)]), to: workingURL
+                    )
+                }
+                let metadata = (try? await AVURLAsset(url: workingURL).load(.metadata)) ?? []
+                let creditsItems = AVMetadataItem.metadataItems(
+                    from: metadata, withKey: "TEXT" as (NSCopying & NSSecureCoding), keySpace: .id3
+                )
+                var expectedCredits = ""
+                for item in creditsItems {
+                    if let value = try? await item.load(.stringValue), !value.isEmpty {
+                        expectedCredits = value
+                        break
+                    }
+                }
+                let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
+                let file = try await TagLibAudioMetadataPipeline().loadAudioFile(at: workingURL, id: UUID())
+                XCTAssertEqual(file.credits, expectedCredits, "\(fixtureName), lyricist=\(String(describing: lyricist))")
+                if workingURL.pathExtension == "mp3" || workingURL.pathExtension == "wav" {
+                    XCTAssertEqual(
+                        AudioFile.needsAVFoundationCreditsRead(fileExtension: workingURL.pathExtension, rawMetadata: snapshot.raw),
+                        snapshot.raw.id3v2Frames.contains { $0.frameID == "TEXT" }
+                    )
+                }
+                if ["m4a", "ogg"].contains(workingURL.pathExtension) {
+                    XCTAssertFalse(AudioFile.needsAVFoundationCreditsRead(
+                        fileExtension: workingURL.pathExtension, rawMetadata: snapshot.raw
+                    ))
+                }
+                if ["flac", "aac"].contains(workingURL.pathExtension) {
+                    XCTAssertTrue(AudioFile.needsAVFoundationCreditsRead(
+                        fileExtension: workingURL.pathExtension, rawMetadata: snapshot.raw
+                    ))
+                }
+            }
+        }
+    }
+
     private static let audioFixtureNames = [
         "testAudioFile.mp3",
         "testAudioFile.m4a",

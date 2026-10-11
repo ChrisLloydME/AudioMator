@@ -170,7 +170,7 @@ extension AudioViewModel {
                        self.inspectorEditSourceFilesByID[file.id]?.snapshotID == sourceFile.snapshotID {
                         self.completedInspectorEditsByID[file.id] = editSnapshot
                         if success.didRefreshFileModel,
-                           let refreshed = self.files.first(where: { $0.id == file.id && $0.url == file.url }) {
+                           let refreshed = self.loadedFile(withID: file.id), refreshed.url == file.url {
                             self.inspectorEditSourceFilesByID[file.id] = refreshed
                         }
                     }

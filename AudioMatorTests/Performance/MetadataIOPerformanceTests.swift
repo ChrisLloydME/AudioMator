@@ -6,7 +6,8 @@ import XCTest
 
 /// Non-gating timings: correctness gates live in the integration and conflict tests.
 /// Run this class explicitly to compare the same fixtures/toolchain before and after changes.
-final class MetadataIOPerformanceTests: XCTestCase {
+nonisolated final class MetadataIOPerformanceTests: XCTestCase {
+    @MainActor
     func testLongMP3MetadataIOStageTimings() async throws {
         let bundle = Bundle(for: Self.self)
         let name = "testAudioFile.mp3"
@@ -53,6 +54,7 @@ final class MetadataIOPerformanceTests: XCTestCase {
         print("Metadata IO long MP3 \(largeFile.count) bytes ms: load=\(milliseconds(loadTime)), resolvedSave=\(milliseconds(saveTime)), reload=\(milliseconds(reloadTime))")
     }
 
+    @MainActor
     func testMetadataIOStageTimings() async throws {
         let bundle = Bundle(for: Self.self)
         let directory = FileManager.default.temporaryDirectory

@@ -57,6 +57,8 @@ extension AudioViewModel {
         subtitle: String,
         totalUnitCount: Int
     ) {
+        flushPendingMetadataReloads()
+        lastMetadataProgressPublication = .now
         metadataSaveProgress = MetadataSaveProgress(
             title: title,
             subtitle: subtitle,
@@ -70,6 +72,11 @@ extension AudioViewModel {
         completedUnitCount: Int
     ) {
         guard let current = metadataSaveProgress else { return }
+        // Each progress publication invalidates the window. Bound that work for
+        // fast batch writes while always publishing the final completed count.
+        guard completedUnitCount >= current.totalUnitCount ||
+            lastMetadataProgressPublication.duration(to: .now) >= .milliseconds(100) else { return }
+        lastMetadataProgressPublication = .now
         metadataSaveProgress = MetadataSaveProgress(
             title: current.title,
             subtitle: subtitle,
@@ -79,6 +86,9 @@ extension AudioViewModel {
     }
 
     func endMetadataSaveProgress() {
+        // Publish every accepted reload before reporting batch completion,
+        // including partial failures and cancellation.
+        flushPendingMetadataReloads()
         metadataSaveProgress = nil
     }
 
@@ -111,7 +121,8 @@ extension AudioViewModel {
             if let reloadedFile = success.reloadedFile {
                 didApplyReloadedFile = replaceLoadedFile(
                     reloadedFile,
-                    refreshGeneration: refreshGeneration
+                    refreshGeneration: refreshGeneration,
+                    deferVisibleRefresh: metadataSaveProgress != nil && !syncInspectorAfterReload
                 )
                 if didApplyReloadedFile, syncInspectorAfterReload, selectedAudioIDs.contains(id) {
                     updateEditForSelection()

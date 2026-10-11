@@ -544,6 +544,7 @@ struct MetadataFilenameWindowView: View {
                 store: fieldTransferStore,
                 plan: fieldTransferPlan,
                 targetCount: targetFiles.count,
+                selectionSummaryText: selectionSummaryText,
                 isApplying: isApplying
             )
             .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) { footer }

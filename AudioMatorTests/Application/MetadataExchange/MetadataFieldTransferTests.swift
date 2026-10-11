@@ -11,7 +11,7 @@ final class MetadataFieldTransferTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.writeEntries.map(\.fileID), [first.id, second.id])
-        XCTAssertEqual(plan.writeEntries.map(\.values), [[.artist: first.title], [.artist: second.title]])
+        XCTAssertEqual(plan.writeEntries.map(\.values), [[.artist: "曲名\nFirst"], [.artist: second.title]])
         XCTAssertEqual(plan.writeEntries.first?.expectedFileFingerprint, first.fileFingerprint)
         XCTAssertEqual(plan.rows.first?.changes.first?.currentValue, "Old Artist")
         XCTAssertTrue(try XCTUnwrap(plan.writeEntries.first).preservingNumberPairComponents)
@@ -29,9 +29,11 @@ final class MetadataFieldTransferTests: XCTestCase {
     }
 
     func testEmptySourcesAreSkippedAndEqualCopiesAreUnchanged() {
-        let empty = AudioFileTestFactory.make(artist: "Keep Artist")
         let equal = AudioFileTestFactory.make(title: "Same", artist: "Same")
-        for operation in MetadataFieldTransferOperation.allCases {
+        for (sourceValue, operation) in ["", " \n "].flatMap({ value in
+            MetadataFieldTransferOperation.allCases.map { (value, $0) }
+        }) {
+            let empty = AudioFileTestFactory.make(title: sourceValue, artist: "Keep Artist")
             let plan = MetadataFieldTransferPlanner.makePlan(
                 source: .title, destination: .artist, operation: operation, targetFiles: [empty]
             )
@@ -106,13 +108,9 @@ final class MetadataFieldTransferTests: XCTestCase {
             trackNumberText: "007/012", discNumberText: "02/03"
         )
         let cases: [(MetadataExchangeField, MetadataExchangeField, String, String)] = [
-            (.trackNumber, .comment, "/12", "02/03"),
-            (.discNumber, .comment, "007/012", "/3"),
             (.title, .trackNumber, "004/012", "02/03"),
             (.trackTotal, .trackNumber, "012", "02/03"),
-            (.trackNumber, .trackTotal, "/7", "02/03"),
-            (.discTotal, .discNumber, "007/012", "03"),
-            (.discNumber, .discTotal, "007/012", "/2")
+            (.discTotal, .discNumber, "007/012", "03")
         ]
         for (source, destination, expectedTrack, expectedDisc) in cases {
             let plan = MetadataFieldTransferPlanner.makePlan(
@@ -130,5 +128,30 @@ final class MetadataFieldTransferTests: XCTestCase {
                 XCTAssertEqual(edit.comment, source == .trackNumber ? "007" : "02")
             }
         }
+    }
+
+    func testTotalOnlyPairWritesAreBlockedButUnrelatedTransfersRemainAllowed() {
+        let file = AudioFileTestFactory.make(title: "Keep", track: 7, trackTotal: 12, disc: 2, discTotal: 3)
+        let blockedPairs: [(MetadataExchangeField, MetadataExchangeField)] = [
+            (.trackNumber, .comment), (.discNumber, .comment),
+            (.trackNumber, .trackTotal), (.discNumber, .discTotal)
+        ]
+        for (source, destination) in blockedPairs {
+            let plan = MetadataFieldTransferPlanner.makePlan(
+                source: source, destination: destination, operation: .cut, targetFiles: [file]
+            )
+            XCTAssertFalse(plan.canApply)
+            XCTAssertEqual(plan.rows.first?.status, .parseError)
+            XCTAssertNotNil(plan.rows.first?.issueMessage)
+            XCTAssertTrue(plan.writeEntries.isEmpty)
+        }
+        let totalOnly = AudioFileTestFactory.make(title: "Copy", trackTotal: 12)
+        XCTAssertTrue(MetadataFieldTransferPlanner.makePlan(
+            source: .title, destination: .comment, operation: .cut, targetFiles: [totalOnly]
+        ).canApply)
+        let numberWithoutTotal = AudioFileTestFactory.make(track: 7, trackNumberText: "007")
+        XCTAssertTrue(MetadataFieldTransferPlanner.makePlan(
+            source: .trackNumber, destination: .comment, operation: .cut, targetFiles: [numberWithoutTotal]
+        ).canApply)
     }
 }

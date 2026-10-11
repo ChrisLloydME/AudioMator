@@ -201,6 +201,12 @@ extension AudioViewModel {
                 )
             }
 
+            if entry.preservingNumberPairComponents,
+               let message = MetadataFieldTransferPlanner.writeSafetyValidationMessage(values: entry.values, edit: edit) {
+                summary.failureIssues.append(BatchMetadataWriteIssue(fileName: entry.fileName, messages: [message]))
+                continue
+            }
+
             let result = await persistMetadataEdit(
                 edit,
                 to: file,

@@ -61,7 +61,10 @@ enum MetadataFieldTransferPlanner {
         operation: MetadataFieldTransferOperation
     ) -> MetadataExchangeImportPreviewRow {
         let sourceValue = source.value(from: file, index: 0, relativeBasePath: nil)
-        let destinationValue = destination.canonicalImportedValue(sourceValue)
+        // Match the shared writer's text normalization in the preview. In
+        // particular, whitespace-only sources must never erase a destination.
+        let normalizedSourceValue = sourceValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let destinationValue = destination.canonicalImportedValue(normalizedSourceValue)
         let currentDestinationValue = destination.value(from: file, index: 0, relativeBasePath: nil)
 
         func row(
@@ -82,7 +85,7 @@ enum MetadataFieldTransferPlanner {
             )
         }
 
-        guard !sourceValue.isEmpty else {
+        guard !normalizedSourceValue.isEmpty else {
             return row(status: .unchanged, message: String(localized: "The source field is empty. This file will be skipped."))
         }
 
@@ -106,6 +109,14 @@ enum MetadataFieldTransferPlanner {
         }
         let values = Dictionary(uniqueKeysWithValues: changes.filter(\.willWrite).map { ($0.field, $0.importedValue) })
         guard !values.isEmpty else { return row(status: .unchanged, changes: changes) }
+        var edit = SingleFileEditModel(from: file)
+        for field in MetadataExchangeField.allCases {
+            guard let value = values[field] else { continue }
+            field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: true)
+        }
+        if let message = writeSafetyValidationMessage(values: values, edit: edit) {
+            return row(status: .parseError, changes: changes, message: message)
+        }
         guard let fingerprint = file.fileFingerprint else {
             return row(
                 status: .sourceUnavailable,
@@ -125,6 +136,19 @@ enum MetadataFieldTransferPlanner {
                 preservingNumberPairComponents: true
             )
         )
+    }
+
+    static func writeSafetyValidationMessage(
+        values: [MetadataExchangeField: String],
+        edit: SingleFileEditModel
+    ) -> String? {
+        let changesTrackPair = values[.trackNumber] != nil || values[.trackTotal] != nil
+        let changesDiscPair = values[.discNumber] != nil || values[.discTotal] != nil
+        // TagLib's current patch API cannot reliably round-trip a total-only
+        // pair. Block it before writing rather than dropping the retained total.
+        guard (changesTrackPair && edit.track == 0 && edit.trackTotal > 0) ||
+              (changesDiscPair && edit.disc == 0 && edit.discTotal > 0) else { return nil }
+        return String(localized: "A total without a number cannot be saved safely. Choose different fields; no changes were made.")
     }
 }
 

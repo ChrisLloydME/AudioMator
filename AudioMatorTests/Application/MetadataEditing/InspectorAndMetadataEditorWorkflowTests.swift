@@ -865,7 +865,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             trackNumberText: "007/012", fileFingerprint: fingerprint
         )
         let reloaded = AudioFileTestFactory.make(
-            id: original.id, url: url, title: "Keep Title", comment: "007", trackTotal: 12
+            id: original.id, url: url, comment: "Keep Title", track: 7, trackTotal: 12
         )
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
         let viewModel = AudioViewModel(metadataPipeline: pipeline)
@@ -873,20 +873,91 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.setSelectedAudioIDs([original.id])
         viewModel.updateEditForSelection()
         let plan = MetadataFieldTransferPlanner.makePlan(
-            source: .trackNumber, destination: .comment, operation: .cut, targetFiles: [original]
+            source: .title, destination: .comment, operation: .cut, targetFiles: [original]
         )
 
         let summary = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
 
         XCTAssertEqual(pipeline.metadataWrites.count, 1)
         let payload = try XCTUnwrap(pipeline.metadataWrites.first?.payload)
-        XCTAssertEqual(payload.comment, "007")
-        XCTAssertEqual(payload.trackNumber, 0)
+        XCTAssertEqual(payload.comment, "Keep Title")
+        XCTAssertEqual(payload.trackNumber, 7)
         XCTAssertEqual(payload.trackTotal, 12)
-        XCTAssertEqual(payload.title, "Keep Title")
-        XCTAssertEqual(viewModel.edit?.comment, "007")
+        XCTAssertEqual(payload.title, "")
+        XCTAssertEqual(viewModel.edit?.comment, "Keep Title")
         XCTAssertEqual(summary?.succeeded, 1)
         XCTAssertTrue(summary?.failureIssues.isEmpty == true)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    func testFieldTransferBatchFailureKeepsSourceAndContinuesOtherFiles() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorFieldTransferFailureTests-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let failedURL = directoryURL.appendingPathComponent("failed.flac")
+        let successfulURL = directoryURL.appendingPathComponent("successful.flac")
+        try Data("fixture".utf8).write(to: failedURL)
+        try Data("fixture".utf8).write(to: successfulURL)
+        let failed = AudioFileTestFactory.make(
+            url: failedURL, title: "Keep source", comment: "Keep destination",
+            fileFingerprint: try AudioFileFingerprint.capture(at: failedURL)
+        )
+        let successful = AudioFileTestFactory.make(
+            url: successfulURL, title: "Move source",
+            fileFingerprint: try AudioFileFingerprint.capture(at: successfulURL)
+        )
+        let reloaded = AudioFileTestFactory.make(id: successful.id, url: successfulURL, comment: "Move source")
+        let pipeline = RecordingMetadataPipeline(
+            reloadedFilesByURL: [successfulURL: reloaded], failingMetadataWriteURLs: [failedURL]
+        )
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([failed, successful])
+        let plan = MetadataFieldTransferPlanner.makePlan(
+            source: .title, destination: .comment, operation: .cut, targetFiles: [failed, successful]
+        )
+
+        let summary = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertEqual(summary?.failureIssues.count, 1)
+        XCTAssertEqual(summary?.failureIssues.first?.fileName, failedURL.lastPathComponent)
+        XCTAssertEqual(pipeline.metadataWrites.map(\.url), [successfulURL])
+        XCTAssertEqual(viewModel.files.first(where: { $0.id == failed.id })?.title, "Keep source")
+        XCTAssertEqual(viewModel.files.first(where: { $0.id == failed.id })?.comment, "Keep destination")
+        XCTAssertEqual(viewModel.files.first(where: { $0.id == successful.id })?.title, "")
+        XCTAssertEqual(viewModel.files.first(where: { $0.id == successful.id })?.comment, "Move source")
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    func testFieldTransferExecutionRejectsUnsafeTotalOnlyPlan() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorFieldTransferSafetyTests-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let url = directoryURL.appendingPathComponent("unsafe.flac")
+        let originalBytes = Data("fixture".utf8)
+        try originalBytes.write(to: url)
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
+        let original = AudioFileTestFactory.make(url: url, track: 7, trackTotal: 12, fileFingerprint: fingerprint)
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let summary = await viewModel.applyMetadataExchangeWriteEntries([
+            MetadataExchangeWriteEntry(
+                fileID: original.id, fileName: url.lastPathComponent,
+                values: [.trackNumber: "", .comment: "7"],
+                expectedFileFingerprint: fingerprint, preservingNumberPairComponents: true
+            )
+        ])
+
+        XCTAssertEqual(summary?.succeeded, 0)
+        XCTAssertEqual(summary?.failureIssues.count, 1)
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertEqual(try Data(contentsOf: url), originalBytes)
+        XCTAssertEqual(viewModel.files.first?.track, 7)
+        XCTAssertEqual(viewModel.files.first?.trackTotal, 12)
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
@@ -1278,12 +1349,14 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
 
     private let lock = NSLock()
     private let reloadedFilesByURL: [URL: AudioFile]
+    private let failingMetadataWriteURLs: Set<URL>
     private(set) var metadataWrites: [MetadataWrite] = []
     private(set) var rawMapWrites: [URL: [String: String]] = [:]
     private var recordedEraseCount = 0
 
-    init(reloadedFilesByURL: [URL: AudioFile] = [:]) {
+    init(reloadedFilesByURL: [URL: AudioFile] = [:], failingMetadataWriteURLs: Set<URL> = []) {
         self.reloadedFilesByURL = reloadedFilesByURL
+        self.failingMetadataWriteURLs = failingMetadataWriteURLs
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
@@ -1309,6 +1382,9 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
+        if failingMetadataWriteURLs.contains(url) {
+            throw CocoaError(.fileWriteNoPermission)
+        }
         lock.withLock {
             metadataWrites.append(MetadataWrite(payload: edit, url: url))
         }

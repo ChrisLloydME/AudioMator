@@ -118,6 +118,9 @@ final class AudioViewModel: ObservableObject {
     private var folderScanTokens: [UUID: UUID] = [:]
     private var nextFileModelRefreshGeneration: UInt64 = 0
     private var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
+    private var pendingMetadataReloadsByID: [AudioFile.ID: AudioFile] = [:]
+    private var lastMetadataReloadPublication = ContinuousClock.now
+    var lastMetadataProgressPublication = ContinuousClock.now
 
     convenience init() {
         self.init(
@@ -655,6 +658,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     func replaceLoadedFile(_ reloaded: AudioFile) {
+        pendingMetadataReloadsByID.removeValue(forKey: reloaded.id)
         if let index = quickImportFiles.firstIndex(where: { $0.id == reloaded.id }) {
             quickImportFiles[index] = reloaded
         }
@@ -679,13 +683,36 @@ final class AudioViewModel: ObservableObject {
     @discardableResult
     func replaceLoadedFile(
         _ reloaded: AudioFile,
-        refreshGeneration: UInt64
+        refreshGeneration: UInt64,
+        deferVisibleRefresh: Bool = false
     ) -> Bool {
         let appliedGeneration = appliedFileModelRefreshGenerations[reloaded.id] ?? 0
         guard refreshGeneration > appliedGeneration else { return false }
         appliedFileModelRefreshGenerations[reloaded.id] = refreshGeneration
+        if deferVisibleRefresh {
+            pendingMetadataReloadsByID[reloaded.id] = reloaded
+            if pendingMetadataReloadsByID.count >= 32 ||
+                lastMetadataReloadPublication.duration(to: .now) >= .milliseconds(200) {
+                flushPendingMetadataReloads()
+            }
+            return true
+        }
+        // A newer immediate refresh must also supersede an unpublished reload.
+        pendingMetadataReloadsByID.removeValue(forKey: reloaded.id)
         replaceLoadedFile(reloaded)
         return true
+    }
+
+    func loadedFile(withID id: AudioFile.ID) -> AudioFile? {
+        pendingMetadataReloadsByID[id] ?? visibleFilesByID[id]
+    }
+
+    func flushPendingMetadataReloads() {
+        lastMetadataReloadPublication = .now
+        guard !pendingMetadataReloadsByID.isEmpty else { return }
+        let reloadedFiles = Array(pendingMetadataReloadsByID.values)
+        pendingMetadataReloadsByID.removeAll(keepingCapacity: true)
+        replaceLoadedFiles(reloadedFiles)
     }
 
     func replaceLoadedFiles(_ reloadedFiles: [AudioFile]) {
@@ -694,6 +721,7 @@ final class AudioViewModel: ObservableObject {
         var reloadedByID: [UUID: AudioFile] = [:]
         for file in reloadedFiles {
             reloadedByID[file.id] = file
+            pendingMetadataReloadsByID.removeValue(forKey: file.id)
         }
 
         quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }

@@ -15296,6 +15296,90 @@
     "You can skip this step. When a save needs access, AudioMator will ask for the exact containing folder." : {
 
     },
+    "Replaces the destination and clears the source. Empty sources are skipped." : {
+      "comment" : "Concise explanation below the metadata field transfer controls.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces the destination and clears the source. Empty sources are skipped."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces the destination and clears the source. Empty sources are skipped."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "替换目标字段并清空来源字段。来源为空时跳过。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代目標欄位並清空來源欄位。來源為空時略過。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代目標欄位並清空來源欄位。來源為空時略過。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代目標欄位並清空來源欄位。來源為空時略過。"
+          }
+        }
+      }
+    },
+    "Replaces the destination and keeps the source. Empty sources are skipped." : {
+      "comment" : "Concise explanation below the metadata field transfer controls.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces the destination and keeps the source. Empty sources are skipped."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces the destination and keeps the source. Empty sources are skipped."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "替换目标字段并保留来源字段。来源为空时跳过。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代目標欄位並保留來源欄位。來源為空時略過。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代目標欄位並保留來源欄位。來源為空時略過。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取代目標欄位並保留來源欄位。來源為空時略過。"
+          }
+        }
+      }
+    },
     "YYYY" : {
 
     }

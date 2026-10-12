@@ -548,8 +548,6 @@ struct MetadataFilenameWindowView: View {
                 isApplying: isApplying
             )
             .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) { footer }
-            .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
-            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
             .scrollBounceBehavior(.basedOnSize)
         }
     }
@@ -569,8 +567,6 @@ struct MetadataFilenameWindowView: View {
         .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
-        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
-        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .scrollBounceBehavior(.basedOnSize)
     }
 
@@ -757,8 +753,6 @@ struct MetadataFilenameWindowView: View {
         .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
-        .audiomatorMacTitlebarScrollEdgeBar(subtractsExistingSafeArea: false)
-        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         .scrollBounceBehavior(.basedOnSize)
     }
 

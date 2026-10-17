@@ -997,7 +997,7 @@ final class AudioViewModel: ObservableObject {
         }
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
-        guard watchedFolderMutationEpochs[id] == mutationEpoch else {
+        guard (watchedFolderMutationEpochs[id] ?? 0) == mutationEpoch else {
             scheduleWatchedFolderRescan(for: id, debounceMilliseconds: 500)
             return
         }
@@ -1036,7 +1036,7 @@ final class AudioViewModel: ObservableObject {
 
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
-        guard watchedFolderMutationEpochs[id] == mutationEpoch else {
+        guard (watchedFolderMutationEpochs[id] ?? 0) == mutationEpoch else {
             scheduleWatchedFolderRescan(for: id, debounceMilliseconds: 500)
             return
         }
@@ -1420,6 +1420,7 @@ final class AudioViewModel: ObservableObject {
         loadedByIndex.reserveCapacity(inputs.count)
         var failuresByIndex: [(Int, AudioFileLoadFailure)] = []
         var nextContiguousIndex = 0
+        var resolvedIndices = Set<Int>()
         var pendingBatch: [AudioFile] = []
         pendingBatch.reserveCapacity(partialBatchSize)
         var lastFlushTime = Date.timeIntervalSinceReferenceDate
@@ -1462,25 +1463,6 @@ final class AudioViewModel: ObservableObject {
                 if let file {
                     completedByIndex[index] = file
                     loadedByIndex.append((index, file))
-
-                    while let nextFile = completedByIndex.removeValue(forKey: nextContiguousIndex) {
-                        pendingBatch.append(nextFile)
-                        nextContiguousIndex += 1
-
-                        let now = Date.timeIntervalSinceReferenceDate
-                        let shouldFlush =
-                            pendingBatch.count >= forceFlushBatchSize ||
-                            (
-                                pendingBatch.count >= partialBatchSize &&
-                                now - lastFlushTime >= minimumFlushInterval
-                            )
-
-                        if shouldFlush, let onBatchLoaded, !Task.isCancelled {
-                            await onBatchLoaded(pendingBatch)
-                            pendingBatch.removeAll(keepingCapacity: true)
-                            lastFlushTime = now
-                        }
-                    }
                 } else if let failureReason {
                     failuresByIndex.append(
                         (
@@ -1491,6 +1473,30 @@ final class AudioViewModel: ObservableObject {
                             )
                         )
                     )
+                }
+                resolvedIndices.insert(index)
+
+                // Advance past both successes and failures. A failed early
+                // index must not prevent later files from being published.
+                while resolvedIndices.contains(nextContiguousIndex) {
+                    if let nextFile = completedByIndex.removeValue(forKey: nextContiguousIndex) {
+                        pendingBatch.append(nextFile)
+                    }
+                    nextContiguousIndex += 1
+
+                    let now = Date.timeIntervalSinceReferenceDate
+                    let shouldFlush =
+                        pendingBatch.count >= forceFlushBatchSize ||
+                        (
+                            pendingBatch.count >= partialBatchSize &&
+                            now - lastFlushTime >= minimumFlushInterval
+                        )
+
+                    if shouldFlush, let onBatchLoaded, !Task.isCancelled {
+                        await onBatchLoaded(pendingBatch)
+                        pendingBatch.removeAll(keepingCapacity: true)
+                        lastFlushTime = now
+                    }
                 }
 
                 guard nextInputIndex < inputs.count else { continue }

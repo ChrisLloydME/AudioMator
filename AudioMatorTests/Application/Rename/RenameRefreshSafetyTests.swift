@@ -42,11 +42,12 @@ final class RenameRefreshSafetyTests: XCTestCase {
         let generation = viewModel.makeFileModelRefreshGeneration()
         XCTAssertTrue(viewModel.replaceLoadedFile(original, refreshGeneration: generation, deferVisibleRefresh: true))
 
+        let lateGeneration = viewModel.makeFileModelRefreshGeneration()
         viewModel.markFileRequiresRefresh(id: original.id)
         viewModel.flushPendingMetadataReloads()
 
         XCTAssertTrue(try XCTUnwrap(viewModel.loadedFile(withID: original.id)).requiresMetadataRefreshBeforeWriting)
-        XCTAssertFalse(viewModel.replaceLoadedFile(original, refreshGeneration: generation))
+        XCTAssertFalse(viewModel.replaceLoadedFile(original, refreshGeneration: lateGeneration))
         XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
     }
 

@@ -89,7 +89,10 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 Notable coverage:
 
 - Real TagLib writes use temporary copies of the six committed audio fixtures.
-- Conflict-strategy tests drive the real adapter on a temporary FLAC copy.
+- Conflict-strategy tests drive the real adapter on a temporary FLAC copy, including rejection of changed revisions and replacements when original inode identity is absent.
+- Provider cancellation and semantic-write tests use real FLAC copies to verify committed outcomes, exact preservation, and total-only rejection through MusicBrainz, iTunes, and CSV execution.
+- Progressive import is checked while a final load remains gated, including an early failed input; quick-import start/return waits have deadlines.
+- Provider URLProtocol tests cover stale-ID fallback and MusicBrainz results beyond the detail-verification cap.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget.
 

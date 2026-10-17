@@ -362,7 +362,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
         let after = try pipeline.rawMetadataValueMap(for: workingURL)
 
-        XCTAssertEqual(after["TITLE"], ["Intent Delta Title"], "The edited title was not written")
+        var expectedMap = before
+        expectedMap["TITLE"] = ["Intent Delta Title"]
+        XCTAssertEqual(after, expectedMap, "The title must be the only raw metadata change")
         for (key, values) in exactUntouchedValues {
             XCTAssertEqual(before[key], values, "Fixture setup should preserve exact values for \(key)")
             XCTAssertEqual(after[key], before[key], "Title-only save changed untouched raw values for \(key)")
@@ -608,7 +610,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(readBack.disc, metadata.disc, fixtureName)
             XCTAssertEqual(readBack.discTotal, metadata.discTotal, fixtureName)
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testTrackAndDiscTextWritesRoundTripNumericValuesAcrossWritableAudioFixtures() throws {
@@ -670,7 +672,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             }
             XCTAssertEqual(didNormalizeFormatting, expected.2, fixtureName)
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testTrackNumberOnlyWriteDoesNotWarnWhenExistingTotalIsPreserved() throws {
@@ -785,7 +787,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 XCTAssertNil(rawMap[key], "\(fixtureName) should clear \(key)")
             }
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testInspectorArtworkIntentRoundTripsOnDisk() async throws {
@@ -858,7 +860,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let withoutArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertNil(withoutArtwork.artworkData, "\(fixtureName) should not contain artwork after removal.")
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable artwork fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.artworkFixtureNames.count, "Every pinned artwork fixture must execute")
     }
 
     func testRawPropertyMapWriteRemovesDeletedMP4FreeformFields() throws {
@@ -906,8 +908,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
 
         let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
-        XCTAssertEqual(readBack["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
-        XCTAssertEqual(readBack["LYRICS"], ["[00:01.00] one; two"])
+        XCTAssertEqual(readBack, valueMap, "The concrete whole-map adapter must preserve the complete requested map")
     }
 
     func testInspectorSaveRejectsSnapshotVersionThatPredatesExternalMetadataEdit() throws {

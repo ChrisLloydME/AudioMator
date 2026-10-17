@@ -8,7 +8,7 @@ nonisolated enum EmbeddedWebURLPolicy {
         guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else {
             return nil
         }
-        let allowedSuffixes = ["apple.com", "musicbrainz.org"]
+        let allowedSuffixes = NetworkServiceDisclosure.ProviderWebPages.allowedHostSuffixes
         guard allowedSuffixes.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) else {
             return nil
         }

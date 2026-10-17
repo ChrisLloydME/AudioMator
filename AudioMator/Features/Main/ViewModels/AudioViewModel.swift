@@ -116,6 +116,10 @@ final class AudioViewModel: ObservableObject {
     private var securityScopedFileAccessGrantURLs: [UUID: URL] = [:]
     private var securityScopedSupplementalMutationDirectoryURLs: [String: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
+    // Incremented when a committed mutation changes a file that belongs to a
+    // watched folder. A rescan that started before the mutation must not
+    // publish its older snapshot over the mutation's reload.
+    private var watchedFolderMutationEpochs: [UUID: UInt64] = [:]
     private var nextFileModelRefreshGeneration: UInt64 = 0
     private var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
     private var pendingMetadataReloadsByID: [AudioFile.ID: AudioFile] = [:]
@@ -548,6 +552,7 @@ final class AudioViewModel: ObservableObject {
             watchedFolderScanFailureCounts[id] = nil
             watchedFolderMetadataReadFailureCounts[id] = nil
             folderScanTokens[id] = nil
+            watchedFolderMutationEpochs[id] = nil
         }
         watchedFolders.removeAll { existingIDs.contains($0.id) }
 
@@ -658,6 +663,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     func replaceLoadedFile(_ reloaded: AudioFile) {
+        invalidateWatchedFolderScans(containingFileID: reloaded.id)
         pendingMetadataReloadsByID.removeValue(forKey: reloaded.id)
         if let index = quickImportFiles.firstIndex(where: { $0.id == reloaded.id }) {
             quickImportFiles[index] = reloaded
@@ -689,6 +695,7 @@ final class AudioViewModel: ObservableObject {
         let appliedGeneration = appliedFileModelRefreshGenerations[reloaded.id] ?? 0
         guard refreshGeneration > appliedGeneration else { return false }
         appliedFileModelRefreshGenerations[reloaded.id] = refreshGeneration
+        invalidateWatchedFolderScans(containingFileID: reloaded.id)
         if deferVisibleRefresh {
             pendingMetadataReloadsByID[reloaded.id] = reloaded
             if pendingMetadataReloadsByID.count >= 32 ||
@@ -720,6 +727,7 @@ final class AudioViewModel: ObservableObject {
 
         var reloadedByID: [UUID: AudioFile] = [:]
         for file in reloadedFiles {
+            invalidateWatchedFolderScans(containingFileID: file.id)
             reloadedByID[file.id] = file
             pendingMetadataReloadsByID.removeValue(forKey: file.id)
         }
@@ -738,6 +746,9 @@ final class AudioViewModel: ObservableObject {
         guard !changes.isEmpty else { return [] }
 
         let loadedFilesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        for change in changes {
+            invalidateWatchedFolderScans(containingFileID: change.id)
+        }
         var urlsByID: [UUID: URL] = [:]
         var refreshedByID: [UUID: AudioFile] = [:]
         var fallbackFilesByID: [UUID: AudioFile] = [:]
@@ -949,6 +960,7 @@ final class AudioViewModel: ObservableObject {
 
         let scanToken = UUID()
         folderScanTokens[id] = scanToken
+        let mutationEpoch = watchedFolderMutationEpochs[id] ?? 0
 
         let scanTask = Task.detached(priority: .utility) {
             Self.scanFolderSnapshot(for: folder.url)
@@ -960,6 +972,10 @@ final class AudioViewModel: ObservableObject {
         }
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
+        guard watchedFolderMutationEpochs[id] == mutationEpoch else {
+            scheduleWatchedFolderRescan(for: id, debounceMilliseconds: 500)
+            return
+        }
 
         if snapshot.scanFailureCount > 0 {
             watchedFolderScanFailureCounts[id] = snapshot.scanFailureCount
@@ -995,6 +1011,10 @@ final class AudioViewModel: ObservableObject {
 
         guard !Task.isCancelled else { return }
         guard folderScanTokens[id] == scanToken else { return }
+        guard watchedFolderMutationEpochs[id] == mutationEpoch else {
+            scheduleWatchedFolderRescan(for: id, debounceMilliseconds: 500)
+            return
+        }
 
         let previousFilesByKey = Self.audioFilesByURLKey(watchedFolderFiles[id] ?? [])
         var refreshedFilesByKey = Self.audioFilesByURLKey(loadResult.files)
@@ -1011,6 +1031,16 @@ final class AudioViewModel: ObservableObject {
         watchedFolderMetadataReadFailureCounts[id] = loadResult.failures.count
         updateDirectoryMonitors(for: id, directories: snapshot.directoryURLs)
         rebuildVisibleFiles()
+    }
+
+    /// Invalidates any in-flight rescan for folders that currently contain
+    /// `id`. The mutation reload itself is the authoritative newer snapshot;
+    /// a rescan that captured the pre-mutation epoch must not replace it.
+    private func invalidateWatchedFolderScans(containingFileID id: AudioFile.ID) {
+        for folderID in watchedFolderFiles.keys {
+            guard watchedFolderFiles[folderID]?.contains(where: { $0.id == id }) == true else { continue }
+            watchedFolderMutationEpochs[folderID, default: 0] &+= 1
+        }
     }
 
     private func rebuildVisibleFiles() {

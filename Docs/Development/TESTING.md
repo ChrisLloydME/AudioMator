@@ -8,12 +8,12 @@ Counts and paths below were verified by source inspection at the audited commit.
 
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 61 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 438 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 457 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 60 `XCTestCase` classes; no custom base class.
-- The cross-target test-support helper is `AudioMatorTests/TestSupport/AudioFileTestFactory.swift`. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
+- There are 62 `XCTestCase` classes; no custom base class.
+- The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log so tests do not restore the developer's watched folders or write the host app's real issue log. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating.
 
@@ -172,13 +172,13 @@ These are proposals, not current coverage:
 5. Add a UI test host with stable accessibility identifiers for selection, save, and window flows.
 6. Add real bookmark/security-scope integration tests on a signed sandboxed build.
 
-## Verification Status of This Audit
+## Verification Status
 
-Executed on 2026-10-17 with Xcode 27.1:
+Executed on 2026-10-17 with Xcode 27.1 after the audit-repair branch:
 
-- `swift test`: 61 tests passed.
-- `swift test --filter AudioMatorCoreLogicTests`: 61 tests passed.
-- Full serial app-hosted suite: 438 tests passed, 0 failures (about 51 seconds of test execution).
+- `swift test --disable-sandbox`: 62 tests passed.
+- `swift test --disable-sandbox --filter AudioMatorCoreLogicTests`: 62 tests passed.
+- Full serial app-hosted suite: 457 tests passed, 0 failures (about 50 seconds of test execution).
 - Focused `TagLibReadWriteIntegrationTests`: 33 tests passed.
 - `bash scripts/codex-build.sh --force`: build succeeded.
 - Unsigned Release build: succeeded; universal `x86_64 arm64` executable.

@@ -1,8 +1,6 @@
 # Architecture Decision Records
 
-Architecture Decision Records (ADRs) capture decisions that constrain future
-work: dependency boundaries, persistence and transaction models, state ownership,
-and other choices that are expensive to change silently.
+Architecture Decision Records (ADRs) capture decisions that constrain future work: dependency boundaries, persistence and transaction models, state ownership, and other choices that are expensive to change silently.
 
 ## Index
 
@@ -23,8 +21,7 @@ Write one when a change:
 - introduces a durable compatibility constraint with an external dependency,
 - chooses between alternatives that future maintainers would otherwise revisit.
 
-Do not write an ADR for routine refactors, formatting, or a feature that follows
-an existing pattern.
+Do not write an ADR for routine refactors, formatting, or a feature that follows an existing pattern.
 
 ## Process
 

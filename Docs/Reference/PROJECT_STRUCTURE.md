@@ -1,8 +1,6 @@
 # Project Structure
 
-This document maps the repository to responsibilities. See
-[Development](../Development/BUILD.md) for build commands and
-[Dependency Rules](../Architecture/DEPENDENCY_RULES.md) for allowed imports.
+This document maps the repository to responsibilities. See [Development](../Development/BUILD.md) for build commands and [Dependency Rules](../Architecture/DEPENDENCY_RULES.md) for allowed imports.
 
 ## Top Level
 
@@ -74,8 +72,7 @@ Business rules and value models that do not own UI or concrete I/O.
 | `Rename/` | Filename templates, extraction, rename plan, collision policy |
 | `TrackRenumber/` | Renumber options, padding, result models |
 
-There is **no** `Domain/UIState` folder. UI state lives under
-`Features/Main/State`.
+There is **no** `Domain/UIState` folder. UI state lives under `Features/Main/State`.
 
 ## `AudioMator/Features`
 
@@ -94,8 +91,7 @@ Feature-owned views, view models, and presentation models.
 | `Settings/` | Settings tabs, privacy/acknowledgements sheets, release notes rendering |
 | `Welcome/` | Welcome splash and progress |
 
-Feature folders may contain their own helpers. Do not create a shared abstraction
-for a single feature.
+Feature folders may contain their own helpers. Do not create a shared abstraction for a single feature.
 
 ## `AudioMator/Infrastructure`
 
@@ -121,8 +117,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle (438 test functions at audit time) organized by
-failure semantics:
+App-hosted XCTest bundle (438 test functions at audit time) organized by failure semantics:
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -134,14 +129,11 @@ TestSupport/
 Fixtures/
 ```
 
-`Fixtures/Audio` contains the committed mp3/m4a/flac/aac/ogg/wav samples;
-`Fixtures/MetadataExchange` contains exchange fixtures; `Fixtures/Artwork`
-contains the cover image. Tests copy audio fixtures before writing.
+`Fixtures/Audio` contains the committed mp3/m4a/flac/aac/ogg/wav samples; `Fixtures/MetadataExchange` contains exchange fixtures; `Fixtures/Artwork` contains the cover image. Tests copy audio fixtures before writing.
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite (61 test functions at
-audit time). It has no UI, TagLib, or live-network dependency.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite (61 test functions at audit time). It has no UI, TagLib, or live-network dependency.
 
 ## `scripts`
 
@@ -155,9 +147,7 @@ audit time). It has no UI, TagLib, or live-network dependency.
 
 ## `Docs`
 
-The documentation set. See [the index](../README.md). `Docs/Images` contains
-README images. Historical engineering records are under
-`Docs/Engineering/HISTORY`.
+The documentation set. See [the index](../README.md). `Docs/Images` contains README images. Historical engineering records are under `Docs/Engineering/HISTORY`.
 
 ## Where to Add Code
 

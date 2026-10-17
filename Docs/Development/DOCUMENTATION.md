@@ -1,20 +1,14 @@
 # Documentation Maintenance
 
-This document defines how AudioMator's documentation is organized, how it stays
-accurate, and what to update with each kind of change.
+This document defines how AudioMator's documentation is organized, how it stays accurate, and what to update with each kind of change.
 
 ## Principles
 
-1. **The implementation is the source of truth.** Documentation is verified
-   against source, build settings, scripts, and reproducible commands.
-2. **Current-state documents describe today.** Historical material is clearly
-   separated and never linked as current guidance.
-3. **One fact, one home.** Link to the canonical document instead of copying its
-   content.
-4. **Label uncertainty.** State "unverified", "not implemented", or "proposal"
-   when that is true.
-5. **Do not document intentions as features.** A TODO, disabled path, or plan is
-   not current behavior.
+1. **The implementation is the source of truth.** Documentation is verified against source, build settings, scripts, and reproducible commands.
+2. **Current-state documents describe today.** Historical material is clearly separated and never linked as current guidance.
+3. **One fact, one home.** Link to the canonical document instead of copying its content.
+4. **Label uncertainty.** State "unverified", "not implemented", or "proposal" when that is true.
+5. **Do not document intentions as features.** A TODO, disabled path, or plan is not current behavior.
 
 ## Document Classes
 
@@ -26,8 +20,7 @@ accurate, and what to update with each kind of change.
 | Engineering records | `Docs/Engineering/*.md` | Dated evidence, not current contracts | Add new records; do not silently rewrite history |
 | Historical logs | `Docs/Engineering/HISTORY` | Dated, superseded | Preserve; add a banner if context changes |
 
-When a historical record's claim is needed for current work, re-verify it and
-move the verified fact into a current-state document.
+When a historical record's claim is needed for current work, re-verify it and move the verified fact into a current-state document.
 
 ## Update Matrix
 
@@ -45,22 +38,18 @@ move the verified fact into a current-state document.
 | Repository layout | `Docs/Reference/PROJECT_STRUCTURE.md`, `README.md` |
 | Contribution or review process | `CONTRIBUTING.md`, `AGENTS.md`, this file |
 
-If behavior changes and the documentation is not updated in the same change, the
-change is incomplete.
+If behavior changes and the documentation is not updated in the same change, the change is incomplete.
 
 ## Writing Style
 
-- Use English. The current documentation set is English-only; historical
-  documents may contain other languages and are preserved as-is.
-- Use project terminology: Inspector, Metadata Editor, Tag Inspector,
-  Filename & Metadata, Current Session, Watched Folders, conflict strategy,
-  snapshot, draft, mutation reservation, refresh-required.
+- Use English. The current documentation set is English-only; historical documents may contain other languages and are preserved as-is.
+- Use project terminology: Inspector, Metadata Editor, Tag Inspector, Filename & Metadata, Current Session, Watched Folders, conflict strategy, snapshot, draft, mutation reservation, refresh-required.
 - State the platform: macOS 15.0+, App Sandbox.
 - Prefer concrete file paths and type names over vague references.
-- Explain *why* only when the reason is established by code, tests, an ADR, or a
-  verifiable constraint.
+- Explain *why* only when the reason is established by code, tests, an ADR, or a verifiable constraint.
 - Do not include secrets, personal paths, or real user media metadata.
 - Use Mermaid for diagrams; keep them aligned with the current code.
+- Do not hard-wrap prose. Keep each Markdown paragraph and each list item on one physical line. Headings, table rows, blockquotes, and fenced code keep their own lines.
 
 ## Verification
 
@@ -80,28 +69,22 @@ There is no automated link checker. Treat broken links as defects.
 Architecture Decision Records live in `Docs/Architecture/Decisions`.
 
 - Number them sequentially.
-- Include status, date, context, decision, alternatives, consequences, and
-  verification.
+- Include status, date, context, decision, alternatives, consequences, and verification.
 - Record decisions that constrain future work or explain a non-obvious boundary.
 - Do not fabricate historical decisions. A new ADR records a decision made now.
-- Superseding an ADR: add a new ADR and update the old one's status to
-  `Superseded by ADR-XXXX`.
+- Superseding an ADR: add a new ADR and update the old one's status to `Superseded by ADR-XXXX`.
 
 See [the ADR index](../Architecture/Decisions/README.md).
 
 ## Engineering Records and History
 
-- `Docs/Engineering/` holds dated performance measurements and investigation
-  records. They may contain numbers that are stale; each must state its date and
-  baseline.
-- `Docs/Engineering/HISTORY/` holds superseded progress logs and audits. They are
-  retained for traceability and are not maintained.
+- `Docs/Engineering/` holds dated performance measurements and investigation records. They may contain numbers that are stale; each must state its date and baseline.
+- `Docs/Engineering/HISTORY/` holds superseded progress logs and audits. They are retained for traceability and are not maintained.
 - Do not copy current guidance out of a historical record without re-verifying it.
 
 ## AI Coding Agents
 
-`AGENTS.md` is the entry point for agents. It must remain short and point to this
-documentation set. Agents must:
+`AGENTS.md` is the entry point for agents. It must remain short and point to this documentation set. Agents must:
 
 - verify implementation details before changing code or docs,
 - treat existing docs and tests as unverified evidence until checked,

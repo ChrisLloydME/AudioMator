@@ -1,9 +1,6 @@
 # Fast Core-Logic Test Gaps
 
-> Historical record. Some statements are superseded (for example, rate limiting now
-> has fast coverage, and provider clients have app-hosted mocked coverage). Current
-> scope and gaps are documented in
-> [Testing](../../Development/TESTING.md).
+> Historical record. Some statements are superseded (for example, rate limiting now has fast coverage, and provider clients have app-hosted mocked coverage). Current scope and gaps are documented in [Testing](../../Development/TESTING.md).
 
 The fast harness also covers asynchronous deadline success, error propagation, timeout, and cancellation, including operations that return after the caller has already received a terminal result.
 

@@ -1,7 +1,6 @@
 # State and Mutation Model
 
-This document describes how AudioMator models application state and how it
-serializes, validates, and reports changes to files on disk.
+This document describes how AudioMator models application state and how it serializes, validates, and reports changes to files on disk.
 
 ## State Categories
 
@@ -16,27 +15,18 @@ serializes, validates, and reports changes to files on disk.
 | Preferences | Sidebar/sort/columns/toolbar/inspector visibility, conflict policy, welcome state, MuseAmp toggle. | `UserDefaults` |
 | Save issue log | Non-success batch summaries. | JSON in Application Support |
 
-`SharedState` owns presentation preferences and sidebar choice. It does **not**
-own the selected audio IDs.
+`SharedState` owns presentation preferences and sidebar choice. It does **not** own the selected audio IDs.
 
 ## File Identity
 
-- A URL key is standardized, symlink-resolved, and Unicode-precomposed.
-  Case folding is applied only on case-insensitive volumes
-  (`FileSystemPathSemantics`).
-- Imports and rescans reuse the existing UUID for the same path through
-  `fileIDsByKey`.
-- A rename operation carries the file ID, source, destination, and the preview
-  fingerprint. On success the ID is retained and the URL mapping is updated.
-- Metadata and provider write plans carry an expected fingerprint and metadata
-  version. They are validated again inside the mutation reservation.
+- A URL key is standardized, symlink-resolved, and Unicode-precomposed. Case folding is applied only on case-insensitive volumes (`FileSystemPathSemantics`).
+- Imports and rescans reuse the existing UUID for the same path through `fileIDsByKey`.
+- A rename operation carries the file ID, source, destination, and the preview fingerprint. On success the ID is retained and the URL mapping is updated.
+- Metadata and provider write plans carry an expected fingerprint and metadata version. They are validated again inside the mutation reservation.
 
 ## Immutable Snapshots
 
-`AudioFile` is a `Sendable` value with a unique `snapshotID`. Copies preserve the
-ID; a reload or transformation creates a new one. The middle list and artwork
-caches use the ID to decide whether a snapshot is still current. A late readback
-cannot replace a newer model because:
+`AudioFile` is a `Sendable` value with a unique `snapshotID`. Copies preserve the ID; a reload or transformation creates a new one. The middle list and artwork caches use the ID to decide whether a snapshot is still current. A late readback cannot replace a newer model because:
 
 1. `AudioViewModel` applies results on the main actor,
 2. it checks the current file's URL and `snapshotID`, and
@@ -48,12 +38,9 @@ cannot replace a newer model because:
 
 1. filters requested IDs to the visible collection,
 2. stores the normalized set,
-3. rebuilds the single-file or multi-file inspector draft in the same
-   main-actor operation.
+3. rebuilds the single-file or multi-file inspector draft in the same main-actor operation.
 
-Rebuilding the visible collection prunes IDs that are no longer present and
-updates the draft. Views use a guarded binding; selection changes that could
-discard unsaved edits are confirmed by `ContentView` before calling the owner.
+Rebuilding the visible collection prunes IDs that are no longer present and updates the draft. Views use a guarded binding; selection changes that could discard unsaved edits are confirmed by `ContentView` before calling the owner.
 
 ## Mutation Lifecycle
 
@@ -69,26 +56,19 @@ prepare immutable input + expected fingerprint/version
   → publish the snapshot/result on the main actor
 ```
 
-Metadata batches commit file by file, so partial success is a valid outcome.
-Results preserve each file's failure and warning. A file that was written but
-could not be reloaded is never reported as "not written".
+Metadata batches commit file by file, so partial success is a valid outcome. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 
 ## Reservation Rules
 
 `FileMutationCoordinator` is an actor keyed by normalized path:
 
 - A mutation reserves every source and destination path.
-- Reservations are acquired atomically for multi-path operations, avoiding
-  deadlock between overlapping rename and metadata operations.
-- Waiters are granted in a way that avoids starvation: a later waiter is granted
-  only if it conflicts with neither active work nor an older blocked waiter.
-- Cancellation while waiting removes the waiter and throws
-  `CancellationError`; the mutation must not run later.
+- Reservations are acquired atomically for multi-path operations, avoiding deadlock between overlapping rename and metadata operations.
+- Waiters are granted in a way that avoids starvation: a later waiter is granted only if it conflicts with neither active work nor an older blocked waiter.
+- Cancellation while waiting removes the waiter and throws `CancellationError`; the mutation must not run later.
 - Cancellation after acquisition is checked before irreversible work starts.
 
-Operations that use the coordinator include semantic metadata writes, raw
-metadata writes, erase-all, track renumbering, rename transactions, and selected
-file reloads.
+Operations that use the coordinator include semantic metadata writes, raw metadata writes, erase-all, track renumbering, rename transactions, and selected file reloads.
 
 ## Cancellation and Recovery
 
@@ -122,11 +102,9 @@ file reloads.
 ## Persistence Boundaries
 
 - Audio files: modified in place at their user-authorized locations.
-- Watched folders and file-access grants: security-scoped bookmark data in
-  `UserDefaults` (`watchedFolderRecords`, `fileAccessGrantRecords`).
+- Watched folders and file-access grants: security-scoped bookmark data in `UserDefaults` (`watchedFolderRecords`, `fileAccessGrantRecords`).
 - Conflict policy: `metadata.conflictPolicy`.
-- Save issue log: `Application Support/AudioMator/SaveIssueLog.json`, capped at
-  200 entries.
+- Save issue log: `Application Support/AudioMator/SaveIssueLog.json`, capped at 200 entries.
 - No audio content is copied into application storage.
 
 ## Related Documents

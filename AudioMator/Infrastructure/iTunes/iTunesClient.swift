@@ -677,15 +677,30 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
         guard let summary = query.fileSelectionSummary else { throw iTunesClientError.emptyQuery }
 
         if let collectionID = Int(summary.itunesAlbumIDCandidate) {
-            var detail = try await albumDetail(collectionID: collectionID, country: query.country)
-            detail.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: detail)
-            return .albums([detail.album.withPreview(detail.selectionMatchPreview)])
+            do {
+                var detail = try await albumDetail(collectionID: collectionID, country: query.country)
+                detail.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: detail)
+                return .albums([detail.album.withPreview(detail.selectionMatchPreview)])
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // A stale or region-incompatible stored album ID is a hint,
+                // not a terminal search failure. Fall through to text search.
+            }
         }
 
-        if !summary.barcodeCandidate.isEmpty, let detail = try await lookupUPC(summary.barcodeCandidate, country: query.country) {
-            var resolved = detail
-            resolved.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: resolved)
-            return .albums([resolved.album.withPreview(resolved.selectionMatchPreview)])
+        if !summary.barcodeCandidate.isEmpty {
+            do {
+                if let detail = try await lookupUPC(summary.barcodeCandidate, country: query.country) {
+                    var resolved = detail
+                    resolved.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: resolved)
+                    return .albums([resolved.album.withPreview(resolved.selectionMatchPreview)])
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // An unresolved UPC is also only a hint.
+            }
         }
 
         if summary.isMultiFile {
@@ -971,7 +986,7 @@ private extension iTunesAlbumResult {
     }
 }
 
-enum iTunesParsedLink {
+enum iTunesParsedLink: Equatable {
     case album(Int)
     case track(Int)
 }
@@ -983,7 +998,8 @@ enum iTunesLinkParser {
             return .album(id)
         }
 
-        guard let components = URLComponents(string: trimmed) else {
+        let normalized = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+        guard let components = URLComponents(string: normalized) else {
             throw iTunesClientError.unsupportedLink
         }
 
@@ -1001,6 +1017,11 @@ enum iTunesLinkParser {
             if let id = Int(digits) {
                 return .album(id)
             }
+        }
+        // Current Apple Music share links put a bare numeric album ID in the
+        // last path component (for example /us/album/name/1440833098).
+        if let lastPart = pathParts.last, let id = Int(lastPart) {
+            return .album(id)
         }
 
         throw iTunesClientError.unsupportedLink

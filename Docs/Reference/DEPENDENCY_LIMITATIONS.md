@@ -6,7 +6,7 @@ Baseline: `TagLibAudioMetadata` 0.5.3, revision `03473c9ae199026b806a5f75c387ca0
 
 ## Current AudioMator Workarounds
 
-1. **Total-only number pairs are blocked before writing.** If an operation would leave a positive track/disc total with a zero or blank number, AudioMator rejects the plan and the write. This is a safety guard, not support for total-only pairs.
+1. **Total-only number pairs are blocked before writing.** If an operation would leave a positive track/disc total with a zero or blank number, AudioMator rejects the write at the shared `persistMetadataEdit` boundary as well as in the field-transfer planner. This covers the inspector, provider plans, CSV/text imports, and filename metadata. This is a safety guard, not support for total-only pairs.
 2. **Disc-only text patches avoid resubmitting an untouched track pair.** The adapter respects independent optional track/disc number-text edits.
 3. **A stale expected version is never cleared to force a write.**
 

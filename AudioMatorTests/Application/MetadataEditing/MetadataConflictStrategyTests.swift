@@ -121,6 +121,37 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    func testResolverAllowsSaveWhenVolumeDoesNotReportDeviceOrInode() async throws {
+        let file = try await loadedFixture()
+        let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+        let fingerprint = try XCTUnwrap(file.fileFingerprint)
+        let version = try XCTUnwrap(file.metadataFileVersion)
+        let syntheticFingerprint = AudioFileFingerprint(
+            normalizedPath: fingerprint.normalizedPath,
+            fileSize: fingerprint.fileSize,
+            contentModificationDate: fingerprint.contentModificationDate,
+            fileSystemNumber: nil,
+            fileNumber: nil
+        )
+
+        var draft = SingleFileEditModel(from: file)
+        draft.title = "No inode title"
+        _ = try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(draft, comparedTo: file),
+            original: baseline,
+            originalFingerprint: syntheticFingerprint,
+            originalVersion: version,
+            policy: .mergeNonConflicting,
+            pipeline: FixtureConflictPipeline(),
+            url: file.url
+        )
+
+        XCTAssertEqual(
+            try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: file.url)["TITLE"],
+            ["No inode title"]
+        )
+    }
+
     func testPermissionOnlyChangeAutomaticallySavesInspectorDraft() async throws {
         let file = try await loadedFixture()
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)

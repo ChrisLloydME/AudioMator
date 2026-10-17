@@ -18,7 +18,14 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
-            guard !Task.isCancelled else { break }
+            if Task.isCancelled {
+                summary.failureIssues.append(contentsOf: entries.dropFirst(index).map {
+                    BatchMetadataWriteIssue(fileName: $0.fileName, messages: [
+                        String(localized: "Cancelled before this file was processed. No changes were made.")
+                    ])
+                })
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -47,8 +54,8 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            guard !Task.isCancelled else { break }
-
+            // Once a commit starts, the executor observes its actual outcome
+            // even after cancellation. Account for that outcome before stopping.
             switch result {
             case .success(let success):
                 summary.succeeded += 1
@@ -101,7 +108,14 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
-            guard !Task.isCancelled else { break }
+            if Task.isCancelled {
+                summary.failureIssues.append(contentsOf: entries.dropFirst(index).map {
+                    BatchMetadataWriteIssue(fileName: $0.fileName, messages: [
+                        String(localized: "Cancelled before this file was processed. No changes were made.")
+                    ])
+                })
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -130,8 +144,8 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            guard !Task.isCancelled else { break }
-
+            // Once a commit starts, the executor observes its actual outcome
+            // even after cancellation. Account for that outcome before stopping.
             switch result {
             case .success(let success):
                 summary.succeeded += 1

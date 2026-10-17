@@ -40,12 +40,17 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertNil(AudioTagNumberText.positiveIndex(from: "000"))
     }
 
-    func testMakeKeepsIndividualNumberFieldsStrictlyNumeric() {
+    func testMakeParsesCombinedTextInsteadOfConcatenatingComponents() {
         let pair = AudioTagNumberPair.make(numberText: "1/2", totalText: "3/4")
 
-        XCTAssertEqual(pair.number, 0)
-        XCTAssertEqual(pair.total, 0)
-        XCTAssertEqual(pair.rawText, "1/2/3/4")
+        XCTAssertEqual(pair.number, 1)
+        XCTAssertEqual(pair.total, 2)
+        XCTAssertEqual(pair.rawText, "1/2")
+
+        let totalOnly = AudioTagNumberPair.make(numberText: "", totalText: "12")
+        XCTAssertEqual(totalOnly.number, 0)
+        XCTAssertEqual(totalOnly.total, 12)
+        XCTAssertEqual(totalOnly.rawText, "")
     }
 
     func testReplacingNumberWithBlankClearsThePair() {
@@ -121,6 +126,27 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(edit.disc, 0)
         XCTAssertEqual(edit.discTotal, 0)
         XCTAssertEqual(edit.discNumberText, "")
+    }
+
+    func testSingleFileEditCombinedFieldTextReplacesBothComponents() {
+        var edit = SingleFileEditModel(
+            track: 9,
+            trackTotal: 12,
+            disc: 9,
+            discTotal: 12,
+            trackNumberText: "9/12",
+            discNumberText: "9/12"
+        )
+
+        edit.setTrackNumberFieldText("7/10")
+        edit.setDiscNumberFieldText("2/3")
+
+        XCTAssertEqual(edit.track, 7)
+        XCTAssertEqual(edit.trackTotal, 10)
+        XCTAssertEqual(edit.trackNumberText, "7/10")
+        XCTAssertEqual(edit.disc, 2)
+        XCTAssertEqual(edit.discTotal, 3)
+        XCTAssertEqual(edit.discNumberText, "2/3")
     }
 
     func testSingleFileEditNumberOnlyTextPreservesTotalAndFormatting() {

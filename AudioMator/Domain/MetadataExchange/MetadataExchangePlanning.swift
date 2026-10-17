@@ -452,11 +452,22 @@ enum MetadataExchangePlanner {
             )
         }
 
-        if firstRowIsHeader, let header = parsedCSV.first, header.count != result.columns.count {
-            return MetadataExchangeImportPlan(
-                validationMessage: "The CSV header has \(header.count) column(s), but the template has \(result.columns.count).",
-                rows: []
-            )
+        if firstRowIsHeader, let header = parsedCSV.first {
+            guard header.count == result.columns.count else {
+                return MetadataExchangeImportPlan(
+                    validationMessage: "The CSV header has \(header.count) column(s), but the template has \(result.columns.count).",
+                    rows: []
+                )
+            }
+            for (index, cell) in header.enumerated() {
+                let field = result.columns[index]
+                guard field == .ignore || headerCell(cell, matches: field) else {
+                    return MetadataExchangeImportPlan(
+                        validationMessage: "The CSV header column \(index + 1) (\(cell.value)) does not match the template field \(field.displayName). Reorder the columns or update the template.",
+                        rows: []
+                    )
+                }
+            }
         }
 
         let dataRows = firstRowIsHeader && !parsedCSV.isEmpty ? Array(parsedCSV.dropFirst()) : parsedCSV
@@ -632,6 +643,39 @@ enum MetadataExchangePlanner {
         }
 
         return nil
+    }
+
+    private static func headerCell(
+        _ cell: MetadataExchangeCSVField,
+        matches field: MetadataExchangeField
+    ) -> Bool {
+        let normalizedCell = normalizedHeaderToken(cell.decodedValue)
+        guard !normalizedCell.isEmpty else { return false }
+
+        let aliases = [
+            field.displayName,
+            field.placeholderName,
+            field.propertyMapKey ?? "",
+            String(describing: field),
+            "{{" + field.placeholderName + "}}"
+        ]
+        return aliases.contains { alias in
+            normalizedHeaderToken(alias) == normalizedCell
+        }
+    }
+
+    private static func normalizedHeaderToken(_ value: String) -> String {
+        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("{{"), trimmed.hasSuffix("}}"), trimmed.count >= 4 {
+            trimmed.removeFirst(2)
+            trimmed.removeLast(2)
+        }
+        let folded = trimmed.folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: .current
+        )
+        return String(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+            .lowercased()
     }
 
     private static func captures(

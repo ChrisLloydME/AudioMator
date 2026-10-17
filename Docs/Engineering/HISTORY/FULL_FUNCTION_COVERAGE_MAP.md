@@ -1,6 +1,10 @@
 # AudioMator Test Coverage Map
 
-This map records the current automated coverage baseline for the main app behavior areas. The expected behavior baseline is the current commit plus characterization tests already present in `Tests/AudioMatorCoreLogicTests` and `AudioMatorTests`.
+> Historical record. This map does not describe the current test suite. See
+> [Testing](../../Development/TESTING.md) for current targets, counts, and gaps.
+
+This map records an earlier automated coverage baseline for the main app behavior
+areas.
 
 ## Baseline
 

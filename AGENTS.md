@@ -1,140 +1,183 @@
 # AudioMator Agent Guide
 
-## Project Overview
+## Project
 
-AudioMator is a native audio metadata editor for macOS. It uses the `AudioMator.xcodeproj` Xcode project and the `AudioMator` scheme.
+AudioMator is a native, sandboxed macOS audio metadata editor. It uses
+`AudioMator.xcodeproj` and the `AudioMator` scheme. Container metadata I/O is
+delegated to the external `TagLibAudioMetadata` Swift package through
+`AudioMetadataPipeline`.
 
-The app is built around a TagLib-powered metadata pipeline from the `TagLibAudioMetadata` Swift package. It supports inspecting and editing audio tags, artwork, filename/metadata conversion, track renumbering, online metadata assistance, and watched folders.
+Use the documentation set under `Docs/` as the detailed reference:
 
-Use native Apple platform technologies. The project has no preferred native UI framework; choose the implementation that delivers the best performance, platform behavior, and code simplicity for the feature.
+- [Documentation index](Docs/README.md)
+- [Architecture](Docs/Architecture/OVERVIEW.md)
+- [Metadata pipeline](Docs/Architecture/METADATA_PIPELINE.md)
+- [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md)
+- [Build](Docs/Development/BUILD.md)
+- [Testing](Docs/Development/TESTING.md)
+- [Security and data integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md)
+
+## Source of Truth
+
+Existing documentation, comments, tests, and commit messages may be stale. Verify
+behavior against the current implementation, build settings, public interfaces,
+and reproducible commands. Do not change functional code merely to satisfy old
+documentation. When documentation contradicts behavior, investigate and document
+the real behavior.
 
 ## Repository Layout
 
-- `AudioMator/App/`: app entry point, commands, notifications, and platform delegates.
-- `AudioMator/Core/`: shared platform, network disclosure, and audio-format support.
-- `AudioMator/Domain/`: metadata models, audio-file models, metadata editing, metadata exchange, rename templates, file sources, track renumbering, and UI state.
-- `AudioMator/Features/`: native UI feature areas for the main window, shared online metadata entry point, provider-specific metadata/lyrics browsers, metadata editor, filename tools, metadata inspector, settings, and welcome flow.
-- `AudioMator/Infrastructure/`: file-system, MusicBrainz, iTunes, LRCLIB, shared online metadata, GitHub release-note, and update-check services.
-- `Config/`: project configuration files that should not be compiled or copied from the synchronized app source root.
-- `Docs/`: maintainer docs, README images, wiki pages, privacy acknowledgements, and third-party notices.
-- `Tests/`: SwiftPM fast core-logic tests and coverage notes.
-- `AudioMatorTests/`: app-hosted Xcode tests and fixtures.
-- `scripts/`: build and smoke-test helpers.
-
-The app source is attached to the target through Xcode's file-system synchronized `AudioMator/` root. Keep feature and infrastructure boundaries clear on disk; Xcode will mirror those folders automatically. Keep target configuration inputs such as `Config/Info.plist` outside that synchronized source root so Xcode processes them as build settings inputs instead of bundle resources.
-
-## Platform Model
-
-AudioMator is macOS-only. Its product workflow includes watched folders, a three-pane main window, file paths, Finder-style reveal/open actions, and secondary tool windows. Do not reintroduce iPadOS/iOS deployment code or compatibility abstractions without an explicit product decision.
+- `AudioMator/App/` — entry point, commands, notifications, delegates.
+- `AudioMator/Core/` — shared Foundation/system support, format support, paths,
+  localization, network disclosure, platform adapters.
+- `AudioMator/Domain/` — models, metadata contract, conflict policy, mutation
+  coordinator, exchange/rename/renumber rules.
+- `AudioMator/Features/` — native UI, feature view models, provider stores.
+- `AudioMator/Infrastructure/` — TagLib adapter, file-system/bookmark services,
+  provider clients, update services.
+- `AudioMatorTests/` — app-hosted XCTest bundle and fixtures.
+- `Tests/AudioMatorCoreLogicTests/` — SwiftPM Foundation-only fast tests.
+- `Config/` — `Info.plist` and entitlements; keep outside the synchronized
+  `AudioMator/` source root.
+- `Docs/` — engineering documentation.
+- `scripts/` — build, validation, bridge smoke helpers.
 
 ## Architecture Rules
 
-- Keep domain logic in `AudioMator/Domain/` and service integrations in `AudioMator/Infrastructure/`.
-- Keep native UI code and feature-specific view models under the closest `AudioMator/Features/*` folder.
-- Keep the shared online metadata window shell and source selection under `AudioMator/Features/OnlineMetadataBrowser/`; provider-specific browser flows stay under `Features/MusicBrainzBrowser/`, `Features/iTunesBrowser/`, and `Features/LRCLIBLyricsBrowser/`.
-- Keep iTunes Store API clients and iTunes artwork lookup services together under `AudioMator/Infrastructure/iTunes/`.
-- Avoid adding new top-level folders unless there is a clear architectural boundary.
-- Prefer small feature-owned helpers over broad shared abstractions until more than one feature actually needs the behavior.
-- Preserve the existing metadata write pipeline instead of writing container-specific metadata directly from UI code.
-- Network-backed features must stay explicit and user initiated: MusicBrainz lookup, iTunes artwork lookup, and GitHub release notes.
+- Keep domain logic in `Domain`, integrations in `Infrastructure`, and native UI
+  and feature view models under the closest `Features/*`.
+- `AudioMator/` is an Xcode file-system synchronized root. New source files under
+  it are included automatically; configuration inputs stay in `Config/`.
+- Do not write container metadata or move files directly from UI code. Preserve
+  the existing metadata pipeline.
+- All disk mutations must use `FileMutationCoordinator`.
+- Respect the documented Domain exception: it reuses `MetadataFieldKey`,
+  `MetadataFileVersion`, and `RawMetadataPatch` from the package. It must not call
+  `TagLibMetadataManager` or own file transactions.
+- Keep `AudioViewModel` as the single selection owner.
+- Avoid new singletons and broad shared abstractions for a single feature.
+- The app is macOS-only. Do not reintroduce iOS/iPadOS deployment code.
 
 ## Metadata Rules
 
-- Treat track and disc values as structured first-class fields:
-  - `Track Number`
-  - `Total Tracks`
-  - `Disc Number`
-  - `Total Discs`
-- Preserve both numeric values and user-facing text intent when the surrounding pipeline supports it.
-- Account for container normalization after writes; a changed text representation is not always a write failure if numeric values round-trip correctly.
-- Erase-all metadata remains best effort because supported tag surfaces differ by container.
+- Track Number, Total Tracks, Disc Number, and Total Discs are first-class
+  structured fields. Preserve numeric values and text intent where supported.
+- A changed text representation after a write is not necessarily a failure if the
+  numeric values round-trip. Report container normalization instead.
+- Semantic writes must preflight the exact requested fields against format
+  capability. The raw editor is the low-level exception.
+- Conflict policies must never clear the expected version, retry a failed commit,
+  or substitute a file that merely looks similar.
+- Erase-all remains best effort. Do not claim it removes every container-native
+  structure.
 
-## Swift And Native UI Style
+## Swift and UI Style
 
-- Indentation: 4 spaces.
-- Prefer `guard` and early returns to reduce nesting.
-- Use value types unless identity, observation, or platform lifecycle requires a class.
+- 4-space indentation; prefer `guard` and early returns.
+- Value types unless identity, observation, or lifecycle requires a class.
 - Use Swift concurrency where it fits the surrounding code.
-- Do not default to the UI framework already used nearby when another native approach would clearly improve performance or substantially simplify the implementation. Replacing an existing UI implementation is acceptable when it is the most direct, maintainable solution and remains within the requested scope.
-- Keep UI state ownership in feature view models or domain state, not hidden inside views.
-- Avoid introducing singletons for feature work.
+- The app target uses Swift 5 language mode with complete strict concurrency and
+  MainActor default isolation. Do not suppress isolation warnings.
+- Keep state ownership in view models or domain state, not hidden in views.
 - Use `String(localized:)` for user-facing strings.
-- Do not add diagnostic `print`, `debugPrint`, or `NSLog` calls in app code.
+- Do not add `print`, `debugPrint`, or `NSLog` in app code.
+- SwiftUI is common, but no framework is mandated. Choose the native approach that
+  best fits performance and maintainability.
 
-## Build And Verification
+## Build and Test
 
-Agents are responsible for verifying that their own changes are technically sound through code inspection, compilation, and the smallest relevant automated tests. UI acceptance remains the maintainer's responsibility.
-
-- Do not launch `AudioMator.app` manually or through shell commands, GUI automation, AppleScript, accessibility tooling, or similar mechanisms to inspect the running UI.
-- Do not take screenshots of AudioMator or use command-driven screenshots, image comparison, or visual inspection as proof that UI work is complete.
-- Do not open the built app for interactive smoke testing. A successful build and relevant non-interactive tests are the expected Agent verification boundary unless the user explicitly requests a different validation procedure.
-- App-hosted automated tests may launch the test host as part of `xcodebuild`; this is test execution, not permission to interact with, automate, or screenshot the app. Run these tests only when the change requires their coverage.
-
-Xcode Configuration:
-
-Development uses the stable Xcode 27 toolchain and SDKs installed at
-`/Applications/Xcode.app`. Do not add beta-Xcode selection logic or assume a
-separate prerelease toolchain is installed.
-
-Useful commands:
+Use the stable Xcode 27 toolchain at `/Applications/Xcode.app`. Do not add beta
+toolchain logic.
 
 ```bash
 swift test --filter AudioMatorCoreLogicTests
 bash scripts/codex-build.sh
 bash scripts/codex-build.sh --force
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'platform=macOS' -derivedDataPath .deriveddata-codex -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 test
-xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
 ```
 
-Use `swift test --filter AudioMatorCoreLogicTests` for the fastest local regression sensors around pure domain logic. This SwiftPM target intentionally includes only selected non-UI source files and should stay free of platform UI frameworks, TagLib, and network-dependent tests. See `Tests/FAST_TEST_GAPS.md` before broad refactors so known app-hosted coverage gaps are not mistaken for covered behavior.
-
-Prefer `bash scripts/codex-build.sh` for Codex validation. The script uses a two-stage strategy:
-
-- It skips `xcodebuild` entirely when the current working tree has no build-relevant changes.
-- When build-relevant files did change, it reuses the repository-local `.deriveddata-codex` directory so `xcodebuild build` can behave incrementally like Xcode instead of forcing a clean build.
-
-Use `bash scripts/codex-build.sh --force` when you want to run a full validation build regardless of the changed-file filter. All Agent-triggered Xcode builds should write derived data to the repository-local `.deriveddata-codex` directory. Do not create alternate local build roots such as `.DerivedData`, `.deriveddata-codex-ios`, `.deriveddata-ios-codex`, or `.deriveddata-macos-codex`; reuse `.deriveddata-codex` and let the existing `.gitignore` keep it out of source control.
-
-The macOS `AudioMatorTests` target is app-hosted, so every parallel Xcode test runner launches another `AudioMator.app` instance in the Dock. Keep the scheme test target non-parallel and run all Agent-triggered app-hosted Xcode tests with `-parallel-testing-enabled NO -maximum-parallel-testing-workers 1`. Do not override this with parallel-testing flags. This serializes runner processes without skipping tests or reducing coverage; prefer the SwiftPM core-logic tests for fast feedback and reserve the full app-hosted suite for changes that require it.
-
-For bridge/package debugging:
+App-hosted tests must be serial:
 
 ```bash
-bash scripts/build-taglib-bridge-smoke.sh
-./.tmp/taglib_bridge_smoke read path/to/file.m4a
-./.tmp/taglib_bridge_smoke raw path/to/file.m4a
-./.tmp/taglib_bridge_smoke write-track path/to/file.m4a 07/12 2/3
-./.tmp/taglib_bridge_smoke write-roundtrip path/to/file.m4a
+xcodebuild \
+  -project AudioMator.xcodeproj \
+  -scheme AudioMator \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  -derivedDataPath .deriveddata-codex \
+  -parallel-testing-enabled NO \
+  -maximum-parallel-testing-workers 1 \
+  test
 ```
 
-If `xcodebuild` fails in sandboxed environments because it cannot write SwiftPM, Clang, simulator, or Xcode cache files under the user Library, treat that as an environment issue and rerun with appropriate permissions before diagnosing project code.
+- Use `.deriveddata-codex` for all Xcode builds. Do not create alternate derived
+  data roots.
+- Use `swift test` for fast feedback; the SwiftPM target compiles a selected
+  Foundation-only subset and is not the app module.
+- Run the app-hosted suite only when the change requires it. It launches the test
+  host; do not treat that as permission to interact with the UI.
+- Read [Testing](Docs/Development/TESTING.md) before claiming coverage. Known gaps
+  include no AIFF/Opus fixtures, artwork writes only for MP3/M4A/FLAC, no live
+  network tests, and no UI automation.
+
+## Verification Boundary
+
+- Verify your own changes through code inspection, compilation, and the smallest
+  relevant automated tests.
+- Do not launch `AudioMator.app` manually or through shell, GUI automation,
+  AppleScript, accessibility tooling, or screenshots. Do not open the built app for
+  interactive smoke testing.
+- UI acceptance remains the maintainer's responsibility unless the user explicitly
+  requests a different procedure.
+- If `xcodebuild` or `swift test` fails because the environment cannot write
+  caches under the user Library, treat it as an environment issue and rerun with
+  appropriate access before diagnosing project code.
+- Report exactly what you ran and what passed. Do not claim tests you did not run.
+
+## TagLibAudioMetadata Boundary
+
+- Treat `TagLibAudioMetadata` as an independently maintained external dependency,
+  even if a local checkout exists elsewhere on the machine.
+- Do not enter, edit, patch, build from, or commit in any local
+  `TagLibAudioMetadata` checkout, SwiftPM cache, or resolved package source unless
+  the user explicitly grants access for the current task.
+- Do not work around the boundary by modifying checkouts, caches, symlinks, or
+  copies outside this repository.
+- If a package defect is suspected, stop and report:
+  - the affected API or source area,
+  - observed versus expected behavior,
+  - a minimal AudioMator reproduction,
+  - the test or fix the package owner should add.
+- Keep any AudioMator-side mitigation narrow and labeled as a workaround.
+- Do not run `scripts/build-taglib-bridge-smoke.sh` as an Agent: it compiles from
+  the package checkout. Maintainers may run it manually.
 
 ## Dependency Notes
 
-- Swift Package Manager resolves `TagLibAudioMetadata` from `https://github.com/ChrisLloydME/TagLibAudioMetadata.git`.
-- The app target deployment setting is macOS 15.0.
-- Do not vendor package source into this repository unless explicitly requested.
+- `TagLibAudioMetadata` is pinned to exact version `0.5.3` (revision
+  `03473c9ae199026b806a5f75c387ca036e325284`).
+- App deployment target: macOS 15.0.
+- Do not vendor package or TagLib source.
+- Do not add network features that are not user initiated. Update
+  `NetworkServiceDisclosure` and the privacy/third-party docs when network behavior
+  changes.
 
-### TagLibAudioMetadata Ownership Boundary
+## Repository and Change Hygiene
 
-- Treat `TagLibAudioMetadata` as an independently maintained external dependency, including when a local checkout happens to exist elsewhere on the same computer.
-- Do not enter, edit, patch, format, build from, commit in, or otherwise mutate any local `TagLibAudioMetadata` repository or package checkout while working as an AudioMator Agent unless the user explicitly grants access to that repository for the current task.
-- Do not work around this boundary by modifying SwiftPM checkouts, caches, resolved package sources, symlinks, or other copies outside this repository.
-- If investigation indicates a defect in `TagLibAudioMetadata`, stop the dependency-side work and report it to the user. Identify the affected API or source area, the observed and expected behavior, the evidence or minimal reproduction from AudioMator, and the change or tests that the Agent working in the `TagLibAudioMetadata` repository should implement.
-- Keep any AudioMator-side mitigation narrowly scoped and clearly label it as a workaround; do not silently compensate for an unreported package defect.
+- The writable scope is this repository. Do not modify files, repositories, tools,
+  or user data outside it without explicit authorization.
+- Keep changes narrowly scoped. Do not revert user changes in a dirty worktree.
+- Do not commit build output, derived data, `.tmp`, test results, app bundles,
+  archives, or personal IDE state.
+- If a generated file is tracked, remove it with `git rm --cached` and keep the
+  local copy ignored.
+- Update the matching documentation for any behavior, build, test, privacy,
+  dependency, or release change. See
+  [Documentation Maintenance](Docs/Development/DOCUMENTATION.md).
+- Prefer meaningful incremental commits with imperative messages.
 
-## Repository Hygiene
+## Documentation Updates
 
-- The writable scope for AudioMator Agents is this repository only. Do not modify files, repositories, package sources, tools, configuration, or user data outside the AudioMator project unless the user explicitly authorizes the specific external location and work.
-- Do not commit generated Xcode build output, local package build products, scratch audio fixtures, or personal IDE state.
-- Keep `DerivedData/`, `.DerivedData/`, `.deriveddata*/`, `.build/`, `.tmp/`, `*.xcresult`, `*.xcuserstate`, `xcuserdata/`, archives, debug symbols, and app bundles out of source control.
-- If a generated file was already tracked, remove it with `git rm --cached` and keep the local copy ignored.
-- Do not rewrite published Git history casually. If large generated artifacts have already reached GitHub, document the need for a coordinated history rewrite and force push rather than treating it as a normal cleanup commit.
-
-## Change Hygiene
-
-- Keep changes narrowly scoped to the requested feature or fix.
-- Do not rewrite unrelated UI or metadata pipeline code while touching nearby files.
-- Do not revert user changes in a dirty worktree.
-- When adding files, make sure they are included in the Xcode project target.
-- Update `README.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, or `Docs/THIRD_PARTY_NOTICES.md` when behavior, privacy disclosures, or third-party usage changes.
+A behavior change is incomplete without documentation. Use the
+[update matrix](Docs/Development/DOCUMENTATION.md#update-matrix). Do not add
+current guidance under `Docs/Engineering/HISTORY`; those files are dated records
+and are not authoritative for current behavior.

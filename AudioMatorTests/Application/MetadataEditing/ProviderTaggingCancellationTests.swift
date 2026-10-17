@@ -102,3 +102,79 @@ private final class PausedProviderReloadPipeline: AudioMetadataPipeline, @unchec
         try base.writeTrackNumberText(trackNumberText, discNumberText: discNumberText, to: url, verifyAfterWrite: verifyAfterWrite, expectedVersion: expectedVersion)
     }
 }
+
+@MainActor
+final class ProviderSemanticWriteTests: XCTestCase {
+    func testTotalOnlyProviderAndCSVWritesAreRejectedWithoutChangingFile() async throws {
+        let file = try await fixture()
+        let originalBytes = try Data(contentsOf: file.url)
+        for disc in [false, true] {
+            for writer in ["itunes", "musicbrainz", "csv"] {
+                let pipeline = PausedProviderReloadPipeline()
+                pipeline.releaseReload()
+                let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+                viewModel.mergeQuickImportFiles([file])
+                switch writer {
+                case "itunes":
+                    await viewModel.applyiTunesTaggingPlan([
+                        iTunesTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent,
+                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"], expectedFileFingerprint: file.fileFingerprint)
+                    ])
+                case "musicbrainz":
+                    await viewModel.applyMusicBrainzTaggingPlan([
+                        MusicBrainzTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent,
+                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"], expectedFileFingerprint: file.fileFingerprint)
+                    ])
+                default:
+                    let plan = MetadataExchangePlanner.makeCSVImportPlan(
+                        template: disc ? "{{discTotal}}" : "{{trackTotal}}",
+                        sourceText: disc ? "3" : "12", firstRowIsHeader: false,
+                        targetFiles: [file], clearBlankImportedValues: false)
+                    XCTAssertEqual(plan.writeEntries.count, 1)
+                    _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+                }
+                XCTAssertEqual(pipeline.writeCount, 0, "\(writer), disc=\(disc)")
+                XCTAssertEqual(try Data(contentsOf: file.url), originalBytes)
+                XCTAssertEqual(viewModel.saveIssueLogStore.entries.first?.issues.count, 1)
+                XCTAssertTrue(viewModel.saveIssueLogStore.entries.first?.issues.first?.messages.joined()
+                    .contains(disc ? "total disc count" : "total track count") == true)
+            }
+        }
+    }
+
+    func testUneditedTotalOnlyRawFieldDoesNotBlockUnrelatedInspectorWrite() async throws {
+        let file = try await fixture(extra: ["TRACKTOTAL": ["12"]])
+        XCTAssertEqual(file.track, 0)
+        XCTAssertEqual(file.trackTotal, 12)
+        let pipeline = PausedProviderReloadPipeline()
+        pipeline.releaseReload()
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+        let base = TagLibAudioMetadataPipeline()
+        var expectedMap = try base.rawMetadataValueMap(for: file.url)
+        expectedMap["TITLE"] = ["Changed title"]
+        var edit = SingleFileEditModel(from: file)
+        edit.title = "Changed title"
+        let result = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file)
+        guard case .success = result else { return XCTFail("An unchanged total-only pair must not reject a title edit: \(result)") }
+        XCTAssertEqual(pipeline.writeCount, 1)
+        XCTAssertEqual(try base.rawMetadataValueMap(for: file.url), expectedMap)
+    }
+
+    private func fixture(extra: RawMetadataValueMap = [:]) async throws -> AudioFile {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ProviderSemantic-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let bundle = Bundle(for: Self.self)
+        let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile.flac", withExtension: nil, subdirectory: "Fixtures/Audio")
+            ?? bundle.url(forResource: "testAudioFile.flac", withExtension: nil))
+        let url = directory.appendingPathComponent("semantic.flac")
+        try FileManager.default.copyItem(at: source, to: url)
+        let base = TagLibAudioMetadataPipeline()
+        _ = try base.eraseAllMetadata(at: url)
+        _ = try base.writeRawMetadataPatch(RawMetadataPatch(valuesToSet: [
+            "TITLE": ["Original"], "ARTIST": ["Keep A", "Keep B"], "CUSTOM-KEEP": ["untouched"]
+        ].merging(extra) { _, value in value }), to: url, expectedVersion: nil)
+        return try await base.loadAudioFile(at: url, id: UUID())
+    }
+}

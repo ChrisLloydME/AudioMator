@@ -34,6 +34,22 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertEqual(pipeline.writeCount, 0)
     }
 
+    func testRefreshRequiredRecoveryCannotBeUndoneByQueuedOrOlderReload() throws {
+        let original = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/recovery.mp3"))
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameRefreshFailurePipeline(recoveredVersion: nil))
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.flushPendingMetadataReloads()
+        let generation = viewModel.makeFileModelRefreshGeneration()
+        XCTAssertTrue(viewModel.replaceLoadedFile(original, refreshGeneration: generation, deferVisibleRefresh: true))
+
+        viewModel.markFileRequiresRefresh(id: original.id)
+        viewModel.flushPendingMetadataReloads()
+
+        XCTAssertTrue(try XCTUnwrap(viewModel.loadedFile(withID: original.id)).requiresMetadataRefreshBeforeWriting)
+        XCTAssertFalse(viewModel.replaceLoadedFile(original, refreshGeneration: generation))
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+    }
+
     func testFailedFullRefreshRetainsWriteSafetyWhenLightweightRevisionRecovers() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorRenameRefresh-\(UUID().uuidString)", isDirectory: true)

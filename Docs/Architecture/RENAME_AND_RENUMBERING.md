@@ -141,3 +141,7 @@ Interactive preview UI is not covered by automated UI tests.
 - [Metadata Exchange](METADATA_EXCHANGE.md)
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
+
+## Recovery publication ordering
+
+Incomplete rollback reconciles each recovery item by file ID. A single verified location is rebound and refreshed; an unknown or ambiguous location disables writes. Marking a file refresh-required also discards queued reloads, advances its publication generation, and invalidates in-flight watched-folder scans so older observations cannot undo that safety state.

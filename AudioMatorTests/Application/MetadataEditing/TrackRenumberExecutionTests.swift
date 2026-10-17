@@ -23,7 +23,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
             trackNumberText: "7"
         )
         let pipeline = RenumberRecordingMetadataPipeline(diskReadback: diskReadback)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let result = await viewModel.renumberTrackNumbers(
@@ -58,7 +58,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
             fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
         )
         let pipeline = RenumberRecordingMetadataPipeline(diskReadback: file)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([file])
 
         try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
@@ -85,7 +85,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
             includeDefaultFileFingerprint: false
         )
         let pipeline = RenumberRecordingMetadataPipeline(diskReadback: file)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([file])
 
         let result = await viewModel.renumberTrackNumbers(

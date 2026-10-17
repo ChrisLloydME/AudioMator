@@ -9,7 +9,7 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 457 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 459 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 62 `XCTestCase` classes; no custom base class.
@@ -178,7 +178,7 @@ Executed on 2026-10-17 with Xcode 27.1 after the audit-repair branch:
 
 - `swift test --disable-sandbox`: 62 tests passed.
 - `swift test --disable-sandbox --filter AudioMatorCoreLogicTests`: 62 tests passed.
-- Full serial app-hosted suite: 457 tests passed, 0 failures (about 50 seconds of test execution).
+- Full serial app-hosted suite: 459 tests passed, 0 failures (about 55 seconds of test execution).
 - Focused `TagLibReadWriteIntegrationTests`: 33 tests passed.
 - `bash scripts/codex-build.sh --force`: build succeeded.
 - Unsigned Release build: succeeded; universal `x86_64 arm64` executable.

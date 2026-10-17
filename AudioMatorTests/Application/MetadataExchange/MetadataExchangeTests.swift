@@ -206,6 +206,8 @@ final class MetadataExchangeTests: XCTestCase {
             "\t=1+1",
             "\u{00A0}=2+2",
             "'=literal",
+            "''=A1",
+            "'''=A1",
             "plain"
         ]
 

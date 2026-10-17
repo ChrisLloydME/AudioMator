@@ -304,7 +304,12 @@ enum MetadataExchangeCSV {
     nonisolated static func spreadsheetProtectedValue(_ value: String) -> String {
         guard !value.isEmpty else { return value }
 
-        if value.first == "'", startsSpreadsheetFormula(String(value.dropFirst())) {
+        if value.first == "'" {
+            // Protect any run of leading apostrophes followed by a formula
+            // character. Doubling the whole value keeps encode/decode
+            // symmetric for values such as "''=A1".
+            let withoutLeadingApostrophes = String(value.drop(while: { $0 == "'" }))
+            guard startsSpreadsheetFormula(withoutLeadingApostrophes) else { return value }
             return "'" + value
         }
 
@@ -316,11 +321,14 @@ enum MetadataExchangeCSV {
         guard value.first == "'" else { return value }
 
         let remainder = String(value.dropFirst())
-        if remainder.first == "'", startsSpreadsheetFormula(String(remainder.dropFirst())) {
-            return remainder
-        }
         if startsSpreadsheetFormula(remainder) {
             return remainder
+        }
+        if remainder.first == "'" {
+            let withoutLeadingApostrophes = String(remainder.drop(while: { $0 == "'" }))
+            if startsSpreadsheetFormula(withoutLeadingApostrophes) {
+                return remainder
+            }
         }
         return value
     }

@@ -52,8 +52,7 @@ Review that repository's license and its transitive TagLib obligations before re
 
 ### Licensing
 
-No source code from this project is copied into AudioMator. Review the upstream
-license before redistributing any derived material.
+No source code from this project is copied into AudioMator. Review the upstream license before redistributing any derived material.
 
 ## Apple iTunes Search API
 
@@ -81,8 +80,7 @@ LRCLIB is a public lyrics service, not third-party source code bundled into Audi
 - **Usage in this repository**: optional compatibility feature that writes MuseAmp album/track IDs into the Comment field. AudioMator is an independent project and is not affiliated with, endorsed by, or sponsored by MuseAmp or its developers.
 - **Status**: implement the feature only when the user enables MuseAmp Compatibility.
 
-The repository does not include MuseAmp source code. Review the upstream project's
-license before redistributing anything derived from it.
+The repository does not include MuseAmp source code. Review the upstream project's license before redistributing anything derived from it.
 
 ## GitHub Releases
 

@@ -1,8 +1,6 @@
 # Historical Engineering Records
 
-Everything in this folder is a dated record. **None of it is current guidance.**
-Claims, counts, file paths, commit IDs, CI behavior, and test results may be stale
-or describe code that no longer exists.
+Everything in this folder is a dated record. **None of it is current guidance.** Claims, counts, file paths, commit IDs, CI behavior, and test results may be stale or describe code that no longer exists.
 
 Use the current documentation instead:
 
@@ -29,17 +27,10 @@ Use the current documentation instead:
 
 ## Notes on Validity
 
-- Links inside these records may point to locations that were removed or renamed
-  during documentation reorganization. Broken internal links in a historical record
-  do not indicate current documentation.
-- Some records reference commits or tags that exist as Git objects but share no
-  ancestor with the current `main`. Chronological comparison is not possible; only
-  the snapshot content can be inspected.
+- Links inside these records may point to locations that were removed or renamed during documentation reorganization. Broken internal links in a historical record do not indicate current documentation.
+- Some records reference commits or tags that exist as Git objects but share no ancestor with the current `main`. Chronological comparison is not possible; only the snapshot content can be inspected.
 - Test counts and file sizes in these records are stale. Re-count before quoting.
-- CI descriptions in older records may name `macos-15`, alternate derived-data
-  paths, or a core-only workflow. The current workflow is documented in
-  [Testing](../../Development/TESTING.md#ci).
-- Do not copy a historical claim into current documentation without re-verifying
-  it against source and reproducible commands.
+- CI descriptions in older records may name `macos-15`, alternate derived-data paths, or a core-only workflow. The current workflow is documented in [Testing](../../Development/TESTING.md#ci).
+- Do not copy a historical claim into current documentation without re-verifying it against source and reproducible commands.
 
 Do not add new current-state documentation to this folder.

@@ -15,31 +15,19 @@
   <img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge">
 </p>
 
-AudioMator is a local-first audio metadata editor for macOS. It inspects, edits,
-organizes, and enriches music files through a TagLib-powered pipeline while
-keeping the audio content on your Mac.
+AudioMator is a local-first audio metadata editor for macOS. It inspects, edits, organizes, and enriches music files through a TagLib-powered pipeline while keeping the audio content on your Mac.
 
 ## Features
 
-- **Inspector editing** for common fields, for one file or a multi-file
-  selection.
-- **Metadata Editor** for the raw TagLib PropertyMap projection, preserving
-  ordered value lists, duplicates, whitespace, and literal semicolons.
-- **Tag Inspector** for read-only raw tags, ID3v2 frames, legacy sections, and
-  compatibility notes.
-- **Filename & Metadata** conversion across seven modes: metadata→filename,
-  filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata,
-  and field copy/cut.
-- **Track renumbering** by list or selection order, with direction, start number,
-  and zero-padding.
-- **Artwork replacement** from local images or clipboard data, plus optional
-  iTunes artwork lookup.
-- **Online metadata** from MusicBrainz, the Apple iTunes Search API, and LRCLIB
-  synced lyrics, always user initiated.
-- **Watched folders** with security-scoped bookmarks, debounced rescans, and
-  bounded directory monitoring.
-- **Conflict strategies** for Inspector and Metadata Editor drafts when files
-  change on disk.
+- **Inspector editing** for common fields, for one file or a multi-file selection.
+- **Metadata Editor** for the raw TagLib PropertyMap projection, preserving ordered value lists, duplicates, whitespace, and literal semicolons.
+- **Tag Inspector** for read-only raw tags, ID3v2 frames, legacy sections, and compatibility notes.
+- **Filename & Metadata** conversion across seven modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut.
+- **Track renumbering** by list or selection order, with direction, start number, and zero-padding.
+- **Artwork replacement** from local images or clipboard data, plus optional iTunes artwork lookup.
+- **Online metadata** from MusicBrainz, the Apple iTunes Search API, and LRCLIB synced lyrics, always user initiated.
+- **Watched folders** with security-scoped bookmarks, debounced rescans, and bounded directory monitoring.
+- **Conflict strategies** for Inspector and Metadata Editor drafts when files change on disk.
 - **Local save issue log** for non-success batch outcomes.
 - **MuseAmp compatibility IDs** as an optional integration.
 
@@ -54,11 +42,9 @@ More images are available under [`Docs/Images`](Docs/Images).
 ## Requirements
 
 - macOS 15.0 or later.
-- For development: stable Xcode 27 and network access the first time
-  `TagLibAudioMetadata` is resolved.
+- For development: stable Xcode 27 and network access the first time `TagLibAudioMetadata` is resolved.
 
-The app is sandboxed, uses Hardened Runtime, and requires user-selected file
-access for editing.
+The app is sandboxed, uses Hardened Runtime, and requires user-selected file access for editing.
 
 ## Build From Source
 
@@ -89,31 +75,19 @@ xcodebuild \
   test
 ```
 
-See [Build](Docs/Development/BUILD.md) and [Testing](Docs/Development/TESTING.md)
-for details, known gaps, and troubleshooting.
+See [Build](Docs/Development/BUILD.md) and [Testing](Docs/Development/TESTING.md) for details, known gaps, and troubleshooting.
 
 ## Installation and Distribution
 
-Release artifacts are published at
-[GitHub Releases](https://github.com/ChrisLloydME/AudioMator/releases). The
-repository does not contain signing, notarization, packaging, or release-upload
-automation; verify a distributed build's signing status independently.
+Release artifacts are published at [GitHub Releases](https://github.com/ChrisLloydME/AudioMator/releases). The repository does not contain signing, notarization, packaging, or release-upload automation; verify a distributed build's signing status independently.
 
-The app's manual **Check for Updates…** flow reads the latest GitHub release and
-opens the releases page for download. It does not install updates.
+The app's manual **Check for Updates…** flow reads the latest GitHub release and opens the releases page for download. It does not install updates.
 
 ## Supported Formats
 
-Readable, writable, and artwork-writable extensions are discovered from
-`TagLibAudioMetadata` at runtime, and writable fields are preflighted per format.
-A readable format is not automatically writable, and container behavior differs
-by format.
+Readable, writable, and artwork-writable extensions are discovered from `TagLibAudioMetadata` at runtime, and writable fields are preflighted per format. A readable format is not automatically writable, and container behavior differs by format.
 
-The current expected format set, field-capability model, and limitations are
-documented in [Product Overview → Supported
-Formats](Docs/Product/OVERVIEW.md#supported-formats), [Metadata
-Pipeline](Docs/Architecture/METADATA_PIPELINE.md), and [Dependency
-Limitations](Docs/Reference/DEPENDENCY_LIMITATIONS.md).
+The current expected format set, field-capability model, and limitations are documented in [Product Overview → Supported Formats](Docs/Product/OVERVIEW.md#supported-formats), [Metadata Pipeline](Docs/Architecture/METADATA_PIPELINE.md), and [Dependency Limitations](Docs/Reference/DEPENDENCY_LIMITATIONS.md).
 
 ## Track and Disc Numbers
 
@@ -124,18 +98,13 @@ Track and disc data is stored as structured fields:
 - `Disc Number`
 - `Total Discs`
 
-AudioMator submits numeric values and user-facing text intent separately.
-Containers may normalize combined text such as `02/09` while preserving the
-numbers; write verification distinguishes normalization from a real mismatch.
+AudioMator submits numeric values and user-facing text intent separately. Containers may normalize combined text such as `02/09` while preserving the numbers; write verification distinguishes normalization from a real mismatch.
 
-Year and Release Date are separate edit intents. MP4 has one standard date slot,
-so an independent Year edit can be rejected instead of overwriting Release Date.
+Year and Release Date are separate edit intents. MP4 has one standard date slot, so an independent Year edit can be rejected instead of overwriting Release Date.
 
 ## Privacy and Network Use
 
-AudioMator is local-first. Ordinary editing, raw inspection, filename tools,
-renumbering, and local artwork replacement are on-device. The app does not upload
-audio content and has no telemetry.
+AudioMator is local-first. Ordinary editing, raw inspection, filename tools, renumbering, and local artwork replacement are on-device. The app does not upload audio content and has no telemetry.
 
 Network requests happen only when you explicitly start:
 
@@ -144,10 +113,7 @@ Network requests happen only when you explicitly start:
 - LRCLIB lyrics lookup (`lrclib.net`),
 - release notes or update checks (`api.github.com`).
 
-Requests can include metadata-, filename-, or parent-folder-derived search terms.
-Embedded MusicBrainz/Apple pages can load additional web content. See
-[Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) and
-[Online Metadata](Docs/Architecture/ONLINE_METADATA.md) for the exact data sent.
+Requests can include metadata-, filename-, or parent-folder-derived search terms. Embedded MusicBrainz/Apple pages can load additional web content. See [Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) and [Online Metadata](Docs/Architecture/ONLINE_METADATA.md) for the exact data sent.
 
 ## Documentation
 
@@ -182,29 +148,19 @@ Tests/                 SwiftPM fast tests
 scripts/               Build and validation helpers
 ```
 
-`AudioMator/` is attached to the app target through Xcode's file-system
-synchronized root, so app source under that folder compiles into the app.
-`Package.swift` separately compiles a selected Foundation-only subset of those
-files for fast tests; it is not the app module. See
-[Project Structure](Docs/Reference/PROJECT_STRUCTURE.md) and
-[Configuration](Docs/Reference/CONFIGURATION.md).
+`AudioMator/` is attached to the app target through Xcode's file-system synchronized root, so app source under that folder compiles into the app. `Package.swift` separately compiles a selected Foundation-only subset of those files for fast tests; it is not the app module. See [Project Structure](Docs/Reference/PROJECT_STRUCTURE.md) and [Configuration](Docs/Reference/CONFIGURATION.md).
 
 ## Dependencies
 
-- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata)
-  0.5.3 — TagLib-backed container metadata operations, verification, and atomic
-  commit.
+- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 — TagLib-backed container metadata operations, verification, and atomic commit.
 - TagLib — used through that package; not vendored in this repository.
-- Apple frameworks — SwiftUI, AppKit, AVFoundation, CoreMedia,
-  UniformTypeIdentifiers.
+- Apple frameworks — SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers.
 
-See [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) for licensing and service
-obligations.
+See [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) for licensing and service obligations.
 
 ## License
 
-AudioMator is licensed under the GNU Affero General Public License v3.0. See
-[`LICENSE`](LICENSE).
+AudioMator is licensed under the GNU Affero General Public License v3.0. See [`LICENSE`](LICENSE).
 
 ## Contact
 

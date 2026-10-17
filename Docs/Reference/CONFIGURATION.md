@@ -1,8 +1,6 @@
 # Configuration
 
-This document records the configuration that affects builds, runtime behavior,
-persistence, and network access. Values change; verify them in the project before
-a release.
+This document records the configuration that affects builds, runtime behavior, persistence, and network access. Values change; verify them in the project before a release.
 
 ## Xcode Project
 
@@ -11,8 +9,7 @@ a release.
 - App target: `AudioMator`
 - Test target: `AudioMatorTests` (app-hosted)
 
-Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system
-synchronized groups. New files under those roots are included automatically.
+Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system synchronized groups. New files under those roots are included automatically.
 
 ## App Target Settings
 
@@ -41,13 +38,9 @@ synchronized groups. New files under those roots are included automatically.
 | `INFOPLIST_FILE` | `Config/Info.plist` | same |
 | `ASSETCATALOG_COMPILER_APPICON_NAME` | `AppIcon` | `AppIcon` |
 
-Other differences are standard Xcode Debug/Release defaults: Debug uses `dwarf`,
-`-Onone`, `ENABLE_TESTABILITY=YES`, `ONLY_ACTIVE_ARCH=YES`, and the `DEBUG`
-compilation condition; Release uses `dwarf-with-dsym`, whole-module
-optimization, and `ENABLE_NS_ASSERTIONS=NO`.
+Other differences are standard Xcode Debug/Release defaults: Debug uses `dwarf`, `-Onone`, `ENABLE_TESTABILITY=YES`, `ONLY_ACTIVE_ARCH=YES`, and the `DEBUG` compilation condition; Release uses `dwarf-with-dsym`, whole-module optimization, and `ENABLE_NS_ASSERTIONS=NO`.
 
-Debug and Release use different bundle identifiers, so they do not share
-sandbox containers, preferences, or bookmarks.
+Debug and Release use different bundle identifiers, so they do not share sandbox containers, preferences, or bookmarks.
 
 ### Test Target
 
@@ -75,8 +68,7 @@ The scheme marks the testable non-parallel.
 - `LSApplicationCategoryType = public.app-category.utilities`
 - `NSHumanReadableCopyright = Copyright © 2025-2026 Christopher Lloyd`
 
-`LSMinimumSystemVersion` is injected by Xcode from the deployment target. There
-are no usage-description keys and no App Transport Security exceptions.
+`LSMinimumSystemVersion` is injected by Xcode from the deployment target. There are no usage-description keys and no App Transport Security exceptions.
 
 ## Entitlements
 
@@ -94,9 +86,7 @@ Not present:
 - `com.apple.security.files.bookmarks.app-scope`,
 - Keychain or other capability entitlements.
 
-The missing `bookmarks.app-scope` entitlement is a documented risk for
-cross-launch security-scoped bookmark restoration; see
-[Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md).
+The missing `bookmarks.app-scope` entitlement is a documented risk for cross-launch security-scoped bookmark restoration; see [Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md).
 
 ## Swift Package
 
@@ -130,8 +120,7 @@ version = 0.5.3
 
 `AudioMator.xcscheme`:
 
-- Build action includes the app for running, testing, profiling, archiving, and
-  analyzing.
+- Build action includes the app for running, testing, profiling, archiving, and analyzing.
 - Test action uses Debug and includes `AudioMatorTests`, non-parallel.
 - Launch action uses Debug.
 - Profile action uses Release.
@@ -140,8 +129,7 @@ version = 0.5.3
 
 ## Workspace
 
-`project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings` is an empty
-dictionary. There are no custom workspace-level build locations.
+`project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings` is an empty dictionary. There are no custom workspace-level build locations.
 
 ## CI Environment
 
@@ -193,16 +181,14 @@ Audio files themselves are not copied into app storage.
 
 ## Network Configuration
 
-- All app requests use `URLSession.shared`; there is no custom session
-  configuration, proxy, cookie, cache, or certificate pinning.
+- All app requests use `URLSession.shared`; there is no custom session configuration, proxy, cookie, cache, or certificate pinning.
 - MusicBrainz, iTunes, and LRCLIB requests use a 15-second timeout.
 - GitHub requests set no explicit timeout.
 - No API keys, tokens, or Keychain usage.
 - No ATS exceptions.
 - No privacy manifest (`PrivacyInfo.xcprivacy`).
 
-Endpoints and request data are documented in
-[Online Metadata](../Architecture/ONLINE_METADATA.md).
+Endpoints and request data are documented in [Online Metadata](../Architecture/ONLINE_METADATA.md).
 
 ## Related Documents
 

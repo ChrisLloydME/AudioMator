@@ -1,7 +1,6 @@
 # Documentation Audit — 2026-10-17
 
-> Engineering record. This describes the audit and documentation rebuild performed
-> on this date at the stated baseline. It is not current guidance.
+> Engineering record. This describes the audit and documentation rebuild performed on this date at the stated baseline. It is not current guidance.
 
 ## Baseline
 
@@ -9,22 +8,16 @@
 - Parent commit: `e9deb6b`
 - Audited app version: 2.7 (build 2697)
 - Toolchain: Xcode 27.1 (27A9275), Apple Swift 6.4
-- Dependency: `TagLibAudioMetadata` 0.5.3,
-  `03473c9ae199026b806a5f75c387ca036e325284`
+- Dependency: `TagLibAudioMetadata` 0.5.3, `03473c9ae199026b806a5f75c387ca036e325284`
 
 ## Method
 
-1. Read the app entry point, view model, domain contracts, mutation executor,
-   conflict resolver, TagLib adapter, loader, file-system stores, provider
-   clients, settings, and scripts.
-2. Extracted build settings, entitlements, package pins, scheme configuration,
-   CI workflow, and preference keys.
+1. Read the app entry point, view model, domain contracts, mutation executor, conflict resolver, TagLib adapter, loader, file-system stores, provider clients, settings, and scripts.
+2. Extracted build settings, entitlements, package pins, scheme configuration, CI workflow, and preference keys.
 3. Inventoried both test targets, fixtures, network fakes, and performance tests.
 4. Compared every existing document with the implementation.
-5. Rebuilt the documentation set by audience and subject, archived superseded
-   records, and removed duplicated wiki content.
-6. Verified commands and corrected in-app disclosure text that contradicted the
-   code.
+5. Rebuilt the documentation set by audience and subject, archived superseded records, and removed duplicated wiki content.
+6. Verified commands and corrected in-app disclosure text that contradicted the code.
 
 ## Verification Performed
 
@@ -40,8 +33,7 @@
 Not run:
 
 - the CI workflow,
-- the TagLib bridge smoke tool (it builds from the external package checkout,
-  which AudioMator Agents must not build from),
+- the TagLib bridge smoke tool (it builds from the external package checkout, which AudioMator Agents must not build from),
 - any interactive UI or signed/notarized distribution check.
 
 ## Material Discrepancies Found
@@ -67,19 +59,15 @@ Not run:
 | Docs implied security-scoped bookmarks are fully verified | The `bookmarks.app-scope` entitlement is absent; cross-launch restoration is unverified |
 | ADR 0003 described three shared package types | The Domain contract also uses `MetadataSnapshot`, so four semantic types cross the boundary |
 
-The in-app acknowledgements and network disclosure strings were corrected because
-they are user-facing documentation embedded in the app. No functional behavior was
-changed.
+The in-app acknowledgements and network disclosure strings were corrected because they are user-facing documentation embedded in the app. No functional behavior was changed.
 
 ## Resulting Documentation Structure
 
 - Root: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, `LICENSE`.
 - `Docs/README.md` — navigation, audiences, conventions.
 - `Docs/Product` — overview, user guide, FAQ, troubleshooting.
-- `Docs/Architecture` — overview, state/mutation, metadata pipeline, revision
-  and reload, exchange, rename/renumber, online metadata, dependency rules, ADRs.
-- `Docs/Development` — build, testing, debugging, release, documentation
-  maintenance.
+- `Docs/Architecture` — overview, state/mutation, metadata pipeline, revision and reload, exchange, rename/renumber, online metadata, dependency rules, ADRs.
+- `Docs/Development` — build, testing, debugging, release, documentation maintenance.
 - `Docs/Reference` — project structure, configuration, dependency limitations.
 - `Docs/Security` — security and data integrity.
 - `Docs/Engineering` — dated performance records.
@@ -89,13 +77,10 @@ changed.
 ## Remaining Uncertainties
 
 - External package internals were not audited.
-- CI was not executed during the audit (the same test and build commands were run
-  locally).
-- Cross-launch bookmark restoration, WebKit subresource behavior, network-volume
-  behavior, and malformed-file robustness are unverified.
+- CI was not executed during the audit (the same test and build commands were run locally).
+- Cross-launch bookmark restoration, WebKit subresource behavior, network-volume behavior, and malformed-file robustness are unverified.
 - Signed/notarized distribution was not produced.
-- The runtime-discovered format list was not enumerated; the README list is a
-  point-in-time dependency statement.
+- The runtime-discovered format list was not enumerated; the README list is a point-in-time dependency statement.
 - Some historical records reference removed paths; they are retained as evidence.
 
 ## Recommended Follow-Up
@@ -104,6 +89,5 @@ changed.
 2. Add a host allow-list for artwork downloads and embedded web pages.
 3. Add AIFF/Opus fixtures and a positive container-normalization warning test.
 4. Add malformed-file/fuzz coverage and an import size limit.
-5. Add release automation for signing, notarization, packaging, and publishing,
-   with CI artifact verification.
+5. Add release automation for signing, notarization, packaging, and publishing, with CI artifact verification.
 6. Keep `Docs/` synchronized with behavior using the update matrix.

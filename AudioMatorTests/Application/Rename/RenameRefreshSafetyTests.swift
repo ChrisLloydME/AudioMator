@@ -12,7 +12,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
             url: URL(fileURLWithPath: "/tmp/original.mp3")
         )
         let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let warnings = await viewModel.applyMovedFiles([
@@ -49,7 +49,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
             url: directory.appendingPathComponent("original.mp3")
         )
         let pipeline = RenameRefreshFailurePipeline(recoveredVersion: version)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let warnings = await viewModel.applyMovedFiles([(id: id, newURL: destination)])

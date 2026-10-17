@@ -383,7 +383,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             fileFingerprint: fixture.fingerprint
         )
         let pipeline = FingerprintRecordingMetadataPipeline(reloadedFile: file)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([file])
 
         try Data(repeating: 0x42, count: 32).write(to: fixture.fileURL, options: .atomic)

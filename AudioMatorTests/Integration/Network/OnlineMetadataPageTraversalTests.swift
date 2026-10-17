@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
@@ -306,7 +307,9 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
     }
 
     private func makeViewModel(file: AudioFile) -> AudioViewModel {
-        let viewModel = AudioViewModel()
+        let viewModel = AudioViewModelTestFactory.make(
+            metadataPipeline: TagLibAudioMetadataPipeline()
+        )
         viewModel.files = [file]
         viewModel.setSelectedAudioIDs([file.id])
         return viewModel

@@ -9,7 +9,7 @@ final class QuickImportCancellationTests: XCTestCase {
     func testRemovingFileRejectsLateReimportOfSameURL() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorQuickImportRemove-\(UUID().uuidString).mp3")
         let visibleFile = AudioFileTestFactory.make(url: fileURL)
@@ -36,7 +36,7 @@ final class QuickImportCancellationTests: XCTestCase {
     func testRemovingFileSuppressesLateFailureFromSameURL() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate, shouldFail: true)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorQuickImportRemoveFailure-\(UUID().uuidString).mp3")
         let visibleFile = AudioFileTestFactory.make(url: fileURL)
@@ -60,7 +60,7 @@ final class QuickImportCancellationTests: XCTestCase {
     func testClearCancelsImportAndRejectsLateBatch() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorQuickImport-\(UUID().uuidString).mp3")
 
@@ -122,7 +122,7 @@ final class QuickImportCancellationTests: XCTestCase {
         let unreadableURL = URL(fileURLWithPath: "/tmp/00-unreadable-import.mp3")
         let readableURL = URL(fileURLWithPath: "/tmp/01-readable-import.mp3")
         let pipeline = PartiallyFailingQuickImportMetadataPipeline(unreadableURL: unreadableURL)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
 
         viewModel.importQuickFiles(from: [unreadableURL, readableURL])
 
@@ -145,7 +145,7 @@ final class QuickImportCancellationTests: XCTestCase {
         let fileURL = URL(fileURLWithPath: "/tmp/transient-first-read-failure.mp3")
         let control = TransientQuickImportReadControl()
         let pipeline = TransientlyFailingQuickImportMetadataPipeline(control: control)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
 
         viewModel.importQuickFiles(from: [fileURL])
         try await waitUntil(viewModel.activeQuickImportTaskCount == 0)

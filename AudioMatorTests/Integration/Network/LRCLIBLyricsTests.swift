@@ -215,7 +215,7 @@ final class LRCLIBLyricsTests: XCTestCase {
                 "ARTIST": "Artist"
             ]
         )
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.files = [file]
 
         let didApply = await viewModel.applyLRCLIBSyncedLyrics("  [00:01.00]Synced line\n", to: file.id)
@@ -235,7 +235,7 @@ final class LRCLIBLyricsTests: XCTestCase {
             includeDefaultFileFingerprint: false
         )
         let pipeline = RecordingRawMetadataPipeline(file: file, initialPropertyMap: [:])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.files = [file]
 
         let didApply = await viewModel.applyLRCLIBSyncedLyrics(

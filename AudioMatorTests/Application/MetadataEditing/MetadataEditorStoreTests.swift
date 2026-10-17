@@ -234,7 +234,7 @@ final class MetadataEditorStoreTests: XCTestCase {
             initiallyFailingURL: secondFile.url
         )
         let store = MetadataEditorStore(metadataPipeline: pipeline)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([firstFile, secondFile])
 
         store.present(targetFiles: [firstFile, secondFile])

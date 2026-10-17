@@ -7,7 +7,7 @@ import TagLibAudioMetadata
 @MainActor
 final class FileMutationSerializationTests: XCTestCase {
     func testQueuedBatchReloadPublishesOnCompletionAndKeepsDirtyDraft() {
-        let viewModel = AudioViewModel(metadataPipeline: ReloadFailingMutationPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         let refreshed = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Saved")
         viewModel.mergeQuickImportFiles([original])
@@ -26,7 +26,7 @@ final class FileMutationSerializationTests: XCTestCase {
     }
 
     func testNewerImmediateReloadSupersedesQueuedBatchReload() {
-        let viewModel = AudioViewModel(metadataPipeline: ReloadFailingMutationPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         viewModel.mergeQuickImportFiles([original])
         viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
@@ -43,7 +43,7 @@ final class FileMutationSerializationTests: XCTestCase {
     }
 
     func testQueuedReloadDoesNotRestoreRemovedFile() {
-        let viewModel = AudioViewModel(metadataPipeline: ReloadFailingMutationPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         viewModel.mergeQuickImportFiles([original])
         viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
@@ -57,7 +57,7 @@ final class FileMutationSerializationTests: XCTestCase {
     }
 
     func testOlderMutationReloadCannotReplaceNewerAppliedFileModel() {
-        let viewModel = AudioViewModel(metadataPipeline: ReloadFailingMutationPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let fileID = UUID()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorReloadGeneration.mp3")
         viewModel.mergeQuickImportFiles([
@@ -268,7 +268,7 @@ final class FileMutationSerializationTests: XCTestCase {
 
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {
         let pipeline = BlockingMutationPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorMutationSerialization", isDirectory: true)
         let canonicalURL = directoryURL.appendingPathComponent("track.mp3")
@@ -315,7 +315,7 @@ final class FileMutationSerializationTests: XCTestCase {
 
     func testMetadataWriteEraseAndTrackRenumberShareOneFileReservation() async throws {
         let pipeline = BlockingMutationPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let fileID = UUID()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorSharedMutation.mp3")
         let file = AudioFileTestFactory.make(

@@ -145,3 +145,5 @@ Interactive preview UI is not covered by automated UI tests.
 ## Recovery publication ordering
 
 Incomplete rollback reconciles each recovery item by file ID. A single verified location is rebound and refreshed; an unknown or ambiguous location disables writes. Marking a file refresh-required also discards queued reloads, advances its publication generation, and invalidates in-flight watched-folder scans so older observations cannot undo that safety state.
+
+Renumbering treats a committed-but-durability-uncertain outcome as a successful write with a warning, matching other metadata writers. It reports the directory-sync detail and advises against retrying the committed save.

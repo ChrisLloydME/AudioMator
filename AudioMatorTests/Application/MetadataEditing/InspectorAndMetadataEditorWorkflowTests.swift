@@ -988,10 +988,21 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
-    func testMetadataPlanSummaryAccountsForSkippedRows() async {
+    func testMetadataPlanSummaryAccountsForSkippedRows() async throws {
         let id = UUID()
-        let url = URL(fileURLWithPath: "/tmp/skipped-summary.flac")
-        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorSkippedSummary-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("skipped-summary.flac")
+        try Data("fixture".utf8).write(to: url)
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Original",
+            fileFingerprint: fingerprint
+        )
         let reloaded = AudioFileTestFactory.make(id: id, url: url, title: "New")
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -1003,7 +1014,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                     fileID: id,
                     fileName: url.lastPathComponent,
                     values: [.title: "New"],
-                    expectedFileFingerprint: original.fileFingerprint
+                    expectedFileFingerprint: fingerprint
                 )
             ],
             skippedIssues: [

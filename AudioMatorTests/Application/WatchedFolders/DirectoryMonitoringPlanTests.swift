@@ -132,7 +132,8 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
             watchedFolderStore: watchedFolderStore,
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: TagLibAudioMetadataPipeline(),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         defer {
             viewModel.removeWatchedFolders(ids: Set(viewModel.watchedFolders.map(\.id)))

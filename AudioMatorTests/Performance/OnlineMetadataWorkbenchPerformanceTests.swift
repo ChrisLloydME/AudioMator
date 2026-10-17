@@ -684,7 +684,8 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
             watchedFolderStore: WatchedFolderStore(userDefaults: userDefaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: TagLibAudioMetadataPipeline(),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.files = files
         viewModel.setSelectedAudioIDs(Set(files.map(\.id)))

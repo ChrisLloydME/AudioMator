@@ -961,6 +961,37 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    func testMetadataPlanSummaryAccountsForSkippedRows() async {
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/skipped-summary.flac")
+        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let reloaded = AudioFileTestFactory.make(id: id, url: url, title: "New")
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let summary = await viewModel.applyMetadataExchangeWriteEntries(
+            [
+                MetadataExchangeWriteEntry(
+                    fileID: id,
+                    fileName: url.lastPathComponent,
+                    values: [.title: "New"],
+                    expectedFileFingerprint: original.fileFingerprint
+                )
+            ],
+            skippedIssues: [
+                BatchMetadataWriteIssue(fileName: "bad-1.flac", messages: ["1 missing CSV column(s)."]),
+                BatchMetadataWriteIssue(fileName: "bad-2.flac", messages: ["2 extra CSV column(s)."])
+            ]
+        )
+
+        XCTAssertEqual(summary?.totalTargets, 3)
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertEqual(summary?.warningIssues.count, 2)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .warning)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Saved with Issues")
+    }
+
     func testMetadataPlanWritesRejectDuplicateFileEntries() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/duplicate-plan.flac")

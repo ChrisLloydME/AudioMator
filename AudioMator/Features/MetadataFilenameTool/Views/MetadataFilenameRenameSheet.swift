@@ -932,7 +932,17 @@ struct MetadataFilenameWindowView: View {
         isApplying = true
 
         Task { @MainActor in
-            let summary = await viewModel.applyFilenameMetadataPlan(plan.writeEntries)
+            let skipped = plan.rows.compactMap { row -> BatchMetadataWriteIssue? in
+                guard row.writeEntry == nil, row.status != .unchanged else { return nil }
+                return BatchMetadataWriteIssue(
+                    fileName: row.currentName,
+                    messages: [row.issueMessage ?? row.status.message]
+                )
+            }
+            let summary = await viewModel.applyFilenameMetadataPlan(
+                plan.writeEntries,
+                skippedIssues: skipped
+            )
             isApplying = false
 
             guard store.presentationID == presentationID else { return }
@@ -949,7 +959,10 @@ struct MetadataFilenameWindowView: View {
 
         isApplying = true
         Task { @MainActor in
-            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+            _ = await viewModel.applyMetadataExchangeWriteEntries(
+                plan.writeEntries,
+                skippedIssues: Self.skippedExchangeIssues(for: plan)
+            )
             isApplying = false
             guard store.presentationID == presentationID else { return }
         }
@@ -962,7 +975,10 @@ struct MetadataFilenameWindowView: View {
 
         isApplying = true
         Task { @MainActor in
-            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
+            _ = await viewModel.applyMetadataExchangeWriteEntries(
+                plan.writeEntries,
+                skippedIssues: Self.skippedExchangeIssues(for: plan)
+            )
             isApplying = false
             guard store.presentationID == presentationID else { return }
         }
@@ -975,7 +991,11 @@ struct MetadataFilenameWindowView: View {
         let progressTitle = fieldTransferStore.operation.progressTitle
         isApplying = true
         Task { @MainActor in
-            _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries, progressTitle: progressTitle)
+            _ = await viewModel.applyMetadataExchangeWriteEntries(
+                plan.writeEntries,
+                skippedIssues: Self.skippedExchangeIssues(for: plan),
+                progressTitle: progressTitle
+            )
             isApplying = false
         }
     }
@@ -1053,6 +1073,18 @@ struct MetadataFilenameWindowView: View {
         pendingFieldInsertion = nil
         pendingExchangeFieldInsertion = nil
         renameFailureMessage = nil
+    }
+
+    private static func skippedExchangeIssues(
+        for plan: MetadataExchangeImportPlan
+    ) -> [BatchMetadataWriteIssue] {
+        plan.rows.compactMap { row in
+            guard row.writeEntry == nil, row.status != .unchanged else { return nil }
+            return BatchMetadataWriteIssue(
+                fileName: row.fileName,
+                messages: [row.issueMessage ?? row.status.title]
+            )
+        }
     }
 
     private func saveText(_ text: String, defaultFileName: String, fileExtension: String) {

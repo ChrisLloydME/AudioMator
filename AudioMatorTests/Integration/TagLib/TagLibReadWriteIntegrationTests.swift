@@ -566,11 +566,13 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
     }
 
     func testCoreMetadataRoundTripsForWritableAudioFixtures() throws {
+        var executedFixtureCount = 0
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -606,16 +608,19 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(readBack.disc, metadata.disc, fixtureName)
             XCTAssertEqual(readBack.discTotal, metadata.discTotal, fixtureName)
         }
+        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
     }
 
     func testTrackAndDiscTextWritesRoundTripNumericValuesAcrossWritableAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
+        var executedFixtureCount = 0
 
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -665,6 +670,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             }
             XCTAssertEqual(didNormalizeFormatting, expected.2, fixtureName)
         }
+        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
     }
 
     func testTrackNumberOnlyWriteDoesNotWarnWhenExistingTotalIsPreserved() throws {
@@ -700,12 +706,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
     func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
+        var executedFixtureCount = 0
 
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -777,6 +785,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 XCTAssertNil(rawMap[key], "\(fixtureName) should clear \(key)")
             }
         }
+        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
     }
 
     func testInspectorArtworkIntentRoundTripsOnDisk() async throws {
@@ -817,11 +826,13 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
         XCTAssertGreaterThan(artworkData.count, 0)
 
+        var executedFixtureCount = 0
         for fixtureName in Self.artworkFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -847,6 +858,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let withoutArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertNil(withoutArtwork.artworkData, "\(fixtureName) should not contain artwork after removal.")
         }
+        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable artwork fixtures were exercised")
     }
 
     func testRawPropertyMapWriteRemovesDeletedMP4FreeformFields() throws {

@@ -128,7 +128,7 @@ Query items:
 
 Headers: `Accept: application/json` and the same `AudioMator/<version> (...)` `User-Agent` template. Timeout: 15 seconds. No retry, rate limiter, or cache.
 
-Queries can use tags or filename fallback. Candidate ranking prefers exact synced-lyrics duration matches and uses synced availability as a tie-breaker. The store searches per file with a limit of 20 candidates.
+Queries can use tags or filename fallback. Candidate ranking prefers exact synced-lyrics duration matches and uses synced availability as a tie-breaker. The store searches per file with a limit of 20 candidates. Auto-apply requires normalized exact title and artist matches, synced lyrics, a score of at least 80, and duration within 10 seconds when both sides provide one. High-confidence auto-apply still replaces existing lyrics; it has no separate overwrite opt-in or review step.
 
 ### Applying lyrics
 
@@ -170,9 +170,10 @@ There is no caching, time-based throttle, ETag handling, automatic launch check,
 
 The MusicBrainz detail view can embed MusicBrainz release/recording pages in a `WKWebView`. The iTunes detail view embeds Apple-provided track/collection view URLs.
 
-- `EmbeddedWebView` uses `WKWebView()` with default configuration, including the default website data store.
-- Apple-provided web URLs are loaded without a host allow-list.
-- These pages can load their own subresources and cookies beyond the API hosts.
+- `EmbeddedWebView` uses a non-persistent website data store.
+- Initial URLs and subsequent page navigation require HTTPS and an `apple.com` or `musicbrainz.org` host (including subdomains). Off-policy navigation is cancelled.
+- These pages can load their own subresources beyond the allowed page hosts. The navigation delegate is not a subresource filter; cookies are session-only.
+- The in-app network disclosure includes embedded provider pages and this subresource limitation.
 - The app has no ATS exceptions and all app requests use HTTPS.
 
 This is documented as a privacy consideration, not as a guarantee.

@@ -24,6 +24,7 @@ final class NetworkServiceDisclosureTests: XCTestCase {
                 + NetworkServiceDisclosure.LRCLIB.domains
                 + [NetworkServiceDisclosure.ReleaseNotes.host]
                 + NetworkServiceDisclosure.SoftwareUpdates.domains
+                + NetworkServiceDisclosure.ProviderWebPages.allowedHostSuffixes
         )
 
         XCTAssertEqual(disclosedHosts, productionHosts)

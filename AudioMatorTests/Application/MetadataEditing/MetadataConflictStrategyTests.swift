@@ -121,6 +121,28 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    func testTotalOnlyInspectorEditIsRejectedWithoutWriting() async {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorTotalOnly-\(UUID().uuidString).mp3")
+        let file = AudioFileTestFactory.make(
+            id: UUID(),
+            url: fileURL,
+            track: 0,
+            trackTotal: 12,
+            includeDefaultFileFingerprint: false
+        )
+        let viewModel = selectedViewModel(file)
+        var edit = SingleFileEditModel(from: file)
+        edit.setTrackTotalFieldText("13")
+
+        let result = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file)
+
+        guard case .failure(let reason) = result else {
+            return XCTFail("A total without a number must be rejected")
+        }
+        XCTAssertTrue(reason.contains("total track count without a track number"))
+    }
+
     func testResolverAllowsSaveWhenVolumeDoesNotReportDeviceOrInode() async throws {
         let file = try await loadedFixture()
         let baseline = try XCTUnwrap(file.metadataConflictBaseline)

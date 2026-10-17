@@ -82,11 +82,13 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         let expectedVersion = try TagLibMetadataManager.fileVersion(at: fileURL)
         let pipeline = RecordingPrecisePipeline(initialValueMap: [
             "ARTIST": ["Before", "Second"],
-            "REMOVE-ME": ["old"]
+            "REMOVE-ME": ["old"],
+            "KEEP": ["unchanged"]
         ])
         let desiredValueMap = [
             "ARTIST": ["A; B", "duplicate", "duplicate", "  spaced  "],
-            "TITLE": ["New Title"]
+            "TITLE": ["New Title"],
+            "KEEP": ["unchanged"]
         ]
 
         _ = try pipeline.writeRawMetadataValueMap(
@@ -96,7 +98,14 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         )
 
         let invocation = try XCTUnwrap(pipeline.recordedInvocation)
-        XCTAssertEqual(invocation.patch.valuesToSet, desiredValueMap)
+        XCTAssertEqual(
+            invocation.patch.valuesToSet,
+            [
+                "ARTIST": ["A; B", "duplicate", "duplicate", "  spaced  "],
+                "TITLE": ["New Title"]
+            ],
+            "An unchanged key must not be rewritten"
+        )
         XCTAssertEqual(invocation.patch.removingKeys, ["REMOVE-ME"])
         XCTAssertEqual(invocation.expectedVersion, expectedVersion)
     }

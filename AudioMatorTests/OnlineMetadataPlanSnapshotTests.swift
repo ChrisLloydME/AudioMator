@@ -82,6 +82,22 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         }
     }
 
+    func testITunesLinkParserAcceptsCanonicalAndLegacyAlbumLinks() throws {
+        XCTAssertEqual(
+            try iTunesLinkParser.parse("https://music.apple.com/us/album/album-name/1440833098"),
+            .album(1440833098)
+        )
+        XCTAssertEqual(
+            try iTunesLinkParser.parse("https://music.apple.com/us/album/album-name/1440833098?i=1440833100"),
+            .track(1440833100)
+        )
+        XCTAssertEqual(
+            try iTunesLinkParser.parse("music.apple.com/us/album/album-name/id1440833098"),
+            .album(1440833098)
+        )
+        XCTAssertEqual(try iTunesLinkParser.parse("1440833098"), .album(1440833098))
+    }
+
     func testiTunesWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/itunes-store.mp3")

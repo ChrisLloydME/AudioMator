@@ -84,7 +84,7 @@ final class MetadataExchangeTests: XCTestCase {
 
     func testDelimitedParserHandlesTabSeparatedMusicStyleExport() throws {
         let source = [
-            "Title\tArtist\tComposer\tAlbum\tGrouping\tGenre\tDisc Number\tTotal Discs\tTrack Number\tTotal Tracks\tYear\tComment",
+            "Name\tArtist\tComposer\tAlbum\tGrouping\tGenre\tDisc Number\tDisc Count\tTrack Number\tTrack Count\tYear\tComments",
             "Example Song\tExample Artist\tExample Composer\tExample Album\t\tPop\t1\t2\t3\t12\t2026\tExample Comment"
         ].joined(separator: "\r")
 

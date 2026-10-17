@@ -148,6 +148,10 @@ final class SaveIssueLogStore: ObservableObject {
             entries = try decoder.decode([SaveIssueLogEntry].self, from: data)
         } catch {
             entries = []
+            let quarantineURL = fileURL.appendingPathExtension("corrupt")
+            if !FileManager.default.fileExists(atPath: quarantineURL.path) {
+                try? FileManager.default.copyItem(at: fileURL, to: quarantineURL)
+            }
         }
     }
 
@@ -158,7 +162,8 @@ final class SaveIssueLogStore: ObservableObject {
             let data = try encoder.encode(entries)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            assertionFailure("Failed to persist save issue log: \(error)")
+            // Logging is best effort. A disk/permission failure must not trap
+            // the app exactly when the user needs the failure summary.
         }
     }
 

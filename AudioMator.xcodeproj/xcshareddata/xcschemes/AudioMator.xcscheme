@@ -28,7 +28,13 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "NO"
-      shouldAutocreateTestPlan = "YES">
+      shouldAutocreateTestPlan = "YES"
+      language = "en"
+      region = "US">
+      <CommandLineArguments>
+         <CommandLineArgument argument = "-ApplePersistenceIgnoreState" isEnabled = "YES"/>
+         <CommandLineArgument argument = "YES" isEnabled = "YES"/>
+      </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "AUDIOMATOR_TEST_HOST"

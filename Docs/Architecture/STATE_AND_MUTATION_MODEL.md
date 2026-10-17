@@ -26,11 +26,16 @@ This document describes how AudioMator models application state and how it seria
 
 ## Immutable Snapshots
 
-`AudioFile` is a `Sendable` value with a unique `snapshotID`. Copies preserve the ID; a reload or transformation creates a new one. The middle list and artwork caches use the ID to decide whether a snapshot is still current. A late readback cannot replace a newer model because:
+`AudioFile` is a `Sendable` value with a unique `snapshotID`. Copies preserve the ID; a reload or transformation creates a new one. The middle list and artwork caches use the ID to decide whether a snapshot is still current.
 
-1. `AudioViewModel` applies results on the main actor,
-2. it checks the current file's URL and `snapshotID`, and
-3. it uses refresh generations for out-of-order handoffs.
+Refresh publication has several guards:
+
+1. Selected-file reloads compare the current URL and `snapshotID` before publishing.
+2. Mutation reloads apply increasing per-file generations, including deferred batches.
+3. Watched-folder scans compare their scan token and captured folder mutation epoch after enumeration and loading. A changed epoch discards that scan and schedules a debounced retry. A scan reuses a previous file only when its fingerprint and package version still match.
+4. Unknown rename recovery locations discard queued reloads, advance the file publication generation, and invalidate in-flight folder scans before making the model refresh-required.
+
+These guards order app-owned mutations and observations. A directory scan is not an atomic filesystem snapshot: an external edit after the last revision probe can remain unseen until a later reload or notification. Write-time revision checks still apply.
 
 ## Selection Ownership
 

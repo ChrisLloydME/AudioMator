@@ -3,16 +3,18 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class ProviderTaggingCancellationTests: XCTestCase {
+nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
+    @MainActor
     func testITunesCancellationAfterCommitKeepsActualOutcomeAndAccountsForRemainingFiles() async throws {
         try await checkCancellation(musicBrainz: false)
     }
 
+    @MainActor
     func testMusicBrainzCancellationAfterCommitKeepsActualOutcomeAndAccountsForRemainingFiles() async throws {
         try await checkCancellation(musicBrainz: true)
     }
 
+    @MainActor
     private func checkCancellation(musicBrainz: Bool) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ProviderCancellation-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -69,7 +71,7 @@ final class ProviderTaggingCancellationTests: XCTestCase {
     }
 }
 
-private final class PausedProviderReloadPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let base = TagLibAudioMetadataPipeline()
     private let lock = NSLock()
     private var writes = 0
@@ -103,8 +105,8 @@ private final class PausedProviderReloadPipeline: AudioMetadataPipeline, @unchec
     }
 }
 
-@MainActor
-final class ProviderSemanticWriteTests: XCTestCase {
+nonisolated final class ProviderSemanticWriteTests: XCTestCase {
+    @MainActor
     func testTotalOnlyProviderAndCSVWritesAreRejectedWithoutChangingFile() async throws {
         let file = try await fixture()
         let originalBytes = try Data(contentsOf: file.url)
@@ -142,6 +144,7 @@ final class ProviderSemanticWriteTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testUneditedTotalOnlyRawFieldDoesNotBlockUnrelatedInspectorWrite() async throws {
         let file = try await fixture(extra: ["TRACKTOTAL": ["12"]])
         XCTAssertEqual(file.track, 0)
@@ -161,6 +164,7 @@ final class ProviderSemanticWriteTests: XCTestCase {
         XCTAssertEqual(try base.rawMetadataValueMap(for: file.url), expectedMap)
     }
 
+    @MainActor
     private func fixture(extra: RawMetadataValueMap = [:]) async throws -> AudioFile {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ProviderSemantic-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

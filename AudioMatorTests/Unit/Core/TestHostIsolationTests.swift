@@ -1,8 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class TestHostIsolationTests: XCTestCase {
+nonisolated final class TestHostIsolationTests: XCTestCase {
+    @MainActor
     func testSchemeEnablesIsolatedHostAndFactoryHasNoRestoredState() {
         XCTAssertTrue(AudioMatorTestHost.isEnabled, "Run app-hosted tests using the AudioMator scheme's Test action")
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())

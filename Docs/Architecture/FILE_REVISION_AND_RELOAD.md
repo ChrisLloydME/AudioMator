@@ -72,13 +72,13 @@ Raw editor saves compare edited property keys and the native structures mapped t
 | Trigger | Scope | Draft behavior |
 | --- | --- | --- |
 | Import | Selected files | New snapshots |
-| Watched-folder directory event | Whole watched folder (debounced 350 ms) | Failed reads keep last-known metadata |
+| Watched-folder directory event | Enumerate whole folder (debounced 350 ms); reuse matching fingerprint/version snapshots and reload changed files | Failed reads keep last-known metadata |
 | App activation | Currently selected files | Clean drafts follow; dirty drafts keep their baseline |
 | **Reload from Disk** | Selected files | Asks before discarding a dirty inspector draft |
 | Post-write reload | The written file | Applied while the mutation reservation is held |
 | Rename completion | Moved files | Fingerprint and version recovered independently |
 
-Reload reads are serialized with writes via `FileMutationCoordinator`. Each read has a 60-second deadline. A reload result is applied only if the file still has the same ID, URL, and snapshot identity; stale results are discarded.
+Selected-file reload reads are serialized with writes via `FileMutationCoordinator` and have a 60-second deadline. Watched-folder scans use tokens and mutation epochs instead of reserving the whole folder, and their per-file loads have no independent deadline. A reload result is applied only if the file still has the same ID, URL, and snapshot identity; stale results are discarded.
 
 ### Clean versus dirty drafts
 

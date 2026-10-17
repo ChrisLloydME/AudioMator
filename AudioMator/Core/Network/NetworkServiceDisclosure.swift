@@ -68,7 +68,7 @@ enum NetworkServiceDisclosure {
 
     enum ProviderWebPages {
         nonisolated static let allowedHostSuffixes = ["apple.com", "musicbrainz.org"]
-        static let sentDataSummary = "Opening a provider page sends its URL and standard browser requests to Apple or MusicBrainz, including their subdomains. Embedded pages use non-persistent browser storage. Their images, scripts, and other subresources may contact additional hosts; the page navigation allow-list does not filter subresources."
+        static let sentDataSummary = String(localized: "Opening a provider page sends its URL and standard browser requests to Apple or MusicBrainz, including their subdomains. Embedded pages use non-persistent browser storage. Their images, scripts, and other subresources may contact additional hosts; the page navigation allow-list does not filter subresources.")
     }
 
     enum ReleaseNotes {
@@ -112,10 +112,10 @@ enum NetworkServiceDisclosure {
         ),
         Entry(
             id: .providerWebPages,
-            title: "Embedded provider pages",
+            title: String(localized: "Embedded provider pages"),
             domains: ProviderWebPages.allowedHostSuffixes,
             sentDataSummary: ProviderWebPages.sentDataSummary,
-            purpose: "Viewing selected Apple Music, iTunes, and MusicBrainz pages. HTTPS page navigation is limited to these domains and their subdomains."
+            purpose: String(localized: "Viewing selected Apple Music, iTunes, and MusicBrainz pages. HTTPS page navigation is limited to these domains and their subdomains.")
         ),
         Entry(
             id: .releaseNotes,

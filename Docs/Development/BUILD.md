@@ -169,26 +169,14 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Verification Performed for This Documentation
 
-On 2026-10-17, with Xcode 27.1:
+On 2026-10-17, with stable Xcode 27.1 at `/Applications/Xcode.app`, independent post-repair verification ran:
 
-```text
-swift test
-  Executed 61 tests, with 0 failures
+- `swift test --filter AudioMatorCoreLogicTests`: 62 tests passed.
+- The full serial Debug app-hosted suite with signing disabled: 472 tests passed.
+- The direct unsigned Release generic build documented above: succeeded, producing `x86_64 arm64`.
+- `scripts/validate-macos-artifact.sh .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0`: passed. The app executable minimum is 15.0; the bundled TagLib framework minimum is 13.0.
 
-bash scripts/codex-build.sh --force
-  ** BUILD SUCCEEDED **
-```
-
-A focused app-hosted run also passed:
-
-```text
-xcodebuild ... -only-testing:AudioMatorTests/TagLibReadWriteIntegrationTests test
-  Executed 33 tests, with 0 failures
-```
-
-The full serial app-hosted suite also passed: 438 tests, 0 failures.
-
-An unsigned Release generic build passed and produced a universal executable (`x86_64 arm64`). `scripts/validate-macos-artifact.sh` accepted the bundle with minimum macOS 15.0.
+Sandbox restrictions initially prevented writes to user compiler/SwiftPM caches; reruns with appropriate cache access passed. This verification used the direct build command, not the pruning/build wrapper. It did not sign, notarize, manually launch the application, execute CI, or prove behavior on an actual macOS 15 installation. See the [dated review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) for detailed evidence.
 
 ## Related Documents
 

@@ -5,8 +5,7 @@
 <h1 align="center">AudioMator</h1>
 
 <p align="center">
-  <strong>Your Audio Library’s Best Mate</strong><br>
-  Native macOS Audio Metadata Editor
+  <strong>Your Audio Library’s Best Mate</strong><br> Native macOS Audio Metadata Editor
 </p>
 
 <p align="center">

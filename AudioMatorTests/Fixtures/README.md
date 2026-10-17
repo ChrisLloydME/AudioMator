@@ -1,5 +1,4 @@
-AudioMator test fixtures
-========================
+# AudioMator Test Fixtures
 
 These files are intentionally committed for TagLib read/write integration tests.
 

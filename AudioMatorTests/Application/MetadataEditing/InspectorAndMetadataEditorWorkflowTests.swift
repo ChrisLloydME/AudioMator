@@ -289,6 +289,28 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Second")
     }
 
+    func testPersistMetadataEditRejectsUnsupportedFieldBeforeMutation() async {
+        let id = UUID()
+        let file = AudioFileTestFactory.make(
+            id: id,
+            url: URL(fileURLWithPath: "/tmp/restricted.xm"),
+            title: "Allowed title",
+            artist: "Original artist"
+        )
+        var edit = SingleFileEditModel(from: file)
+        edit.artist = "Unsupported artist change"
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+
+        let result = await viewModel.persistMetadataEdit(edit, to: file)
+
+        guard case .failure(let reason) = result else {
+            return XCTFail("Expected an unsupported-field failure")
+        }
+        XCTAssertTrue(reason.contains("cannot write the requested metadata fields"))
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+    }
+
     func testSaveInspectorEditsWritesSingleSelectionAndRefreshesEditModel() async throws {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/01.mp3")

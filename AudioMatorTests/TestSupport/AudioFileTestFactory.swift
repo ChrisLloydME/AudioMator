@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 @testable import AudioMator
 
 enum AudioFileTestFactory {
@@ -34,6 +35,9 @@ enum AudioFileTestFactory {
         duration: Double = 0,
         artworkData: Data? = nil,
         fileFingerprint: AudioFileFingerprint? = nil,
+        metadataFileVersion: MetadataFileVersion? = nil,
+        metadataConflictBaseline: MetadataConflictBaseline? = nil,
+        requiresMetadataRefreshBeforeWriting: Bool = false,
         includeDefaultFileFingerprint: Bool = true
     ) -> AudioFile {
         AudioFile(
@@ -82,7 +86,10 @@ enum AudioFileTestFactory {
             channels: 0,
             format: "",
             artworkData: artworkData,
-            fileFingerprint: fileFingerprint ?? (includeDefaultFileFingerprint ? fingerprint(for: url) : nil)
+            fileFingerprint: fileFingerprint ?? (includeDefaultFileFingerprint ? fingerprint(for: url) : nil),
+            metadataFileVersion: metadataFileVersion,
+            metadataConflictBaseline: metadataConflictBaseline,
+            requiresMetadataRefreshBeforeWriting: requiresMetadataRefreshBeforeWriting
         )
     }
 }

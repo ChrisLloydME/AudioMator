@@ -16,6 +16,28 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertTrue(result.warnings.isEmpty)
     }
 
+    func testArtworkIntentMapsToTheDependencyPatch() {
+        var edit = SingleFileEditModel()
+        let artworkData = Data([0x89, 0x50, 0x4E, 0x47])
+        edit.artworkEditAction = .replace(PendingArtwork(data: artworkData, mimeType: "image/png"))
+
+        let replacePatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(
+            from: MetadataEditPayload(edit)
+        )
+        guard case .replace(let artwork) = replacePatch.artwork else {
+            return XCTFail("Expected an artwork replacement patch")
+        }
+        XCTAssertEqual(artwork.count, 1)
+        XCTAssertEqual(artwork.first?.mimeType, "image/png")
+        XCTAssertEqual(artwork.first?.data, artworkData)
+
+        edit.artworkEditAction = .remove
+        let removePatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(
+            from: MetadataEditPayload(edit)
+        )
+        XCTAssertEqual(removePatch.artwork, .removeAll)
+    }
+
     @MainActor
     func testMultiFileArtworkComparisonUsesCompletePayload() {
         var firstBytes = Data(repeating: 0x11, count: 256)

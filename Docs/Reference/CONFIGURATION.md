@@ -35,6 +35,7 @@ synchronized groups. New files under those roots are included automatically.
 | `ENABLE_OUTGOING_NETWORK_CONNECTIONS` | `YES` | `YES` |
 | `ENABLE_USER_SELECTED_FILES` | `readwrite` | `readwrite` |
 | `CODE_SIGN_STYLE` | `Automatic` | `Automatic` |
+| `DEVELOPMENT_TEAM` | `YM5G2M8PV9` | `YM5G2M8PV9` |
 | `CODE_SIGN_ENTITLEMENTS` | `Config/AudioMator.entitlements` | same |
 | `GENERATE_INFOPLIST_FILE` | `NO` | `NO` |
 | `INFOPLIST_FILE` | `Config/Info.plist` | same |

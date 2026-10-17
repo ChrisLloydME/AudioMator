@@ -232,13 +232,17 @@ These are proposals, not current coverage:
 Executed on 2026-10-17 with Xcode 27.1:
 
 - `swift test`: 61 tests passed.
-- `xcodebuild ... -only-testing:AudioMatorTests/TagLibReadWriteIntegrationTests test`:
-  33 tests passed.
+- `swift test --filter AudioMatorCoreLogicTests`: 61 tests passed.
+- Full serial app-hosted suite: 438 tests passed, 0 failures (about 51 seconds of
+  test execution).
+- Focused `TagLibReadWriteIntegrationTests`: 33 tests passed.
 - `bash scripts/codex-build.sh --force`: build succeeded.
+- Unsigned Release build: succeeded; universal `x86_64 arm64` executable.
+- `scripts/validate-macos-artifact.sh ... 15.0`: passed.
 
-Not executed: the complete 438-test app-hosted suite, CI itself, and the TagLib
-bridge smoke tool (the latter builds against the external package checkout, which
-AudioMator Agents must not build from).
+Not executed: CI itself and the TagLib bridge smoke tool (the latter builds
+against the external package checkout, which AudioMator Agents must not build
+from).
 
 ## Related Documents
 

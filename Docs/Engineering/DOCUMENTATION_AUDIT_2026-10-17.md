@@ -33,12 +33,12 @@
 | `swift test` | 61 tests passed, 0 failures |
 | `bash scripts/codex-build.sh --force` | `** BUILD SUCCEEDED **` |
 | `xcodebuild ... -only-testing:AudioMatorTests/TagLibReadWriteIntegrationTests test` | 33 tests passed, 0 failures |
+| Full serial app-hosted `xcodebuild ... test` | 438 tests passed, 0 failures |
 | `xcodebuild ... -configuration Release ... CODE_SIGNING_ALLOWED=NO build` | `** BUILD SUCCEEDED **`; universal `x86_64 arm64` executable |
 | `scripts/validate-macos-artifact.sh ... 15.0` | Passed; bundle and 2 Mach-O files accepted |
 
 Not run:
 
-- the complete 438-test app-hosted suite,
 - the CI workflow,
 - the TagLib bridge smoke tool (it builds from the external package checkout,
   which AudioMator Agents must not build from),
@@ -89,7 +89,8 @@ changed.
 ## Remaining Uncertainties
 
 - External package internals were not audited.
-- Full app-hosted suite and CI were not executed during the audit.
+- CI was not executed during the audit (the same test and build commands were run
+  locally).
 - Cross-launch bookmark restoration, WebKit subresource behavior, network-volume
   behavior, and malformed-file robustness are unverified.
 - Signed/notarized distribution was not produced.

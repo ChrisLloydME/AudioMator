@@ -14,7 +14,7 @@ enum AudioViewModelTestFactory {
         artworkLookupOperationTimeout: Duration = .seconds(30)
     ) -> AudioViewModel {
         let suiteName = "AudioMatorTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = UserDefaults(suiteName: suiteName)!
         let logURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorTests-\(UUID().uuidString)-issues.json")
 

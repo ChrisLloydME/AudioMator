@@ -22,15 +22,26 @@ struct AudioMatorApp: App {
 
     init() {
         let metadataPipeline = TagLibAudioMetadataPipeline()
-        let saveIssueLogStore = SaveIssueLogStore()
+        // The serial XCTest host must not restore bookmarks or open the
+        // developer's library before the test bundle constructs its own models.
+        let testDefaults = AudioMatorTestHost.isEnabled
+            ? UserDefaults(suiteName: "AudioMatorTestHost.\(UUID().uuidString)")!
+            : nil
+        let saveIssueLogStore = testDefaults != nil
+            ? SaveIssueLogStore(fileURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("AudioMatorTestHost-\(UUID().uuidString)-issues.json"))
+            : SaveIssueLogStore()
         self.metadataPipeline = metadataPipeline
         _viewModel = StateObject(
             wrappedValue: AudioViewModel(
+                watchedFolderStore: WatchedFolderStore(userDefaults: testDefaults ?? .standard),
+                fileAccessGrantStore: FileAccessGrantStore(userDefaults: testDefaults ?? .standard),
                 metadataPipeline: metadataPipeline,
-                saveIssueLogStore: saveIssueLogStore
+                saveIssueLogStore: saveIssueLogStore,
+                conflictPolicyDefaults: testDefaults ?? .standard
             )
         )
-        _sharedState = StateObject(wrappedValue: SharedState())
+        _sharedState = StateObject(wrappedValue: SharedState(userDefaults: testDefaults ?? .standard))
         _saveIssueLogStore = StateObject(wrappedValue: saveIssueLogStore)
         _onlineMetadataBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
         _lrclibLyricsBrowserStore = StateObject(wrappedValue: LRCLIBLyricsBrowserStore())
@@ -42,16 +53,20 @@ struct AudioMatorApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(
-                viewModel: viewModel,
-                state: sharedState,
-                onlineMetadataBrowserStore: onlineMetadataBrowserStore,
-                lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
-                metadataFilenameToolStore: metadataFilenameToolStore,
-                metadataEditorStore: metadataEditorStore,
-                metadataPipeline: metadataPipeline
-            )
+            if AudioMatorTestHost.isEnabled {
+                EmptyView()
+            } else {
+                ContentView(
+                    viewModel: viewModel,
+                    state: sharedState,
+                    onlineMetadataBrowserStore: onlineMetadataBrowserStore,
+                    lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
+                    metadataFilenameToolStore: metadataFilenameToolStore,
+                    metadataEditorStore: metadataEditorStore,
+                    metadataPipeline: metadataPipeline
+                )
                 .frame(minWidth: 900, minHeight: 600)
+            }
         }
         .commands {
             AppInfoCommands()

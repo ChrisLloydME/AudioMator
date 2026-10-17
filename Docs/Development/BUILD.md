@@ -48,23 +48,14 @@ There is one shared scheme, `AudioMator`. It builds the app and includes the
 app-hosted `AudioMatorTests` target for the Test action. The test target is
 marked non-parallel.
 
-| Setting | Debug | Release |
-| --- | --- | --- |
-| Bundle identifier | `com.TheLloydME.AudioMator.Beta` | `com.LloydME.AudioMator` |
-| `MARKETING_VERSION` | `2.7` | `2.7` |
-| `CURRENT_PROJECT_VERSION` | `2697` | `2697` |
-| Deployment target | macOS 15.0 | macOS 15.0 |
-| Swift language mode | 5.0 | 5.0 |
-| Strict concurrency | complete | complete |
-| Default actor isolation | MainActor | MainActor |
-| App Sandbox | enabled | enabled |
-| Hardened Runtime | enabled | enabled |
-| Entitlements | `Config/AudioMator.entitlements` | same |
+Both configurations target macOS 15.0, use Swift 5 language mode with complete
+strict concurrency and MainActor default isolation, and enable App Sandbox and
+Hardened Runtime. Debug and Release use different bundle identifiers, so they have
+separate sandbox containers, bookmarks, and preferences.
 
-Debug and Release are different app identities, so they have separate sandbox
-containers and persisted bookmarks/preferences.
-
-The version/build values above are a snapshot; verify them in
+For the authoritative current version, build number, bundle identifiers,
+entitlements, and preference keys, see
+[Configuration](../Reference/CONFIGURATION.md). Verify the values in
 `AudioMator.xcodeproj/project.pbxproj` before a release.
 
 ## Swift Package (Core Logic Tests)

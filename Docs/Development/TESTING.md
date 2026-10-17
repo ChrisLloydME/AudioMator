@@ -15,8 +15,10 @@ They change; re-count before quoting them in a release.
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 60 `XCTestCase` classes; no custom base class.
-- The only shared helper is `AudioMatorTests/TestSupport/AudioFileTestFactory.swift`;
-  other fakes are private to their files.
+- The cross-target test-support helper is
+  `AudioMatorTests/TestSupport/AudioFileTestFactory.swift`. The online-workbench
+  performance fixture is a separate shared factory; other fakes are private to
+  their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`,
   with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no

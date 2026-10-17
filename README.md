@@ -106,18 +106,14 @@ opens the releases page for download. It does not install updates.
 
 Readable, writable, and artwork-writable extensions are discovered from
 `TagLibAudioMetadata` at runtime, and writable fields are preflighted per format.
-A readable format is not automatically writable.
+A readable format is not automatically writable, and container behavior differs
+by format.
 
-At the current package pin (0.5.3), the readable extension set is expected to
-include:
-
-`mp3`, `mp2`, `m4a`, `m4b`, `m4p`, `mp4`, `aac`, `ogg`, `opus`, `mpc`, `wma`,
-`asf`, `spx`, `flac`, `ape`, `wv`, `tta`, `wav`, `aiff`, `aif`, `dsf`, `dff`,
-`oga`
-
-This list is a point-in-time dependency statement, not an app-owned guarantee.
-Container behavior differs: see [Metadata Pipeline](Docs/Architecture/METADATA_PIPELINE.md)
-and [Dependency Limitations](Docs/Reference/DEPENDENCY_LIMITATIONS.md).
+The current expected format set, field-capability model, and limitations are
+documented in [Product Overview → Supported
+Formats](Docs/Product/OVERVIEW.md#supported-formats), [Metadata
+Pipeline](Docs/Architecture/METADATA_PIPELINE.md), and [Dependency
+Limitations](Docs/Reference/DEPENDENCY_LIMITATIONS.md).
 
 ## Track and Disc Numbers
 

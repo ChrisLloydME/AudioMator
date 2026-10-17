@@ -4,7 +4,7 @@ struct GitHubReleaseNote: Decodable, Identifiable {
     let id: Int
     let name: String?
     let tagName: String
-    let body: String
+    let body: String?
     let htmlURL: URL
     let publishedAt: Date?
     let isPrerelease: Bool

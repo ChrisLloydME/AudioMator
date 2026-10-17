@@ -1212,7 +1212,7 @@ private struct ReleaseNoteCard: View {
                 }
             }
 
-            ReleaseMarkdownText(markdown: release.body)
+            ReleaseMarkdownText(markdown: release.body ?? "")
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

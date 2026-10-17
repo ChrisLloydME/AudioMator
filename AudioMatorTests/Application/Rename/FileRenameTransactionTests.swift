@@ -29,10 +29,11 @@ final class FileRenameTransactionTests: XCTestCase {
             }
         )
 
+        let firstOperationID = UUID()
         let result = executeFileRenameTransaction(
             [
                 FileRenameOperation(
-                    id: UUID(),
+                    id: firstOperationID,
                     sourceURL: firstSourceURL,
                     destinationURL: firstDestinationURL,
                     expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: firstSourceURL)
@@ -53,6 +54,7 @@ final class FileRenameTransactionTests: XCTestCase {
 
         let recoveryItem = try XCTUnwrap(failure.recoveryItems.first)
         XCTAssertEqual(failure.recoveryItems.count, 1)
+        XCTAssertEqual(recoveryItem.id, firstOperationID)
         XCTAssertEqual(recoveryItem.originalURL, firstSourceURL)
         XCTAssertEqual(recoveryItem.intendedURL, firstDestinationURL)
         XCTAssertTrue(
@@ -111,6 +113,7 @@ final class FileRenameTransactionTests: XCTestCase {
 
         let recoveryItem = try XCTUnwrap(failure.recoveryItems.first)
         XCTAssertEqual(failure.recoveryItems.count, 1)
+        XCTAssertEqual(recoveryItem.id, firstOperationID)
         XCTAssertEqual(recoveryItem.originalURL, firstSourceURL)
         XCTAssertEqual(recoveryItem.finalURL, firstDestinationURL)
         XCTAssertNotNil(recoveryItem.rollbackError)

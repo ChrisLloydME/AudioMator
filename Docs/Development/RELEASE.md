@@ -110,9 +110,9 @@ release job. Passing CI does not produce a distributable app.
 
 - Deployment target: macOS 15.0. The validation script enforces that no Mach-O in
   the bundle declares a higher minimum.
-- Architecture: a generic macOS Release build in the audited environment produced
-  both `arm64` and `x86_64` slices. The validation script does not check
-  architectures.
+- Architecture: the unsigned generic macOS Release build from this audit produced
+  a universal executable (`x86_64` and `arm64`). The validation script does not
+  check architectures, so verify with `lipo -info` if that matters.
 - Package: exact `TagLibAudioMetadata` 0.5.3 pin. A dependency update requires a
   full test pass, format smoke tests, and privacy/notice review.
 - Swift: Xcode 27 stable toolchain; Swift 5 language mode with complete strict

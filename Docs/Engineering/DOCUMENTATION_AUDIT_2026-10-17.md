@@ -33,6 +33,8 @@
 | `swift test` | 61 tests passed, 0 failures |
 | `bash scripts/codex-build.sh --force` | `** BUILD SUCCEEDED **` |
 | `xcodebuild ... -only-testing:AudioMatorTests/TagLibReadWriteIntegrationTests test` | 33 tests passed, 0 failures |
+| `xcodebuild ... -configuration Release ... CODE_SIGNING_ALLOWED=NO build` | `** BUILD SUCCEEDED **`; universal `x86_64 arm64` executable |
+| `scripts/validate-macos-artifact.sh ... 15.0` | Passed; bundle and 2 Mach-O files accepted |
 
 Not run:
 
@@ -63,6 +65,7 @@ Not run:
 | Historical test docs claimed 38/404 tests and referenced non-ancestor commits | Current suite has 61 SwiftPM and 438 app-hosted test functions; historical commits share no ancestor with `main` |
 | Release-readiness prose implied broader validation | No signing, notarization, packaging, upload, or release automation exists in the repository |
 | Docs implied security-scoped bookmarks are fully verified | The `bookmarks.app-scope` entitlement is absent; cross-launch restoration is unverified |
+| ADR 0003 described three shared package types | The Domain contract also uses `MetadataSnapshot`, so four semantic types cross the boundary |
 
 The in-app acknowledgements and network disclosure strings were corrected because
 they are user-facing documentation embedded in the app. No functional behavior was

@@ -89,6 +89,45 @@ The allowed dependency direction and its one documented exception are in
 Feature views receive dependencies explicitly. There is no service locator and no
 feature-level singleton for metadata I/O.
 
+## Application Lifecycle
+
+- `AudioMatorApp` is the `@main` SwiftUI app and installs `AppDelegate` through
+  `NSApplicationDelegateAdaptor`.
+- On first launch, `AppDelegate` checks `hasLaunchedBefore`; if unset, it sizes
+  the first window to 900×600, centers it, and stores the flag. Later launches
+  keep the system-restored window state.
+- The app terminates when the last window closes
+  (`applicationShouldTerminateAfterLastWindowClosed`).
+- The welcome sheet is presented based on `hasCompletedWelcomeSplash` and
+  `completedWelcomeSplashVersion`; it can also be reopened from the Help menu.
+- Commands and cross-window actions communicate through
+  `NotificationCenter` names in `AppNotifications.swift` or through injected
+  bindings. The main window observes notifications for metadata dump, track
+  renumber, online metadata, select-all, sidebar changes, inspector toggling, and
+  the welcome screen.
+- `ContentView` runs selected-file reconciliation when the app becomes active.
+
+## UI Composition
+
+- The main window is a `NavigationSplitView` with a sidebar, a middle content
+  pane, and an `.inspector` column. The inspector can be toggled; its width is
+  constrained to 340–480 points.
+- The middle list uses an AppKit-backed table (`MiddleListTable`) bridged into
+  SwiftUI for native selection and column behavior. Selection is mirrored back to
+  `AudioViewModel`; rejected draft-discard changes restore the previous native
+  selection.
+- Sidebar sources are Current Session and Watched Folders. Switching source
+  changes the visible file collection and prunes selection.
+- The Inspector binds to `SingleFileEditModel` or `MultiFileEditModel`. It does
+  not own file state.
+- Metadata Editor, Filename & Metadata, and Online Metadata are separate `Window`
+  scenes with their own stores. They receive the shared `AudioViewModel` and
+  pipeline by injection.
+- Settings is a separate `Settings` scene with six tabs: General, Interface,
+  Folders, Conflicts, Logs, About.
+- Progress and transient results are shown through a main-window overlay/HUD
+  queue; failures also feed the local save issue log.
+
 ## Major Components
 
 | Component | Responsibility | Key files |

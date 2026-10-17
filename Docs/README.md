@@ -73,6 +73,8 @@ manifest, scripts, and tests — not against earlier documentation.
   module inventory.
 - [Configuration](Reference/CONFIGURATION.md) — build settings, bundle
   identifiers, entitlements, preference keys, persisted data.
+- [Terminology](Reference/TERMINOLOGY.md) — project-specific terms used across
+  the docs and source.
 - [Dependency Limitations](Reference/DEPENDENCY_LIMITATIONS.md) — known
   TagLibAudioMetadata behavior that constrains AudioMator.
 

@@ -76,6 +76,54 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.id, old.id)
     }
 
+    func testRescanReusesUnchangedFilesAndReloadsOnlyChangedOnes() async throws {
+        let applicationSupport = try XCTUnwrap(
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        )
+        let rootURL = applicationSupport
+            .appendingPathComponent("AudioMatorWatchedReuse-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let firstURL = rootURL.appendingPathComponent("a.mp3")
+        let secondURL = rootURL.appendingPathComponent("b.mp3")
+        try Data("first".utf8).write(to: firstURL)
+        try Data("second".utf8).write(to: secondURL)
+
+        let suiteName = "AudioMatorWatchedReuse.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let folderStore = WatchedFolderStore(userDefaults: defaults)
+        let folder = try folderStore.makeFolder(from: rootURL)
+        folderStore.saveFolders([folder])
+
+        let pipeline = CountingWatchedFolderPipeline()
+        let logURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorWatchedReuse-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: logURL) }
+        let viewModel = AudioViewModel(
+            watchedFolderStore: folderStore,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: logURL),
+            conflictPolicyDefaults: defaults
+        )
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+
+        let didLoadInitial = try await waitUntil { viewModel.files.count == 2 }
+        XCTAssertTrue(didLoadInitial)
+        XCTAssertEqual(pipeline.loadCount, 2)
+
+        try Data("second changed".utf8).write(to: secondURL, options: .atomic)
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+
+        let didReload = try await waitUntil { pipeline.loadCount == 3 }
+        XCTAssertTrue(didReload)
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertEqual(pipeline.loadCount, 3, "Only the changed file should be fully reloaded")
+        XCTAssertEqual(viewModel.files.map(\.url.lastPathComponent).sorted(), ["a.mp3", "b.mp3"])
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(3),
         _ condition: @escaping @MainActor () -> Bool
@@ -87,6 +135,46 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(10))
         }
         return condition()
+    }
+}
+
+private final class CountingWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    private let lock = NSLock()
+    private var recordedLoadCount = 0
+
+    var loadCount: Int { lock.withLock { recordedLoadCount } }
+
+    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        lock.withLock { recordedLoadCount += 1 }
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
+        let version = try TagLibMetadataManager.fileVersion(at: url)
+        return await MainActor.run {
+            AudioFileTestFactory.make(
+                id: id,
+                url: url,
+                title: url.lastPathComponent,
+                fileFingerprint: fingerprint,
+                metadataFileVersion: version
+            )
+        }
+    }
+
+    nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
+        try TagLibMetadataManager.fileVersion(at: url)
+    }
+    nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
+    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap { [:] }
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
+        throw CocoaError(.featureUnsupported)
+    }
+    nonisolated func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
+        throw CocoaError(.featureUnsupported)
+    }
+    nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
+        throw CocoaError(.featureUnsupported)
+    }
+    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
+        throw CocoaError(.featureUnsupported)
     }
 }
 

@@ -200,6 +200,53 @@ final class LRCLIBLyricsTests: XCTestCase {
     }
 
     @MainActor
+    func testAutoApplyRequiresHighConfidenceMatch() async {
+        let file = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/lyrics-auto.mp3"),
+            title: "Correct Song",
+            artist: "Correct Artist",
+            duration: 180
+        )
+        let pipeline = RecordingRawMetadataPipeline(file: file, initialPropertyMap: [:])
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.files = [file]
+
+        let wrongArtist = makeCandidate(
+            id: 1,
+            track: "Correct Song",
+            artist: "Different Artist",
+            album: "",
+            duration: 180,
+            syncedLyrics: "[00:01.00]Wrong"
+        )
+        let exact = makeCandidate(
+            id: 2,
+            track: "Correct Song",
+            artist: "Correct Artist",
+            album: "",
+            duration: 181,
+            syncedLyrics: "[00:01.00]Right"
+        )
+
+        let wrongStore = LRCLIBLyricsBrowserStore(
+            client: MockLRCLIBSearchClient(results: [file.id: [wrongArtist]])
+        )
+        wrongStore.seed(from: [file])
+        let wrongMatches = await wrongStore.autoSyncedLyricsMatchesForAllFiles { _, _, _ in }
+        XCTAssertTrue(wrongMatches.isEmpty)
+        XCTAssertTrue(pipeline.writtenPropertyMap?.isEmpty ?? true)
+
+        let exactStore = LRCLIBLyricsBrowserStore(
+            client: MockLRCLIBSearchClient(results: [file.id: [wrongArtist, exact]])
+        )
+        exactStore.seed(from: [file])
+        let exactMatches = await exactStore.autoSyncedLyricsMatchesForAllFiles { _, _, _ in }
+        XCTAssertEqual(exactMatches.count, 1)
+        XCTAssertEqual(exactMatches.first?.candidateID, exact.id)
+    }
+
+    @MainActor
     func testApplyingSyncedLyricsWritesOnlyLyricsPropertyThroughRawMetadataPath() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(),

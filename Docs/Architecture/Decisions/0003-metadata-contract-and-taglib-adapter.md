@@ -29,11 +29,11 @@ an actor-isolation warning when a value-copy helper called the model initializer
 - Do not add another Swift module in this batch. Disk boundaries, dependency rules,
   and app-hosted integration tests provide the intended control with lower project
   risk.
-- Retain the package's `MetadataFieldKey`, `MetadataFileVersion`, and
-  `RawMetadataPatch` as shared semantic contract types. They keep field
-  capabilities, transaction revisions, and exact raw deltas aligned across the
-  boundary. Domain must not call concrete TagLib managers or own container and
-  filesystem transaction behavior.
+- Retain the package's `MetadataFieldKey`, `MetadataFileVersion`,
+  `MetadataSnapshot`, and `RawMetadataPatch` as shared semantic contract types.
+  They keep field capabilities, transaction revisions, conflict snapshots, and
+  exact raw deltas aligned across the boundary. Domain must not call concrete
+  TagLib managers or own container and filesystem transaction behavior.
 
 ## Alternatives
 
@@ -43,9 +43,9 @@ explains why no additional Swift module was introduced in that batch.
 ## Consequences
 
 Domain no longer imports AVFoundation, CoreMedia, or AppKit for `AudioFile` or the
-pipeline contract. It does import `TagLibAudioMetadata` for the three shared
-semantic types named above; this is a controlled package-contract dependency, not
-an isolated app-owned domain module. Concrete TagLib I/O remains in Infrastructure
+pipeline contract. It does import `TagLibAudioMetadata` for the shared semantic
+types named above; this is a controlled package-contract dependency, not an
+isolated app-owned domain module. Concrete TagLib I/O remains in Infrastructure
 and adapter construction remains at the app composition root. Real format behavior
 still requires app-hosted TagLib tests; SwiftPM remains a selected-source fast
 sensor rather than pretending to compile the production app module.

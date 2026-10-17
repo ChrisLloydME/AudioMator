@@ -234,6 +234,10 @@ xcodebuild ... -only-testing:AudioMatorTests/TagLibReadWriteIntegrationTests tes
   Executed 33 tests, with 0 failures
 ```
 
+An unsigned Release generic build also passed and produced a universal executable
+(`x86_64 arm64`). `scripts/validate-macos-artifact.sh` accepted the bundle with
+minimum macOS 15.0.
+
 The full app-hosted suite was not run during this documentation audit; see
 [Testing](TESTING.md) for its scope and the resulting gap.
 

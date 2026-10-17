@@ -32,10 +32,11 @@ Domain
 
 ## The Metadata Contract Exception
 
-Domain reuses three stable semantic types from `TagLibAudioMetadata`:
+Domain reuses stable semantic types from `TagLibAudioMetadata`:
 
 - `MetadataFieldKey` — field capability and identity,
 - `MetadataFileVersion` — opaque transaction revision,
+- `MetadataSnapshot` — read-only conflict/raw baseline supplied by the adapter,
 - `RawMetadataPatch` — exact raw delta.
 
 This keeps one contract for field capabilities, revisions, and raw edits across

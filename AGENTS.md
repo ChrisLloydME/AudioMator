@@ -52,8 +52,8 @@ the real behavior.
   the existing metadata pipeline.
 - All disk mutations must use `FileMutationCoordinator`.
 - Respect the documented Domain exception: it reuses `MetadataFieldKey`,
-  `MetadataFileVersion`, and `RawMetadataPatch` from the package. It must not call
-  `TagLibMetadataManager` or own file transactions.
+  `MetadataFileVersion`, `MetadataSnapshot`, and `RawMetadataPatch` from the
+  package. It must not call `TagLibMetadataManager` or own file transactions.
 - Keep `AudioViewModel` as the single selection owner.
 - Avoid new singletons and broad shared abstractions for a single feature.
 - The app is macOS-only. Do not reintroduce iOS/iPadOS deployment code.

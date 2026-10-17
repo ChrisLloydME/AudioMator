@@ -49,7 +49,7 @@ of its documentation.
 
 | App call site | Package API |
 | --- | --- |
-| `loadAudioFile` | `TagLibMetadataManager.readSnapshot(from:)`, `AudioFile(...)` adapter |
+| `loadAudioFile` | `TagLibMetadataManager.readSnapshot(from:)`, then the app's `AudioFile` loader |
 | Conflict baseline/read | `TagLibMetadataManager.readSnapshot`, `fileVersion` |
 | Semantic write | `TagLibMetadataManager.applyMetadataPatch(_:to:expectedVersion:)` |
 | Raw write | `TagLibMetadataManager.applyRawMetadataPatch(_:to:expectedVersion:)` |
@@ -59,11 +59,14 @@ of its documentation.
 | Capability discovery | `readableExtensions`, `writableExtensions`, `formatCapabilities` |
 
 Shared semantic types imported into Domain: `MetadataFieldKey`,
-`MetadataFileVersion`, `RawMetadataPatch`, `MetadataPatch`,
-`MetadataPatchValue`, `MetadataSnapshot`, `MetadataFieldRegistry`,
-`RawMetadataDump`, `StructuredArtwork`, `ExplicitAdvisory`,
-`MetadataNumberTextPatch`, and `TagLibManagerError`. This is the controlled
-dependency recorded in [ADR 0003](Decisions/0003-metadata-contract-and-taglib-adapter.md).
+`MetadataFileVersion`, `MetadataSnapshot`, and `RawMetadataPatch`. This is the
+controlled dependency recorded in
+[ADR 0003](Decisions/0003-metadata-contract-and-taglib-adapter.md).
+
+The Infrastructure adapter additionally uses `MetadataPatch`,
+`MetadataPatchValue`, `MetadataFieldRegistry`, `RawMetadataDump`,
+`StructuredArtwork`, `ExplicitAdvisory`, `MetadataNumberTextPatch`, and
+`TagLibManagerError`. Those concrete types must not move into Domain.
 
 ## Loading
 

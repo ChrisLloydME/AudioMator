@@ -37,6 +37,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         )
 
         XCTAssertEqual(pipeline.verifyAfterWriteValues, [true])
+        XCTAssertEqual(pipeline.trackNumberTextValues, ["07"])
         XCTAssertEqual(viewModel.files.first?.trackNumberText, "7")
         XCTAssertEqual(result.warnings.first?.messages, ["Synthetic verification warning"])
     }
@@ -98,12 +99,51 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertEqual(result.succeeded, 0)
         XCTAssertTrue(pipeline.verifyAfterWriteValues.isEmpty)
     }
+
+    func testRenumberDoesNotConsumeNumbersForSkippedTargets() async {
+        let first = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/renumber-first.mp3"),
+            track: 1,
+            trackNumberText: "01",
+            includeDefaultFileFingerprint: false
+        )
+        let skipped = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/renumber-skipped.xm"),
+            track: 2,
+            trackNumberText: "02",
+            includeDefaultFileFingerprint: false
+        )
+        let last = AudioFileTestFactory.make(
+            id: UUID(),
+            url: URL(fileURLWithPath: "/tmp/renumber-last.flac"),
+            track: 3,
+            trackNumberText: "03",
+            includeDefaultFileFingerprint: false
+        )
+        let pipeline = RenumberRecordingMetadataPipeline(diskReadback: first)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([first, skipped, last])
+
+        let result = await viewModel.renumberTrackNumbers(
+            orderedIDs: [first.id, skipped.id, last.id],
+            selectedIDs: [],
+            options: TrackRenumberOptions(startNumber: 1, padWithZeros: true)
+        )
+
+        XCTAssertEqual(result.totalTargets, 3)
+        XCTAssertEqual(result.skippedUnsupported, 1)
+        XCTAssertEqual(result.succeeded, 2)
+        XCTAssertEqual(pipeline.trackNumberTextValues, ["01", "02"])
+    }
 }
 
 private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let lock = NSLock()
     private let diskReadback: AudioFile
     private var recordedVerifyAfterWriteValues: [Bool] = []
+    private var recordedTrackNumberTexts: [String] = []
 
     init(diskReadback: AudioFile) {
         self.diskReadback = diskReadback
@@ -111,6 +151,10 @@ private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @u
 
     var verifyAfterWriteValues: [Bool] {
         lock.withLock { recordedVerifyAfterWriteValues }
+    }
+
+    var trackNumberTextValues: [String] {
+        lock.withLock { recordedTrackNumberTexts }
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
@@ -146,7 +190,10 @@ private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @u
         verifyAfterWrite: Bool,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        lock.withLock { recordedVerifyAfterWriteValues.append(verifyAfterWrite) }
+        lock.withLock {
+            recordedVerifyAfterWriteValues.append(verifyAfterWrite)
+            recordedTrackNumberTexts.append(trackNumberText)
+        }
         return AudioMetadataWriteResult(warnings: ["Synthetic verification warning"])
     }
 }

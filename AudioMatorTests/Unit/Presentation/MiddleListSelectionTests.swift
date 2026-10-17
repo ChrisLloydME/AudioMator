@@ -5,8 +5,11 @@ import XCTest
 
 @MainActor
 final class MiddleListSelectionTests: XCTestCase {
-    func testOrderingCacheSurvivesSelectionAndInvalidatesForSortManualOrderAndReload() {
-        let state = SharedState()
+    func testOrderingCacheSurvivesSelectionAndInvalidatesForSortManualOrderAndReload() throws {
+        let suiteName = "MiddleListSelectionTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let state = SharedState(userDefaults: defaults)
         let previousSort = state.middleListSort
         defer { state.middleListSort = previousSort }
         state.middleListSort = nil

@@ -13,9 +13,9 @@ Counts and paths below were verified by source inspection at the audited commit.
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 62 `XCTestCase` classes; no custom base class.
-- The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log so tests do not restore the developer's watched folders or write the host app's real issue log. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
+- The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
-- There are no skipped, disabled, or expected-failure tests, and no environment-variable gating.
+- There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup.
 
 ## Commands
 

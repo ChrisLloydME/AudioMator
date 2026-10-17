@@ -222,6 +222,12 @@ final class ProviderNetworkFaultTests: XCTestCase {
         let results = try await client.search(matching: query, limit: 25)
 
         XCTAssertEqual(results, .releases([]))
+        XCTAssertGreaterThanOrEqual(
+            requestRecorder.requestCount,
+            1,
+            "The multi-file fallback must actually issue requests."
+        )
+        XCTAssertTrue(requestRecorder.hosts.allSatisfy { $0 == "musicbrainz.org" })
         XCTAssertLessThanOrEqual(
             requestRecorder.requestCount,
             3,

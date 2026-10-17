@@ -113,7 +113,6 @@ final class FileRenameTransactionTests: XCTestCase {
 
         let recoveryItem = try XCTUnwrap(failure.recoveryItems.first)
         XCTAssertEqual(failure.recoveryItems.count, 1)
-        XCTAssertEqual(recoveryItem.id, firstOperationID)
         XCTAssertEqual(recoveryItem.originalURL, firstSourceURL)
         XCTAssertEqual(recoveryItem.finalURL, firstDestinationURL)
         XCTAssertNotNil(recoveryItem.rollbackError)

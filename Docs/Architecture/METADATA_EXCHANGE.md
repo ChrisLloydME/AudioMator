@@ -142,3 +142,7 @@ Writes are **not** a group transaction. A summary may contain successes and fail
 - [Metadata Pipeline](METADATA_PIPELINE.md)
 - [Testing](../Development/TESTING.md)
 - [ADR 0004](Decisions/0004-metadata-exchange-responsibility-boundaries.md)
+
+## Completion accounting
+
+Filename, text, CSV, and field-transfer apply summaries count write entries plus skipped issue rows. Skipped rows have their own bucket and are labeled skipped, rather than counted as files saved with warnings. Issue logs retain their filenames and explanations. Unchanged preview rows require no operation and are excluded from that denominator.

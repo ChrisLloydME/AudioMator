@@ -70,6 +70,7 @@ struct BatchMetadataOperationSummary: Equatable {
     var succeeded: Int = 0
     var warningIssues: [BatchMetadataWriteIssue] = []
     var failureIssues: [BatchMetadataWriteIssue] = []
+    var skippedIssues: [BatchMetadataWriteIssue] = []
     var allSuccessfulFilesRefreshed = true
 
     init(totalTargets: Int, operation: BatchMetadataOperationKind = .write) {
@@ -78,7 +79,7 @@ struct BatchMetadataOperationSummary: Equatable {
     }
 
     var hudStyle: MetadataWriteHUDStyle {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
+        if failureIssues.isEmpty && warningIssues.isEmpty && skippedIssues.isEmpty {
             return .success
         }
 
@@ -90,7 +91,7 @@ struct BatchMetadataOperationSummary: Equatable {
     }
 
     var hudTitle: String {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
+        if failureIssues.isEmpty && warningIssues.isEmpty && skippedIssues.isEmpty {
             return operation.successTitle
         }
 
@@ -102,7 +103,7 @@ struct BatchMetadataOperationSummary: Equatable {
     }
 
     var hudSubtitle: String {
-        if failureIssues.isEmpty && warningIssues.isEmpty {
+        if failureIssues.isEmpty && warningIssues.isEmpty && skippedIssues.isEmpty {
             return fileCountLabel(succeeded)
         }
 
@@ -116,7 +117,11 @@ struct BatchMetadataOperationSummary: Equatable {
             lines.append("\(failureIssues.count) file(s) failed")
         }
 
-        let detailSource = failureIssues.isEmpty ? warningIssues : failureIssues
+        if !skippedIssues.isEmpty {
+            lines.append(String(localized: "\(skippedIssues.count) file(s) skipped"))
+        }
+
+        let detailSource = failureIssues + skippedIssues + warningIssues
         for issue in detailSource.prefix(2) {
             let detail = issue.messages.joined(separator: " ")
             lines.append("\(issue.fileName): \(detail)")

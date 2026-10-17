@@ -31,7 +31,7 @@ enum NetworkServiceDisclosure {
             uncompressedArtworkHost
         ]
 
-        static let sentDataSummary = "iTunes lookup may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, UPC/barcode, iTunes store IDs, pasted Apple Music or iTunes links, and manually entered searches."
+        static let sentDataSummary = "iTunes lookup may send search terms derived from tags, filenames, parent folder names, or user input, such as title, artist, album, album artist, UPC/barcode, an iTunes album or track ID, a pasted Apple Music or iTunes link, storefront country, or a manually entered search. Artwork downloads use Apple-returned artwork URLs, so Apple may direct the app to an Apple artwork host beyond the hosts listed here."
     }
 
     enum MusicBrainz {
@@ -48,7 +48,7 @@ enum NetworkServiceDisclosure {
             webHost
         ]
 
-        static let sentDataSummary = "MusicBrainz lookup may send metadata-derived queries or identifiers, including title, artist, album, album artist, track number, duration, release identifiers, ISRC, barcode, and manually entered search terms or links."
+        static let sentDataSummary = "MusicBrainz lookup may send queries or identifiers derived from tags, filenames, parent folder names, or user input, including title, artist, album, album artist, track number, duration, release identifiers, ISRC, barcode, MusicBrainz IDs, and manually entered search terms or links."
 
         nonisolated static func webURL(path: String) -> URL? {
             URL(string: "\(webBaseURLString)\(path)")
@@ -62,7 +62,7 @@ enum NetworkServiceDisclosure {
             host
         ]
 
-        static let sentDataSummary = "LRCLIB lookup may send metadata-derived queries, including title, artist, album, and duration, to search for synced lyrics."
+        static let sentDataSummary = "LRCLIB lookup may send queries derived from tags, filenames, or user input, including title, artist, album, and duration, to search for synced lyrics."
     }
 
     enum ReleaseNotes {
@@ -74,9 +74,9 @@ enum NetworkServiceDisclosure {
         static let host = "api.github.com"
         static let releasesPageHost = "github.com"
 
+        // github.com is opened in the user's browser, not requested by the app.
         static let domains = [
-            host,
-            releasesPageHost
+            host
         ]
 
         static let sentDataSummary = "Update checks request AudioMator release/version metadata from GitHub Releases. No audio file content is sent."

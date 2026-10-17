@@ -1,6 +1,8 @@
 # Acknowledgements & Privacy
 
-AudioMator is built as a local-first metadata editor. The app reads and writes the audio files you choose on your device, and it only uses the network when you explicitly start a feature that needs an online service.
+AudioMator is a local-first metadata editor. It reads and writes the audio files you choose on your Mac and uses the network only when you explicitly start an online feature.
+
+This disclosure describes the current implementation. The in-app Privacy sheet is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
 
 ## Third-Party Foundations
 
@@ -8,108 +10,115 @@ AudioMator is built as a local-first metadata editor. The app reads and writes t
 
 - Project: <https://github.com/taglib/taglib>
 - Website: <https://taglib.org/>
-- Role in AudioMator: low-level audio metadata reading, writing, raw property-map inspection, format capability discovery, and artwork operations through the `TagLibAudioMetadata` Swift package.
+- Role: low-level audio metadata parsing, writing, raw property-map inspection, format capability discovery, and artwork operations, used through the `TagLibAudioMetadata` Swift package.
 
-TagLib is distributed under LGPL/MPL licensing terms. Review the upstream licenses before redistributing AudioMator or reusing the underlying TagLib-based metadata path in another product.
+TagLib is distributed under LGPL/MPL terms. Review the upstream licenses before redistributing AudioMator.
 
 ### TagLibAudioMetadata
 
-- Project: <https://github.com/ChrisLloydME/TagLibAudioMetadata.git>
-- Role in AudioMator: Swift Package Manager dependency that exposes the TagLib-powered metadata manager used by the application pipeline.
+- Project: <https://github.com/ChrisLloydME/TagLibAudioMetadata>
+- Role: Swift Package Manager dependency that exposes the TagLib-backed metadata manager used by AudioMator.
 
-AudioMator relies on this package instead of vendoring TagLib source directly into this repository.
+The app resolves this package as an external dependency pinned to an exact version. It does **not** vendor, trim, or bundle a local copy of TagLib source in this repository.
 
 ### iTunes Artwork Finder inspiration
 
 - Project: <https://github.com/bendodson/itunes-artwork-finder>
-- Role in AudioMator: inspiration for the album artwork lookup workflow and result transformation approach.
+- Role: inspiration for the album artwork lookup approach.
 
-AudioMator's current artwork lookup implementation is written in Swift in this repository. It does not require keeping a copied `.tmp` source tree in source control.
+AudioMator's current artwork implementation is written in Swift in this repository.
 
 ### Apple iTunes Search API
 
 - Documentation: <https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/>
-- Role in AudioMator: optional Apple catalog search for album and track metadata, link/UPC/store-ID lookup, metadata comparison, selected tag writing, and artwork candidate discovery.
+- Role: optional Apple catalog search, link/UPC/store-ID lookup, metadata comparison, selected tag writing, and artwork candidate discovery.
 
-The iTunes Search API is an Apple web service, not source code bundled with AudioMator. AudioMator uses it only when you explicitly start iTunes metadata or artwork lookup features.
+The iTunes Search API is an Apple web service, not source code bundled with AudioMator.
 
 ### GitHub Releases
 
 - Releases: <https://github.com/ChrisLloydME/AudioMator/releases>
-- Role in AudioMator: source of truth for published AudioMator release metadata and manual macOS update checks.
+- Role: published release metadata, release notes, and manual update checks.
 
-On macOS, AudioMator can ask GitHub Releases for the latest release tag, compare it with the current app version and build, and open the GitHub Releases page when you choose to download an update. AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.3B26512`.
+AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.7B2697`.
 
 ## Local-First Behavior
 
-AudioMator is designed to work directly on local files.
-
-- Metadata reading happens on-device.
-- Metadata writing happens on-device.
-- Artwork replacement from local images or clipboard data happens on-device.
-- Track renumbering, filename-to-metadata extraction, metadata-to-filename renaming, raw property-map editing, and metadata dump inspection run locally.
-- The app does not upload your audio files for ordinary editing.
-- The app does not upload embedded artwork from your files as part of routine editing.
+- Metadata reading and writing happen on device.
+- Artwork replacement from local images or clipboard data happens on device.
+- Track renumbering, filename metadata extraction, metadata-to-filename conversion, raw property-map editing, and metadata dump inspection run locally.
+- The app does not upload audio file contents.
+- The app does not upload embedded artwork from your files as part of editing.
+- The app does not include telemetry, analytics, or crash reporting.
 
 ## File Access
 
-- Supports session imports for one-off work.
-- Supports persistent watched folders.
-- Explains macOS App Sandbox file access during onboarding and lets the user authorize a folder for safe transactional saves.
-- Stores security-scoped bookmarks locally for user-authorized save locations and persistent watched folders.
-- Does not scan an authorized save location unless the user separately adds it as a watched folder or imports files from it.
-- Requests the exact containing folder when a transactional save targets a location outside the currently authorized roots.
-- Can reveal files in Finder.
-- Can open files with the default system app.
-- Can copy file paths for desktop workflows.
+- Current Session imports are session-only.
+- Watched folders are persisted with security-scoped bookmarks.
+- AudioMator explains sandbox file access during onboarding and can request the exact folder needed for a transactional save.
+- It does not scan an authorized save folder unless you add it as a watched folder or import from it.
+- It can reveal files in Finder, open them with the default app, and copy paths.
+- Folder bookmarks and preferences are stored locally in app preferences. The save issue log is stored locally in Application Support.
 
 ## Network Activity
 
-AudioMator only uses the network for optional features that you explicitly invoke.
+Network requests occur only for features you explicitly invoke. All requests are HTTP GETs; no audio file bytes are uploaded.
 
 ### MusicBrainz
 
 - Host: `musicbrainz.org`
-- Purpose: search, metadata reference, release lookup, track lookup, relationship lookup, and tag-assist workflows.
-- Typical data sent: query terms derived from metadata fields or user input, such as title, artist, album, album artist, track/disc information, duration, release identifiers, ISRC, barcode, pasted MusicBrainz links, or manually entered search text.
-- Typical data received: recordings, releases, release groups, media/track listings, artist credits, identifiers, dates, labels, catalog numbers, countries, genres, tags, ratings, and relationship metadata.
+- Purpose: search, metadata reference, release/recording lookup, relationship lookup, and tag-assist workflows.
+- Data sent: query terms and identifiers derived from tags, filenames, or parent directory names, such as title, artist, album, album artist, track number, duration, release identifiers, ISRC, barcode, MusicBrainz IDs, or manually entered search text.
+- Data received: recordings, releases, release groups, media/track listings, credits, identifiers, dates, labels, catalog numbers, countries, genres, tags, ratings, and relationship metadata.
+- The app sends a descriptive `User-Agent` and spaces requests at roughly one per 1.1 seconds.
 
 ### iTunes Search API and artwork lookup
 
-- Hosts: `itunes.apple.com`, `is5-ssl.mzstatic.com`, `a5.mzstatic.com`, and related Apple artwork endpoints.
-- Purpose: search Apple catalog metadata, inspect album and track results, prepare selected tag writes, and find/download album artwork candidates.
-- Typical data sent: lookup terms derived from metadata fields or user input, such as title, artist, album, album artist, track/disc information, duration, UPC/barcode, iTunes Album ID, iTunes Artist ID, iTunes track catalog ID, pasted Apple Music or iTunes links, storefront country, or manually entered search text.
-- Typical data received: album and track metadata, release dates, genres, explicit-content flags, copyright text, Apple/iTunes IDs, candidate artwork metadata, and image files selected for preview or application.
+- Hosts requested by the app:
+  - `itunes.apple.com` for search/lookup,
+  - `is5-ssl.mzstatic.com` and `a5.mzstatic.com` for rewritten artwork URLs,
+  - the host in Apple's returned `artworkUrl100` for thumbnail/standard artwork.
+- Purpose: Apple catalog metadata search, UPC/link/store-ID lookup, selected tag writing, and artwork candidate discovery/download.
+- Data sent: search terms derived from tags or filename/path fallback, storefront country, media/entity/limit, an iTunes album or track ID, or a UPC. Track number, disc number, duration, artist ID, and catalog ID are used locally and are not URL parameters.
+- Data received: album and track metadata, dates, genres, explicit flags, copyright, Apple IDs, artwork URLs, and image files selected for preview.
+- The app does not restrict artwork downloads to a fixed host list; Apple-returned URLs can reference other Apple artwork hosts.
 
 ### LRCLIB
 
 - Host: `lrclib.net`
-- Purpose: search and preview candidate synced lyrics for a selected track.
-- Typical data sent: lookup terms derived from metadata fields or filename fallback, such as title, artist, album, and duration.
-- Typical data received: candidate track, artist, album, duration, plain lyrics availability, and synced lyrics text selected for preview or application.
+- Purpose: search and preview synced lyrics for a selected track.
+- Data sent: track name, artist name, album name, and duration derived from tags or filename fallback.
+- Data received: candidate track/artist/album/duration, synced/plain lyrics availability, and lyrics text selected for preview or application.
 
-### Release notes
+### Release notes and updates
 
 - Host: `api.github.com`
-- Purpose: fetch published release notes for AudioMator when the app asks for release information.
-- Typical data sent: a standard release-list request for the repository, not your media files.
+- Purpose: fetch published release notes and check the latest release version.
+- Data sent: standard GitHub API requests for the AudioMator repository; no media files and no credentials.
+- The app opens `github.com` release pages in your default browser; it does not request `github.com` itself.
 
-### Software updates
+### Embedded web pages
 
-- Hosts: `api.github.com`, `github.com`
-- Purpose: check GitHub Releases for the latest published AudioMator version and open the GitHub Releases page for manual download.
-- Typical data sent: a standard latest-release request for the repository, not your media files.
-- Installation behavior: AudioMator does not silently install updates or download update archives in the background.
+MusicBrainz release/recording pages and Apple-provided track/collection pages can be displayed in an embedded `WKWebView`. These pages are loaded from the service and may load their own subresources or cookies. The app does not maintain a host allow-list for these pages.
 
 ## What AudioMator Does Not Send
 
-- It does not upload local audio files for ordinary metadata editing.
-- It does not upload embedded album artwork from your files as part of routine editing.
-- It does not require network access for local editing, raw inspection, renaming, track/disc number maintenance, or text-file metadata import.
-- It does not install updates automatically.
+- Local audio file contents.
+- Embedded artwork from your files as part of routine reading/writing.
+- Telemetry, analytics, or crash reports.
+- Credentials or API tokens (the app stores none).
+- Automatic background queries. Online features require an explicit search or lookup action.
+
+## Update Checks
+
+The manual check asks GitHub for the latest published release, compares its tag with the running version and build, and offers to open the GitHub Releases page. It does not download, install, or stage an update, and it does not run automatically at launch.
 
 ## Practical Privacy Summary
 
-If you stay inside local editing features, AudioMator stays offline.
+If you stay inside local editing features, AudioMator stays offline. If you use MusicBrainz, iTunes metadata/artwork lookup, LRCLIB lyrics lookup, release notes, or the manual update check, only the request information needed for that feature is sent. The audio file contents remain local.
 
-If you use MusicBrainz, iTunes metadata/artwork lookup, LRCLIB lyrics lookup, release-note lookup, or the manual macOS update check, only the request information needed for that feature is sent. The audio file contents themselves remain local.
+## Contact
+
+E-mail: AudioMator@lloydME.com
+
+See [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) for security limitations and vulnerability reporting.

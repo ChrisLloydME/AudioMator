@@ -899,10 +899,17 @@ private struct AcknowledgementsSheet: View {
             details: [
                 "Project: https://github.com/taglib/taglib",
                 "Website: https://taglib.org/",
-                "AudioMator uses TagLib through the local bridge for metadata reading and writing.",
-                "AudioMator includes a local copy of TagLib source code in the project and uses it directly through the bundled bridge.",
-                "This bundled copy has been trimmed for AudioMator's needs, including removal of files that are not required by this app.",
-                "TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). AudioMator distributes the relevant TagLib license texts with the app."
+                "AudioMator uses TagLib through the independent TagLibAudioMetadata Swift package for metadata reading and writing.",
+                "AudioMator does not vendor or bundle a local copy of TagLib source in this repository.",
+                "TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). Review the upstream license terms before redistributing AudioMator."
+            ]
+        ),
+        (
+            title: "TagLibAudioMetadata",
+            details: [
+                "Project: https://github.com/ChrisLloydME/TagLibAudioMetadata",
+                "AudioMator resolves this package as an external Swift Package Manager dependency for TagLib-backed metadata operations.",
+                "The package is maintained separately from this repository. Review its license and TagLib obligations before redistribution."
             ]
         ),
         (

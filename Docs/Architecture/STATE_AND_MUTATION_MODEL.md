@@ -1,44 +1,136 @@
 # State and Mutation Model
 
-## State categories
+This document describes how AudioMator models application state and how it
+serializes, validates, and reports changes to files on disk.
+
+## State Categories
 
 | Category | Meaning | Persistence |
 | --- | --- | --- |
-| file identity | session UUID associated with a normalized path; rename explicitly rebinds path while retaining ID | session |
-| disk snapshot | immutable `AudioFile` values loaded from current bytes/tags | recreated after import, scan or mutation |
-| selection | `AudioViewModel` 独占的当前 visible collection IDs；setter 与 collection rebuild 都会过滤无效 ID | session |
-| editing draft | `SingleFileEditModel` / `MultiFileEditModel`, distinct from disk snapshot | session, never implicit disk truth |
-| presentation | progress, HUD, open sheet/window and issue summaries | session, except explicit issue-log storage |
-| source configuration | watched-folder bookmark records and display preferences | user defaults/bookmark store on supported platform |
+| File identity | Session UUID associated with a normalized path. Rename rebinds the path while retaining the ID. | Session |
+| Disk snapshot | Immutable `AudioFile` value loaded from file bytes and tags. | Recreated on import, scan, reload, or mutation |
+| Selection | Current visible file IDs owned exclusively by `AudioViewModel`. | Session |
+| Editing draft | `SingleFileEditModel` or `MultiFileEditModel`, plus the source snapshots it was created from. | Session; never implicit disk truth |
+| Presentation | Progress, HUDs, open sheets/windows, issue summaries. | Session |
+| Source configuration | Watched-folder and file-access bookmark records. | `UserDefaults` |
+| Preferences | Sidebar/sort/columns/toolbar/inspector visibility, conflict policy, welcome state, MuseAmp toggle. | `UserDefaults` |
+| Save issue log | Non-success batch summaries. | JSON in Application Support |
 
-## File identity
+`SharedState` owns presentation preferences and sidebar choice. It does **not**
+own the selected audio IDs.
 
-- URL key 使用 standardized、symlink-resolved、Unicode precomposed path。
-- import/rescan 通过 `fileIDsByKey` 保留同路径 ID。
-- rename plan 携带 ID、source/destination 和 preview fingerprint；事务成功后 ID 保持不变并更新 URL mapping。
-- metadata plan 和 provider plan 携带 expected fingerprint；开始写入前必须再次验证。
+## File Identity
 
-## Mutation lifecycle
+- A URL key is standardized, symlink-resolved, and Unicode-precomposed.
+  Case folding is applied only on case-insensitive volumes
+  (`FileSystemPathSemantics`).
+- Imports and rescans reuse the existing UUID for the same path through
+  `fileIDsByKey`.
+- A rename operation carries the file ID, source, destination, and the preview
+  fingerprint. On success the ID is retained and the URL mapping is updated.
+- Metadata and provider write plans carry an expected fingerprint and metadata
+  version. They are validated again inside the mutation reservation.
+
+## Immutable Snapshots
+
+`AudioFile` is a `Sendable` value with a unique `snapshotID`. Copies preserve the
+ID; a reload or transformation creates a new one. The middle list and artwork
+caches use the ID to decide whether a snapshot is still current. A late readback
+cannot replace a newer model because:
+
+1. `AudioViewModel` applies results on the main actor,
+2. it checks the current file's URL and `snapshotID`, and
+3. it uses refresh generations for out-of-order handoffs.
+
+## Selection Ownership
+
+`AudioViewModel.setSelectedAudioIDs`:
+
+1. filters requested IDs to the visible collection,
+2. stores the normalized set,
+3. rebuilds the single-file or multi-file inspector draft in the same
+   main-actor operation.
+
+Rebuilding the visible collection prunes IDs that are no longer present and
+updates the draft. Views use a guarded binding; selection changes that could
+discard unsaved edits are confirmed by `ContentView` before calling the owner.
+
+## Mutation Lifecycle
 
 ```text
-prepare immutable input + expected fingerprint
-  → reserve every affected normalized source/destination path
+prepare immutable input + expected fingerprint/version
+  → reserve every affected normalized path
   → check cancellation
-  → validate current file identity
-  → execute disk mutation
-  → reload persisted snapshot while reservation is still held
-  → release reservation
-  → publish snapshot/result on MainActor
+  → validate file identity and expected revision
+  → resolve conflicts (semantic/raw writes only)
+  → execute the disk mutation
+  → reload the persisted snapshot while the reservation is held
+  → release the reservation
+  → publish the snapshot/result on the main actor
 ```
 
-rename 的多文件 move 使用同一 reservation 中的两阶段事务和 best-effort rollback。metadata 批次默认逐文件提交，因此允许部分成功；结果必须保留每个文件的失败和 warning，不能把已写入但 reload 失败报告成“未写入”。
+Metadata batches commit file by file, so partial success is a valid outcome.
+Results preserve each file's failure and warning. A file that was written but
+could not be reloaded is never reported as "not written".
 
-## Cancellation and recovery
+## Reservation Rules
 
-- 等待 reservation 时取消：operation 不得稍后执行。
-- reservation 获取后取消：在进入不可逆写入前检查；写入开始后以真实持久化结果为准，不伪称已回滚。
-- write 失败：disk snapshot 与 draft 保持原状并返回 failure。
-- write 成功、reload 失败：返回 persisted-with-refresh-warning；内存不得伪造新 snapshot，用户可以重新加载。
-- rename 成功、完整 reload 失败：独立读取新路径的 fingerprint 与 metadata revision。两者均成功时可继续 version-checked editing；任一失败时 snapshot 标记为 refresh-required，所有 metadata mutations fail closed 到下一次成功 reload。
-- rename rollback 不完整：返回每个 operation 的实际候选位置和 rollback errors，要求人工恢复。
-- 文件移动、替换或删除：fingerprint 或 load 失败应关闭写入，不自动寻找“看起来相同”的替代文件。
+`FileMutationCoordinator` is an actor keyed by normalized path:
+
+- A mutation reserves every source and destination path.
+- Reservations are acquired atomically for multi-path operations, avoiding
+  deadlock between overlapping rename and metadata operations.
+- Waiters are granted in a way that avoids starvation: a later waiter is granted
+  only if it conflicts with neither active work nor an older blocked waiter.
+- Cancellation while waiting removes the waiter and throws
+  `CancellationError`; the mutation must not run later.
+- Cancellation after acquisition is checked before irreversible work starts.
+
+Operations that use the coordinator include semantic metadata writes, raw
+metadata writes, erase-all, track renumbering, rename transactions, and selected
+file reloads.
+
+## Cancellation and Recovery
+
+| Situation | Result |
+| --- | --- |
+| Cancelled while waiting for reservation | Operation never executes; reported as cancelled |
+| Cancelled after reservation, before write | Write is not attempted; reservation released |
+| Write fails | Snapshot and draft remain unchanged; failure reported |
+| Write succeeds, reload succeeds | New snapshot published; draft synchronized when appropriate |
+| Write succeeds, reload times out or fails | Persisted-with-warning; no fabricated snapshot; user can reload |
+| Rename succeeds, full reload fails | Fingerprint and metadata revision are recovered independently; if either fails, snapshot is refresh-required and writes fail closed |
+| Rename rollback incomplete | Recovery items list original, intended, and observed locations plus rollback errors |
+| File moved, replaced, or deleted | Identity/revision validation fails; write is refused; no "looks similar" substitution |
+| TagLib reports commit committed but durability uncertain | Treated as committed with a warning; retrying as a failure is explicitly discouraged |
+
+## Operation-Specific Guarantees
+
+| Operation | Transaction scope | Reload | Allowed partial success |
+| --- | --- | --- | --- |
+| Inspector single-file save | One file | Yes, bounded | N/A |
+| Inspector multi-file save | Up to four files concurrently, per-file commits | Yes, per file | Yes |
+| Metadata Editor apply | Per file | Yes | Yes |
+| Raw PropertyMap write | Per file, exact delta | Yes | Yes |
+| Erase All Metadata | Per file | Yes | Yes |
+| Track renumber | Per file, serial | Yes, verification enabled | Yes |
+| Rename | One multi-file two-phase transaction | Per completed move | No; rollback or recovery report |
+| LRCLIB lyrics apply | Per file raw patch | Yes | Batch auto-match yes |
+| Provider tagging plan | Per file | Yes | Yes |
+| Selected-file reload | Per file | Read only | Yes |
+
+## Persistence Boundaries
+
+- Audio files: modified in place at their user-authorized locations.
+- Watched folders and file-access grants: security-scoped bookmark data in
+  `UserDefaults` (`watchedFolderRecords`, `fileAccessGrantRecords`).
+- Conflict policy: `metadata.conflictPolicy`.
+- Save issue log: `Application Support/AudioMator/SaveIssueLog.json`, capped at
+  200 entries.
+- No audio content is copied into application storage.
+
+## Related Documents
+
+- [Metadata Pipeline](METADATA_PIPELINE.md)
+- [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
+- [Architecture Overview](OVERVIEW.md)

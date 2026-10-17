@@ -1,6 +1,7 @@
 # Metadata and main-list performance investigation
 
-Date: 2026-10-11. Starting revision: `845296d`.
+> Engineering record, not a current behavior contract. Date: 2026-10-11.
+> Starting revision: `845296d`. Re-run the tests before relying on any number.
 
 ## Findings and fixes
 

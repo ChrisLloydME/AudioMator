@@ -710,6 +710,31 @@ final class AudioViewModel: ObservableObject {
         return true
     }
 
+    /// Keeps the last known URL but disables writes when a rename recovery
+    /// could not establish a single verified location. The HUD lists the
+    /// observed locations for manual recovery.
+    func markFileRequiresRefresh(id: AudioFile.ID) {
+        func refresh(_ file: AudioFile) -> AudioFile {
+            file.withUpdatedURL(
+                file.url,
+                fileFingerprint: nil,
+                metadataFileVersion: nil,
+                requiresMetadataRefreshBeforeWriting: true
+            )
+        }
+
+        if let index = quickImportFiles.firstIndex(where: { $0.id == id }) {
+            quickImportFiles[index] = refresh(quickImportFiles[index])
+        }
+        for folderID in watchedFolderFiles.keys {
+            guard var folderFiles = watchedFolderFiles[folderID],
+                  let index = folderFiles.firstIndex(where: { $0.id == id }) else { continue }
+            folderFiles[index] = refresh(folderFiles[index])
+            watchedFolderFiles[folderID] = folderFiles
+        }
+        rebuildVisibleFiles()
+    }
+
     func loadedFile(withID id: AudioFile.ID) -> AudioFile? {
         pendingMetadataReloadsByID[id] ?? visibleFilesByID[id]
     }

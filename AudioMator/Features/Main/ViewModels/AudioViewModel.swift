@@ -1019,13 +1019,15 @@ final class AudioViewModel: ObservableObject {
         watchedFolderScanFailureCounts[id] = 0
 
         let fileIDsByKey = prepareStableIDs(for: snapshot.audioURLs)
+        let previousFilesByKey = Self.audioFilesByURLKey(watchedFolderFiles[id] ?? [])
         let metadataPipeline = self.metadataPipeline
 
         let loadTask = Task.detached(priority: .userInitiated) {
             await Self.loadAudioFiles(
                 from: snapshot.audioURLs,
                 fileIDsByKey: fileIDsByKey,
-                metadataPipeline: metadataPipeline
+                metadataPipeline: metadataPipeline,
+                previousFilesByKey: previousFilesByKey
             )
         }
         let loadResult = await withTaskCancellationHandler {
@@ -1041,7 +1043,6 @@ final class AudioViewModel: ObservableObject {
             return
         }
 
-        let previousFilesByKey = Self.audioFilesByURLKey(watchedFolderFiles[id] ?? [])
         var refreshedFilesByKey = Self.audioFilesByURLKey(loadResult.files)
         for failure in loadResult.failures {
             let key = Self.urlKey(for: failure.url)
@@ -1393,12 +1394,13 @@ final class AudioViewModel: ObservableObject {
         fileIDsByKey: [String: UUID],
         metadataPipeline: any AudioMetadataPipeline,
         retryTransientFailures: Bool = false,
+        previousFilesByKey: [String: AudioFile] = [:],
         onBatchLoaded: (@Sendable ([AudioFile]) async -> Void)? = nil
     ) async -> AudioFileLoadResult {
-        let inputs: [(index: Int, url: URL, id: UUID)] = urls.enumerated().compactMap { offset, url in
+        let inputs: [(index: Int, url: URL, id: UUID, previousFile: AudioFile?)] = urls.enumerated().compactMap { offset, url in
             let key = urlKey(for: url)
             guard let id = fileIDsByKey[key] else { return nil }
-            return (offset, url, id)
+            return (offset, url, id, previousFilesByKey[key])
         }
 
         guard !inputs.isEmpty else { return AudioFileLoadResult(files: [], failures: []) }
@@ -1429,6 +1431,13 @@ final class AudioViewModel: ObservableObject {
             for input in inputs.prefix(maxConcurrentLoads) {
                 group.addTask {
                     guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
+                    if let previousFile = input.previousFile,
+                       let previousFingerprint = previousFile.fileFingerprint,
+                       let previousVersion = previousFile.metadataFileVersion,
+                       (try? AudioFileFingerprint.capture(at: input.url)) == previousFingerprint,
+                       (try? metadataPipeline.metadataFileVersion(at: input.url)) == previousVersion {
+                        return (input.index, input.url, previousFile, nil)
+                    }
                     do {
                         let file = try await loadAudioFile(
                             at: input.url,
@@ -1509,6 +1518,13 @@ final class AudioViewModel: ObservableObject {
 
                 group.addTask {
                     guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
+                    if let previousFile = input.previousFile,
+                       let previousFingerprint = previousFile.fileFingerprint,
+                       let previousVersion = previousFile.metadataFileVersion,
+                       (try? AudioFileFingerprint.capture(at: input.url)) == previousFingerprint,
+                       (try? metadataPipeline.metadataFileVersion(at: input.url)) == previousVersion {
+                        return (input.index, input.url, previousFile, nil)
+                    }
                     do {
                         let file = try await loadAudioFile(
                             at: input.url,

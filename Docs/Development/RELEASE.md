@@ -22,12 +22,13 @@ There is one CI workflow, `Validation`, and it does not publish artifacts.
 
 ## Versioning
 
-| Value | Location | Current value |
-| --- | --- | --- |
-| Marketing version | `MARKETING_VERSION` in `project.pbxproj` | `2.7` |
-| Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` | `2697` |
-| Release tag | GitHub Releases | Must be `V<version>B<build>` |
+| Value | Location |
+| --- | --- |
+| Marketing version | `MARKETING_VERSION` in `project.pbxproj` |
+| Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` |
+| Release tag | GitHub Releases, in the form `V<version>B<build>` |
 
+Current values are recorded in [Configuration](../Reference/CONFIGURATION.md).
 Example tag: `V2.7B2697`.
 
 The in-app update checker:

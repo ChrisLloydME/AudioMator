@@ -165,17 +165,16 @@ The exact boundary and known dependency limitations are documented in
 - **No release automation exists in this repository.** See
   [Release Engineering](../Development/RELEASE.md).
 
-## Current Version Signals
+## Current Version and License
 
-At the audited commit:
+The authoritative version, build number, bundle identifiers, and build settings
+are recorded in [Configuration](../Reference/CONFIGURATION.md). At the audited
+commit they were marketing version `2.7`, build `2697`, Debug bundle ID
+`com.TheLloydME.AudioMator.Beta`, and Release bundle ID
+`com.LloydME.AudioMator`.
 
-- `MARKETING_VERSION = 2.7`
-- `CURRENT_PROJECT_VERSION = 2697`
-- Debug bundle identifier: `com.TheLloydME.AudioMator.Beta`
-- Release bundle identifier: `com.LloydME.AudioMator`
-- License: GNU Affero General Public License v3.0 (`LICENSE`)
-
-These values change; always verify them in the Xcode project before a release.
+The project is licensed under the GNU Affero General Public License v3.0; see
+[`LICENSE`](../../LICENSE).
 
 ## Documentation Navigation
 

@@ -21,10 +21,19 @@ enum MetadataConflictResolver {
         let before = try AudioFileFingerprint.capture(at: url)
         // A replacement may be a different recording. A metadata projection
         // cannot establish audio identity, so even priority policies stop here.
-        guard before.normalizedPath == originalFingerprint.normalizedPath,
-              let device = originalFingerprint.fileSystemNumber,
-              let inode = originalFingerprint.fileNumber,
-              before.fileSystemNumber == device, before.fileNumber == inode else {
+        guard before.normalizedPath == originalFingerprint.normalizedPath else {
+            throw AudioFileFingerprintValidationError.changedSincePreview(fileName: url.lastPathComponent)
+        }
+
+        // Some network/FUSE volumes do not report stable device/inode values.
+        // Do not make the whole metadata editor unusable there: fall back to
+        // the path plus the package's content-derived expected version, which
+        // the caller validates immediately before and after the snapshot read.
+        guard let device = originalFingerprint.fileSystemNumber,
+              let inode = originalFingerprint.fileNumber else {
+            return before
+        }
+        guard before.fileSystemNumber == device, before.fileNumber == inode else {
             throw AudioFileFingerprintValidationError.changedSincePreview(fileName: url.lastPathComponent)
         }
         return before

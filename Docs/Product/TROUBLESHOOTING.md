@@ -59,10 +59,10 @@ do not copy that environment variable. Use the installed stable Xcode 27.
 ### `scripts/codex-build.sh` reports an AppIcon tool crash
 
 The script recognizes a known environment-specific failure where `actool` or
-`ibtoold` crashes while compiling `AudioMator/AppIcon.icon`. If the log matches
-that failure and contains no other compiler error, the script treats it as a
-tooling false positive. Still inspect `.deriveddata-codex/xcodebuild.log` for
-real errors.
+`ibtoold` crashes while compiling `AudioMator/AppIcon.icon`. When the log contains
+those markers, the script reports a known false positive and exits 0. It does not
+check for other errors in that case, so always inspect
+`.deriveddata-codex/xcodebuild.log` for real failures.
 
 ### The build succeeds but the app cannot be launched for testing
 

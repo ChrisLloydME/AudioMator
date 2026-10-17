@@ -25,7 +25,7 @@ snapshot.
 
 ### Watched Folders
 
-1. Use **Add Watched Folder** (in the sidebar or Settings → Folders).
+1. Use **Add Folder…** (in the sidebar or Settings → Folders).
 2. Choose one or more folders.
 3. AudioMator stores security-scoped bookmarks so the folders are restored on
    later launches.

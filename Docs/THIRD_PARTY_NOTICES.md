@@ -48,11 +48,12 @@ Review that repository's license and its transitive TagLib obligations before re
 - **Project**: iTunes Artwork Finder
 - **Source**: https://github.com/bendodson/itunes-artwork-finder
 - **Usage in this repository**: inspiration for the original album artwork lookup workflow and result transformation approach. AudioMator's current iTunes metadata and artwork implementation is written in Swift in this repository.
-- **Upstream license**: The Unlicense / public domain dedication
+- **Upstream license**: Not verified by this repository.
 
 ### Licensing
 
-The referenced project is released under The Unlicense. Where recognized, the work is dedicated to the public domain; otherwise, it is provided for unrestricted use under the terms of The Unlicense.
+No source code from this project is copied into AudioMator. Review the upstream
+license before redistributing any derived material.
 
 ## Apple iTunes Search API
 

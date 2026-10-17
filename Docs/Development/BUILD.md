@@ -89,8 +89,9 @@ Behavior:
 - Without `--force`, skips `xcodebuild` when no build-relevant files changed.
 - Runs a Debug generic macOS build with code signing disabled.
 - Logs to `.deriveddata-codex/xcodebuild.log`.
-- Treats one specific `actool`/`AppIcon.icon` crash as a known environment false
-  positive; other failures exit non-zero.
+- If the log contains the specific `actool`/`AppIcon.icon` crash markers, the
+  script treats the result as a known environment false positive and exits 0.
+  It does not prove there are no other errors, so always inspect the log.
 
 The script does **not** run tests, archive, sign, notarize, or package.
 
@@ -225,12 +226,11 @@ xcodebuild ... -only-testing:AudioMatorTests/TagLibReadWriteIntegrationTests tes
   Executed 33 tests, with 0 failures
 ```
 
-An unsigned Release generic build also passed and produced a universal executable
+The full serial app-hosted suite also passed: 438 tests, 0 failures.
+
+An unsigned Release generic build passed and produced a universal executable
 (`x86_64 arm64`). `scripts/validate-macos-artifact.sh` accepted the bundle with
 minimum macOS 15.0.
-
-The full app-hosted suite was not run during this documentation audit; see
-[Testing](TESTING.md) for its scope and the resulting gap.
 
 ## Related Documents
 

@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
@@ -6,7 +7,10 @@ import XCTest
 @MainActor
 final class WatchedFolderRefreshOrderingTests: XCTestCase {
     func testRescanCannotReplaceNewerMutationSnapshot() async throws {
-        let rootURL = FileManager.default.temporaryDirectory
+        let applicationSupport = try XCTUnwrap(
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        )
+        let rootURL = applicationSupport
             .appendingPathComponent("AudioMatorWatchedOrdering-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
@@ -33,13 +37,22 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
             conflictPolicyDefaults: defaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
 
-        try await waitUntil { viewModel.files.count == 1 && viewModel.files.first?.title == "Old" }
+        let didLoadInitial = try await waitUntil {
+            viewModel.files.count == 1 && viewModel.files.first?.title == "Old"
+        }
+        let directoryContents = (try? FileManager.default.contentsOfDirectory(atPath: rootURL.path)) ?? []
+        XCTAssertTrue(
+            didLoadInitial,
+            "watchedFolders=\(viewModel.watchedFolders.count) files=\(viewModel.files.count) mode=\(viewModel.currentFileSourceMode) root=\(rootURL.path) resolved=\(viewModel.watchedFolders.first?.url.path ?? "nil") contents=\(directoryContents) readable=\(AudioFormatSupport.readableExtensions.contains("mp3")) status=\(String(describing: viewModel.directoryMonitoringStatuses))"
+        )
         let old = try XCTUnwrap(viewModel.files.first)
 
         pipeline.prepareToBlockNextLoad()
         viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
-        await pipeline.waitUntilBlocked()
+        let didBlock = await pipeline.waitUntilBlocked()
+        XCTAssertTrue(didBlock)
 
         let refreshed = AudioFileTestFactory.make(
             id: old.id,
@@ -53,7 +66,8 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         ))
         pipeline.setCurrentTitle("New")
         await pipeline.release()
-        await pipeline.waitUntilReturned()
+        let didReturn = await pipeline.waitUntilReturned()
+        XCTAssertTrue(didReturn)
 
         // The aborted rescan may schedule a short retry; allow it to run and
         // confirm the newer mutation snapshot is still authoritative.
@@ -98,12 +112,13 @@ private final class GatedWatchedFolderPipeline: AudioMetadataPipeline, @unchecke
         condition.withLock { currentTitle = title }
     }
 
-    func waitUntilBlocked() async {
-        while true {
-            let blocked = condition.withLock { isBlocked }
-            if blocked { return }
+    func waitUntilBlocked(timeout: Duration = .seconds(3)) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while ContinuousClock.now < deadline {
+            if condition.withLock({ isBlocked }) { return true }
             try? await Task.sleep(for: .milliseconds(10))
         }
+        return condition.withLock { isBlocked }
     }
 
     func release() async {
@@ -113,12 +128,13 @@ private final class GatedWatchedFolderPipeline: AudioMetadataPipeline, @unchecke
         }
     }
 
-    func waitUntilReturned() async {
-        while true {
-            let didReturn = condition.withLock { returned }
-            if didReturn { return }
+    func waitUntilReturned(timeout: Duration = .seconds(3)) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while ContinuousClock.now < deadline {
+            if condition.withLock({ returned }) { return true }
             try? await Task.sleep(for: .milliseconds(10))
         }
+        return condition.withLock { returned }
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {

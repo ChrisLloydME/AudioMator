@@ -26,6 +26,7 @@ A conflict therefore does not prove that tags changed. It proves that the app ca
 2. Never trust a basic tag projection as proof that native metadata is unchanged.
 3. Never substitute a different file that "looks the same" after a move, replacement, or delete.
 4. A semantic snapshot cannot prove audio identity, so same-path replacement is refused even under priority policies.
+5. When the original device or inode is unavailable, every known identity component must still match. Size, modification time, and the original package version must remain unchanged. Editing an unchanged revision is permitted; automatic rebasing and refreshing an editor baseline to a changed revision are refused until an explicit reload. A fresh snapshot/version pair alone cannot establish continuity with the original file.
 
 ## Where Revision Checks Happen
 

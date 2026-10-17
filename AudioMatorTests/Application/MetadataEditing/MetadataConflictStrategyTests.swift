@@ -181,6 +181,76 @@ final class MetadataConflictStrategyTests: XCTestCase {
         )
     }
 
+    func testMissingIdentityRejectsChangedRevisionForEveryPolicyAndWriteKind() async throws {
+        for policy in MetadataConflictPolicy.allCases {
+            for rawWrite in [false, true] {
+                let file = try await loadedFixture()
+                let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+                let fingerprint = try XCTUnwrap(file.fileFingerprint)
+                let version = try XCTUnwrap(file.metadataFileVersion)
+                let missingIdentity = AudioFileFingerprint(
+                    normalizedPath: fingerprint.normalizedPath,
+                    fileSize: fingerprint.fileSize,
+                    contentModificationDate: fingerprint.contentModificationDate,
+                    fileSystemNumber: nil,
+                    fileNumber: nil
+                )
+                // Even a permission-only version change cannot be safely rebased
+                // when the original file's identity is unavailable.
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
+                let bytes = try Data(contentsOf: file.url)
+                let writes = ConflictWriteRecorder()
+                let pipeline = FixtureConflictPipeline(writes: writes)
+                if rawWrite {
+                    var draft = baseline.values
+                    draft["TITLE"] = ["Do not write"]
+                    XCTAssertThrowsError(try MetadataConflictResolver.writeRawMetadata(
+                        draft, original: baseline, originalFingerprint: missingIdentity,
+                        originalVersion: version, policy: policy, pipeline: pipeline, url: file.url
+                    ))
+                } else {
+                    var draft = SingleFileEditModel(from: file)
+                    draft.title = "Do not write"
+                    XCTAssertThrowsError(try MetadataConflictResolver.writeMetadata(
+                        MetadataEditPayload(draft, comparedTo: file), original: baseline,
+                        originalFingerprint: missingIdentity, originalVersion: version,
+                        policy: policy, pipeline: pipeline, url: file.url
+                    ))
+                }
+                XCTAssertEqual(writes.totalWriteCount, 0)
+                XCTAssertEqual(try Data(contentsOf: file.url), bytes)
+            }
+        }
+    }
+
+    func testMissingIdentityRejectsSamePathReplacement() async throws {
+        let file = try await loadedFixture()
+        let fingerprint = try XCTUnwrap(file.fileFingerprint)
+        let missingIdentity = AudioFileFingerprint(
+            normalizedPath: fingerprint.normalizedPath,
+            fileSize: fingerprint.fileSize,
+            contentModificationDate: fingerprint.contentModificationDate,
+            fileSystemNumber: nil,
+            fileNumber: nil
+        )
+        let copy = file.url.deletingLastPathComponent().appendingPathComponent("replacement.flac")
+        try FileManager.default.copyItem(at: file.url, to: copy)
+        try FileManager.default.removeItem(at: file.url)
+        try FileManager.default.moveItem(at: copy, to: file.url)
+        let replacement = try Data(contentsOf: file.url)
+        let writes = ConflictWriteRecorder()
+        var draft = SingleFileEditModel(from: file)
+        draft.title = "Do not relabel a replacement"
+        XCTAssertThrowsError(try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(draft, comparedTo: file),
+            original: try XCTUnwrap(file.metadataConflictBaseline), originalFingerprint: missingIdentity,
+            originalVersion: try XCTUnwrap(file.metadataFileVersion), policy: .preferUserChanges,
+            pipeline: FixtureConflictPipeline(writes: writes), url: file.url
+        ))
+        XCTAssertEqual(writes.totalWriteCount, 0)
+        XCTAssertEqual(try Data(contentsOf: file.url), replacement)
+    }
+
     func testPermissionOnlyChangeAutomaticallySavesInspectorDraft() async throws {
         let file = try await loadedFixture()
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)

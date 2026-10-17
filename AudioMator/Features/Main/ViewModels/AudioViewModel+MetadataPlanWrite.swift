@@ -108,7 +108,7 @@ extension AudioViewModel {
             }
         }
 
-        summary.warningIssues.append(contentsOf: skippedIssues)
+        summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
             subtitle: String(localized: "Finishing..."),
@@ -243,7 +243,7 @@ extension AudioViewModel {
             }
         }
 
-        summary.warningIssues.append(contentsOf: skippedIssues)
+        summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
             subtitle: String(localized: "Finishing..."),

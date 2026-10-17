@@ -80,7 +80,7 @@ final class SaveIssueLogStore: ObservableObject {
     func record(summary: BatchMetadataOperationSummary, date: Date = Date()) {
         guard summary.hudStyle != .success else { return }
 
-        let sourceIssues = summary.failureIssues + summary.warningIssues
+        let sourceIssues = summary.failureIssues + summary.skippedIssues + summary.warningIssues
         guard !sourceIssues.isEmpty else { return }
 
         let entry = SaveIssueLogEntry(

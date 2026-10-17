@@ -714,6 +714,9 @@ final class AudioViewModel: ObservableObject {
     /// could not establish a single verified location. The HUD lists the
     /// observed locations for manual recovery.
     func markFileRequiresRefresh(id: AudioFile.ID) {
+        invalidateWatchedFolderScans(containingFileID: id)
+        pendingMetadataReloadsByID.removeValue(forKey: id)
+        appliedFileModelRefreshGenerations[id] = makeFileModelRefreshGeneration()
         func refresh(_ file: AudioFile) -> AudioFile {
             file.withUpdatedURL(
                 file.url,

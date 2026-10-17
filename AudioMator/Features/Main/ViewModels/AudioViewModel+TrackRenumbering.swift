@@ -30,20 +30,35 @@ extension AudioViewModel {
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
-        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, requiresMetadataRefresh: Bool, refreshGeneration: UInt64)] =
+        let allTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, requiresMetadataRefresh: Bool, refreshGeneration: UInt64)] =
             targetFiles.map {
                 ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion, $0.requiresMetadataRefreshBeforeWriting, makeFileModelRefreshGeneration())
             }
+        let writableExtensions = AudioFormatSupport.metadataWritableExtensions
+        let writeTargets = allTargets.filter { target in
+            let ext = target.url.pathExtension.lowercased()
+            return writableExtensions.contains(ext) &&
+                unsupportedMetadataWriteFields([.track, .trackTotal], forFileExtension: ext).isEmpty
+        }
+        let skippedUnsupported = allTargets.count - writeTargets.count
 
+        guard !allTargets.isEmpty else { return .empty }
         guard !writeTargets.isEmpty else {
-            return .empty
+            return TrackRenumberResult(
+                totalTargets: allTargets.count,
+                succeeded: 0,
+                skippedUnsupported: skippedUnsupported,
+                failed: 0,
+                failures: [],
+                warnings: []
+            )
         }
 
         if let accessFailure = ensureMetadataMutationDirectoryAccess(for: writeTargets.map(\.url)) {
             return TrackRenumberResult(
-                totalTargets: writeTargets.count,
+                totalTargets: allTargets.count,
                 succeeded: 0,
-                skippedUnsupported: 0,
+                skippedUnsupported: skippedUnsupported,
                 failed: writeTargets.count,
                 failures: writeTargets.map {
                     TrackRenumberFailure(fileName: $0.url.lastPathComponent, reason: accessFailure)
@@ -66,7 +81,6 @@ extension AudioViewModel {
 
         let maxNumber = numbers.max() ?? start
         let padWidth = trackRenumberPadWidth(maxNumber: maxNumber, padWithZeros: options.padWithZeros)
-        let writableExtensions = AudioFormatSupport.metadataWritableExtensions
         let metadataPipeline = self.metadataPipeline
         let mutationExecutor = MetadataFileMutationExecutor(
             metadataPipeline: metadataPipeline,
@@ -75,11 +89,11 @@ extension AudioViewModel {
 
         let writeOutcome = await Task.detached(
             priority: .userInitiated
-        ) { [writeTargets, numbers, padWidth, writableExtensions, mutationExecutor] in
+        ) { [writeTargets, numbers, padWidth, mutationExecutor, skippedUnsupported] in
             var result = TrackRenumberResult(
-                totalTargets: writeTargets.count,
+                totalTargets: writeTargets.count + skippedUnsupported,
                 succeeded: 0,
-                skippedUnsupported: 0,
+                skippedUnsupported: skippedUnsupported,
                 failed: 0,
                 failures: [],
                 warnings: []

@@ -240,6 +240,9 @@ extension AudioViewModel {
         }
 
         let editPayload = MetadataEditPayload(edit, comparedTo: sourceFile ?? file)
+        if let message = editPayload.numberPairValidationMessage {
+            return .failure(message)
+        }
         let unsupportedFields = unsupportedMetadataWriteFields(
             in: editPayload,
             forFileExtension: file.url.pathExtension

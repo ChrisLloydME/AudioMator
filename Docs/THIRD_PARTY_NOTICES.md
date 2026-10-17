@@ -38,20 +38,21 @@ When using TagLib in commercial or closed-source applications, at minimum:
 - **Project**: TagLibAudioMetadata
 - **Source**: https://github.com/ChrisLloydME/TagLibAudioMetadata.git
 - **Usage in this repository**: Swift Package Manager dependency that exposes the TagLib-backed APIs consumed by AudioMator's metadata pipeline.
-- **Current resolution**: pinned by `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+- **Current resolution**: exact version `0.5.3`, revision `03473c9ae199026b806a5f75c387ca036e325284`, pinned in `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+- **Not vendored**: AudioMator does not include a local copy of this package or of TagLib source in this repository.
 
-Review that repository's license and its transitive TagLib obligations before redistribution.
+Review that repository's license and its transitive TagLib obligations before redistribution. This notice does not assert that the package's license has been verified for a particular distribution.
 
 ## iTunes Artwork Finder
 
 - **Project**: iTunes Artwork Finder
 - **Source**: https://github.com/bendodson/itunes-artwork-finder
 - **Usage in this repository**: inspiration for the original album artwork lookup workflow and result transformation approach. AudioMator's current iTunes metadata and artwork implementation is written in Swift in this repository.
-- **Upstream license**: The Unlicense / public domain dedication
+- **Upstream license**: Not verified by this repository.
 
 ### Licensing
 
-The referenced project is released under The Unlicense. Where recognized, the work is dedicated to the public domain; otherwise, it is provided for unrestricted use under the terms of The Unlicense.
+No source code from this project is copied into AudioMator. Review the upstream license before redistributing any derived material.
 
 ## Apple iTunes Search API
 
@@ -71,6 +72,15 @@ The iTunes Search API is an Apple web service, not third-party source code bundl
 ### Service Notice
 
 LRCLIB is a public lyrics service, not third-party source code bundled into AudioMator. Keep privacy disclosures current when changing the LRCLIB lookup flow, because queries may include metadata-derived title, artist, album, and duration values.
+
+## MuseAmp
+
+- **Project**: MuseAmp
+- **Source**: https://github.com/Lakr233/MuseAmp
+- **Usage in this repository**: optional compatibility feature that writes MuseAmp album/track IDs into the Comment field. AudioMator is an independent project and is not affiliated with, endorsed by, or sponsored by MuseAmp or its developers.
+- **Status**: implement the feature only when the user enables MuseAmp Compatibility.
+
+The repository does not include MuseAmp source code. Review the upstream project's license before redistributing anything derived from it.
 
 ## GitHub Releases
 

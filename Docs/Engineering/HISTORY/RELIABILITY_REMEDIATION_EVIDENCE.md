@@ -2,9 +2,7 @@
 
 > Historical evidence from the 2026-06-21 remediation. Commands, platform findings, CI scope, versions, and paths below describe that pass only. Current CI also runs the serial app-hosted Xcode suite, and AudioMator is now macOS-only.
 
-This file records the evidence used for the reliability remediation requested on
-2026-06-21. It intentionally contains no user media paths, metadata values,
-credentials, or signing material.
+This file records the evidence used for the reliability remediation requested on 2026-06-21. It intentionally contains no user media paths, metadata values, credentials, or signing material.
 
 ## Baseline captured before task edits
 
@@ -16,10 +14,8 @@ credentials, or signing material.
 - Required compatibility tag: `V2.4.1B26516`
 - Tag commit: `67ce047f7915dbccc5c1b5a5b8fa2be0574d640c`
 - Tag commit date: `2026-06-01 16:18:28 +0800`
-- Tag project version: `MARKETING_VERSION = 2.4.1`,
-  `CURRENT_PROJECT_VERSION = 26516`
-- Initial current project version: `2.4.2 (26517)`; the remediation does not
-  change version or build settings.
+- Tag project version: `MARKETING_VERSION = 2.4.1`, `CURRENT_PROJECT_VERSION = 26516`
+- Initial current project version: `2.4.2 (26517)`; the remediation does not change version or build settings.
 
 The initial repository state was recorded with:
 
@@ -32,8 +28,7 @@ git log --oneline --decorate V2.4.1B26516..HEAD
 git diff --name-status V2.4.1B26516..HEAD
 ```
 
-The authoritative repository-provided validation surfaces found before edits
-were:
+The authoritative repository-provided validation surfaces found before edits were:
 
 ```sh
 swift test
@@ -48,19 +43,11 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
   -archivePath /tmp/AudioMator.xcarchive
 ```
 
-The shared `AudioMator` scheme includes `AudioMatorTests` and is configured for
-Release Archive. The smoke script resolves the checked-out TagLib bridge from
-`.deriveddata-codex` (or an explicit `TAGLIB_BRIDGE_ROOT`) and builds a local
-smoke executable without accessing user media.
+The shared `AudioMator` scheme includes `AudioMatorTests` and is configured for Release Archive. The smoke script resolves the checked-out TagLib bridge from `.deriveddata-codex` (or an explicit `TAGLIB_BRIDGE_ROOT`) and builds a local smoke executable without accessing user media.
 
 ## Finding disposition and regression evidence
 
-The baseline tag contains the same unsafe behaviors: independent detached
-metadata mutation helpers, `try?` rename rollback, workbench actions that read
-`store.plan` again, uncancellable quick import, the full metadata dump, track
-renumbering with `verifyAfterWrite: false`, and one monitor per discovered
-directory. This was verified with `git show` and `git grep` against
-`V2.4.1B26516`; none of the post-baseline implementations was assumed correct.
+The baseline tag contains the same unsafe behaviors: independent detached metadata mutation helpers, `try?` rename rollback, workbench actions that read `store.plan` again, uncancellable quick import, the full metadata dump, track renumbering with `verifyAfterWrite: false`, and one monitor per discovered directory. This was verified with `git show` and `git grep` against `V2.4.1B26516`; none of the post-baseline implementations was assumed correct.
 
 | Risk | Disposition | Evidence and regression coverage |
 | --- | --- | --- |
@@ -75,25 +62,16 @@ directory. This was verified with `git show` and `git grep` against
 
 ### Pre-fix distinguishing evidence
 
-The focused tests were introduced before their corresponding behavior change
-or were run through an injectable seam against the old behavior. The following
-failures distinguished the old and new paths:
+The focused tests were introduced before their corresponding behavior change or were run through an injectable seam against the old behavior. The following failures distinguished the old and new paths:
 
 - file mutation serialization: old maximum concurrency was `2`; fixed is `1`;
-- rename rollback: a hidden temporary or destination file remained while the
-  old result contained no recovery item;
-- displayed plan routing: the old views called `applyTags()` and then read
-  `store.plan.writeEntries`; the fixed source-policy test requires the displayed
-  plan parameter;
+- rename rollback: a hidden temporary or destination file remained while the old result contained no recovery item;
+- displayed plan routing: the old views called `applyTags()` and then read `store.plan.writeEntries`; the fixed source-policy test requires the displayed plan parameter;
 - quick import: the delayed old task repopulated the list after Clear;
-- sensitive logging: the old source-policy test found
-  `logMetadataWrite` and its unconditional marker;
-- track renumber: the old pipeline received `verifyAfterWrite == false`, the UI
-  model showed the requested `07`, and its warning was lost.
+- sensitive logging: the old source-policy test found `logMetadataWrite` and its unconditional marker;
+- track renumber: the old pipeline received `verifyAfterWrite == false`, the UI model showed the requested `07`, and its warning was lost.
 
-The directory exhaustion condition was not made to consume host resources.
-Only bounded policy, status reporting, and deterministic tests were added for
-that finding.
+The directory exhaustion condition was not made to consume host resources. Only bounded policy, status reporting, and deterministic tests were added for that finding.
 
 ## Final validation
 
@@ -138,20 +116,11 @@ Archive inspection:
 - size: 92 MB;
 - signing identity: absent, as expected for `CODE_SIGNING_ALLOWED=NO`;
 - Release executable scan found none of the removed sensitive logger markers;
-- production-source scan found none of the removed logger markers or provider
-  identifiers.
+- production-source scan found none of the removed logger markers or provider identifiers.
 
-The only build attempted beyond the required macOS surfaces was a generic iOS
-compile. It is blocked by the repository's pre-existing unconditional
-`import AppKit` in `MetadataFilenameTemplateEditors.swift`; that file is not
-modified by this remediation. No unrelated cross-platform refactor was made.
+The only build attempted beyond the required macOS surfaces was a generic iOS compile. It is blocked by the repository's pre-existing unconditional `import AppKit` in `MetadataFilenameTemplateEditors.swift`; that file is not modified by this remediation. No unrelated cross-platform refactor was made.
 
 ### Remaining operational limits
 
-- Directory monitoring intentionally becomes observable but partial after 128
-  directories; the root remains monitored and a full rescan still refreshes the
-  model. A future FSEvents migration can remove this limit but is outside this
-  evidence-supported repair.
-- The new hosted workflow has not run remotely in this local task. It is
-  intentionally limited to `swift test`; the passing local TagLib, Xcode test,
-  and Release Archive commands above remain authoritative.
+- Directory monitoring intentionally becomes observable but partial after 128 directories; the root remains monitored and a full rescan still refreshes the model. A future FSEvents migration can remove this limit but is outside this evidence-supported repair.
+- The new hosted workflow has not run remotely in this local task. It is intentionally limited to `swift test`; the passing local TagLib, Xcode test, and Release Archive commands above remain authoritative.

@@ -2,222 +2,167 @@
   <img src="Docs/Images/AppIcon-1024x1024@1x.png" alt="AudioMator app icon" width="240">
 </p>
 
-<h1 align="center" style="font-size: 36px;">AudioMator</h1>
+<h1 align="center">AudioMator</h1>
 
 <p align="center">
-  <strong style="font-size: 24px;">Your Audio Library’s Best Mate</strong><br>
-  Native Audio Metadata Editor
+  <strong>Your Audio Library’s Best Mate</strong><br> Native macOS Audio Metadata Editor
 </p>
 
 <p align="center">
-  <a href="#building">
-    <img alt="Build for macOS Tahoe" src="https://img.shields.io/badge/Build%20for-macOS-black?style=for-the-badge&logo=apple">
-  </a>
+  <img alt="macOS 15.0 or later" src="https://img.shields.io/badge/macOS-15.0%2B-black?style=for-the-badge&logo=apple">
+  <img alt="Swift" src="https://img.shields.io/badge/Swift-5%20language%20mode-orange?style=for-the-badge&logo=swift">
+  <img alt="License: AGPL-3.0" src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge">
 </p>
 
+AudioMator is a local-first audio metadata editor for macOS. It inspects, edits, organizes, and enriches music files through a TagLib-powered pipeline while keeping the audio content on your Mac.
 
-## Overview
+## Features
 
-AudioMator is a local-first audio metadata editor for macOS. It helps users inspect, organize, and edit music files through common tagging workflows, including metadata editing, artwork replacement, automatic track numbering, filename-based metadata conversion, raw metadata inspection, and online metadata lookup. For more detailed feature information, see [AudioMator Feature Overview](#audiomator-feature-overview).
-
-Inspector artwork previews decode in the background and reuse a small cache of display-sized thumbnails so switching tracks stays responsive. Original embedded and replacement artwork bytes remain intact for metadata writes.
-
-Metadata loading skips redundant AVFoundation Credits reads where the container and TagLib snapshot establish that no ID3 Credits are present. Saving an unchanged revision avoids an extra conflict snapshot while retaining transactional verification and the final file-version guard.
-
-Batch saves combine list refreshes and limit progress redraws so large selections do not rebuild the whole list after every file. Range selections reuse exact artwork comparisons already established for immutable file snapshots. See [metadata performance measurements](Docs/METADATA_IO_PERFORMANCE.md) for automated test scope and results.
-
-> [!CAUTION]
->
-> #### macOS 27 Golden Gate Compatibility Issues
->
-> * ~~Toolbar buttons may appear incorrectly.~~
-> * ~~Tag Inspector: [TagLib Properties] are not displayed correctly.~~
->
-> All compatibility issues with macOS 27 Golden Gate have been resolved.
-
-
+- **Inspector editing** for common fields, for one file or a multi-file selection.
+- **Metadata Editor** for the raw TagLib PropertyMap projection, preserving ordered value lists, duplicates, whitespace, and literal semicolons.
+- **Tag Inspector** for read-only raw tags, ID3v2 frames, legacy sections, and compatibility notes.
+- **Filename & Metadata** conversion across seven modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut.
+- **Track renumbering** by list or selection order, with direction, start number, and zero-padding.
+- **Artwork replacement** from local images or clipboard data, plus optional iTunes artwork lookup.
+- **Online metadata** from MusicBrainz, the Apple iTunes Search API, and LRCLIB synced lyrics, always user initiated.
+- **Watched folders** with security-scoped bookmarks, debounced rescans, and bounded directory monitoring.
+- **Conflict strategies** for Inspector and Metadata Editor drafts when files change on disk.
+- **Local save issue log** for non-success batch outcomes.
+- **MuseAmp compatibility IDs** as an optional integration.
 
 ## Screenshot
 
 <p align="center">
-  <img src="Docs/Images/Screenshot.png" alt="Screenshot">
+  <img src="Docs/Images/Screenshot.png" alt="AudioMator main window">
 </p>
 
-## AudioMator Feature Overview
+More images are available under [`Docs/Images`](Docs/Images).
 
-- ### Metadata Editing
+## Requirements
 
-  AudioMator provides two metadata editing interfaces for different levels of control.
+- macOS 15.0 or later.
+- For development: stable Xcode 27 and network access the first time `TagLibAudioMetadata` is resolved.
 
-  **Inspector** offers a more approachable editing experience for common metadata fields. It is designed for everyday metadata editing, with a simpler interface and a focus on frequently used fields.
+The app is sandboxed, uses Hardened Runtime, and requires user-selected file access for editing.
 
-  **Metadata Editor** is a more advanced PropertyMap interface. It preserves each field's ordered value list—including duplicates, whitespace, empty values, and literal semicolons—and writes only changed keys. Container-native structures that TagLib does not project into PropertyMap remain available through Tag Inspector rather than this editor.
+## Build From Source
 
-  **Settings → Conflicts** offers four save strategies for Inspector and Metadata Editor drafts: **Merge non-conflicting changes** (default), **Prefer my changes**, **Prefer disk changes**, and **Require manual reload**. The default silently merges changes to different fields and keeps the draft when overlapping edits cannot be safely resolved. Priority strategies choose whose conflicting fields to keep; preferring disk reports the draft fields it discarded. Preview-based tools and Clear All Metadata continue to require an unchanged revision.
+```bash
+git clone https://github.com/ChrisLloydME/AudioMator.git
+cd AudioMator
+open AudioMator.xcodeproj
+```
 
-  Saves retain the final file-version guard. Permission or timestamp changes can be handled by rereading the current file and safely merging the draft; file replacement, unreadable revisions and concurrent changes during saving still stop the operation. Inspector saves write only changed fields, and raw saves preserve unrelated external keys and value arrays. See [file revision and reload strategy](Docs/FILE_REVISION_AND_RELOAD.md) for detection limits and implementation details.
+Select the `AudioMator` scheme and build. Command-line validation:
 
-  Use **Reload from Disk** in the track list's context menu to reread selected files in Quick Import or Watched Folders. Reload asks before discarding unsaved inspector edits. Returning to AudioMator also checks selected file revisions and refreshes changed files; automatic refresh preserves pending drafts and their original save baseline. Reopen Metadata Editor to intentionally replace its draft with fresh disk values. The conflict setting does not continuously monitor every open file.
+```bash
+swift test
+bash scripts/codex-build.sh --force
+```
 
-  <img src="Docs/Images/AudioMator Metadata Editor.png">
+The app-hosted test suite must run serially:
 
-- ### Automatic Track Number Assignment
+```bash
+xcodebuild \
+  -project AudioMator.xcodeproj \
+  -scheme AudioMator \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  -derivedDataPath .deriveddata-codex \
+  -parallel-testing-enabled NO \
+  -maximum-parallel-testing-workers 1 \
+  test
+```
 
-  AudioMator allows users to reorder audio files by dragging them into the desired sequence, then automatically regenerate track numbers based on that order. This is useful for organizing albums, live recordings, or any group of files where track order needs to be corrected or standardized.
+See [Build](Docs/Development/BUILD.md) and [Testing](Docs/Development/TESTING.md) for details, known gaps, and troubleshooting.
 
-   <img src="Docs/Images/Renumber Track Numbers.png">
+## Installation and Distribution
 
-- ### Metadata and Text Conversion
+Release artifacts are published at [GitHub Releases](https://github.com/ChrisLloydME/AudioMator/releases). The repository does not contain signing, notarization, packaging, or release-upload automation; verify a distributed build's signing status independently.
 
-  AudioMator supports bidirectional conversion between metadata and text-based sources, including filenames, TXT files, and CSV files. Text templates produce or parse one record per line. CSV templates support comma, semicolon, pipe, and tab delimiters, quoted fields, embedded line breaks, optional headers, and explicit file locators for reordered imports. Import previews identify unmatched, ambiguous, invalid, unchanged, and writable rows before any file is changed.
-  
-  <img src="Docs/Images/Metadata and Text Conversion.png">
+The app's manual **Check for Updates…** flow reads the latest GitHub release and opens the releases page for download. It does not install updates.
 
-  Plain-text templates have no escaping syntax, so use CSV when values can contain line breaks or template separators. Blank imported values are ignored unless the clear-empty-values option is enabled. Imports without a File Name, Base Name, Path, Relative Path, or Index column match records to selected files by selection order; imports with locators require an unambiguous match. Review the generated preview before writing.
+## Supported Formats
 
-- ### Copy or Cut Metadata Fields
+Readable, writable, and artwork-writable extensions are discovered from `TagLibAudioMetadata` at runtime, and writable fields are preflighted per format. A readable format is not automatically writable, and container behavior differs by format.
 
-  In Metadata Exchange, choose **Copy or Cut Metadata Fields**, then select a source field, a destination field, and **Copy** or **Cut**. Each selected file uses its own source value and replaces its destination value. Copy keeps the source; Cut clears it in the same metadata save. Files with an empty source are skipped.
+The current expected format set, field-capability model, and limitations are documented in [Product Overview → Supported Formats](Docs/Product/OVERVIEW.md#supported-formats), [Metadata Pipeline](Docs/Architecture/METADATA_PIPELINE.md), and [Dependency Limitations](Docs/Reference/DEPENDENCY_LIMITATIONS.md).
 
-  Review the per-file preview before applying. Invalid destination values and files whose version cannot be verified are skipped. The preview follows the writer's whitespace normalization; whitespace-only sources are skipped. Track Number, Total Tracks, Disc Number, and Total Discs are independent fields. Operations that would leave a total without a number are blocked because the current TagLib dependency cannot save them reliably. Some MP3 disc-only and AAC total-clearing operations also fail safely without modifying the file; see [verification notes](Docs/METADATA_FIELD_TRANSFER_VERIFICATION.md). Save or discard pending inspector edits before applying this tool.
+## Track and Disc Numbers
 
-- ### Online Metadata Lookup
-
-  AudioMator can search for and apply metadata from online sources, including MusicBrainz, iTunes Search, and LRCLIB. MusicBrainz and iTunes Search are used for general music metadata lookup, while LRCLIB is mainly used for finding and applying lyrics metadata.
-
-  <img src="Docs/Images/Online Metadata Lookup.png">
-
-- ### Tag Inspector
-
-  Tag Inspector provides a read-only view of the raw tags and file properties stored in the selected file. It is designed for inspection and troubleshooting, allowing users to review the actual metadata values detected by AudioMator without modifying them.
-
-  <img src="Docs/Images/AudioMator Tag Inspector.png">
-
-- ### Metadata Editor Utilities
-
-  The Metadata Editor includes text-processing utilities for both single-file and multi-file workflows. These tools support case conversion, find and replace, prefix and suffix insertion, and trimming leading or trailing whitespace. They are intended to make large-scale metadata cleanup and normalization more efficient.
-
-  <img src="Docs/Images/Metadata Editor Utilities.png">
-
-## Platform Model
-
-AudioMator is a macOS application with a full desktop workflow:
-
-- Current Session import for one-off work.
-- Persistent watched folders with automatic rescans.
-- Sidebar, middle list, and inspector in a native three-pane window.
-- Dedicated windows for Online Metadata, Filename & Metadata, and Metadata Editor.
-- File-path display in the inspector.
-- Finder-style actions such as reveal in Finder, open with the default app, and copy path.
-- Configurable toolbar buttons.
-- Configurable list columns.
-- Settings tabs for General, Toolbar, Columns, and About.
-
-## Track And Disc Number Handling
-
-AudioMator treats track and disc data as structured metadata instead of a single loose string. These fields are first-class throughout the inspector, batch editor, filename tools, MusicBrainz write-back, and write verification path:
+Track and disc data is stored as structured fields:
 
 - `Track Number`
 - `Total Tracks`
 - `Disc Number`
 - `Total Discs`
 
-This matters because common containers do not all store numbering the same way. A user may enter `02/09`, but the file format may represent that as numeric track `2`, numeric total `9`, and possibly a separate text form. AudioMator preserves both numeric intent and user-facing text intent where the container and bridge support it.
+AudioMator submits numeric values and user-facing text intent separately. Containers may normalize combined text such as `02/09` while preserving the numbers; write verification distinguishes normalization from a real mismatch.
 
-### Write behavior
+Year and Release Date are separate edit intents. MP4 has one standard date slot, so an independent Year edit can be rejected instead of overwriting Release Date.
 
-AudioMator sends semantic fields, four-state advisory values, artwork, and formatted number intent to `TagLibAudioMetadata` as one patch. The package owns ID3, MP4, Xiph/PropertyMap, and WAV representation, verification, and atomic commit. Containers may split a value such as `02/09` into number and total fields; verification accepts that equivalent native representation while retaining exact combined text where the container supports it.
+## Privacy and Network Use
 
-Inspector batch saves process up to four independent files concurrently. Each file retains its conflict checks, atomic commit and readback; operations touching the same file remain serialized.
+AudioMator is local-first. Ordinary editing, raw inspection, filename tools, renumbering, and local artwork replacement are on-device. The app does not upload audio content and has no telemetry.
 
-Year and Release Date are separate edit intents. Year maps to the package's
-recording-date field, while Release Date maps only to release date. ID3 and
-Xiph-style formats can retain both independently. MP4 has one standard `©day`
-slot owned by Release Date, so an attempted independent Year edit is rejected
-instead of silently overwriting Release Date.
+Network requests happen only when you explicitly start:
 
-## Supported Formats
+- MusicBrainz lookup (`musicbrainz.org`),
+- iTunes metadata/artwork lookup (`itunes.apple.com` and Apple artwork hosts),
+- LRCLIB lyrics lookup (`lrclib.net`),
+- release notes or update checks (`api.github.com`).
 
-AudioMator discovers readable and writable extensions from the `TagLibAudioMetadata` package at runtime. Current supported readable extensions include:
+Requests can include metadata-, filename-, or parent-folder-derived search terms. Embedded MusicBrainz/Apple pages can load additional web content. See [Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) and [Online Metadata](Docs/Architecture/ONLINE_METADATA.md) for the exact data sent.
 
-`mp3`, `mp2`, `m4a`, `m4b`, `m4p`, `mp4`, `aac`, `ogg`, `opus`, `mpc`, `wma`, `asf`, `spx`, `flac`, `ape`, `wv`, `tta`, `wav`, `aiff`, `aif`, `dsf`, `dff`, `oga`
+## Documentation
 
-Format-specific behavior still depends on the underlying container and tag implementation. Raw property-map support is the widest common surface. Some module/tracker formats may be treated as metadata-only writable formats for artwork purposes when the package reports that capability.
+The authoritative documentation set starts at [`Docs/README.md`](Docs/README.md).
 
-## Privacy And Network Use
+- [Product Overview](Docs/Product/OVERVIEW.md)
+- [User Guide](Docs/Product/USER_GUIDE.md)
+- [Architecture Overview](Docs/Architecture/OVERVIEW.md)
+- [Metadata Pipeline](Docs/Architecture/METADATA_PIPELINE.md)
+- [File Revision and Reload](Docs/Architecture/FILE_REVISION_AND_RELOAD.md)
+- [Build](Docs/Development/BUILD.md)
+- [Testing](Docs/Development/TESTING.md)
+- [Release Engineering](Docs/Development/RELEASE.md)
+- [Security and Data Integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Agent Guide](AGENTS.md)
 
-AudioMator is local-first. Core editing, raw inspection, filename tools, batch editing, renumbering, and local artwork replacement run on the device.
+## Repository Layout
 
-Network access happens only when you explicitly use an online feature:
-
-- MusicBrainz lookup and tagging contacts `musicbrainz.org`.
-- iTunes metadata and artwork lookup contacts the Apple iTunes Search API at `itunes.apple.com` and Apple artwork CDN hosts.
-- LRCLIB synced lyrics lookup contacts `lrclib.net`.
-- Release-note lookup may contact `api.github.com`.
-- Manual update checks on macOS contact GitHub Releases through `api.github.com` to read the latest AudioMator release tag and version metadata.
-
-AudioMator does not upload the audio file contents for ordinary metadata editing. Online lookup features may send search terms derived from metadata or user input, such as title, artist, album, album artist, track number, duration, ISRC, barcode/UPC, iTunes album/artist/track IDs, MusicBrainz identifiers, pasted MusicBrainz/Apple Music/iTunes links, storefront country, or manually entered queries.
-
-See `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` for the detailed disclosure.
-
-## Manual Update Checks
-
-The macOS app includes a lightweight **Check for Updates...** flow. AudioMator asks the GitHub Releases API for the latest published release, compares the release tag with the app's current version, and opens the GitHub Releases page when you choose to download an update.
-
-AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`. The update checker compares version segments first and then the build number, so `V2.3B26513` is newer than `V2.3B26512`. Version parts are compared as integer segments, so `2.10` is newer than `2.9`, and `2.2` is newer than `2.1.20`.
-
-This flow does not install updates, download archives in the background, or perform delta updates. It only reports the available release and opens GitHub Releases when the user chooses to download it.
-
-## TagLib Bridge Smoke Testing
-
-The repository includes a lightweight bridge regression tool under `scripts/`. It is intended for local bridge/package debugging and may require the expected TagLib bridge source layout to be available in your checkout.
-
-```bash
-bash scripts/build-taglib-bridge-smoke.sh
-./.tmp/taglib_bridge_smoke read path/to/file.m4a
-./.tmp/taglib_bridge_smoke raw path/to/file.m4a
-./.tmp/taglib_bridge_smoke write-track path/to/file.m4a 07/12 2/3
-./.tmp/taglib_bridge_smoke write-roundtrip path/to/file.m4a
+```text
+AudioMator/            App source
+  App/                 Entry points, commands, notifications
+  Core/                Shared Foundation/system support
+  Domain/              Metadata, rename, exchange, renumber rules
+  Features/            Native UI and feature view models
+  Infrastructure/      TagLib adapter, file system, providers, updates
+AudioMatorTests/       App-hosted tests and fixtures
+Config/                Info.plist and entitlements
+Docs/                  Documentation and images
+Tests/                 SwiftPM fast tests
+scripts/               Build and validation helpers
 ```
 
-This tool is intended for bridge-level debugging, especially around:
+`AudioMator/` is attached to the app target through Xcode's file-system synchronized root, so app source under that folder compiles into the app. `Package.swift` separately compiles a selected Foundation-only subset of those files for fast tests; it is not the app module. See [Project Structure](Docs/Reference/PROJECT_STRUCTURE.md) and [Configuration](Docs/Reference/CONFIGURATION.md).
 
-- track/disc totals
-- MP4 `trkn` / `disk` behavior
-- text-preservation vs numeric readback
-- raw property-map inspection
+## Dependencies
+
+- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 — TagLib-backed container metadata operations, verification, and atomic commit.
+- TagLib — used through that package; not vendored in this repository.
+- Apple frameworks — SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers.
+
+See [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) for licensing and service obligations.
+
+## License
+
+AudioMator is licensed under the GNU Affero General Public License v3.0. See [`LICENSE`](LICENSE).
 
 ## Contact
 
 E-mail: AudioMator@lloydME.com
 
-## Repository Layout
-
-- `AudioMator/`
-  The app source.
-- `AudioMator/App/`
-  App entry point, commands, notifications, and platform delegates.
-- `AudioMator/Core/`
-  AppKit compatibility helpers, network disclosure, and audio-format support.
-- `AudioMator/Domain/`
-  Metadata pipeline models, audio-file models, rename templates, file sources, track renumbering, and UI state.
-- `AudioMator/Features/`
-  SwiftUI feature areas for the main window, online metadata browser, provider-specific metadata and lyrics browsers, metadata editor, settings, filename tools, metadata inspector, and welcome flow.
-- `AudioMator/Infrastructure/`
-  File-system monitoring, MusicBrainz, iTunes Search API/artwork, LRCLIB lyrics lookup, GitHub release-note services, and macOS manual update checks.
-- `Config/`
-  Project configuration inputs, including the app Info.plist.
-- `Docs/`
-  Maintainer docs, README images, wiki pages, privacy acknowledgements, and third-party notices.
-- `Tests/`
-  SwiftPM fast core-logic tests and test coverage notes.
-- `AudioMatorTests/`
-  App-hosted Xcode tests and fixtures.
-- `scripts/`
-  Build and smoke-test helpers.
-- `README.md`
-  Product and developer overview.
-- `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`
-  Network/privacy notes and third-party acknowledgements.
-- `Docs/THIRD_PARTY_NOTICES.md`
-  Third-party license notices.
+Project: <https://github.com/ChrisLloydME/AudioMator>

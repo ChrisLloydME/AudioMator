@@ -16,6 +16,15 @@ One 2,178-line file owned localized field schema, template tokenization, field m
 - Keep CSV parsing and resource/index cores in `MetadataExchangeCSV.swift`; they already form a pure, bounded test surface.
 - Add deterministic fixed-seed properties rather than production random fuzzing.
 
+## Alternatives
+
+The original ADR did not record rejected alternatives. The split follows change reasons rather than an arbitrary line limit.
+
 ## Consequences
 
-Syntax and escaping regressions run in milliseconds without mocking `AudioFile`. Full plan behavior remains app-hosted because it intentionally consumes real snapshots, fingerprints, and localized field semantics. The split follows change reasons rather than an arbitrary line limit; planning remains a larger cohesive file until a new independent behavior justifies another boundary.
+Syntax and escaping regressions run in milliseconds without mocking `AudioFile`. Full plan behavior remains app-hosted because it intentionally consumes real snapshots, fingerprints, and localized field semantics. Planning remains a larger cohesive file until a new independent behavior justifies another boundary.
+
+## Verification
+
+- SwiftPM tests cover CSV parsing/serialization, locator indexing, export budget, and template syntax.
+- App-hosted tests cover the production planner, fixture imports/exports, locator matching, limits, and field transfer.

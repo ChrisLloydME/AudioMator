@@ -9,13 +9,13 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 459 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 472 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 62 `XCTestCase` classes; no custom base class.
+- There are 65 `XCTestCase` classes across both targets (61 app-hosted and four SwiftPM); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
-- There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup.
+- There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
 
 ## Commands
 
@@ -74,17 +74,17 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 10 | 116 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
-| `Application/MetadataExchange` | 3 | 57 | fixture parsing, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 4 | 19 | template parsing, transaction rollback, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 3 | 17 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
-| `Concurrency` | 3 | 23 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
-| `Integration/Network` | 5 | 39 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 1 | 33 | real TagLib reads/writes on temporary fixture copies |
+| `Application/MetadataEditing` | 11 | 129 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataExchange` | 3 | 59 | fixture parsing, planner import/export/matching/limits, field transfer |
+| `Application/Rename` | 4 | 20 | template parsing, transaction rollback, filename extraction, refresh safety |
+| `Application/WatchedFolders` | 4 | 19 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Concurrency` | 3 | 24 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
+| `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
+| `Integration/TagLib` | 1 | 34 | real TagLib reads/writes on temporary fixture copies |
 | `Performance` | 3 + fixture | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
-| `Unit/Core` | 15 | 67 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, disclosure registry, issue log, markdown |
+| `Unit/Core` | 17 | 75 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, disclosure registry, issue log, markdown |
 | `Unit/Presentation` | 7 | 34 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
-| Root | 2 | 13 | source-policy checks for write-plan routing and sensitive logging |
+| Root | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 
 Notable coverage:
 
@@ -177,17 +177,17 @@ These are proposals, not current coverage:
 
 ## Verification Status
 
-Executed on 2026-10-17 with Xcode 27.1 after the audit-repair branch:
+Executed on 2026-10-17 with Xcode 27.1 during independent post-repair verification:
 
-- `swift test --disable-sandbox`: 62 tests passed.
-- `swift test --disable-sandbox --filter AudioMatorCoreLogicTests`: 62 tests passed.
-- Full serial app-hosted suite: 459 tests passed, 0 failures (about 55 seconds of test execution).
-- Focused `TagLibReadWriteIntegrationTests`: 33 tests passed.
-- `bash scripts/codex-build.sh --force`: build succeeded.
-- Unsigned Release build: succeeded; universal `x86_64 arm64` executable.
-- `scripts/validate-macos-artifact.sh ... 15.0`: passed.
+- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --filter AudioMatorCoreLogicTests`: 62 tests passed.
+- Full serial Debug app-hosted suite with signing disabled: 472 tests passed, zero failures. The final Test action pins English/US, ignores saved window restoration, and enables isolated host startup.
+- Focused suites exercised identity fallback/replacement refusal, provider cancellation and semantic writes, progressive import, rename recovery ordering, skipped-row reporting, corrupt-log recovery, provider fallbacks, disclosure policy, and metadata fixture round trips.
+- Direct unsigned Release generic build: succeeded; universal `x86_64 arm64` executable.
+- `scripts/validate-macos-artifact.sh .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0`: passed for both bundled Mach-O files.
 
-Not executed: CI itself and the TagLib bridge smoke tool (the latter builds against the external package checkout, which AudioMator Agents must not build from).
+The initial sandboxed commands could not write compiler/manifest caches. Reruns with appropriate cache access passed. The package pin, Swift language/concurrency settings, and macOS 15.0 deployment setting were unchanged.
+
+Not executed: CI itself, signed/notarized distribution, a macOS 15 runtime test, interactive UI acceptance, live services, real network-volume/bookmark authorization, and the TagLib bridge smoke tool. See the dated [post-repair review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) for exact focused runs, limitations, and findings.
 
 ## Related Documents
 

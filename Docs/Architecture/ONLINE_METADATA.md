@@ -109,7 +109,7 @@ Artwork search transforms Apple's `artworkUrl100` into:
 - a high-resolution URL rewritten to `is5-ssl.mzstatic.com`,
 - an uncompressed URL rewritten to `a5.mzstatic.com` when derivable.
 
-Downloads try the preferred URLs in order and stop on the first success. There is no host allow-list; if Apple returns a different host in `artworkUrl100`, that host is contacted. This is a limitation of the current implementation and is not fully captured by the static three-host disclosure.
+Downloads try the preferred URLs in order and stop on the first success. There is no host allow-list; if Apple returns a different host in `artworkUrl100`, that host is contacted. The disclosure lists the core artwork hosts and explicitly notes that Apple-returned URLs can contact additional hosts. The download policy itself remains unrestricted.
 
 Downloaded bytes are normalized locally before preview/application. Full payload comparison is used for equality; sampled hashes are not.
 

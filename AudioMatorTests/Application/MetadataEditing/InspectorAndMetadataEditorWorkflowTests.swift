@@ -260,7 +260,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.multiEdit)
     }
 
-    func testSaveInspectorEditsIgnoresStaleSingleFileEditSnapshot() async throws {
+    func testSaveSingleEditsRejectsAnEditOwnedByAnotherFile() async throws {
         let firstID = UUID()
         let secondID = UUID()
         let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
@@ -272,16 +272,21 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.mergeQuickImportFiles([first, second])
 
         viewModel.setSelectedAudioIDs([firstID])
-        viewModel.updateEditForSelection()
-        XCTAssertEqual(viewModel.edit?.contentAdvisory, .explicit)
-        XCTAssertEqual(viewModel.editSourceFileID, firstID)
+        var staleEdit = try XCTUnwrap(viewModel.edit)
+        staleEdit.title = "Stale first file draft"
+        viewModel.edit = staleEdit
 
+        // Simulate a desynchronized inspector: the selection is the second
+        // file but the draft still names the first. The guard must prevent the
+        // first file's draft from being written to the second.
         viewModel.setSelectedAudioIDs([secondID])
-        viewModel.saveInspectorEdits()
+        viewModel.edit = staleEdit
+        viewModel.editSourceFileID = firstID
+        viewModel.saveSingleEdits()
 
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
-        XCTAssertEqual(viewModel.edit?.contentAdvisory, .notExplicit)
         XCTAssertEqual(viewModel.editSourceFileID, secondID)
+        XCTAssertEqual(viewModel.edit?.title, "Second")
     }
 
     func testSaveInspectorEditsWritesSingleSelectionAndRefreshesEditModel() async throws {

@@ -108,6 +108,39 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(store.entries.map { $0.issues[0].fileName }, ["file-3.flac", "file-2.flac"])
     }
 
+    func testCorruptLogIsQuarantinedBeforeBeingReplaced() throws {
+        let url = temporaryLogURL()
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let corruptData = Data("not a save issue log".utf8)
+        try corruptData.write(to: url)
+        let store = SaveIssueLogStore(fileURL: url, limit: 10)
+
+        XCTAssertTrue(store.entries.isEmpty)
+        let quarantineURL = url.appendingPathExtension("corrupt")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: quarantineURL.path))
+        XCTAssertEqual(try Data(contentsOf: quarantineURL), corruptData)
+    }
+
+    func testUnwritableLogDoesNotTrapOrLoseInMemoryEntries() {
+        let store = SaveIssueLogStore(
+            fileURL: URL(fileURLWithPath: "/dev/null/AudioMator/SaveIssueLog.json"),
+            limit: 10
+        )
+
+        store.recordSingleIssue(
+            title: "Save Failed",
+            subtitle: "one.flac\nDenied.",
+            fileName: "one.flac",
+            messages: ["Denied."],
+            severity: .failure
+        )
+
+        XCTAssertEqual(store.entries.count, 1)
+    }
+
     private func temporaryLogURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorTests-\(UUID().uuidString)", isDirectory: true)

@@ -104,7 +104,8 @@ final class DirectoryMonitor {
         self.fileDescriptor = descriptor
     }
 
-    // Xcode 16.4 (CI) predates stable isolated deinitializers and default actor isolation.
+    // Keep the non-isolated fallback for toolchains that predate stable
+    // isolated deinitializers.
     #if compiler(>=6.2)
     isolated deinit {
         stop()

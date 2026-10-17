@@ -18,7 +18,7 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -47,7 +47,7 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
 
             switch result {
             case .success(let success):
@@ -101,7 +101,7 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -130,7 +130,7 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else { break }
 
             switch result {
             case .success(let success):

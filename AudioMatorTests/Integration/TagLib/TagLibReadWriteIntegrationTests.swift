@@ -779,6 +779,40 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testInspectorArtworkIntentRoundTripsOnDisk() async throws {
+        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        for fixtureName in Self.artworkFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+            let pipeline = TagLibAudioMetadataPipeline()
+            let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+            var edit = SingleFileEditModel(from: baseline)
+            edit.artworkEditAction = .replace(
+                PendingArtwork(data: artworkData, mimeType: "image/jpeg")
+            )
+            _ = try pipeline.writeMetadata(
+                MetadataEditPayload(edit, comparedTo: baseline),
+                to: workingURL,
+                expectedVersion: baseline.metadataFileVersion
+            )
+
+            let withArtwork = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+            XCTAssertNotNil(withArtwork.artworkData, fixtureName)
+            XCTAssertEqual(withArtwork.artworkData, artworkData, "Artwork bytes should round-trip for \(fixtureName)")
+
+            edit = SingleFileEditModel(from: withArtwork)
+            edit.artworkEditAction = .remove
+            _ = try pipeline.writeMetadata(
+                MetadataEditPayload(edit, comparedTo: withArtwork),
+                to: workingURL,
+                expectedVersion: withArtwork.metadataFileVersion
+            )
+            let withoutArtwork = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+            XCTAssertNil(withoutArtwork.artworkData, fixtureName)
+        }
+    }
+
     func testArtworkCanBeWrittenAndClearedForPrimaryFormats() throws {
         let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
         XCTAssertGreaterThan(artworkData.count, 0)

@@ -218,3 +218,7 @@ Not verified:
 - [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md)
 - [Third-Party Notices](../THIRD_PARTY_NOTICES.md)
 - [Configuration](../Reference/CONFIGURATION.md)
+
+## Save issue-log recovery
+
+Issue-log persistence is best effort and never traps on an I/O failure. Each unreadable history is copied to its own quarantine file before replacement. If that copy fails, persistence is disabled for that store instance so the unreadable original is retained; new issues remain visible in memory. This log is diagnostic history, not a backup of audio metadata.

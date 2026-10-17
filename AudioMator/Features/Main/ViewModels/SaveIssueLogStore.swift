@@ -54,6 +54,7 @@ final class SaveIssueLogStore: ObservableObject {
 
     private let fileURL: URL
     private let limit: Int
+    private var isPersistenceEnabled = true
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -148,14 +149,22 @@ final class SaveIssueLogStore: ObservableObject {
             entries = try decoder.decode([SaveIssueLogEntry].self, from: data)
         } catch {
             entries = []
-            let quarantineURL = fileURL.appendingPathExtension("corrupt")
-            if !FileManager.default.fileExists(atPath: quarantineURL.path) {
-                try? FileManager.default.copyItem(at: fileURL, to: quarantineURL)
+            let firstQuarantineURL = fileURL.appendingPathExtension("corrupt")
+            let quarantineURL = FileManager.default.fileExists(atPath: firstQuarantineURL.path)
+                ? fileURL.appendingPathExtension("corrupt-\(UUID().uuidString)")
+                : firstQuarantineURL
+            do {
+                try FileManager.default.copyItem(at: fileURL, to: quarantineURL)
+            } catch {
+                // Retain the unreadable original when it cannot be preserved.
+                // New entries remain available in memory for this session.
+                isPersistenceEnabled = false
             }
         }
     }
 
     private func persist() {
+        guard isPersistenceEnabled else { return }
         do {
             let directory = fileURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

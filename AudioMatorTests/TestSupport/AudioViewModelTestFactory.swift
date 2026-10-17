@@ -11,21 +11,24 @@ enum AudioViewModelTestFactory {
     static func make(
         metadataPipeline: any AudioMetadataPipeline,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
-        artworkLookupOperationTimeout: Duration = .seconds(30)
+        artworkLookupOperationTimeout: Duration = .seconds(30),
+        saveIssueLogStore: SaveIssueLogStore? = nil
     ) -> AudioViewModel {
         let suiteName = "AudioMatorTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        let logURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorTests-\(UUID().uuidString)-issues.json")
-
         return AudioViewModel(
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
             metadataPipeline: metadataPipeline,
-            saveIssueLogStore: SaveIssueLogStore(fileURL: logURL),
+            saveIssueLogStore: saveIssueLogStore ?? makeIssueLogStore(),
             artworkLookupService: artworkLookupService,
             artworkLookupOperationTimeout: artworkLookupOperationTimeout,
             conflictPolicyDefaults: defaults
         )
+    }
+
+    static func makeIssueLogStore() -> SaveIssueLogStore {
+        SaveIssueLogStore(fileURL: FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorTests-\(UUID().uuidString)-issues.json"))
     }
 }

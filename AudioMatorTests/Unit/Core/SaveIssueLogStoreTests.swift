@@ -75,7 +75,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
 
     func testBatchClearSummaryPresentedByViewModelCreatesLogEntry() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
-        let viewModel = AudioViewModel(
+        let viewModel = AudioViewModelTestFactory.make(
             metadataPipeline: TagLibAudioMetadataPipeline(),
             saveIssueLogStore: store
         )

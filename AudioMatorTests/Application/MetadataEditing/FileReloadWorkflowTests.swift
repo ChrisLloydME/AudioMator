@@ -185,7 +185,8 @@ final class FileReloadWorkflowTests: XCTestCase {
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
             metadataPipeline: pipeline,
-            saveIssueLogStore: SaveIssueLogStore(fileURL: logURL)
+            saveIssueLogStore: SaveIssueLogStore(fileURL: logURL),
+            conflictPolicyDefaults: defaults
         )
         viewModel.mergeQuickImportFiles([file])
         viewModel.setSelectedAudioIDs([file.id])

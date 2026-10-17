@@ -102,8 +102,10 @@ final class QuickImportCancellationTests: XCTestCase {
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: pipeline,
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
 
         await gate.waitUntilStarted()
@@ -180,8 +182,10 @@ final class QuickImportCancellationTests: XCTestCase {
         let pipeline = ControllableWatchedFolderMetadataPipeline()
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: pipeline,
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
@@ -219,8 +223,10 @@ final class QuickImportCancellationTests: XCTestCase {
         store.saveFolders([folder])
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: ControllableWatchedFolderMetadataPipeline(),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
@@ -260,8 +266,10 @@ final class QuickImportCancellationTests: XCTestCase {
         store.saveFolders([folder])
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: DuplicateURLWatchedFolderMetadataPipeline(returnedURL: firstURL),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 

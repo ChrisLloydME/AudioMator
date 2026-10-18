@@ -6,6 +6,26 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class TrackRenumberExecutionTests: XCTestCase {
+    func testRefreshRequiredTargetsDoNotConsumeNumbersAtFirstOrMiddlePosition() async {
+        for blockedIndex in [0, 1] {
+            let files = (0..<3).map { index in
+                AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/eligible-\(index).flac"),
+                                          includeDefaultFileFingerprint: false)
+            }
+            let pipeline = RenumberRecordingMetadataPipeline(diskReadback: files[0])
+            let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            viewModel.mergeQuickImportFiles(files)
+            viewModel.markFileRequiresRefresh(id: files[blockedIndex].id)
+            let result = await viewModel.renumberTrackNumbers(orderedIDs: files.map(\.id), selectedIDs: [],
+                options: TrackRenumberOptions(startNumber: 1, padWithZeros: true))
+            XCTAssertEqual(result.totalTargets, 3)
+            XCTAssertEqual(result.succeeded, 2)
+            XCTAssertEqual(result.failed, 1)
+            XCTAssertEqual(result.skippedUnsupported, 0)
+            XCTAssertEqual(pipeline.trackNumberTextValues, ["01", "02"])
+        }
+    }
+
     func testRenumberVerifiesWriteAndRefreshesModelFromDiskReadback() async throws {
         let fileID = UUID()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorRenumberExecution.mp3")
@@ -40,6 +60,23 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertEqual(pipeline.trackNumberTextValues, ["07"])
         XCTAssertEqual(viewModel.files.first?.trackNumberText, "7")
         XCTAssertEqual(result.warnings.first?.messages, ["Synthetic verification warning"])
+    }
+
+    func testRenumberReportsCommittedDurabilityUncertaintyWithoutRetrying() async {
+        let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/renumber-durability.mp3"),
+            includeDefaultFileFingerprint: false)
+        let pipeline = RenumberRecordingMetadataPipeline(diskReadback: file,
+            commitStatus: .durabilityUncertain("Injected directory sync failure"))
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+        let result = await viewModel.renumberTrackNumbers(orderedIDs: [file.id], selectedIDs: [],
+            options: TrackRenumberOptions(startNumber: 7, padWithZeros: false))
+        XCTAssertEqual(result.succeeded, 1)
+        XCTAssertEqual(result.failed, 0)
+        XCTAssertEqual(pipeline.trackNumberTextValues, ["7"])
+        XCTAssertTrue(result.warnings.flatMap(\.messages).contains {
+            $0.contains("Do not retry") && $0.contains("Injected directory sync failure")
+        })
     }
 
     func testRenumberRejectsFileChangedSinceSelection() async throws {
@@ -142,11 +179,13 @@ final class TrackRenumberExecutionTests: XCTestCase {
 private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let lock = NSLock()
     private let diskReadback: AudioFile
+    private let commitStatus: AudioMetadataCommitStatus
     private var recordedVerifyAfterWriteValues: [Bool] = []
     private var recordedTrackNumberTexts: [String] = []
 
-    init(diskReadback: AudioFile) {
+    init(diskReadback: AudioFile, commitStatus: AudioMetadataCommitStatus = .durable) {
         self.diskReadback = diskReadback
+        self.commitStatus = commitStatus
     }
 
     var verifyAfterWriteValues: [Bool] {
@@ -194,7 +233,7 @@ private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @u
             recordedVerifyAfterWriteValues.append(verifyAfterWrite)
             recordedTrackNumberTexts.append(trackNumberText)
         }
-        return AudioMetadataWriteResult(warnings: ["Synthetic verification warning"])
+        return AudioMetadataWriteResult(warnings: ["Synthetic verification warning"], commitStatus: commitStatus)
     }
 }
 #endif

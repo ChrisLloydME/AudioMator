@@ -16,11 +16,11 @@ final class QuickImportCancellationTests: XCTestCase {
 
         viewModel.mergeQuickImportFiles([visibleFile])
         viewModel.importQuickFiles(from: [fileURL])
-        await gate.waitUntilStarted()
+        try await gate.waitUntilStarted()
 
         viewModel.removeQuickImportFile(id: visibleFile.id)
         await gate.release()
-        await gate.waitUntilReturned()
+        try await gate.waitUntilReturned()
         try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
 
         XCTAssertTrue(
@@ -43,11 +43,11 @@ final class QuickImportCancellationTests: XCTestCase {
 
         viewModel.mergeQuickImportFiles([visibleFile])
         viewModel.importQuickFiles(from: [fileURL])
-        await gate.waitUntilStarted()
+        try await gate.waitUntilStarted()
 
         viewModel.removeQuickImportFile(id: visibleFile.id)
         await gate.release()
-        await gate.waitUntilReturned()
+        try await gate.waitUntilReturned()
         try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
 
         XCTAssertTrue(viewModel.files.isEmpty)
@@ -65,11 +65,11 @@ final class QuickImportCancellationTests: XCTestCase {
             .appendingPathComponent("AudioMatorQuickImport-\(UUID().uuidString).mp3")
 
         viewModel.importQuickFiles(from: [fileURL])
-        await gate.waitUntilStarted()
+        try await gate.waitUntilStarted()
 
         viewModel.clearQuickImportFiles()
         await gate.release()
-        await gate.waitUntilReturned()
+        try await gate.waitUntilReturned()
         try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
 
         XCTAssertTrue(
@@ -102,14 +102,16 @@ final class QuickImportCancellationTests: XCTestCase {
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: pipeline,
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
 
-        await gate.waitUntilStarted()
+        try await gate.waitUntilStarted()
         viewModel.removeWatchedFolder(id: folder.id)
         await gate.release()
-        await gate.waitUntilReturned()
+        try await gate.waitUntilReturned()
         let wasCancelled = await gate.wasCancelledWhenReturned()
 
         XCTAssertTrue(
@@ -180,8 +182,10 @@ final class QuickImportCancellationTests: XCTestCase {
         let pipeline = ControllableWatchedFolderMetadataPipeline()
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: pipeline,
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
@@ -219,8 +223,10 @@ final class QuickImportCancellationTests: XCTestCase {
         store.saveFolders([folder])
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: ControllableWatchedFolderMetadataPipeline(),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
@@ -260,14 +266,36 @@ final class QuickImportCancellationTests: XCTestCase {
         store.saveFolders([folder])
         let viewModel = AudioViewModel(
             watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
             metadataPipeline: DuplicateURLWatchedFolderMetadataPipeline(returnedURL: firstURL),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
         try await waitUntil(viewModel.files.count == 2)
 
         XCTAssertEqual(Set(viewModel.files.map(\.url)), Set([firstURL, secondURL]))
+    }
+
+    func testFailedFirstImportDoesNotBlockProgressivePublication() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ProgressiveImport-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let urls = (0..<50).map { root.appendingPathComponent(String(format: "%02d.mp3", $0)) }
+        for url in urls { try Data().write(to: url) }
+        let gate = QuickImportLoadGate()
+        let pipeline = PartiallyFailingQuickImportMetadataPipeline(unreadableURL: urls[0], heldURL: urls[49], gate: gate)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.importQuickFiles(from: urls)
+        try await gate.waitUntilStarted()
+        try await waitUntil(viewModel.files.count >= 24)
+        XCTAssertEqual(viewModel.activeQuickImportTaskCount, 1, "The final load is still gated")
+        XCTAssertLessThan(viewModel.files.count, 49)
+        await gate.release()
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
+        XCTAssertEqual(viewModel.files.count, 49)
+        XCTAssertFalse(viewModel.files.contains { $0.url == urls[0] })
     }
 
     private func waitUntil(
@@ -283,27 +311,29 @@ final class QuickImportCancellationTests: XCTestCase {
     }
 }
 
+private enum QuickImportGateTimeout: Error {
+    case didNotStart
+    case didNotReturn
+}
+
 private actor QuickImportLoadGate {
     private var didStart = false
     private var didRelease = false
     private var didReturn = false
     private var wasCancelledOnReturn = false
-    private var startWaiters: [CheckedContinuation<Void, Never>] = []
     private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
-    private var returnWaiters: [CheckedContinuation<Void, Never>] = []
 
     func suspendLoad() async {
         didStart = true
-        startWaiters.forEach { $0.resume() }
-        startWaiters.removeAll()
 
         guard !didRelease else { return }
         await withCheckedContinuation { releaseWaiters.append($0) }
     }
 
-    func waitUntilStarted() async {
-        guard !didStart else { return }
-        await withCheckedContinuation { startWaiters.append($0) }
+    func waitUntilStarted() async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while !didStart, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        guard didStart else { throw QuickImportGateTimeout.didNotStart }
     }
 
     func release() {
@@ -315,13 +345,12 @@ private actor QuickImportLoadGate {
     func markReturned(wasCancelled: Bool) {
         didReturn = true
         wasCancelledOnReturn = wasCancelled
-        returnWaiters.forEach { $0.resume() }
-        returnWaiters.removeAll()
     }
 
-    func waitUntilReturned() async {
-        guard !didReturn else { return }
-        await withCheckedContinuation { returnWaiters.append($0) }
+    func waitUntilReturned() async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while !didReturn, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        guard didReturn else { throw QuickImportGateTimeout.didNotReturn }
     }
 
     func wasCancelledWhenReturned() -> Bool {
@@ -383,12 +412,17 @@ private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @
 
 private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let unreadableURL: URL
+    private let heldURL: URL?
+    private let gate: QuickImportLoadGate?
 
-    init(unreadableURL: URL) {
+    init(unreadableURL: URL, heldURL: URL? = nil, gate: QuickImportLoadGate? = nil) {
         self.unreadableURL = unreadableURL
+        self.heldURL = heldURL
+        self.gate = gate
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        if url == heldURL, let gate { await gate.suspendLoad() }
         if url == unreadableURL {
             throw CocoaError(.fileReadNoPermission)
         }

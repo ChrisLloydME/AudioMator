@@ -142,7 +142,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                     // explicit zero-total track text, not only padded numbers.
                     let before = try Data(contentsOf: workingURL)
                     XCTAssertThrowsError(try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)) { error in
-                        XCTAssertTrue(String(describing: error).contains("Unedited PropertyMap field TRACKNUMBER changed"))
+                        guard case TagLibManagerError.verificationFailed = error else {
+                            return XCTFail("Expected a rejected verification, got \(error)")
+                        }
                     }
                     XCTAssertEqual(try Data(contentsOf: workingURL), before)
                     continue
@@ -221,26 +223,29 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                         // Known external-package failures: disc-only ID3 writes
                         // normalize an untouched padded track; ADTS retains totals
                         // when clearing them with number-only text. Verify rollback.
-                        let expectedFailure: String? = if fixtureName == "testAudioFile.mp3" &&
+                        let expectedFailure: Bool = if fixtureName == "testAudioFile.mp3" &&
                             payload.discNumberTextChanged && !payload.trackNumberTextChanged {
-                            "Unedited PropertyMap field TRACKNUMBER changed"
+                            true
                         } else if fixtureName == "testAudioFile.aac" && operation == .cut &&
                             (source == .trackTotal || source == .discTotal) {
-                            "differs after save (expected 0, got"
+                            true
                         } else {
-                            nil
+                            false
                         }
                         do {
                             _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
-                            if let expectedFailure {
-                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context): \(expectedFailure)")
+                            if expectedFailure {
+                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context)")
                             }
                         } catch {
-                            guard let expectedFailure else {
+                            guard expectedFailure else {
                                 XCTFail("\(context): \(error)")
                                 continue
                             }
-                            XCTAssertTrue(String(describing: error).contains(expectedFailure), "\(context): \(error)")
+                            guard case TagLibManagerError.verificationFailed = error else {
+                                XCTFail("Expected verification rejection: \(context): \(error)")
+                                continue
+                            }
                             XCTAssertEqual(try Data(contentsOf: workingURL), before, context)
                             continue
                         }
@@ -362,7 +367,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
         let after = try pipeline.rawMetadataValueMap(for: workingURL)
 
-        XCTAssertEqual(after["TITLE"], ["Intent Delta Title"], "The edited title was not written")
+        var expectedMap = before
+        expectedMap["TITLE"] = ["Intent Delta Title"]
+        XCTAssertEqual(after, expectedMap, "The title must be the only raw metadata change")
         for (key, values) in exactUntouchedValues {
             XCTAssertEqual(before[key], values, "Fixture setup should preserve exact values for \(key)")
             XCTAssertEqual(after[key], before[key], "Title-only save changed untouched raw values for \(key)")
@@ -608,7 +615,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(readBack.disc, metadata.disc, fixtureName)
             XCTAssertEqual(readBack.discTotal, metadata.discTotal, fixtureName)
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testTrackAndDiscTextWritesRoundTripNumericValuesAcrossWritableAudioFixtures() throws {
@@ -670,7 +677,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             }
             XCTAssertEqual(didNormalizeFormatting, expected.2, fixtureName)
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testTrackNumberOnlyWriteDoesNotWarnWhenExistingTotalIsPreserved() throws {
@@ -785,7 +792,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 XCTAssertNil(rawMap[key], "\(fixtureName) should clear \(key)")
             }
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testInspectorArtworkIntentRoundTripsOnDisk() async throws {
@@ -858,7 +865,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let withoutArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertNil(withoutArtwork.artworkData, "\(fixtureName) should not contain artwork after removal.")
         }
-        XCTAssertGreaterThan(executedFixtureCount, 0, "No writable artwork fixtures were exercised")
+        XCTAssertEqual(executedFixtureCount, Self.artworkFixtureNames.count, "Every pinned artwork fixture must execute")
     }
 
     func testRawPropertyMapWriteRemovesDeletedMP4FreeformFields() throws {
@@ -893,7 +900,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             to: workingURL
         )
 
+        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])),
+            to: workingURL)
         let pipeline = TagLibAudioMetadataPipeline()
+        let artwork = try pipeline.conflictSnapshot(for: workingURL).structured.artwork
+        XCTAssertEqual(artwork.count, 1)
+        XCTAssertEqual(artwork.first?.data, artworkData)
         var valueMap = try pipeline.rawMetadataValueMap(for: workingURL)
         XCTAssertEqual(valueMap["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
 
@@ -906,8 +920,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
 
         let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
-        XCTAssertEqual(readBack["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
-        XCTAssertEqual(readBack["LYRICS"], ["[00:01.00] one; two"])
+        XCTAssertEqual(readBack, valueMap, "The concrete whole-map adapter must preserve the complete requested map")
+        XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
+        valueMap.removeValue(forKey: "LYRICS")
+        valueMap["TITLE"] = ["Whole-map title"]
+        _ = try pipeline.writeRawMetadataValueMap(valueMap, to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL))
+        XCTAssertEqual(try pipeline.rawMetadataValueMap(for: workingURL), valueMap)
+        XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
     }
 
     func testInspectorSaveRejectsSnapshotVersionThatPredatesExternalMetadataEdit() throws {

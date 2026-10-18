@@ -1025,7 +1025,11 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         XCTAssertEqual(summary?.totalTargets, 3)
         XCTAssertEqual(summary?.succeeded, 1)
-        XCTAssertEqual(summary?.warningIssues.count, 2)
+        XCTAssertEqual(summary?.skippedIssues.count, 2)
+        XCTAssertTrue(summary?.warningIssues.isEmpty == true)
+        XCTAssertTrue(summary?.hudSubtitle.contains("2 file(s) skipped") == true)
+        XCTAssertFalse(summary?.hudSubtitle.contains("saved with issues") == true)
+        XCTAssertEqual(viewModel.saveIssueLogStore.entries.first?.issues.map(\.fileName), ["bad-1.flac", "bad-2.flac"])
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .warning)
         XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Saved with Issues")
     }

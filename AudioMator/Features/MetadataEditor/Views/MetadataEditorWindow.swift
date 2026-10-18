@@ -308,7 +308,8 @@ final class MetadataEditorStore: ObservableObject {
                 if target.metadataConflictBaseline != nil, let fingerprint = target.expectedFileFingerprint {
                     guard !target.requiresMetadataRefresh else { throw TagLibManagerError.fileChanged }
                     let snapshot = try MetadataConflictResolver.currentSnapshot(
-                        pipeline: metadataPipeline, url: target.url, originalFingerprint: fingerprint
+                        pipeline: metadataPipeline, url: target.url, originalFingerprint: fingerprint,
+                        originalVersion: target.expectedMetadataVersion
                     )
                     let currentFingerprint = try AudioFileFingerprint.capture(at: target.url)
                     guard snapshot.fileVersion == (try metadataPipeline.metadataFileVersion(at: target.url)) else {

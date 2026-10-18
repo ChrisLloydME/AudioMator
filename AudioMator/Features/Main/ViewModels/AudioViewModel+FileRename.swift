@@ -147,24 +147,7 @@ extension AudioViewModel {
 
         switch execution {
         case .failure(let failure):
-            let recoveryChanges = failure.recoveryItems.compactMap { item -> (id: UUID, oldURL: URL, newURL: URL)? in
-                guard let finalURL = item.finalURL else { return nil }
-                return (item.id, item.originalURL, finalURL)
-            }
-            if !recoveryChanges.isEmpty {
-                registerMovedFiles(
-                    recoveryChanges.map { (id: $0.id, oldURL: $0.oldURL, newURL: $0.newURL) }
-                )
-                issueWarnings.append(contentsOf: await applyMovedFiles(
-                    recoveryChanges.map { (id: $0.id, newURL: $0.newURL) }
-                ))
-            }
-            // A recovery item with multiple or no verified locations cannot be
-            // rebound. Keep the last known URL but fail closed for writes until
-            // the user reloads the file.
-            for item in failure.recoveryItems where item.finalURL == nil {
-                markFileRequiresRefresh(id: item.id)
-            }
+            issueWarnings.append(contentsOf: await reconcileRenameRecovery(failure.recoveryItems))
 
             let result = FileRenameResult(
                 totalTargets: totalTargets,
@@ -202,6 +185,21 @@ extension AudioViewModel {
             presentFileRenameSummary(result)
             return result
         }
+    }
+
+    /// Applies verified recovery locations and makes unknown locations fail
+    /// closed. Shared by the failure path and its orchestration regression.
+    func reconcileRenameRecovery(_ items: [FileRenameRecoveryItem]) async -> [String] {
+        let changes = items.compactMap { item -> (id: UUID, oldURL: URL, newURL: URL)? in
+            guard let finalURL = item.finalURL else { return nil }
+            return (item.id, item.originalURL, finalURL)
+        }
+        registerMovedFiles(changes)
+        let warnings = await applyMovedFiles(changes.map { (id: $0.id, newURL: $0.newURL) })
+        for item in items where item.finalURL == nil {
+            markFileRequiresRefresh(id: item.id)
+        }
+        return warnings
     }
 
     private func presentFileRenameSummary(_ result: FileRenameResult) {

@@ -4,7 +4,8 @@ import XCTest
 
 #if os(macOS)
 final class FileRenameTransactionTests: XCTestCase {
-    func testRollbackFailureReportsHiddenTemporaryFileAndRecoveryItem() throws {
+    @MainActor
+    func testRollbackFailureReportsHiddenTemporaryFileAndRecoveryItem() async throws {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorRenameTransactionTests-\(UUID().uuidString)", isDirectory: true)
         let firstSourceURL = rootURL.appendingPathComponent("first.mp3")
@@ -62,6 +63,17 @@ final class FileRenameTransactionTests: XCTestCase {
         )
         XCTAssertNotNil(recoveryItem.rollbackError)
         XCTAssertTrue(failure.message.contains("Recovery required"))
+
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
+        viewModel.mergeQuickImportFiles([
+            AudioFileTestFactory.make(id: firstOperationID, url: firstSourceURL)
+        ])
+        _ = await viewModel.reconcileRenameRecovery(failure.recoveryItems)
+        let recovered = try XCTUnwrap(viewModel.files.first)
+        XCTAssertEqual(recovered.id, firstOperationID)
+        XCTAssertEqual(recovered.url, recoveryItem.finalURL)
+        // The simulated filesystem has no readable metadata revision.
+        XCTAssertTrue(recovered.requiresMetadataRefreshBeforeWriting)
     }
 
     func testFinalizationRollbackFailureReportsFileAtDestination() throws {

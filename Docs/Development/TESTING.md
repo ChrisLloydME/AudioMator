@@ -9,10 +9,10 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 61 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 438 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 443 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 60 `XCTestCase` classes; no custom base class.
+- There are 61 `XCTestCase` classes; no custom base class.
 - The cross-target test-support helper is `AudioMatorTests/TestSupport/AudioFileTestFactory.swift`. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating.
@@ -82,12 +82,13 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Integration/Network` | 5 | 39 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
 | `Integration/TagLib` | 1 | 33 | real TagLib reads/writes on temporary fixture copies |
 | `Performance` | 3 + fixture | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
-| `Unit/Core` | 15 | 67 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, disclosure registry, issue log, markdown |
+| `Unit/Core` | 16 | 72 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 7 | 34 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | Root | 2 | 13 | source-policy checks for write-plan routing and sensitive logging |
 
 Notable coverage:
 
+- `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
 - Real TagLib writes use temporary copies of the six committed audio fixtures.
 - Conflict-strategy tests drive the real adapter on a temporary FLAC copy.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.

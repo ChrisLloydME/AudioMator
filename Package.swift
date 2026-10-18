@@ -20,6 +20,8 @@ let package = Package(
                 "Features",
                 "InfoPlist.xcstrings",
                 "Localizable.xcstrings",
+                "Resources",
+                "Core/Legal",
                 "Core/Localization",
                 "Core/Network",
                 "Core/Platform",

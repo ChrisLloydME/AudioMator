@@ -223,26 +223,29 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                         // Known external-package failures: disc-only ID3 writes
                         // normalize an untouched padded track; ADTS retains totals
                         // when clearing them with number-only text. Verify rollback.
-                        let expectedFailure: String? = if fixtureName == "testAudioFile.mp3" &&
+                        let expectedFailure: Bool = if fixtureName == "testAudioFile.mp3" &&
                             payload.discNumberTextChanged && !payload.trackNumberTextChanged {
-                            "Unedited PropertyMap field TRACKNUMBER changed"
+                            true
                         } else if fixtureName == "testAudioFile.aac" && operation == .cut &&
                             (source == .trackTotal || source == .discTotal) {
-                            "differs after save (expected 0, got"
+                            true
                         } else {
-                            nil
+                            false
                         }
                         do {
                             _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
-                            if let expectedFailure {
-                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context): \(expectedFailure)")
+                            if expectedFailure {
+                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context)")
                             }
                         } catch {
-                            guard let expectedFailure else {
+                            guard expectedFailure else {
                                 XCTFail("\(context): \(error)")
                                 continue
                             }
-                            XCTAssertTrue(String(describing: error).contains(expectedFailure), "\(context): \(error)")
+                            guard case TagLibManagerError.verificationFailed = error else {
+                                XCTFail("Expected verification rejection: \(context): \(error)")
+                                continue
+                            }
                             XCTAssertEqual(try Data(contentsOf: workingURL), before, context)
                             continue
                         }

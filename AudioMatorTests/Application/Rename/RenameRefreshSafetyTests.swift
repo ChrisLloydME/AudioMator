@@ -19,6 +19,31 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
     }
 
+    func testLateMoveReadbackCannotReplaceNewerGeneratedObservation() async throws {
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/rename-late-source.mp3"))
+        let started = RenameReadGate()
+        let release = RenameReadGate()
+        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil, beforeLoad: {
+            await started.open()
+            await release.wait()
+        })
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let newURL = URL(fileURLWithPath: "/tmp/rename-late-destination.mp3")
+        let move = Task { await viewModel.applyMovedFiles([(id: original.id, newURL: newURL)]) }
+        let didStart = (try? await withAsyncTimeout(.seconds(3), operationName: "Test rename gate") {
+            await started.wait()
+            return true
+        }) ?? false
+        XCTAssertTrue(didStart)
+        let newer = AudioFileTestFactory.make(id: original.id, url: newURL, title: "Newer observation")
+        viewModel.replaceLoadedFile(newer, refreshGeneration: viewModel.makeFileModelRefreshGeneration())
+        await release.open()
+        _ = await move.value
+        XCTAssertEqual(viewModel.files.first?.url, newURL)
+        XCTAssertEqual(viewModel.files.first?.title, "Newer observation")
+    }
+
     func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async {
         let id = UUID()
         let original = AudioFileTestFactory.make(
@@ -95,11 +120,13 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
 private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let recoveredVersion: MetadataFileVersion?
+    private let beforeLoad: (@Sendable () async -> Void)?
     private let lock = NSLock()
     private var recordedWriteCount = 0
 
-    init(recoveredVersion: MetadataFileVersion?) {
+    init(recoveredVersion: MetadataFileVersion?, beforeLoad: (@Sendable () async -> Void)? = nil) {
         self.recoveredVersion = recoveredVersion
+        self.beforeLoad = beforeLoad
     }
 
     var writeCount: Int {
@@ -107,6 +134,7 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        await beforeLoad?()
         throw CocoaError(.fileReadCorruptFile)
     }
 
@@ -150,5 +178,20 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private actor RenameReadGate {
+    private var opened = false
+    private var pending: [CheckedContinuation<Void, Never>] = []
+    func wait() async {
+        guard !opened else { return }
+        await withCheckedContinuation { pending.append($0) }
+    }
+    func open() {
+        opened = true
+        let waiters = pending
+        pending.removeAll()
+        waiters.forEach { $0.resume() }
     }
 }

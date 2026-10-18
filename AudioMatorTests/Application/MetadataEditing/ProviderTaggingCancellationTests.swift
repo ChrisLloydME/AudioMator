@@ -106,7 +106,16 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
             let queuedCount = await viewModel.fileMutationCoordinator.queuedMutationCount
             XCTAssertEqual(queuedCount, 1)
         } else {
-            await pipeline.waitUntilReload()
+            do {
+                try await pipeline.waitUntilReload()
+            } catch {
+                task.cancel()
+                await pipeline.releaseReload()
+                await releaseReservation.open()
+                try await reservation.value
+                await task.value
+                throw error
+            }
         }
         task.cancel()
         await pipeline.releaseReload()
@@ -138,7 +147,11 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     nonisolated var hasCommitted: Bool { lock.withLock { writes > 0 } }
     nonisolated var writeCount: Int { lock.withLock { writes } }
     nonisolated func releaseReload() async { await reloadRelease.open() }
-    nonisolated func waitUntilReload() async { await reloadStarted.wait() }
+    nonisolated func waitUntilReload() async throws {
+        try await withAsyncTimeout(.seconds(3), operationName: "Test commit gate") {
+            await self.reloadStarted.wait()
+        }
+    }
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         await reloadStarted.open()
         await reloadRelease.wait()

@@ -28,11 +28,11 @@ struct SettingsView: View {
     @ObservedObject var sharedState: SharedState
     @ObservedObject var saveIssueLogStore: SaveIssueLogStore
 
-    @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
-    @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
-    @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
-    @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
-    @AppStorage(settingsSelectedTabDefaultsKey) private var selectedTabRawValue: String = AppSettingsTab.general.rawValue
+    @AppStorage(WelcomeSplashProgress.completionKey, store: AudioMatorTestHost.preferences) private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage(WelcomeSplashProgress.completedVersionKey, store: AudioMatorTestHost.preferences) private var completedWelcomeSplashVersion: Int = 0
+    @AppStorage("suppressesUnsavedInspectorDiscardWarning", store: AudioMatorTestHost.preferences) private var suppressesUnsavedInspectorDiscardWarning: Bool = false
+    @AppStorage(museAmpSupportEnabledDefaultsKey, store: AudioMatorTestHost.preferences) private var isMuseAmpSupportEnabled: Bool = false
+    @AppStorage(settingsSelectedTabDefaultsKey, store: AudioMatorTestHost.preferences) private var selectedTabRawValue: String = AppSettingsTab.general.rawValue
 
     var body: some View {
         TabView(selection: selectedTabBinding) {
@@ -1212,7 +1212,7 @@ private struct ReleaseNoteCard: View {
                 }
             }
 
-            ReleaseMarkdownText(markdown: release.body)
+            ReleaseMarkdownText(markdown: release.body ?? "")
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

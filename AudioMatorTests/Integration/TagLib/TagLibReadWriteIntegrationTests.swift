@@ -142,7 +142,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                     // explicit zero-total track text, not only padded numbers.
                     let before = try Data(contentsOf: workingURL)
                     XCTAssertThrowsError(try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)) { error in
-                        XCTAssertTrue(String(describing: error).contains("Unedited PropertyMap field TRACKNUMBER changed"))
+                        guard case TagLibManagerError.verificationFailed = error else {
+                            return XCTFail("Expected a rejected verification, got \(error)")
+                        }
                     }
                     XCTAssertEqual(try Data(contentsOf: workingURL), before)
                     continue
@@ -221,26 +223,29 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                         // Known external-package failures: disc-only ID3 writes
                         // normalize an untouched padded track; ADTS retains totals
                         // when clearing them with number-only text. Verify rollback.
-                        let expectedFailure: String? = if fixtureName == "testAudioFile.mp3" &&
+                        let expectedFailure: Bool = if fixtureName == "testAudioFile.mp3" &&
                             payload.discNumberTextChanged && !payload.trackNumberTextChanged {
-                            "Unedited PropertyMap field TRACKNUMBER changed"
+                            true
                         } else if fixtureName == "testAudioFile.aac" && operation == .cut &&
                             (source == .trackTotal || source == .discTotal) {
-                            "differs after save (expected 0, got"
+                            true
                         } else {
-                            nil
+                            false
                         }
                         do {
                             _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
-                            if let expectedFailure {
-                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context): \(expectedFailure)")
+                            if expectedFailure {
+                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context)")
                             }
                         } catch {
-                            guard let expectedFailure else {
+                            guard expectedFailure else {
                                 XCTFail("\(context): \(error)")
                                 continue
                             }
-                            XCTAssertTrue(String(describing: error).contains(expectedFailure), "\(context): \(error)")
+                            guard case TagLibManagerError.verificationFailed = error else {
+                                XCTFail("Expected verification rejection: \(context): \(error)")
+                                continue
+                            }
                             XCTAssertEqual(try Data(contentsOf: workingURL), before, context)
                             continue
                         }
@@ -362,6 +367,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
         let after = try pipeline.rawMetadataValueMap(for: workingURL)
 
+        var expectedMap = before
+        expectedMap["TITLE"] = ["Intent Delta Title"]
+        XCTAssertEqual(after, expectedMap, "The title must be the only raw metadata change")
         for (key, values) in exactUntouchedValues {
             XCTAssertEqual(before[key], values, "Fixture setup should preserve exact values for \(key)")
             XCTAssertEqual(after[key], before[key], "Title-only save changed untouched raw values for \(key)")
@@ -565,11 +573,13 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
     }
 
     func testCoreMetadataRoundTripsForWritableAudioFixtures() throws {
+        var executedFixtureCount = 0
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -605,16 +615,19 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(readBack.disc, metadata.disc, fixtureName)
             XCTAssertEqual(readBack.discTotal, metadata.discTotal, fixtureName)
         }
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testTrackAndDiscTextWritesRoundTripNumericValuesAcrossWritableAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
+        var executedFixtureCount = 0
 
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -664,6 +677,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             }
             XCTAssertEqual(didNormalizeFormatting, expected.2, fixtureName)
         }
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
     func testTrackNumberOnlyWriteDoesNotWarnWhenExistingTotalIsPreserved() throws {
@@ -699,12 +713,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
     func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
+        var executedFixtureCount = 0
 
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -729,6 +745,16 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
             let written = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertEqual(written.title, "Title To Erase", fixtureName)
+            XCTAssertEqual(written.artist, "Artist To Erase", fixtureName)
+            XCTAssertEqual(written.album, "Album To Erase", fixtureName)
+            XCTAssertEqual(written.albumArtist, "Album Artist To Erase", fixtureName)
+            XCTAssertEqual(written.composer, "Composer To Erase", fixtureName)
+            XCTAssertEqual(written.genre, "Genre To Erase", fixtureName)
+            XCTAssertEqual(written.comment, "Comment To Erase", fixtureName)
+            XCTAssertEqual(written.releaseDate, "2026-06-19", fixtureName)
+            XCTAssertEqual(written.publisher, "Label To Erase", fixtureName)
+            XCTAssertEqual(written.isrc, "USRC17607839", fixtureName)
+            XCTAssertEqual(written.barcode, "123456789012", fixtureName)
             XCTAssertEqual(written.track, 7, fixtureName)
             XCTAssertEqual(written.trackTotal, 12, fixtureName)
             XCTAssertEqual(written.disc, 2, fixtureName)
@@ -747,15 +773,59 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertTrue(erased.albumArtist.isEmpty, fixtureName)
             XCTAssertTrue(erased.genre.isEmpty, fixtureName)
             XCTAssertTrue(erased.comment.isEmpty, fixtureName)
+            XCTAssertEqual(erased.composer, "", fixtureName)
+            XCTAssertEqual(erased.releaseDate, "", fixtureName)
+            XCTAssertEqual(erased.publisher, "", fixtureName)
+            XCTAssertEqual(erased.isrc, "", fixtureName)
+            XCTAssertEqual(erased.barcode, "", fixtureName)
             XCTAssertEqual(erased.track, 0, fixtureName)
             XCTAssertEqual(erased.trackTotal, 0, fixtureName)
             XCTAssertEqual(erased.disc, 0, fixtureName)
             XCTAssertEqual(erased.discTotal, 0, fixtureName)
 
             let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-            for key in ["TITLE", "ARTIST", "ALBUM", "ALBUMARTIST", "TRACKNUMBER", "TRACKTOTAL", "DISCNUMBER", "DISCTOTAL"] {
+            for key in [
+                "TITLE", "ARTIST", "ALBUM", "ALBUMARTIST", "COMPOSER", "GENRE", "COMMENT",
+                "RELEASEDATE", "LABEL", "PUBLISHER", "ISRC", "BARCODE", "UPC", "EAN",
+                "TRACKNUMBER", "TRACKTOTAL", "DISCNUMBER", "DISCTOTAL"
+            ] {
                 XCTAssertNil(rawMap[key], "\(fixtureName) should clear \(key)")
             }
+        }
+        XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
+    }
+
+    func testInspectorArtworkIntentRoundTripsOnDisk() async throws {
+        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        for fixtureName in Self.artworkFixtureNames {
+            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+            let pipeline = TagLibAudioMetadataPipeline()
+            let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+            var edit = SingleFileEditModel(from: baseline)
+            edit.artworkEditAction = .replace(
+                PendingArtwork(data: artworkData, mimeType: "image/jpeg")
+            )
+            _ = try pipeline.writeMetadata(
+                MetadataEditPayload(edit, comparedTo: baseline),
+                to: workingURL,
+                expectedVersion: baseline.metadataFileVersion
+            )
+
+            let withArtwork = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+            XCTAssertNotNil(withArtwork.artworkData, fixtureName)
+            XCTAssertEqual(withArtwork.artworkData, artworkData, "Artwork bytes should round-trip for \(fixtureName)")
+
+            edit = SingleFileEditModel(from: withArtwork)
+            edit.artworkEditAction = .remove
+            _ = try pipeline.writeMetadata(
+                MetadataEditPayload(edit, comparedTo: withArtwork),
+                to: workingURL,
+                expectedVersion: withArtwork.metadataFileVersion
+            )
+            let withoutArtwork = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+            XCTAssertNil(withoutArtwork.artworkData, fixtureName)
         }
     }
 
@@ -763,11 +833,13 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
         XCTAssertGreaterThan(artworkData.count, 0)
 
+        var executedFixtureCount = 0
         for fixtureName in Self.artworkFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
             guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
                 continue
             }
+            executedFixtureCount += 1
 
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -793,6 +865,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let withoutArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertNil(withoutArtwork.artworkData, "\(fixtureName) should not contain artwork after removal.")
         }
+        XCTAssertEqual(executedFixtureCount, Self.artworkFixtureNames.count, "Every pinned artwork fixture must execute")
     }
 
     func testRawPropertyMapWriteRemovesDeletedMP4FreeformFields() throws {
@@ -827,7 +900,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             to: workingURL
         )
 
+        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])),
+            to: workingURL)
         let pipeline = TagLibAudioMetadataPipeline()
+        let artwork = try pipeline.conflictSnapshot(for: workingURL).structured.artwork
+        XCTAssertEqual(artwork.count, 1)
+        XCTAssertEqual(artwork.first?.data, artworkData)
         var valueMap = try pipeline.rawMetadataValueMap(for: workingURL)
         XCTAssertEqual(valueMap["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
 
@@ -840,8 +920,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         )
 
         let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
-        XCTAssertEqual(readBack["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
-        XCTAssertEqual(readBack["LYRICS"], ["[00:01.00] one; two"])
+        XCTAssertEqual(readBack, valueMap, "The concrete whole-map adapter must preserve the complete requested map")
+        XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
+        valueMap.removeValue(forKey: "LYRICS")
+        valueMap["TITLE"] = ["Whole-map title"]
+        _ = try pipeline.writeRawMetadataValueMap(valueMap, to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL))
+        XCTAssertEqual(try pipeline.rawMetadataValueMap(for: workingURL), valueMap)
+        XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
     }
 
     func testInspectorSaveRejectsSnapshotVersionThatPredatesExternalMetadataEdit() throws {
@@ -991,20 +1077,29 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertFalse(reloaded.isExplicit)
     }
 
-    func testInspectorStyleUnsetAdvisoryDoesNotBecomeExplicitAfterSave() async throws {
+    func testInspectorStyleUnsetAdvisoryClearsAnExistingAdvisory() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
         let pipeline = TagLibAudioMetadataPipeline()
         var edit = SingleFileEditModel()
-        edit.title = "Unset Advisory Value"
-        edit.contentAdvisory = nil
+        edit.title = "Advisory Clear Value"
+        edit.contentAdvisory = .explicit
 
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        XCTAssertEqual(
+            try TagLibMetadataManager.readSnapshot(from: workingURL).basic.explicitAdvisory,
+            .explicit
+        )
+
+        edit.contentAdvisory = nil
         _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .unspecified)
+        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        XCTAssertNil(rawMap["ITUNESADVISORY"], "Clearing the advisory must remove the stored value")
 
         let reloaded = try await AudioFile(url: workingURL)
         XCTAssertNil(reloaded.contentAdvisory)
@@ -1082,6 +1177,19 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.barcode = "123456789012"
 
         _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        let written = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+        XCTAssertEqual(written.title, "Title To Clear")
+        XCTAssertEqual(written.artist, "Artist To Clear")
+        XCTAssertEqual(written.album, "Album To Clear")
+        XCTAssertEqual(written.composer, "Composer To Clear")
+        XCTAssertEqual(written.genre, "Genre To Clear")
+        XCTAssertEqual(written.comment, "Comment To Clear")
+        XCTAssertEqual(written.albumArtist, "Album Artist To Clear")
+        XCTAssertEqual(written.releaseDate, "2026-05-31")
+        XCTAssertEqual(written.publisher, "Label To Clear")
+        XCTAssertEqual(written.copyright, "Copyright To Clear")
+        XCTAssertEqual(written.isrc, "USRC17607839")
+        XCTAssertEqual(written.barcode, "123456789012")
         var rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
         XCTAssertEqual(rawMap["TITLE"], "Title To Clear")
         XCTAssertEqual(rawMap["ARTIST"], "Artist To Clear")

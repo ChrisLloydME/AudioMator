@@ -54,6 +54,7 @@ final class SaveIssueLogStore: ObservableObject {
 
     private let fileURL: URL
     private let limit: Int
+    private var isPersistenceEnabled = true
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -80,7 +81,7 @@ final class SaveIssueLogStore: ObservableObject {
     func record(summary: BatchMetadataOperationSummary, date: Date = Date()) {
         guard summary.hudStyle != .success else { return }
 
-        let sourceIssues = summary.failureIssues + summary.warningIssues
+        let sourceIssues = summary.failureIssues + summary.skippedIssues + summary.warningIssues
         guard !sourceIssues.isEmpty else { return }
 
         let entry = SaveIssueLogEntry(
@@ -148,17 +149,30 @@ final class SaveIssueLogStore: ObservableObject {
             entries = try decoder.decode([SaveIssueLogEntry].self, from: data)
         } catch {
             entries = []
+            let firstQuarantineURL = fileURL.appendingPathExtension("corrupt")
+            let quarantineURL = FileManager.default.fileExists(atPath: firstQuarantineURL.path)
+                ? fileURL.appendingPathExtension("corrupt-\(UUID().uuidString)")
+                : firstQuarantineURL
+            do {
+                try FileManager.default.copyItem(at: fileURL, to: quarantineURL)
+            } catch {
+                // Retain the unreadable original when it cannot be preserved.
+                // New entries remain available in memory for this session.
+                isPersistenceEnabled = false
+            }
         }
     }
 
     private func persist() {
+        guard isPersistenceEnabled else { return }
         do {
             let directory = fileURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let data = try encoder.encode(entries)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            assertionFailure("Failed to persist save issue log: \(error)")
+            // Logging is best effort. A disk/permission failure must not trap
+            // the app exactly when the user needs the failure summary.
         }
     }
 

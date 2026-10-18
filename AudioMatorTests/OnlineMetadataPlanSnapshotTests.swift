@@ -82,6 +82,22 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         }
     }
 
+    func testITunesLinkParserAcceptsCanonicalAndLegacyAlbumLinks() throws {
+        XCTAssertEqual(
+            try iTunesLinkParser.parse("https://music.apple.com/us/album/album-name/1440833098"),
+            .album(1440833098)
+        )
+        XCTAssertEqual(
+            try iTunesLinkParser.parse("https://music.apple.com/us/album/album-name/1440833098?i=1440833100"),
+            .track(1440833100)
+        )
+        XCTAssertEqual(
+            try iTunesLinkParser.parse("music.apple.com/us/album/album-name/id1440833098"),
+            .album(1440833098)
+        )
+        XCTAssertEqual(try iTunesLinkParser.parse("1440833098"), .album(1440833098))
+    }
+
     func testiTunesWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/itunes-store.mp3")
@@ -121,6 +137,50 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertEqual(displayedPlan.writeEntries.first?.values[.title], "Remote")
         XCTAssertEqual(displayedPlan.writeEntries.first?.expectedFileFingerprint, fingerprint)
         XCTAssertNil(store.plan.writeEntries.first?.values[.title])
+    }
+
+    func testiTunesMissingExplicitnessDoesNotScheduleAdvisoryClear() throws {
+        let fileID = UUID()
+        let fingerprint = syntheticFingerprint(path: "/tmp/itunes-explicit.mp3")
+        let file = AudioFileTestFactory.make(
+            id: fileID,
+            url: URL(fileURLWithPath: fingerprint.normalizedPath),
+            title: "Local",
+            contentAdvisory: .explicit,
+            fileFingerprint: fingerprint
+        )
+        let input = makeiTunesInput(id: fileID.uuidString)
+        let track = makeiTunesTrack(
+            title: "Remote",
+            trackExplicitness: "",
+            collectionExplicitness: ""
+        )
+        let detail = makeiTunesDetail(
+            track: track,
+            collectionExplicitness: ""
+        )
+        let preview = iTunesAlbumMatchPreview(
+            totalSelectedFiles: 1,
+            matchedAssignments: [
+                iTunesAlbumMatchAssignment(
+                    id: "assignment",
+                    file: input,
+                    track: track,
+                    score: 1,
+                    reason: "test"
+                )
+            ],
+            unmatchedFiles: [],
+            unassignedTracks: [],
+            overallScore: 1
+        )
+        let store = iTunesTaggingWorkbenchStore(
+            detail: detail,
+            preview: preview,
+            loadedFiles: [file]
+        )
+
+        XCTAssertNil(store.plan.writeEntries.first?.values[.isExplicit])
     }
 
     func testMusicBrainzWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
@@ -339,7 +399,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             fileFingerprint: fixture.fingerprint
         )
         let pipeline = FingerprintRecordingMetadataPipeline(reloadedFile: file)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([file])
 
         try Data(repeating: 0x42, count: 32).write(to: fixture.fileURL, options: .atomic)
@@ -389,7 +449,11 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
-    private func makeiTunesTrack(title: String) -> iTunesTrackResult {
+    private func makeiTunesTrack(
+        title: String,
+        trackExplicitness: String = "notExplicit",
+        collectionExplicitness: String = "notExplicit"
+    ) -> iTunesTrackResult {
         iTunesTrackResult(
             trackID: 300,
             collectionID: 100,
@@ -411,15 +475,18 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             contentAdvisoryRating: "",
             kind: "song",
             wrapperType: "track",
-            trackExplicitness: "notExplicit",
-            collectionExplicitness: "notExplicit",
+            trackExplicitness: trackExplicitness,
+            collectionExplicitness: collectionExplicitness,
             trackViewURL: nil,
             collectionViewURL: nil,
             artistViewURL: nil
         )
     }
 
-    private func makeiTunesDetail(track: iTunesTrackResult) -> iTunesAlbumDetail {
+    private func makeiTunesDetail(
+        track: iTunesTrackResult,
+        collectionExplicitness: String = "notExplicit"
+    ) -> iTunesAlbumDetail {
         iTunesAlbumDetail(
             album: iTunesAlbumResult(
                 collectionID: 100,
@@ -434,7 +501,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
                 country: "USA",
                 copyright: "",
                 contentAdvisoryRating: "",
-                collectionExplicitness: "notExplicit",
+                collectionExplicitness: collectionExplicitness,
                 collectionViewURL: nil,
                 artistViewURL: nil,
                 selectionMatchPreview: nil,

@@ -2,6 +2,23 @@ import XCTest
 @testable import AudioMator
 
 final class ReleaseMarkdownBlockTests: XCTestCase {
+    func testGitHubReleaseNoteAcceptsNullBody() throws {
+        let json = """
+        {
+          "id": 1,
+          "name": "Release",
+          "tag_name": "v1.0.0",
+          "body": null,
+          "html_url": "https://example.com/release",
+          "prerelease": false,
+          "draft": false
+        }
+        """
+        let note = try JSONDecoder().decode(GitHubReleaseNote.self, from: Data(json.utf8))
+        XCTAssertNil(note.body)
+        XCTAssertEqual(note.displayTitle, "Release")
+    }
+
     func testParseEmptyMarkdownPreservesExistingSpacerBlockBehavior() {
         XCTAssertEqual(
             ReleaseMarkdownBlock.parse(""),

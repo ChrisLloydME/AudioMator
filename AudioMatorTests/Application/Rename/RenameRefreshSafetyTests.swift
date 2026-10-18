@@ -44,6 +44,44 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Newer observation")
     }
 
+    func testRecoveryDecisionBlocksStaleDraftsAndAlreadyQueuedWriters() async throws {
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/recovery-stale-target.mp3"),
+                                                includeDefaultFileFingerprint: false)
+        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let reserved = RenameReadGate()
+        let release = RenameReadGate()
+        let holder = Task {
+            try await viewModel.fileMutationCoordinator.withExclusiveAccess(to: [original.url]) {
+                await reserved.open()
+                await release.wait()
+            }
+        }
+        await reserved.wait()
+        var edit = SingleFileEditModel(from: original)
+        edit.title = "Stale draft"
+        let capturedEdit = edit
+        let save = Task { await viewModel.persistMetadataEdit(capturedEdit, to: original) }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while await viewModel.fileMutationCoordinator.queuedMutationCount == 0, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let queuedCount = await viewModel.fileMutationCoordinator.queuedMutationCount
+        XCTAssertEqual(queuedCount, 1)
+        viewModel.markFileRequiresRefresh(id: original.id)
+        await release.open()
+        try await holder.value
+        guard case .failure(let reason) = await save.value else {
+            return XCTFail("Queued stale intent must observe the newer recovery decision")
+        }
+        XCTAssertTrue(reason.contains("Reload the file"))
+        let rawResult = await viewModel.applyRawMetadataPropertyMaps([original.id: ["TITLE": ["Stale raw edit"]]],
+            to: [MetadataEditorTarget(file: original)])
+        XCTAssertEqual(rawResult.failedTargetIDs, [original.id])
+        XCTAssertEqual(pipeline.writeCount, 0)
+    }
+
     func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async {
         let id = UUID()
         let original = AudioFileTestFactory.make(
@@ -160,7 +198,8 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
+        lock.withLock { recordedWriteCount += 1 }
+        return AudioMetadataWriteResult(warnings: [])
     }
 
     nonisolated func eraseAllMetadata(

@@ -3,8 +3,8 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class NumberTextDependencyContractTests: XCTestCase {
+nonisolated final class NumberTextDependencyContractTests: XCTestCase {
+    @MainActor
     func testUnsupportedNonNumericPairsFailWithoutMutationAndUnrelatedEditsPreserveThem() async throws {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile.flac", withExtension: nil, subdirectory: "Fixtures/Audio")

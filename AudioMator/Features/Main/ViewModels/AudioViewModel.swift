@@ -756,6 +756,12 @@ final class AudioViewModel: ObservableObject {
         rebuildVisibleFiles()
     }
 
+    func validateMetadataWriteRecovery(id: AudioFile.ID, url: URL) throws {
+        guard !refreshRequiredFileIDs.contains(id) else {
+            throw AudioFileFingerprintValidationError.recoveryRequired(fileName: url.lastPathComponent)
+        }
+    }
+
     func loadedFile(withID id: AudioFile.ID) -> AudioFile? {
         pendingMetadataReloadsByID[id]?.file ?? visibleFilesByID[id]
     }

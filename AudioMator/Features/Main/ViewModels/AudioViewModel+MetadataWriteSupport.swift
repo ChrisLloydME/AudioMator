@@ -99,6 +99,8 @@ extension AudioViewModel {
         syncInspectorAfterReload: Bool,
         write: @escaping @Sendable (any AudioMetadataPipeline, URL) throws -> AudioMetadataWriteResult
     ) async -> MetadataWriteExecutionResult {
+        do { try validateMetadataWriteRecovery(id: id, url: url) }
+        catch { return .failure(error.localizedDescription) }
         if let accessFailure = ensureMetadataMutationDirectoryAccess(for: [url]) {
             return .failure(accessFailure)
         }
@@ -112,6 +114,7 @@ extension AudioViewModel {
             at: url,
             id: id,
             expectedFileFingerprint: expectedFileFingerprint,
+            validateBeforeWrite: { try await self.validateMetadataWriteRecovery(id: id, url: url) },
             write: write
         )
 

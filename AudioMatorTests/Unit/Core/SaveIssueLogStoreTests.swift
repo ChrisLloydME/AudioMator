@@ -75,7 +75,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
 
     func testBatchClearSummaryPresentedByViewModelCreatesLogEntry() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
-        let viewModel = AudioViewModel(
+        let viewModel = AudioViewModelTestFactory.make(
             metadataPipeline: TagLibAudioMetadataPipeline(),
             saveIssueLogStore: store
         )
@@ -122,6 +122,25 @@ final class SaveIssueLogStoreTests: XCTestCase {
         let quarantineURL = url.appendingPathExtension("corrupt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: quarantineURL.path))
         XCTAssertEqual(try Data(contentsOf: quarantineURL), corruptData)
+    }
+
+    func testRepeatedCorruptionPreservesEachUnreadableLog() throws {
+        let url = temporaryLogURL()
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = Data("first damaged history".utf8)
+        let second = Data("second damaged history".utf8)
+        try first.write(to: url)
+        _ = SaveIssueLogStore(fileURL: url)
+        try second.write(to: url)
+        let store = SaveIssueLogStore(fileURL: url)
+        store.recordSingleIssue(title: "Failed", subtitle: "Failure", fileName: "a.flac", messages: ["Denied"], severity: .failure)
+        let backups = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.contains(".corrupt") }
+        XCTAssertEqual(backups.count, 2)
+        XCTAssertEqual(Set(try backups.map { try Data(contentsOf: $0) }), Set([first, second]))
+        XCTAssertEqual(SaveIssueLogStore(fileURL: url).entries.count, 1)
     }
 
     func testUnwritableLogDoesNotTrapOrLoseInMemoryEntries() {

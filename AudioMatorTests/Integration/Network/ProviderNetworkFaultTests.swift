@@ -183,6 +183,67 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
     }
 
+    func testMusicBrainzStaleStoredReleaseFallsBackAndReturnsCandidatesBeyondDetailCap() async throws {
+        let staleID = "00000000-0000-0000-0000-000000000099"
+        let ids = (1...5).map { String(format: "00000000-0000-0000-0000-%012d", $0) }
+        let requests = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requests.record(request)
+            let url = try XCTUnwrap(request.url)
+            let status: Int
+            let payload: [String: Any]
+            if url.lastPathComponent == staleID {
+                status = 404
+                payload = [:]
+            } else if url.path == "/ws/2/release" {
+                status = 200
+                payload = ["releases": ids.map { [
+                    "id": $0, "title": "Album", "score": 100,
+                    "artist-credit": [["name": "Artist", "artist": ["id": "artist", "name": "Artist"]]]
+                ] as [String: Any] }]
+            } else {
+                status = 200
+                payload = ["id": url.lastPathComponent, "title": "Album"]
+            }
+            return (try XCTUnwrap(HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)),
+                try JSONSerialization.data(withJSONObject: payload))
+        }
+        let files = (1...2).map { number in
+            MusicBrainzFileSearchInput(id: "file-\(number)", displayTitle: "Track \(number)",
+                title: "Track \(number)", artist: "Artist", albumArtist: "Artist", album: "Album",
+                trackNumber: String(number), trackTotal: 2, musicBrainzAlbumID: staleID)
+        }
+        let client = MusicBrainzClient(session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0), retryPolicy: .disabled)
+        let results = try await client.searchFileSelections(matching: MusicBrainzSearchQuery(mode: .file, fileInputs: files), limit: 5)
+        XCTAssertEqual(Set(results.map(\.id)), Set(ids))
+        XCTAssertGreaterThan(requests.requestCount, 1, "Both stored-ID and text search paths must execute")
+        XCTAssertLessThanOrEqual(results.filter { $0.selectionMatchScore != nil }.count, 3)
+    }
+
+    func testITunesStaleStoredAlbumFallsBackToTextSearch() async throws {
+        let requests = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requests.record(request)
+            let url = try XCTUnwrap(request.url)
+            let payload: [String: Any] = url.path == "/lookup"
+                ? ["resultCount": 0, "results": []]
+                : ["resultCount": 1, "results": [["wrapperType": "track", "kind": "song", "trackId": 123,
+                    "collectionId": 456, "trackName": "Track", "artistName": "Artist", "collectionName": "Album"]]]
+            return (try XCTUnwrap(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)),
+                try JSONSerialization.data(withJSONObject: payload))
+        }
+        let file = iTunesFileSearchInput(id: "file", displayTitle: "Track", title: "Track", artist: "Artist",
+            albumArtist: "Artist", album: "Album", trackNumber: "1", discNumber: "1", trackTotal: 1,
+            durationMilliseconds: nil, releaseDate: "", barcode: "", itunesAlbumID: "999",
+            itunesArtistID: "", itunesCatalogID: "")
+        let results = try await iTunesClient(session: makeSession()).search(
+            matching: iTunesSearchQuery(mode: .file, fileInputs: [file]), limit: 5)
+        guard case .tracks(let tracks) = results else { return XCTFail("Expected text-search track results") }
+        XCTAssertEqual(tracks.map(\.trackID), [123])
+        XCTAssertEqual(requests.requestCount, 2)
+    }
+
     func testMusicBrainzMultiFileNoResultSearchHasBoundedFallbackRequests() async throws {
         let requestRecorder = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -530,7 +591,7 @@ private final class ProviderRequestRecorder: @unchecked Sendable {
     }
 }
 
-private final class ProviderFaultURLProtocol: URLProtocol {
+private nonisolated final class ProviderFaultURLProtocol: URLProtocol {
     nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
     override class func canInit(with request: URLRequest) -> Bool {

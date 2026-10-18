@@ -55,6 +55,14 @@ struct MetadataEditPayload: Sendable {
     /// semantic writer (inspector, provider plans, CSV/filename imports) gets
     /// the same safe behavior instead of silently clearing the pair.
     nonisolated var numberPairValidationMessage: String? {
+        if trackNumberTextChanged, !AudioTagNumberText.components(from: trackNumberText).number.isEmpty,
+           Int(AudioTagNumberText.components(from: trackNumberText).number) == nil {
+            return String(localized: "Non-numeric track number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+        }
+        if discNumberTextChanged, !AudioTagNumberText.components(from: discNumberText).number.isEmpty,
+           Int(AudioTagNumberText.components(from: discNumberText).number) == nil {
+            return String(localized: "Non-numeric disc number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+        }
         if trackNumberTextChanged, trackNumber == 0, trackTotal > 0 {
             return String(
                 localized: "A total track count without a track number cannot be saved safely. Enter a track number or clear the total."

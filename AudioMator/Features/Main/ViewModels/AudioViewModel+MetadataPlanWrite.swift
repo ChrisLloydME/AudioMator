@@ -34,6 +34,10 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -108,7 +112,7 @@ extension AudioViewModel {
             }
         }
 
-        summary.warningIssues.append(contentsOf: skippedIssues)
+        summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
             subtitle: String(localized: "Finishing..."),
@@ -157,6 +161,10 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -243,7 +251,7 @@ extension AudioViewModel {
             }
         }
 
-        summary.warningIssues.append(contentsOf: skippedIssues)
+        summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
             subtitle: String(localized: "Finishing..."),

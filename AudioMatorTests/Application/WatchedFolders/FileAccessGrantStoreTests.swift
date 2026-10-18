@@ -198,7 +198,8 @@ final class FileAccessGrantStoreTests: XCTestCase {
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
             metadataPipeline: TagLibAudioMetadataPipeline(),
-            saveIssueLogStore: SaveIssueLogStore()
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: defaults
         )
     }
 }

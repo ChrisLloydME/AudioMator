@@ -124,6 +124,85 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(viewModel.files.map(\.url.lastPathComponent).sorted(), ["a.mp3", "b.mp3"])
     }
 
+    func testRescanPreservesRecoveryAndSupersedesOlderDeferredReload() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let url = rootURL.appendingPathComponent("track.mp3")
+        try Data("controlled fixture".utf8).write(to: url)
+        let suite = "WatchedRecovery.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WatchedFolderStore(userDefaults: defaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+        let pipeline = CountingWatchedFolderPipeline()
+        let viewModel = AudioViewModel(watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: rootURL.appendingPathComponent("issues.json")),
+            conflictPolicyDefaults: defaults)
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        let loaded = try await waitUntil { viewModel.files.count == 1 }
+        XCTAssertTrue(loaded)
+        let original = try XCTUnwrap(viewModel.files.first)
+        viewModel.flushPendingMetadataReloads()
+        let stale = AudioFileTestFactory.make(id: original.id, url: url, title: "Deferred old")
+        viewModel.replaceLoadedFile(stale, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+                                   deferVisibleRefresh: true)
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        // The scan reuses the verified disk snapshot, which supersedes the deferred observation.
+        let scanned = try await waitUntil { viewModel.loadedFile(withID: original.id)?.title == "track.mp3" }
+        XCTAssertTrue(scanned)
+        viewModel.flushPendingMetadataReloads()
+        XCTAssertEqual(viewModel.files.first?.title, "track.mp3")
+
+        viewModel.markFileRequiresRefresh(id: original.id)
+        let previousRevision = viewModel.filesRevision
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        let rescanned = try await waitUntil { viewModel.filesRevision != previousRevision }
+        XCTAssertTrue(rescanned)
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+        XCTAssertNil(viewModel.files.first?.metadataFileVersion)
+    }
+
+    func testFailedRescanDoesNotDiscardAcceptedPendingCommit() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let url = rootURL.appendingPathComponent("track.mp3")
+        try Data("controlled fixture".utf8).write(to: url)
+        let suite = "WatchedFailure.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WatchedFolderStore(userDefaults: defaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+        let pipeline = CountingWatchedFolderPipeline()
+        let viewModel = AudioViewModel(watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults), metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: rootURL.appendingPathComponent("issues.json")),
+            conflictPolicyDefaults: defaults)
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        let loaded = try await waitUntil { viewModel.files.count == 1 }
+        XCTAssertTrue(loaded)
+        let original = try XCTUnwrap(viewModel.files.first)
+        viewModel.flushPendingMetadataReloads()
+        let committed = AudioFileTestFactory.make(id: original.id, url: url, title: "Committed")
+        viewModel.replaceLoadedFile(committed, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+                                   deferVisibleRefresh: true)
+        // Force a full read instead of the unchanged-revision reuse path.
+        pipeline.failReads()
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 1_600_000_000)],
+                                              ofItemAtPath: url.path)
+        let previousRevision = viewModel.filesRevision
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        let rescanned = try await waitUntil { viewModel.filesRevision != previousRevision }
+        XCTAssertTrue(rescanned)
+        viewModel.flushPendingMetadataReloads()
+        XCTAssertEqual(viewModel.files.first?.title, "Committed")
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(3),
         _ condition: @escaping @MainActor () -> Bool
@@ -141,11 +220,14 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
 private final class CountingWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let lock = NSLock()
     private var recordedLoadCount = 0
+    private var shouldFail = false
+    func failReads() { lock.withLock { shouldFail = true } }
 
     var loadCount: Int { lock.withLock { recordedLoadCount } }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        lock.withLock { recordedLoadCount += 1 }
+        let fail = lock.withLock { recordedLoadCount += 1; return shouldFail }
+        if fail { throw CocoaError(.fileReadCorruptFile) }
         let fingerprint = try AudioFileFingerprint.capture(at: url)
         let version = try TagLibMetadataManager.fileVersion(at: url)
         return await MainActor.run {

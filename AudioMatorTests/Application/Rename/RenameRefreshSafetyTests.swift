@@ -5,6 +5,83 @@ import XCTest
 
 @MainActor
 final class RenameRefreshSafetyTests: XCTestCase {
+    func testMoveSupersedesPendingOldURLAndLateReadCannotOverwriteNewerObservation() async throws {
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/pending-original.mp3"))
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameRefreshFailurePipeline(recoveredVersion: nil))
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.flushPendingMetadataReloads()
+        viewModel.replaceLoadedFile(original, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+                                   deferVisibleRefresh: true)
+        let newURL = URL(fileURLWithPath: "/tmp/pending-moved.mp3")
+        _ = await viewModel.applyMovedFiles([(id: original.id, newURL: newURL)])
+        viewModel.flushPendingMetadataReloads()
+        XCTAssertEqual(viewModel.files.first?.url, newURL)
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+    }
+
+    func testLateMoveReadbackCannotReplaceNewerGeneratedObservation() async throws {
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/rename-late-source.mp3"))
+        let started = RenameReadGate()
+        let release = RenameReadGate()
+        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil, beforeLoad: {
+            await started.open()
+            await release.wait()
+        })
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let newURL = URL(fileURLWithPath: "/tmp/rename-late-destination.mp3")
+        let move = Task { await viewModel.applyMovedFiles([(id: original.id, newURL: newURL)]) }
+        let didStart = (try? await withAsyncTimeout(.seconds(3), operationName: "Test rename gate") {
+            await started.wait()
+            return true
+        }) ?? false
+        XCTAssertTrue(didStart)
+        let newer = AudioFileTestFactory.make(id: original.id, url: newURL, title: "Newer observation")
+        viewModel.replaceLoadedFile(newer, refreshGeneration: viewModel.makeFileModelRefreshGeneration())
+        await release.open()
+        _ = await move.value
+        XCTAssertEqual(viewModel.files.first?.url, newURL)
+        XCTAssertEqual(viewModel.files.first?.title, "Newer observation")
+    }
+
+    func testRecoveryDecisionBlocksStaleDraftsAndAlreadyQueuedWriters() async throws {
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/recovery-stale-target.mp3"),
+                                                includeDefaultFileFingerprint: false)
+        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let reserved = RenameReadGate()
+        let release = RenameReadGate()
+        let holder = Task {
+            try await viewModel.fileMutationCoordinator.withExclusiveAccess(to: [original.url]) {
+                await reserved.open()
+                await release.wait()
+            }
+        }
+        await reserved.wait()
+        var edit = SingleFileEditModel(from: original)
+        edit.title = "Stale draft"
+        let capturedEdit = edit
+        let save = Task { await viewModel.persistMetadataEdit(capturedEdit, to: original) }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while await viewModel.fileMutationCoordinator.queuedMutationCount == 0, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let queuedCount = await viewModel.fileMutationCoordinator.queuedMutationCount
+        XCTAssertEqual(queuedCount, 1)
+        viewModel.markFileRequiresRefresh(id: original.id)
+        await release.open()
+        try await holder.value
+        guard case .failure(let reason) = await save.value else {
+            return XCTFail("Queued stale intent must observe the newer recovery decision")
+        }
+        XCTAssertTrue(reason.contains("Reload the file"))
+        let rawResult = await viewModel.applyRawMetadataPropertyMaps([original.id: ["TITLE": ["Stale raw edit"]]],
+            to: [MetadataEditorTarget(file: original)])
+        XCTAssertEqual(rawResult.failedTargetIDs, [original.id])
+        XCTAssertEqual(pipeline.writeCount, 0)
+    }
+
     func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async {
         let id = UUID()
         let original = AudioFileTestFactory.make(
@@ -32,6 +109,23 @@ final class RenameRefreshSafetyTests: XCTestCase {
         }
         XCTAssertTrue(reason.contains("Reload the file"))
         XCTAssertEqual(pipeline.writeCount, 0)
+    }
+
+    func testRefreshRequiredRecoveryCannotBeUndoneByQueuedOrOlderReload() throws {
+        let original = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/recovery.mp3"))
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameRefreshFailurePipeline(recoveredVersion: nil))
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.flushPendingMetadataReloads()
+        let generation = viewModel.makeFileModelRefreshGeneration()
+        XCTAssertTrue(viewModel.replaceLoadedFile(original, refreshGeneration: generation, deferVisibleRefresh: true))
+
+        let lateGeneration = viewModel.makeFileModelRefreshGeneration()
+        viewModel.markFileRequiresRefresh(id: original.id)
+        viewModel.flushPendingMetadataReloads()
+
+        XCTAssertTrue(try XCTUnwrap(viewModel.loadedFile(withID: original.id)).requiresMetadataRefreshBeforeWriting)
+        XCTAssertFalse(viewModel.replaceLoadedFile(original, refreshGeneration: lateGeneration))
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
     }
 
     func testFailedFullRefreshRetainsWriteSafetyWhenLightweightRevisionRecovers() async throws {
@@ -64,11 +158,13 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
 private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let recoveredVersion: MetadataFileVersion?
+    private let beforeLoad: (@Sendable () async -> Void)?
     private let lock = NSLock()
     private var recordedWriteCount = 0
 
-    init(recoveredVersion: MetadataFileVersion?) {
+    init(recoveredVersion: MetadataFileVersion?, beforeLoad: (@Sendable () async -> Void)? = nil) {
         self.recoveredVersion = recoveredVersion
+        self.beforeLoad = beforeLoad
     }
 
     var writeCount: Int {
@@ -76,6 +172,7 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        await beforeLoad?()
         throw CocoaError(.fileReadCorruptFile)
     }
 
@@ -101,7 +198,8 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
+        lock.withLock { recordedWriteCount += 1 }
+        return AudioMetadataWriteResult(warnings: [])
     }
 
     nonisolated func eraseAllMetadata(
@@ -119,5 +217,20 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
+    }
+}
+
+private actor RenameReadGate {
+    private var opened = false
+    private var pending: [CheckedContinuation<Void, Never>] = []
+    func wait() async {
+        guard !opened else { return }
+        await withCheckedContinuation { pending.append($0) }
+    }
+    func open() {
+        opened = true
+        let waiters = pending
+        pending.removeAll()
+        waiters.forEach { $0.resume() }
     }
 }

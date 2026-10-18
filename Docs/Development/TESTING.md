@@ -9,13 +9,13 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 459 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 472 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 62 `XCTestCase` classes; no custom base class.
-- The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log so tests do not restore the developer's watched folders or write the host app's real issue log. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
+- There are 65 `XCTestCase` classes across both targets (61 app-hosted and four SwiftPM); no custom base class.
+- The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
-- There are no skipped, disabled, or expected-failure tests, and no environment-variable gating.
+- There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
 
 ## Commands
 
@@ -74,22 +74,25 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 10 | 116 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
-| `Application/MetadataExchange` | 3 | 57 | fixture parsing, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 4 | 19 | template parsing, transaction rollback, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 3 | 17 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
-| `Concurrency` | 3 | 23 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
-| `Integration/Network` | 5 | 39 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 1 | 33 | real TagLib reads/writes on temporary fixture copies |
+| `Application/MetadataEditing` | 11 | 129 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataExchange` | 3 | 59 | fixture parsing, planner import/export/matching/limits, field transfer |
+| `Application/Rename` | 4 | 20 | template parsing, transaction rollback, filename extraction, refresh safety |
+| `Application/WatchedFolders` | 4 | 19 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Concurrency` | 3 | 24 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
+| `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
+| `Integration/TagLib` | 1 | 34 | real TagLib reads/writes on temporary fixture copies |
 | `Performance` | 3 + fixture | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
-| `Unit/Core` | 15 | 67 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, disclosure registry, issue log, markdown |
+| `Unit/Core` | 17 | 75 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, disclosure registry, issue log, markdown |
 | `Unit/Presentation` | 7 | 34 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
-| Root | 2 | 13 | source-policy checks for write-plan routing and sensitive logging |
+| Root | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 
 Notable coverage:
 
 - Real TagLib writes use temporary copies of the six committed audio fixtures.
-- Conflict-strategy tests drive the real adapter on a temporary FLAC copy.
+- Conflict-strategy tests drive the real adapter on a temporary FLAC copy, including rejection of changed revisions and replacements when original inode identity is absent.
+- Provider cancellation and semantic-write tests use real FLAC copies to verify committed outcomes, exact preservation, and total-only rejection through MusicBrainz, iTunes, and CSV execution.
+- Progressive import is checked while a final load remains gated, including an early failed input; quick-import start/return waits have deadlines.
+- Provider URLProtocol tests cover stale-ID fallback and MusicBrainz results beyond the detail-verification cap.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget.
 
@@ -174,20 +177,28 @@ These are proposals, not current coverage:
 
 ## Verification Status
 
-Executed on 2026-10-17 with Xcode 27.1 after the audit-repair branch:
+Executed on 2026-10-17 with Xcode 27.1 during independent post-repair verification:
 
-- `swift test --disable-sandbox`: 62 tests passed.
-- `swift test --disable-sandbox --filter AudioMatorCoreLogicTests`: 62 tests passed.
-- Full serial app-hosted suite: 459 tests passed, 0 failures (about 55 seconds of test execution).
-- Focused `TagLibReadWriteIntegrationTests`: 33 tests passed.
-- `bash scripts/codex-build.sh --force`: build succeeded.
-- Unsigned Release build: succeeded; universal `x86_64 arm64` executable.
-- `scripts/validate-macos-artifact.sh ... 15.0`: passed.
+- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --filter AudioMatorCoreLogicTests`: 62 tests passed.
+- Full serial Debug app-hosted suite with signing disabled: 472 tests passed, zero failures. The final Test action pins English/US, ignores saved window restoration, and enables isolated host startup.
+- Focused suites exercised identity fallback/replacement refusal, provider cancellation and semantic writes, progressive import, rename recovery ordering, skipped-row reporting, corrupt-log recovery, provider fallbacks, disclosure policy, and metadata fixture round trips.
+- Direct unsigned Release generic build: succeeded; universal `x86_64 arm64` executable.
+- `scripts/validate-macos-artifact.sh .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0`: passed for both bundled Mach-O files.
 
-Not executed: CI itself and the TagLib bridge smoke tool (the latter builds against the external package checkout, which AudioMator Agents must not build from).
+The initial sandboxed commands could not write compiler/manifest caches. Reruns with appropriate cache access passed. The package pin, Swift language/concurrency settings, and macOS 15.0 deployment setting were unchanged.
+
+Not executed: CI itself, signed/notarized distribution, a macOS 15 runtime test, interactive UI acceptance, live services, real network-volume/bookmark authorization, and the TagLib bridge smoke tool. See the dated [post-repair review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) for exact focused runs, limitations, and findings.
 
 ## Related Documents
 
 - [Build](BUILD.md)
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
+
+## Reassessment Regression Coverage (2026-10-18)
+
+Recovery tests now exercise activation, watched-folder rescans, deferred flushes and explicit verified reload. Batch tests use controlled reload gates and real temporary FLAC copies to check committed outcomes and untouched complete raw maps for provider, filename, CSV, raw-map and renumber cancellation; queued cancellation asserts zero writes. Test-host diagnostics inspect the actual app-owned models, with one isolated preference store also used by view `AppStorage` and About commands. Debug custom runners using `XCTestConfigurationFilePath` use that isolation; Release ignores test environment flags. Static source-policy tests remain supplemental checks, not runtime coverage.
+
+### Known Failing Safety Regression
+
+`StableInodeContentReplacementTests.testAutomaticPoliciesMustNotWriteAfterDifferentPCMPayloadReplacesAudioInPlace` remains enabled and failing: automatic conflict policies apply a stale draft to different PCM samples in the same filesystem object. Its manual-reload control passes. The 2026-10-18 full serial run executed 488 tests: 487 passed; this one test produced six failed assertions across three policies. This is an unresolved merge blocker, not a test to skip for a green build. See the [reassessment remediation record](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md) for exact commands, focused verification and required identity-contract work.

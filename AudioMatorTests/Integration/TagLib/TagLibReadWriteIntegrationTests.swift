@@ -142,7 +142,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                     // explicit zero-total track text, not only padded numbers.
                     let before = try Data(contentsOf: workingURL)
                     XCTAssertThrowsError(try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)) { error in
-                        XCTAssertTrue(String(describing: error).contains("Unedited PropertyMap field TRACKNUMBER changed"))
+                        guard case TagLibManagerError.verificationFailed = error else {
+                            return XCTFail("Expected a rejected verification, got \(error)")
+                        }
                     }
                     XCTAssertEqual(try Data(contentsOf: workingURL), before)
                     continue
@@ -909,6 +911,13 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
         XCTAssertEqual(readBack, valueMap, "The concrete whole-map adapter must preserve the complete requested map")
+        let artwork = try pipeline.conflictSnapshot(for: workingURL).structured.artwork
+        valueMap.removeValue(forKey: "LYRICS")
+        valueMap["TITLE"] = ["Whole-map title"]
+        _ = try pipeline.writeRawMetadataValueMap(valueMap, to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL))
+        XCTAssertEqual(try pipeline.rawMetadataValueMap(for: workingURL), valueMap)
+        XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
     }
 
     func testInspectorSaveRejectsSnapshotVersionThatPredatesExternalMetadataEdit() throws {

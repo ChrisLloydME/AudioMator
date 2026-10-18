@@ -652,7 +652,15 @@ enum MetadataExchangePlanner {
         let normalizedCell = normalizedHeaderToken(cell.decodedValue)
         guard !normalizedCell.isEmpty else { return false }
 
-        let aliases = [
+        let externalAliases: [String]
+        switch field {
+        case .fileName: externalAliases = ["Name", "File Name", "Filename"]
+        case .comment: externalAliases = ["Comments", "Comment"]
+        case .trackNumber: externalAliases = ["Track #", "Track", "Track Number"]
+        case .discNumber: externalAliases = ["Disc #", "Disc", "Disc Number", "Disk Number"]
+        default: externalAliases = []
+        }
+        let aliases = externalAliases + [
             field.displayName,
             field.placeholderName,
             field.propertyMapKey ?? "",

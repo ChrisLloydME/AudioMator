@@ -18,14 +18,11 @@ final class NetworkServiceDisclosureTests: XCTestCase {
 
     func testRegistryCoversEveryHostUsedByNetworkClients() {
         let disclosedHosts = Set(NetworkServiceDisclosure.allDisclosures.flatMap(\.domains))
-        let productionHosts = Set(
-            NetworkServiceDisclosure.iTunesArtwork.domains
-                + NetworkServiceDisclosure.MusicBrainz.domains
-                + NetworkServiceDisclosure.LRCLIB.domains
-                + [NetworkServiceDisclosure.ReleaseNotes.host]
-                + NetworkServiceDisclosure.SoftwareUpdates.domains
-                + NetworkServiceDisclosure.ProviderWebPages.allowedHostSuffixes
-        )
+        // Independent inventory, reviewed against request builders and page policy.
+        let productionHosts: Set<String> = [
+            "itunes.apple.com", "is5-ssl.mzstatic.com", "a5.mzstatic.com",
+            "musicbrainz.org", "lrclib.net", "api.github.com", "apple.com"
+        ]
 
         XCTAssertEqual(disclosedHosts, productionHosts)
         XCTAssertTrue(NetworkServiceDisclosure.allDisclosures.contains { $0.id == .lrclib })

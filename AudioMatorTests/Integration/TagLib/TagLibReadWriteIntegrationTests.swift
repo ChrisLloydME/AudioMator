@@ -900,7 +900,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             to: workingURL
         )
 
+        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])),
+            to: workingURL)
         let pipeline = TagLibAudioMetadataPipeline()
+        let artwork = try pipeline.conflictSnapshot(for: workingURL).structured.artwork
+        XCTAssertEqual(artwork.count, 1)
+        XCTAssertEqual(artwork.first?.data, artworkData)
         var valueMap = try pipeline.rawMetadataValueMap(for: workingURL)
         XCTAssertEqual(valueMap["X-AUDIOMATOR-ROUNDTRIP"], exactValues)
 
@@ -914,7 +921,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
         XCTAssertEqual(readBack, valueMap, "The concrete whole-map adapter must preserve the complete requested map")
-        let artwork = try pipeline.conflictSnapshot(for: workingURL).structured.artwork
+        XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
         valueMap.removeValue(forKey: "LYRICS")
         valueMap["TITLE"] = ["Whole-map title"]
         _ = try pipeline.writeRawMetadataValueMap(valueMap, to: workingURL,

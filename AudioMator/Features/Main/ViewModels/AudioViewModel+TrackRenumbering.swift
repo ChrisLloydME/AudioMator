@@ -35,12 +35,17 @@ extension AudioViewModel {
                 ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion, $0.requiresMetadataRefreshBeforeWriting, makeFileModelRefreshGeneration())
             }
         let writableExtensions = AudioFormatSupport.metadataWritableExtensions
-        let writeTargets = allTargets.filter { target in
+        let supportedTargets = allTargets.filter { target in
             let ext = target.url.pathExtension.lowercased()
             return writableExtensions.contains(ext) &&
                 unsupportedMetadataWriteFields([.track, .trackTotal], forFileExtension: ext).isEmpty
         }
-        let skippedUnsupported = allTargets.count - writeTargets.count
+        let skippedUnsupported = allTargets.count - supportedTargets.count
+        let refreshFailures = supportedTargets.filter(\.requiresMetadataRefresh).map {
+            TrackRenumberFailure(fileName: $0.url.lastPathComponent,
+                reason: String(localized: "The file revision could not be verified after it moved. Reload the file before renumbering tracks."))
+        }
+        let writeTargets = supportedTargets.filter { !$0.requiresMetadataRefresh }
 
         guard !allTargets.isEmpty else { return .empty }
         guard !writeTargets.isEmpty else {
@@ -48,8 +53,8 @@ extension AudioViewModel {
                 totalTargets: allTargets.count,
                 succeeded: 0,
                 skippedUnsupported: skippedUnsupported,
-                failed: 0,
-                failures: [],
+                failed: refreshFailures.count,
+                failures: refreshFailures,
                 warnings: []
             )
         }
@@ -59,8 +64,8 @@ extension AudioViewModel {
                 totalTargets: allTargets.count,
                 succeeded: 0,
                 skippedUnsupported: skippedUnsupported,
-                failed: writeTargets.count,
-                failures: writeTargets.map {
+                failed: writeTargets.count + refreshFailures.count,
+                failures: refreshFailures + writeTargets.map {
                     TrackRenumberFailure(fileName: $0.url.lastPathComponent, reason: accessFailure)
                 },
                 warnings: []
@@ -87,45 +92,28 @@ extension AudioViewModel {
             fileMutationCoordinator: fileMutationCoordinator
         )
 
-        let writeOutcome = await Task.detached(
-            priority: .userInitiated
-        ) { [writeTargets, numbers, padWidth, mutationExecutor, skippedUnsupported] in
+        let writeOutcome = await { () async -> (TrackRenumberResult, [(file: AudioFile, refreshGeneration: UInt64)]) in
             var result = TrackRenumberResult(
-                totalTargets: writeTargets.count + skippedUnsupported,
+                totalTargets: allTargets.count,
                 succeeded: 0,
                 skippedUnsupported: skippedUnsupported,
-                failed: 0,
-                failures: [],
+                failed: refreshFailures.count,
+                failures: refreshFailures,
                 warnings: []
             )
             var reloadedFiles: [(file: AudioFile, refreshGeneration: UInt64)] = []
 
             for (idx, target) in writeTargets.enumerated() {
+                if Task.isCancelled {
+                    let unprocessed = writeTargets.dropFirst(idx)
+                    result.failed += unprocessed.count
+                    result.failures.append(contentsOf: unprocessed.map {
+                        TrackRenumberFailure(fileName: $0.url.lastPathComponent,
+                            reason: String(localized: "Cancelled before this file was processed. No changes were made."))
+                    })
+                    break
+                }
                 let newNumber = numbers[idx]
-
-                guard !target.requiresMetadataRefresh else {
-                    result.failed += 1
-                    result.failures.append(
-                        TrackRenumberFailure(
-                            fileName: target.url.lastPathComponent,
-                            reason: "The file revision could not be verified after it moved. Reload the file before renumbering tracks."
-                        )
-                    )
-                    continue
-                }
-
-                let ext = target.url.pathExtension.lowercased()
-                guard writableExtensions.contains(ext) else {
-                    result.skippedUnsupported += 1
-                    continue
-                }
-                guard unsupportedMetadataWriteFields(
-                    [.track, .trackTotal],
-                    forFileExtension: ext
-                ).isEmpty else {
-                    result.skippedUnsupported += 1
-                    continue
-                }
 
                 let formattedTrackNumber =
                     padWidth > 0
@@ -186,7 +174,7 @@ extension AudioViewModel {
             }
 
             return (result, reloadedFiles)
-        }.value
+        }()
 
         if !writeOutcome.1.isEmpty {
             var didApplyReloadedFile = false

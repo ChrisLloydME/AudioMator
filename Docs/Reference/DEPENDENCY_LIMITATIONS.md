@@ -99,3 +99,7 @@ Do not modify the package checkout from the AudioMator repository. Keep any Audi
 - [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md)
 - [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md)
 - [Testing](../Development/TESTING.md)
+
+## Non-Numeric Number Text (0.5.3)
+
+A controlled FLAC probe through the concrete semantic adapter rejects `A1/13` with `TagLibMetadataExtractor` code 245: number-text components must be unsigned decimal values at most 2147483647. Thus `A1/12`, `A1` plus an edited total, and `B2` plus an edited disc total are not supported semantic number-text edits. The app now distinguishes this limitation from a missing number, refuses before mutation, and directs the user to Metadata Editor. Unrelated title edits preserve the raw non-numeric text and totals. Regression tests exercise all three shapes and compare complete raw maps and bytes on rejection. The package owner should document the accepted grammar or add non-numeric number-text round trips; AudioMator does not bypass the package with a speculative semantic-to-raw mapping.

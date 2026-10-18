@@ -19,11 +19,7 @@ extension AudioViewModel {
 
         for (index, entry) in entries.enumerated() {
             if Task.isCancelled {
-                summary.failureIssues.append(contentsOf: entries.dropFirst(index).map {
-                    BatchMetadataWriteIssue(fileName: $0.fileName, messages: [
-                        String(localized: "Cancelled before this file was processed. No changes were made.")
-                    ])
-                })
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
                 break
             }
             updateMetadataSaveProgress(
@@ -109,11 +105,7 @@ extension AudioViewModel {
 
         for (index, entry) in entries.enumerated() {
             if Task.isCancelled {
-                summary.failureIssues.append(contentsOf: entries.dropFirst(index).map {
-                    BatchMetadataWriteIssue(fileName: $0.fileName, messages: [
-                        String(localized: "Cancelled before this file was processed. No changes were made.")
-                    ])
-                })
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
                 break
             }
             updateMetadataSaveProgress(

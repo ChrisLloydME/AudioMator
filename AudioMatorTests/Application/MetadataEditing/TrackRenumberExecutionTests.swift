@@ -6,6 +6,26 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class TrackRenumberExecutionTests: XCTestCase {
+    func testRefreshRequiredTargetsDoNotConsumeNumbersAtFirstOrMiddlePosition() async {
+        for blockedIndex in [0, 1] {
+            let files = (0..<3).map { index in
+                AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/eligible-\(index).flac"),
+                                          includeDefaultFileFingerprint: false)
+            }
+            let pipeline = RenumberRecordingMetadataPipeline(diskReadback: files[0])
+            let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            viewModel.mergeQuickImportFiles(files)
+            viewModel.markFileRequiresRefresh(id: files[blockedIndex].id)
+            let result = await viewModel.renumberTrackNumbers(orderedIDs: files.map(\.id), selectedIDs: [],
+                options: TrackRenumberOptions(startNumber: 1, padWithZeros: true))
+            XCTAssertEqual(result.totalTargets, 3)
+            XCTAssertEqual(result.succeeded, 2)
+            XCTAssertEqual(result.failed, 1)
+            XCTAssertEqual(result.skippedUnsupported, 0)
+            XCTAssertEqual(pipeline.trackNumberTextValues, ["01", "02"])
+        }
+    }
+
     func testRenumberVerifiesWriteAndRefreshesModelFromDiskReadback() async throws {
         let fileID = UUID()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorRenumberExecution.mp3")

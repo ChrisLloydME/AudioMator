@@ -6,6 +6,20 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class FileMutationSerializationTests: XCTestCase {
+    func testOlderImportObservationCannotReplaceNewerDeferredCommit() {
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
+        let original = AudioFileTestFactory.make(title: "Original")
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.flushPendingMetadataReloads()
+        let importGeneration = viewModel.makeFileModelRefreshGeneration()
+        let saved = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Committed")
+        viewModel.replaceLoadedFile(saved, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+                                    deferVisibleRefresh: true)
+        viewModel.mergeQuickImportFiles([original], refreshGeneration: importGeneration)
+        viewModel.flushPendingMetadataReloads()
+        XCTAssertEqual(viewModel.files.first?.title, "Committed")
+    }
+
     func testQueuedBatchReloadPublishesOnCompletionAndKeepsDirtyDraft() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")

@@ -194,3 +194,11 @@ Not executed: CI itself, signed/notarized distribution, a macOS 15 runtime test,
 - [Build](BUILD.md)
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
+
+## Reassessment Regression Coverage (2026-10-18)
+
+Recovery tests now exercise activation, watched-folder rescans, deferred flushes and explicit verified reload. Batch tests use controlled reload gates and real temporary FLAC copies to check committed outcomes and untouched complete raw maps for provider, filename, CSV, raw-map and renumber cancellation; queued cancellation asserts zero writes. Test-host diagnostics inspect the actual app-owned models, with one isolated preference store also used by view `AppStorage` and About commands. Debug custom runners using `XCTestConfigurationFilePath` use that isolation; Release ignores test environment flags. Static source-policy tests remain supplemental checks, not runtime coverage.
+
+### Known Failing Safety Regression
+
+`StableInodeContentReplacementTests.testAutomaticPoliciesMustNotWriteAfterDifferentPCMPayloadReplacesAudioInPlace` remains enabled and failing: automatic conflict policies apply a stale draft to different PCM samples in the same filesystem object. Its manual-reload control passes. The 2026-10-18 full serial run executed 488 tests: 487 passed; this one test produced six failed assertions across three policies. This is an unresolved merge blocker, not a test to skip for a green build. See the [reassessment remediation record](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md) for exact commands, focused verification and required identity-contract work.

@@ -35,7 +35,13 @@ extension AudioViewModel {
         var succeededTargetIDs = Set<AudioFile.ID>()
         var failedTargetIDs = Set<AudioFile.ID>()
 
-        for target in targets {
+        for (index, target) in targets.enumerated() {
+            if Task.isCancelled {
+                let unprocessed = targets.dropFirst(index)
+                failedTargetIDs.formUnion(unprocessed.map(\.id))
+                summary.recordCancelledFiles(unprocessed.map(\.fileName))
+                break
+            }
             guard !target.requiresMetadataRefresh else {
                 failedTargetIDs.insert(target.id)
                 summary.failureIssues.append(

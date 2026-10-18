@@ -31,9 +31,11 @@ This document describes how AudioMator models application state and how it seria
 Refresh publication has several guards:
 
 1. Selected-file reloads compare the current URL and `snapshotID` before publishing.
-2. Mutation reloads apply increasing per-file generations, including deferred batches.
-3. Watched-folder scans compare their scan token and captured folder mutation epoch after enumeration and loading. A changed epoch discards that scan and schedules a debounced retry. A scan reuses a previous file only when its fingerprint and package version still match.
+2. Quick-import observations, immediate reloads, rename readbacks, and watched-folder observations use the same per-file generation acceptance check. Deferred batches retain their accepted generation and flush only while that generation is current. A rename publishes its new URL as refresh-required before awaiting metadata, preventing queued old-URL snapshots from returning.
+3. Watched-folder scans compare their scan token and captured folder mutation epoch after enumeration and loading. A changed epoch discards that scan and schedules a debounced retry. A scan reuses a previous file only when its fingerprint and package version still match. A failed metadata read retains the latest accepted snapshot, including a pending commit, and does not advance that file’s observation generation.
 4. Unknown rename recovery locations discard queued reloads, advance the file publication generation, and invalidate in-flight folder scans before making the model refresh-required.
+
+Refresh-required IDs are retained independently of snapshots. The shared mutation executor rechecks that decision after acquiring the reservation, so stale Inspector/Metadata Editor targets and queued writers cannot bypass a newer recovery decision. Automatic observations preserve that state and discard their write revisions. An explicit selected-file reload can clear it only after a successful read with both fingerprint and metadata version; the user must first resolve any dirty inspector draft. A successful rename readback may recover the temporary move state, but cannot clear a pre-existing recovery decision.
 
 These guards order app-owned mutations and observations. A directory scan is not an atomic filesystem snapshot: an external edit after the last revision probe can remain unseen until a later reload or notification. Write-time revision checks still apply.
 
@@ -61,7 +63,7 @@ prepare immutable input + expected fingerprint/version
   → publish the snapshot/result on the main actor
 ```
 
-Metadata batches commit file by file, so partial success is a valid outcome. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
+Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename, CSV/text, raw-map, and renumber loops check cancellation before each next target, retain the current commit outcome, and account for the remaining targets as cancelled without invoking their writers. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 
 ## Reservation Rules
 
@@ -86,7 +88,7 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Write succeeds, reload times out or fails | Persisted-with-warning; no fabricated snapshot; user can reload |
 | Rename succeeds, full reload fails | Fingerprint and metadata revision are recovered independently; if either fails, snapshot is refresh-required and writes fail closed |
 | Rename rollback incomplete | Recovery items list original, intended, and observed locations plus rollback errors |
-| File moved, replaced, or deleted | Identity/revision validation fails; write is refused; no "looks similar" substitution |
+| File path/object identity changes, or file is deleted | Identity/revision validation refuses writes; no "looks similar" substitution. Same-inode audio replacement remains an unresolved automatic-rebase risk; see File Revision and Reload. |
 | TagLib reports commit committed but durability uncertain | Treated as committed with a warning; retrying as a failure is explicitly discouraged |
 
 ## Operation-Specific Guarantees

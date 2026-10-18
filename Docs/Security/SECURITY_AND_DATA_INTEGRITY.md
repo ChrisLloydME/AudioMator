@@ -127,7 +127,7 @@ Existing protections:
 - All writes go through the package's expected-version and atomic-commit path.
 - Semantic writes preflight exact field capabilities.
 - File identity (path/device/inode) and revision are revalidated inside the mutation reservation.
-- Conflict policies never clear the expected version; replacement is refused.
+- Conflict policies never clear the expected version; filesystem-identity-changing replacements are refused. Same-object audio replacement remains the unresolved risk documented below.
 - A failed write leaves the snapshot and draft unchanged.
 - A successful write with a failed reload is reported as committed-with-warning.
 - Rename is two-phase and reports incomplete rollback locations.
@@ -222,3 +222,9 @@ Not verified:
 ## Save issue-log recovery
 
 Issue-log persistence is best effort and never traps on an I/O failure. Each unreadable history is copied to its own quarantine file before replacement. If that copy fails, persistence is disabled for that store instance so the unreadable original is retained; new issues remain visible in memory. This log is diagnostic history, not a backup of audio metadata.
+
+## Unresolved Audio-Content Identity Risk (2026-10-18)
+
+A session recovery decision is sticky across automatic reads and is rechecked by the shared executor after reservation acquisition, including writes submitted with stale editor targets. Explicit Reload from Disk is the recovery path after resolving pending drafts.
+
+Path/device/inode continuity does not establish unchanged audio content. A controlled WAV regression replaces PCM samples in place while retaining size and restoring mtime; all three automatic metadata conflict policies still write a stale draft. The manual-reload policy refuses the revision change in that experiment. The automatic-policy regression remains enabled and failing. This is an unresolved integration blocker, not a claim of corruption by the package. See the [reassessment](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md) for evidence and required work.

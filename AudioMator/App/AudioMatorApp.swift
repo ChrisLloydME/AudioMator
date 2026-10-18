@@ -24,24 +24,26 @@ struct AudioMatorApp: App {
         let metadataPipeline = TagLibAudioMetadataPipeline()
         // The serial XCTest host must not restore bookmarks or open the
         // developer's library before the test bundle constructs its own models.
-        let testDefaults = AudioMatorTestHost.isEnabled
-            ? UserDefaults(suiteName: "AudioMatorTestHost.\(UUID().uuidString)")!
-            : nil
-        let saveIssueLogStore = testDefaults != nil
+        let preferences = AudioMatorTestHost.preferences
+        let saveIssueLogStore = AudioMatorTestHost.isEnabled
             ? SaveIssueLogStore(fileURL: FileManager.default.temporaryDirectory
                 .appendingPathComponent("AudioMatorTestHost-\(UUID().uuidString)-issues.json"))
             : SaveIssueLogStore()
         self.metadataPipeline = metadataPipeline
-        _viewModel = StateObject(
-            wrappedValue: AudioViewModel(
-                watchedFolderStore: WatchedFolderStore(userDefaults: testDefaults ?? .standard),
-                fileAccessGrantStore: FileAccessGrantStore(userDefaults: testDefaults ?? .standard),
-                metadataPipeline: metadataPipeline,
-                saveIssueLogStore: saveIssueLogStore,
-                conflictPolicyDefaults: testDefaults ?? .standard
-            )
+        let viewModel = AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: preferences),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: preferences),
+            metadataPipeline: metadataPipeline,
+            saveIssueLogStore: saveIssueLogStore,
+            conflictPolicyDefaults: preferences
         )
-        _sharedState = StateObject(wrappedValue: SharedState(userDefaults: testDefaults ?? .standard))
+        let sharedState = SharedState(userDefaults: preferences)
+        _viewModel = StateObject(wrappedValue: viewModel)
+        _sharedState = StateObject(wrappedValue: sharedState)
+        if AudioMatorTestHost.isEnabled {
+            AudioMatorTestHost.launchedViewModel = viewModel
+            AudioMatorTestHost.launchedSharedState = sharedState
+        }
         _saveIssueLogStore = StateObject(wrappedValue: saveIssueLogStore)
         _onlineMetadataBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
         _lrclibLyricsBrowserStore = StateObject(wrappedValue: LRCLIBLyricsBrowserStore())

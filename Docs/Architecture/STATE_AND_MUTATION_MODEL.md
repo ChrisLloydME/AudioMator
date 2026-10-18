@@ -63,7 +63,7 @@ prepare immutable input + expected fingerprint/version
   → publish the snapshot/result on the main actor
 ```
 
-Metadata batches commit file by file, so partial success is a valid outcome. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
+Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename, CSV/text, raw-map, and renumber loops check cancellation before each next target, retain the current commit outcome, and account for the remaining targets as cancelled without invoking their writers. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 
 ## Reservation Rules
 

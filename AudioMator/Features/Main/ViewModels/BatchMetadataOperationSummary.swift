@@ -78,6 +78,14 @@ struct BatchMetadataOperationSummary: Equatable {
         self.operation = operation
     }
 
+    mutating func recordCancelledFiles(_ fileNames: [String]) {
+        failureIssues.append(contentsOf: fileNames.map {
+            BatchMetadataWriteIssue(fileName: $0, messages: [
+                String(localized: "Cancelled before this file was processed. No changes were made.")
+            ])
+        })
+    }
+
     var hudStyle: MetadataWriteHUDStyle {
         if failureIssues.isEmpty && warningIssues.isEmpty && skippedIssues.isEmpty {
             return .success

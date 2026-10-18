@@ -32,6 +32,7 @@ When a historical record's claim is needed for current work, re-verify it and mo
 | Network provider, endpoint, data sent, timeout | `Docs/Architecture/ONLINE_METADATA.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, `NetworkServiceDisclosure.swift`, privacy sheet text |
 | Entitlement, sandbox, file access, logging | `Docs/Security/SECURITY_AND_DATA_INTEGRITY.md`, `Docs/Reference/CONFIGURATION.md` |
 | Build setting, toolchain, package version | `Docs/Development/BUILD.md`, `Docs/Reference/CONFIGURATION.md`, `Docs/THIRD_PARTY_NOTICES.md` |
+| License, attribution, or bundled license text | `Docs/THIRD_PARTY_NOTICES.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, `AudioMator/Core/Legal/LicenseDisclosure.swift`, `AudioMator/Resources/Licenses` |
 | Test target, suite, fixture, CI | `Docs/Development/TESTING.md` |
 | Release process, signing, versioning | `Docs/Development/RELEASE.md` |
 | Architecture boundary or decision | `Docs/Architecture/OVERVIEW.md`, `DEPENDENCY_RULES.md`, and a new ADR |
@@ -101,6 +102,7 @@ See [the ADR index](../Architecture/Decisions/README.md).
 - [ ] Historical records are labeled and not used as current guidance.
 - [ ] Commands were run or explicitly marked unverified.
 - [ ] Privacy/third-party docs updated if network or dependencies changed.
+- [ ] Bundled license resources and the in-app Acknowledgements entries updated if a dependency or license changed.
 - [ ] `AGENTS.md` remains concise and consistent with the docs.
 
 ## Related Documents

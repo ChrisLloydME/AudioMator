@@ -151,15 +151,16 @@ scripts/               Build and validation helpers
 
 ## Dependencies
 
-- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 — TagLib-backed container metadata operations, verification, and atomic commit.
-- TagLib — used through that package; not vendored in this repository.
+- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 — TagLib-backed container metadata operations, verification, and atomic commit. Licensed under the MIT License.
+- TagLib 2.3.1 — used through that package and bundled as a dynamic framework; not vendored in this repository. Licensed under LGPL-2.1 or MPL-1.1.
+- utf8-cpp (utfcpp) — UTF-8 conversion library bundled with TagLib. Licensed under the Boost Software License 1.0.
 - Apple frameworks — SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers.
 
-See [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) for licensing and service obligations.
+The app bundle contains the full license texts for AudioMator and these dependencies, and the in-app Acknowledgements sheet (Settings → About) opens them. See [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) for licensing and service obligations.
 
 ## License
 
-AudioMator is licensed under the GNU Affero General Public License v3.0. See [`LICENSE`](LICENSE).
+AudioMator is licensed under the GNU Affero General Public License v3.0. See [`LICENSE`](LICENSE). The complete source code is available at <https://github.com/ChrisLloydME/AudioMator>.
 
 ## Contact
 

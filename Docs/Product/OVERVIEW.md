@@ -94,14 +94,15 @@ Two paths are represented in the repository:
 | Dependency | Responsibility | AudioMator's side |
 | --- | --- | --- |
 | [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 (exact pin) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
-| TagLib (through the package) | Low-level audio metadata parsing and writing. | Not linked or called directly. |
+| TagLib 2.3.1 (through the package) | Low-level audio metadata parsing and writing. | Bundled as a dynamic framework; not called directly by app code. |
+| utf8-cpp (utfcpp) | UTF-8 conversion inside TagLib. | Bundled with the TagLib framework; not called directly. |
 | Apple frameworks (SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers, Foundation) | UI, file panels, technical fallback metadata, thumbnails, content types. | Uses them directly in the appropriate layers. |
 | MusicBrainz | Opt-in metadata lookup. | Builds queries, decodes results, maps to local fields. |
 | Apple iTunes Search API and artwork CDN | Opt-in catalog metadata and artwork lookup. | Builds requests, ranks/compares results, downloads selected artwork. |
 | LRCLIB | Opt-in synced-lyrics lookup. | Builds queries, ranks candidates, writes selected lyrics as a raw patch. |
 | GitHub Releases API | Release notes and manual update checks. | Reads release metadata; opens the releases page for manual download. |
 
-The exact boundary and known dependency limitations are documented in [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md), [Dependency Rules](../Architecture/DEPENDENCY_RULES.md), and [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+The exact boundary and known dependency limitations are documented in [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md), [Dependency Rules](../Architecture/DEPENDENCY_RULES.md), and [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). License texts and service obligations are recorded in [Third-Party Notices](../THIRD_PARTY_NOTICES.md); the app bundle includes the full texts and Settings → About → Acknowledgements opens them.
 
 ## Important Limitations
 
@@ -118,7 +119,7 @@ The exact boundary and known dependency limitations are documented in [Metadata 
 
 The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). At the audited commit they were marketing version `2.7`, build `2697`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
 
-The project is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE).
+The project is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE) and the [Third-Party Notices](../THIRD_PARTY_NOTICES.md). The app bundle includes the AGPL-3.0 text plus the TagLib LGPL-2.1/MPL-1.1, TagLibAudioMetadata MIT, and utf8-cpp Boost texts.
 
 ## Documentation Navigation
 

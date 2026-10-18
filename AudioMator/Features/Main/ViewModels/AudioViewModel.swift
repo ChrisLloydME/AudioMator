@@ -122,7 +122,9 @@ final class AudioViewModel: ObservableObject {
     private var watchedFolderMutationEpochs: [UUID: UInt64] = [:]
     private var nextFileModelRefreshGeneration: UInt64 = 0
     private var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
-    private var pendingMetadataReloadsByID: [AudioFile.ID: AudioFile] = [:]
+    private var pendingMetadataReloadsByID: [AudioFile.ID: (file: AudioFile, generation: UInt64)] = [:]
+    // Recovery decisions outlive individual metadata observations.
+    private var refreshRequiredFileIDs: Set<AudioFile.ID> = []
     private var lastMetadataReloadPublication = ContinuousClock.now
     var lastMetadataProgressPublication = ContinuousClock.now
 
@@ -663,20 +665,28 @@ final class AudioViewModel: ObservableObject {
     }
 
     func replaceLoadedFile(_ reloaded: AudioFile) {
-        invalidateWatchedFolderScans(containingFileID: reloaded.id)
-        pendingMetadataReloadsByID.removeValue(forKey: reloaded.id)
-        if let index = quickImportFiles.firstIndex(where: { $0.id == reloaded.id }) {
-            quickImportFiles[index] = reloaded
-        }
+        replaceLoadedFile(reloaded, refreshGeneration: makeFileModelRefreshGeneration())
+    }
 
-        for folderID in watchedFolderFiles.keys {
-            guard var folderFiles = watchedFolderFiles[folderID] else { continue }
-            guard let index = folderFiles.firstIndex(where: { $0.id == reloaded.id }) else { continue }
-            folderFiles[index] = reloaded
-            watchedFolderFiles[folderID] = folderFiles
-        }
+    private func preservingRecoveryState(_ file: AudioFile) -> AudioFile {
+        if file.requiresMetadataRefreshBeforeWriting { refreshRequiredFileIDs.insert(file.id) }
+        guard refreshRequiredFileIDs.contains(file.id) else { return file }
+        return file.withUpdatedURL(file.url, fileFingerprint: nil, metadataFileVersion: nil,
+                                   requiresMetadataRefreshBeforeWriting: true)
+    }
 
-        rebuildVisibleFiles()
+    /// All observations, including scans, must be accepted before publication.
+    private func acceptFileObservation(
+        _ file: AudioFile, generation: UInt64, explicitlyRecover: Bool = false
+    ) -> AudioFile? {
+        guard generation > (appliedFileModelRefreshGenerations[file.id] ?? 0) else { return nil }
+        appliedFileModelRefreshGenerations[file.id] = generation
+        pendingMetadataReloadsByID.removeValue(forKey: file.id)
+        if explicitlyRecover, file.fileFingerprint != nil, file.metadataFileVersion != nil,
+           !file.requiresMetadataRefreshBeforeWriting {
+            refreshRequiredFileIDs.remove(file.id)
+        }
+        return preservingRecoveryState(file)
     }
 
     func makeFileModelRefreshGeneration() -> UInt64 {
@@ -690,23 +700,22 @@ final class AudioViewModel: ObservableObject {
     func replaceLoadedFile(
         _ reloaded: AudioFile,
         refreshGeneration: UInt64,
-        deferVisibleRefresh: Bool = false
+        deferVisibleRefresh: Bool = false,
+        explicitlyRecover: Bool = false
     ) -> Bool {
-        let appliedGeneration = appliedFileModelRefreshGenerations[reloaded.id] ?? 0
-        guard refreshGeneration > appliedGeneration else { return false }
-        appliedFileModelRefreshGenerations[reloaded.id] = refreshGeneration
-        invalidateWatchedFolderScans(containingFileID: reloaded.id)
+        guard let accepted = acceptFileObservation(
+            reloaded, generation: refreshGeneration, explicitlyRecover: explicitlyRecover
+        ) else { return false }
+        invalidateWatchedFolderScans(containingFileID: accepted.id)
         if deferVisibleRefresh {
-            pendingMetadataReloadsByID[reloaded.id] = reloaded
+            pendingMetadataReloadsByID[accepted.id] = (accepted, refreshGeneration)
             if pendingMetadataReloadsByID.count >= 32 ||
                 lastMetadataReloadPublication.duration(to: .now) >= .milliseconds(200) {
                 flushPendingMetadataReloads()
             }
-            return true
+        } else {
+            publishAcceptedFiles([accepted])
         }
-        // A newer immediate refresh must also supersede an unpublished reload.
-        pendingMetadataReloadsByID.removeValue(forKey: reloaded.id)
-        replaceLoadedFile(reloaded)
         return true
     }
 
@@ -714,6 +723,7 @@ final class AudioViewModel: ObservableObject {
     /// could not establish a single verified location. The HUD lists the
     /// observed locations for manual recovery.
     func markFileRequiresRefresh(id: AudioFile.ID) {
+        refreshRequiredFileIDs.insert(id)
         invalidateWatchedFolderScans(containingFileID: id)
         pendingMetadataReloadsByID.removeValue(forKey: id)
         appliedFileModelRefreshGenerations[id] = makeFileModelRefreshGeneration()
@@ -739,27 +749,23 @@ final class AudioViewModel: ObservableObject {
     }
 
     func loadedFile(withID id: AudioFile.ID) -> AudioFile? {
-        pendingMetadataReloadsByID[id] ?? visibleFilesByID[id]
+        pendingMetadataReloadsByID[id]?.file ?? visibleFilesByID[id]
     }
 
     func flushPendingMetadataReloads() {
         lastMetadataReloadPublication = .now
         guard !pendingMetadataReloadsByID.isEmpty else { return }
-        let reloadedFiles = Array(pendingMetadataReloadsByID.values)
+        let reloadedFiles = pendingMetadataReloadsByID.values.compactMap { pending in
+            appliedFileModelRefreshGenerations[pending.file.id] == pending.generation
+                ? preservingRecoveryState(pending.file) : nil
+        }
         pendingMetadataReloadsByID.removeAll(keepingCapacity: true)
-        replaceLoadedFiles(reloadedFiles)
+        publishAcceptedFiles(reloadedFiles)
     }
 
-    func replaceLoadedFiles(_ reloadedFiles: [AudioFile]) {
+    private func publishAcceptedFiles(_ reloadedFiles: [AudioFile]) {
         guard !reloadedFiles.isEmpty else { return }
-
-        var reloadedByID: [UUID: AudioFile] = [:]
-        for file in reloadedFiles {
-            invalidateWatchedFolderScans(containingFileID: file.id)
-            reloadedByID[file.id] = file
-            pendingMetadataReloadsByID.removeValue(forKey: file.id)
-        }
-
+        let reloadedByID = Dictionary(uniqueKeysWithValues: reloadedFiles.map { ($0.id, $0) })
         quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }
 
         for folderID in watchedFolderFiles.keys {
@@ -774,15 +780,18 @@ final class AudioViewModel: ObservableObject {
         guard !changes.isEmpty else { return [] }
 
         let loadedFilesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
+        var refreshGenerations: [UUID: UInt64] = [:]
+        let previouslyBlocked = refreshRequiredFileIDs
         for change in changes {
-            invalidateWatchedFolderScans(containingFileID: change.id)
+            guard let file = loadedFilesByID[change.id] else { continue }
+            replaceLoadedFile(file.withUpdatedURL(change.newURL, fileFingerprint: nil,
+                metadataFileVersion: nil, requiresMetadataRefreshBeforeWriting: true))
+            refreshGenerations[change.id] = makeFileModelRefreshGeneration()
         }
-        var urlsByID: [UUID: URL] = [:]
         var refreshedByID: [UUID: AudioFile] = [:]
         var fallbackFilesByID: [UUID: AudioFile] = [:]
         var warnings: [String] = []
         for change in changes {
-            urlsByID[change.id] = change.newURL
             do {
                 refreshedByID[change.id] = try await metadataPipeline.loadAudioFile(
                     at: change.newURL,
@@ -818,31 +827,13 @@ final class AudioViewModel: ObservableObject {
             }
         }
 
-        quickImportFiles = quickImportFiles.map { file in
-            guard let newURL = urlsByID[file.id] else { return file }
-            return refreshedByID[file.id] ?? fallbackFilesByID[file.id] ?? file.withUpdatedURL(
-                newURL,
-                fileFingerprint: nil,
-                metadataFileVersion: nil,
-                requiresMetadataRefreshBeforeWriting: true
-            )
+        for change in changes {
+            guard let generation = refreshGenerations[change.id],
+                  let file = refreshedByID[change.id] ?? fallbackFilesByID[change.id] else { continue }
+            replaceLoadedFile(file, refreshGeneration: generation,
+                              explicitlyRecover: !previouslyBlocked.contains(change.id))
         }
         syncQuickImportSecurityScopedResources()
-
-        for folderID in watchedFolderFiles.keys {
-            guard let folderFiles = watchedFolderFiles[folderID] else { continue }
-            watchedFolderFiles[folderID] = folderFiles.map { file in
-                guard let newURL = urlsByID[file.id] else { return file }
-                return refreshedByID[file.id] ?? fallbackFilesByID[file.id] ?? file.withUpdatedURL(
-                    newURL,
-                    fileFingerprint: nil,
-                    metadataFileVersion: nil,
-                    requiresMetadataRefreshBeforeWriting: true
-                )
-            }
-        }
-
-        rebuildVisibleFiles()
         return warnings
     }
 
@@ -989,6 +980,7 @@ final class AudioViewModel: ObservableObject {
         let scanToken = UUID()
         folderScanTokens[id] = scanToken
         let mutationEpoch = watchedFolderMutationEpochs[id] ?? 0
+        let refreshGeneration = makeFileModelRefreshGeneration()
 
         let scanTask = Task.detached(priority: .utility) {
             Self.scanFolderSnapshot(for: folder.url)
@@ -1055,7 +1047,10 @@ final class AudioViewModel: ObservableObject {
         }
 
         watchedFolderFiles[id] = snapshot.audioURLs.compactMap { url in
-            refreshedFilesByKey[Self.urlKey(for: url)]
+            guard let file = refreshedFilesByKey[Self.urlKey(for: url)] else { return nil }
+            return acceptFileObservation(file, generation: refreshGeneration)
+                ?? loadedFile(withID: file.id)
+                ?? previousFilesByKey[Self.urlKey(for: url)]
         }
         watchedFolderMetadataReadFailureCounts[id] = loadResult.failures.count
         updateDirectoryMonitors(for: id, directories: snapshot.directoryURLs)
@@ -1085,6 +1080,7 @@ final class AudioViewModel: ObservableObject {
             files = watchedFolderFiles[id] ?? []
         }
 
+        files = files.map { preservingRecoveryState($0) }
         let validIDs = Set(files.map(\.id))
         let prunedSelection = selectedAudioIDs.intersection(validIDs)
         if prunedSelection != selectedAudioIDs {

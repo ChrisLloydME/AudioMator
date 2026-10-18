@@ -5,6 +5,20 @@ import XCTest
 
 @MainActor
 final class RenameRefreshSafetyTests: XCTestCase {
+    func testMoveSupersedesPendingOldURLAndLateReadCannotOverwriteNewerObservation() async throws {
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/pending-original.mp3"))
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameRefreshFailurePipeline(recoveredVersion: nil))
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.flushPendingMetadataReloads()
+        viewModel.replaceLoadedFile(original, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+                                   deferVisibleRefresh: true)
+        let newURL = URL(fileURLWithPath: "/tmp/pending-moved.mp3")
+        _ = await viewModel.applyMovedFiles([(id: original.id, newURL: newURL)])
+        viewModel.flushPendingMetadataReloads()
+        XCTAssertEqual(viewModel.files.first?.url, newURL)
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+    }
+
     func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async {
         let id = UUID()
         let original = AudioFileTestFactory.make(

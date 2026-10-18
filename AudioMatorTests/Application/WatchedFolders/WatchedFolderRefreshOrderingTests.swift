@@ -124,6 +124,48 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(viewModel.files.map(\.url.lastPathComponent).sorted(), ["a.mp3", "b.mp3"])
     }
 
+    func testRescanPreservesRecoveryAndSupersedesOlderDeferredReload() async throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let url = rootURL.appendingPathComponent("track.mp3")
+        try Data("controlled fixture".utf8).write(to: url)
+        let suite = "WatchedRecovery.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WatchedFolderStore(userDefaults: defaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+        let pipeline = CountingWatchedFolderPipeline()
+        let viewModel = AudioViewModel(watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: rootURL.appendingPathComponent("issues.json")),
+            conflictPolicyDefaults: defaults)
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        let loaded = try await waitUntil { viewModel.files.count == 1 }
+        XCTAssertTrue(loaded)
+        let original = try XCTUnwrap(viewModel.files.first)
+        viewModel.flushPendingMetadataReloads()
+        let stale = AudioFileTestFactory.make(id: original.id, url: url, title: "Deferred old")
+        viewModel.replaceLoadedFile(stale, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+                                   deferVisibleRefresh: true)
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        // The scan reuses the verified disk snapshot, which supersedes the deferred observation.
+        let scanned = try await waitUntil { viewModel.loadedFile(withID: original.id)?.title == "track.mp3" }
+        XCTAssertTrue(scanned)
+        viewModel.flushPendingMetadataReloads()
+        XCTAssertEqual(viewModel.files.first?.title, "track.mp3")
+
+        viewModel.markFileRequiresRefresh(id: original.id)
+        let previousRevision = viewModel.filesRevision
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        let rescanned = try await waitUntil { viewModel.filesRevision != previousRevision }
+        XCTAssertTrue(rescanned)
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+        XCTAssertNil(viewModel.files.first?.metadataFileVersion)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(3),
         _ condition: @escaping @MainActor () -> Bool

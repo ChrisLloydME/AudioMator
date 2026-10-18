@@ -60,7 +60,8 @@ extension AudioViewModel {
                               current.url == target.url,
                               current.snapshotID == target.snapshotID else { return }
                         self.replaceLoadedFile(
-                            refreshed, refreshGeneration: self.makeFileModelRefreshGeneration()
+                            refreshed, refreshGeneration: self.makeFileModelRefreshGeneration(),
+                            explicitlyRecover: forceReload
                         )
                     }
                 }

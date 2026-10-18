@@ -5,6 +5,36 @@ import XCTest
 
 @MainActor
 final class FileReloadWorkflowTests: XCTestCase {
+    func testRecoveryMarkerSurvivesActivationAndOnlyExplicitVerifiedReloadClearsIt() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("recovery.mp3")
+        try Data("controlled revision".utf8).write(to: url)
+        let original = AudioFileTestFactory.make(url: url, title: "Original")
+        let refreshed = AudioFileTestFactory.make(id: original.id, url: url, title: "Disk",
+            fileFingerprint: try AudioFileFingerprint.capture(at: url),
+            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url))
+        let pipeline = FileReloadTestPipeline(files: [refreshed])
+        let viewModel = selectedViewModel(original, pipeline: pipeline)
+        viewModel.markFileRequiresRefresh(id: original.id)
+
+        await viewModel.refreshSelectedFilesAfterActivation()
+        XCTAssertEqual(pipeline.loadCount, 1)
+        let blocked = try XCTUnwrap(viewModel.files.first)
+        XCTAssertTrue(blocked.requiresMetadataRefreshBeforeWriting)
+        var edit = SingleFileEditModel(from: blocked)
+        edit.title = "Must refuse"
+        guard case .failure = await viewModel.persistMetadataEdit(edit, to: blocked) else {
+            return XCTFail("Automatic refresh must leave writes disabled")
+        }
+
+        await viewModel.reloadSelectedFilesFromDisk()
+        XCTAssertEqual(pipeline.loadCount, 2)
+        XCTAssertFalse(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+        XCTAssertEqual(viewModel.files.first?.metadataFileVersion, refreshed.metadataFileVersion)
+    }
+
     func testExplicitReloadUpdatesCleanInspectorAndKeepsSelection() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let refreshed = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Disk")

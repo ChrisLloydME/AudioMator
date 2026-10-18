@@ -18,6 +18,8 @@ final class SharedState: ObservableObject {
     private static let middleListSortColumnDefaultsKey = "middleList.sort.column"
     private static let middleListSortAscendingDefaultsKey = "middleList.sort.ascending"
 
+    private let userDefaults: UserDefaults
+
     @Published var selectedSidebarItem: SidebarSelection? = .quickImport
     // Custom ordering for the middle list (session-only)
     @Published var customOrder: [AudioFile.ID] = [] {
@@ -27,7 +29,7 @@ final class SharedState: ObservableObject {
     @Published var middleListSort: MiddleListSort? {
         didSet {
             middleListCache = nil
-            let defaults = UserDefaults.standard
+            let defaults = userDefaults
             if let middleListSort {
                 defaults.set(middleListSort.column.rawValue, forKey: Self.middleListSortColumnDefaultsKey)
                 defaults.set(middleListSort.ascending, forKey: Self.middleListSortAscendingDefaultsKey)
@@ -50,7 +52,7 @@ final class SharedState: ObservableObject {
                 return
             }
 
-            UserDefaults.standard.set(
+            userDefaults.set(
                 MiddleListColumn.allCases
                     .filter(normalizedColumns.contains)
                     .map(\.rawValue),
@@ -61,7 +63,7 @@ final class SharedState: ObservableObject {
 
     @Published var visibleToolbarButtons: Set<ToolbarButtonOption> {
         didSet {
-            UserDefaults.standard.set(
+            userDefaults.set(
                 ToolbarButtonOption.allCases
                     .filter(visibleToolbarButtons.contains)
                     .map(\.rawValue),
@@ -80,7 +82,7 @@ final class SharedState: ObservableObject {
                 return
             }
 
-            UserDefaults.standard.set(
+            userDefaults.set(
                 InspectorMetadataField.allCases
                     .filter(normalizedFields.contains)
                     .map(\.rawValue),
@@ -90,22 +92,23 @@ final class SharedState: ObservableObject {
     }
 
 
-    init() {
-        let storedColumns = UserDefaults.standard
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        let storedColumns = userDefaults
             .stringArray(forKey: Self.visibleMiddleListColumnsDefaultsKey)?
             .compactMap(MiddleListColumn.init(rawValue:))
-        let storedToolbarButtons = UserDefaults.standard
+        let storedToolbarButtons = userDefaults
             .stringArray(forKey: Self.visibleToolbarButtonsDefaultsKey)?
             .compactMap(ToolbarButtonOption.init(rawValue:))
-        let storedInspectorMetadataFields = UserDefaults.standard
+        let storedInspectorMetadataFields = userDefaults
             .stringArray(forKey: Self.visibleInspectorMetadataFieldsDefaultsKey)?
             .compactMap(InspectorMetadataField.init(rawValue:))
-        let storedSort = UserDefaults.standard
+        let storedSort = userDefaults
             .string(forKey: Self.middleListSortColumnDefaultsKey)
             .flatMap(MiddleListColumn.init(rawValue:))
             .map { MiddleListSort(
                 column: $0,
-                ascending: UserDefaults.standard.object(forKey: Self.middleListSortAscendingDefaultsKey) as? Bool ?? true
+                ascending: userDefaults.object(forKey: Self.middleListSortAscendingDefaultsKey) as? Bool ?? true
             ) }
         let fallbackColumns = Set(MiddleListColumn.defaultVisibleColumns)
         let fallbackToolbarButtons = Set(ToolbarButtonOption.defaultVisibleButtons)

@@ -122,7 +122,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
     private func makeViewModel(
         service: any iTunesArtworkServicing
     ) -> AudioViewModel {
-        AudioViewModel(
+        AudioViewModelTestFactory.make(
             metadataPipeline: ArtworkLookupMetadataPipeline(),
             artworkLookupService: service,
             artworkLookupOperationTimeout: .milliseconds(40)

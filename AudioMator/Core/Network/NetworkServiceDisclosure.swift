@@ -8,6 +8,7 @@ enum NetworkServiceDisclosure {
             case lrclib
             case releaseNotes
             case softwareUpdates
+            case providerWebPages
         }
 
         let id: ID
@@ -65,6 +66,11 @@ enum NetworkServiceDisclosure {
         static let sentDataSummary = "LRCLIB lookup may send queries derived from tags, filenames, or user input, including title, artist, album, and duration, to search for synced lyrics."
     }
 
+    enum ProviderWebPages {
+        nonisolated static let allowedHostSuffixes = ["apple.com", "musicbrainz.org"]
+        static let sentDataSummary = String(localized: "Opening a provider page sends its URL and standard browser requests to Apple or MusicBrainz, including their subdomains. Embedded pages use non-persistent browser storage. Their images, scripts, and other subresources may contact additional hosts; the page navigation allow-list does not filter subresources.")
+    }
+
     enum ReleaseNotes {
         static let host = "api.github.com"
         static let sentDataSummary = "Release-note requests send standard request headers and request the published release list. No audio file content is sent."
@@ -103,6 +109,13 @@ enum NetworkServiceDisclosure {
             domains: LRCLIB.domains,
             sentDataSummary: LRCLIB.sentDataSummary,
             purpose: "Searching for synced lyrics, reviewing matches, and applying selected lyrics locally."
+        ),
+        Entry(
+            id: .providerWebPages,
+            title: String(localized: "Embedded provider pages"),
+            domains: ProviderWebPages.allowedHostSuffixes,
+            sentDataSummary: ProviderWebPages.sentDataSummary,
+            purpose: String(localized: "Viewing selected Apple Music, iTunes, and MusicBrainz pages. HTTPS page navigation is limited to these domains and their subdomains.")
         ),
         Entry(
             id: .releaseNotes,

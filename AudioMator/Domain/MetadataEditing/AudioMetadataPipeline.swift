@@ -49,6 +49,32 @@ struct MetadataEditPayload: Sendable {
     var contentAdvisoryChanged: Bool
     var trackNumberTextChanged: Bool
     var discNumberTextChanged: Bool
+
+    /// The package's number-text patch cannot reliably represent a positive
+    /// total without a number. Reject that shape at the write boundary so every
+    /// semantic writer (inspector, provider plans, CSV/filename imports) gets
+    /// the same safe behavior instead of silently clearing the pair.
+    nonisolated var numberPairValidationMessage: String? {
+        if trackNumberTextChanged, !AudioTagNumberText.components(from: trackNumberText).number.isEmpty,
+           Int(AudioTagNumberText.components(from: trackNumberText).number) == nil {
+            return String(localized: "Non-numeric track number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+        }
+        if discNumberTextChanged, !AudioTagNumberText.components(from: discNumberText).number.isEmpty,
+           Int(AudioTagNumberText.components(from: discNumberText).number) == nil {
+            return String(localized: "Non-numeric disc number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+        }
+        if trackNumberTextChanged, trackNumber == 0, trackTotal > 0 {
+            return String(
+                localized: "A total track count without a track number cannot be saved safely. Enter a track number or clear the total."
+            )
+        }
+        if discNumberTextChanged, discNumber == 0, discTotal > 0 {
+            return String(
+                localized: "A total disc count without a disc number cannot be saved safely. Enter a disc number or clear the total."
+            )
+        }
+        return nil
+    }
 }
 
 enum AudioMetadataCommitStatus: Equatable, Sendable {

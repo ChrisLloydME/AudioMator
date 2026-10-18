@@ -219,7 +219,9 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
                 guard !Task.isCancelled else { break }
 
                 let rankedCandidates = LRCLIBCandidateRanker.rankedCandidates(candidates, for: query)
-                let bestSyncedCandidate = rankedCandidates.first { $0.candidate.hasSyncedLyrics }?.candidate
+                let bestSyncedCandidate = rankedCandidates.first {
+                    LRCLIBCandidateRanker.isHighConfidenceAutoMatch($0.candidate, for: query)
+                }?.candidate
 
                 updateState(for: file.id) { state in
                     state.searchState = .loaded

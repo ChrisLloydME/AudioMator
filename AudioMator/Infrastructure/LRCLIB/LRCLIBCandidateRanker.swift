@@ -28,6 +28,34 @@ enum LRCLIBCandidateRanker {
             }
     }
 
+    /// Auto-apply is a bulk overwrite, so it only accepts a candidate whose
+    /// title and artist match exactly after normalization (and whose duration
+    /// is close when both sides expose one). The rank score alone can be
+    /// dominated by synced-lyrics availability and is not sufficient.
+    static func isHighConfidenceAutoMatch(
+        _ candidate: LRCLIBLyricsCandidate,
+        for query: LRCLIBSearchQuery
+    ) -> Bool {
+        guard candidate.hasSyncedLyrics else { return false }
+
+        let candidateTitle = normalized(candidate.trackName)
+        let queryTitle = normalized(query.trackName)
+        let candidateArtist = normalized(candidate.artistName)
+        let queryArtist = normalized(query.artistName)
+        guard !candidateTitle.isEmpty, !queryTitle.isEmpty,
+              !candidateArtist.isEmpty, !queryArtist.isEmpty,
+              candidateTitle == queryTitle,
+              candidateArtist == queryArtist else { return false }
+
+        if let queryDuration = query.durationSeconds,
+           let candidateDuration = candidate.durationSeconds,
+           AudioNumericConversion.boundedDistance(candidateDuration, queryDuration, maximum: 10) == nil {
+            return false
+        }
+
+        return score(candidate: candidate, query: query) >= 80
+    }
+
     static func score(candidate: LRCLIBLyricsCandidate, query: LRCLIBSearchQuery) -> Int {
         var score = 0
         score += textScore(candidate.trackName, query.trackName, exact: 45, partial: 20)

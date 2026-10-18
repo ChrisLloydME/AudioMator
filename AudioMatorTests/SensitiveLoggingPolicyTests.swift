@@ -25,7 +25,7 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertFalse(source.contains("Metadata write completed with warning"))
-        XCTAssertFalse(source.contains("warnings.map"))
+        XCTAssertFalse(source.contains("NSLog("))
     }
 
     func testAppSourceDoesNotUseDiagnosticConsoleLogging() throws {
@@ -56,10 +56,20 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
         XCTAssertTrue(offenders.isEmpty, "Diagnostic console logging found in app source: \(offenders.sorted())")
     }
 
+    func testDiagnosticLoggerDetectorFailsClosedAndCoversLoggerAPIs() {
+        XCTAssertTrue(Self.containsDiagnosticConsoleLogging(in: "print(\"value\")"))
+        XCTAssertTrue(Self.containsDiagnosticConsoleLogging(in: "Logger(subsystem: \"x\", category: \"y\")"))
+        XCTAssertTrue(Self.containsDiagnosticConsoleLogging(in: "os_log(\"value\")"))
+        XCTAssertFalse(Self.containsDiagnosticConsoleLogging(in: "let sprint = 1"))
+    }
+
     private static func containsDiagnosticConsoleLogging(in source: String) -> Bool {
-        let pattern = #"(?<![A-Za-z0-9_])(print|debugPrint|NSLog)\s*\("#
+        let pattern = #"(?<![A-Za-z0-9_])(print|debugPrint|NSLog|os_log|Logger)\s*\("#
         let range = NSRange(source.startIndex..<source.endIndex, in: source)
-        return (try? NSRegularExpression(pattern: pattern))
-            .map { $0.firstMatch(in: source, range: range) != nil } ?? false
+        guard let expression = try? NSRegularExpression(pattern: pattern) else {
+            // A broken detector must not silently report that the source is clean.
+            return true
+        }
+        return expression.firstMatch(in: source, range: range) != nil
     }
 }

@@ -146,3 +146,5 @@ Writes are **not** a group transaction. A summary may contain successes and fail
 ## Completion accounting
 
 Filename, text, CSV, and field-transfer apply summaries count write entries plus skipped issue rows. Skipped rows have their own bucket and are labeled skipped, rather than counted as files saved with warnings. Issue logs retain their filenames and explanations. Unchanged preview rows require no operation and are excluded from that denominator.
+
+CSV header identity validation accepts explicit external aliases (`Name` for File Name, `Comments`, `Track #`/`Track Number`, `Disc #`/`Disc Number`/`Disk Number`). Aliases do not relax column ordering or field validation. Placeholder/property keys are stable across locales; arbitrary labels from another export language are not automatically translated.

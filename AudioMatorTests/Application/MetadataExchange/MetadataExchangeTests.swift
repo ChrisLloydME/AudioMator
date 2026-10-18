@@ -333,6 +333,24 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertTrue(plan.rows.isEmpty)
     }
 
+    func testCSVImportAcceptsCommonExternalHeaderAliasesWithoutRelaxingOrder() {
+        let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{fileName}},{{comment}},{{trackNumber}},{{discNumber}}",
+            sourceText: "Name,Comments,Track #,Disc #\nsong.flac,Keep this,3,2",
+            firstRowIsHeader: true, targetFiles: [file], clearBlankImportedValues: false)
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertEqual(plan.writeEntries.count, 1)
+        XCTAssertEqual(plan.writeEntries.first?.values[.comment], "Keep this")
+        XCTAssertEqual(plan.writeEntries.first?.values[.trackNumber], "3")
+        XCTAssertEqual(plan.writeEntries.first?.values[.discNumber], "2")
+        let reordered = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{comment}},{{trackNumber}}", sourceText: "Track #,Comments\n3,Keep this",
+            firstRowIsHeader: true, targetFiles: [file], clearBlankImportedValues: false)
+        XCTAssertNotNil(reordered.validationMessage)
+        XCTAssertTrue(reordered.writeEntries.isEmpty)
+    }
+
     func testCSVImportAcceptsFieldKeysAsHeaders() throws {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
         let plan = MetadataExchangePlanner.makeCSVImportPlan(

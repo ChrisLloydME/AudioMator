@@ -4,7 +4,7 @@
 
 ### Is AudioMator free and open source?
 
-The source is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE). Distribution and modification are governed by that license. The repository does not state any separate commercial licensing terms.
+The source is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE). Distribution and modification are governed by that license. The repository does not state any separate commercial licensing terms. The app also ships third-party code under LGPL-2.1/MPL-1.1, MIT, and Boost 1.0 terms; see [Third-Party Notices](../THIRD_PARTY_NOTICES.md) and Settings → About → Acknowledgements.
 
 ### Does AudioMator upload my audio files?
 

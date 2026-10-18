@@ -150,7 +150,7 @@ Recommended user practice: keep backups, test unfamiliar formats on copies, and 
 ## Dependency and Supply-Chain Risk
 
 - `TagLibAudioMetadata` is pinned to an exact version and revision.
-- It brings TagLib, which is LGPL/MPL licensed; see [Third-Party Notices](../THIRD_PARTY_NOTICES.md).
+- It brings TagLib 2.3.1 (LGPL-2.1/MPL-1.1) and utf8-cpp (Boost 1.0); see [Third-Party Notices](../THIRD_PARTY_NOTICES.md). The app bundle includes the corresponding license texts.
 - The package source is not vendored and was not audited for this documentation.
 - No SCA, SBOM, dependency signature verification, or automated vulnerability scanning is configured.
 - CI has read-only permissions and no secrets.

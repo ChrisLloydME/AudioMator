@@ -564,8 +564,12 @@ final class AudioViewModel: ObservableObject {
         rebuildVisibleFiles()
     }
 
-    func mergeQuickImportFiles(_ incoming: [AudioFile]) {
-        quickImportFiles = mergeFilesPreservingExistingOrder(existing: quickImportFiles, incoming: incoming)
+    func mergeQuickImportFiles(_ incoming: [AudioFile], refreshGeneration: UInt64? = nil) {
+        let generation = refreshGeneration ?? makeFileModelRefreshGeneration()
+        let accepted = incoming.compactMap { acceptFileObservation($0, generation: generation) }
+        for file in accepted { invalidateWatchedFolderScans(containingFileID: file.id) }
+        publishAcceptedFiles(accepted, rebuildVisible: false)
+        quickImportFiles = mergeFilesPreservingExistingOrder(existing: quickImportFiles, incoming: accepted)
         syncQuickImportSecurityScopedResources()
         rebuildVisibleFiles()
     }
@@ -576,6 +580,7 @@ final class AudioViewModel: ObservableObject {
 
         let taskID = UUID()
         let generation = quickImportGeneration
+        let refreshGeneration = makeFileModelRefreshGeneration()
         var importTokensByURLKey: [String: UUID] = [:]
         for url in candidateURLs {
             let key = Self.urlKey(for: url)
@@ -616,7 +621,7 @@ final class AudioViewModel: ObservableObject {
                             let key = Self.urlKey(for: file.url)
                             return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
                         }
-                        self.mergeQuickImportFiles(currentBatch)
+                        self.mergeQuickImportFiles(currentBatch, refreshGeneration: refreshGeneration)
                     }
                 }
             )
@@ -629,7 +634,7 @@ final class AudioViewModel: ObservableObject {
                         let key = Self.urlKey(for: file.url)
                         return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
                     }
-                    self.mergeQuickImportFiles(currentFiles)
+                    self.mergeQuickImportFiles(currentFiles, refreshGeneration: refreshGeneration)
                 }
                 self.finishQuickImportTask(taskID)
                 if shouldReportFailures, self.quickImportGeneration == generation {
@@ -671,6 +676,9 @@ final class AudioViewModel: ObservableObject {
     private func preservingRecoveryState(_ file: AudioFile) -> AudioFile {
         if file.requiresMetadataRefreshBeforeWriting { refreshRequiredFileIDs.insert(file.id) }
         guard refreshRequiredFileIDs.contains(file.id) else { return file }
+        if file.requiresMetadataRefreshBeforeWriting, file.fileFingerprint == nil, file.metadataFileVersion == nil {
+            return file
+        }
         return file.withUpdatedURL(file.url, fileFingerprint: nil, metadataFileVersion: nil,
                                    requiresMetadataRefreshBeforeWriting: true)
     }
@@ -763,7 +771,7 @@ final class AudioViewModel: ObservableObject {
         publishAcceptedFiles(reloadedFiles)
     }
 
-    private func publishAcceptedFiles(_ reloadedFiles: [AudioFile]) {
+    private func publishAcceptedFiles(_ reloadedFiles: [AudioFile], rebuildVisible: Bool = true) {
         guard !reloadedFiles.isEmpty else { return }
         let reloadedByID = Dictionary(uniqueKeysWithValues: reloadedFiles.map { ($0.id, $0) })
         quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }
@@ -773,7 +781,7 @@ final class AudioViewModel: ObservableObject {
             watchedFolderFiles[folderID] = folderFiles.map { reloadedByID[$0.id] ?? $0 }
         }
 
-        rebuildVisibleFiles()
+        if rebuildVisible { rebuildVisibleFiles() }
     }
 
     func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) async -> [String] {
@@ -1046,7 +1054,14 @@ final class AudioViewModel: ObservableObject {
             }
         }
 
+        let failedKeys = Set(loadResult.failures.map { Self.urlKey(for: $0.url) })
         watchedFolderFiles[id] = snapshot.audioURLs.compactMap { url in
+            let key = Self.urlKey(for: url)
+            if failedKeys.contains(key), let previous = previousFilesByKey[key] {
+                // A failed read is not a newer observation of metadata. Keep an
+                // accepted pending commit rather than invalidating it with a fallback.
+                return loadedFile(withID: previous.id) ?? previous
+            }
             guard let file = refreshedFilesByKey[Self.urlKey(for: url)] else { return nil }
             return acceptFileObservation(file, generation: refreshGeneration)
                 ?? loadedFile(withID: file.id)

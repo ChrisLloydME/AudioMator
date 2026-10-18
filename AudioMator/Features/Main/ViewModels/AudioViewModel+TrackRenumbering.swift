@@ -122,7 +122,8 @@ extension AudioViewModel {
                 let targetOutcome = await mutationExecutor.execute(
                     at: target.url,
                     id: target.id,
-                    expectedFileFingerprint: target.expectedFileFingerprint
+                    expectedFileFingerprint: target.expectedFileFingerprint,
+                    validateBeforeWrite: { try await self.validateMetadataWriteRecovery(id: target.id, url: target.url) }
                 ) { metadataPipeline, url in
                     try metadataPipeline.writeTrackNumberText(
                         formattedTrackNumber,

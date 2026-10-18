@@ -17,10 +17,10 @@ private func formattedAboutDescription(copyright: String) -> String {
 
     if !trimmedCopyright.isEmpty {
         let copyrightSentence = trimmedCopyright.hasSuffix(".") ? trimmedCopyright : "\(trimmedCopyright)."
-        return "\(copyrightSentence) AudioMator includes third-party open-source software. See Acknowledgements."
+        return "\(copyrightSentence) Third-party software includes TagLib, copyright © 2002–2008 Scott Wheeler and TagLib contributors, and other open-source components. See Acknowledgements."
     }
 
-    return "Copyright © 2025-2026 Christopher Lloyd. AudioMator includes third-party open-source software. See Acknowledgements."
+    return "Copyright © 2025-2026 Christopher Lloyd. Third-party software includes TagLib, copyright © 2002–2008 Scott Wheeler and TagLib contributors, and other open-source components. See Acknowledgements."
 }
 
 struct SettingsView: View {
@@ -893,33 +893,9 @@ private struct AboutAppIconView: View {
 private struct AcknowledgementsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    private let acknowledgements: [(title: String, details: [String])] = [
-        (
-            title: "TagLib",
-            details: [
-                "Project: https://github.com/taglib/taglib",
-                "Website: https://taglib.org/",
-                "AudioMator uses TagLib through the independent TagLibAudioMetadata Swift package for metadata reading and writing.",
-                "AudioMator does not vendor or bundle a local copy of TagLib source in this repository.",
-                "TagLib is distributed under the GNU Lesser General Public License (LGPL) and Mozilla Public License (MPL). Review the upstream license terms before redistributing AudioMator."
-            ]
-        ),
-        (
-            title: "TagLibAudioMetadata",
-            details: [
-                "Project: https://github.com/ChrisLloydME/TagLibAudioMetadata",
-                "AudioMator resolves this package as an external Swift Package Manager dependency for TagLib-backed metadata operations.",
-                "The package is maintained separately from this repository. Review its license and TagLib obligations before redistribution."
-            ]
-        ),
-        (
-            title: "GitHub Releases",
-            details: [
-                "Project releases: https://github.com/ChrisLloydME/AudioMator/releases",
-                "On macOS, AudioMator can check GitHub Releases for the latest published version and open the releases page for manual download.",
-                "This lightweight update flow does not silently install updates."
-            ]
-        ),
+    @State private var selectedLicense: SelectedLicense?
+
+    private let acknowledgementEntries: [(title: String, details: [String])] = [
         (
             title: "Apple iTunes Search API",
             details: [
@@ -929,10 +905,39 @@ private struct AcknowledgementsSheet: View {
             ]
         ),
         (
+            title: "MusicBrainz",
+            details: [
+                "Service: https://musicbrainz.org/",
+                "AudioMator uses MusicBrainz for optional metadata search, release/recording lookup, relationship lookup, and tag-assist workflows."
+            ]
+        ),
+        (
+            title: "LRCLIB",
+            details: [
+                "Service: https://lrclib.net/",
+                "AudioMator uses LRCLIB for optional synced-lyrics search and preview."
+            ]
+        ),
+        (
+            title: "MuseAmp Compatibility",
+            details: [
+                "Project: https://github.com/Lakr233/MuseAmp",
+                "MuseAmp ID generation is provided for compatibility with MuseAmp. AudioMator is an independent project and is not affiliated with, endorsed by, or sponsored by MuseAmp or its developers."
+            ]
+        ),
+        (
             title: "iTunes-Artwork-Finder by bendodson",
             details: [
                 "Project: https://github.com/bendodson/itunes-artwork-finder",
                 "AudioMator's artwork implementation is fully rewritten in Swift, but the original artwork lookup method and approach were based on the ideas from this project."
+            ]
+        ),
+        (
+            title: "GitHub Releases",
+            details: [
+                "Project releases: https://github.com/ChrisLloydME/AudioMator/releases",
+                "On macOS, AudioMator can check GitHub Releases for the latest published version and open the releases page for manual download.",
+                "This lightweight update flow does not silently install updates."
             ]
         )
     ]
@@ -943,27 +948,58 @@ private struct AcknowledgementsSheet: View {
                 Text("Acknowledgements")
                     .font(.title2.weight(.semibold))
 
-                Text("AudioMator builds on the following third-party projects and ideas.")
+                Text("AudioMator is free software. The licenses for the app and its bundled dependencies are listed below.")
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
             .padding(.bottom, 18)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(acknowledgements, id: \.title) { item in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(item.title)
-                                .font(.headline)
+                VStack(alignment: .leading, spacing: 22) {
+                    if let applicationEntry = applicationLicenseEntry {
+                        licenseEntry(applicationEntry)
+                    }
 
-                            ForEach(item.details, id: \.self) { detail in
-                                Text(detail)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Third-Party Licenses")
+                            .font(.headline)
+
+                        ForEach(thirdPartyLicenseEntries) { entry in
+                            licenseEntry(entry)
+
+                            if entry.id != thirdPartyLicenseEntries.last?.id {
+                                Divider()
                             }
                         }
                     }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Services & Inspirations")
+                            .font(.headline)
+
+                        ForEach(acknowledgementEntries, id: \.title) { item in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(item.title)
+                                    .font(.headline)
+
+                                ForEach(item.details, id: \.self) { detail in
+                                    Text(detail)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                    }
+
+                    Text("Full license texts are also included in the app bundle.")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
@@ -984,7 +1020,125 @@ private struct AcknowledgementsSheet: View {
             }
             .audiomatorScrollEdgeEffect(.soft, for: .vertical)
         }
-        .frame(width: 560, height: 460)
+        .frame(width: 640, height: 560)
+        .sheet(item: $selectedLicense) { selection in
+            LicenseTextSheet(selection: selection)
+        }
+    }
+
+    private var applicationLicenseEntry: LicenseDisclosure.Entry? {
+        LicenseDisclosure.entry(for: .audioMator)
+    }
+
+    private var thirdPartyLicenseEntries: [LicenseDisclosure.Entry] {
+        LicenseDisclosure.allEntries.filter { $0.id != .audioMator }
+    }
+
+    private func licenseEntry(_ entry: LicenseDisclosure.Entry) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(entry.title)
+                    .font(.headline)
+
+                if let version = entry.version {
+                    Text("Version \(version)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Text(entry.copyright)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Text(entry.summary)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 14) {
+                if let projectURL = entry.projectURL {
+                    Link("Website", destination: projectURL)
+                }
+
+                if let sourceURL = entry.sourceURL {
+                    Link("Source Code", destination: sourceURL)
+                }
+
+                ForEach(entry.documents) { document in
+                    Button(document.title) {
+                        selectedLicense = SelectedLicense(entry: entry, document: document)
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+            .font(.subheadline)
+        }
+    }
+}
+
+private struct SelectedLicense: Identifiable {
+    let entry: LicenseDisclosure.Entry
+    let document: LicenseDisclosure.Document
+
+    var id: String {
+        "\(entry.id.rawValue).\(document.id)"
+    }
+}
+
+private struct LicenseTextSheet: View {
+    let selection: SelectedLicense
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var licenseText: String? {
+        LicenseDisclosure.loadText(for: selection.document)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(selection.entry.title)
+                    .font(.title2.weight(.semibold))
+
+                Text(selection.document.title)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 18)
+
+            ScrollView {
+                Group {
+                    if let licenseText {
+                        Text(verbatim: licenseText)
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                    } else {
+                        Text("License text is unavailable.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+            }
+            .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
+                HStack {
+                    Spacer()
+
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+            }
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+        }
+        .frame(width: 720, height: 560)
     }
 }
 

@@ -151,7 +151,7 @@ scripts/               Build and validation helpers
 
 ## Dependencies
 
-- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 — TagLib-backed container metadata operations, verification, and atomic commit. Licensed under the MIT License.
+- [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.6.0 — TagLib-backed container metadata operations, verification, and atomic commit. Licensed under the MIT License.
 - TagLib 2.3.1 — used through that package and bundled as a dynamic framework; not vendored in this repository. Licensed under LGPL-2.1 or MPL-1.1.
 - utf8-cpp (utfcpp) — UTF-8 conversion library bundled with TagLib. Licensed under the Boost Software License 1.0.
 - Apple frameworks — SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers.

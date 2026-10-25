@@ -1,6 +1,6 @@
 import Foundation
 
-struct PendingArtwork: Equatable {
+nonisolated struct PendingArtwork: Equatable, Sendable {
     let id = UUID()
     let data: Data
     let mimeType: String

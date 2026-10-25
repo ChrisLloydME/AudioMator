@@ -16,7 +16,7 @@ nonisolated enum AudioMatorTestHost {
         #endif
     }
 
-    static let preferences: UserDefaults = isEnabled
+    @MainActor static let preferences: UserDefaults = isEnabled
         ? UserDefaults(suiteName: "AudioMatorTestHost.\(UUID().uuidString)")!
         : .standard
 

@@ -17,7 +17,7 @@ Verified in this audit:
 | Xcode | 27.1 (27A9275) |
 | Swift compiler | Apple Swift 6.4 |
 | App deployment target | macOS 15.0 |
-| Package pin | `TagLibAudioMetadata` 0.5.3, revision `03473c9ae199026b806a5f75c387ca036e325284` |
+| Package pin | `TagLibAudioMetadata` 0.6.0, revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e` |
 
 The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested.
 
@@ -35,7 +35,7 @@ Select the `AudioMator` scheme and a macOS destination. Xcode resolves the remot
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The package requirement is an **exact version** (`0.5.3`). Do not point the project at an unreleased branch or a local checkout as part of normal development.
+The package requirement is an **exact version** (`0.6.0`). Do not point the project at an unreleased branch or a local checkout as part of normal development.
 
 ## Scheme and Configurations
 
@@ -184,3 +184,5 @@ Sandbox restrictions initially prevented writes to user compiler/SwiftPM caches;
 - [Debugging](DEBUGGING.md)
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Release Engineering](RELEASE.md)
+
+The 0.6.0 dependency requires Swift tools 6.4; use stable Xcode 27 at `/Applications/Xcode.app`. The Foundation-only SwiftPM harness retains its independent tools version and does not compile the dependency.

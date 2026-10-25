@@ -65,7 +65,7 @@ The Boost license permits distribution in machine-executable object form without
 
 - **Project**: TagLibAudioMetadata
 - **Source**: https://github.com/ChrisLloydME/TagLibAudioMetadata.git
-- **Current resolution**: exact version `0.5.3`, revision `03473c9ae199026b806a5f75c387ca036e325284`, pinned in `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+- **Current resolution**: exact version `0.6.0`, revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`, pinned in `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 - **Copyright**: Copyright (c) 2026 Christopher Lloyd.
 - **License**: MIT License.
 - **Usage in this repository**: Swift Package Manager dependency that exposes the TagLib-backed APIs consumed by AudioMator's metadata pipeline.
@@ -143,4 +143,4 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 
 Release validation must confirm those five files are present in the built app's `Contents/Resources` directory. The in-app Acknowledgements sheet loads them by resource name and fails closed with a visible fallback if a text is missing.
 
-At this revision, the bundled TagLib LGPL-2.1 and MPL-1.1 texts correspond to TagLib tag `v2.3.1`, and the TagLibAudioMetadata MIT text matches package revision `03473c9ae199026b806a5f75c387ca036e325284`.
+At this revision, the bundled TagLib LGPL-2.1 and MPL-1.1 texts correspond to TagLib tag `v2.3.1`, and the TagLibAudioMetadata MIT text matches package revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`.

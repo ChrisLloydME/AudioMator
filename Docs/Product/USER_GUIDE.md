@@ -203,3 +203,9 @@ Settings contains six tabs:
 - User-selected audio files: unchanged location; metadata is written in place.
 
 AudioMator does not store copies of audio files.
+
+## Recovery and Unusual Number Text
+
+After an uncertain rename recovery, automatic activation checks and watched-folder rescans keep metadata editing disabled. Resolve any pending Inspector draft and choose Reload from Disk to accept the file now at the displayed path. A normal background read does not establish that the original recording has been recovered.
+
+Inspector number-text edits require numeric components with the current metadata engine. Existing values such as `A1/12` remain intact during unrelated edits; use Metadata Editor for raw textual values. Renumbering excludes refresh-required files before assigning numbers. Cancelling a provider, filename, CSV/text, raw-map, or renumber batch preserves an in-progress commit and stops before the next file; the summary accounts for unprocessed files.

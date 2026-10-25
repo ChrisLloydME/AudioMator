@@ -28,6 +28,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
     func testUnchangedRawRevisionWritesExactDeltaWithoutConflictSnapshot() async throws {
         let file = try await loadedFixture(extra: ["REMOVE-ME": ["old"], "KEEP-ME": ["one", "two"]])
         let reads = ConflictSnapshotReadCounter()
+        let writes = ConflictWriteRecorder()
         let baseline = try XCTUnwrap(file.metadataConflictBaseline)
         var draft = baseline.values
         draft["ARTIST"] = ["A; B", "same", "same"]
@@ -36,9 +37,13 @@ final class MetadataConflictStrategyTests: XCTestCase {
             draft, original: baseline,
             originalFingerprint: try XCTUnwrap(file.fileFingerprint),
             originalVersion: try XCTUnwrap(file.metadataFileVersion),
-            policy: .mergeNonConflicting, pipeline: FixtureConflictPipeline(reads: reads), url: file.url
+            policy: .mergeNonConflicting, pipeline: FixtureConflictPipeline(reads: reads, writes: writes), url: file.url
         )
         XCTAssertEqual(reads.count, 0)
+        XCTAssertEqual(writes.rawWrites.count, 1)
+        XCTAssertEqual(writes.rawWrites.first?.patch.valuesToSet["ARTIST"], ["A; B", "same", "same"])
+        XCTAssertEqual(writes.rawWrites.first?.patch.removingKeys, ["REMOVE-ME"])
+        XCTAssertEqual(writes.rawWrites.first?.expectedVersion, file.metadataFileVersion)
         let values = try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: file.url)
         XCTAssertEqual(values, draft)
     }
@@ -49,7 +54,8 @@ final class MetadataConflictStrategyTests: XCTestCase {
         let baseline = try XCTUnwrap(file.metadataConflictBaseline)
         let fingerprint = try XCTUnwrap(file.fileFingerprint)
         let version = try XCTUnwrap(file.metadataFileVersion)
-        let pipeline = FixtureConflictPipeline(reads: reads)
+        let writes = ConflictWriteRecorder()
+        let pipeline = FixtureConflictPipeline(reads: reads, writes: writes)
         _ = try MetadataConflictResolver.writeMetadata(
             MetadataEditPayload(SingleFileEditModel(from: file), comparedTo: file),
             original: baseline, originalFingerprint: fingerprint, originalVersion: version,
@@ -60,6 +66,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
             policy: .mergeNonConflicting, pipeline: pipeline, url: file.url
         )
         XCTAssertEqual(reads.count, 0)
+        XCTAssertEqual(writes.totalWriteCount, 0, "A no-op must not reach the package writer")
         XCTAssertEqual(try pipeline.metadataFileVersion(at: file.url), version)
     }
 
@@ -119,6 +126,129 @@ final class MetadataConflictStrategyTests: XCTestCase {
             defaults.set(policy.rawValue, forKey: MetadataConflictPolicy.defaultsKey)
             XCTAssertEqual(MetadataConflictPolicy.load(from: defaults), policy)
         }
+    }
+
+    func testTotalOnlyInspectorEditIsRejectedWithoutWriting() async {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorTotalOnly-\(UUID().uuidString).mp3")
+        let file = AudioFileTestFactory.make(
+            id: UUID(),
+            url: fileURL,
+            track: 0,
+            trackTotal: 12,
+            includeDefaultFileFingerprint: false
+        )
+        let viewModel = selectedViewModel(file)
+        var edit = SingleFileEditModel(from: file)
+        edit.setTrackTotalFieldText("13")
+
+        let result = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file)
+
+        guard case .failure(let reason) = result else {
+            return XCTFail("A total without a number must be rejected")
+        }
+        XCTAssertTrue(reason.contains("total track count without a track number"))
+    }
+
+    func testResolverAllowsSaveWhenVolumeDoesNotReportDeviceOrInode() async throws {
+        let file = try await loadedFixture()
+        let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+        let fingerprint = try XCTUnwrap(file.fileFingerprint)
+        let version = try XCTUnwrap(file.metadataFileVersion)
+        let syntheticFingerprint = AudioFileFingerprint(
+            normalizedPath: fingerprint.normalizedPath,
+            fileSize: fingerprint.fileSize,
+            contentModificationDate: fingerprint.contentModificationDate,
+            fileSystemNumber: nil,
+            fileNumber: nil
+        )
+
+        var draft = SingleFileEditModel(from: file)
+        draft.title = "No inode title"
+        _ = try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(draft, comparedTo: file),
+            original: baseline,
+            originalFingerprint: syntheticFingerprint,
+            originalVersion: version,
+            policy: .mergeNonConflicting,
+            pipeline: FixtureConflictPipeline(),
+            url: file.url
+        )
+
+        XCTAssertEqual(
+            try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: file.url)["TITLE"],
+            ["No inode title"]
+        )
+    }
+
+    func testMissingIdentityRejectsChangedRevisionForEveryPolicyAndWriteKind() async throws {
+        for policy in MetadataConflictPolicy.allCases {
+            for rawWrite in [false, true] {
+                let file = try await loadedFixture()
+                let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+                let fingerprint = try XCTUnwrap(file.fileFingerprint)
+                let version = try XCTUnwrap(file.metadataFileVersion)
+                let missingIdentity = AudioFileFingerprint(
+                    normalizedPath: fingerprint.normalizedPath,
+                    fileSize: fingerprint.fileSize,
+                    contentModificationDate: fingerprint.contentModificationDate,
+                    fileSystemNumber: nil,
+                    fileNumber: nil
+                )
+                // Even a permission-only version change cannot be safely rebased
+                // when the original file's identity is unavailable.
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
+                let bytes = try Data(contentsOf: file.url)
+                let writes = ConflictWriteRecorder()
+                let pipeline = FixtureConflictPipeline(writes: writes)
+                if rawWrite {
+                    var draft = baseline.values
+                    draft["TITLE"] = ["Do not write"]
+                    XCTAssertThrowsError(try MetadataConflictResolver.writeRawMetadata(
+                        draft, original: baseline, originalFingerprint: missingIdentity,
+                        originalVersion: version, policy: policy, pipeline: pipeline, url: file.url
+                    ))
+                } else {
+                    var draft = SingleFileEditModel(from: file)
+                    draft.title = "Do not write"
+                    XCTAssertThrowsError(try MetadataConflictResolver.writeMetadata(
+                        MetadataEditPayload(draft, comparedTo: file), original: baseline,
+                        originalFingerprint: missingIdentity, originalVersion: version,
+                        policy: policy, pipeline: pipeline, url: file.url
+                    ))
+                }
+                XCTAssertEqual(writes.totalWriteCount, 0)
+                XCTAssertEqual(try Data(contentsOf: file.url), bytes)
+            }
+        }
+    }
+
+    func testMissingIdentityRejectsSamePathReplacement() async throws {
+        let file = try await loadedFixture()
+        let fingerprint = try XCTUnwrap(file.fileFingerprint)
+        let missingIdentity = AudioFileFingerprint(
+            normalizedPath: fingerprint.normalizedPath,
+            fileSize: fingerprint.fileSize,
+            contentModificationDate: fingerprint.contentModificationDate,
+            fileSystemNumber: nil,
+            fileNumber: nil
+        )
+        let copy = file.url.deletingLastPathComponent().appendingPathComponent("replacement.flac")
+        try FileManager.default.copyItem(at: file.url, to: copy)
+        try FileManager.default.removeItem(at: file.url)
+        try FileManager.default.moveItem(at: copy, to: file.url)
+        let replacement = try Data(contentsOf: file.url)
+        let writes = ConflictWriteRecorder()
+        var draft = SingleFileEditModel(from: file)
+        draft.title = "Do not relabel a replacement"
+        XCTAssertThrowsError(try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(draft, comparedTo: file),
+            original: try XCTUnwrap(file.metadataConflictBaseline), originalFingerprint: missingIdentity,
+            originalVersion: try XCTUnwrap(file.metadataFileVersion), policy: .preferUserChanges,
+            pipeline: FixtureConflictPipeline(writes: writes), url: file.url
+        ))
+        XCTAssertEqual(writes.totalWriteCount, 0)
+        XCTAssertEqual(try Data(contentsOf: file.url), replacement)
     }
 
     func testPermissionOnlyChangeAutomaticallySavesInspectorDraft() async throws {
@@ -204,7 +334,17 @@ final class MetadataConflictStrategyTests: XCTestCase {
         let before = try TagLibMetadataManager.fileVersion(at: file.url)
         var draft = SingleFileEditModel(from: file)
         draft.title = "Same title"
-        _ = try save(draft, original: file, policy: .mergeNonConflicting)
+        let writes = ConflictWriteRecorder()
+        _ = try MetadataConflictResolver.writeMetadata(
+            MetadataEditPayload(draft, comparedTo: file),
+            original: try XCTUnwrap(file.metadataConflictBaseline),
+            originalFingerprint: try XCTUnwrap(file.fileFingerprint),
+            originalVersion: try XCTUnwrap(file.metadataFileVersion),
+            policy: .mergeNonConflicting,
+            pipeline: FixtureConflictPipeline(writes: writes),
+            url: file.url
+        )
+        XCTAssertEqual(writes.totalWriteCount, 0, "A converged draft must not write")
         XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: file.url), before)
     }
 
@@ -516,16 +656,46 @@ final class MetadataConflictStrategyTests: XCTestCase {
     }
 }
 
+private final class ConflictWriteRecorder: @unchecked Sendable {
+    struct RawWrite {
+        let patch: RawMetadataPatch
+        let expectedVersion: MetadataFileVersion?
+    }
+
+    private let lock = NSLock()
+    private var rawWritesStorage: [RawWrite] = []
+    private var metadataWriteCountStorage = 0
+
+    var rawWrites: [RawWrite] { lock.withLock { rawWritesStorage } }
+    var metadataWriteCount: Int { lock.withLock { metadataWriteCountStorage } }
+    var totalWriteCount: Int { rawWrites.count + metadataWriteCount }
+
+    func recordRaw(_ patch: RawMetadataPatch, expectedVersion: MetadataFileVersion?) {
+        lock.withLock { rawWritesStorage.append(RawWrite(patch: patch, expectedVersion: expectedVersion)) }
+    }
+
+    func recordMetadata(expectedVersion: MetadataFileVersion?) {
+        lock.withLock { metadataWriteCountStorage += 1 }
+    }
+}
+
 // Test-owned temporary files already have access. Skip only the production
 // folder permission UI; all reads and commits still use the real adapter.
 private struct FixtureConflictPipeline: AudioMetadataPipeline {
     let raceBeforeWrite: Bool
     let artworkOverride: [StructuredArtwork]?
     let reads: ConflictSnapshotReadCounter?
-    nonisolated init(raceBeforeWrite: Bool = false, artworkOverride: [StructuredArtwork]? = nil, reads: ConflictSnapshotReadCounter? = nil) {
+    let writes: ConflictWriteRecorder?
+    nonisolated init(
+        raceBeforeWrite: Bool = false,
+        artworkOverride: [StructuredArtwork]? = nil,
+        reads: ConflictSnapshotReadCounter? = nil,
+        writes: ConflictWriteRecorder? = nil
+    ) {
         self.raceBeforeWrite = raceBeforeWrite
         self.artworkOverride = artworkOverride
         self.reads = reads
+        self.writes = writes
     }
     private let base = TagLibAudioMetadataPipeline()
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile { try await base.loadAudioFile(at: url, id: id) }
@@ -540,10 +710,12 @@ private struct FixtureConflictPipeline: AudioMetadataPipeline {
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap { try base.rawMetadataValueMap(for: url) }
     nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         if raceBeforeWrite { try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: url.path) }
+        writes?.recordMetadata(expectedVersion: expectedVersion)
         return try base.writeMetadata(edit, to: url, expectedVersion: expectedVersion)
     }
     nonisolated func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         if raceBeforeWrite { try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: url.path) }
+        writes?.recordRaw(patch, expectedVersion: expectedVersion)
         return try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion) }

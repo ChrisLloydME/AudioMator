@@ -4,6 +4,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let hasLaunchedKey = "hasLaunchedBefore"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !AudioMatorTestHost.isEnabled else { return }
         let launchedBefore = UserDefaults.standard.bool(forKey: hasLaunchedKey)
 
         if !launchedBefore {

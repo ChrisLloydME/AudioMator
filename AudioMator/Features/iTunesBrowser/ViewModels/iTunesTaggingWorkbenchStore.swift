@@ -464,7 +464,10 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         case .itunesArtistID: return selectedTrack.artistID.map(String.init) ?? detail.album.artistID.map(String.init) ?? ""
         case .itunesCatalogID: return String(selectedTrack.trackID)
         case .isExplicit:
-            return (selectedTrack.contentAdvisory ?? detail.album.contentAdvisory)?.displayName ?? L10n.string("Unset")
+            // Missing provider explicitness is absent data, not an instruction
+            // to clear the local advisory. The display layer may render "Unset",
+            // but the plan must leave the field out when the provider is silent.
+            return (selectedTrack.contentAdvisory ?? detail.album.contentAdvisory)?.displayName ?? ""
         }
     }
 

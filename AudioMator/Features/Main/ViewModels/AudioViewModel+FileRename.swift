@@ -30,6 +30,9 @@ private struct PreparedFileRenameOperation: Sendable {
 }
 
 struct FileRenameRecoveryItem: Equatable, Sendable {
+    /// Retained file identity so the view model can rebind the model to the
+    /// observed recovery location instead of leaving it on a vanished path.
+    let id: UUID
     let originalURL: URL
     let intendedURL: URL
     let finalLocations: [URL]
@@ -144,6 +147,8 @@ extension AudioViewModel {
 
         switch execution {
         case .failure(let failure):
+            issueWarnings.append(contentsOf: await reconcileRenameRecovery(failure.recoveryItems))
+
             let result = FileRenameResult(
                 totalTargets: totalTargets,
                 renamed: 0,
@@ -182,12 +187,30 @@ extension AudioViewModel {
         }
     }
 
+    /// Applies verified recovery locations and makes unknown locations fail
+    /// closed. Shared by the failure path and its orchestration regression.
+    func reconcileRenameRecovery(_ items: [FileRenameRecoveryItem]) async -> [String] {
+        let changes = items.compactMap { item -> (id: UUID, oldURL: URL, newURL: URL)? in
+            guard let finalURL = item.finalURL else { return nil }
+            return (item.id, item.originalURL, finalURL)
+        }
+        registerMovedFiles(changes)
+        let warnings = await applyMovedFiles(changes.map { (id: $0.id, newURL: $0.newURL) })
+        for item in items where item.finalURL == nil {
+            markFileRequiresRefresh(id: item.id)
+        }
+        return warnings
+    }
+
     private func presentFileRenameSummary(_ result: FileRenameResult) {
         if let failureMessage = result.failureMessage {
+            let subtitle = ([failureMessage] + result.warnings)
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
             presentMetadataWriteHUD(
                 style: .failure,
                 title: "Rename Failed",
-                subtitle: failureMessage
+                subtitle: subtitle
             )
             return
         }
@@ -444,6 +467,7 @@ nonisolated private func makeRenameTransactionFailure(
         guard !restoredOnlyToOriginal else { return nil }
 
         return FileRenameRecoveryItem(
+            id: prepared.operation.id,
             originalURL: prepared.operation.sourceURL,
             intendedURL: prepared.operation.destinationURL,
             finalLocations: finalLocations,

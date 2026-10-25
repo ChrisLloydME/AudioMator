@@ -30,22 +30,42 @@ extension AudioViewModel {
 
         let filesByID: [UUID: AudioFile] = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetFiles: [AudioFile] = targetsInOrder.compactMap { filesByID[$0] }
-        let writeTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, requiresMetadataRefresh: Bool, refreshGeneration: UInt64)] =
+        let allTargets: [(id: UUID, url: URL, expectedFileFingerprint: AudioFileFingerprint?, expectedMetadataVersion: MetadataFileVersion?, requiresMetadataRefresh: Bool, refreshGeneration: UInt64)] =
             targetFiles.map {
                 ($0.id, $0.url, $0.fileFingerprint, $0.metadataFileVersion, $0.requiresMetadataRefreshBeforeWriting, makeFileModelRefreshGeneration())
             }
+        let writableExtensions = AudioFormatSupport.metadataWritableExtensions
+        let supportedTargets = allTargets.filter { target in
+            let ext = target.url.pathExtension.lowercased()
+            return writableExtensions.contains(ext) &&
+                unsupportedMetadataWriteFields([.track, .trackTotal], forFileExtension: ext).isEmpty
+        }
+        let skippedUnsupported = allTargets.count - supportedTargets.count
+        let refreshFailures = supportedTargets.filter(\.requiresMetadataRefresh).map {
+            TrackRenumberFailure(fileName: $0.url.lastPathComponent,
+                reason: String(localized: "The file revision could not be verified after it moved. Reload the file before renumbering tracks."))
+        }
+        let writeTargets = supportedTargets.filter { !$0.requiresMetadataRefresh }
 
+        guard !allTargets.isEmpty else { return .empty }
         guard !writeTargets.isEmpty else {
-            return .empty
+            return TrackRenumberResult(
+                totalTargets: allTargets.count,
+                succeeded: 0,
+                skippedUnsupported: skippedUnsupported,
+                failed: refreshFailures.count,
+                failures: refreshFailures,
+                warnings: []
+            )
         }
 
         if let accessFailure = ensureMetadataMutationDirectoryAccess(for: writeTargets.map(\.url)) {
             return TrackRenumberResult(
-                totalTargets: writeTargets.count,
+                totalTargets: allTargets.count,
                 succeeded: 0,
-                skippedUnsupported: 0,
-                failed: writeTargets.count,
-                failures: writeTargets.map {
+                skippedUnsupported: skippedUnsupported,
+                failed: writeTargets.count + refreshFailures.count,
+                failures: refreshFailures + writeTargets.map {
                     TrackRenumberFailure(fileName: $0.url.lastPathComponent, reason: accessFailure)
                 },
                 warnings: []
@@ -66,52 +86,34 @@ extension AudioViewModel {
 
         let maxNumber = numbers.max() ?? start
         let padWidth = trackRenumberPadWidth(maxNumber: maxNumber, padWithZeros: options.padWithZeros)
-        let writableExtensions = AudioFormatSupport.metadataWritableExtensions
         let metadataPipeline = self.metadataPipeline
         let mutationExecutor = MetadataFileMutationExecutor(
             metadataPipeline: metadataPipeline,
             fileMutationCoordinator: fileMutationCoordinator
         )
 
-        let writeOutcome = await Task.detached(
-            priority: .userInitiated
-        ) { [writeTargets, numbers, padWidth, writableExtensions, mutationExecutor] in
+        let writeOutcome = await { () async -> (TrackRenumberResult, [(file: AudioFile, refreshGeneration: UInt64)]) in
             var result = TrackRenumberResult(
-                totalTargets: writeTargets.count,
+                totalTargets: allTargets.count,
                 succeeded: 0,
-                skippedUnsupported: 0,
-                failed: 0,
-                failures: [],
+                skippedUnsupported: skippedUnsupported,
+                failed: refreshFailures.count,
+                failures: refreshFailures,
                 warnings: []
             )
             var reloadedFiles: [(file: AudioFile, refreshGeneration: UInt64)] = []
 
             for (idx, target) in writeTargets.enumerated() {
+                if Task.isCancelled {
+                    let unprocessed = writeTargets.dropFirst(idx)
+                    result.failed += unprocessed.count
+                    result.failures.append(contentsOf: unprocessed.map {
+                        TrackRenumberFailure(fileName: $0.url.lastPathComponent,
+                            reason: String(localized: "Cancelled before this file was processed. No changes were made."))
+                    })
+                    break
+                }
                 let newNumber = numbers[idx]
-
-                guard !target.requiresMetadataRefresh else {
-                    result.failed += 1
-                    result.failures.append(
-                        TrackRenumberFailure(
-                            fileName: target.url.lastPathComponent,
-                            reason: "The file revision could not be verified after it moved. Reload the file before renumbering tracks."
-                        )
-                    )
-                    continue
-                }
-
-                let ext = target.url.pathExtension.lowercased()
-                guard writableExtensions.contains(ext) else {
-                    result.skippedUnsupported += 1
-                    continue
-                }
-                guard unsupportedMetadataWriteFields(
-                    [.track, .trackTotal],
-                    forFileExtension: ext
-                ).isEmpty else {
-                    result.skippedUnsupported += 1
-                    continue
-                }
 
                 let formattedTrackNumber =
                     padWidth > 0
@@ -120,7 +122,8 @@ extension AudioViewModel {
                 let targetOutcome = await mutationExecutor.execute(
                     at: target.url,
                     id: target.id,
-                    expectedFileFingerprint: target.expectedFileFingerprint
+                    expectedFileFingerprint: target.expectedFileFingerprint,
+                    validateBeforeWrite: { try await self.validateMetadataWriteRecovery(id: target.id, url: target.url) }
                 ) { metadataPipeline, url in
                     try metadataPipeline.writeTrackNumberText(
                         formattedTrackNumber,
@@ -139,6 +142,9 @@ extension AudioViewModel {
                     }
 
                     var warningMessages = success.writeResult.warnings
+                    if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
+                        warningMessages.append(String(localized: "Saved to disk, but macOS could not confirm directory durability. Do not retry this save as though it failed.") + " " + detail)
+                    }
                     if let reloadErrorDescription = success.reloadErrorDescription {
                         warningMessages.append(
                             "Saved to disk, but the file could not be refreshed: \(reloadErrorDescription)"
@@ -169,7 +175,7 @@ extension AudioViewModel {
             }
 
             return (result, reloadedFiles)
-        }.value
+        }()
 
         if !writeOutcome.1.isEmpty {
             var didApplyReloadedFile = false

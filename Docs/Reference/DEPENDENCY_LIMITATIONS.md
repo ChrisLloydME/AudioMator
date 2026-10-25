@@ -6,7 +6,7 @@ Baseline: `TagLibAudioMetadata` 0.5.3, revision `03473c9ae199026b806a5f75c387ca0
 
 ## Current AudioMator Workarounds
 
-1. **Total-only number pairs are blocked before writing.** If an operation would leave a positive track/disc total with a zero or blank number, AudioMator rejects the plan and the write. This is a safety guard, not support for total-only pairs.
+1. **Total-only number pairs are blocked before writing.** If an operation would leave a positive track/disc total with a zero or blank number, AudioMator rejects the write at the shared `persistMetadataEdit` boundary as well as in the field-transfer planner. This covers the inspector, provider plans, CSV/text imports, and filename metadata. This is a safety guard, not support for total-only pairs.
 2. **Disc-only text patches avoid resubmitting an untouched track pair.** The adapter respects independent optional track/disc number-text edits.
 3. **A stale expected version is never cleared to force a write.**
 
@@ -99,3 +99,11 @@ Do not modify the package checkout from the AudioMator repository. Keep any Audi
 - [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md)
 - [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md)
 - [Testing](../Development/TESTING.md)
+
+## Non-Numeric Number Text (0.5.3)
+
+A controlled FLAC probe through the concrete semantic adapter rejects `A1/13` with `TagLibMetadataExtractor` code 245: number-text components must be unsigned decimal values at most 2147483647. Thus `A1/12`, `A1` plus an edited total, and `B2` plus an edited disc total are not supported semantic number-text edits. The app now distinguishes this limitation from a missing number, refuses before mutation, and directs the user to Metadata Editor. Unrelated title edits preserve the raw non-numeric text and totals. Regression tests exercise all three shapes and compare complete raw maps and bytes on rejection. The package owner should document the accepted grammar or add non-numeric number-text round trips; AudioMator does not bypass the package with a speculative semantic-to-raw mapping.
+
+## Missing Metadata-Independent Audio Identity Contract
+
+`MetadataFileVersion` is an opaque revision token, not an established audio-content identity. Path/device/inode continuity also permits in-place replacement of the recording. The app currently rebases stale drafts onto such replacements under automatic conflict policies; a controlled WAV reproduction is enabled and failing. No package-internal defect is inferred. A coherent public payload-identity token or a separately validated app implementation is needed before claiming unchanged audio across metadata rebases. Whole-file hashes include tags and cannot provide that distinction. See the [reassessment](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md) for the minimal app reproduction and the required dependency-side contract/tests.

@@ -147,7 +147,7 @@ Network requests occur only for features you explicitly invoke. All requests are
 
 ### Embedded web pages
 
-MusicBrainz release/recording pages and Apple-provided track/collection pages can be displayed in an embedded `WKWebView`. These pages are loaded from the service and may load their own subresources or cookies. The app does not maintain a host allow-list for these pages.
+MusicBrainz release/recording pages and Apple-provided track/collection pages can be displayed in an embedded `WKWebView`. Initial page URLs and subsequent page navigation are restricted to HTTPS on `apple.com` and `musicbrainz.org`, including subdomains. Browser storage is non-persistent. Pages may load images, scripts, and other subresources from additional hosts and use session cookies; the navigation allow-list does not filter those subresources.
 
 ## What AudioMator Does Not Send
 

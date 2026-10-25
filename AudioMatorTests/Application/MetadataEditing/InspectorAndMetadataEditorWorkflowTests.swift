@@ -7,7 +7,7 @@ import TagLibAudioMetadata
 final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
     func testVisibleFileRevisionAndSelectionLookupRefreshAfterSameIDReload() {
         let original = AudioFileTestFactory.make(title: "Original")
-        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
         viewModel.files = [original]
         let revision = viewModel.filesRevision
         viewModel.setSelectedAudioIDs([original.id, UUID()])
@@ -33,7 +33,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let other = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/other-artwork.mp3"), artworkData: Data([1])
         )
-        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
         viewModel.mergeQuickImportFiles([file, other])
         viewModel.setSelectedAudioIDs([file.id])
         XCTAssertEqual(viewModel.inspectorArtworkPreview.sourceID, file.snapshotID)
@@ -155,7 +155,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                 contentAdvisory: advisory
             )
         }
-        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
         viewModel.mergeQuickImportFiles(files)
 
         for file in files {
@@ -186,7 +186,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             title: "Second",
             album: "Shared Album"
         )
-        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
         viewModel.mergeQuickImportFiles([first, second])
 
         viewModel.setSelectedAudioIDs([firstID])
@@ -229,7 +229,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             url: URL(fileURLWithPath: "/tmp/selection-owner-02.mp3"),
             title: "Second"
         )
-        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
         viewModel.mergeQuickImportFiles([first, second])
 
         viewModel.setSelectedAudioIDs([first.id, UUID()])
@@ -260,7 +260,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.multiEdit)
     }
 
-    func testSaveInspectorEditsIgnoresStaleSingleFileEditSnapshot() async throws {
+    func testSaveSingleEditsRejectsAnEditOwnedByAnotherFile() async throws {
         let firstID = UUID()
         let secondID = UUID()
         let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
@@ -268,20 +268,47 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let first = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "First", contentAdvisory: .explicit)
         let second = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Second", contentAdvisory: .notExplicit)
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([first, second])
 
         viewModel.setSelectedAudioIDs([firstID])
-        viewModel.updateEditForSelection()
-        XCTAssertEqual(viewModel.edit?.contentAdvisory, .explicit)
-        XCTAssertEqual(viewModel.editSourceFileID, firstID)
+        var staleEdit = try XCTUnwrap(viewModel.edit)
+        staleEdit.title = "Stale first file draft"
+        viewModel.edit = staleEdit
 
+        // Simulate a desynchronized inspector: the selection is the second
+        // file but the draft still names the first. The guard must prevent the
+        // first file's draft from being written to the second.
         viewModel.setSelectedAudioIDs([secondID])
-        viewModel.saveInspectorEdits()
+        viewModel.edit = staleEdit
+        viewModel.editSourceFileID = firstID
+        viewModel.saveSingleEdits()
 
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
-        XCTAssertEqual(viewModel.edit?.contentAdvisory, .notExplicit)
         XCTAssertEqual(viewModel.editSourceFileID, secondID)
+        XCTAssertEqual(viewModel.edit?.title, "Second")
+    }
+
+    func testPersistMetadataEditRejectsUnsupportedFieldBeforeMutation() async {
+        let id = UUID()
+        let file = AudioFileTestFactory.make(
+            id: id,
+            url: URL(fileURLWithPath: "/tmp/restricted.xm"),
+            title: "Allowed title",
+            artist: "Original artist"
+        )
+        var edit = SingleFileEditModel(from: file)
+        edit.artist = "Unsupported artist change"
+        let pipeline = RecordingMetadataPipeline()
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+
+        let result = await viewModel.persistMetadataEdit(edit, to: file)
+
+        guard case .failure(let reason) = result else {
+            return XCTFail("Expected an unsupported-field failure")
+        }
+        XCTAssertTrue(reason.contains("cannot write the requested metadata fields"))
+        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
     }
 
     func testSaveInspectorEditsWritesSingleSelectionAndRefreshesEditModel() async throws {
@@ -295,7 +322,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         )
         let reloaded = AudioFileTestFactory.make(id: id, url: url, title: "Reloaded")
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -332,7 +359,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             fileFingerprint: loadedFingerprint
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([file])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -355,7 +382,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let url = URL(fileURLWithPath: "/tmp/reloaded-clean-inspector.mp3")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let reloaded = AudioFileTestFactory.make(id: id, url: url, title: "Reloaded")
-        let viewModel = AudioViewModel(metadataPipeline: RecordingMetadataPipeline())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
 
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
@@ -370,7 +397,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             title: "Original", artist: "Original artist", includeDefaultFileFingerprint: false
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([original.id])
         viewModel.edit?.title = "User title"
@@ -391,7 +418,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
     func testSavingCleanInspectorDoesNotAttemptAFileMutation() {
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let file = AudioFileTestFactory.make(title: "Unedited")
         viewModel.mergeQuickImportFiles([file])
         viewModel.setSelectedAudioIDs([file.id])
@@ -417,7 +444,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([original.id])
         viewModel.edit?.title = "User Draft"
@@ -467,7 +494,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                 secondURL: secondReloaded
             ]
         )
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([first, second])
         viewModel.setSelectedAudioIDs([firstID, secondID])
         viewModel.updateEditForSelection()
@@ -512,7 +539,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                 secondURL: secondReloaded
             ]
         )
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([first, second])
         viewModel.setSelectedAudioIDs([firstID])
         viewModel.updateEditForSelection()
@@ -542,7 +569,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             includeDefaultFileFingerprint: false
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
 
         let applyResult = await viewModel.applyRawMetadataPropertyMaps(
             [:],
@@ -574,7 +601,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
 
         try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
         await viewModel.applyRawMetadataPropertyMaps(
@@ -605,7 +632,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             fileFingerprint: try AudioFileFingerprint.capture(at: fileURL)
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
 
         try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
         let result = await viewModel.persistMetadataErase(file, syncInspectorAfterReload: false)
@@ -670,7 +697,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                 secondURL: secondReloaded
             ]
         )
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([first, second])
         viewModel.setSelectedAudioIDs([firstID])
         viewModel.updateEditForSelection()
@@ -716,7 +743,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                 secondURL: secondReloaded
             ]
         )
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([first, second])
         viewModel.setSelectedAudioIDs([firstID])
         viewModel.updateEditForSelection()
@@ -763,7 +790,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             trackNumberText: "07"
         )
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -821,7 +848,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             discNumberText: "2/2"
         )
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -868,7 +895,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             id: original.id, url: url, comment: "Keep Title", track: 7, trackTotal: 12
         )
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([original.id])
         viewModel.updateEditForSelection()
@@ -911,7 +938,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let pipeline = RecordingMetadataPipeline(
             reloadedFilesByURL: [successfulURL: reloaded], failingMetadataWriteURLs: [failedURL]
         )
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([failed, successful])
         let plan = MetadataFieldTransferPlanner.makePlan(
             source: .title, destination: .comment, operation: .cut, targetFiles: [failed, successful]
@@ -941,7 +968,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let fingerprint = try AudioFileFingerprint.capture(at: url)
         let original = AudioFileTestFactory.make(url: url, track: 7, trackTotal: 12, fileFingerprint: fingerprint)
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let summary = await viewModel.applyMetadataExchangeWriteEntries([
@@ -961,12 +988,58 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    func testMetadataPlanSummaryAccountsForSkippedRows() async throws {
+        let id = UUID()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorSkippedSummary-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("skipped-summary.flac")
+        try Data("fixture".utf8).write(to: url)
+        let fingerprint = try AudioFileFingerprint.capture(at: url)
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Original",
+            fileFingerprint: fingerprint
+        )
+        let reloaded = AudioFileTestFactory.make(id: id, url: url, title: "New")
+        let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let summary = await viewModel.applyMetadataExchangeWriteEntries(
+            [
+                MetadataExchangeWriteEntry(
+                    fileID: id,
+                    fileName: url.lastPathComponent,
+                    values: [.title: "New"],
+                    expectedFileFingerprint: fingerprint
+                )
+            ],
+            skippedIssues: [
+                BatchMetadataWriteIssue(fileName: "bad-1.flac", messages: ["1 missing CSV column(s)."]),
+                BatchMetadataWriteIssue(fileName: "bad-2.flac", messages: ["2 extra CSV column(s)."])
+            ]
+        )
+
+        XCTAssertEqual(summary?.totalTargets, 3)
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertEqual(summary?.skippedIssues.count, 2)
+        XCTAssertTrue(summary?.warningIssues.isEmpty == true)
+        XCTAssertTrue(summary?.hudSubtitle.contains("2 file(s) skipped") == true)
+        XCTAssertFalse(summary?.hudSubtitle.contains("saved with issues") == true)
+        XCTAssertEqual(viewModel.saveIssueLogStore.entries.first?.issues.map(\.fileName), ["bad-1.flac", "bad-2.flac"])
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .warning)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Saved with Issues")
+    }
+
     func testMetadataPlanWritesRejectDuplicateFileEntries() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/duplicate-plan.flac")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let filenameEntry = FilenameMetadataWriteEntry(
@@ -996,7 +1069,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let url = URL(fileURLWithPath: "/tmp/invalid-plan.flac")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let filenameSummary = await viewModel.applyFilenameMetadataPlan([
@@ -1025,7 +1098,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let url = URL(fileURLWithPath: "/tmp/unverified-plan.flac")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let filenameSummary = await viewModel.applyFilenameMetadataPlan([
@@ -1054,7 +1127,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let url = URL(fileURLWithPath: "/tmp/busy-plan.flac")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.beginMetadataSaveProgress(
             title: "Existing Save",
@@ -1090,7 +1163,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let url = URL(fileURLWithPath: "/tmp/unsaved-plan.flac")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -1134,7 +1207,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let id = UUID()
         let original = AudioFileTestFactory.make(id: id, url: fileURL, title: "Original")
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         await viewModel.applyFilenameMetadataPlan([
@@ -1178,7 +1251,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             discNumberText: "2/3"
         )
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -1228,7 +1301,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             trackNumberText: "7/12"
         )
         let pipeline = RecordingMetadataPipeline(reloadedFilesByURL: [url: reloaded])
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()
@@ -1268,7 +1341,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let url = URL(fileURLWithPath: "/tmp/itunes-cancelled-apply.m4a")
         let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
         let pipeline = ProviderApplyGatedPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
 
         let applyTask = Task {
@@ -1307,7 +1380,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             includeDefaultFileFingerprint: false
         )
         let pipeline = RecordingMetadataPipeline()
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([id])
         viewModel.updateEditForSelection()

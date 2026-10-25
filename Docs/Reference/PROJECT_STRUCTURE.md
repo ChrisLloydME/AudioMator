@@ -13,6 +13,8 @@ AudioMator/
 │   ├── Domain/
 │   ├── Features/
 │   ├── Infrastructure/
+│   ├── Resources/
+│   │   └── Licenses/            Bundled AGPL, LGPL, MPL, MIT, and Boost texts
 │   ├── Assets.xcassets/
 │   ├── AppIcon.icon/
 │   ├── Localizable.xcstrings
@@ -51,6 +53,7 @@ Shared, mostly UI-independent support.
 | `Artwork/` | Artwork image normalization |
 | `Concurrency/` | `withAsyncTimeout` deadline wrapper |
 | `FileSystem/` | Normalized path semantics |
+| `Legal/` | License catalog and bundled license-text loader |
 | `Localization/` | `L10n` helper |
 | `Network/` | GitHub request headers, network-service disclosure |
 | `Platform/` | macOS application/window/security-scope adapters |
@@ -88,7 +91,7 @@ Feature-owned views, view models, and presentation models.
 | `iTunesBrowser/` | iTunes search/detail/tagging views and stores |
 | `LRCLIBLyricsBrowser/` | LRCLIB lyrics views and store |
 | `MetadataInspector/` | Raw metadata dump sheet |
-| `Settings/` | Settings tabs, privacy/acknowledgements sheets, release notes rendering |
+| `Settings/` | Settings tabs, privacy/acknowledgements/license sheets, release notes rendering |
 | `Welcome/` | Welcome splash and progress |
 
 Feature folders may contain their own helpers. Do not create a shared abstraction for a single feature.
@@ -161,6 +164,7 @@ The documentation set. See [the index](../README.md). `Docs/Images` contains REA
 | New conversion mode | `Domain/MetadataExchange` and `Features/MetadataFilenameTool` |
 | New test | Matching `AudioMatorTests` directory; pure logic in `Tests/AudioMatorCoreLogicTests` |
 | New build setting | `AudioMator.xcodeproj` and `Docs/Reference/CONFIGURATION.md` |
+| New license or attribution | `Core/Legal/LicenseDisclosure.swift`, `Resources/Licenses`, in-app Acknowledgements, and `Docs/THIRD_PARTY_NOTICES.md` |
 
 ## Related Documents
 

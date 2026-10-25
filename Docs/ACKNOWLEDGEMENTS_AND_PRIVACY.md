@@ -6,27 +6,52 @@ This disclosure describes the current implementation. The in-app Privacy sheet i
 
 ## Third-Party Foundations
 
+The in-app Acknowledgements sheet lists the same components and opens the full license texts. The app bundle also contains the license files at the top level of `AudioMator.app/Contents/Resources`. The About panel identifies TagLib and displays its upstream copyright.
+
+### AudioMator
+
+- Project: <https://github.com/ChrisLloydME/AudioMator>
+- License: GNU Affero General Public License v3.0 (AGPL-3.0).
+- Copyright: Copyright © 2025–2026 Christopher Lloyd.
+- Bundle resource: `AudioMator-AGPL-3.0.txt`.
+
 ### TagLib
 
-- Project: <https://github.com/taglib/taglib>
+- Project: <https://github.com/taglib/taglib/tree/v2.3.1>
 - Website: <https://taglib.org/>
 - Role: low-level audio metadata parsing, writing, raw property-map inspection, format capability discovery, and artwork operations, used through the `TagLibAudioMetadata` Swift package.
+- Bundled version reported by the framework: TagLib 2.3.1.
+- Copyright: Copyright (C) 2002–2008 Scott Wheeler and TagLib contributors.
+- Licenses: GNU Lesser General Public License v2.1 (LGPL-2.1) or Mozilla Public License 1.1 (MPL-1.1).
+- Bundle resources: `TagLib-LGPL-2.1.txt`, `TagLib-MPL-1.1.txt`.
 
-TagLib is distributed under LGPL/MPL terms. Review the upstream licenses before redistributing AudioMator.
+TagLib is linked as a separate dynamic framework inside the app. Releases must keep the copyright and license notices, include the applicable license text, and identify the corresponding TagLib source. If the pinned package applies patches to TagLib, identify the modified source rather than only the upstream tag. AudioMator's AGPL-3.0 source is public, so recipients can rebuild or relink the app.
 
 ### TagLibAudioMetadata
 
 - Project: <https://github.com/ChrisLloydME/TagLibAudioMetadata>
 - Role: Swift Package Manager dependency that exposes the TagLib-backed metadata manager used by AudioMator.
+- Version: exact pin `0.5.3` (revision `03473c9ae199026b806a5f75c387ca036e325284`).
+- License: MIT License.
+- Copyright: Copyright (c) 2026 Christopher Lloyd.
+- Bundle resource: `TagLibAudioMetadata-MIT.txt`.
 
-The app resolves this package as an external dependency pinned to an exact version. It does **not** vendor, trim, or bundle a local copy of TagLib source in this repository.
+The app resolves this package as an external dependency. It does **not** vendor, trim, or bundle a local copy of TagLib source in this repository. The MIT notice remains in the app bundle because the MIT License requires the notice to accompany copies of the Software.
 
-### iTunes Artwork Finder inspiration
+### utf8-cpp (utfcpp)
 
-- Project: <https://github.com/bendodson/itunes-artwork-finder>
-- Role: inspiration for the album artwork lookup approach.
+- Project: <https://github.com/nemtrif/utfcpp>
+- Role: UTF-8 conversion library bundled inside the TagLib framework.
+- License: Boost Software License 1.0.
+- Copyright: Copyright 2006 Nemanja Trifunovic.
+- Bundle resource: `utfcpp-Boost-1.0.txt`.
 
-AudioMator's current artwork implementation is written in Swift in this repository.
+### MusicBrainz
+
+- Service: <https://musicbrainz.org/>
+- Role: optional metadata search, release/recording lookup, relationship lookup, and tag-assist workflows.
+
+MusicBrainz is a web service, not source code bundled with AudioMator. The app sends a descriptive `User-Agent` and spaces requests at roughly one per 1.1 seconds.
 
 ### Apple iTunes Search API
 
@@ -34,6 +59,29 @@ AudioMator's current artwork implementation is written in Swift in this reposito
 - Role: optional Apple catalog search, link/UPC/store-ID lookup, metadata comparison, selected tag writing, and artwork candidate discovery.
 
 The iTunes Search API is an Apple web service, not source code bundled with AudioMator.
+
+### LRCLIB
+
+- Service: <https://lrclib.net/>
+- Role: optional synced-lyrics search and preview.
+
+LRCLIB is a public lyrics service, not source code bundled with AudioMator.
+
+### MuseAmp compatibility
+
+- Project: <https://github.com/Lakr233/MuseAmp>
+- License: MIT License, copyright (c) 2026 @Lakr233.
+- Role: optional compatibility feature that writes MuseAmp album/track IDs into the Comment field.
+
+AudioMator is an independent project and is not affiliated with, endorsed by, or sponsored by MuseAmp or its developers. No MuseAmp source code is copied into AudioMator; the acknowledgement is retained for completeness.
+
+### iTunes Artwork Finder inspiration
+
+- Project: <https://github.com/bendodson/itunes-artwork-finder>
+- License: Unlicense (public-domain dedication).
+- Role: inspiration for the album artwork lookup approach.
+
+AudioMator's current artwork implementation is written in Swift in this repository. No source code from the project is copied into AudioMator.
 
 ### GitHub Releases
 

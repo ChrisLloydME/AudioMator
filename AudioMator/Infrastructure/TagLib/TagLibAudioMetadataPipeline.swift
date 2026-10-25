@@ -300,7 +300,11 @@ private enum MetadataPipelineSupport {
         total: Int
     ) -> String {
         let trimmed = normalizedFieldComponent(rawText)
-        guard trimmed.isEmpty else { return trimmed }
+        if !trimmed.isEmpty {
+            // Semantic numberText is a complete pair in 0.6.0. A number-only
+            // import retains its model total, so include it explicitly.
+            return !trimmed.contains("/") && total > 0 ? "\(trimmed)/\(total)" : trimmed
+        }
         guard number > 0 else { return total > 0 ? "/\(total)" : "" }
         return total > 0 ? "\(number)/\(total)" : String(number)
     }

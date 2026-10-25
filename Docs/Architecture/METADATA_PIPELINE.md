@@ -100,7 +100,7 @@ Track and disc data is represented by:
 - display text `trackNumberText`, `discNumberText`,
 - derived field text used by the inspector.
 
-`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. A blank numeric field clears the value; text may retain padding such as `02/09`. The adapter serializes the pair as number text (for example `07/12`); the numeric snapshot fields are used to format that text. A positive total with no number uses `/total` under 0.6.0. `MetadataEditPayload.numberPairValidationMessage` still rejects non-numeric semantic number text. The low-level raw editor remains the explicit exception.
+`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. A blank numeric field clears the value; text may retain padding such as `02/09`. The adapter serializes the pair as number text (for example `07/12`); the numeric snapshot fields are used to format that text. A positive total with no number uses `/total` under 0.6.0. Semantic number-text patches represent complete pairs, so number-only imports explicitly include the total retained in the edit model; the legacy `writeTrackNumberText` API has different preservation behavior. `MetadataEditPayload.numberPairValidationMessage` still rejects non-numeric semantic number text. The low-level raw editor remains the explicit exception.
 
 ### Year and release date
 

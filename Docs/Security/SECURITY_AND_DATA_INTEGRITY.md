@@ -127,7 +127,7 @@ Existing protections:
 - All writes go through the package's expected-version and atomic-commit path.
 - Semantic writes preflight exact field capabilities.
 - File identity (path/device/inode) and revision are revalidated inside the mutation reservation.
-- Conflict policies never clear the expected version; filesystem-identity-changing replacements are refused. Same-object audio replacement remains the unresolved risk documented below.
+- Conflict policies never clear the expected version; filesystem-identity-changing replacements are refused. Changed revisions also require verified package audio continuity before automatic rebasing.
 - A failed write leaves the snapshot and draft unchanged.
 - A successful write with a failed reload is reported as committed-with-warning.
 - Rename is two-phase and reports incomplete rollback locations.

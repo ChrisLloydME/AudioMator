@@ -12,7 +12,7 @@ The dependency resolves and builds, but this branch is not ready to merge or dis
 
 Total-only track and disc pairs use number-text patches (`"/12"`, `"/3"`). AudioMator preserves the remaining component when an individual number field is cleared. Clearing a complete pair clears both components. Non-numeric semantic number text remains unsupported and is rejected before mutation; unchanged raw text does not block unrelated edits.
 
-The 0.5.3 guards rejecting total-only pairs have been removed. The adapter now serializes them explicitly instead of clearing the pair. The integration matrix also requires MP3 disc-only edits, AAC total clearing, and AAC combined text to succeed. Structured component removal is not a substitute for the number-text representation: some containers reject it with `unsupportedPartialPairRemoval`.
+The 0.5.3 guards rejecting total-only pairs have been removed. The adapter now serializes them explicitly instead of clearing the pair. It also appends a retained model total to number-only imported text: 0.6.0 semantic `MetadataNumberTextPatch` treats omitted totals as zero, unlike legacy `writeTrackNumberText`. The integration matrix also requires MP3 disc-only edits, AAC total clearing, and AAC combined text to succeed. Structured component removal is not a substitute for the number-text representation: some containers reject it with `unsupportedPartialPairRemoval`.
 
 ## Observed Failure: FLAC Semantic Comments
 
@@ -30,11 +30,11 @@ Observed: `verificationFailed(["Patched native comment collection differs after 
 
 Loading opts into `audioContentIdentity`. Automatic rebases require equal, non-nil baseline and current tokens and commit with both the baseline token and exact current version. WAV, AIFF/AIFF-C and native FLAC have package support; unsupported or ambiguous layouts require explicit reload after a version change. An unchanged exact version may still save normally. Two absent tokens never establish continuity. The package hashes encoded audio with bounded memory; this adds streaming I/O proportional to audio size.
 
-## Observed Failure: Multi-Artwork Role Replacement
+## Historical Multi-Artwork Role Replacement Probe (0.5.3)
 
-An attempted FLAC fixture setup through the public `applyMetadataPatch` API failed with `verificationFailed(["Patched artwork differs after save."])` when replacing artwork with two `StructuredArtwork` entries using identical JPEG payloads, picture type codes 3 and 4, and a description of `"Before"` on the second entry.
+Under 0.5.3, an attempted FLAC fixture setup through the public `applyMetadataPatch` API failed with `verificationFailed(["Patched artwork differs after save."])` when replacing artwork with two `StructuredArtwork` entries using identical JPEG payloads, picture type codes 3 and 4, and a description of `"Before"` on the second entry.
 
-This occurs before AudioMator's conflict resolver runs. The cause is not established; it may be an undocumented required role representation or a package round-trip/verification issue.
+That probe was not rerun against 0.6.0 and does not establish a current package defect. It occurred before AudioMator's conflict resolver ran. The cause is not established; it may be an undocumented required role representation or a package round-trip/verification issue.
 
 AudioMator status:
 
@@ -79,8 +79,8 @@ Do not modify the package checkout from the AudioMator repository. Keep any Audi
 
 ## Non-Numeric Number Text (0.6.0)
 
-A controlled FLAC probe through the concrete semantic adapter rejects `A1/13` with `TagLibMetadataExtractor` code 245: number-text components must be unsigned decimal values at most 2147483647. Thus `A1/12`, `A1` plus an edited total, and `B2` plus an edited disc total are not supported semantic number-text edits. The app now distinguishes this limitation from a missing number, refuses before mutation, and directs the user to Metadata Editor. Unrelated title edits preserve the raw non-numeric text and totals. Regression tests exercise all three shapes and compare complete raw maps and bytes on rejection. The package owner should document the accepted grammar or add non-numeric number-text round trips; AudioMator does not bypass the package with a speculative semantic-to-raw mapping.
+The 0.6.0 concrete semantic adapter still rejects non-numeric number-text edits. The accepted semantic components are unsigned decimal values at most 2147483647; an empty number can accompany a positive total. Thus `A1/12`, `A1` plus an edited total, and `B2` plus an edited disc total are not supported semantic number-text edits. The app now distinguishes this limitation from a missing number, refuses before mutation, and directs the user to Metadata Editor. Unrelated title edits preserve the raw non-numeric text and totals. Regression tests exercise all three shapes and compare complete raw maps and bytes on rejection. The package owner should document the accepted grammar or add non-numeric number-text round trips; AudioMator does not bypass the package with a speculative semantic-to-raw mapping.
 
-## Missing Metadata-Independent Audio Identity Contract
+## Audio Identity Limits
 
-`MetadataFileVersion` is an opaque revision token, not an established audio-content identity. Path/device/inode continuity also permits in-place replacement of the recording. The app currently rebases stale drafts onto such replacements under automatic conflict policies; a controlled WAV reproduction is enabled and failing. No package-internal defect is inferred. A coherent public payload-identity token or a separately validated app implementation is needed before claiming unchanged audio across metadata rebases. Whole-file hashes include tags and cannot provide that distinction. See the [reassessment](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md) for the minimal app reproduction and the required dependency-side contract/tests.
+`MetadataFileVersion` remains an opaque revision token. AudioMator now separately adopts the 0.6.0 audio-content continuity contract described above. Package support is limited by format and layout, so automatic rebases are unavailable whenever either snapshot lacks a token. Whole-file hashes include metadata and are not used as a fallback. The same-inode WAV replacement regression now passes for both typed and raw writes under all conflict policies.

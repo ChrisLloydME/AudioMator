@@ -85,6 +85,28 @@ nonisolated final class TagLibUpgradeContractTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testSemanticNumberOnlyEditsPreserveExistingTotals() async throws {
+        for ext in ["mp3", "m4a", "flac", "aac", "ogg", "wav"] {
+            let url = try fixture(extension: ext)
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(numberText: MetadataNumberTextPatch(trackNumberText: "07/12", discNumberText: "02/03")), to: url
+            )
+            let pipeline = TagLibAudioMetadataPipeline()
+            let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+            var edit = SingleFileEditModel(from: file)
+            edit.setTrackNumberText("08")
+            edit.setDiscNumberText("03")
+            _ = try pipeline.writeMetadata(MetadataEditPayload(edit, comparedTo: file), to: url, expectedVersion: file.metadataFileVersion)
+            let saved = try TagLibMetadataManager.readMetadataResult(from: url)
+            XCTAssertEqual(saved.track, 8, ext)
+            XCTAssertEqual(saved.trackTotal, 12, ext)
+            XCTAssertEqual(saved.disc, 3, ext)
+            XCTAssertEqual(saved.discTotal, 3, ext)
+            XCTAssertEqual(saved.title, file.title, ext)
+        }
+    }
+
     private func fixture(extension ext: String = "flac") throws -> URL {
         let bundle = Bundle(for: Self.self)
         let name = "testAudioFile.\(ext)"

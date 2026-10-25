@@ -68,5 +68,16 @@ nonisolated final class StableInodeContentReplacementTests: XCTestCase {
             originalVersion: originalVersion,
             policy: policy, pipeline: pipeline, url: url))
         XCTAssertEqual(try Data(contentsOf: url), replacement, "Rejected writes must leave replacement bytes intact")
+        var rawDraft = originalMetadata.values
+        rawDraft["TITLE"] = [draft.title]
+        XCTAssertThrowsError(try MetadataConflictResolver.writeRawMetadata(
+            rawDraft, original: originalMetadata, originalFingerprint: originalFingerprint,
+            originalVersion: originalVersion, policy: policy, pipeline: pipeline, url: url
+        ))
+        XCTAssertEqual(try Data(contentsOf: url), replacement, "Raw rejection must preserve replacement bytes")
+        XCTAssertThrowsError(try MetadataConflictResolver.currentSnapshot(
+            pipeline: pipeline, url: url, originalFingerprint: originalFingerprint,
+            originalVersion: originalVersion, original: originalMetadata
+        ), "Opening the raw editor must not silently adopt a replacement recording")
     }
 }

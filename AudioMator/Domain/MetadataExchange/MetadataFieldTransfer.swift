@@ -114,9 +114,6 @@ enum MetadataFieldTransferPlanner {
             guard let value = values[field] else { continue }
             field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: true)
         }
-        if let message = writeSafetyValidationMessage(values: values, edit: edit) {
-            return row(status: .parseError, changes: changes, message: message)
-        }
         guard let fingerprint = file.fileFingerprint else {
             return row(
                 status: .sourceUnavailable,
@@ -138,18 +135,7 @@ enum MetadataFieldTransferPlanner {
         )
     }
 
-    static func writeSafetyValidationMessage(
-        values: [MetadataExchangeField: String],
-        edit: SingleFileEditModel
-    ) -> String? {
-        let changesTrackPair = values[.trackNumber] != nil || values[.trackTotal] != nil
-        let changesDiscPair = values[.discNumber] != nil || values[.discTotal] != nil
-        // TagLib's current patch API cannot reliably round-trip a total-only
-        // pair. Block it before writing rather than dropping the retained total.
-        guard (changesTrackPair && edit.track == 0 && edit.trackTotal > 0) ||
-              (changesDiscPair && edit.disc == 0 && edit.discTotal > 0) else { return nil }
-        return String(localized: "A total without a number cannot be saved safely. Choose different fields; no changes were made.")
-    }
+
 }
 
 extension MetadataExchangeField {

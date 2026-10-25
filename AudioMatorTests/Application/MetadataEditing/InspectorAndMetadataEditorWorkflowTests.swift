@@ -957,7 +957,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
-    func testFieldTransferExecutionRejectsUnsafeTotalOnlyPlan() async throws {
+    func testFieldTransferExecutionAcceptsTotalOnlyPlan() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorFieldTransferSafetyTests-\(UUID())", isDirectory: true)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
@@ -979,12 +979,12 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             )
         ])
 
-        XCTAssertEqual(summary?.succeeded, 0)
-        XCTAssertEqual(summary?.failureIssues.count, 1)
-        XCTAssertTrue(pipeline.metadataWrites.isEmpty)
+        XCTAssertEqual(summary?.succeeded, 1)
+        XCTAssertEqual(summary?.failureIssues.count, 0)
+        XCTAssertEqual(pipeline.metadataWrites.count, 1)
         XCTAssertEqual(try Data(contentsOf: url), originalBytes)
-        XCTAssertEqual(viewModel.files.first?.track, 7)
-        XCTAssertEqual(viewModel.files.first?.trackTotal, 12)
+        XCTAssertEqual(pipeline.metadataWrites.first?.payload.trackNumber, 0)
+        XCTAssertEqual(pipeline.metadataWrites.first?.payload.trackTotal, 12)
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 

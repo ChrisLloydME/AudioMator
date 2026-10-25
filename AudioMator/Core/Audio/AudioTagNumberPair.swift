@@ -40,7 +40,7 @@ nonisolated struct AudioTagNumberPair: Equatable, Sendable {
             return trimmed
         }
 
-        guard number > 0 else { return "" }
+        guard number > 0 else { return total > 0 ? "/\(total)" : "" }
         return total > 0 ? "\(number)/\(total)" : "\(number)"
     }
 
@@ -73,7 +73,7 @@ nonisolated struct AudioTagNumberPair: Equatable, Sendable {
 
         let rawText: String
         if numberComponent.isEmpty {
-            rawText = ""
+            rawText = totalComponent.isEmpty ? "" : "/\(totalComponent)"
         } else if totalComponent.isEmpty {
             rawText = numberComponent
         } else {

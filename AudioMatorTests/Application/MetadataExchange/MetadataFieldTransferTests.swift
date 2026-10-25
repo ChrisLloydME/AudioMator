@@ -130,20 +130,20 @@ final class MetadataFieldTransferTests: XCTestCase {
         }
     }
 
-    func testTotalOnlyPairWritesAreBlockedButUnrelatedTransfersRemainAllowed() {
+    func testTotalOnlyPairWritesAndUnrelatedTransfersAreAllowed() {
         let file = AudioFileTestFactory.make(title: "Keep", track: 7, trackTotal: 12, disc: 2, discTotal: 3)
-        let blockedPairs: [(MetadataExchangeField, MetadataExchangeField)] = [
+        let totalOnlyPairs: [(MetadataExchangeField, MetadataExchangeField)] = [
             (.trackNumber, .comment), (.discNumber, .comment),
             (.trackNumber, .trackTotal), (.discNumber, .discTotal)
         ]
-        for (source, destination) in blockedPairs {
+        for (source, destination) in totalOnlyPairs {
             let plan = MetadataFieldTransferPlanner.makePlan(
                 source: source, destination: destination, operation: .cut, targetFiles: [file]
             )
-            XCTAssertFalse(plan.canApply)
-            XCTAssertEqual(plan.rows.first?.status, .parseError)
-            XCTAssertNotNil(plan.rows.first?.issueMessage)
-            XCTAssertTrue(plan.writeEntries.isEmpty)
+            XCTAssertTrue(plan.canApply)
+            XCTAssertEqual(plan.rows.first?.status, .ready)
+            XCTAssertNil(plan.rows.first?.issueMessage)
+            XCTAssertEqual(plan.writeEntries.count, 1)
         }
         let totalOnly = AudioFileTestFactory.make(title: "Copy", trackTotal: 12)
         XCTAssertTrue(MetadataFieldTransferPlanner.makePlan(

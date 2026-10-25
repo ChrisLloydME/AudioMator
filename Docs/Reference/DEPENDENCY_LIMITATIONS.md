@@ -2,56 +2,33 @@
 
 AudioMator depends on the external `TagLibAudioMetadata` package for container metadata behavior. This page records constraints that are observable from the app side and that affect product behavior. It is not a substitute for the package's own issue tracker.
 
-Baseline: `TagLibAudioMetadata` 0.5.3, revision `03473c9ae199026b806a5f75c387ca036e325284`. Reproductions use temporary copies of the committed fixtures and the public `applyMetadataPatch` / `writeTrackNumberText` APIs. The package source was not audited or modified.
+Baseline: `TagLibAudioMetadata` 0.6.0, revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`. Reproductions use temporary copies of the committed fixtures and the public `applyMetadataPatch` / `writeTrackNumberText` APIs. The package source was not audited or modified.
 
-## Current AudioMator Workarounds
+## 0.6.0 Integration Status
 
-1. **Total-only number pairs are blocked before writing.** If an operation would leave a positive track/disc total with a zero or blank number, AudioMator rejects the write at the shared `persistMetadataEdit` boundary as well as in the field-transfer planner. This covers the inspector, provider plans, CSV/text imports, and filename metadata. This is a safety guard, not support for total-only pairs.
-2. **Disc-only text patches avoid resubmitting an untouched track pair.** The adapter respects independent optional track/disc number-text edits.
-3. **A stale expected version is never cleared to force a write.**
+The dependency resolves and builds, but this branch is not ready to merge or distribute: semantic FLAC comment writes still fail verification. The application does not bypass semantic writes through raw patches. See the [upgrade record](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md).
 
-These guards should be removed or revisited when the dependency supports the behavior below.
+## Number-Pair Contract
 
-## Observed Failure: Total-Only Number Pairs
+Total-only track and disc pairs use number-text patches (`"/12"`, `"/3"`). AudioMator preserves the remaining component when an individual number field is cleared. Clearing a complete pair clears both components. Non-numeric semantic number text remains unsupported and is rejected before mutation; unchanged raw text does not block unrelated edits.
 
-Reproduction:
+The 0.5.3 guards rejecting total-only pairs have been removed. The adapter now serializes them explicitly instead of clearing the pair. The integration matrix also requires MP3 disc-only edits, AAC total clearing, and AAC combined text to succeed. Structured component removal is not a substitute for the number-text representation: some containers reject it with `unsupportedPartialPairRemoval`.
 
-1. Seed track text `07/12` and disc text `02/03`.
-2. Cut `Track Number` to another field while retaining `Total Tracks = 12`.
-3. The payload holds track `0`, total `12`.
+## Observed Failure: FLAC Semantic Comments
 
-Observed:
+On 0.6.0, copy `AudioMatorTests/Fixtures/Audio/testAudioFile.flac` to a temporary writable file and call:
 
-- The current number-text serialization produces an empty string, which clears both components in MP3, M4A, and FLAC.
-- AAC rejects it with a verification error.
-- Public patches expressing the total as `/12`, `0/12`, or structured `.track: .remove` plus `.trackTotal: .integer(12)` also fail MP3 verification: expected total `12`, read back `0`.
-- Original files remain intact on these errors.
+```swift
+try TagLibMetadataManager.applyMetadataPatch(
+    MetadataPatch(fields: [.comment: .text("Probe Comment")]), to: url
+)
+```
 
-Expected: a blank/zero number and a positive total round-trip independently for both track and disc pairs, with unrelated fields preserved and rollback on unsupported representations.
+Observed: `verificationFailed(["Patched native comment collection differs after save."])`; original bytes remain unchanged. The raw `COMMENT` path works, but is not used to bypass this defect. Package-owner tests should cover set, replace, clear, existing native comments, and multiple values with exact readback and byte preservation on failure. The package's internal cause has not been investigated from this repository.
 
-AudioMator status: blocked at planning/execution for user operations; the underlying API remains untrusted for this shape.
+## Audio Continuity
 
-## Observed Failure: MP3 Disc-Only Patches Alter an Untouched Track Representation
-
-Reproduction:
-
-1. Seed track text `07/12` and disc text `02/03`.
-2. Copy `Track Number` to `Disc Number`, or write any changed disc pair without changing the track pair.
-
-Observed: the package rejects the transaction with `Unedited PropertyMap field TRACKNUMBER changed during the patch.` Original bytes remain unchanged. Seven combinations occur in the fixture matrix. The equivalent failure occurs with an untouched `7/0` track when cutting disc to comment.
-
-Expected: the disc patch succeeds while preserving the untouched padded track representation.
-
-## Observed Failure: AAC Number-Only Patches Do Not Clear the Existing Total
-
-Reproduction:
-
-1. Seed `07/12` and `02/03` in ADTS.
-2. Cut `Total Tracks` to `Track Number` or another numeric field.
-
-Observed: the number text has no slash/total, the package expects total `0`, but retains the old total `12` and rejects the transaction. Disc total has the equivalent failure retaining `3`. Six combinations occur; original bytes remain unchanged.
-
-Expected: the patch's total-clearing intent agrees with its validator and round-trips. The package should fix the writer or clarify the API contract for number-only and explicit-zero totals.
+Loading opts into `audioContentIdentity`. Automatic rebases require equal, non-nil baseline and current tokens and commit with both the baseline token and exact current version. WAV, AIFF/AIFF-C and native FLAC have package support; unsupported or ambiguous layouts require explicit reload after a version change. An unchanged exact version may still save normally. Two absent tokens never establish continuity. The package hashes encoded audio with bounded memory; this adds streaming I/O proportional to audio size.
 
 ## Observed Failure: Multi-Artwork Role Replacement
 
@@ -69,7 +46,7 @@ Expected package behavior: accepted artwork input round-trips under documented n
 
 ## Package Behaviors AudioMator Relies On
 
-These are assumptions, not guarantees:
+These package contracts still require fixture validation:
 
 - `readSnapshot` and `fileVersion` describe a coherent revision.
 - `applyMetadataPatch` verifies its own write and enforces the expected version.
@@ -100,7 +77,7 @@ Do not modify the package checkout from the AudioMator repository. Keep any Audi
 - [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md)
 - [Testing](../Development/TESTING.md)
 
-## Non-Numeric Number Text (0.5.3)
+## Non-Numeric Number Text (0.6.0)
 
 A controlled FLAC probe through the concrete semantic adapter rejects `A1/13` with `TagLibMetadataExtractor` code 245: number-text components must be unsigned decimal values at most 2147483647. Thus `A1/12`, `A1` plus an edited total, and `B2` plus an edited disc total are not supported semantic number-text edits. The app now distinguishes this limitation from a missing number, refuses before mutation, and directs the user to Metadata Editor. Unrelated title edits preserve the raw non-numeric text and totals. Regression tests exercise all three shapes and compare complete raw maps and bytes on rejection. The package owner should document the accepted grammar or add non-numeric number-text round trips; AudioMator does not bypass the package with a speculative semantic-to-raw mapping.
 

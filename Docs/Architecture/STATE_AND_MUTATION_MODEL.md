@@ -88,7 +88,7 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Write succeeds, reload times out or fails | Persisted-with-warning; no fabricated snapshot; user can reload |
 | Rename succeeds, full reload fails | Fingerprint and metadata revision are recovered independently; if either fails, snapshot is refresh-required and writes fail closed |
 | Rename rollback incomplete | Recovery items list original, intended, and observed locations plus rollback errors |
-| File path/object identity changes, or file is deleted | Identity/revision validation refuses writes; no "looks similar" substitution. Same-inode audio replacement remains an unresolved automatic-rebase risk; see File Revision and Reload. |
+| File path/object identity changes, or file is deleted | Identity/revision validation refuses writes; no "looks similar" substitution. Changed revisions require equal non-nil package audio identities before rebasing, including same-inode changes; unavailable identity requires explicit reload. See File Revision and Reload. |
 | TagLib reports commit committed but durability uncertain | Treated as committed with a warning; retrying as a failure is explicitly discouraged |
 
 ## Operation-Specific Guarantees

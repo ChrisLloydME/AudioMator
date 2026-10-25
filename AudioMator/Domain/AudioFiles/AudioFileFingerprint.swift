@@ -42,9 +42,12 @@ struct AudioFileFingerprint: Equatable, Hashable, Sendable {
 enum AudioFileFingerprintValidationError: LocalizedError, Sendable {
     case unavailable(fileName: String)
     case changedSincePreview(fileName: String)
+    case recoveryRequired(fileName: String)
 
     var errorDescription: String? {
         switch self {
+        case .recoveryRequired(let fileName):
+            return "\(fileName): " + String(localized: "The file revision could not be verified after it moved. Reload the file before editing metadata.")
         case .unavailable(let fileName):
             return "\(fileName): The file version could not be verified. Refresh the preview and try again."
         case .changedSincePreview(let fileName):

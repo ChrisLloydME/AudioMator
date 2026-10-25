@@ -16,7 +16,7 @@ Consequences, verified by app-hosted tests:
 - Changing permissions can invalidate the package version while the app fingerprint remains equal.
 - Changing only the modification time invalidates the app fingerprint without changing bytes.
 - Replacing a file with an identical copy changes the inode and invalidates both.
-- Editing bytes while restoring the modification time can defeat the app fingerprint; the package version is the remaining guard.
+- Editing bytes while restoring the modification time can defeat the app fingerprint. The package version may detect a revision change, but automatic conflict policies can adopt a fresh revision without establishing unchanged audio content. It is not an audio-identity guarantee.
 
 A conflict therefore does not prove that tags changed. It proves that the app cannot establish an unchanged revision.
 
@@ -25,7 +25,8 @@ A conflict therefore does not prove that tags changed. It proves that the app ca
 1. Never retry a failed commit with `expectedVersion: nil` or by accepting the current version. That can overwrite concurrent edits.
 2. Never trust a basic tag projection as proof that native metadata is unchanged.
 3. Never substitute a different file that "looks the same" after a move, replacement, or delete.
-4. A semantic snapshot cannot prove audio identity, so same-path replacement is refused even under priority policies.
+4. A semantic snapshot cannot prove audio identity. Replacements that change filesystem identity are refused even under priority policies. In-place audio replacement that retains path/device/inode is an unresolved safety gap for automatic rebasing; see the dated [reassessment](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md).
+5. When the original device or inode is unavailable, every known identity component must still match. Size, modification time, and the original package version must remain unchanged. Editing an unchanged revision is permitted; automatic rebasing and refreshing an editor baseline to a changed revision are refused until an explicit reload. A fresh snapshot/version pair alone cannot establish continuity with the original file.
 
 ## Where Revision Checks Happen
 
@@ -71,13 +72,13 @@ Raw editor saves compare edited property keys and the native structures mapped t
 | Trigger | Scope | Draft behavior |
 | --- | --- | --- |
 | Import | Selected files | New snapshots |
-| Watched-folder directory event | Whole watched folder (debounced 350 ms) | Failed reads keep last-known metadata |
+| Watched-folder directory event | Enumerate whole folder (debounced 350 ms); reuse matching fingerprint/version snapshots and reload changed files | Failed reads keep last-known metadata |
 | App activation | Currently selected files | Clean drafts follow; dirty drafts keep their baseline |
 | **Reload from Disk** | Selected files | Asks before discarding a dirty inspector draft |
 | Post-write reload | The written file | Applied while the mutation reservation is held |
 | Rename completion | Moved files | Fingerprint and version recovered independently |
 
-Reload reads are serialized with writes via `FileMutationCoordinator`. Each read has a 60-second deadline. A reload result is applied only if the file still has the same ID, URL, and snapshot identity; stale results are discarded.
+Selected-file reload reads are serialized with writes via `FileMutationCoordinator` and have a 60-second deadline. Watched-folder scans use tokens and mutation epochs instead of reserving the whole folder, and their per-file loads have no independent deadline. A reload result is applied only if the file still has the same ID, URL, and snapshot identity; stale results are discarded.
 
 ### Clean versus dirty drafts
 
@@ -130,3 +131,5 @@ Tests use temporary copies of committed fixtures. They do not establish behavior
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [Metadata Pipeline](METADATA_PIPELINE.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
+
+Automatic activation and folder observations retain refresh-required state. Explicit Reload from Disk may clear it only with a successfully read fingerprint and package revision; it means the user accepts the file currently at that URL, not that the original recording has been located automatically.

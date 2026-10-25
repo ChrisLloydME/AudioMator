@@ -34,6 +34,7 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
                 draft.title = title
                 return MetadataEditPayload(draft, comparedTo: file)
             }
+            let probe = ConcurrentBatchProbe()
             let start = ContinuousClock.now
             await MetadataBatchExecutor.execute(count: targets.count, maximumConcurrentMutations: limit) { index in
                 let file = targets[index]
@@ -41,6 +42,8 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
                 let baseline = file.metadataConflictBaseline
                 let fingerprint = file.fileFingerprint
                 let version = file.metadataFileVersion
+                probe.begin()
+                defer { probe.end() }
                 return await executor.execute(at: file.url, id: file.id, expectedFileFingerprint: nil) { pipeline, url in
                     guard let baseline, let fingerprint, let version else {
                         throw CocoaError(.fileReadUnknown)
@@ -51,6 +54,7 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
                     )
                 }
             } onCompletion: { index, result in
+                probe.complete()
                 guard case .success(let outcome) = result, let reloaded = outcome.reloadedFile else {
                     return XCTFail("Guarded transaction or reload failed at \(index): \(result)")
                 }
@@ -61,6 +65,8 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
                 XCTAssertTrue(outcome.writeResult.warnings.isEmpty)
                 files[index] = reloaded
             }
+            XCTAssertEqual(probe.completedCount, targets.count, "Every target must complete")
+            XCTAssertLessThanOrEqual(probe.maximumActiveCount, limit)
             timings[limit, default: []].append(milliseconds(start.duration(to: .now)))
         }
         for limit in [1, 4] {
@@ -168,6 +174,26 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
                 directSaveTime += start.duration(to: clock.now)
             }
             print("Metadata IO \(ext) mean ms: snapshot=\(milliseconds(snapshotTime) / 8), AVMetadata=\(milliseconds(avTime) / 8), load=\(milliseconds(loadTime) / 8), resolvedSave=\(milliseconds(saveTime) / 8), directSave=\(milliseconds(directSaveTime) / 8)")
+        }
+    }
+
+    @MainActor
+    private final class ConcurrentBatchProbe {
+        private(set) var completedCount = 0
+        private(set) var activeCount = 0
+        private(set) var maximumActiveCount = 0
+
+        func begin() {
+            activeCount += 1
+            maximumActiveCount = max(maximumActiveCount, activeCount)
+        }
+
+        func end() {
+            activeCount -= 1
+        }
+
+        func complete() {
+            completedCount += 1
         }
     }
 

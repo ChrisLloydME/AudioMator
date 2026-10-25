@@ -2,7 +2,10 @@ import Foundation
 
 extension AudioViewModel {
     @discardableResult
-    func applyFilenameMetadataPlan(_ entries: [FilenameMetadataWriteEntry]) async -> BatchMetadataWriteSummary? {
+    func applyFilenameMetadataPlan(
+        _ entries: [FilenameMetadataWriteEntry],
+        skippedIssues: [BatchMetadataWriteIssue] = []
+    ) async -> BatchMetadataWriteSummary? {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return nil }
 
         guard !hasUnsavedInspectorChanges else {
@@ -21,7 +24,7 @@ extension AudioViewModel {
             return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
         }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
+        var summary = BatchMetadataWriteSummary(totalTargets: entries.count + skippedIssues.count)
 
         beginMetadataSaveProgress(
             title: String(localized: "Writing Filename Metadata"),
@@ -31,6 +34,10 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -105,6 +112,8 @@ extension AudioViewModel {
             }
         }
 
+        summary.skippedIssues.append(contentsOf: skippedIssues)
+
         updateMetadataSaveProgress(
             subtitle: String(localized: "Finishing..."),
             completedUnitCount: entries.count
@@ -121,6 +130,7 @@ extension AudioViewModel {
     @discardableResult
     func applyMetadataExchangeWriteEntries(
         _ entries: [MetadataExchangeWriteEntry],
+        skippedIssues: [BatchMetadataWriteIssue] = [],
         progressTitle: String = String(localized: "Importing Metadata")
     ) async -> BatchMetadataWriteSummary? {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return nil }
@@ -141,7 +151,7 @@ extension AudioViewModel {
             return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
         }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
+        var summary = BatchMetadataWriteSummary(totalTargets: entries.count + skippedIssues.count)
 
         beginMetadataSaveProgress(
             title: progressTitle,
@@ -151,6 +161,10 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -236,6 +250,8 @@ extension AudioViewModel {
                 )
             }
         }
+
+        summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
             subtitle: String(localized: "Finishing..."),

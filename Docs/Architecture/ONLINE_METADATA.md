@@ -109,7 +109,7 @@ Artwork search transforms Apple's `artworkUrl100` into:
 - a high-resolution URL rewritten to `is5-ssl.mzstatic.com`,
 - an uncompressed URL rewritten to `a5.mzstatic.com` when derivable.
 
-Downloads try the preferred URLs in order and stop on the first success. There is no host allow-list; if Apple returns a different host in `artworkUrl100`, that host is contacted. This is a limitation of the current implementation and is not fully captured by the static three-host disclosure.
+Downloads try the preferred URLs in order and stop on the first success. There is no host allow-list; if Apple returns a different host in `artworkUrl100`, that host is contacted. The disclosure lists the core artwork hosts and explicitly notes that Apple-returned URLs can contact additional hosts. The download policy itself remains unrestricted.
 
 Downloaded bytes are normalized locally before preview/application. Full payload comparison is used for equality; sampled hashes are not.
 
@@ -128,7 +128,7 @@ Query items:
 
 Headers: `Accept: application/json` and the same `AudioMator/<version> (...)` `User-Agent` template. Timeout: 15 seconds. No retry, rate limiter, or cache.
 
-Queries can use tags or filename fallback. Candidate ranking prefers exact synced-lyrics duration matches and uses synced availability as a tie-breaker. The store searches per file with a limit of 20 candidates.
+Queries can use tags or filename fallback. Candidate ranking prefers exact synced-lyrics duration matches and uses synced availability as a tie-breaker. The store searches per file with a limit of 20 candidates. Auto-apply requires normalized exact title and artist matches, synced lyrics, a score of at least 80, and duration within 10 seconds when both sides provide one. High-confidence auto-apply still replaces existing lyrics; it has no separate overwrite opt-in or review step.
 
 ### Applying lyrics
 
@@ -170,9 +170,10 @@ There is no caching, time-based throttle, ETag handling, automatic launch check,
 
 The MusicBrainz detail view can embed MusicBrainz release/recording pages in a `WKWebView`. The iTunes detail view embeds Apple-provided track/collection view URLs.
 
-- `EmbeddedWebView` uses `WKWebView()` with default configuration, including the default website data store.
-- Apple-provided web URLs are loaded without a host allow-list.
-- These pages can load their own subresources and cookies beyond the API hosts.
+- `EmbeddedWebView` uses a non-persistent website data store.
+- Initial URLs and subsequent page navigation require HTTPS and an `apple.com` or `musicbrainz.org` host (including subdomains). Off-policy navigation is cancelled.
+- These pages can load their own subresources beyond the allowed page hosts. The navigation delegate is not a subresource filter; cookies are session-only.
+- The in-app network disclosure includes embedded provider pages and this subresource limitation.
 - The app has no ATS exceptions and all app requests use HTTPS.
 
 This is documented as a privacy consideration, not as a guarantee.
@@ -224,3 +225,7 @@ No automated test contacts a live service. Live API behavior, remote rate limits
 - [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md)
 - [Third-Party Notices](../THIRD_PARTY_NOTICES.md)
 - [Metadata Pipeline](METADATA_PIPELINE.md)
+
+## Provider apply cancellation
+
+MusicBrainz and iTunes apply stop before the next file when cancelled. A started commit is observed to completion and included in the summary, including warnings. Unprocessed entries are recorded as cancelled failures so successful, failed, and cancelled counts reconcile with the captured plan. Cancellation does not discard an already committed file's outcome.

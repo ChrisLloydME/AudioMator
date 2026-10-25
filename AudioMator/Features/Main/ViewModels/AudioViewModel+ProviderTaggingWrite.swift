@@ -18,7 +18,10 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
-            guard !Task.isCancelled else { return }
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -47,8 +50,8 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            guard !Task.isCancelled else { return }
-
+            // Once a commit starts, the executor observes its actual outcome
+            // even after cancellation. Account for that outcome before stopping.
             switch result {
             case .success(let success):
                 summary.succeeded += 1
@@ -101,7 +104,10 @@ extension AudioViewModel {
         defer { endMetadataSaveProgress() }
 
         for (index, entry) in entries.enumerated() {
-            guard !Task.isCancelled else { return }
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
+                break
+            }
             updateMetadataSaveProgress(
                 subtitle: entry.fileName,
                 completedUnitCount: index
@@ -130,8 +136,8 @@ extension AudioViewModel {
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            guard !Task.isCancelled else { return }
-
+            // Once a commit starts, the executor observes its actual outcome
+            // even after cancellation. Account for that outcome before stopping.
             switch result {
             case .success(let success):
                 summary.succeeded += 1

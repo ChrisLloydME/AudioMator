@@ -234,7 +234,7 @@ final class MetadataEditorStoreTests: XCTestCase {
             initiallyFailingURL: secondFile.url
         )
         let store = MetadataEditorStore(metadataPipeline: pipeline)
-        let viewModel = AudioViewModel(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([firstFile, secondFile])
 
         store.present(targetFiles: [firstFile, secondFile])
@@ -270,6 +270,9 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
         XCTAssertEqual(pipeline.writeAttemptCount(for: firstFile.url), 1)
         XCTAssertEqual(pipeline.writeAttemptCount(for: secondFile.url), 2)
+        let retryPatch = try XCTUnwrap(pipeline.lastPatch(for: secondFile.url))
+        XCTAssertEqual(retryPatch.valuesToSet, ["ALBUM": ["Shared Draft"]])
+        XCTAssertTrue(retryPatch.removingKeys.isEmpty)
     }
 
     func testPresentFailsClosedWhenAnySelectedFileCannotBeRead() async throws {
@@ -402,6 +405,7 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
     private let propertyMapsByURL: [URL: [String: String]]
     private var failingURLs: Set<URL>
     private var writeAttemptsByURL: [URL: Int] = [:]
+    private var recordedPatchesByURL: [URL: [RawMetadataPatch]] = [:]
 
     init(propertyMapsByURL: [URL: [String: String]], initiallyFailingURL: URL) {
         self.propertyMapsByURL = propertyMapsByURL
@@ -414,6 +418,10 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
 
     func writeAttemptCount(for url: URL) -> Int {
         lock.withLock { writeAttemptsByURL[url, default: 0] }
+    }
+
+    func lastPatch(for url: URL) -> RawMetadataPatch? {
+        lock.withLock { recordedPatchesByURL[url]?.last }
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
@@ -441,6 +449,7 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
     ) throws -> AudioMetadataWriteResult {
         let shouldFail = lock.withLock {
             writeAttemptsByURL[url, default: 0] += 1
+            recordedPatchesByURL[url, default: []].append(patch)
             return failingURLs.contains(url)
         }
         if shouldFail {

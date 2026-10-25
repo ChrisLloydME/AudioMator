@@ -113,16 +113,23 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         let selectionQuery = query.selectionReleaseQuery
 
         if let releaseID = selectionSummary.musicBrainzAlbumIDCandidate.validMBID {
-            let release = try await releaseSummary(id: releaseID)
-            if query.releaseFilters.isEmpty || query.releaseFilters.matches(
-                date: release.date,
-                country: release.country,
-                status: release.status,
-                candidateMediaFormats: release.mediaFormats
-            ) {
-                candidates.append(release)
+            do {
+                let release = try await releaseSummary(id: releaseID)
+                if query.releaseFilters.isEmpty || query.releaseFilters.matches(
+                    date: release.date,
+                    country: release.country,
+                    status: release.status,
+                    candidateMediaFormats: release.mediaFormats
+                ) {
+                    candidates.append(release)
+                }
+                filenameEvidenceByReleaseID[releaseID, default: 0] += 1.0
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // A stale or deleted stored MBID is a hint, not a reason to
+                // abort the text-search fallbacks for the whole selection.
             }
-            filenameEvidenceByReleaseID[releaseID, default: 0] += 1.0
         }
 
         let strongQueries = MusicBrainzLuceneQueryBuilder.fileClusterStrongReleaseSearchQueries(from: query)
@@ -222,6 +229,11 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             }
         }
 
+        let verifiedIDs = Set(matchedResults.map(\.id))
+        for candidate in orderedCandidates where !verifiedIDs.contains(candidate.id) {
+            matchedResults.append(candidate)
+        }
+
         return matchedResults
             .sorted { lhs, rhs in
                 let lhsScore = lhs.selectionMatchScore ?? Double(lhs.score)
@@ -302,22 +314,29 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             .sorted(by: { (evidenceByReleaseID[$0] ?? 0) > (evidenceByReleaseID[$1] ?? 0) })
             .prefix(6) {
             try Task.checkCancellation()
-            let release = try await releaseSummary(id: releaseID)
-            guard filters.isEmpty || filters.matches(
-                date: release.date,
-                country: release.country,
-                status: release.status,
-                candidateMediaFormats: release.mediaFormats
-            ) else {
+            do {
+                let release = try await releaseSummary(id: releaseID)
+                guard filters.isEmpty || filters.matches(
+                    date: release.date,
+                    country: release.country,
+                    status: release.status,
+                    candidateMediaFormats: release.mediaFormats
+                ) else {
+                    continue
+                }
+
+                candidates.append(
+                    (
+                        release: release,
+                        evidence: evidenceByReleaseID[releaseID] ?? 0
+                    )
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // Skip a representative-file release that no longer resolves.
                 continue
             }
-
-            candidates.append(
-                (
-                    release: release,
-                    evidence: evidenceByReleaseID[releaseID] ?? 0
-                )
-            )
         }
 
         return candidates

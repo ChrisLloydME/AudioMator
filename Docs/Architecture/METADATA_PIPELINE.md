@@ -100,7 +100,7 @@ Track and disc data is represented by:
 - display text `trackNumberText`, `discNumberText`,
 - derived field text used by the inspector.
 
-`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. A blank numeric field clears the value; text may retain padding such as `02/09`. When writing, the adapter sends separate number and total fields plus optional number text.
+`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. A blank numeric field clears the value; text may retain padding such as `02/09`. The adapter serializes the pair as number text (for example `07/12`); the numeric snapshot fields are used to format that text. Because the dependency cannot reliably represent a positive total with no number, `MetadataEditPayload.numberPairValidationMessage` rejects that shape at the shared write boundary for every semantic writer. The low-level raw editor is the exception.
 
 ### Year and release date
 
@@ -250,3 +250,5 @@ The app does not maintain a per-format write table. It consumes the package's ca
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
+
+Changed number-text pairs are validated centrally before semantic writes. Missing-number totals and non-numeric number text have separate explanations. The pinned package accepts unsigned decimal number text; existing non-numeric raw values remain untouched during unrelated edits. See [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).

@@ -6,7 +6,7 @@ struct AppInfoCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
             Button {
-                UserDefaults.standard.set(AppSettingsTab.about.rawValue, forKey: settingsSelectedTabDefaultsKey)
+                AudioMatorTestHost.preferences.set(AppSettingsTab.about.rawValue, forKey: settingsSelectedTabDefaultsKey)
                 openSettings()
             } label: {
                 Label("About AudioMator", systemImage: "info.circle")

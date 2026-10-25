@@ -47,7 +47,7 @@ The following steps are the minimum supported procedure. Only steps marked **imp
 1. **Choose the version and build.** Edit `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in both app target configurations. Confirm the Release bundle ID.
 2. **Run tests.**
    - `swift test` (implemented, 61 tests at audit time).
-   - Serial app-hosted `xcodebuild test` (implemented, 438 tests at audit time).
+   - Serial app-hosted `xcodebuild test` (implemented; current counts are in [Testing](TESTING.md)).
 3. **Build Release.**
    - `xcodebuild -configuration Release -destination 'generic/platform=macOS'` (implemented; produces a universal binary in the audited environment).
 4. **Validate the bundle.**

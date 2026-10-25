@@ -141,3 +141,13 @@ Interactive preview UI is not covered by automated UI tests.
 - [Metadata Exchange](METADATA_EXCHANGE.md)
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
+
+## Recovery publication ordering
+
+Incomplete rollback reconciles each recovery item by file ID. A single verified location is rebound and refreshed; an unknown or ambiguous location disables writes. Marking a file refresh-required also discards queued reloads, advances its publication generation, and invalidates in-flight watched-folder scans so older observations cannot undo that safety state.
+
+Renumbering treats a committed-but-durability-uncertain outcome as a successful write with a warning, matching other metadata writers. It reports the directory-sync detail and advises against retrying the committed save.
+
+## Renumber Eligibility and Cancellation
+
+Only format-capable targets with a verified loaded revision participate in number assignment and padding width. Refresh-required targets are reported as failures before directory-access prompting and do not consume numbers. A runtime write failure may still leave a gap; renumbering does not retry or roll back committed files. Cancellation stops before the next target. The current commit and readback finish under their mutation reservation, and the result retains committed successes and records every unprocessed target as cancelled.

@@ -87,16 +87,13 @@ All app requests are HTTP GETs. There is no upload path, multipart body, or requ
 
 ### Accuracy caveats
 
-The in-app disclosure registry lists a fixed set of hosts and summaries. Current code has these gaps:
+The in-app disclosure registry includes API lookups, artwork downloads, embedded provider pages, release notes, and manual updates. Remaining network considerations:
 
-1. **Apple artwork hosts are not allow-listed.** `thumbnailURL` and `standardURL` keep whatever host Apple returned; only hires/uncompressed URLs are rewritten. Additional `*.mzstatic.com` shards could be contacted.
-2. **Embedded web pages are not disclosed as network sources.** iTunes `trackViewUrl`/`collectionViewUrl` and MusicBrainz pages load in `WKWebView` with default configuration and no host allow-list. WebKit may load subresources and cookies beyond the API hosts.
-3. **Some listed data is not actually sent.** The disclosure text mentions iTunes track number, duration, artist ID, and catalog ID; those are not URL parameters. It also mentions MusicBrainz disc information; the Lucene builder does not emit a disc clause.
-4. **Filename/path-derived text can be sent** by MusicBrainz, iTunes, and LRCLIB when tags are missing. Only the LRCLIB text explicitly mentioned filename fallback.
-5. **`github.com` is not an app request host.** It is opened externally by `NSWorkspace`.
-6. **Release notes include prereleases.** The client filters drafts only and requests the first 50 releases.
-
-These are documentation defects to fix as behavior is clarified; they are not claims that data is being misused by a third party.
+1. **Apple artwork hosts are not allow-listed.** `thumbnailURL` and `standardURL` keep whatever host Apple returned; only hires/uncompressed URLs are rewritten. The disclosure mentions additional Apple-returned hosts.
+2. **Embedded page navigation is restricted; subresources are not.** Initial URLs and navigation require HTTPS on `apple.com` or `musicbrainz.org` (including subdomains). WebKit uses non-persistent storage, but a page can load subresources from other hosts and use session cookies. This is disclosed in-app.
+3. **Filename/path-derived text can be sent** by MusicBrainz, iTunes, and LRCLIB when tags are missing, as stated in their disclosure summaries.
+4. **`github.com` is opened externally** by `NSWorkspace`; update API requests go to `api.github.com`.
+5. **Release notes include prereleases.** The client filters drafts only and requests the first 50 releases.
 
 ### Transport
 
@@ -130,7 +127,7 @@ Existing protections:
 - All writes go through the package's expected-version and atomic-commit path.
 - Semantic writes preflight exact field capabilities.
 - File identity (path/device/inode) and revision are revalidated inside the mutation reservation.
-- Conflict policies never clear the expected version; replacement is refused.
+- Conflict policies never clear the expected version; filesystem-identity-changing replacements are refused. Same-object audio replacement remains the unresolved risk documented below.
 - A failed write leaves the snapshot and draft unchanged.
 - A successful write with a failed reload is reported as committed-with-warning.
 - Rename is two-phase and reports incomplete rollback locations.
@@ -171,8 +168,8 @@ Recommended user practice: keep backups, test unfamiliar formats on copies, and 
 ### Recommended, not implemented
 
 1. Add `com.apple.security.files.bookmarks.app-scope` and verify cross-launch restoration on a signed sandboxed build.
-2. Allow-list hosts for artwork downloads and embedded web pages.
-3. Correct the in-app network disclosure and add filename/path fallback to all provider summaries.
+2. Consider a host policy for artwork downloads and WebKit subresources; page navigation is already restricted.
+3. Keep network disclosures aligned with provider queries, fallback data, and embedded browsing behavior.
 4. Add a privacy manifest if required by distribution policy.
 5. Add malformed-file/fuzz coverage and file-size limits for untrusted imports.
 6. Add dependency scanning or an SBOM.
@@ -221,3 +218,13 @@ Not verified:
 - [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md)
 - [Third-Party Notices](../THIRD_PARTY_NOTICES.md)
 - [Configuration](../Reference/CONFIGURATION.md)
+
+## Save issue-log recovery
+
+Issue-log persistence is best effort and never traps on an I/O failure. Each unreadable history is copied to its own quarantine file before replacement. If that copy fails, persistence is disabled for that store instance so the unreadable original is retained; new issues remain visible in memory. This log is diagnostic history, not a backup of audio metadata.
+
+## Unresolved Audio-Content Identity Risk (2026-10-18)
+
+A session recovery decision is sticky across automatic reads and is rechecked by the shared executor after reservation acquisition, including writes submitted with stale editor targets. Explicit Reload from Disk is the recovery path after resolving pending drafts.
+
+Path/device/inode continuity does not establish unchanged audio content. A controlled WAV regression replaces PCM samples in place while retaining size and restoring mtime; all three automatic metadata conflict policies still write a stale draft. The manual-reload policy refuses the revision change in that experiment. The automatic-policy regression remains enabled and failing. This is an unresolved integration blocker, not a claim of corruption by the package. See the [reassessment](../Engineering/REASSESSMENT_REMEDIATION_2026-10-18.md) for evidence and required work.

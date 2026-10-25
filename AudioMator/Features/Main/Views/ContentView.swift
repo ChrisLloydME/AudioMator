@@ -19,9 +19,9 @@ struct ContentView: View {
     let metadataPipeline: any AudioMetadataPipeline
     @Environment(\.openWindow) private var openWindow
 
-    @AppStorage(WelcomeSplashProgress.completionKey) private var hasCompletedWelcomeSplash: Bool = false
-    @AppStorage(WelcomeSplashProgress.completedVersionKey) private var completedWelcomeSplashVersion: Int = 0
-    @AppStorage("suppressesUnsavedInspectorDiscardWarning") private var suppressesUnsavedInspectorDiscardWarning: Bool = false
+    @AppStorage(WelcomeSplashProgress.completionKey, store: AudioMatorTestHost.preferences) private var hasCompletedWelcomeSplash: Bool = false
+    @AppStorage(WelcomeSplashProgress.completedVersionKey, store: AudioMatorTestHost.preferences) private var completedWelcomeSplashVersion: Int = 0
+    @AppStorage("suppressesUnsavedInspectorDiscardWarning", store: AudioMatorTestHost.preferences) private var suppressesUnsavedInspectorDiscardWarning: Bool = false
     @State private var isInspectorVisible: Bool = true
     @State private var isWelcomeSplashPresented: Bool = false
 

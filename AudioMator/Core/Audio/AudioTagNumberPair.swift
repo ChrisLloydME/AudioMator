@@ -56,19 +56,34 @@ nonisolated struct AudioTagNumberPair: Equatable, Sendable {
         let normalizedNumberText = numberText.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedTotalText = totalText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let rawText: String
-        if normalizedNumberText.isEmpty {
-            rawText = ""
-        } else if normalizedTotalText.isEmpty {
-            rawText = normalizedNumberText
+        // The individual inspector fields normally hold one component, but a
+        // pasted value can contain a slash. Parse such input as a pair instead
+        // of concatenating it into malformed text like "7/12/12".
+        let numberComponents = AudioTagNumberText.components(from: normalizedNumberText)
+        let totalComponents = AudioTagNumberText.components(from: normalizedTotalText)
+        let numberComponent = numberComponents.number
+
+        let totalComponent: String
+        if let embeddedTotal = numberComponents.total, !embeddedTotal.isEmpty {
+            totalComponent = embeddedTotal
         } else {
-            rawText = "\(normalizedNumberText)/\(normalizedTotalText)"
+            totalComponent = (totalComponents.total ?? totalComponents.number)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        let rawText: String
+        if numberComponent.isEmpty {
+            rawText = ""
+        } else if totalComponent.isEmpty {
+            rawText = numberComponent
+        } else {
+            rawText = "\(numberComponent)/\(totalComponent)"
         }
 
         return AudioTagNumberPair(
             rawText: rawText,
-            number: AudioTagNumberText.clampedInteger(fromComponent: normalizedNumberText),
-            total: AudioTagNumberText.clampedInteger(fromComponent: normalizedTotalText)
+            number: AudioTagNumberText.clampedInteger(fromComponent: numberComponent),
+            total: AudioTagNumberText.clampedInteger(fromComponent: totalComponent)
         )
     }
 }

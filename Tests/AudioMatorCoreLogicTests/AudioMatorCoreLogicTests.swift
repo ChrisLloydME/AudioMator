@@ -570,6 +570,41 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertGreaterThan(ranked[0].score, ranked[1].score)
     }
 
+    func testLRCLIBAutoMatchRejectsUnrelatedOrWeakCandidates() {
+        let query = LRCLIBSearchQuery(
+            trackName: "Correct Song",
+            artistName: "Correct Artist",
+            albumName: "Album",
+            durationSeconds: 180
+        )
+        let exact = makeCandidate(
+            id: 1, track: "Correct Song", artist: "Correct Artist", album: "Album",
+            duration: 182, syncedLyrics: "[00:01.00]Line"
+        )
+        let unrelated = makeCandidate(
+            id: 2, track: "Different Song", artist: "Different Artist", album: "Other",
+            duration: 180, syncedLyrics: "[00:01.00]Line"
+        )
+        let partialArtist = makeCandidate(
+            id: 3, track: "Correct Song", artist: "Correct", album: "Album",
+            duration: 180, syncedLyrics: "[00:01.00]Line"
+        )
+        let wrongDuration = makeCandidate(
+            id: 4, track: "Correct Song", artist: "Correct Artist", album: "Album",
+            duration: 240, syncedLyrics: "[00:01.00]Line"
+        )
+        let plainOnly = makeCandidate(
+            id: 5, track: "Correct Song", artist: "Correct Artist", album: "Album",
+            duration: 180, plainLyrics: "Line"
+        )
+
+        XCTAssertTrue(LRCLIBCandidateRanker.isHighConfidenceAutoMatch(exact, for: query))
+        XCTAssertFalse(LRCLIBCandidateRanker.isHighConfidenceAutoMatch(unrelated, for: query))
+        XCTAssertFalse(LRCLIBCandidateRanker.isHighConfidenceAutoMatch(partialArtist, for: query))
+        XCTAssertFalse(LRCLIBCandidateRanker.isHighConfidenceAutoMatch(wrongDuration, for: query))
+        XCTAssertFalse(LRCLIBCandidateRanker.isHighConfidenceAutoMatch(plainOnly, for: query))
+    }
+
     func testLRCLIBRankerUsesSyncedLyricsAsTieBreaker() {
         let query = LRCLIBSearchQuery(
             trackName: "Track",

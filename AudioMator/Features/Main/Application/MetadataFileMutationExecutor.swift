@@ -44,6 +44,7 @@ struct MetadataFileMutationExecutor: Sendable {
         at url: URL,
         id: AudioFile.ID,
         expectedFileFingerprint: AudioFileFingerprint?,
+        validateBeforeWrite: @escaping @Sendable () async throws -> Void = {},
         write: @escaping @Sendable (any AudioMetadataPipeline, URL) throws -> AudioMetadataWriteResult
     ) async -> MetadataFileMutationResult {
         do {
@@ -51,7 +52,9 @@ struct MetadataFileMutationExecutor: Sendable {
             let coordinator = fileMutationCoordinator
             let reloadTimeout = reloadTimeout
             return try await coordinator.withExclusiveAccess(to: [url]) {
-                await Task.detached(priority: .userInitiated) {
+                try await validateBeforeWrite()
+                try Task.checkCancellation()
+                return await Task.detached(priority: .userInitiated) {
                     do {
                         try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
                         let writeResult = try write(pipeline, url)

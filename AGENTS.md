@@ -116,6 +116,7 @@ xcodebuild \
 - `TagLibAudioMetadata` is pinned to exact version `0.5.3` (revision `03473c9ae199026b806a5f75c387ca036e325284`).
 - App deployment target: macOS 15.0.
 - Do not vendor package or TagLib source.
+- Keep `AudioMator/Resources/Licenses`, `Core/Legal/LicenseDisclosure.swift`, the in-app Acknowledgements sheet, and the legal docs in sync when dependency versions or licenses change.
 - Do not add network features that are not user initiated. Update `NetworkServiceDisclosure` and the privacy/third-party docs when network behavior changes.
 
 ## Repository and Change Hygiene

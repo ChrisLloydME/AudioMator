@@ -122,6 +122,14 @@ Network features must be explicit and user initiated. When adding or changing on
 - Add deterministic tests for request construction, matching, and error mapping.
 - Never upload audio file content.
 
+## License and Attribution Rules
+
+- Keep `AudioMator/Core/Legal/LicenseDisclosure.swift`, `AudioMator/Resources/Licenses`, and the in-app Acknowledgements sheet in sync.
+- Add the copyright notice and full license text for every new bundled dependency.
+- Do not remove the TagLib or `TagLibAudioMetadata` notices while distributing their code.
+- Update [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) and [Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) in the same change.
+- Run `AudioMatorTests/LicenseDisclosureTests` after changing a bundled license or resource name.
+
 ## Documentation
 
 A behavior change is incomplete until its documentation is updated. Use the [documentation update matrix](Docs/Development/DOCUMENTATION.md#update-matrix).

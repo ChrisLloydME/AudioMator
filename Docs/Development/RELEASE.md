@@ -120,9 +120,25 @@ Update procedure:
 4. Smoke-test every committed fixture format on temporary copies.
 5. Review the package's release notes for behavior changes.
 6. Update [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md), [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md), and [Third-Party Notices](../THIRD_PARTY_NOTICES.md).
-7. Record the dependency change in release notes.
+7. Confirm the TagLib version reported by the new `TagLibAudioMetadataTagLib.framework` and update `AudioMator/Core/Legal/LicenseDisclosure.swift` if it changed.
+8. Replace the bundled TagLib, utfcpp, or TagLibAudioMetadata license texts if the new package ships different upstream texts.
+9. Record the dependency change in release notes.
 
 There is no Dependabot/Renovate configuration and no automated dependency update.
+
+## License and Notice Review
+
+Before distribution, verify the legal paperwork that ships inside the app:
+
+- `AudioMator.app/Contents/Resources` contains `AudioMator-AGPL-3.0.txt`, `TagLib-LGPL-2.1.txt`, `TagLib-MPL-1.1.txt`, `TagLibAudioMetadata-MIT.txt`, and `utfcpp-Boost-1.0.txt`.
+- Settings → About → Acknowledgements lists AudioMator, TagLib, TagLibAudioMetadata, and utf8-cpp (utfcpp), and every license button opens a non-empty text.
+- The TagLib entry names both the LGPL-2.1 and MPL-1.1 paths.
+- The acknowledged `TagLibAudioMetadata` version matches `Package.resolved`, and the acknowledged TagLib version matches the bundled framework's reported version.
+- `Docs/THIRD_PARTY_NOTICES.md` and `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` match the shipped resources.
+- The corresponding TagLib source for the bundled version is reachable, and the release notes identify the TagLib and `TagLibAudioMetadata` versions. If the package applies patches, link to the exact modified source rather than only the upstream tag.
+- `AudioMatorTests/LicenseDisclosureTests` passes.
+
+The app's own AGPL-3.0 source is public at <https://github.com/ChrisLloydME/AudioMator>; the release notes should link to the repository and to the upstream TagLib source.
 
 ## Rollback and Recovery
 
@@ -142,6 +158,8 @@ Because updates are manual:
 - [ ] Release build succeeds.
 - [ ] `validate-macos-artifact.sh` passes.
 - [ ] Temporary-fixture smoke tests pass.
+- [ ] License and notice review above passes, including the five bundled license texts.
+- [ ] In-app Acknowledgements lists every bundled component and opens every license text.
 - [ ] Privacy/third-party docs reviewed for dependency or network changes.
 - [ ] Code signing applied (manual).
 - [ ] Notarization and stapling complete (manual).

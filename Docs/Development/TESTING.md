@@ -9,10 +9,10 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 472 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 493 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 65 `XCTestCase` classes across both targets (61 app-hosted and four SwiftPM); no custom base class.
+- There are 68 `XCTestCase` classes across both targets (64 app-hosted and four SwiftPM); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
@@ -74,20 +74,21 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 11 | 129 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
-| `Application/MetadataExchange` | 3 | 59 | fixture parsing, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 4 | 20 | template parsing, transaction rollback, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 4 | 19 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
-| `Concurrency` | 3 | 24 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
+| `Application/MetadataEditing` | 12 | 135 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataExchange` | 3 | 60 | fixture parsing, planner import/export/matching/limits, field transfer |
+| `Application/Rename` | 4 | 23 | template parsing, transaction rollback, filename extraction, refresh safety |
+| `Application/WatchedFolders` | 4 | 21 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
 | `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 1 | 34 | real TagLib reads/writes on temporary fixture copies |
+| `Integration/TagLib` | 2 | 35 | real TagLib reads/writes on temporary fixture copies |
 | `Performance` | 3 + fixture | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
-| `Unit/Core` | 17 | 75 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, disclosure registry, issue log, markdown |
+| `Unit/Core` | 18 | 82 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 7 | 34 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | Root | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 
 Notable coverage:
 
+- `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
 - Real TagLib writes use temporary copies of the six committed audio fixtures.
 - Conflict-strategy tests drive the real adapter on a temporary FLAC copy, including rejection of changed revisions and replacements when original inode identity is absent.
 - Provider cancellation and semantic-write tests use real FLAC copies to verify committed outcomes, exact preservation, and total-only rejection through MusicBrainz, iTunes, and CSV execution.

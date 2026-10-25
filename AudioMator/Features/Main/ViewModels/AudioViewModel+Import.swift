@@ -29,6 +29,7 @@ extension AudioViewModel {
                 } catch is CancellationError {
                     return
                 } catch {
+                    guard !Task.isCancelled else { return }
                     self.presentMetadataWriteFailure(
                         for: file.url.lastPathComponent,
                         reason: (error as NSError).localizedDescription
@@ -62,6 +63,7 @@ extension AudioViewModel {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 presentMetadataWriteFailure(
                     for: file.url.lastPathComponent,
                     reason: (error as NSError).localizedDescription
@@ -90,6 +92,7 @@ extension AudioViewModel {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 presentMetadataWriteFailure(
                     for: file.url.lastPathComponent,
                     reason: (error as NSError).localizedDescription
@@ -118,6 +121,7 @@ extension AudioViewModel {
                 } catch is CancellationError {
                     return
                 } catch {
+                    guard !Task.isCancelled else { return }
                     self.presentMetadataWriteHUD(
                         style: .failure,
                         title: "Artwork Update Failed",
@@ -153,6 +157,7 @@ extension AudioViewModel {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 presentMetadataWriteHUD(
                     style: .failure,
                     title: "Artwork Update Failed",
@@ -183,6 +188,7 @@ extension AudioViewModel {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled else { return }
                 presentMetadataWriteHUD(
                     style: .failure,
                     title: "Artwork Update Failed",

@@ -145,7 +145,7 @@ Writes are verified per file and are not an all-or-nothing batch transaction.
 
 ### Copy or Cut Metadata Fields
 
-Choose a source field, a destination field, and **Copy** or **Cut**. Each file uses its own source value. Copy keeps the source; Cut clears it in the same save. Files with an empty source are skipped. Files with invalid destinations or unverifiable revisions are skipped. Operations that would leave a total without a number are blocked because the current dependency cannot save them reliably.
+Choose a source field, a destination field, and **Copy** or **Cut**. Each file uses its own source value. Copy keeps the source; Cut clears it in the same save. Files with an empty source are skipped. Files with invalid destinations or unverifiable revisions are skipped. Operations that leave a total without a number retain the total.
 
 ## Renumbering Tracks
 
@@ -209,3 +209,7 @@ AudioMator does not store copies of audio files.
 After an uncertain rename recovery, automatic activation checks and watched-folder rescans keep metadata editing disabled. Resolve any pending Inspector draft and choose Reload from Disk to accept the file now at the displayed path. A normal background read does not establish that the original recording has been recovered.
 
 Inspector number-text edits require numeric components with the current metadata engine. Existing values such as `A1/12` remain intact during unrelated edits; use Metadata Editor for raw textual values. Renumbering excludes refresh-required files before assigning numbers. Cancelling a provider, filename, CSV/text, raw-map, or renumber batch preserves an in-progress commit and stops before the next file; the summary accounts for unprocessed files.
+
+## Number Pairs and External Changes
+
+Track and disc numbers can be blank while their totals remain set. Clearing an individual number preserves its total; clearing the complete pair clears both. After an external revision change, automatic conflict strategies require the package to verify unchanged audio. Formats or layouts without audio-content identity support require Reload from Disk before saving the draft. Review or discard the draft before reloading.

@@ -182,11 +182,10 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
 
 nonisolated final class ProviderSemanticWriteTests: XCTestCase {
     @MainActor
-    func testTotalOnlyProviderAndCSVWritesAreRejectedWithoutChangingFile() async throws {
-        let file = try await fixture()
-        let originalBytes = try Data(contentsOf: file.url)
+    func testTotalOnlyProviderAndCSVWritesPersist() async throws {
         for disc in [false, true] {
             for writer in ["itunes", "musicbrainz", "csv"] {
+                let file = try await fixture()
                 let pipeline = PausedProviderReloadPipeline()
                 await pipeline.releaseReload()
                 let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -210,11 +209,11 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
                     XCTAssertEqual(plan.writeEntries.count, 1)
                     _ = await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
                 }
-                XCTAssertEqual(pipeline.writeCount, 0, "\(writer), disc=\(disc)")
-                XCTAssertEqual(try Data(contentsOf: file.url), originalBytes)
-                XCTAssertEqual(viewModel.saveIssueLogStore.entries.first?.issues.count, 1)
-                XCTAssertTrue(viewModel.saveIssueLogStore.entries.first?.issues.first?.messages.joined()
-                    .contains(disc ? "total disc count" : "total track count") == true)
+                XCTAssertEqual(pipeline.writeCount, 1, "\(writer), disc=\(disc)")
+                let saved = try TagLibMetadataManager.readMetadataResult(from: file.url)
+                XCTAssertEqual(disc ? saved.disc : saved.track, 0)
+                XCTAssertEqual(disc ? saved.discTotal : saved.trackTotal, disc ? 3 : 12)
+
             }
         }
     }

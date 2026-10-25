@@ -2,10 +2,11 @@ import Foundation
 import TagLibAudioMetadata
 
 /// Exact supported values, cardinality, roles and artwork from the same read as
-/// the editable fields. This is a semantic baseline, not a file-content digest.
+/// the editable fields. The optional package token also guards audio continuity.
 struct MetadataConflictBaseline: Hashable, Sendable {
     let values: RawMetadataValueMap
     let structured: StructuredMetadata
+    let audioContentIdentity: MetadataAudioContentIdentity?
 
     nonisolated init(_ snapshot: MetadataSnapshot) {
         values = snapshot.raw.properties.reduce(into: [:]) { result, entry in
@@ -14,5 +15,6 @@ struct MetadataConflictBaseline: Hashable, Sendable {
             result[key, default: []].append(contentsOf: entry.values.isEmpty ? [entry.value] : entry.values)
         }
         structured = snapshot.structured
+        audioContentIdentity = snapshot.audioContentIdentity
     }
 }

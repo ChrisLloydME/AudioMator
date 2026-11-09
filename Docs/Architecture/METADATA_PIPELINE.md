@@ -2,6 +2,8 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
+The accepted [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md) defines the future native-field interoperability compatibility design, including standalone-total recovery and private number-text retirement. It is not implemented by the current pin. In particular, the Year/release-date mappings below describe current behavior, not the target contract. Use [ADR 0005](Decisions/0005-metadata-mapping-compatibility-contract.md) when planning that refactor.
+
 ## Boundary Summary
 
 AudioMator does not parse or write container formats itself. It delegates all container work to the `TagLibAudioMetadata` Swift package and keeps only:

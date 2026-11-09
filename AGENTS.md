@@ -9,6 +9,7 @@ Use the documentation set under `Docs/` as the detailed reference:
 - [Documentation index](Docs/README.md)
 - [Architecture](Docs/Architecture/OVERVIEW.md)
 - [Metadata pipeline](Docs/Architecture/METADATA_PIPELINE.md)
+- [Metadata mapping refactor contract](Docs/Architecture/METADATA_MAPPING_SPEC.md) — accepted target design, not current behavior.
 - [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md)
 - [Build](Docs/Development/BUILD.md)
 - [Testing](Docs/Development/TESTING.md)

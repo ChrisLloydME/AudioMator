@@ -324,6 +324,30 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testInspectorYearSetAndClearRoundTripsAcrossIndependentDateFixtures() async throws {
+        for fixtureName in Self.audioFixtureNames where fixtureName != "testAudioFile.m4a" {
+            let url = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: url) }
+            let pipeline = TagLibAudioMetadataPipeline()
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(fields: [.date: .text("2020"), .releaseDate: .text("2019-05-31")]),
+                to: url
+            )
+            for year in ["2021", ""] {
+                let baseline = try await pipeline.loadAudioFile(at: url, id: UUID())
+                var edit = SingleFileEditModel(from: baseline)
+                edit.year = year
+                let payload = MetadataEditPayload(edit, comparedTo: baseline)
+                XCTAssertEqual(payload.changedFields, [.date], fixtureName)
+                _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: baseline.metadataFileVersion)
+                let reloaded = try await pipeline.loadAudioFile(at: url, id: baseline.id)
+                XCTAssertEqual(reloaded.year, year, fixtureName)
+                XCTAssertEqual(reloaded.releaseDate, "2019-05-31", fixtureName)
+                XCTAssertEqual(reloaded.title, baseline.title, fixtureName)
+            }
+        }
+    }
+
     func testInspectorYearAndReleaseDateEditsRemainIndependentOnFLAC() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)

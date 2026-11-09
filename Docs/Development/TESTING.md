@@ -196,6 +196,16 @@ Not executed: CI itself, signed/notarized distribution, a macOS 15 runtime test,
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
 
+## Year Regression Check (2026-11-09)
+
+Three focused `TagLibReadWriteIntegrationTests` passed using stable `/Applications/Xcode.app`, serial Debug app-hosted tests, `.deriveddata-codex`, and signing disabled:
+
+- `testInspectorYearSetAndClearRoundTripsAcrossIndependentDateFixtures`: sets and clears Year through baseline-aware payloads on temporary MP3, FLAC, AAC, OGG and WAV copies, reloads the app model, and checks that Release Date and Title remain unchanged.
+- `testInspectorYearAndReleaseDateEditsRemainIndependentOnFLAC`: verifies independent raw DATE/RELEASEDATE updates and release-date removal.
+- `testInspectorYearEditIsExplicitlyUnsupportedForMP4`: verifies `.date` rejection and unchanged file bytes on M4A.
+
+The M4A result establishes a write restriction, not successful Year editing. The Inspector still exposes an editable Year control; the application save preflight rejects unsupported requested fields. The independent `.date` mapping was introduced in `8fac01bf` on 2026-09-16, before the 0.6.0 upgrade. No functional code or dependency source was changed for this check. No interactive app verification or full-suite run was performed. The first sandboxed test attempt failed on SwiftPM cache permissions; the rerun with cache access passed.
+
 ## Reassessment Regression Coverage (2026-10-18)
 
 Recovery tests now exercise activation, watched-folder rescans, deferred flushes and explicit verified reload. Batch tests use controlled reload gates and real temporary FLAC copies to check committed outcomes and untouched complete raw maps for provider, filename, CSV, raw-map and renumber cancellation; queued cancellation asserts zero writes. Test-host diagnostics inspect the actual app-owned models, with one isolated preference store also used by view `AppStorage` and About commands. Debug custom runners using `XCTestConfigurationFilePath` use that isolation; Release ignores test environment flags. Static source-policy tests remain supplemental checks, not runtime coverage.

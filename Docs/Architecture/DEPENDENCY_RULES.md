@@ -35,6 +35,7 @@ Domain reuses stable semantic types from `TagLibAudioMetadata`:
 
 - `MetadataFieldKey` — field capability and identity,
 - `MetadataFileVersion` — opaque transaction revision,
+- `MetadataAudioContentIdentity` and `MetadataAudioContentError` — package-owned audio continuity guards,
 - `MetadataSnapshot` — read-only conflict/raw baseline supplied by the adapter,
 - `RawMetadataPatch` — exact raw delta.
 

@@ -68,7 +68,7 @@ AudioMator does **not** hard-code the master format list. At runtime it asks `Ta
 
 `AudioFormatSupport` converts that into the app's capability snapshot. The app then preflights each requested field against the target format before writing.
 
-At the audited dependency pin (`TagLibAudioMetadata` 0.5.3), the readable extensions reported by the package are expected to include:
+At the audited dependency pin (`TagLibAudioMetadata` 0.6.0), the readable extensions reported by the package are expected to include:
 
 `mp3`, `mp2`, `m4a`, `m4b`, `m4p`, `mp4`, `aac`, `ogg`, `opus`, `mpc`, `wma`, `asf`, `spx`, `flac`, `ape`, `wv`, `tta`, `wav`, `aiff`, `aif`, `dsf`, `dff`, `oga`.
 
@@ -93,7 +93,7 @@ Two paths are represented in the repository:
 
 | Dependency | Responsibility | AudioMator's side |
 | --- | --- | --- |
-| [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.5.3 (exact pin) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
+| [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.6.0 (exact pin) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
 | TagLib 2.3.1 (through the package) | Low-level audio metadata parsing and writing. | Bundled as a dynamic framework; not called directly by app code. |
 | utf8-cpp (utfcpp) | UTF-8 conversion inside TagLib. | Bundled with the TagLib framework; not called directly. |
 | Apple frameworks (SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers, Foundation) | UI, file panels, technical fallback metadata, thumbnails, content types. | Uses them directly in the appropriate layers. |

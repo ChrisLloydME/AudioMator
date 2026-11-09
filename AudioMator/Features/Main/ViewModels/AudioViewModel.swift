@@ -238,6 +238,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     deinit {
+        artworkImportTask?.cancel()
         artworkLookupTask?.cancel()
         metadataWriteHUDDismissTask?.cancel()
         quickImportTasks.values.forEach { $0.cancel() }
@@ -297,6 +298,7 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
+        artworkImportTask?.cancel()
         completedInspectorEditsByID = [:]
         guard !selectedAudioIDs.isEmpty else {
             edit = nil
@@ -790,6 +792,8 @@ final class AudioViewModel: ObservableObject {
         if rebuildVisible { rebuildVisibleFiles() }
     }
 
+    var artworkImportTask: Task<Void, Never>?
+
     func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) async -> [String] {
         guard !changes.isEmpty else { return [] }
 
@@ -807,10 +811,10 @@ final class AudioViewModel: ObservableObject {
         var warnings: [String] = []
         for change in changes {
             do {
-                refreshedByID[change.id] = try await metadataPipeline.loadAudioFile(
-                    at: change.newURL,
-                    id: change.id
-                )
+                let pipeline = metadataPipeline
+                refreshedByID[change.id] = try await Task.detached(priority: .userInitiated) {
+                    try await pipeline.loadAudioFile(at: change.newURL, id: change.id)
+                }.value
             } catch {
                 let metadataPipeline = self.metadataPipeline
                 let safetyState = await Task.detached(priority: .userInitiated) {
@@ -1092,16 +1096,17 @@ final class AudioViewModel: ObservableObject {
         let selection = normalizedSidebarSelection(activeSidebarSelection)
         activeSidebarSelection = selection
 
+        let sourceFiles: [AudioFile]
         switch selection {
         case .quickImport:
-            files = quickImportFiles
+            sourceFiles = quickImportFiles
         case .watchedLibrary:
-            files = mergedWatchedFiles()
+            sourceFiles = mergedWatchedFiles()
         case .watchedFolder(let id):
-            files = watchedFolderFiles[id] ?? []
+            sourceFiles = watchedFolderFiles[id] ?? []
         }
 
-        files = files.map { preservingRecoveryState($0) }
+        files = sourceFiles.map { preservingRecoveryState($0) }
         let validIDs = Set(files.map(\.id))
         let prunedSelection = selectedAudioIDs.intersection(validIDs)
         if prunedSelection != selectedAudioIDs {

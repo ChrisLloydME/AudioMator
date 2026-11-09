@@ -164,7 +164,7 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(pair.displayedNumberText, "04")
         XCTAssertEqual(pair.displayedTotalText, "11")
         XCTAssertEqual(pair.canonicalRawText, "04 / 11")
-        XCTAssertEqual(pair.replacingNumberText("").canonicalRawText, "")
+        XCTAssertEqual(pair.replacingNumberText("").canonicalRawText, "/11")
     }
 
     func testTextEditPipelineAppliesDeterministicOrderedTransforms() {

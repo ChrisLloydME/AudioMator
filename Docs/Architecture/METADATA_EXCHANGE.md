@@ -74,7 +74,7 @@ Blank imported values are ignored unless the clear-empty-values option is enable
 
 Text/CSV pair imports treat `Track Number`/`Total Tracks` and `Disc Number`/`Total Discs` as structured pairs. Field-transfer mode treats them as independent fields.
 
-An operation that would leave a total without a number is blocked because the current package patch API cannot reliably round-trip that state.
+An operation that leaves a total without a number retains that total through the 0.6.0 number-text patch (`/total`).
 
 ## CSV Rules
 

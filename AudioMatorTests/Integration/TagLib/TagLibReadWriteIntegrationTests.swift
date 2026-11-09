@@ -67,37 +67,32 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.mp3": ("07/12", "2/3", false),
         "testAudioFile.m4a": ("07/12", "2/3", false),
         "testAudioFile.flac": ("07", "2", false),
-        "testAudioFile.aac": ("07", "2", false),
+        "testAudioFile.aac": ("07/12", "2/3", false),
         "testAudioFile.ogg": ("07", "2", false),
         "testAudioFile.wav": ("07/12", "2/3", false)
     ]
 
-    func testFieldTransferBlocksTotalOnlyPairsWithoutChangingFile() async throws {
+    func testTotalOnlyTrackAndDiscPairsRoundTripAcrossFixtures() async throws {
         for fixtureName in Self.audioFixtureNames {
-            let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
-            defer { removeTemporaryFixtureDirectory(containing: workingURL) }
-            _ = try TagLibMetadataManager.applyMetadataPatch(
-                MetadataPatch(numberText: MetadataNumberTextPatch(trackNumberText: "07/12", discNumberText: "02/03")),
-                to: workingURL
-            )
+            let url = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: url) }
             let pipeline = TagLibAudioMetadataPipeline()
-            for source in [MetadataExchangeField.trackNumber, .discNumber] {
-                let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
-                let before = try Data(contentsOf: workingURL)
-                let plan = MetadataFieldTransferPlanner.makePlan(
-                    source: source, destination: .comment, operation: .cut, targetFiles: [baseline]
-                )
-                XCTAssertFalse(plan.canApply, fixtureName)
-                XCTAssertTrue(plan.writeEntries.isEmpty, fixtureName)
-                XCTAssertEqual(plan.rows.first?.status, .parseError, fixtureName)
-                XCTAssertEqual(try Data(contentsOf: workingURL), before, fixtureName)
-                let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
-                XCTAssertEqual(readBack.comment, baseline.comment, fixtureName)
-                XCTAssertEqual(readBack.trackTotal, 12, fixtureName)
-                XCTAssertEqual(readBack.discTotal, 3, fixtureName)
-                XCTAssertEqual(readBack.track, 7, fixtureName)
-                XCTAssertEqual(readBack.disc, 2, fixtureName)
-            }
+            let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+            var edit = SingleFileEditModel(from: file)
+            edit.setTrackNumberFieldText("")
+            edit.setTrackTotalFieldText("12")
+            edit.setDiscNumberFieldText("")
+            edit.setDiscTotalFieldText("3")
+            let payload = MetadataEditPayload(edit, comparedTo: file)
+            XCTAssertNil(payload.numberPairValidationMessage)
+            _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
+            let result = try await pipeline.loadAudioFile(at: url, id: file.id)
+            XCTAssertEqual(result.track, 0, fixtureName)
+            XCTAssertEqual(result.trackTotal, 12, fixtureName)
+            XCTAssertEqual(result.disc, 0, fixtureName)
+            XCTAssertEqual(result.discTotal, 3, fixtureName)
+            XCTAssertEqual(result.title, file.title, fixtureName)
+            XCTAssertEqual(result.artist, file.artist, fixtureName)
         }
     }
 
@@ -137,18 +132,6 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
                 let sourceValue = source.value(from: baseline, index: 0, relativeBasePath: nil)
                 let payload = try fieldTransferPayload(from: baseline, source: source, destination: .comment, operation: .cut)
-                if fixtureName == "testAudioFile.mp3" && source == .discNumber {
-                    // The same untouched-track normalization defect also affects
-                    // explicit zero-total track text, not only padded numbers.
-                    let before = try Data(contentsOf: workingURL)
-                    XCTAssertThrowsError(try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)) { error in
-                        guard case TagLibManagerError.verificationFailed = error else {
-                            return XCTFail("Expected a rejected verification, got \(error)")
-                        }
-                    }
-                    XCTAssertEqual(try Data(contentsOf: workingURL), before)
-                    continue
-                }
                 _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
                 let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
                 XCTAssertEqual(readBack.comment, sourceValue, fixtureName)
@@ -210,45 +193,10 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                         var expected: [MetadataExchangeField: Int] = [.trackNumber: 7, .trackTotal: 12, .discNumber: 2, .discTotal: 3]
                         expected[destination] = expected[source]
                         if operation == .cut { expected[source] = 0 }
-                        if (expected[.trackNumber] == 0 && expected[.trackTotal] != 0) ||
-                           (expected[.discNumber] == 0 && expected[.discTotal] != 0) {
-                            let plan = MetadataFieldTransferPlanner.makePlan(
-                                source: source, destination: destination, operation: operation, targetFiles: [baseline]
-                            )
-                            XCTAssertFalse(plan.canApply, context)
-                            continue
-                        }
                         let payload = try fieldTransferPayload(from: baseline, source: source, destination: destination, operation: operation)
-                        let before = try Data(contentsOf: workingURL)
-                        // Known external-package failures: disc-only ID3 writes
-                        // normalize an untouched padded track; ADTS retains totals
-                        // when clearing them with number-only text. Verify rollback.
-                        let expectedFailure: Bool = if fixtureName == "testAudioFile.mp3" &&
-                            payload.discNumberTextChanged && !payload.trackNumberTextChanged {
-                            true
-                        } else if fixtureName == "testAudioFile.aac" && operation == .cut &&
-                            (source == .trackTotal || source == .discTotal) {
-                            true
-                        } else {
-                            false
-                        }
-                        do {
-                            _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
-                            if expectedFailure {
-                                XCTFail("Update the documented TagLib limitation after confirming the fix: \(context)")
-                            }
-                        } catch {
-                            guard expectedFailure else {
-                                XCTFail("\(context): \(error)")
-                                continue
-                            }
-                            guard case TagLibManagerError.verificationFailed = error else {
-                                XCTFail("Expected verification rejection: \(context): \(error)")
-                                continue
-                            }
-                            XCTAssertEqual(try Data(contentsOf: workingURL), before, context)
-                            continue
-                        }
+                        // 0.6.0 supports total-only pairs, disc-only MP3 edits,
+                        // and explicit AAC total clearing through number-text patches.
+                        _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
                         let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
                         XCTAssertEqual(readBack.track, expected[.trackNumber], context)
                         XCTAssertEqual(readBack.trackTotal, expected[.trackTotal], context)

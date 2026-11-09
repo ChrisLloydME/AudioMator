@@ -20,11 +20,16 @@ extension AudioViewModel {
         MacDocumentPicker.pickImage { [weak self] url in
             guard let self, let url else { return }
 
-            Task { @MainActor in
+            self.artworkImportTask?.cancel()
+            self.artworkImportTask = Task { @MainActor in
                 do {
-                    let pendingArtwork = try self.loadPendingArtwork(from: url)
+                    let pendingArtwork = try await Self.loadPendingArtwork(from: url)
+                    try Task.checkCancellation()
                     self.applyArtworkEditAction(.replace(pendingArtwork), to: file)
+                } catch is CancellationError {
+                    return
                 } catch {
+                    guard !Task.isCancelled else { return }
                     self.presentMetadataWriteFailure(
                         for: file.url.lastPathComponent,
                         reason: (error as NSError).localizedDescription
@@ -49,21 +54,28 @@ extension AudioViewModel {
             return
         }
 
-        do {
-            let pendingArtwork = try loadPendingArtwork(fromImageData: data)
-            applyArtworkEditAction(.replace(pendingArtwork), to: file)
-        } catch {
-            presentMetadataWriteFailure(
-                for: file.url.lastPathComponent,
-                reason: (error as NSError).localizedDescription
-            )
+        artworkImportTask?.cancel()
+        artworkImportTask = Task { @MainActor in
+            do {
+                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
+                try Task.checkCancellation()
+                applyArtworkEditAction(.replace(pendingArtwork), to: file)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent,
+                    reason: (error as NSError).localizedDescription
+                )
+            }
         }
     }
 
     func importArtworkFromClipboard(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
 
-        guard let image = MacPasteboard.image else {
+        guard let data = MacPasteboard.imageData else {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
                 reason: "No image was found in the clipboard."
@@ -71,18 +83,26 @@ extension AudioViewModel {
             return
         }
 
-        do {
-            let pendingArtwork = try loadPendingArtwork(from: image)
-            applyArtworkEditAction(.replace(pendingArtwork), to: file)
-        } catch {
-            presentMetadataWriteFailure(
-                for: file.url.lastPathComponent,
-                reason: (error as NSError).localizedDescription
-            )
+        artworkImportTask?.cancel()
+        artworkImportTask = Task { @MainActor in
+            do {
+                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
+                try Task.checkCancellation()
+                applyArtworkEditAction(.replace(pendingArtwork), to: file)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent,
+                    reason: (error as NSError).localizedDescription
+                )
+            }
         }
     }
 
     func clearArtwork(for file: AudioFile) {
+        artworkImportTask?.cancel()
         guard validateArtworkEditingSupport(for: file) else { return }
         applyArtworkEditAction(.remove, to: file)
     }
@@ -92,11 +112,16 @@ extension AudioViewModel {
         MacDocumentPicker.pickImage { [weak self] url in
             guard let self, let url else { return }
 
-            Task { @MainActor in
+            self.artworkImportTask?.cancel()
+            self.artworkImportTask = Task { @MainActor in
                 do {
-                    let pendingArtwork = try self.loadPendingArtwork(from: url)
+                    let pendingArtwork = try await Self.loadPendingArtwork(from: url)
+                    try Task.checkCancellation()
                     self.applyArtworkEditAction(.replace(pendingArtwork), to: files)
+                } catch is CancellationError {
+                    return
                 } catch {
+                    guard !Task.isCancelled else { return }
                     self.presentMetadataWriteHUD(
                         style: .failure,
                         title: "Artwork Update Failed",
@@ -123,22 +148,29 @@ extension AudioViewModel {
             return
         }
 
-        do {
-            let pendingArtwork = try loadPendingArtwork(fromImageData: data)
-            applyArtworkEditAction(.replace(pendingArtwork), to: files)
-        } catch {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: "Artwork Update Failed",
-                subtitle: (error as NSError).localizedDescription
-            )
+        artworkImportTask?.cancel()
+        artworkImportTask = Task { @MainActor in
+            do {
+                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
+                try Task.checkCancellation()
+                applyArtworkEditAction(.replace(pendingArtwork), to: files)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                presentMetadataWriteHUD(
+                    style: .failure,
+                    title: "Artwork Update Failed",
+                    subtitle: (error as NSError).localizedDescription
+                )
+            }
         }
     }
 
     func importArtworkFromClipboard(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
 
-        guard let image = MacPasteboard.image else {
+        guard let data = MacPasteboard.imageData else {
             presentMetadataWriteHUD(
                 style: .failure,
                 title: "Artwork Update Failed",
@@ -147,24 +179,33 @@ extension AudioViewModel {
             return
         }
 
-        do {
-            let pendingArtwork = try loadPendingArtwork(from: image)
-            applyArtworkEditAction(.replace(pendingArtwork), to: files)
-        } catch {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: "Artwork Update Failed",
-                subtitle: (error as NSError).localizedDescription
-            )
+        artworkImportTask?.cancel()
+        artworkImportTask = Task { @MainActor in
+            do {
+                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
+                try Task.checkCancellation()
+                applyArtworkEditAction(.replace(pendingArtwork), to: files)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                presentMetadataWriteHUD(
+                    style: .failure,
+                    title: "Artwork Update Failed",
+                    subtitle: (error as NSError).localizedDescription
+                )
+            }
         }
     }
 
     func clearArtwork(for files: [AudioFile]) {
+        artworkImportTask?.cancel()
         guard validateArtworkEditingSupport(for: files) else { return }
         applyArtworkEditAction(.remove, to: files)
     }
 
     func keepArtwork(for files: [AudioFile]) {
+        artworkImportTask?.cancel()
         guard !files.isEmpty else { return }
         applyArtworkEditAction(.unchanged, to: files)
     }
@@ -227,35 +268,15 @@ extension AudioViewModel {
         }
     }
 
-    private func loadPendingArtwork(from url: URL) throws -> PendingArtwork {
+    @concurrent
+    private static func loadPendingArtwork(from url: URL) async throws -> PendingArtwork {
         try SecurityScopedResourceAccess.withAccess(to: url) {
-            let pngData = try ArtworkImageNormalizer.normalizedPNGData(from: url)
-            return try pendingArtwork(fromNormalizedPNGData: pngData)
+            PendingArtwork(data: try ArtworkImageNormalizer.normalizedPNGData(from: url), mimeType: "image/png")
         }
     }
 
-    private func loadPendingArtwork(fromImageData data: Data) throws -> PendingArtwork {
-        let pngData = try ArtworkImageNormalizer.normalizedPNGData(from: data)
-        return try pendingArtwork(fromNormalizedPNGData: pngData)
-    }
-
-    private func loadPendingArtwork(from image: NSImage) throws -> PendingArtwork {
-        guard let pngData = image.audiomatorPNGData else {
-            throw NSError(
-                domain: "AudioMator.Artwork",
-                code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "The selected image could not be converted to PNG."]
-            )
-        }
-
-        let normalizedPNGData = try ArtworkImageNormalizer.normalizedPNGData(from: pngData)
-        return try pendingArtwork(fromNormalizedPNGData: normalizedPNGData)
-    }
-
-    private func pendingArtwork(fromNormalizedPNGData pngData: Data) throws -> PendingArtwork {
-        return PendingArtwork(
-            data: pngData,
-            mimeType: "image/png"
-        )
+    @concurrent
+    private static func loadPendingArtwork(fromImageData data: Data) async throws -> PendingArtwork {
+        PendingArtwork(data: try await ArtworkImageNormalizer.normalizedPNGDataInBackground(from: data), mimeType: "image/png")
     }
 }

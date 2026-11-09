@@ -63,7 +63,8 @@ enum MetadataConflictResolver {
         pipeline: any AudioMetadataPipeline,
         url: URL,
         originalFingerprint: AudioFileFingerprint,
-        originalVersion: MetadataFileVersion?
+        originalVersion: MetadataFileVersion?,
+        original: MetadataConflictBaseline
     ) throws -> MetadataSnapshot {
         let before = try validateFileIdentity(url: url, originalFingerprint: originalFingerprint)
         let snapshot = try pipeline.conflictSnapshot(for: url)
@@ -73,6 +74,9 @@ enum MetadataConflictResolver {
             throw TagLibManagerError.fileChanged
         }
         try validateFallbackVersion(version, originalVersion: originalVersion, originalFingerprint: originalFingerprint)
+        if version != originalVersion {
+            _ = try verifiedAudioIdentity(original: original, snapshot: snapshot)
+        }
         return snapshot
     }
 
@@ -94,8 +98,9 @@ enum MetadataConflictResolver {
             }
             return try pipeline.writeMetadata(edit, to: url, expectedVersion: originalVersion)
         }
-        let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint, originalVersion: originalVersion)
+        let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint, originalVersion: originalVersion, original: original)
         guard policy != .requireReload else { throw TagLibManagerError.fileChanged }
+        let audioIdentity = try verifiedAudioIdentity(original: original, snapshot: snapshot)
         let current = MetadataConflictBaseline(snapshot)
         let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
         var fields = Set(patch.fields.keys)
@@ -136,7 +141,7 @@ enum MetadataConflictResolver {
            resolvedPatch.numberText == nil, resolvedPatch.artwork == .unchanged {
             result = try noWriteResult(pipeline: pipeline, url: url, version: snapshot.fileVersion)
         } else {
-            result = try pipeline.writeMetadata(resolved, to: url, expectedVersion: snapshot.fileVersion)
+            result = try pipeline.writeMetadata(resolved, to: url, expectedVersion: try requiredVersion(snapshot), expectedAudioContent: audioIdentity)
         }
         return addingDiscardWarning(discarded, to: result)
     }
@@ -162,7 +167,8 @@ enum MetadataConflictResolver {
                 ? try noWriteResult(pipeline: pipeline, url: url, version: originalVersion)
                 : try pipeline.writeRawMetadataPatch(delta, to: url, expectedVersion: originalVersion)
         }
-        let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint, originalVersion: originalVersion)
+        let snapshot = try currentSnapshot(pipeline: pipeline, url: url, originalFingerprint: originalFingerprint, originalVersion: originalVersion, original: original)
+        let audioIdentity = try verifiedAudioIdentity(original: original, snapshot: snapshot)
         let current = MetadataConflictBaseline(snapshot)
         let revisionChanged = snapshot.fileVersion != originalVersion
         if revisionChanged && policy == .requireReload { throw TagLibManagerError.fileChanged }
@@ -205,8 +211,24 @@ enum MetadataConflictResolver {
         )
         let result = delta.valuesToSet.isEmpty && delta.removingKeys.isEmpty
             ? try noWriteResult(pipeline: pipeline, url: url, version: snapshot.fileVersion)
-            : try pipeline.writeRawMetadataPatch(delta, to: url, expectedVersion: snapshot.fileVersion)
+            : try pipeline.writeRawMetadataPatch(delta, to: url, expectedVersion: try requiredVersion(snapshot), expectedAudioContent: audioIdentity)
         return addingDiscardWarning(discarded, to: result)
+    }
+
+    nonisolated private static func requiredVersion(_ snapshot: MetadataSnapshot) throws -> MetadataFileVersion {
+        guard let version = snapshot.fileVersion else { throw TagLibManagerError.fileChanged }
+        return version
+    }
+
+    nonisolated private static func verifiedAudioIdentity(
+        original: MetadataConflictBaseline, snapshot: MetadataSnapshot
+    ) throws -> MetadataAudioContentIdentity {
+        guard let baseline = original.audioContentIdentity,
+              let current = snapshot.audioContentIdentity else {
+            throw MetadataAudioContentError.unavailable
+        }
+        guard baseline == current else { throw MetadataAudioContentError.changed }
+        return baseline
     }
 
     nonisolated private static func noWriteResult(

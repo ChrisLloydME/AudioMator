@@ -6,6 +6,7 @@ This folder contains dated engineering evidence: performance measurements, inves
 
 | Document | Date / baseline | Status |
 | --- | --- | --- |
+| [TagLib 0.6.0 integration](TAGLIB_060_INTEGRATION_2026-10-25.md) | 2026-10-25, baseline `78a66311` | Application migration and regression coverage; FLAC semantic comments remain an upstream merge blocker |
 | [Reassessment remediation](REASSESSMENT_REMEDIATION_2026-10-18.md) | 2026-10-18, baseline `a60f3064` | Recovery/publication/cancellation repairs; unresolved reproduced audio-identity blocker |
 | [Post-repair review](POST_REPAIR_REVIEW_2026-10-17.md) | 2026-10-17, base `78d5f5e3`, repair `02810a2b` | Independent finding matrix, additional fixes, fresh verification, and merge caveats |
 | [Documentation Audit](DOCUMENTATION_AUDIT_2026-10-17.md) | 2026-10-17, parent `e9deb6b` | Audit findings, verification, and follow-ups |

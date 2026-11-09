@@ -236,6 +236,10 @@ enum MacPasteboard {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    static var imageData: Data? {
+        NSPasteboard.general.data(forType: .png) ?? NSPasteboard.general.data(forType: .tiff)
+    }
+
     static var image: NSImage? {
         NSPasteboard.general.readObjects(forClasses: [NSImage.self])?.first as? NSImage
     }
@@ -251,7 +255,7 @@ enum MacWorkspace {
     }
 }
 
-enum SecurityScopedResourceAccess {
+nonisolated enum SecurityScopedResourceAccess {
     static func withAccess<Result>(
         to url: URL,
         startAccessing: (URL) -> Bool = { $0.startAccessingSecurityScopedResource() },

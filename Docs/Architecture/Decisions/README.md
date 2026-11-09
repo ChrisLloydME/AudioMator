@@ -10,6 +10,7 @@ Architecture Decision Records (ADRs) capture decisions that constrain future wor
 | [0002](0002-single-selection-owner.md) | `AudioViewModel` is the single selection owner | Accepted |
 | [0003](0003-metadata-contract-and-taglib-adapter.md) | Separate the metadata contract from TagLib adapters | Accepted |
 | [0004](0004-metadata-exchange-responsibility-boundaries.md) | Split Metadata Exchange by responsibility | Accepted |
+| [0005](0005-metadata-mapping-compatibility-contract.md) | Adopt the versioned metadata interoperability metadata mapping contract | Accepted; target not implemented |
 
 ## When to Write an ADR
 

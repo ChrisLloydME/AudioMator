@@ -12,6 +12,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 | Run tests and judge coverage | [Testing](Development/TESTING.md) |
 | Understand the architecture | [Architecture Overview](Architecture/OVERVIEW.md) |
 | Work on metadata reading/writing | [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) |
+| Refactor metadata mappings | [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (accepted target; not implemented) |
 | Work on conflicts, reloads, or file revisions | [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) |
 | Work on filename/text/CSV workflows | [Metadata Exchange](Architecture/METADATA_EXCHANGE.md), [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) |
 | Work on online providers | [Online Metadata](Architecture/ONLINE_METADATA.md) |
@@ -34,6 +35,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Architecture Overview](Architecture/OVERVIEW.md) — layers, composition, runtime flows, concurrency, error propagation, extension points.
 - [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) — state categories, file identity, mutation lifecycle, recovery semantics.
 - [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) — loading, editing, write preflight, conflict resolution, persistence, artwork, format behavior.
+- [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — accepted native-field interoperability contract, per-format target matrix, legacy totals/private-field migration and conformance gates; not current behavior.
 - [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) — revision guards, conflict policies, reload paths, detection limits.
 - [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, field-transfer planning and write behavior.
 - [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) — rename templates, two-phase transactions, track renumbering.
@@ -45,6 +47,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 
 - [Build](Development/BUILD.md) — toolchain, configurations, commands, common build failures.
 - [Testing](Development/TESTING.md) — targets, suites, Fixtures, coverage gaps, manual verification boundaries.
+- [Metadata Mapping Implementation Prompt](Development/AUDIOMATOR_METADATA_MAPPING_AGENT_PROMPT.md) — repository-scoped Xcode agent instructions for adopting package 0.7.0, phased implementation, and acceptance criteria.
 - [Debugging](Development/DEBUGGING.md) — build logs, bridge smoke tool, performance probes, diagnostics.
 - [Release Engineering](Development/RELEASE.md) — versioning, current release process, what is and is not automated.
 - [Documentation Maintenance](Development/DOCUMENTATION.md) — ownership, update matrix, style, and verification rules.

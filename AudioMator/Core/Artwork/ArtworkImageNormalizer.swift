@@ -28,6 +28,15 @@ nonisolated enum ArtworkImageNormalizer {
     static let maximumSourcePixelCount = 4_096 * 4_096
     private static let maximumSourcePixelDimension = 32_768
 
+    @concurrent
+    static func normalizedPNGDataInBackground(
+        from data: Data,
+        normalize: @Sendable (Data) throws -> Data = { try normalizedPNGData(from: $0) }
+    ) async throws -> Data {
+        try Task.checkCancellation()
+        return try normalize(data)
+    }
+
     static func normalizedPNGData(
         from url: URL,
         maximumInputByteCount: Int = maximumInputByteCount,

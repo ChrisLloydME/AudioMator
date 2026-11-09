@@ -79,7 +79,7 @@ Key rules:
 - Technical values fall back to AVFoundation only when the TagLib value is non-positive or missing.
 - Artwork bytes come from the snapshot's editable projection.
 - The loader captures a fingerprint before the read and revalidates the fingerprint and the package file version after all awaits. A mismatch throws `fileChanged`; the adapter retries a **read** once, never a write.
-- The snapshot also stores a `MetadataConflictBaseline` containing the raw value map and structured ID3/MP4/ASF/artwork/comment/lyrics projections.
+- The snapshot also stores a `MetadataConflictBaseline` containing the raw value map, structured ID3/MP4/ASF/artwork/comment/lyrics projections, and optional package audio-content identity.
 
 ### Missing, unsupported, and malformed metadata
 
@@ -100,7 +100,7 @@ Track and disc data is represented by:
 - display text `trackNumberText`, `discNumberText`,
 - derived field text used by the inspector.
 
-`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. A blank numeric field clears the value; text may retain padding such as `02/09`. The adapter serializes the pair as number text (for example `07/12`); the numeric snapshot fields are used to format that text. Because the dependency cannot reliably represent a positive total with no number, `MetadataEditPayload.numberPairValidationMessage` rejects that shape at the shared write boundary for every semantic writer. The low-level raw editor is the exception.
+`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. A blank numeric field clears the value; text may retain padding such as `02/09`. The adapter serializes the pair as number text (for example `07/12`); the numeric snapshot fields are used to format that text. A positive total with no number uses `/total` under 0.6.0. Semantic number-text patches represent complete pairs, so number-only imports explicitly include the total retained in the edit model; the legacy `writeTrackNumberText` API has different preservation behavior. `MetadataEditPayload.numberPairValidationMessage` still rejects non-numeric semantic number text. The low-level raw editor remains the explicit exception.
 
 ### Year and release date
 
@@ -150,13 +150,14 @@ An unchanged revision with an empty patch performs no write but rechecks the fil
 2. Read the current package file version.
 3. If unchanged, write the original patch with the original expected version.
 4. If changed:
-   - read a fresh verified snapshot,
+   - read a fresh verified snapshot including audio identity,
+   - require equal, non-nil baseline/current audio identities; otherwise require explicit reload,
    - stop for `requireReload`,
    - compare edited semantic groups against the baseline and current snapshot,
    - for `preferDiskChanges`, drop conflicting groups and record the discarded fields,
    - for `mergeNonConflicting`, stop if any edited group changed on disk and did not converge exactly,
    - for `preferUserChanges`, keep the draft values,
-   - write against the fresh snapshot's version.
+   - write against the fresh snapshot's version and the original audio identity.
 
 Field groups are conservative:
 
@@ -252,3 +253,9 @@ The app does not maintain a per-format write table. It consumes the package's ca
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
 
 Changed number-text pairs are validated centrally before semantic writes. Missing-number totals and non-numeric number text have separate explanations. The pinned package accepts unsigned decimal number text; existing non-numeric raw values remain untouched during unrelated edits. See [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+
+## 0.6.0 Number Text and Artwork Import
+
+Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`. Whole-pair clearing still removes both components. Non-numeric semantic number text remains rejected. MP3 disc-only updates and AAC total clearing now use the corrected package contract. FLAC semantic comment writes remain an upstream integration blocker; see [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+
+Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. Existing byte and pixel caps remain enforced. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.

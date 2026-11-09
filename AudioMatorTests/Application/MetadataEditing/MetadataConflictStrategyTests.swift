@@ -128,26 +128,18 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
-    func testTotalOnlyInspectorEditIsRejectedWithoutWriting() async {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorTotalOnly-\(UUID().uuidString).mp3")
-        let file = AudioFileTestFactory.make(
-            id: UUID(),
-            url: fileURL,
-            track: 0,
-            trackTotal: 12,
-            includeDefaultFileFingerprint: false
-        )
+    func testTotalOnlyInspectorEditPersists() async throws {
+        let file = try await loadedFixture()
         let viewModel = selectedViewModel(file)
         var edit = SingleFileEditModel(from: file)
+        edit.setTrackNumberFieldText("")
         edit.setTrackTotalFieldText("13")
-
-        let result = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file)
-
-        guard case .failure(let reason) = result else {
-            return XCTFail("A total without a number must be rejected")
+        guard case .success = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file) else {
+            return XCTFail("0.6.0 must persist a total-only number pair")
         }
-        XCTAssertTrue(reason.contains("total track count without a track number"))
+        let result = try TagLibMetadataManager.readMetadataResult(from: file.url)
+        XCTAssertEqual(result.track, 0)
+        XCTAssertEqual(result.trackTotal, 13)
     }
 
     func testResolverAllowsSaveWhenVolumeDoesNotReportDeviceOrInode() async throws {
@@ -450,7 +442,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
 
     func testArtworkSnapshotRoleChangeWithIdenticalFirstImageConflictsAsAGroup() async throws {
         let file = try await loadedFixture()
-        var original = try TagLibMetadataManager.readSnapshot(from: file.url)
+        var original = try TagLibMetadataManager.readSnapshot(from: file.url, includingAudioContent: true)
         let front = StructuredArtwork(pictureTypeCode: 3, mimeType: "image/jpeg", data: Data([1]))
         let back = StructuredArtwork(pictureTypeCode: 4, mimeType: "image/jpeg", description: "Before", data: Data([2]))
         original.structured.artwork = [front, back]
@@ -656,7 +648,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
     }
 }
 
-private final class ConflictWriteRecorder: @unchecked Sendable {
+nonisolated private final class ConflictWriteRecorder: @unchecked Sendable {
     struct RawWrite {
         let patch: RawMetadataPatch
         let expectedVersion: MetadataFileVersion?
@@ -717,6 +709,16 @@ private struct FixtureConflictPipeline: AudioMetadataPipeline {
         if raceBeforeWrite { try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: url.path) }
         writes?.recordRaw(patch, expectedVersion: expectedVersion)
         return try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
+    }
+    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL, expectedVersion: MetadataFileVersion, expectedAudioContent: MetadataAudioContentIdentity) throws -> AudioMetadataWriteResult {
+        if raceBeforeWrite { try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: url.path) }
+        writes?.recordMetadata(expectedVersion: expectedVersion)
+        return try base.writeMetadata(edit, to: url, expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent)
+    }
+    nonisolated func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL, expectedVersion: MetadataFileVersion, expectedAudioContent: MetadataAudioContentIdentity) throws -> AudioMetadataWriteResult {
+        if raceBeforeWrite { try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: url.path) }
+        writes?.recordRaw(patch, expectedVersion: expectedVersion)
+        return try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent)
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion) }
     nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {

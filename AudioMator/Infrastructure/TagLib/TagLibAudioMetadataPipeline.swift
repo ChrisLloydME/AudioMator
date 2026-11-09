@@ -34,7 +34,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot {
-        try TagLibMetadataManager.readSnapshot(from: url)
+        try TagLibMetadataManager.readSnapshot(from: url, includingAudioContent: true)
     }
 
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
@@ -111,22 +111,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         try writeRawMetadataValueMap(propertyMap.mapValues { [$0] }, to: url, expectedVersion: nil)
     }
 
-    nonisolated func writeRawMetadataValueMap(
-        _ valueMap: RawMetadataValueMap,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        let original = try rawMetadataValueMap(for: url)
-        let originalKeys = Set(original.keys)
-        let replacementKeys = Set(valueMap.keys)
-        let changedValues = valueMap.filter { original[$0.key] != $0.value }
-        let patch = RawMetadataPatch(
-            valuesToSet: changedValues,
-            removingKeys: originalKeys.subtracting(replacementKeys)
-        )
-        return try writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
-    }
-
     nonisolated func writeRawMetadataPatch(
         _ patch: RawMetadataPatch,
         to url: URL,
@@ -137,6 +121,34 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 patch,
                 to: url,
                 expectedVersion: expectedVersion
+            ).warnings
+        }
+    }
+
+    nonisolated func writeMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion,
+        expectedAudioContent: MetadataAudioContentIdentity
+    ) throws -> AudioMetadataWriteResult {
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.applyMetadataPatch(
+                Self.metadataPatchForWrite(from: edit), to: url,
+                expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
+            ).warnings
+        }
+    }
+
+    nonisolated func writeRawMetadataPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion,
+        expectedAudioContent: MetadataAudioContentIdentity
+    ) throws -> AudioMetadataWriteResult {
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.applyRawMetadataPatch(
+                patch, to: url,
+                expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
             ).warnings
         }
     }
@@ -288,8 +300,12 @@ private enum MetadataPipelineSupport {
         total: Int
     ) -> String {
         let trimmed = normalizedFieldComponent(rawText)
-        guard trimmed.isEmpty else { return trimmed }
-        guard number > 0 else { return "" }
+        if !trimmed.isEmpty {
+            // Semantic numberText is a complete pair in 0.6.0. A number-only
+            // import retains its model total, so include it explicitly.
+            return !trimmed.contains("/") && total > 0 ? "\(trimmed)/\(total)" : trimmed
+        }
+        guard number > 0 else { return total > 0 ? "/\(total)" : "" }
         return total > 0 ? "\(number)/\(total)" : String(number)
     }
 

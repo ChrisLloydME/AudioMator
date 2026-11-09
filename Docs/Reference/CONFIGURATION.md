@@ -107,14 +107,14 @@ This package is a test harness, not the app dependency graph.
 ```text
 repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git"
 kind = exactVersion
-version = 0.5.3
+version = 0.6.0
 ```
 
 `Package.resolved`:
 
 - identity: `taglibaudiometadata`
-- version: `0.5.3`
-- revision: `03473c9ae199026b806a5f75c387ca036e325284`
+- version: `0.6.0`
+- revision: `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`
 
 ## Scheme
 
@@ -129,7 +129,7 @@ version = 0.5.3
 
 ## Workspace
 
-`project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings` is an empty dictionary. There are no custom workspace-level build locations.
+`project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings` is an empty dictionary. There are no custom shared workspace-level build locations. Per-user workspace settings can select a different Derived Data style; CLI builds must explicitly pass `-derivedDataPath .deriveddata-codex`, which is authoritative for this repository. Do not edit or commit personal IDE settings.
 
 ## CI Environment
 

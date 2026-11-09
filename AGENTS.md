@@ -37,7 +37,7 @@ Existing documentation, comments, tests, and commit messages may be stale. Verif
 - `AudioMator/` is an Xcode file-system synchronized root. New source files under it are included automatically; configuration inputs stay in `Config/`.
 - Do not write container metadata or move files directly from UI code. Preserve the existing metadata pipeline.
 - All disk mutations must use `FileMutationCoordinator`.
-- Respect the documented Domain exception: it reuses `MetadataFieldKey`, `MetadataFileVersion`, `MetadataSnapshot`, and `RawMetadataPatch` from the package. It must not call `TagLibMetadataManager` or own file transactions.
+- Respect the documented Domain exception: it reuses `MetadataFieldKey`, `MetadataFileVersion`, `MetadataSnapshot`, `MetadataAudioContentIdentity`, `MetadataAudioContentError`, and `RawMetadataPatch` from the package. It must not call `TagLibMetadataManager` or own file transactions.
 - Keep `AudioViewModel` as the single selection owner.
 - Avoid new singletons and broad shared abstractions for a single feature.
 - The app is macOS-only. Do not reintroduce iOS/iPadOS deployment code.
@@ -113,7 +113,7 @@ xcodebuild \
 
 ## Dependency Notes
 
-- `TagLibAudioMetadata` is pinned to exact version `0.5.3` (revision `03473c9ae199026b806a5f75c387ca036e325284`).
+- `TagLibAudioMetadata` is pinned to exact version `0.6.0` (revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`).
 - App deployment target: macOS 15.0.
 - Do not vendor package or TagLib source.
 - Keep `AudioMator/Resources/Licenses`, `Core/Legal/LicenseDisclosure.swift`, the in-app Acknowledgements sheet, and the legal docs in sync when dependency versions or licenses change.

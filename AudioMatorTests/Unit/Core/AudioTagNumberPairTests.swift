@@ -50,16 +50,16 @@ final class AudioTagNumberPairTests: XCTestCase {
         let totalOnly = AudioTagNumberPair.make(numberText: "", totalText: "12")
         XCTAssertEqual(totalOnly.number, 0)
         XCTAssertEqual(totalOnly.total, 12)
-        XCTAssertEqual(totalOnly.rawText, "")
+        XCTAssertEqual(totalOnly.rawText, "/12")
     }
 
-    func testReplacingNumberWithBlankClearsThePair() {
+    func testReplacingNumberWithBlankPreservesTotal() {
         let pair = AudioTagNumberPair(rawText: "05/11", number: 5, total: 11)
             .replacingNumberText("")
 
         XCTAssertEqual(pair.number, 0)
         XCTAssertEqual(pair.total, 11)
-        XCTAssertEqual(pair.canonicalRawText, "")
+        XCTAssertEqual(pair.canonicalRawText, "/11")
     }
 
     func testWriteExpectationWithoutTotalAcceptsPreservedTotal() {

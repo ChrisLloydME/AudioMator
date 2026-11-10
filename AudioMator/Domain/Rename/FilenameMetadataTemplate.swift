@@ -18,6 +18,10 @@ extension FileRenameMetadataField {
             return file.genre
         case .year:
             return file.year
+        case .date:
+            return file.date
+        case .originalReleaseDate:
+            return file.originalReleaseDate
         case .trackNumberText:
             return file.trackNumberText
         case .discNumberText:
@@ -53,6 +57,10 @@ extension FileRenameMetadataField {
             edit.genre = value
         case .year:
             edit.year = value
+        case .date:
+            edit.date = value
+        case .originalReleaseDate:
+            edit.originalReleaseDate = value
         case .trackNumberText:
             edit.setTrackNumberText(value)
         case .discNumberText:

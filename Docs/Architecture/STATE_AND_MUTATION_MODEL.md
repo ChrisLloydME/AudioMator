@@ -63,6 +63,8 @@ prepare immutable input + expected fingerprint/version
   → publish the snapshot/result on the main actor
 ```
 
+Conflict groups follow actual native storage: `track`/`trackTotal` share one group, `disc`/`discTotal` share another, and YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent groups. A changed YEAR therefore does not create a blanket date conflict, while a shared native number pair remains protected. Alias/private-number cleanup is an explicit captured plan, not a conflict-resolution side effect.
+
 Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename, CSV/text, raw-map, and renumber loops check cancellation before each next target, retain the current commit outcome, and account for the remaining targets as cancelled without invoking their writers. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 
 ## Reservation Rules

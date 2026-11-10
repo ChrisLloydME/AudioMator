@@ -96,6 +96,8 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
     case remixer
     case genre
     case year
+    case date
+    case originalReleaseDate
     case trackNumber
     case trackTotal
     case discNumber
@@ -156,6 +158,10 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return L10n.string("Genre")
         case .year:
             return L10n.string("Year")
+        case .date:
+            return L10n.string("Date")
+        case .originalReleaseDate:
+            return L10n.string("Original Release Date")
         case .trackNumber:
             return L10n.string("Track Number")
         case .trackTotal:
@@ -239,6 +245,10 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return "genre"
         case .year:
             return "year"
+        case .date:
+            return "date"
+        case .originalReleaseDate:
+            return "originalReleaseDate"
         case .trackNumber:
             return "trackNumber"
         case .trackTotal:
@@ -295,7 +305,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
     var isWritableMetadataField: Bool {
         switch self {
         case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal,
                 .discNumber, .discTotal, .comment, .releaseDate, .publisher, .copyright,
                 .isrc, .barcode, .language, .mediaType, .releaseType, .catalogNumber,
                 .releaseCountry, .itunesAlbumID, .itunesArtistID, .itunesCatalogID,
@@ -312,7 +322,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .fileName, .baseName, .path, .relativePath, .index:
             return true
         case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal,
                 .discNumber, .discTotal, .comment, .releaseDate, .publisher, .copyright,
                 .isrc, .barcode, .language, .mediaType, .releaseType, .catalogNumber,
                 .releaseCountry, .itunesAlbumID, .itunesArtistID, .itunesCatalogID,
@@ -349,7 +359,13 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .genre:
             return "GENRE"
         case .year:
+            // Raw TagLib dialect: a PropertyMap key named DATE projects the
+            // native YEAR slot. It is not the semantic standalone Date field.
             return "DATE"
+        case .date:
+            return "DATE"
+        case .originalReleaseDate:
+            return "ORIGINALDATE"
         case .trackNumber:
             return "TRACKNUMBER"
         case .trackTotal:
@@ -402,7 +418,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
     static let exportPalette: [Self] = [
         .fileName, .baseName, .path, .relativePath, .index,
         .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-        .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal, .discNumber,
+        .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal, .discNumber,
         .discTotal, .comment, .releaseDate, .publisher, .copyright, .isrc, .barcode,
         .language, .mediaType, .releaseType, .catalogNumber, .releaseCountry,
         .itunesAlbumID, .itunesArtistID, .itunesCatalogID, .musicBrainzAlbumID,
@@ -412,7 +428,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
     static let importPalette: [Self] = [
         .fileName, .baseName, .path, .relativePath, .index,
         .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-        .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal, .discNumber,
+        .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal, .discNumber,
         .discTotal, .comment, .releaseDate, .publisher, .copyright, .isrc, .barcode,
         .language, .mediaType, .releaseType, .catalogNumber, .releaseCountry,
         .itunesAlbumID, .itunesArtistID, .itunesCatalogID, .musicBrainzAlbumID,
@@ -476,6 +492,10 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             return file.genre
         case .year:
             return file.year
+        case .date:
+            return file.date
+        case .originalReleaseDate:
+            return file.originalReleaseDate
         case .trackNumber:
             return AudioTagNumberPair(
                 rawText: file.trackNumberText,
@@ -535,6 +555,9 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .musicBrainzReleaseGroupID:
             return file.musicBrainzReleaseGroupID
         case .contentAdvisory:
+            // Unknown native codes export their exact value instead of being
+            // flattened to absence or Clean.
+            if let rawValue = file.advisoryRawValue { return rawValue }
             return file.contentAdvisory.map { String($0.rawValue) } ?? ""
         case .ignore:
             return ""
@@ -542,10 +565,11 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
     }
 
     func applyImportedValue(
-        _ value: String,
+        _ importedValue: String,
         to edit: inout SingleFileEditModel,
         preservingNumberPairComponents: Bool = false
     ) {
+        let value = importedValue == MetadataExchangeProfile.removalSentinel ? "" : importedValue
         switch self {
         case .title:
             edit.title = value
@@ -569,6 +593,10 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             edit.genre = value
         case .year:
             edit.year = value
+        case .date:
+            edit.date = value
+        case .originalReleaseDate:
+            edit.originalReleaseDate = value
         case .trackNumber:
             if preservingNumberPairComponents {
                 edit.setTrackNumberFieldText(value)
@@ -620,9 +648,22 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         case .musicBrainzReleaseGroupID:
             edit.musicBrainzReleaseGroupID = value
         case .contentAdvisory:
-            edit.contentAdvisory = ContentAdvisory.fromMetadataText(value)
+            if value.isEmpty || ContentAdvisory.fromMetadataText(value) != nil {
+                edit.contentAdvisory = ContentAdvisory.fromMetadataText(value)
+                edit.unsupportedAdvisoryImport = nil
+            } else {
+                // Preserve the raw intent; never turn an unknown code into unset.
+                edit.unsupportedAdvisoryImport = value
+            }
         case .fileName, .baseName, .path, .relativePath, .index, .ignore:
             break
+        }
+    }
+
+    var isIndependentDateField: Bool {
+        switch self {
+        case .year, .date, .releaseDate, .originalReleaseDate: true
+        default: false
         }
     }
 
@@ -657,12 +698,25 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
                 return "\(displayName) must be an integer from 0 through \(Int32.max)."
             }
         case .contentAdvisory:
-            guard ContentAdvisory.fromMetadataText(value) != nil else {
-                return "Content Advisory must be Explicit, Clean, Not Explicit, Yes, No, True, False, 1, 2, or 0."
+            guard ContentAdvisory.fromMetadataText(value) != nil ||
+                (Int(value).map { (0...255).contains($0) } == true) else {
+                return "Content Advisory must be a known advisory label or native integer code from 0 through 255."
+            }
+        case .year:
+            guard MetadataDateText.isPlausibleYear(value) else {
+                return "\(displayName) must be a supported stored-year text value."
+            }
+        case .date:
+            guard MetadataDateText.isPlausibleStandaloneDate(value) else {
+                return "\(displayName) must be a supported DATE shape for the destination tag version."
+            }
+        case .releaseDate, .originalReleaseDate:
+            guard MetadataDateText.isPlausibleDate(value) else {
+                return "\(displayName) must be a supported date value."
             }
         case .fileName, .baseName, .path, .relativePath, .index, .title, .artist,
                 .album, .albumArtist, .composer, .lyricist, .producer, .engineer,
-                .remixer, .genre, .year, .comment, .releaseDate, .publisher,
+                .remixer, .genre, .comment, .publisher,
                 .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
                 .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
                 .itunesCatalogID, .musicBrainzAlbumID, .musicBrainzTrackID,

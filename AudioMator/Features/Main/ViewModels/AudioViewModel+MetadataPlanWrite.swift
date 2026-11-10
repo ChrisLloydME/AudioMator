@@ -182,9 +182,12 @@ extension AudioViewModel {
             }
 
             guard entry.values.allSatisfy({ field, value in
-                field.isWritableMetadataField && (entry.preservingNumberPairComponents
-                    ? field.fieldTransferValidationMessage(value)
-                    : field.importedValueValidationMessage(value)) == nil
+                field.isWritableMetadataField && (
+                    value == MetadataExchangeProfile.removalSentinel ||
+                    (entry.preservingNumberPairComponents
+                        ? field.fieldTransferValidationMessage(value)
+                        : field.importedValueValidationMessage(value)) == nil
+                )
             }) else {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(

@@ -5,10 +5,12 @@ import TagLibAudioMetadata
 /// the editable fields. The optional package token also guards audio continuity.
 struct MetadataConflictBaseline: Hashable, Sendable {
     let values: RawMetadataValueMap
+    let yearText: String
     let structured: StructuredMetadata
     let audioContentIdentity: MetadataAudioContentIdentity?
 
     nonisolated init(_ snapshot: MetadataSnapshot) {
+        yearText = snapshot.basic.year
         values = snapshot.raw.properties.reduce(into: [:]) { result, entry in
             let key = entry.key.uppercased()
             guard !key.isEmpty else { return }

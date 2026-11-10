@@ -48,6 +48,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 ### Development
 
 - [Build](Development/BUILD.md) — toolchain, configurations, commands, common build failures.
+- [Metadata Test Strategy](Development/METADATA_TEST_STRATEGY.md) — independent field manifests, real persistence coverage, explicit gaps and release gates.
 - [Testing](Development/TESTING.md) — targets, suites, Fixtures, coverage gaps, manual verification boundaries.
 - [Metadata Mapping Implementation Prompt](Development/AUDIOMATOR_METADATA_MAPPING_AGENT_PROMPT.md) — repository-scoped Xcode agent instructions for adopting package 0.7.0, phased implementation, and acceptance criteria.
 - [Debugging](Development/DEBUGGING.md) — build logs, bridge smoke tool, performance probes, diagnostics.

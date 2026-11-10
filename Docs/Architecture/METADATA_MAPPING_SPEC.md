@@ -1,6 +1,6 @@
 # Metadata Mapping Specification
 
-Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepted target design; not implemented**. This specification is the refactoring contract, not a claim about 0.6.0 behavior or current capabilities. Existing APIs and tests remain descriptive of the current implementation until explicitly migrated. A normal failing legacy test must not be hidden to claim conformance.
+Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepted target; 0.7.1 candidate implementation verified with explicit version-specific capability gates**. Application-side evidence and remaining package gaps are recorded in the [0.7.0 implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md). This specification is the refactoring contract, not a claim about 0.6.0 behavior or current capabilities. Existing APIs and tests remain descriptive of the current implementation until explicitly migrated. A normal failing legacy test must not be hidden to claim conformance.
 
 An identical copy is maintained as `Docs/Architecture/METADATA_MAPPING_SPEC.md` in AudioMator. The two copies are one shared contract, not independently editable policies. Any normative change must update both copies, increment the contract version, and state migration and test implications. The package owns native mapping/verification; AudioMator owns edit intent and presentation. Neither repository may silently override the other layer's semantics.
 
@@ -485,6 +485,8 @@ The following are requirements for the later implementation, **not tests execute
 - A new package release and app adoption must document implemented contract version, per-format evidence, intentional gaps, migration behavior and exact commands/results. No support claim may be inferred from this specification alone.
 
 ## 13. Current implementation gaps
+
+> Historical record: this section describes the 0.6.0 state that motivated contract 2.2. Package 0.7.0 implements the contract, and the application-side adoption plus remaining package verification gaps are recorded in the [0.7.0 implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md).
 
 At the inspected package 0.6.0 revision, `.date` is labeled Recording Date and rejected for typed MP4 writes; `.releaseDate` maps to ©day; Basic year is a four-character projection. AudioMator maps Year directly to `.date` and can discard the rest of DATE when that field is edited. Its current Inspector allows unsupported MP4 Year intent. These are known differences from the target, not reasons to amend the target back to current behavior.
 

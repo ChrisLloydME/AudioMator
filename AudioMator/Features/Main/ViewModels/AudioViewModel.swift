@@ -279,8 +279,10 @@ final class AudioViewModel: ObservableObject {
     var hasUnsavedInspectorChanges: Bool {
         if selectedAudioIDs.count > 1 {
             guard let multiEdit else { return false }
-            return selectedAudioIDs.contains {
-                multiEdit.hasPendingChanges(excluding: completedInspectorEditsByID[$0])
+            return selectedAudioIDs.contains { id in
+                guard let source = inspectorEditSourceFilesByID[id]
+                    ?? files.first(where: { $0.id == id }) else { return true }
+                return multiEdit.hasPendingChanges(comparedTo: source, excluding: completedInspectorEditsByID[id])
             }
         }
 

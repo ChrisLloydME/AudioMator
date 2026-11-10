@@ -141,7 +141,7 @@ The `xcode-27` runner provision and the `Xcode_27.0.app` path are external to th
 
 ## Known Coverage Gaps
 
-1. **No AIFF/Opus fixtures.** Those formats are not integration-tested even though they are readable/writable in the dependency.
+1. **No committed AIFF/Opus fixtures.** `StoreIdentifierWriteTests` generates a temporary AIFF to cover store-ID set/replace/clear, reload and invalid-input atomicity. Other AIFF metadata surfaces and Opus remain outside this fixture coverage.
 2. **Artwork writes only for MP3/M4A/FLAC.** Other artwork-capable formats are untested.
 3. **No live-network coverage.** Provider integration is mocked.
 4. **No UI automation.** Full SwiftUI/AppKit interaction, file panels, drag-and-drop, accessibility, and visual behavior are manual.
@@ -249,3 +249,6 @@ Application repair regressions and current release-gate evidence are recorded in
 ## 0.7.1 candidate validation
 
 [Joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) records the final candidate results: 62 core tests, 540 serial app-hosted tests, unsigned Release build and artifact validation all pass using the local override. Positive FLAC comment and independent date requirements remain normal tests and now pass on supported layouts. The unverified ID3v2.3 layout has explicit pre-write/read-only and canonical-export safety tests; safe rejection is not labeled native codec support. Normal remote 0.7.1 resolution remains a postpublication step.
+## Store ID type regression — 2026-11-10
+
+`StoreIdentifierWriteTests` covers the dedicated text-model-to-integer patch boundary for Album/Artist/Catalog Store IDs. A generated temporary AIFF verifies actual set/replace/clear and reload through the published package and real application adapter. Invalid, negative and overflowing IDs combined with a Title change must fail without byte changes. The test does not access user audio or imply broad AIFF conformance. See [the repair record](../Engineering/STORE_ID_MAPPING_REPAIR_2026-11-10.md).

@@ -26,7 +26,7 @@ The project resolves `TagLibAudioMetadata` from GitHub. Check network access and
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-Then verify that the resolved version matches `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (currently 0.6.0).
+Then verify that the resolved version matches `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (currently 0.7.0).
 
 ### `xcodebuild` cannot write caches
 

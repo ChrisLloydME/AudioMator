@@ -100,6 +100,10 @@ Only the request parameters above are sent. In particular, duration, track numbe
 
 Queries can be derived from tags **or from filename/parent-directory fallback** when tags are missing.
 
+### Provider tag application
+
+A provider release date maps only to semantic `releaseDate` (`.releaseDate`). It never sets, derives, synchronizes or clears `year`, `date` or `originalReleaseDate`. A release year used for search ranking or display is not a stored Year value and is never added to the edit intent. Providers that do not supply Year leave Year unchanged. Applying provider values still uses the shared `MetadataEditPayload` and all-or-nothing per-file preflight; only the explicitly selected comparison rows are written, and the existing cancellation/version/audio-identity rules apply.
+
 ### Artwork
 
 Artwork search transforms Apple's `artworkUrl100` into:

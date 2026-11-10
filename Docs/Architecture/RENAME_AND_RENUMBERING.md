@@ -109,7 +109,7 @@ For each target, in order:
 2. Skip if the extension is not metadata-writable.
 3. Skip if `.track` or `.trackTotal` is unsupported for the format.
 4. Format the number (`07`, `7`, …).
-5. Write track number text with `verifyAfterWrite: true` and the expected metadata version.
+5. Submit a typed track-number component intent through `MetadataEditPayload` with the expected metadata version. The existing total and the complete disc group are carried as untouched values and are not removed.
 6. Reload the snapshot from disk.
 7. Report success, warnings, or failure per file.
 
@@ -121,14 +121,17 @@ Renumbering is serial and uses the same `MetadataFileMutationExecutor` and path 
 
 ### Constraints
 
-- Track totals are preflighted but are not rewritten by renumbering.
-- The operation writes number text, not a full semantic patch.
+- Track totals are preflighted and preserved; renumbering never clears a total.
+- The operation writes a typed number component, not a formatting-only text patch and not a full semantic replacement. Disc numbers and their totals are preserved.
+- Ambiguous or invalid legacy number candidates make the package reject the write; renumbering reports the failure and does not pick a candidate.
+- Renumbering never performs private-atom cleanup. Explicit number cleanup is a separate preview/Apply action.
 - Containers may normalize padding. Verification checks that the numeric value round-trips; a text-only difference is reported as normalization.
 - Unsupported formats are skipped rather than force-written.
 
 ## Tests
 
 - Filename template parsing, sanitization, collisions, and extraction: `FileRenameTemplateTests`, `FilenameMetadataTemplateTests`, `AudioMatorCoreLogicTests`.
+- Independent filename tokens: `year` keeps complete stored YEAR text; `date`, `releaseDate` and `originalReleaseDate` edit only their own field. Extraction applies only the explicitly targeted field.
 - Transaction rollback and recovery: `FileRenameTransactionTests`.
 - Post-rename refresh safety: `RenameRefreshSafetyTests`.
 - Renumber pad/start policy: `TrackRenumberTests`.

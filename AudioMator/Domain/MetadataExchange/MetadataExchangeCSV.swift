@@ -1,5 +1,80 @@
 import Foundation
 
+/// Versioned AudioMator exchange profile.
+///
+/// Version 2 carries YEAR, DATE, RELEASEDATE and ORIGINALDATE as independent
+/// columns. A leading marker line identifies the profile; files without it are
+/// read with the legacy v1 column meanings. Unknown newer versions are rejected
+/// before any write.
+nonisolated enum MetadataExchangeProfile {
+    static let currentVersion = 2
+    static let legacyVersion = 1
+    static let markerPrefix = "# AudioMator-Metadata-Profile:"
+    /// Unquoted cell value that requests an explicit removal. A quoted literal
+    /// with the same text is data, so literal values stay expressible.
+    static let removalToken = "<remove>"
+    /// Internal, non-empty carrier for an explicit removal through the import
+    /// plan. Quoted literal text never becomes this sentinel.
+    static let removalSentinel = "\u{1F}AudioMatorRemove\u{1F}"
+
+    nonisolated static func displayValue(_ value: String) -> String {
+        value == removalSentinel ? removalToken : value
+    }
+
+    nonisolated struct Extraction {
+        /// Source without the marker line.
+        let source: String
+        /// `nil` when no marker was present: the legacy v1 profile.
+        let version: Int?
+        let errorMessage: String?
+    }
+
+    nonisolated static func markerLine() -> String {
+        "\(markerPrefix) \(currentVersion)"
+    }
+
+    nonisolated static func extract(from source: String) -> Extraction {
+        var text = source
+        if text.hasPrefix("\u{FEFF}") {
+            text.removeFirst()
+        }
+        let trimmedLeading = text.drop(while: { $0 == " " || $0 == "\t" })
+        guard trimmedLeading.hasPrefix(markerPrefix) else {
+            return Extraction(source: source, version: nil, errorMessage: nil)
+        }
+
+        let markerAndRest = trimmedLeading
+        // Swift treats CRLF as one extended grapheme cluster, so it must be
+        // matched explicitly as a single Character.
+        let lineEnd = markerAndRest.firstIndex(where: {
+            $0 == "\n" || $0 == "\r" || $0 == "\r\n"
+        }) ?? markerAndRest.endIndex
+        let markerLine = markerAndRest[..<lineEnd]
+        let versionText = markerLine.dropFirst(markerPrefix.count)
+            .trimmingCharacters(in: .whitespaces)
+        guard let version = Int(versionText) else {
+            return Extraction(
+                source: source,
+                version: nil,
+                errorMessage: "The AudioMator metadata profile marker is not a valid version."
+            )
+        }
+        guard version >= legacyVersion, version <= currentVersion else {
+            return Extraction(
+                source: source,
+                version: version,
+                errorMessage: "This AudioMator metadata profile version (\(version)) is newer than the supported version (\(currentVersion)). Update AudioMator before importing."
+            )
+        }
+
+        var remainder = String(markerAndRest[lineEnd...])
+        if remainder.hasPrefix("\r\n") || remainder.hasPrefix("\n") || remainder.hasPrefix("\r") {
+            remainder.removeFirst()
+        }
+        return Extraction(source: remainder, version: version, errorMessage: nil)
+    }
+}
+
 nonisolated enum MetadataExchangeResourceLimits {
     static let maximumRecordCount = 100_000
     static let maximumDocumentUTF8ByteCount = 32 * 1_024 * 1_024
@@ -291,7 +366,7 @@ enum MetadataExchangeCSV {
                     escape(
                         spreadsheetProtectedValue(value),
                         delimiter: delimiter,
-                        forceQuote: value.first?.isWhitespace == true || value.last?.isWhitespace == true
+                        forceQuote: value.trimmingCharacters(in: .whitespacesAndNewlines) == MetadataExchangeProfile.removalToken || value.first?.isWhitespace == true || value.last?.isWhitespace == true
                     )
                 }
                 .joined(separator: String(delimiter))

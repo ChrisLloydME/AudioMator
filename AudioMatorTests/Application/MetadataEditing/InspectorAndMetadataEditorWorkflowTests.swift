@@ -1314,9 +1314,9 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
                     .title: "iTunes Title",
                     .trackNumber: "7",
                     .trackTotal: "12",
-                    .itunesAlbumID: "album-id",
-                    .itunesArtistID: "artist-id",
-                    .itunesCatalogID: "track-id",
+                    .itunesAlbumID: "12345",
+                    .itunesArtistID: "67890",
+                    .itunesCatalogID: "54321",
                     .isExplicit: ContentAdvisory.explicit.displayName
                 ]
             )
@@ -1327,9 +1327,9 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(payload.title, "iTunes Title")
         XCTAssertEqual(payload.album, "Keep Album")
         XCTAssertEqual(payload.trackNumberText, "7/12")
-        XCTAssertEqual(payload.itunesAlbumID, "album-id")
-        XCTAssertEqual(payload.itunesArtistID, "artist-id")
-        XCTAssertEqual(payload.itunesCatalogID, "track-id")
+        XCTAssertEqual(payload.itunesAlbumID, "12345")
+        XCTAssertEqual(payload.itunesArtistID, "67890")
+        XCTAssertEqual(payload.itunesCatalogID, "54321")
         XCTAssertEqual(payload.contentAdvisory, .explicit)
         XCTAssertNil(viewModel.metadataSaveProgress)
         XCTAssertEqual(viewModel.files.first?.title, "iTunes Title")

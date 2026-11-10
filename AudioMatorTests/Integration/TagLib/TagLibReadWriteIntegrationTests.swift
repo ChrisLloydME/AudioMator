@@ -65,7 +65,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
     private static let expectedNumberTextAfterTrackTextWrite = [
         "testAudioFile.mp3": ("07/12", "2/3", false),
-        "testAudioFile.m4a": ("07/12", "2/3", false),
+        "testAudioFile.m4a": ("7/12", "2/3", false),
         "testAudioFile.flac": ("07", "2", false),
         "testAudioFile.aac": ("07/12", "2/3", false),
         "testAudioFile.ogg": ("07", "2", false),
@@ -103,8 +103,12 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let pipeline = TagLibAudioMetadataPipeline()
             for sourceValue in ["曲名\nFirst", "Artist; Another Artist"] {
                 for operation in MetadataFieldTransferOperation.allCases {
+                    var seedFields: [MetadataFieldKey: MetadataPatchValue] = [.title: .text(sourceValue)]
+                    if fixtureName != "testAudioFile.flac" {
+                        seedFields[.comment] = .text("Old destination")
+                    }
                     _ = try TagLibMetadataManager.applyMetadataPatch(
-                        MetadataPatch(fields: [.title: .text(sourceValue), .comment: .text("Old destination")]),
+                        MetadataPatch(fields: seedFields),
                         to: workingURL
                     )
                     let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
@@ -126,7 +130,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let pipeline = TagLibAudioMetadataPipeline()
             for source in [MetadataExchangeField.trackNumber, .discNumber] {
                 _ = try TagLibMetadataManager.applyMetadataPatch(
-                    MetadataPatch(numberText: MetadataNumberTextPatch(trackNumberText: "7/0", discNumberText: "2/0")),
+                    MetadataPatch(fields: [.track: .integer(7), .disc: .integer(2)]),
                     to: workingURL
                 )
                 let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
@@ -168,9 +172,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 XCTAssertEqual(plan.rows.first?.changes.first?.importedValue, "曲名\nFirst")
                 let payload = try fieldTransferPayload(from: baseline, source: .title, destination: .comment, operation: operation)
                 _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
-                let readBack = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
-                XCTAssertEqual(readBack.comment, "曲名\nFirst")
-                XCTAssertEqual(readBack.title, operation == .cut ? "" : baseline.title)
+                let after = try await pipeline.loadAudioFile(at: workingURL, id: baseline.id)
+                XCTAssertEqual(after.comment, "曲名\nFirst")
+                XCTAssertEqual(after.title, operation == .cut ? "" : baseline.title)
             }
         }
     }
@@ -234,11 +238,6 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             MetadataPatch(fields: [.title: .text("2026"), .comment: .text("Original comment")]), to: workingURL
         )
         let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
-        let unsupportedPayload = try fieldTransferPayload(from: baseline, source: .title, destination: .year, operation: .cut)
-        let beforeUnsupportedWrite = try Data(contentsOf: workingURL)
-        XCTAssertThrowsError(try pipeline.writeMetadata(unsupportedPayload, to: workingURL, expectedVersion: baseline.metadataFileVersion))
-        XCTAssertEqual(try Data(contentsOf: workingURL), beforeUnsupportedWrite)
-
         let stalePayload = try fieldTransferPayload(from: baseline, source: .title, destination: .comment, operation: .cut)
         _ = try TagLibMetadataManager.applyMetadataPatch(
             MetadataPatch(fields: [.comment: .text("External change")]), to: workingURL
@@ -276,8 +275,11 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var edit = SingleFileEditModel(from: file)
         edit.setDiscNumberFieldText("2")
         let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: file))
-        XCTAssertNil(patch.numberText?.trackNumberText)
-        XCTAssertEqual(patch.numberText?.discNumberText, "2/3")
+        XCTAssertNil(patch.fields[.track])
+        XCTAssertNil(patch.fields[.trackTotal])
+        XCTAssertEqual(patch.fields[.disc], .integer(2))
+        XCTAssertEqual(patch.fields[.discTotal], .integer(3))
+        XCTAssertNil(patch.numberText)
     }
 
     func testTitleOnlyInspectorWritePreservesUntouchedRawValueStructure() async throws {
@@ -324,6 +326,30 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    func testInspectorYearSetAndClearRoundTripsAcrossIndependentDateFixtures() async throws {
+        for fixtureName in Self.audioFixtureNames where fixtureName != "testAudioFile.m4a" {
+            let url = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
+            defer { removeTemporaryFixtureDirectory(containing: url) }
+            let pipeline = TagLibAudioMetadataPipeline()
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(fields: [.date: .text("2020"), .releaseDate: .text("2019-05-31")]),
+                to: url
+            )
+            for year in ["2021", ""] {
+                let baseline = try await pipeline.loadAudioFile(at: url, id: UUID())
+                var edit = SingleFileEditModel(from: baseline)
+                edit.year = year
+                let payload = MetadataEditPayload(edit, comparedTo: baseline)
+                XCTAssertEqual(payload.changedFields, [.year], fixtureName)
+                _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: baseline.metadataFileVersion)
+                let reloaded = try await pipeline.loadAudioFile(at: url, id: baseline.id)
+                XCTAssertEqual(reloaded.year, year, fixtureName)
+                XCTAssertEqual(reloaded.releaseDate, "2019-05-31", fixtureName)
+                XCTAssertEqual(reloaded.title, baseline.title, fixtureName)
+            }
+        }
+    }
+
     func testInspectorYearAndReleaseDateEditsRemainIndependentOnFLAC() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -343,11 +369,11 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.year = "2021"
         var payload = MetadataEditPayload(edit, comparedTo: baseline)
         var patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
-        XCTAssertEqual(patch.fields, [.date: .text("2021")])
+        XCTAssertEqual(patch.fields, [.year: .text("2021")])
 
         _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
         var snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
-        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "DATE" }?.values, ["2021"])
+        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "YEAR" }?.values, ["2021"])
         XCTAssertEqual(snapshot.raw.properties.first { $0.key == "RELEASEDATE" }?.values, ["2020-05-31"])
 
         baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
@@ -359,17 +385,21 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
         snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
-        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "DATE" }?.values, ["2021"])
+        XCTAssertEqual(snapshot.raw.properties.first { $0.key == "YEAR" }?.values, ["2021"])
         XCTAssertNil(snapshot.raw.properties.first { $0.key == "RELEASEDATE" })
     }
 
-    func testInspectorYearEditIsExplicitlyUnsupportedForMP4() async throws {
+    func testInspectorYearEditIsEditableOnMP4AndIndependentOfReleaseDate() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
         _ = try TagLibMetadataManager.applyMetadataPatch(
-            MetadataPatch(fields: [.releaseDate: .text("2020-05-31")]),
+            MetadataPatch(fields: [
+                .year: .text("1990"),
+                .standaloneDate: .text("2008-03-04"),
+                .releaseDate: .text("2020-05-31"),
+            ]),
             to: workingURL
         )
         let pipeline = TagLibAudioMetadataPipeline()
@@ -377,19 +407,17 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var edit = SingleFileEditModel(from: baseline)
         edit.year = "2021"
         let payload = MetadataEditPayload(edit, comparedTo: baseline)
-        let before = try Data(contentsOf: workingURL)
+        XCTAssertEqual(payload.changedFields, [.year])
 
-        XCTAssertThrowsError(try pipeline.writeMetadata(
+        _ = try pipeline.writeMetadata(
             payload,
             to: workingURL,
             expectedVersion: baseline.metadataFileVersion
-        )) { error in
-            XCTAssertEqual(
-                error as? MetadataPatchValidationError,
-                .unsupportedFieldForFormat(field: .date, format: "mp4")
-            )
-        }
-        XCTAssertEqual(try Data(contentsOf: workingURL), before)
+        )
+        let reloaded = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        XCTAssertEqual(reloaded.year, "2021")
+        XCTAssertEqual(reloaded.date, "2008-03-04")
+        XCTAssertEqual(reloaded.releaseDate, "2020-05-31")
     }
 
     func testAudioFileLoadingRejectsMissingSourceFile() async {
@@ -532,36 +560,35 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
-            var metadata = try TagLibMetadataManager.readMetadataResult(from: workingURL)
-            metadata.title = "AudioMator Integration Title"
-            metadata.artist = "AudioMator Integration Artist"
-            metadata.album = "AudioMator Integration Album"
-            metadata.albumArtist = "AudioMator Integration Album Artist"
-            metadata.genre = "Integration Test"
-            metadata.comment = "Written by AudioMator XCTest"
-            metadata.track = 7
-            metadata.trackTotal = 12
-            metadata.disc = 2
-            metadata.discTotal = 3
-            metadata.trackNumberText = "7/12"
-            metadata.discNumberText = "2/3"
-            metadata.year = "2026"
-            metadata.releaseDate = "2026-05-13"
-
-            try TagLibMetadataManager.writeMetadataWithVerification(
-                metadata,
-                to: workingURL,
-                failurePolicy: .throw
+            var fields: [MetadataFieldKey: MetadataPatchValue] = [
+                .title: .text("AudioMator Integration Title"),
+                .artist: .text("AudioMator Integration Artist"),
+                .album: .text("AudioMator Integration Album"),
+                .albumArtist: .text("AudioMator Integration Album Artist"),
+                .genre: .text("Integration Test"),
+                .track: .integer(7),
+                .trackTotal: .integer(12),
+                .disc: .integer(2),
+                .discTotal: .integer(3),
+                .year: .text("2026"),
+                .releaseDate: .text("2026-05-13"),
+            ]
+            if fixtureName != "testAudioFile.flac" {
+                fields[.comment] = .text("Written by AudioMator XCTest")
+            }
+            _ = try TagLibMetadataManager.applyMetadataPatch(
+                MetadataPatch(fields: fields),
+                to: workingURL
             )
 
             let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
-            XCTAssertEqual(readBack.title, metadata.title, fixtureName)
-            XCTAssertEqual(readBack.artist, metadata.artist, fixtureName)
-            XCTAssertEqual(readBack.album, metadata.album, fixtureName)
-            XCTAssertEqual(readBack.track, metadata.track, fixtureName)
-            XCTAssertEqual(readBack.trackTotal, metadata.trackTotal, fixtureName)
-            XCTAssertEqual(readBack.disc, metadata.disc, fixtureName)
-            XCTAssertEqual(readBack.discTotal, metadata.discTotal, fixtureName)
+            XCTAssertEqual(readBack.title, "AudioMator Integration Title", fixtureName)
+            XCTAssertEqual(readBack.artist, "AudioMator Integration Artist", fixtureName)
+            XCTAssertEqual(readBack.album, "AudioMator Integration Album", fixtureName)
+            XCTAssertEqual(readBack.track, 7, fixtureName)
+            XCTAssertEqual(readBack.trackTotal, 12, fixtureName)
+            XCTAssertEqual(readBack.disc, 2, fixtureName)
+            XCTAssertEqual(readBack.discTotal, 3, fixtureName)
         }
         XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
@@ -659,7 +686,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack.trackTotal, 12)
     }
 
-    func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() throws {
+    func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() async throws {
         let pipeline = TagLibAudioMetadataPipeline()
         var executedFixtureCount = 0
 
@@ -673,14 +700,18 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
-            var edit = SingleFileEditModel()
+            let pipeline = TagLibAudioMetadataPipeline()
+            let baseline = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+            var edit = SingleFileEditModel(from: baseline)
             edit.title = "Title To Erase"
             edit.artist = "Artist To Erase"
             edit.album = "Album To Erase"
             edit.albumArtist = "Album Artist To Erase"
             edit.composer = "Composer To Erase"
             edit.genre = "Genre To Erase"
-            edit.comment = "Comment To Erase"
+            if fixtureName != "testAudioFile.flac" {
+                edit.comment = "Comment To Erase"
+            }
             edit.releaseDate = "2026-06-19"
             edit.publisher = "Label To Erase"
             edit.isrc = "USRC17607839"
@@ -690,7 +721,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             edit.setDiscNumberFieldText("2")
             edit.setDiscTotalFieldText("3")
 
-            _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+            _ = try pipeline.writeMetadata(MetadataEditPayload(edit, comparedTo: baseline), to: workingURL)
             let written = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertEqual(written.title, "Title To Erase", fixtureName)
             XCTAssertEqual(written.artist, "Artist To Erase", fixtureName)
@@ -698,7 +729,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(written.albumArtist, "Album Artist To Erase", fixtureName)
             XCTAssertEqual(written.composer, "Composer To Erase", fixtureName)
             XCTAssertEqual(written.genre, "Genre To Erase", fixtureName)
-            XCTAssertEqual(written.comment, "Comment To Erase", fixtureName)
+            if fixtureName != "testAudioFile.flac" {
+                XCTAssertEqual(written.comment, "Comment To Erase", fixtureName)
+            }
             XCTAssertEqual(written.releaseDate, "2026-06-19", fixtureName)
             XCTAssertEqual(written.publisher, "Label To Erase", fixtureName)
             XCTAssertEqual(written.isrc, "USRC17607839", fixtureName)

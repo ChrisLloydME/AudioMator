@@ -31,7 +31,7 @@ TagLib is linked as a separate dynamic framework inside the app. Releases must k
 
 - Project: <https://github.com/ChrisLloydME/TagLibAudioMetadata>
 - Role: Swift Package Manager dependency that exposes the TagLib-backed metadata manager used by AudioMator.
-- Version: exact pin `0.6.0` (revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`).
+- Version: exact target `0.7.1`; [candidate source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/codex/mapping-conformance-repairs), publication pending.
 - License: MIT License.
 - Copyright: Copyright (c) 2026 Christopher Lloyd.
 - Bundle resource: `TagLibAudioMetadata-MIT.txt`.
@@ -170,3 +170,8 @@ If you stay inside local editing features, AudioMator stays offline. If you use 
 E-mail: AudioMator@lloydME.com
 
 See [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) for security limitations and vulnerability reporting.
+
+
+### Mapping repair candidate
+
+The current target is **TagLibAudioMetadata 0.7.1**, tested against the local repair branch using the ignored `.tmp/MappingIntegration.xcworkspace`. Package publication is maintainer-owned. The old 0.7.0 lock resolution is removed; regenerate `Package.resolved` from the published 0.7.1 tag before normal-project/release validation. This is not evidence that the unpublished tag was remotely resolved.

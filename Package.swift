@@ -58,6 +58,7 @@ let package = Package(
             ],
             sources: [
                 "Core/Audio/AudioTagNumberPair.swift",
+                "Core/Audio/MetadataDateTextCore.swift",
                 "Core/Audio/AudioTagNumberText.swift",
                 "Core/Audio/AudioNumericConversion.swift",
                 "Core/Audio/AudioFormatSupportCore.swift",

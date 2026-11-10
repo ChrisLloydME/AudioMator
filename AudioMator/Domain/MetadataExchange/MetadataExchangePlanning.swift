@@ -10,7 +10,8 @@ struct MetadataTextExportPlan {
     let rows: [MetadataTextExportRow]
 
     var outputText: String {
-        rows.map(\.output).joined(separator: "\n")
+        [MetadataExchangeProfile.markerLine(), rows.map(\.output).joined(separator: "\n")]
+            .joined(separator: "\n")
     }
 
     var canExport: Bool {
@@ -31,7 +32,9 @@ struct MetadataCSVExportPlan {
             outputRows.append(columns.map(\.displayName))
         }
         outputRows.append(contentsOf: rows)
-        return MetadataExchangeCSV.serialize(outputRows, delimiter: delimiter)
+        return MetadataExchangeProfile.markerLine()
+            + "\r\n"
+            + MetadataExchangeCSV.serialize(outputRows, delimiter: delimiter)
     }
 
     var canExport: Bool {
@@ -91,6 +94,11 @@ struct MetadataExchangeFieldChange: Identifiable {
     let willWrite: Bool
 
     var id: String { field.placeholderName }
+
+    /// Preview text for an explicit removal, distinct from a literal value.
+    var displayImportedValue: String {
+        MetadataExchangeProfile.displayValue(importedValue)
+    }
 }
 
 struct MetadataExchangeWriteEntry: Identifiable {
@@ -187,6 +195,10 @@ enum MetadataExchangePlanner {
         }
 
         let uniqueFiles = uniqueTargetFiles(targetFiles)
+        if document.fields.contains(where: \.isIndependentDateField),
+           uniqueFiles.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
+            return MetadataTextExportPlan(validationMessage: String(localized: "Independent date export is unavailable for unverified ID3v2.3 date projections."), rows: [])
+        }
         guard uniqueFiles.count <= MetadataExchangeResourceLimits.maximumRecordCount else {
             return MetadataTextExportPlan(
                 validationMessage: L10n.string("The export contains more than 100,000 files. Export a smaller selection."),
@@ -261,6 +273,10 @@ enum MetadataExchangePlanner {
         }
 
         let uniqueFiles = uniqueTargetFiles(targetFiles)
+        if result.columns.contains(where: \.isIndependentDateField),
+           uniqueFiles.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
+            return MetadataCSVExportPlan(validationMessage: String(localized: "Independent date export is unavailable for unverified ID3v2.3 date projections."), columns: result.columns, rows: [], includeHeaderRow: includeHeaderRow, delimiter: result.delimiter)
+        }
         guard uniqueFiles.count <= MetadataExchangeResourceLimits.maximumRecordCount else {
             return MetadataCSVExportPlan(
                 validationMessage: L10n.string("The export contains more than 100,000 files. Export a smaller selection."),
@@ -358,7 +374,12 @@ enum MetadataExchangePlanner {
             return MetadataExchangeImportPlan(validationMessage: validationMessage, rows: [])
         }
 
-        var normalizedSource = sourceText
+        let profile = MetadataExchangeProfile.extract(from: sourceText)
+        if let errorMessage = profile.errorMessage {
+            return MetadataExchangeImportPlan(validationMessage: errorMessage, rows: [])
+        }
+
+        var normalizedSource = profile.source
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
         if normalizedSource.hasPrefix("\u{FEFF}") {
@@ -399,7 +420,13 @@ enum MetadataExchangePlanner {
 
         let matcher = MetadataExchangeTextMatcher(document: document)
         let parsedRecords = records.enumerated().map { index, record in
-            ParsedExternalRecord(index: index, displayText: record, captures: matcher.match(record))
+            ParsedExternalRecord(
+                index: index,
+                displayText: record,
+                captures: (profile.version ?? MetadataExchangeProfile.legacyVersion) >= 2
+                    ? matcher.match(record).removingExplicitRemovalTokens()
+                    : matcher.match(record)
+            )
         }
 
         return makeImportPlan(
@@ -435,10 +462,15 @@ enum MetadataExchangePlanner {
             )
         }
 
+        let profile = MetadataExchangeProfile.extract(from: sourceText)
+        if let errorMessage = profile.errorMessage {
+            return MetadataExchangeImportPlan(validationMessage: errorMessage, rows: [])
+        }
+
         let parsedCSV: [[MetadataExchangeCSVField]]
         do {
             parsedCSV = try MetadataExchangeCSV.parseFields(
-                sourceText,
+                profile.source,
                 delimiter: result.delimiter,
                 allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: result.delimiter),
                 maximumRowCount: maximumImportRecordCount + (firstRowIsHeader ? 1 : 0),
@@ -516,7 +548,7 @@ enum MetadataExchangePlanner {
             return ParsedExternalRecord(
                 index: index,
                 displayText: displayText,
-                captures: captures(from: cells, columns: result.columns)
+                captures: captures(from: cells, columns: result.columns, allowsRemoval: (profile.version ?? MetadataExchangeProfile.legacyVersion) >= 2)
             )
         }
 
@@ -586,7 +618,11 @@ enum MetadataExchangePlanner {
             case .literal(let literal):
                 return literal
             case .field(let field):
-                return field.value(from: file, index: index, relativeBasePath: relativeBasePath)
+                let value = field.value(from: file, index: index, relativeBasePath: relativeBasePath)
+                // Reserve the bare token for removal, and escape every leading
+                // backslash run so both literal tokens and escapes round-trip.
+                return value.drop(while: { $0 == "\\" }) == MetadataExchangeProfile.removalToken
+                    ? "\\" + value : value
             }
         }.joined()
     }
@@ -652,6 +688,13 @@ enum MetadataExchangePlanner {
         let normalizedCell = normalizedHeaderToken(cell.decodedValue)
         guard !normalizedCell.isEmpty else { return false }
 
+        // A legacy `DATE` header means the native YEAR slot. It must never be
+        // silently reinterpreted as the independent semantic Date column.
+        if field == .date,
+           cell.decodedValue.trimmingCharacters(in: .whitespacesAndNewlines) == "DATE" {
+            return false
+        }
+
         let externalAliases: [String]
         switch field {
         case .fileName: externalAliases = ["Name", "File Name", "Filename"]
@@ -688,11 +731,19 @@ enum MetadataExchangePlanner {
 
     private static func captures(
         from cells: [MetadataExchangeCSVField],
-        columns: [MetadataExchangeField]
+        columns: [MetadataExchangeField],
+        allowsRemoval: Bool
     ) -> MetadataExchangeCaptureResult {
         var captures: [MetadataExchangeField: String] = [:]
         for (index, field) in columns.enumerated() {
             guard field != .ignore else { continue }
+            // An unquoted removal token is distinct from an omitted column and
+            // from an empty cell: it clears only this field.
+            if allowsRemoval, !cells[index].wasQuoted,
+               cells[index].importedValue == MetadataExchangeProfile.removalToken {
+                captures[field] = MetadataExchangeProfile.removalSentinel
+                continue
+            }
             let importedValue = field.canonicalImportedValue(cells[index].importedValue)
             if let validationMessage = field.importedValueValidationMessage(importedValue) {
                 return .failure(validationMessage)
@@ -967,7 +1018,7 @@ enum MetadataExchangePlanner {
             case .index:
                 return positiveIndex(importedValue) == fileIndex + 1
             case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-                    .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                    .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal,
                     .discNumber, .discTotal, .comment, .releaseDate, .publisher,
                     .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
                     .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
@@ -1014,7 +1065,7 @@ enum MetadataExchangePlanner {
         case .index:
             return [String(fileIndex + 1)]
         case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal,
                 .discNumber, .discTotal, .comment, .releaseDate, .publisher,
                 .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
                 .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
@@ -1038,7 +1089,7 @@ enum MetadataExchangePlanner {
         case .index:
             return positiveIndex(value).map(String.init)
         case .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-                .engineer, .remixer, .genre, .year, .trackNumber, .trackTotal,
+                .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal,
                 .discNumber, .discTotal, .comment, .releaseDate, .publisher,
                 .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
                 .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
@@ -1139,10 +1190,23 @@ enum MetadataExchangePlanner {
         case .failure(let message):
             return parseErrorRow(record: record, file: file, message: message)
         case .success(let captures):
+            if file.hasUnverifiedIndependentDateProjection,
+               captures.keys.contains(where: \.isIndependentDateField) {
+                return parseErrorRow(record: record, file: file, message: "Independent date editing is read-only for ID3v2.3.")
+            }
             for (field, importedValue) in captures where field.isWritableMetadataField {
+                if importedValue == MetadataExchangeProfile.removalSentinel { continue }
                 if let validationMessage = field.importedValueValidationMessage(importedValue) {
                     return parseErrorRow(record: record, file: file, message: validationMessage)
                 }
+            }
+
+            if let advisory = captures[.contentAdvisory],
+               advisory != MetadataExchangeProfile.removalSentinel, !advisory.isEmpty,
+               ContentAdvisory.fromMetadataText(advisory) == nil,
+               advisory != file.advisoryRawValue {
+                return parseErrorRow(record: record, file: file, message:
+                    "This advisory code can be preserved on its original file, but the dependency does not support assigning unknown codes to another file.")
             }
 
             let changes = MetadataExchangeField.allCases.compactMap { field -> MetadataExchangeFieldChange? in
@@ -1273,6 +1337,23 @@ private struct ParsedExternalRecord {
 private enum MetadataExchangeCaptureResult {
     case success([MetadataExchangeField: String])
     case failure(String)
+
+    /// Converts the unquoted removal token into an explicit empty value while
+    /// leaving every other captured value untouched.
+    func removingExplicitRemovalTokens() -> Self {
+        guard case .success(let captures) = self else { return self }
+        let converted = captures.mapValues { value in
+            if value == MetadataExchangeProfile.removalToken {
+                return MetadataExchangeProfile.removalSentinel
+            }
+            if value.hasPrefix("\\"),
+               value.drop(while: { $0 == "\\" }) == MetadataExchangeProfile.removalToken {
+                return String(value.dropFirst())
+            }
+            return value
+        }
+        return .success(converted)
+    }
 }
 
 private struct MetadataExchangeTextMatcher {

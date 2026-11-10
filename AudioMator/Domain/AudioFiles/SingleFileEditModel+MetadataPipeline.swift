@@ -5,11 +5,16 @@ extension MetadataEditPayload {
     init(_ edit: SingleFileEditModel) {
         var changedFields = Set(Self.textFieldMappings.map(\.key))
         if edit.year.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            changedFields.remove(.date)
+            changedFields.remove(.year)
         }
         self.init(
             edit,
             changedFields: changedFields,
+            containerFields: Self.containerPatch(from: edit.containerValues),
+            originalTrackNumber: nil,
+            originalTrackTotal: nil,
+            originalDiscNumber: nil,
+            originalDiscTotal: nil,
             contentAdvisoryChanged: true,
             trackNumberTextChanged: true,
             discNumberTextChanged: true
@@ -23,10 +28,22 @@ extension MetadataEditPayload {
             changedFields.insert(mapping.key)
         }
 
+        let containerFields = Self.containerPatch(
+            from: edit.containerValues,
+            comparedTo: baseline.containerValues
+        )
+        changedFields.formUnion(containerFields.keys)
+
         self.init(
             edit,
             changedFields: changedFields,
-            contentAdvisoryChanged: edit.contentAdvisory != baseline.contentAdvisory,
+            containerFields: containerFields,
+            originalTrackNumber: baseline.track,
+            originalTrackTotal: baseline.trackTotal,
+            originalDiscNumber: baseline.disc,
+            originalDiscTotal: baseline.discTotal,
+            contentAdvisoryChanged: edit.contentAdvisory != baseline.contentAdvisory
+                || (edit.clearsUnknownAdvisory && file.advisoryRawValue != nil),
             trackNumberTextChanged: edit.trackNumberText != baseline.trackNumberText ||
                 edit.track != baseline.track || edit.trackTotal != baseline.trackTotal,
             discNumberTextChanged: edit.discNumberText != baseline.discNumberText ||
@@ -37,6 +54,11 @@ extension MetadataEditPayload {
     private init(
         _ edit: SingleFileEditModel,
         changedFields: Set<MetadataFieldKey>,
+        containerFields: [MetadataFieldKey: MetadataPatchValue],
+        originalTrackNumber: Int?,
+        originalTrackTotal: Int?,
+        originalDiscNumber: Int?,
+        originalDiscTotal: Int?,
         contentAdvisoryChanged: Bool,
         trackNumberTextChanged: Bool,
         discNumberTextChanged: Bool
@@ -48,14 +70,23 @@ extension MetadataEditPayload {
         self.genre = edit.genre
         self.comment = edit.comment
         self.year = edit.year
+        self.date = edit.date
         self.trackNumber = edit.track
         self.trackTotal = edit.trackTotal
         self.discNumber = edit.disc
         self.discTotal = edit.discTotal
         self.trackNumberText = edit.trackNumberText
         self.discNumberText = edit.discNumberText
+        self.originalTrackNumber = originalTrackNumber
+        self.originalTrackTotal = originalTrackTotal
+        self.originalDiscNumber = originalDiscNumber
+        self.originalDiscTotal = originalDiscTotal
         self.albumArtist = edit.albumArtist
         self.releaseDate = edit.releaseDate
+        self.originalReleaseDate = edit.originalReleaseDate
+        self.contentGroup = edit.contentGroup
+        self.grouping = edit.grouping
+        self.work = edit.work
         self.publisher = edit.publisher
         self.isrc = edit.isrc
         self.barcode = edit.barcode
@@ -75,7 +106,9 @@ extension MetadataEditPayload {
         self.catalogNumber = edit.catalogNumber
         self.releaseCountry = edit.releaseCountry
         self.copyright = edit.copyright
+        self.unsupportedAdvisoryImport = edit.unsupportedAdvisoryImport
         self.contentAdvisory = edit.contentAdvisory
+        self.containerFields = containerFields
 
         switch edit.artworkEditAction {
         case .unchanged:
@@ -91,6 +124,32 @@ extension MetadataEditPayload {
         self.discNumberTextChanged = discNumberTextChanged
     }
 
+    /// Builds typed patch values only for container fields whose value text
+    /// changed. Absence in both projections stays untouched; a removed key is an
+    /// explicit removal only when the baseline had a value.
+    private static func containerPatch(
+        from values: [MetadataFieldKey: ContainerFieldValue],
+        comparedTo baseline: [MetadataFieldKey: ContainerFieldValue]? = nil
+    ) -> [MetadataFieldKey: MetadataPatchValue] {
+        var patch: [MetadataFieldKey: MetadataPatchValue] = [:]
+        let editable = Set(ContainerMetadataFieldCatalog.editableKeys)
+        let keys = Set(values.keys).union(baseline.map { Set($0.keys) } ?? [])
+            .intersection(editable)
+        for key in keys {
+            let current = values[key]
+            let previous = baseline?[key]
+            if baseline != nil {
+                guard current != previous else { continue }
+            }
+            guard let current else {
+                patch[key] = .remove
+                continue
+            }
+            patch[key] = current.patchValue
+        }
+        return patch
+    }
+
     private static let textFieldMappings: [(key: MetadataFieldKey, value: (SingleFileEditModel) -> String)] = [
         (.title, { $0.title }),
         (.artist, { $0.artist }),
@@ -98,9 +157,16 @@ extension MetadataEditPayload {
         (.composer, { $0.composer }),
         (.genre, { $0.genre }),
         (.comment, { $0.comment }),
-        (.date, { $0.year }),
+        // `.year` is the canonical YEAR identity. `.date` is the legacy YEAR
+        // alias and must never be submitted for a semantic write.
+        (.year, { $0.year }),
+        (.standaloneDate, { $0.date }),
         (.albumArtist, { $0.albumArtist }),
         (.releaseDate, { $0.releaseDate }),
+        (.originalReleaseDate, { $0.originalReleaseDate }),
+        (.contentGroup, { $0.contentGroup }),
+        (.grouping, { $0.grouping }),
+        (.work, { $0.work }),
         (.publisher, { $0.publisher }),
         (.isrc, { $0.isrc }),
         (.barcode, { $0.barcode }),

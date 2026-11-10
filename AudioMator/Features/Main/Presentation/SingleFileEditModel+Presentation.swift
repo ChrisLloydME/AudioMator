@@ -32,6 +32,8 @@ extension ExplicitInspectorSelection {
         switch self {
         case .unset: L10n.string("Unset")
         case .advisory(let advisory): advisory.displayName
+        case .unknown(let rawValue):
+            String(localized: "Unknown") + " (\(rawValue))"
         }
     }
 
@@ -49,6 +51,11 @@ extension MultiFileEditableTextField {
         case .composer: L10n.string("Composer")
         case .genre: L10n.string("Genre")
         case .year: L10n.string("Year")
+        case .date: L10n.string("Date")
+        case .originalReleaseDate: L10n.string("Original Release Date")
+        case .contentGroup: L10n.string("Content Group")
+        case .grouping: L10n.string("Grouping")
+        case .work: L10n.string("Work")
         case .trackNumber: L10n.string("Track Number")
         case .trackTotal: L10n.string("Total Tracks")
         case .discNumber: L10n.string("Disc Number")

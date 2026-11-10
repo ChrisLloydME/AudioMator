@@ -10,8 +10,7 @@ extension AudioFile {
     /// by the snapshot (including FLAC and ADTS).
     nonisolated static func needsAVFoundationCreditsRead(
         fileExtension: String, rawMetadata: RawMetadataDump
-    ) -> Bool {
-        switch fileExtension.lowercased() {
+    ) -> Bool {        switch fileExtension.lowercased() {
         case "mp3", "mp2", "wav", "aiff", "aif", "tta":
             rawMetadata.id3v2Frames.contains { $0.frameID == "TEXT" }
         case "m4a", "mp4", "ogg", "oga", "opus", "spx":
@@ -106,12 +105,16 @@ extension AudioFile {
             total: tag.discTotal
         )
 
-        // Treat Year and Release Date as separate fields:
-        // - `year`: plain year provided by TagLib, if available
-        // - `releaseDate`: full release date string provided by TagLib, if available
+        // Year, Date, Release Date and Original Release Date are independent.
+        // `year` is the complete stored YEAR text and is never truncated.
         self.year        = tag.year
+        self.date        = tag.date
         self.albumArtist = tag.albumArtist
         self.releaseDate = tag.releaseDate
+        self.originalReleaseDate = tag.originalReleaseDate
+        self.contentGroup = tag.contentGroup
+        self.grouping = tag.grouping
+        self.work = tag.work
         self.isrc        = tag.isrc
         self.barcode     = tag.barcode
         self.itunesAlbumID = tag.itunesAlbumID
@@ -135,6 +138,22 @@ extension AudioFile {
         case .notExplicit: .notExplicit
         case .clean: .clean
         case .explicit: .explicit
+        }
+        self.advisoryRawValue = tag.explicitAdvisoryRawValue
+        self.containerValues = Self.containerValues(from: tag, atoms: snapshot.structured.mp4Atoms)
+
+        let numberingInventory = try? TagLibMetadataManager.numberingInventory(at: url)
+        if let numberingInventory {
+            // The inventory must describe the same revision as the snapshot.
+            if let inventoryVersion = numberingInventory.fileVersion,
+               inventoryVersion != snapshot.fileVersion {
+                throw TagLibManagerError.fileChanged
+            }
+            self.trackNumberInventory = numberingInventory.track
+            self.discNumberInventory = numberingInventory.disc
+        } else {
+            self.trackNumberInventory = nil
+            self.discNumberInventory = nil
         }
 
         let asset = AVURLAsset(url: url)
@@ -231,5 +250,82 @@ extension AudioFile {
             throw TagLibManagerError.fileChanged
         }
         self.fileFingerprint = fingerprint
+    }
+
+    /// Reads typed container-exclusive values. Absence is represented by a
+    /// missing dictionary entry; present zero/false values are retained.
+    nonisolated static func containerValues(
+        from tag: BasicMetadata,
+        atoms: [StructuredMP4Atom]
+    ) -> [MetadataFieldKey: ContainerFieldValue] {
+        var values: [MetadataFieldKey: ContainerFieldValue] = [:]
+
+        for key in ContainerMetadataFieldCatalog.readKeys {
+            let accepted = ContainerMetadataFieldCatalog.acceptedKinds(for: key)
+            let atomKey = ContainerMetadataFieldCatalog.atomKey(for: key)
+            let atom = atoms.last {
+                !$0.remove && $0.key == atomKey
+            }
+
+            if let atom {
+                if accepted.contains(.boolean) && !accepted.contains(.text) {
+                    let flag = atom.first.map { $0 != 0 } ?? parsedBoolean(atom.value)
+                    if let flag {
+                        values[key] = .boolean(flag)
+                    }
+                    continue
+                }
+                if accepted.contains(.integer) && !accepted.contains(.text) || accepted.isEmpty {
+                    if let integer = atom.first ?? Int(atom.value.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                        values[key] = .integer(integer)
+                    }
+                    continue
+                }
+                let text = atom.value.isEmpty
+                    ? atom.values.joined(separator: "; ")
+                    : atom.value
+                if !text.isEmpty {
+                    values[key] = .text(text)
+                }
+                continue
+            }
+
+            // Text projections are available through BasicMetadata. Integer and
+            // Boolean projections use structured atoms so absence stays distinct
+            // from a present zero/false value.
+            guard !accepted.contains(.integer) && !accepted.contains(.boolean),
+                  let text = textValue(for: key, in: tag),
+                  !text.isEmpty else {
+                continue
+            }
+            values[key] = .text(text)
+        }
+
+        return values
+    }
+
+    nonisolated private static func textValue(
+        for key: MetadataFieldKey,
+        in tag: BasicMetadata
+    ) -> String? {
+        switch key {
+        case .director: return tag.director
+        case .itunesAccount: return tag.itunesAccount
+        case .itunesOwner: return tag.itunesOwner
+        case .storeDescription: return tag.storeDescription
+        case .tvEpisodeID: return tag.tvEpisodeID
+        case .tvNetwork: return tag.tvNetwork
+        case .tvShow: return tag.tvShow
+        case .tvShowSort: return tag.tvShowSort
+        default: return nil
+        }
+    }
+
+    nonisolated private static func parsedBoolean(_ text: String) -> Bool? {
+        switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "1", "true": return true
+        case "0", "false": return false
+        default: return nil
+        }
     }
 }

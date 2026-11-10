@@ -5,25 +5,8 @@ nonisolated func unsupportedMetadataWriteFields(
     in editPayload: MetadataEditPayload,
     forFileExtension fileExtension: String
 ) -> Set<MetadataFieldKey> {
-    var requestedFields = editPayload.changedFields
-    if editPayload.contentAdvisoryChanged {
-        requestedFields.insert(.explicitContent)
-    }
-    if editPayload.trackNumberTextChanged {
-        requestedFields.formUnion([.track, .trackTotal])
-    }
-    if editPayload.discNumberTextChanged {
-        requestedFields.formUnion([.disc, .discTotal])
-    }
-    switch editPayload.artwork {
-    case .unchanged:
-        break
-    case .replace, .remove:
-        requestedFields.insert(.artwork)
-    }
-
-    return unsupportedMetadataWriteFields(
-        requestedFields,
+    unsupportedMetadataWriteFields(
+        editPayload.requestedFields,
         forFileExtension: fileExtension
     )
 }
@@ -241,6 +224,9 @@ extension AudioViewModel {
 
         let editPayload = MetadataEditPayload(edit, comparedTo: sourceFile ?? file)
         if let message = editPayload.numberPairValidationMessage {
+            return .failure(message)
+        }
+        if let message = editPayload.dateValidationMessage {
             return .failure(message)
         }
         let unsupportedFields = unsupportedMetadataWriteFields(

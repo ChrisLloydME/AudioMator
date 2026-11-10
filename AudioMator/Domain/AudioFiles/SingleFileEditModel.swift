@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 nonisolated struct PendingArtwork: Equatable, Sendable {
     let id = UUID()
@@ -53,10 +54,15 @@ nonisolated enum ContentAdvisory: Int, CaseIterable, Identifiable, Sendable {
 enum ExplicitInspectorSelection: Hashable, Identifiable {
     case unset
     case advisory(ContentAdvisory)
+    /// An existing native code that is not one of the four semantic states.
+    /// It is displayed and preserved, never coerced to Clean or unset.
+    case unknown(String)
 
-    init(contentAdvisory: ContentAdvisory?) {
+    init(contentAdvisory: ContentAdvisory?, rawValue: String? = nil) {
         if let contentAdvisory {
             self = .advisory(contentAdvisory)
+        } else if let rawValue, !rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self = .unknown(rawValue)
         } else {
             self = .unset
         }
@@ -68,12 +74,14 @@ enum ExplicitInspectorSelection: Hashable, Identifiable {
             return "unset"
         case .advisory(let advisory):
             return "advisory-\(advisory.rawValue)"
+        case .unknown(let rawValue):
+            return "unknown-\(rawValue)"
         }
     }
 
     var contentAdvisory: ContentAdvisory? {
         switch self {
-        case .unset:
+        case .unset, .unknown:
             return nil
         case .advisory(let advisory):
             return advisory
@@ -94,6 +102,12 @@ struct SingleFileEditModel {
     var disc: Int
     var discTotal: Int
     var year: String
+    var date: String
+    var originalReleaseDate: String
+    var contentGroup: String
+    var grouping: String
+    var work: String
+    var containerValues: [MetadataFieldKey: ContainerFieldValue]
     var trackNumberText: String   // e.g. "1" / "01" / "01/10" (TRCK)
     var discNumberText: String    // e.g. "1" / "1/2" (TPOS)
     var albumArtist: String
@@ -118,6 +132,11 @@ struct SingleFileEditModel {
     var releaseCountry: String
     var copyright: String
     var contentAdvisory: ContentAdvisory?
+    /// Explicit user intent to remove an unrepresentable native advisory code
+    /// (for example MP4 `rtng=4`). Unknown codes must never become absence
+    /// merely because another field is saved.
+    var unsupportedAdvisoryImport: String? = nil
+    var clearsUnknownAdvisory: Bool
     var artworkEditAction: ArtworkEditAction
 
     var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
@@ -134,6 +153,12 @@ struct SingleFileEditModel {
         disc: Int = 0,
         discTotal: Int = 0,
         year: String = "",
+        date: String = "",
+        originalReleaseDate: String = "",
+        contentGroup: String = "",
+        grouping: String = "",
+        work: String = "",
+        containerValues: [MetadataFieldKey: ContainerFieldValue] = [:],
         trackNumberText: String = "",
         discNumberText: String = "",
         albumArtist: String = "",
@@ -158,6 +183,7 @@ struct SingleFileEditModel {
         releaseCountry: String = "",
         copyright: String = "",
         contentAdvisory: ContentAdvisory? = nil,
+        clearsUnknownAdvisory: Bool = false,
         artworkEditAction: ArtworkEditAction = .unchanged
     ) {
         self.title = title
@@ -171,6 +197,12 @@ struct SingleFileEditModel {
         self.disc = disc
         self.discTotal = discTotal
         self.year = year
+        self.date = date
+        self.originalReleaseDate = originalReleaseDate
+        self.contentGroup = contentGroup
+        self.grouping = grouping
+        self.work = work
+        self.containerValues = containerValues
         self.trackNumberText = trackNumberText
         self.discNumberText = discNumberText
         self.albumArtist = albumArtist
@@ -195,6 +227,7 @@ struct SingleFileEditModel {
         self.releaseCountry = releaseCountry
         self.copyright = copyright
         self.contentAdvisory = contentAdvisory
+        self.clearsUnknownAdvisory = clearsUnknownAdvisory
         self.artworkEditAction = artworkEditAction
     }
 
@@ -211,6 +244,12 @@ struct SingleFileEditModel {
             disc: file.disc,
             discTotal: file.discTotal,
             year: file.year,
+            date: file.date,
+            originalReleaseDate: file.originalReleaseDate,
+            contentGroup: file.contentGroup,
+            grouping: file.grouping,
+            work: file.work,
+            containerValues: file.containerValues,
             trackNumberText: file.trackNumberText,
             discNumberText: file.discNumberText,
             albumArtist: file.albumArtist,
@@ -253,6 +292,12 @@ struct SingleFileEditModel {
             disc != baseline.disc ||
             discTotal != baseline.discTotal ||
             year != baseline.year ||
+            date != baseline.date ||
+            originalReleaseDate != baseline.originalReleaseDate ||
+            contentGroup != baseline.contentGroup ||
+            grouping != baseline.grouping ||
+            work != baseline.work ||
+            containerValues != baseline.containerValues ||
             trackNumberText != baseline.trackNumberText ||
             discNumberText != baseline.discNumberText ||
             albumArtist != baseline.albumArtist ||
@@ -276,7 +321,9 @@ struct SingleFileEditModel {
             catalogNumber != baseline.catalogNumber ||
             releaseCountry != baseline.releaseCountry ||
             copyright != baseline.copyright ||
-            contentAdvisory != baseline.contentAdvisory
+            contentAdvisory != baseline.contentAdvisory ||
+            unsupportedAdvisoryImport != nil ||
+            clearsUnknownAdvisory != baseline.clearsUnknownAdvisory
 
         switch artworkEditAction {
         case .unchanged:
@@ -377,6 +424,11 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
     case composer
     case genre
     case year
+    case date
+    case originalReleaseDate
+    case contentGroup
+    case grouping
+    case work
     case trackNumber
     case trackTotal
     case discNumber
@@ -401,6 +453,16 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
             return edit.genre
         case .year:
             return edit.year
+        case .date:
+            return edit.date
+        case .originalReleaseDate:
+            return edit.originalReleaseDate
+        case .contentGroup:
+            return edit.contentGroup
+        case .grouping:
+            return edit.grouping
+        case .work:
+            return edit.work
         case .trackNumber:
             return edit.trackNumberFieldText
         case .trackTotal:
@@ -436,6 +498,16 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
             return file.genre
         case .year:
             return file.year
+        case .date:
+            return file.date
+        case .originalReleaseDate:
+            return file.originalReleaseDate
+        case .contentGroup:
+            return file.contentGroup
+        case .grouping:
+            return file.grouping
+        case .work:
+            return file.work
         case .trackNumber:
             return AudioTagNumberPair(rawText: file.trackNumberText, number: file.track, total: file.trackTotal).displayedNumberText
         case .trackTotal:
@@ -471,6 +543,16 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
             edit.genre = text
         case .year:
             edit.year = text
+        case .date:
+            edit.date = text
+        case .originalReleaseDate:
+            edit.originalReleaseDate = text
+        case .contentGroup:
+            edit.contentGroup = text
+        case .grouping:
+            edit.grouping = text
+        case .work:
+            edit.work = text
         case .trackNumber:
             edit.setTrackNumberFieldText(text)
         case .trackTotal:
@@ -519,6 +601,7 @@ enum MultiFileArtworkState {
 struct MultiFileEditModel {
     var values: SingleFileEditModel
     private(set) var modifiedTextFields: Set<MultiFileEditableTextField>
+    private(set) var modifiedContainerFields: Set<MetadataFieldKey>
     let mixedTextFields: Set<MultiFileEditableTextField>
     let initialContentAdvisory: ContentAdvisory??
     let initialArtworkState: MultiFileArtworkState
@@ -556,6 +639,7 @@ struct MultiFileEditModel {
 
         self.values = values
         self.modifiedTextFields = []
+        self.modifiedContainerFields = []
         self.mixedTextFields = mixedTextFields
         self.initialContentAdvisory = initialContentAdvisory
         self.initialArtworkState = artworkState ?? MultiFileEditModel.resolveArtworkState(for: files)
@@ -564,7 +648,8 @@ struct MultiFileEditModel {
     }
 
     var hasUnsavedChanges: Bool {
-        !modifiedTextFields.isEmpty || explicitEditState != .keepExisting || hasPendingArtworkChange
+        !modifiedTextFields.isEmpty || !modifiedContainerFields.isEmpty
+            || explicitEditState != .keepExisting || hasPendingArtworkChange
     }
 
     func text(for field: MultiFileEditableTextField) -> String {
@@ -601,6 +686,11 @@ struct MultiFileEditModel {
         modifiedTextFields.insert(field)
     }
 
+    mutating func setContainerValue(_ value: ContainerFieldValue, for key: MetadataFieldKey) {
+        values.containerValues[key] = value
+        modifiedContainerFields.insert(key)
+    }
+
     mutating func setArtworkEditAction(_ action: ArtworkEditAction) {
         artworkEditAction = action
     }
@@ -610,6 +700,9 @@ struct MultiFileEditModel {
     /// priority policy deliberately discarded a conflicting draft field.
     func hasPendingChanges(excluding completed: MultiFileEditModel?) -> Bool {
         modifiedTextFields.contains { isPendingTextEdit($0, excluding: completed) }
+            || modifiedContainerFields.contains {
+                values.containerValues[$0] != completed?.values.containerValues[$0]
+            }
             || (explicitEditState != .keepExisting && explicitEditState != completed?.explicitEditState)
             || (hasPendingArtworkChange && artworkEditAction != completed?.artworkEditAction)
     }
@@ -624,6 +717,15 @@ struct MultiFileEditModel {
 
         for field in modifiedTextFields where isPendingTextEdit(field, excluding: completed) {
             field.apply(field.value(from: values), to: &result)
+        }
+
+        for key in modifiedContainerFields
+        where values.containerValues[key] != completed?.values.containerValues[key] {
+            if let value = values.containerValues[key] {
+                result.containerValues[key] = value
+            } else {
+                result.containerValues.removeValue(forKey: key)
+            }
         }
 
         switch explicitEditState {

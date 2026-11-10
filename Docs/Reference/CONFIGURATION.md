@@ -107,14 +107,14 @@ This package is a test harness, not the app dependency graph.
 ```text
 repositoryURL = "https://github.com/ChrisLloydME/TagLibAudioMetadata.git"
 kind = exactVersion
-version = 0.6.0
+version = 0.7.0
 ```
 
 `Package.resolved`:
 
 - identity: `taglibaudiometadata`
-- version: `0.6.0`
-- revision: `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`
+- target version: `0.7.1`
+- candidate source: [Mapping repair branch](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/codex/mapping-conformance-repairs); generate the exact release revision lock after publication.
 
 ## Scheme
 
@@ -195,3 +195,8 @@ Endpoints and request data are documented in [Online Metadata](../Architecture/O
 - [Build](../Development/BUILD.md)
 - [Release Engineering](../Development/RELEASE.md)
 - [Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md)
+
+
+### Mapping repair candidate
+
+The current target is **TagLibAudioMetadata 0.7.1**, tested against the local repair branch using the ignored `.tmp/MappingIntegration.xcworkspace`. Package publication is maintainer-owned. The old 0.7.0 lock resolution is removed; regenerate `Package.resolved` from the published 0.7.1 tag before normal-project/release validation. This is not evidence that the unpublished tag was remotely resolved.

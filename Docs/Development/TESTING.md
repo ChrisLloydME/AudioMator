@@ -196,6 +196,18 @@ Not executed: CI itself, signed/notarized distribution, a macOS 15 runtime test,
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
 
+## Independent Date Regression Check (2026-11-09, 0.7.0)
+
+Focused `TagLibDateMappingIntegrationTests` run with stable `/Applications/Xcode.app`, serial Debug app-hosted tests, `.deriveddata-codex`, and signing disabled:
+
+- seed YEAR=2004, DATE=2008-03-04, RELEASEDATE=2017-06-09 and ORIGINALDATE=1999-11-12 on MP3, M4A, FLAC, Ogg, AAC and WAV temporary copies, then verify each identity through the structured/native snapshot and the reloaded app model;
+- change only YEAR and clear only DATE, asserting the other three values are untouched;
+- verify complete YEAR text (`2004-07-15`) survives selection/model copy, an unrelated title edit, export and reload;
+- verify MP4 Year is editable and does not touch DATE/RELEASEDATE;
+- verify an ID3v2.3 TDAT/RELEASE DATE write fails safely with unchanged bytes (package limitation).
+
+The package's legacy `.date` alias is a YEAR spelling; semantic Year writes use `.year`. Earlier `testInspectorYearEditIsExplicitlyUnsupportedForMP4` behavior is obsolete and has been replaced by a successful MP4 round trip.
+
 ## Reassessment Regression Coverage (2026-10-18)
 
 Recovery tests now exercise activation, watched-folder rescans, deferred flushes and explicit verified reload. Batch tests use controlled reload gates and real temporary FLAC copies to check committed outcomes and untouched complete raw maps for provider, filename, CSV, raw-map and renumber cancellation; queued cancellation asserts zero writes. Test-host diagnostics inspect the actual app-owned models, with one isolated preference store also used by view `AppStorage` and About commands. Debug custom runners using `XCTestConfigurationFilePath` use that isolation; Release ignores test environment flags. Static source-policy tests remain supplemental checks, not runtime coverage.
@@ -207,3 +219,33 @@ The same-inode WAV replacement regression now covers typed writes, raw writes, a
 `TagLibUpgradeContractTests` verifies exact pin/disclosure consistency, existential raw dispatch, the FLAC comment contract, and number-only semantic imports retaining totals on all six fixtures. The FLAC comment regression intentionally remains a normal failing test until the package owner fixes 0.6.0; no expected-failure or skip hides it. The field-transfer matrix now expects total-only pairs, MP3 disc-only edits, and AAC total clearing to succeed. A gated artwork decoder checks that the main actor can resume while normalization is blocked.
 
 See the [0.6.0 integration record](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) for the commands and final results. Historical 2026-10-18 results above describe the previous pin and do not establish current coverage.
+
+### 0.7.0 Mapping Contract Verification
+
+New suites in `AudioMatorTests/Integration/TagLib`:
+
+- `TagLibDateMappingIntegrationTests` — four independent date identities, native-oracle checks, full YEAR text, MP4 Year editing, ID3v2.3 safe rejection.
+- `TagLibMappingContractIntegrationTests` — component-preserving number edits on all six fixtures, legacy total recovery, captured cleanup plan and stale-plan rejection, advisory 0/1/2/absent plus unknown-code preservation, typed MP4-exclusive fields and RATE read-only classification, contentGroup/grouping/work independence, raw PropertyMap DATE meaning.
+
+`TagLibUpgradeContractTests` now asserts the exact 0.7.0 version/revision, remote URL, absence of a local override, mapping contract `AM-TLAM-MAPPING-2.2`, canonical YEAR/DATE identities and RATE read-only capability.
+
+Known package blockers that remain explicit (not skipped):
+
+- FLAC semantic `.comment` writes fail verification with unchanged bytes (`testFLACSemanticCommentSetReplaceAndClearContract`).
+- ID3v2.3 TDAT/TDRL are flattened by TagLib and are not independently round-trippable.
+- The released verifier rejects DATE writes/removals when YEAR is absent on ID3/MP4 and drops DATE during a Xiph YEAR write; `TagLibDateCompanion` mitigates this narrowly.
+- Typed removal of `musicBrainzTrackID` on ID3 fails inside the bridge.
+
+Workflow tests that exercise FLAC comments or ID3 number-text removal assert the safe failure and byte preservation rather than treating the package error as success.
+
+Final verification on 2026-11-09 (Xcode 27.2, Swift 6.4.2): Foundation-only suite 62/62; Debug and Release generic builds succeeded with no project warnings; Release bundle validation passed for macOS 15.0; full serial app-hosted suite 528/528 with zero failures and zero skips. See the [implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) for commands and focused-suite counts, and [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md) for the remaining package gaps.
+
+
+## Independent mapping acceptance — 2026-11-10
+
+Application repair regressions and current release-gate evidence are recorded in [the acceptance report](../Engineering/AUDIOMATOR_MAPPING_070_ACCEPTANCE_2026-11-10.md). The serial suite passed 534 tests before restoring the additional positive FLAC comment contract; that restored gate fails normally on package 0.7.0. Do not claim the final release suite passes or hide the failure with an expected-failure annotation.
+
+
+## 0.7.1 candidate validation
+
+[Joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) records the final candidate results: 62 core tests, 540 serial app-hosted tests, unsigned Release build and artifact validation all pass using the local override. Positive FLAC comment and independent date requirements remain normal tests and now pass on supported layouts. The unverified ID3v2.3 layout has explicit pre-write/read-only and canonical-export safety tests; safe rejection is not labeled native codec support. Normal remote 0.7.1 resolution remains a postpublication step.

@@ -8,20 +8,38 @@ nonisolated final class TagLibUpgradeContractTests: XCTestCase {
     func testExactDependencyPinMatchesProjectAndCurrentDisclosures() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let resolved = try Data(contentsOf: root.appendingPathComponent("AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"))
-        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: resolved) as? [String: Any])
-        let pins = try XCTUnwrap(object["pins"] as? [[String: Any]])
-        let pin = try XCTUnwrap(pins.first { $0["identity"] as? String == "taglibaudiometadata" })
-        let state = try XCTUnwrap(pin["state"] as? [String: String])
-        let version = try XCTUnwrap(state["version"])
-        let revision = try XCTUnwrap(state["revision"])
+        let version = "0.7.1"
         let project = try String(contentsOf: root.appendingPathComponent("AudioMator.xcodeproj/project.pbxproj"), encoding: .utf8)
         XCTAssertTrue(project.contains("kind = exactVersion;\n\t\t\t\tversion = \(version);"))
+        XCTAssertTrue(project.contains("repositoryURL = \"https://github.com/ChrisLloydME/TagLibAudioMetadata.git\";"))
+        XCTAssertFalse(project.contains("XCLocalSwiftPackageReference"), "A local path override must never be committed")
         XCTAssertEqual(LicenseDisclosure.entry(for: .tagLibAudioMetadata)?.version, version)
+        // The maintainer publishes 0.7.1 after local-override acceptance. Never
+        // fabricate a lock resolution for a tag that does not yet exist.
+        let resolvedURL = root.appendingPathComponent("AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
+        if FileManager.default.fileExists(atPath: resolvedURL.path) {
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: resolvedURL)) as? [String: Any])
+            let pins = try XCTUnwrap(object["pins"] as? [[String: Any]])
+            let pin = try XCTUnwrap(pins.first { $0["identity"] as? String == "taglibaudiometadata" })
+            let state = try XCTUnwrap(pin["state"] as? [String: String])
+            XCTAssertEqual(state["version"], version)
+            XCTAssertEqual(state["revision"]?.count, 40)
+        }
+        XCTAssertEqual(MetadataMappingCatalog.contractVersion, "AM-TLAM-MAPPING-2.2")
+        XCTAssertEqual(MetadataFieldRegistry.schema(for: .year)?.semanticKey, "YEAR")
+        XCTAssertEqual(MetadataFieldRegistry.schema(for: .date)?.semanticKey, "YEAR")
+        XCTAssertEqual(MetadataFieldRegistry.schema(for: .standaloneDate)?.semanticKey, "DATE")
+        XCTAssertEqual(MetadataFieldRegistry.schema(for: .releaseDate)?.semanticKey, "RELEASEDATE")
+        XCTAssertEqual(MetadataFieldRegistry.schema(for: .originalReleaseDate)?.semanticKey, "ORIGINALDATE")
+        XCTAssertNotNil(MetadataFieldRegistry.schema(for: .standaloneDate)?.writeTarget(for: MetadataNativeFamily.mp4))
+        XCTAssertEqual(
+            MetadataFieldRegistry.schema(for: .rate)?.capability(for: MetadataNativeFamily.mp4),
+            .readOnly
+        )
         for path in ["AGENTS.md", "Docs/Development/BUILD.md", "Docs/Reference/CONFIGURATION.md", "Docs/THIRD_PARTY_NOTICES.md"] {
             let text = try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
             XCTAssertTrue(text.contains(version), path)
-            XCTAssertTrue(text.contains(revision), path)
+            XCTAssertTrue(text.contains("https://github.com/ChrisLloydME/TagLibAudioMetadata"), path)
         }
     }
 

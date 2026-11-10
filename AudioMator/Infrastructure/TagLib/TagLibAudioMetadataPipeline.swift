@@ -10,6 +10,21 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         MetadataPipelineSupport.metadataPatch(from: edit)
     }
 
+    /// Preserve semantic intent exactly. Package alias defects are not repaired
+    /// by synthesizing writes to unedited date fields.
+    nonisolated static func metadataPatchForWrite(
+        from edit: MetadataEditPayload,
+        at url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> MetadataPatch {
+        if edit.unsupportedAdvisoryImport != nil {
+            throw CocoaError(.featureUnsupported, userInfo: [NSLocalizedDescriptionKey:
+                String(localized: "The dependency cannot assign unknown advisory codes. Existing unknown values are preserved; choose a known state explicitly to replace one.")])
+        }
+        let patch = MetadataPipelineSupport.metadataPatch(from: edit)
+        return patch
+    }
+
     nonisolated static func interpretingWrite(
         _ operation: () throws -> [String]
     ) throws -> AudioMetadataWriteResult {
@@ -100,7 +115,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         try Self.interpretingWrite {
             try TagLibMetadataManager.applyMetadataPatch(
-                Self.metadataPatchForWrite(from: edit),
+                try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
                 to: url,
                 expectedVersion: expectedVersion
             ).warnings
@@ -133,7 +148,8 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         try Self.interpretingWrite {
             try TagLibMetadataManager.applyMetadataPatch(
-                Self.metadataPatchForWrite(from: edit), to: url,
+                try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
+                to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
             ).warnings
         }
@@ -207,6 +223,47 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             )
         }
     }
+
+    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory {
+        try TagLibMetadataManager.numberingInventory(at: url)
+    }
+
+    nonisolated func planNumberNormalization(
+        at url: URL,
+        policy: MetadataNumberResolutionPolicy,
+        groups: Set<MetadataNumberGroup>
+    ) throws -> NumberNormalizationPreview {
+        let plan = try TagLibMetadataManager.planNumberNormalization(
+            at: url,
+            policy: policy,
+            groups: groups
+        )
+        return NumberNormalizationPreview(
+            track: plan.inventory.track,
+            disc: plan.inventory.disc,
+            plan: plan,
+            warnings: plan.warnings + plan.inventory.warnings
+        )
+    }
+
+    nonisolated func applyNumberNormalization(
+        _ preview: NumberNormalizationPreview,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
+        if let expectedVersion, expectedVersion != preview.plan.fileVersion {
+            // The preview captures its own version; passing a different token
+            // would silently apply a plan to a revision it was not built from.
+            throw TagLibManagerError.fileChanged
+        }
+        return try Self.interpretingWrite {
+            try TagLibMetadataManager.applyNumberNormalization(
+                preview.plan,
+                to: url,
+                expectedVersion: preview.plan.fileVersion
+            ).warnings
+        }
+    }
 }
 
 private enum MetadataPipelineSupport {
@@ -223,8 +280,15 @@ private enum MetadataPipelineSupport {
             .composer: textValue(edit.composer),
             .genre: textValue(edit.genre),
             .comment: textValue(edit.comment),
-            .date: textValue(edit.year),
+            // YEAR is `.year`; the legacy `.date` alias is never submitted.
+            .year: textValue(edit.year),
+            // DATE is its own identity, not a YEAR projection.
+            .standaloneDate: textValue(edit.date),
             .releaseDate: textValue(edit.releaseDate),
+            .originalReleaseDate: textValue(edit.originalReleaseDate),
+            .contentGroup: textValue(edit.contentGroup),
+            .grouping: textValue(edit.grouping),
+            .work: textValue(edit.work),
             .albumArtist: textValue(edit.albumArtist),
             .publisher: textValue(edit.publisher),
             .isrc: textValue(edit.isrc),
@@ -246,18 +310,35 @@ private enum MetadataPipelineSupport {
             .releaseCountry: textValue(edit.releaseCountry),
             .copyright: textValue(edit.copyright),
         ]
-        let fields = candidateFields.filter { edit.changedFields.contains($0.key) }
+        var fields = candidateFields.filter { edit.changedFields.contains($0.key) }
 
-        let trackText = normalizedNumberText(
-            edit.trackNumberText,
-            number: edit.trackNumber,
-            total: edit.trackTotal
-        )
-        let discText = normalizedNumberText(
-            edit.discNumberText,
-            number: edit.discNumber,
-            total: edit.discTotal
-        )
+        // Number components are typed intents. Only a changed component is
+        // submitted: a number-only edit never removes or rewrites its untouched
+        // total, and a total-only edit preserves the number. A cleared
+        // component is an explicit removal.
+        if edit.trackNumberTextChanged {
+            if edit.originalTrackNumber != edit.trackNumber {
+                fields[.track] = edit.trackNumber > 0 ? .integer(edit.trackNumber) : .remove
+            }
+            if edit.originalTrackTotal != edit.trackTotal {
+                fields[.trackTotal] = edit.trackTotal > 0 ? .integer(edit.trackTotal) : .remove
+            }
+        }
+        if edit.discNumberTextChanged {
+            if edit.originalDiscNumber != edit.discNumber {
+                fields[.disc] = edit.discNumber > 0 ? .integer(edit.discNumber) : .remove
+            }
+            if edit.originalDiscTotal != edit.discTotal {
+                fields[.discTotal] = edit.discTotal > 0 ? .integer(edit.discTotal) : .remove
+            }
+        }
+
+        // Typed container-exclusive intents are already shape-validated. Never
+        // route them through a legacy Basic replacement.
+        for (key, value) in edit.containerFields {
+            fields[key] = value
+        }
+
         let advisory: ExplicitAdvisory? = if edit.contentAdvisoryChanged {
             switch edit.contentAdvisory {
             case nil: .unspecified
@@ -277,37 +358,14 @@ private enum MetadataPipelineSupport {
             .removeAll
         }
 
-        let numberText: MetadataNumberTextPatch? = if edit.trackNumberTextChanged || edit.discNumberTextChanged {
-            MetadataNumberTextPatch(
-                trackNumberText: edit.trackNumberTextChanged ? trackText : nil,
-                discNumberText: edit.discNumberTextChanged ? discText : nil
-            )
-        } else {
-            nil
-        }
-
         return MetadataPatch(
             fields: fields,
             explicitAdvisory: advisory,
-            artwork: artwork,
-            numberText: numberText
+            artwork: artwork
         )
     }
 
-    nonisolated private static func normalizedNumberText(
-        _ rawText: String,
-        number: Int,
-        total: Int
-    ) -> String {
-        let trimmed = normalizedFieldComponent(rawText)
-        if !trimmed.isEmpty {
-            // Semantic numberText is a complete pair in 0.6.0. A number-only
-            // import retains its model total, so include it explicitly.
-            return !trimmed.contains("/") && total > 0 ? "\(trimmed)/\(total)" : trimmed
-        }
-        guard number > 0 else { return total > 0 ? "/\(total)" : "" }
-        return total > 0 ? "\(number)/\(total)" : String(number)
-    }
+
 
     nonisolated static func rawMetadataDumpText(
         from dump: RawMetadataDump,
@@ -655,3 +713,14 @@ private struct LegacyTagComparisonField {
     let canonicalKeys: [String]
     let legacyKeys: [String]
 }
+
+/// Narrow workaround for observed 0.7.0 behavior. The package projects both
+/// YEAR and the independent DATE into the legacy PropertyMap `DATE` key on
+/// ID3/MP4, so its verification can reject a valid DATE write (or delete DATE
+/// during an unrelated YEAR write on Xiph) unless the sibling date identity is
+/// present in the same patch.
+///
+/// The companion always repeats the exact captured sibling value and never
+/// derives, completes, or truncates a date. Ambiguous multi-valued sibling data
+/// fails safely instead of being collapsed. Remove this adapter when the
+/// package verifies native YEAR/DATE slots independently.

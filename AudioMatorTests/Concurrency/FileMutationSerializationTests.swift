@@ -381,9 +381,10 @@ final class FileMutationSerializationTests: XCTestCase {
 
         XCTAssertTrue(didQueueBothMutations)
         XCTAssertEqual(mutationCountBeforeRelease, 1)
-        XCTAssertEqual(pipeline.mutationCount(for: .metadataWrite), 1)
+        // Track renumbering now submits the same typed semantic payload as an
+        // ordinary metadata write, so both are classified as metadata writes.
+        XCTAssertEqual(pipeline.mutationCount(for: .metadataWrite), 2)
         XCTAssertEqual(pipeline.mutationCount(for: .erase), 1)
-        XCTAssertEqual(pipeline.mutationCount(for: .trackRenumber), 1)
         XCTAssertEqual(result.succeeded, 1)
     }
 

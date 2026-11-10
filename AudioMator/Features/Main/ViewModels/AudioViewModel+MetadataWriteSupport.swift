@@ -1,4 +1,6 @@
 import Foundation
+import TagLibAudioMetadata
+import TagLibAudioMetadata
 
 private let supportedTagWriteExtensions = AudioFormatSupport.metadataWritableExtensions
 
@@ -24,6 +26,53 @@ enum MetadataWriteExecutionResult: Sendable {
 
 func fileCountLabel(_ count: Int) -> String {
     count == 1 ? "1 file" : "\(count) files"
+}
+
+extension AudioViewModel {
+    /// Per-file capability reason for a semantic Inspector row. Capability is
+    /// advisory until the package validates the concrete file, but unsupported
+    /// destinations are shown and disabled before Save.
+    func metadataFieldUnsupportedReason(
+        _ field: InspectorMetadataField,
+        in files: [AudioFile]
+    ) -> String? {
+        guard let key = field.metadataFieldKey, !files.isEmpty else { return nil }
+        if [MetadataFieldKey.year, .standaloneDate, .releaseDate, .originalReleaseDate].contains(key),
+           files.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
+            return String(localized: "Independent date editing is read-only for selected ID3v2.3 tags. No date conversion will be performed.")
+        }
+        let unsupportedCount = files.filter { !Self.canWrite(key, to: $0) }.count
+        guard unsupportedCount > 0 else { return nil }
+        if unsupportedCount == files.count {
+            return String(localized: "This format cannot write") + " \(field.displayName)."
+        }
+        return String(localized: "Some selected formats cannot write") + " \(field.displayName)."
+    }
+
+    func containerFieldUnsupportedReason(
+        _ key: MetadataFieldKey,
+        in files: [AudioFile]
+    ) -> String? {
+        guard !files.isEmpty else { return nil }
+        let unsupportedCount = files.filter { !Self.canWrite(key, to: $0) }.count
+        guard unsupportedCount > 0 else { return nil }
+        let name = ContainerMetadataFieldCatalog.displayName(for: key)
+        if unsupportedCount == files.count {
+            return String(localized: "This format cannot write") + " \(name)."
+        }
+        return String(localized: "Some selected formats cannot write") + " \(name)."
+    }
+
+    nonisolated static func canWrite(_ key: MetadataFieldKey, to file: AudioFile) -> Bool {
+        if file.hasUnverifiedIndependentDateProjection,
+           [MetadataFieldKey.year, .standaloneDate, .releaseDate, .originalReleaseDate].contains(key) {
+            return false // The package exposes this unverified layout read-only.
+        }
+        guard let writable = AudioFormatSupport.writableMetadataFields(for: file.url.pathExtension) else {
+            return false
+        }
+        return writable.contains(key)
+    }
 }
 
 extension AudioViewModel {

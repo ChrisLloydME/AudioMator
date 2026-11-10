@@ -103,11 +103,7 @@ enum MetadataConflictResolver {
         let audioIdentity = try verifiedAudioIdentity(original: original, snapshot: snapshot)
         let current = MetadataConflictBaseline(snapshot)
         let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
-        var fields = Set(patch.fields.keys)
-        if edit.contentAdvisoryChanged { fields.insert(.explicitContent) }
-        if edit.trackNumberTextChanged { fields.formUnion([.track, .trackTotal]) }
-        if edit.discNumberTextChanged { fields.formUnion([.disc, .discTotal]) }
-        if case .unchanged = edit.artwork {} else { fields.insert(.artwork) }
+        let fields = edit.requestedFields
 
         var resolved = edit
         var conflicts: [String] = []
@@ -117,10 +113,13 @@ enum MetadataConflictResolver {
             let group = fieldGroup(field)
             guard visited.isDisjoint(with: group) else { continue }
             visited.formUnion(group)
-            guard !sameState(original, current, fields: group) else { continue }
+            guard !sameState(original, current, fields: group, fileExtension: url.pathExtension) else { continue }
             // Only accept exact single-field raw values as convergence. The
             // basic projection alone can conceal multi-values and aliases.
-            let converged = group.count == 1 && patch.fields[field].map {
+            let canConverge = group.count == 1
+                && !ContainerMetadataFieldCatalog.isContainerExclusive(field)
+                && !TagLibDateNativeProjection.isDateIdentity(field)
+            let converged = canConverge && patch.fields[field].map {
                 matches($0, field: field, current: current)
             } == true
             if converged || policy == .preferDiskChanges {
@@ -129,6 +128,7 @@ enum MetadataConflictResolver {
                 if group.contains(.track) { resolved.trackNumberTextChanged = false }
                 if group.contains(.disc) { resolved.discNumberTextChanged = false }
                 if group.contains(.artwork) { resolved.artwork = .unchanged }
+                for key in group { resolved.containerFields.removeValue(forKey: key) }
                 if !converged { discarded.append(label(field)) }
             } else if policy == .mergeNonConflicting {
                 conflicts.append(label(field))
@@ -138,7 +138,7 @@ enum MetadataConflictResolver {
         let resolvedPatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: resolved)
         let result: AudioMetadataWriteResult
         if resolvedPatch.fields.isEmpty, resolvedPatch.explicitAdvisory == nil,
-           resolvedPatch.numberText == nil, resolvedPatch.artwork == .unchanged {
+           resolvedPatch.artwork == .unchanged {
             result = try noWriteResult(pipeline: pipeline, url: url, version: snapshot.fileVersion)
         } else {
             result = try pipeline.writeMetadata(resolved, to: url, expectedVersion: try requiredVersion(snapshot), expectedAudioContent: audioIdentity)
@@ -188,7 +188,7 @@ enum MetadataConflictResolver {
             let draftValues = draft.filter { keys.contains($0.key) }
             let changed = fields.isEmpty
                 ? !sameCustomState(original, current, key: key)
-                : !sameState(original, current, fields: fields)
+                : !sameState(original, current, fields: fields, fileExtension: url.pathExtension)
             if revisionChanged && changed && currentValues != draftValues {
                 if policy == .mergeNonConflicting {
                     conflicts.append(field.map(label) ?? key)
@@ -258,8 +258,10 @@ enum MetadataConflictResolver {
         switch field {
         case .track, .trackTotal: [.track, .trackTotal]
         case .disc, .discTotal: [.disc, .discTotal]
-        // Some containers store the year and full date in the same item.
-        case .date, .releaseDate: [.date, .releaseDate]
+        // YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent native
+        // groups. Only a legacy alias resolution plan may bind them.
+        case .year, .date: [field]
+        case .standaloneDate, .releaseDate, .originalReleaseDate: [field]
         case .performer, .musicianCredits: [.performer, .musicianCredits]
         default: [field]
         }
@@ -287,8 +289,27 @@ enum MetadataConflictResolver {
 
     nonisolated private static func sameState(
         _ original: MetadataConflictBaseline, _ current: MetadataConflictBaseline,
-        fields: Set<MetadataFieldKey>
+        fields: Set<MetadataFieldKey>,
+        fileExtension: String
     ) -> Bool {
+        // The four date identities are independent conflict groups. Compare
+        // exact native frames/atoms/properties instead of the legacy PropertyMap
+        // DATE projection, which can alias YEAR and DATE.
+        if fields.count == 1, let field = fields.first,
+           TagLibDateNativeProjection.isDateIdentity(field) {
+            return TagLibDateNativeProjection.values(
+                for: field,
+                structured: original.structured,
+                basicYear: original.yearText,
+                fileExtension: fileExtension
+            ) == TagLibDateNativeProjection.values(
+                for: field,
+                structured: current.structured,
+                basicYear: current.yearText,
+                fileExtension: fileExtension
+            )
+        }
+
         let keys = propertyKeys(fields)
         guard original.values.filter({ keys.contains($0.key) }) == current.values.filter({ keys.contains($0.key) }) else { return false }
         let mappings = fields.flatMap { MetadataFieldRegistry.schema(for: $0)?.mappings ?? [] }

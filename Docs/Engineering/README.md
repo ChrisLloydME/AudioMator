@@ -6,6 +6,9 @@ This folder contains dated engineering evidence: performance measurements, inves
 
 | Document | Date / baseline | Status |
 | --- | --- | --- |
+| [Inspector false unsaved-state repair](INSPECTOR_DIRTY_STATE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Reproduced no-op/revert false positives; effective per-target dirty state and save filtering |
+| [Preview and editor save acceptance](PREVIEW_SAVE_ACCEPTANCE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Actual checkbox/preview plans through real persistence and editor draft recovery |
+| [Test system upgrade](TEST_SYSTEM_UPGRADE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Independent manifests, real workflow persistence, mutation sensitivity and exposed Content Group blocker |
 | [Store identifier semantic-type repair](STORE_ID_MAPPING_REPAIR_2026-11-10.md) | 2026-11-10, package 0.7.1 | Dedicated Store ID patch typing and generated AIFF regression evidence |
 | [Mapping 0.7.0 outstanding issues / interrupted-agent handoff](AUDIOMATOR_MAPPING_070_HANDOFF.md) | 2026-11-09, working-tree refactor | Six preserved issue IDs; A02/A08/A09 partial; steer received but final handoff interrupted |
 | [AudioMator 0.7.0 / mapping 2.2 implementation](AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) | 2026-11-09, package 0.7.0 / revision `0f89fbe8` | Application adoption ledger, acceptance evidence, package limitations |

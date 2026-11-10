@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 
 jobs:
   swift-test:
@@ -40,35 +40,13 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Run app-hosted tests
-        run: |
-          xcodebuild \
-            -project AudioMator.xcodeproj \
-            -scheme AudioMator \
-            -configuration Debug \
-            -destination 'platform=macOS' \
-            -derivedDataPath "$RUNNER_TEMP/AudioMatorDerivedData" \
-            -parallel-testing-enabled NO \
-            -maximum-parallel-testing-workers 1 \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            test
+      - name: Run release gate
+        run: bash scripts/validate-release.sh
 
-      - name: Build and audit macOS 15 Release artifact
-        run: |
-          xcodebuild \
-            -project AudioMator.xcodeproj \
-            -scheme AudioMator \
-            -configuration Release \
-            -destination 'generic/platform=macOS' \
-            -derivedDataPath "$RUNNER_TEMP/AudioMatorDerivedData" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            build
-          scripts/validate-macos-artifact.sh \
-            "$RUNNER_TEMP/AudioMatorDerivedData/Build/Products/Release/AudioMator.app" \
-            15.0
+      - name: Preserve validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-evidence
+          path: .deriveddata-codex/Validation/
+          if-no-files-found: warn

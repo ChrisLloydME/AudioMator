@@ -17,7 +17,7 @@ This document describes the release process that exists in the repository and cl
 | Changelog generation | **Not implemented** |
 | Version bump automation | **Not implemented** |
 
-There is one CI workflow, `Validation`, and it does not publish artifacts.
+There is one CI workflow, `Validation`. It uploads test logs and `.xcresult` evidence, but does not publish a distributable release. Local and CI acceptance use `bash scripts/validate-release.sh`; see [the metadata test contract](METADATA_TEST_STRATEGY.md). A failing mapping regression blocks release even when unrelated tests pass.
 
 ## Versioning
 

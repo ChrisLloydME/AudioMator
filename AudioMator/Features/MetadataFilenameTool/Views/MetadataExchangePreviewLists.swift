@@ -335,7 +335,7 @@ private enum MetadataExchangeAppKitRowFactory {
 
     private static func importChangeRow(_ change: MetadataExchangeFieldChange) -> NSView {
         let currentValue = valueLabel(change.currentValue, emptyText: "Empty", monospaced: false, color: change.currentValue.isEmpty ? .secondaryLabelColor : .labelColor)
-        let importedValue = valueLabel(change.importedValue, emptyText: "Empty", monospaced: false, color: change.importedValue.isEmpty ? .secondaryLabelColor : (change.willWrite ? .systemGreen : .labelColor))
+        let importedValue = valueLabel(change.displayImportedValue, emptyText: "Empty", monospaced: false, color: change.importedValue.isEmpty ? .secondaryLabelColor : (change.willWrite ? .systemGreen : .labelColor))
         let content = horizontalStack(spacing: 14, alignment: .top, views: [
             label(change.field.displayName, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, width: 118),
             currentValue,
@@ -582,7 +582,7 @@ private struct MetadataExchangeImportChangeRow: View {
                 .frame(width: 18)
                 .padding(.top, 1)
 
-            metadataValue(change.importedValue, highlight: change.willWrite)
+            metadataValue(change.displayImportedValue, highlight: change.willWrite)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 10)

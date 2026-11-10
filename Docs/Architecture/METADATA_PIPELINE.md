@@ -272,3 +272,8 @@ Changed number-text pairs are validated centrally before semantic writes. Missin
 Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`. Whole-pair clearing still removes both components. Non-numeric semantic number text remains rejected. MP3 disc-only updates and AAC total clearing now use the corrected package contract. FLAC semantic comment writes remain an upstream integration blocker; see [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. Existing byte and pixel caps remain enforced. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
+
+
+## Store identifier value shapes
+
+The dedicated Inspector/provider/exchange models retain Album, Artist and Catalog Store IDs as display strings. At the shared semantic patch boundary, requested non-empty fields whose registry accepts only integers are encoded as `.integer`; an empty edit remains `.remove`. Text identifiers such as MusicBrainz IDs, barcode and catalog number are not converted. Invalid or overflowing numeric IDs remain validation failures: no clamping, truncation, field dropping or partial per-file save is allowed. Untouched fields are filtered before conversion.

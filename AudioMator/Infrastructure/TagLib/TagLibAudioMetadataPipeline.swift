@@ -312,6 +312,17 @@ private enum MetadataPipelineSupport {
         ]
         var fields = candidateFields.filter { edit.changedFields.contains($0.key) }
 
+        // Inspector/provider/CSV models keep identifier text for display, but
+        // numeric semantic fields must follow the package's declared shape.
+        // Convert only requested fields; malformed/overflow values stay invalid
+        // and are rejected by package validation, never dropped or truncated.
+        for (field, value) in fields {
+            guard case .text(let text) = value,
+                  MetadataFieldRegistry.schema(for: field)?.acceptedPatchValueKinds == [.integer],
+                  let integer = Int(text) else { continue }
+            fields[field] = .integer(integer)
+        }
+
         // Number components are typed intents. Only a changed component is
         // submitted: a number-only edit never removes or rewrites its untouched
         // total, and a total-only edit preserves the number. A cleared

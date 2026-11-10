@@ -18,6 +18,10 @@ extension FileRenameMetadataField {
             return L10n.string("Genre")
         case .year:
             return L10n.string("Year")
+        case .date:
+            return L10n.string("Date")
+        case .originalReleaseDate:
+            return L10n.string("Original Release Date")
         case .trackNumberText:
             return L10n.string("Track Number")
         case .discNumberText:
@@ -168,6 +172,16 @@ func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenam
         )
     }
 
+    let usesDate = document.segments.contains { segment in
+        guard case .field(let field) = segment else { return false }
+        return [FileRenameMetadataField.year, .date, .releaseDate, .originalReleaseDate].contains(field)
+    }
+    if usesDate, targetFiles.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
+        return FileRenamePlan(template: template,
+            validationMessage: String(localized: "Date-based filenames are unavailable for unverified ID3v2.3 date projections."),
+            rows: [], operations: [])
+    }
+
     let builder = FileRenamePlanBuilder()
     return builder.makePlan(document: document, targetFiles: targetFiles)
 }
@@ -189,6 +203,10 @@ private struct FileRenameFieldValueResolver {
             return file.genre
         case .year:
             return file.year
+        case .date:
+            return file.date
+        case .originalReleaseDate:
+            return file.originalReleaseDate
         case .trackNumberText:
             return file.trackNumberText.isEmpty
                 ? formatTrackIndex(file.track, total: file.trackTotal)

@@ -119,17 +119,33 @@ extension AudioViewModel {
                     padWidth > 0
                     ? String(format: "%0*d", padWidth, newNumber)
                     : String(newNumber)
+                guard let sourceFile = filesByID[target.id] else {
+                    result.failed += 1
+                    result.failures.append(
+                        TrackRenumberFailure(
+                            fileName: target.url.lastPathComponent,
+                            reason: String(localized: "The file is no longer loaded in AudioMator.")
+                        )
+                    )
+                    continue
+                }
+                // Renumbering is a track-component intent. The file's total and
+                // the complete disc group stay untouched, and the typed patch
+                // never performs private-atom cleanup implicitly. Build the
+                // payload on the main actor; the mutation closure stays
+                // nonisolated but only carries the Sendable payload.
+                var edit = SingleFileEditModel(from: sourceFile)
+                edit.setTrackNumberText(formattedTrackNumber)
+                let payload = MetadataEditPayload(edit, comparedTo: sourceFile)
                 let targetOutcome = await mutationExecutor.execute(
                     at: target.url,
                     id: target.id,
                     expectedFileFingerprint: target.expectedFileFingerprint,
                     validateBeforeWrite: { try await self.validateMetadataWriteRecovery(id: target.id, url: target.url) }
                 ) { metadataPipeline, url in
-                    try metadataPipeline.writeTrackNumberText(
-                        formattedTrackNumber,
-                        discNumberText: nil,
+                    try metadataPipeline.writeMetadata(
+                        payload,
                         to: url,
-                        verifyAfterWrite: true,
                         expectedVersion: target.expectedMetadataVersion
                     )
                 }

@@ -85,6 +85,11 @@ enum MetadataFieldTransferPlanner {
             )
         }
 
+        if file.hasUnverifiedIndependentDateProjection,
+           source.isIndependentDateField || destination.isIndependentDateField {
+            return row(status: .parseError, message: String(localized: "Independent date transfer is unavailable for unverified ID3v2.3 date projections."))
+        }
+
         guard !normalizedSourceValue.isEmpty else {
             return row(status: .unchanged, message: String(localized: "The source field is empty. This file will be skipped."))
         }

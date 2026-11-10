@@ -819,7 +819,7 @@ private extension FilenameMetadataFieldChangeStatus {
 private extension FileRenameMetadataField {
     var usesMonospacedComparisonValue: Bool {
         switch self {
-        case .year, .trackNumberText, .discNumberText, .releaseDate:
+        case .year, .date, .originalReleaseDate, .trackNumberText, .discNumberText, .releaseDate:
             return true
         case .title, .artist, .album, .albumArtist, .composer, .genre,
                 .comment, .publisher, .copyright, .credits, .ignore:

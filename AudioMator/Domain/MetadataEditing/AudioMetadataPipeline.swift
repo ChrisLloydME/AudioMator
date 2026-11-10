@@ -14,15 +14,30 @@ struct MetadataEditPayload: Sendable {
     var composer: String
     var genre: String
     var comment: String
+    /// Complete stored YEAR text. Sent as `.year`; never as the legacy `.date`
+    /// YEAR-slot alias.
     var year: String
+    /// Independent DATE identity. Sent as `.standaloneDate`.
+    var date: String
     var trackNumber: Int
     var trackTotal: Int
     var discNumber: Int
     var discTotal: Int
+    /// Baseline pair components from the compared source, when known. A
+    /// component whose value did not change is omitted so a number-only edit
+    /// never removes or rewrites its untouched sibling.
+    var originalTrackNumber: Int?
+    var originalTrackTotal: Int?
+    var originalDiscNumber: Int?
+    var originalDiscTotal: Int?
     var trackNumberText: String
     var discNumberText: String
     var albumArtist: String
     var releaseDate: String
+    var originalReleaseDate: String
+    var contentGroup: String
+    var grouping: String
+    var work: String
     var publisher: String
     var isrc: String
     var barcode: String
@@ -42,15 +57,19 @@ struct MetadataEditPayload: Sendable {
     var catalogNumber: String
     var releaseCountry: String
     var copyright: String
+    var unsupportedAdvisoryImport: String?
     var contentAdvisory: ContentAdvisory?
     nonisolated var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
+    /// Typed MP4-exclusive and role-aware field intents. Values are already
+    /// shape-validated by the semantic editor.
+    var containerFields: [MetadataFieldKey: MetadataPatchValue]
     var artwork: MetadataArtworkChange
     var changedFields: Set<MetadataFieldKey>
     var contentAdvisoryChanged: Bool
     var trackNumberTextChanged: Bool
     var discNumberTextChanged: Bool
 
-    /// Preserve numeric text validation while allowing total-only pairs in 0.6.0.
+    /// Preserve numeric text validation while allowing total-only pairs.
     nonisolated var numberPairValidationMessage: String? {
         if trackNumberTextChanged, !AudioTagNumberText.components(from: trackNumberText).number.isEmpty,
            Int(AudioTagNumberText.components(from: trackNumberText).number) == nil {
@@ -62,7 +81,43 @@ struct MetadataEditPayload: Sendable {
         }
         return nil
     }
+
+    /// Validates only the explicitly edited date field against its own shape.
+    /// It never compares one date identity with another or completes a value.
+    nonisolated var dateValidationMessage: String? {
+        let editedDates: [(MetadataFieldKey, String, String)] = [
+            (.year, year, String(localized: "Year")),
+            (.standaloneDate, date, String(localized: "Date")),
+            (.releaseDate, releaseDate, String(localized: "Release Date")),
+            (.originalReleaseDate, originalReleaseDate, String(localized: "Original Release Date")),
+        ]
+        for (field, value, label) in editedDates where changedFields.contains(field) {
+            guard MetadataDateText.validates(value, for: field) else {
+                return label + " " + String(localized: "has an unsupported date shape. Enter a full value for that field or clear it explicitly; AudioMator will not truncate or guess.")
+            }
+        }
+        return nil
+    }
+
+    /// Every semantic field this payload will touch. Used by conflict groups
+    /// and the all-or-nothing capability preflight.
+    nonisolated var requestedFields: Set<MetadataFieldKey> {
+        var fields = changedFields
+        if contentAdvisoryChanged { fields.insert(.explicitContent) }
+        if trackNumberTextChanged {
+            if originalTrackNumber != trackNumber { fields.insert(.track) }
+            if originalTrackTotal != trackTotal { fields.insert(.trackTotal) }
+        }
+        if discNumberTextChanged {
+            if originalDiscNumber != discNumber { fields.insert(.disc) }
+            if originalDiscTotal != discTotal { fields.insert(.discTotal) }
+        }
+        if case .unchanged = artwork {} else { fields.insert(.artwork) }
+        fields.formUnion(containerFields.keys)
+        return fields
+    }
 }
+
 
 enum AudioMetadataCommitStatus: Equatable, Sendable {
     case durable
@@ -83,6 +138,30 @@ struct AudioMetadataWriteResult: Sendable {
 }
 
 typealias RawMetadataValueMap = [String: [String]]
+
+/// A frozen number-normalization preview. The package plan and its captured
+/// file version are carried as opaque adapter values: Domain never inspects or
+/// regenerates them, and Apply must execute exactly this plan.
+struct NumberNormalizationPreview: Sendable {
+    let track: MetadataNumberGroupInventory
+    let disc: MetadataNumberGroupInventory
+    let plan: MetadataNumberNormalizationPlan
+    let warnings: [String]
+
+    nonisolated var fileVersion: MetadataFileVersion { plan.fileVersion }
+
+    nonisolated var nativeIdentities: [String] {
+        Array(Set(track.nativeIdentities + disc.nativeIdentities)).sorted()
+    }
+
+    nonisolated var privateTextIdentities: [String] {
+        (track.privateTexts + disc.privateTexts).map(\.identity).sorted()
+    }
+
+    nonisolated var removalIdentities: [String] {
+        (plan.removals + plan.privateRemovals).sorted()
+    }
+}
 
 protocol AudioMetadataPipeline: Sendable {
     nonisolated var requiresTransactionalDirectoryAccess: Bool { get }
@@ -123,6 +202,17 @@ protocol AudioMetadataPipeline: Sendable {
         discNumberText: String?,
         to url: URL,
         verifyAfterWrite: Bool,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult
+    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory
+    nonisolated func planNumberNormalization(
+        at url: URL,
+        policy: MetadataNumberResolutionPolicy,
+        groups: Set<MetadataNumberGroup>
+    ) throws -> NumberNormalizationPreview
+    nonisolated func applyNumberNormalization(
+        _ preview: NumberNormalizationPreview,
+        to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
 }
@@ -209,5 +299,25 @@ extension AudioMetadataPipeline {
             verifyAfterWrite: verifyAfterWrite,
             expectedVersion: nil
         )
+    }
+
+    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory {
+        throw CocoaError(.featureUnsupported)
+    }
+
+    nonisolated func planNumberNormalization(
+        at url: URL,
+        policy: MetadataNumberResolutionPolicy,
+        groups: Set<MetadataNumberGroup>
+    ) throws -> NumberNormalizationPreview {
+        throw CocoaError(.featureUnsupported)
+    }
+
+    nonisolated func applyNumberNormalization(
+        _ preview: NumberNormalizationPreview,
+        to url: URL,
+        expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
+        throw CocoaError(.featureUnsupported)
     }
 }

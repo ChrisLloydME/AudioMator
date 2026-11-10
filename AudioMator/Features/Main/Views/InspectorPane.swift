@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import AppKit
+import TagLibAudioMetadata
 
 let inspectorRowContentHeight: CGFloat = 20
 let inspectorRowVerticalPadding: CGFloat = 6
@@ -86,12 +87,26 @@ struct InspectorPane: View {
         Binding<ExplicitInspectorSelection>(
             get: {
                 if let edit = currentEdit(for: file) {
-                    return ExplicitInspectorSelection(contentAdvisory: edit.contentAdvisory)
+                    return ExplicitInspectorSelection(
+                        contentAdvisory: edit.contentAdvisory,
+                        rawValue: file.advisoryRawValue
+                    )
                 }
-                return ExplicitInspectorSelection(contentAdvisory: file.contentAdvisory)
+                return ExplicitInspectorSelection(
+                    contentAdvisory: file.contentAdvisory,
+                    rawValue: file.advisoryRawValue
+                )
             },
             set: { newValue in
-                updateEdit(for: file) { $0.contentAdvisory = newValue.contentAdvisory }
+                // Selecting a preserved unknown native code is not an edit.
+                guard case .unknown = newValue else {
+                    updateEdit(for: file) { model in
+                        model.contentAdvisory = newValue.contentAdvisory
+                        model.clearsUnknownAdvisory =
+                            newValue == .unset && file.advisoryRawValue != nil
+                    }
+                    return
+                }
             }
         )
     }
@@ -199,6 +214,7 @@ struct InspectorPane: View {
                         fileSection(file)
                         artworkSection(file)
                         metadataSection(file)
+                        containerFieldsSection(file)
                         technicalSection(file)
                     }
                     .padding()
@@ -210,6 +226,7 @@ struct InspectorPane: View {
                         multiSelectionSection(selectedFiles)
                         multiArtworkSection(selectedFiles)
                         multiMetadataSection(selectedFiles)
+                        multiContainerFieldsSection(selectedFiles)
                     }
                     .padding()
                 }
@@ -221,8 +238,7 @@ struct InspectorPane: View {
                 )
             }
         }
-        .sheet(isPresented: $isInspectorQuickPresented) {
-            VStack(alignment: .leading, spacing: 18) {
+        .sheet(isPresented: $isInspectorQuickPresented) {            VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Edit Metadata Field")
                         .font(.title3)
@@ -279,6 +295,9 @@ struct InspectorPane: View {
         }
         .sheet(item: artworkLookupSessionBinding) { _ in
             AlbumArtworkLookupSheet(viewModel: viewModel)
+        }
+        .sheet(isPresented: $viewModel.isNumberNormalizationPresented) {
+            NumberNormalizationSheet(viewModel: viewModel)
         }
         .photosPicker(
             isPresented: $isPhotoLibraryArtworkPickerPresented,
@@ -602,13 +621,145 @@ struct InspectorPane: View {
                     if index > 0 {
                         Divider()
                     }
-                    metadataFieldRow(field, file: file)
+                    VStack(alignment: .leading, spacing: 2) {
+                        metadataFieldRow(field, file: file)
+                        if let reason = viewModel.metadataFieldUnsupportedReason(field, in: [file]) {
+                            Text(reason)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(viewModel.metadataFieldUnsupportedReason(field, in: [file]) != nil)
+                }
+
+                if viewModel.canOfferNumberNormalization(for: file) {
+                    Divider()
+                    HStack {
+                        Spacer()
+                        Button("Restore or Clean Up Numbers…") {
+                            viewModel.openNumberNormalizationPreview()
+                        }
+                        .buttonStyle(.link)
+                    }
+                    .padding(.top, 2)
                 }
             }
             .padding(.vertical, 3)
         } label: {
             inspectorSectionLabel("Metadata", systemImage: "tag")
         }
+    }
+
+    @ViewBuilder
+    private func containerFieldsSection(_ file: AudioFile) -> some View {
+        if Self.supportsContainerExclusiveFields(file) {
+            GroupBox {
+                VStack(spacing: 6) {
+                    ForEach(
+                        Array(ContainerMetadataFieldCatalog.visibleKeys.enumerated()),
+                        id: \.element.rawValue
+                    ) { index, key in
+                        if index > 0 {
+                            Divider()
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            editableRow(
+                                label: ContainerMetadataFieldCatalog.displayName(for: key),
+                                text: containerBinding(for: file, key: key)
+                            )
+                            if let reason = viewModel.containerFieldUnsupportedReason(key, in: [file]) {
+                                Text(reason)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else if ContainerMetadataFieldCatalog.isReadOnly(key),
+                                      let rawValue = file.containerValues[key]?.displayText {
+                                Text(String(localized: "Read-only native value:") + " \(rawValue)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(
+                            viewModel.containerFieldUnsupportedReason(key, in: [file]) != nil ||
+                                ContainerMetadataFieldCatalog.isReadOnly(key)
+                        )
+                    }
+                }
+                .padding(.vertical, 3)
+            } label: {
+                inspectorSectionLabel("Container Fields", systemImage: "shippingbox")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func multiContainerFieldsSection(_ files: [AudioFile]) -> some View {
+        if !files.isEmpty, files.allSatisfy(Self.supportsContainerExclusiveFields) {
+            GroupBox {
+                VStack(spacing: 6) {
+                    ForEach(
+                        Array(ContainerMetadataFieldCatalog.visibleKeys.enumerated()),
+                        id: \.element.rawValue
+                    ) { index, key in
+                        if index > 0 {
+                            Divider()
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            editableRow(
+                                label: ContainerMetadataFieldCatalog.displayName(for: key),
+                                text: multiContainerBinding(key: key)
+                            )
+                            if let reason = viewModel.containerFieldUnsupportedReason(key, in: files) {
+                                Text(reason)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(viewModel.containerFieldUnsupportedReason(key, in: files) != nil)
+                    }
+                }
+                .padding(.vertical, 3)
+            } label: {
+                inspectorSectionLabel("Container Fields", systemImage: "shippingbox")
+            }
+        }
+    }
+
+    private func containerBinding(for file: AudioFile, key: MetadataFieldKey) -> Binding<String> {
+        Binding(
+            get: {
+                currentEdit(for: file)?.containerValues[key]?.displayText
+                    ?? file.containerValues[key]?.displayText
+                    ?? ""
+            },
+            set: { newValue in
+                updateEdit(for: file) { model in
+                    let accepted = ContainerMetadataFieldCatalog.acceptedKinds(for: key)
+                    if let value = ContainerFieldValue.parse(newValue, acceptedKinds: accepted) {
+                        model.containerValues[key] = value
+                    }
+                }
+            }
+        )
+    }
+
+    private func multiContainerBinding(key: MetadataFieldKey) -> Binding<String> {
+        Binding(
+            get: {
+                viewModel.multiEdit?.values.containerValues[key]?.displayText ?? ""
+            },
+            set: { newValue in
+                guard var current = viewModel.multiEdit else { return }
+                let accepted = ContainerMetadataFieldCatalog.acceptedKinds(for: key)
+                if let value = ContainerFieldValue.parse(newValue, acceptedKinds: accepted) {
+                    current.setContainerValue(value, for: key)
+                }
+                viewModel.multiEdit = current
+            }
+        )
+    }
+
+    private static func supportsContainerExclusiveFields(_ file: AudioFile) -> Bool {
+        ["m4a", "mp4", "m4b"].contains(file.url.pathExtension.lowercased())
     }
 
     @ViewBuilder
@@ -623,7 +774,15 @@ struct InspectorPane: View {
                         if index > 0 {
                             Divider()
                         }
-                        multiMetadataFieldRow(field, merged: merged)
+                        VStack(alignment: .leading, spacing: 2) {
+                            multiMetadataFieldRow(field, merged: merged)
+                            if let reason = viewModel.metadataFieldUnsupportedReason(field, in: files) {
+                                Text(reason)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(viewModel.metadataFieldUnsupportedReason(field, in: files) != nil)
                     }
                 }
                 .padding(.vertical, 3)
@@ -652,6 +811,12 @@ struct InspectorPane: View {
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.genre))
         case .year:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.year))
+        case .date:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.date))
+        case .releaseDate:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.releaseDate))
+        case .originalReleaseDate:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.originalReleaseDate))
         case .trackNumber:
             editableRow(label: field.displayName, text: trackNumberFieldBinding(for: file))
         case .totalTracks:
@@ -664,8 +829,12 @@ struct InspectorPane: View {
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.comment))
         case .albumArtist:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.albumArtist))
-        case .releaseDate:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.releaseDate))
+        case .contentGroup:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.contentGroup))
+        case .grouping:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.grouping))
+        case .work:
+            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.work))
         case .publisher:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.publisher))
         case .copyright:
@@ -720,6 +889,24 @@ struct InspectorPane: View {
                 text: multiBinding(for: .year),
                 placeholder: viewModel.multiEdit?.placeholder(for: .year)
             )
+        case .date:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .date),
+                placeholder: viewModel.multiEdit?.placeholder(for: .date)
+            )
+        case .releaseDate:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .releaseDate),
+                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
+            )
+        case .originalReleaseDate:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .originalReleaseDate),
+                placeholder: viewModel.multiEdit?.placeholder(for: .originalReleaseDate)
+            )
         case .trackNumber:
             editableRow(
                 label: field.displayName,
@@ -756,11 +943,23 @@ struct InspectorPane: View {
                 text: multiBinding(for: .albumArtist),
                 placeholder: viewModel.multiEdit?.placeholder(for: .albumArtist)
             )
-        case .releaseDate:
+        case .contentGroup:
             editableRow(
                 label: field.displayName,
-                text: multiBinding(for: .releaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
+                text: multiBinding(for: .contentGroup),
+                placeholder: viewModel.multiEdit?.placeholder(for: .contentGroup)
+            )
+        case .grouping:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .grouping),
+                placeholder: viewModel.multiEdit?.placeholder(for: .grouping)
+            )
+        case .work:
+            editableRow(
+                label: field.displayName,
+                text: multiBinding(for: .work),
+                placeholder: viewModel.multiEdit?.placeholder(for: .work)
             )
         case .publisher:
             editableRow(
@@ -925,6 +1124,10 @@ struct InspectorPane: View {
                 .font(.headline)
             Spacer()
             Picker("", selection: selection) {
+                if case .unknown(let rawValue) = selection.wrappedValue {
+                    Text(ExplicitInspectorSelection.unknown(rawValue).displayName)
+                        .tag(ExplicitInspectorSelection.unknown(rawValue))
+                }
                 ForEach(ExplicitInspectorSelection.inspectorSelectionOrder) { option in
                     Text(option.displayName)
                         .tag(option)

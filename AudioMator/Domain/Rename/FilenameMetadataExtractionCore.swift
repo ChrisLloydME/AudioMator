@@ -9,6 +9,8 @@ extension FileRenameMetadataField {
         .composer,
         .genre,
         .year,
+        .date,
+        .originalReleaseDate,
         .trackNumberText,
         .discNumberText,
         .comment,
@@ -26,6 +28,8 @@ extension FileRenameMetadataField {
         .composer,
         .genre,
         .year,
+        .date,
+        .originalReleaseDate,
         .trackNumberText,
         .discNumberText,
         .comment,
@@ -44,6 +48,7 @@ extension FileRenameMetadataField {
         case .ignore, .credits:
             return false
         case .title, .artist, .album, .albumArtist, .composer, .genre, .year,
+                .date, .originalReleaseDate,
                 .trackNumberText, .discNumberText, .comment, .releaseDate,
                 .publisher, .copyright:
             return true
@@ -71,15 +76,14 @@ extension FileRenameMetadataField {
                 options: .regularExpression
             ) != nil
         case .year:
-            return value.range(
-                of: #"^\d{4}$"#,
-                options: .regularExpression
-            ) != nil
+            // YEAR keeps complete stored text, including `2004-07-15`.
+            return MetadataDateText.isPlausibleYear(value)
+        case .date:
+            return MetadataDateText.isPlausibleStandaloneDate(value)
+        case .originalReleaseDate:
+            return MetadataDateText.isPlausibleDate(value)
         case .releaseDate:
-            return value.range(
-                of: #"^\d{4}(?:-\d{2}(?:-\d{2})?)?$"#,
-                options: .regularExpression
-            ) != nil
+            return MetadataDateText.isPlausibleDate(value)
         case .title, .artist, .album, .albumArtist, .composer, .genre,
                 .comment, .publisher, .copyright, .credits:
             return !value.isEmpty

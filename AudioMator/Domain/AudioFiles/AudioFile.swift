@@ -55,6 +55,24 @@ struct AudioFile: Identifiable, Sendable {
     let contentAdvisory: ContentAdvisory?
     var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
 
+    // MARK: – Independent dates and container-exclusive semantics
+    //
+    // YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent stored fields.
+    // `year` is the complete stored YEAR text, never a four-character projection.
+    let date: String
+    let originalReleaseDate: String
+    let advisoryRawValue: String?
+    let contentGroup: String
+    let grouping: String
+    let work: String
+    /// Typed MP4-exclusive values. Presence in the dictionary is significant:
+    /// `.boolean(false)` and `.integer(0)` are present values, not absence.
+    let containerValues: [MetadataFieldKey: ContainerFieldValue]
+    /// Native/legacy number inventory captured from the same read. Unresolved
+    /// components are preserved instead of being displayed as zero.
+    let trackNumberInventory: MetadataNumberGroupInventory?
+    let discNumberInventory: MetadataNumberGroupInventory?
+
     // MARK: – Technical
     let duration: Double
     let bitrate: Int
@@ -104,6 +122,15 @@ struct AudioFile: Identifiable, Sendable {
         hasher.combine(catalogNumber)
         hasher.combine(releaseCountry)
         hasher.combine(contentAdvisory)
+        hasher.combine(date)
+        hasher.combine(originalReleaseDate)
+        hasher.combine(advisoryRawValue)
+        hasher.combine(contentGroup)
+        hasher.combine(grouping)
+        hasher.combine(work)
+        hasher.combine(containerValues)
+        hasher.combine(trackNumberInventory)
+        hasher.combine(discNumberInventory)
         hasher.combine(duration)
         hasher.combine(bitrate)
         hasher.combine(sampleRate)
@@ -160,6 +187,15 @@ struct AudioFile: Identifiable, Sendable {
         channels: Int,
         format: String,
         artworkData: Data?,
+        date: String = "",
+        originalReleaseDate: String = "",
+        advisoryRawValue: String? = nil,
+        contentGroup: String = "",
+        grouping: String = "",
+        work: String = "",
+        containerValues: [MetadataFieldKey: ContainerFieldValue] = [:],
+        trackNumberInventory: MetadataNumberGroupInventory? = nil,
+        discNumberInventory: MetadataNumberGroupInventory? = nil,
         fileFingerprint: AudioFileFingerprint? = nil,
         metadataFileVersion: MetadataFileVersion? = nil,
         metadataConflictBaseline: MetadataConflictBaseline? = nil,
@@ -204,6 +240,15 @@ struct AudioFile: Identifiable, Sendable {
         self.catalogNumber = catalogNumber
         self.releaseCountry = releaseCountry
         self.contentAdvisory = contentAdvisory
+        self.date = date
+        self.originalReleaseDate = originalReleaseDate
+        self.advisoryRawValue = advisoryRawValue
+        self.contentGroup = contentGroup
+        self.grouping = grouping
+        self.work = work
+        self.containerValues = containerValues
+        self.trackNumberInventory = trackNumberInventory
+        self.discNumberInventory = discNumberInventory
         self.duration = duration
         self.bitrate = bitrate
         self.sampleRate = sampleRate
@@ -268,6 +313,15 @@ struct AudioFile: Identifiable, Sendable {
             channels: channels,
             format: format,
             artworkData: artworkData,
+            date: date,
+            originalReleaseDate: originalReleaseDate,
+            advisoryRawValue: advisoryRawValue,
+            contentGroup: contentGroup,
+            grouping: grouping,
+            work: work,
+            containerValues: containerValues,
+            trackNumberInventory: trackNumberInventory,
+            discNumberInventory: discNumberInventory,
             fileFingerprint: fileFingerprint,
             metadataFileVersion: metadataFileVersion,
             metadataConflictBaseline: metadataConflictBaseline,
@@ -293,5 +347,14 @@ struct AudioFile: Identifiable, Sendable {
 
         guard number > 0 else { return "" }
         return total > 0 ? "\(number)/\(total)" : "\(number)"
+    }
+}
+
+
+extension AudioFile {
+    /// The package exposes legacy combined ID3v2.3 date projections read-only.
+    /// Do not reinterpret them as verified independent canonical date values.
+    nonisolated var hasUnverifiedIndependentDateProjection: Bool {
+        metadataConflictBaseline?.structured.id3v2MajorVersion == 3
     }
 }

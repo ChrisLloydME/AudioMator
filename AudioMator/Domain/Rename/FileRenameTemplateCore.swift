@@ -8,6 +8,8 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
     case composer
     case genre
     case year
+    case date
+    case originalReleaseDate
     case trackNumberText
     case discNumberText
     case comment
@@ -35,6 +37,10 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
             return "genre"
         case .year:
             return "year"
+        case .date:
+            return "date"
+        case .originalReleaseDate:
+            return "originalReleaseDate"
         case .trackNumberText:
             return "trackNumber"
         case .discNumberText:

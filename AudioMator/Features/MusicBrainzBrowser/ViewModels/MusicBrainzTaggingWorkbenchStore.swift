@@ -217,7 +217,8 @@ enum MusicBrainzTagWriteField: String, CaseIterable, Identifiable, Hashable {
                 total: file.discTotal
             ).displayedTotalText
         case .releaseDate:
-            return file.releaseDate.isEmpty ? file.year : file.releaseDate
+            // Provider Release Date compares only against stored RELEASEDATE.
+            return file.releaseDate
         case .publisher:
             return file.publisher
         case .isrc:

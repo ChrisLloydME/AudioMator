@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 enum InspectorMetadataField: String, CaseIterable, Identifiable {
     case title
@@ -7,13 +8,18 @@ enum InspectorMetadataField: String, CaseIterable, Identifiable {
     case composer
     case genre
     case year
+    case date
+    case releaseDate
+    case originalReleaseDate
     case trackNumber
     case totalTracks
     case discNumber
     case totalDiscs
     case comment
     case albumArtist
-    case releaseDate
+    case contentGroup
+    case grouping
+    case work
     case publisher
     case copyright
     case explicit
@@ -35,6 +41,12 @@ enum InspectorMetadataField: String, CaseIterable, Identifiable {
             return L10n.string("Genre")
         case .year:
             return L10n.string("Year")
+        case .date:
+            return L10n.string("Date")
+        case .releaseDate:
+            return L10n.string("Release Date")
+        case .originalReleaseDate:
+            return L10n.string("Original Release Date")
         case .trackNumber:
             return L10n.string("Track Number")
         case .totalTracks:
@@ -47,8 +59,12 @@ enum InspectorMetadataField: String, CaseIterable, Identifiable {
             return L10n.string("Comment")
         case .albumArtist:
             return L10n.string("Album Artist")
-        case .releaseDate:
-            return L10n.string("Release Date")
+        case .contentGroup:
+            return L10n.string("Content Group")
+        case .grouping:
+            return L10n.string("Grouping")
+        case .work:
+            return L10n.string("Work")
         case .publisher:
             return L10n.string("Publisher")
         case .copyright:
@@ -61,4 +77,32 @@ enum InspectorMetadataField: String, CaseIterable, Identifiable {
     }
 
     static let defaultVisibleFields: [InspectorMetadataField] = Self.allCases
+
+    /// The semantic identity this row edits. `nil` means display-only.
+    var metadataFieldKey: MetadataFieldKey? {
+        switch self {
+        case .title: .title
+        case .artist: .artist
+        case .album: .album
+        case .composer: .composer
+        case .genre: .genre
+        case .year: .year
+        case .date: .standaloneDate
+        case .releaseDate: .releaseDate
+        case .originalReleaseDate: .originalReleaseDate
+        case .trackNumber: .track
+        case .totalTracks: .trackTotal
+        case .discNumber: .disc
+        case .totalDiscs: .discTotal
+        case .comment: .comment
+        case .albumArtist: .albumArtist
+        case .contentGroup: .contentGroup
+        case .grouping: .grouping
+        case .work: .work
+        case .publisher: .publisher
+        case .copyright: .copyright
+        case .explicit: .explicitContent
+        case .credits: nil
+        }
+    }
 }

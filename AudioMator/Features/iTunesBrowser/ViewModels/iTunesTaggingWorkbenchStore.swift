@@ -89,7 +89,9 @@ nonisolated enum iTunesTagWriteField: String, CaseIterable, Identifiable, Hashab
             return AudioTagNumberPair(rawText: file.discNumberText, number: file.disc, total: file.discTotal).displayedNumberText
         case .discTotal:
             return AudioTagNumberPair(rawText: file.discNumberText, number: file.disc, total: file.discTotal).displayedTotalText
-        case .releaseDate: return file.releaseDate.isEmpty ? file.year : file.releaseDate
+        // Provider Release Date compares only against the stored RELEASEDATE.
+        // It never infers from or stands in for YEAR.
+        case .releaseDate: return file.releaseDate
         case .copyright: return file.copyright
         case .barcode: return file.barcode
         case .itunesAlbumID: return file.itunesAlbumID

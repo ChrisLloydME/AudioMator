@@ -11,7 +11,7 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 574 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 579 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 80 `XCTestCase` classes across both targets (76 app-hosted and four SwiftPM); no custom base class.
@@ -82,7 +82,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Application/WatchedFolders` | 4 | 21 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
 | `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 9 | 88 | real TagLib reads/writes on temporary fixture copies |
+| `Integration/TagLib` | 9 | 93 | real TagLib reads/writes on temporary fixture copies |
 | `Performance` | 4 | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
 | `Unit/Core` | 18 | 82 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 10 | 49 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
@@ -262,3 +262,17 @@ Application repair regressions and current release-gate evidence are recorded in
 ## Inspector dirty-state regression
 
 `InspectorDirtyStateTests` asserts no-op and reverted edits remain clean while mixed-value clears and genuine changes remain dirty. Real-file save journeys additionally assert no-op batches leave bytes/versions unchanged and successful save/activation reload becomes clean. See [repair evidence](../Engineering/INSPECTOR_DIRTY_STATE_2026-11-10.md).
+
+## Published 0.7.2 acceptance
+
+The normal Xcode project pins remote 0.7.2 at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. The mandatory lock/disclosure contract rejects missing locks and unrelated revisions. The initial full suite passed 573 of 574 app tests; a CSV Comment write failed for an MP4 with absent YEAR and present DATE. Two fresh-fixture regressions preserve that combination for package Lyrics and app Comment writes. They fail on the published tag and pass on the unreleased repair candidate; they remain normal mandatory tests. See [adoption evidence](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md); previous local-override acceptance does not waive this failure.
+
+## Sparse-state acceptance and complete evidence
+
+The current unreleased repair validation uses `bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata`. The ignored workspace is generated explicitly; the normal project remains pinned to published 0.7.2. A local candidate pass does not certify that published tag. The gate records source identity, test logs, `.xcresult`, summary, the complete test tree and an acceptance JSON under `.deriveddata-codex/Validation`.
+
+`MetadataBoundaryMatrixTests` now runs all 33 dedicated strings through set/replace/clear in each of 16 independent date-presence states (1,584 app operations). `MetadataSaveJourneyTests` runs 688 individual provider field-selection/date-state cases, and 80 displayed-plan/Inspector/Metadata Editor/CSV state journeys. Every case uses a temporary file; transport is offline. The ordinary CSV matrix uses a fresh file per field and stable field order; date interactions are explicit tests rather than incidental dictionary ordering. Original package conformance regressions remain mandatory and unchanged.
+
+`check-test-evidence.py` requires exact equality between source-declared XCTest identities and named `xcresult` Test Case leaves, including critical regression identities and a reviewed floor of 579 app tests. Summary totals must agree; failed, skipped, expected-failure, duplicate, foreign-target, missing or incomplete evidence fails. `check-core-evidence.py` similarly requires all 62 Foundation-only core test identities and a complete passing summary. The parser supports this repository's direct XCTestCase classes and named zero-argument tests; a different test declaration style requires an explicit inventory parser update, not a waiver.
+
+`python3 -m unittest discover -s scripts/tests` runs 13 gate-policy tests, including tampered identities, missing core/app execution, count-only evidence, duplicates, skips/failures, nonzero statuses, removed critical source cases and malformed/changed JSON. This is separate from the app/core test counts. See [state coverage acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) for actual final results and the remaining UI/platform limits.

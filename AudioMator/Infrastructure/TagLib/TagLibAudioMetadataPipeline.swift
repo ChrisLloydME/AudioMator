@@ -724,14 +724,3 @@ private struct LegacyTagComparisonField {
     let canonicalKeys: [String]
     let legacyKeys: [String]
 }
-
-/// Narrow workaround for observed 0.7.0 behavior. The package projects both
-/// YEAR and the independent DATE into the legacy PropertyMap `DATE` key on
-/// ID3/MP4, so its verification can reject a valid DATE write (or delete DATE
-/// during an unrelated YEAR write on Xiph) unless the sibling date identity is
-/// present in the same patch.
-///
-/// The companion always repeats the exact captured sibling value and never
-/// derives, completes, or truncates a date. Ambiguous multi-valued sibling data
-/// fails safely instead of being collapsed. Remove this adapter when the
-/// package verifies native YEAR/DATE slots independently.

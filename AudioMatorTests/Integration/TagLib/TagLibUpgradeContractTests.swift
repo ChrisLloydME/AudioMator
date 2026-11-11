@@ -8,23 +8,24 @@ nonisolated final class TagLibUpgradeContractTests: XCTestCase {
     func testExactDependencyPinMatchesProjectAndCurrentDisclosures() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let version = "0.7.1"
+        let version = "0.7.2"
+        let revision = "5e6f604b0e9df244f4b69608261407d2ab758788"
         let project = try String(contentsOf: root.appendingPathComponent("AudioMator.xcodeproj/project.pbxproj"), encoding: .utf8)
         XCTAssertTrue(project.contains("kind = exactVersion;\n\t\t\t\tversion = \(version);"))
         XCTAssertTrue(project.contains("repositoryURL = \"https://github.com/ChrisLloydME/TagLibAudioMetadata.git\";"))
         XCTAssertFalse(project.contains("XCLocalSwiftPackageReference"), "A local path override must never be committed")
         XCTAssertEqual(LicenseDisclosure.entry(for: .tagLibAudioMetadata)?.version, version)
-        // The maintainer publishes 0.7.1 after local-override acceptance. Never
-        // fabricate a lock resolution for a tag that does not yet exist.
+        // Published-tag adoption requires a real remote lock. A missing lock
+        // or an unrelated 40-character revision must fail this contract.
         let resolvedURL = root.appendingPathComponent("AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
-        if FileManager.default.fileExists(atPath: resolvedURL.path) {
-            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: resolvedURL)) as? [String: Any])
-            let pins = try XCTUnwrap(object["pins"] as? [[String: Any]])
-            let pin = try XCTUnwrap(pins.first { $0["identity"] as? String == "taglibaudiometadata" })
-            let state = try XCTUnwrap(pin["state"] as? [String: String])
-            XCTAssertEqual(state["version"], version)
-            XCTAssertEqual(state["revision"]?.count, 40)
-        }
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: resolvedURL)) as? [String: Any])
+        let pins = try XCTUnwrap(object["pins"] as? [[String: Any]])
+        let pin = try XCTUnwrap(pins.first { $0["identity"] as? String == "taglibaudiometadata" })
+        XCTAssertEqual(pin["kind"] as? String, "remoteSourceControl")
+        XCTAssertEqual(pin["location"] as? String, "https://github.com/ChrisLloydME/TagLibAudioMetadata.git")
+        let state = try XCTUnwrap(pin["state"] as? [String: String])
+        XCTAssertEqual(state["version"], version)
+        XCTAssertEqual(state["revision"], revision)
         XCTAssertEqual(MetadataMappingCatalog.contractVersion, "AM-TLAM-MAPPING-2.2")
         XCTAssertEqual(MetadataFieldRegistry.schema(for: .year)?.semanticKey, "YEAR")
         XCTAssertEqual(MetadataFieldRegistry.schema(for: .date)?.semanticKey, "YEAR")

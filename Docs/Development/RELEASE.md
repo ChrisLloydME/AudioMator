@@ -90,7 +90,7 @@ It has read-only repository permissions, no secrets, no artifact upload, and no 
 
 - Deployment target: macOS 15.0. The validation script enforces that no Mach-O in the bundle declares a higher minimum.
 - Architecture: the unsigned generic macOS Release build from this audit produced a universal executable (`x86_64` and `arm64`). The validation script does not check architectures, so verify with `lipo -info` if that matters.
-- Package: exact `TagLibAudioMetadata` 0.7.0 pin. A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
+- Package: exact `TagLibAudioMetadata` 0.7.2 pin. A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
 - Swift: Xcode 27 stable toolchain; Swift 5 language mode with complete strict concurrency.
 
 There is no automated compatibility matrix for older macOS versions or prerelease toolchains.
@@ -174,3 +174,5 @@ Because updates are manual:
 - [Testing](TESTING.md)
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
+
+Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#explicit-local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current state-coverage evidence](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md).

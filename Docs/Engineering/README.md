@@ -35,3 +35,5 @@ Performance tests are documented in [Testing](../Development/TESTING.md#performa
 - [Mapping conformance audit — 2026-11-10](MAPPING_CONFORMANCE_2026-11-10.md): current application routes and independent evidence that package 0.7.0 has not completed Mapping conformance.
 
 - [0.7.1 joint Mapping acceptance](MAPPING_071_JOINT_ACCEPTANCE.md): current candidate evidence, repaired historical issues, explicit capability limits and maintainer publication handoff.
+
+- [Metadata state coverage and complete gate evidence](METADATA_STATE_COVERAGE_2026-11-11.md) — package-independent native repairs plus app state/save acceptance using an explicit local candidate.

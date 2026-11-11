@@ -174,3 +174,5 @@ Because updates are manual:
 - [Testing](TESTING.md)
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
+
+Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#explicit-local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current state-coverage evidence](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md).

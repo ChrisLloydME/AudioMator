@@ -31,3 +31,7 @@ xcuserdata/
 # Local scratch data and audio test fixtures
 .tmp/
 testFiles/
+
+# Python gate-policy caches
+__pycache__/
+*.pyc

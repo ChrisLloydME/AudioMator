@@ -68,7 +68,7 @@ enum LicenseDisclosure {
         Entry(
             id: .tagLibAudioMetadata,
             title: "TagLibAudioMetadata",
-            version: "0.7.1",
+            version: "0.7.2",
             copyright: "Copyright (c) 2026 Christopher Lloyd.",
             summary: "Swift Package Manager dependency that exposes the TagLib-backed metadata manager used by AudioMator. Licensed under the MIT License.",
             projectURL: URL(string: "https://github.com/ChrisLloydME/TagLibAudioMetadata"),

@@ -65,7 +65,7 @@ The Boost license permits distribution in machine-executable object form without
 
 - **Project**: TagLibAudioMetadata
 - **Source**: https://github.com/ChrisLloydME/TagLibAudioMetadata.git
-- **Current target**: exact version `0.7.1`; [candidate](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/codex/mapping-conformance-repairs) is tested by local override, pending maintainer publication and normal lock generation.
+- **Pinned version**: exact published `0.7.2`, revision `5e6f604b0e9df244f4b69608261407d2ab758788`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.2).
 - **Copyright**: Copyright (c) 2026 Christopher Lloyd.
 - **License**: MIT License.
 - **Usage in this repository**: Swift Package Manager dependency that exposes the TagLib-backed APIs consumed by AudioMator's metadata pipeline.
@@ -143,9 +143,9 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 
 Release validation must confirm those five files are present in the built app's `Contents/Resources` directory. The in-app Acknowledgements sheet loads them by resource name and fails closed with a visible fallback if a text is missing.
 
-At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.7.1 candidate does not rebuild or replace the TagLib binary.
+At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.7.2 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license.
 
 
-### Mapping repair candidate
+### Published mapping repair dependency
 
-The current target is **TagLibAudioMetadata 0.7.1**, tested against the local repair branch using the ignored `.tmp/MappingIntegration.xcworkspace`. Package publication is maintainer-owned. The old 0.7.0 lock resolution is removed; regenerate `Package.resolved` from the published 0.7.1 tag before normal-project/release validation. This is not evidence that the unpublished tag was remotely resolved.
+AudioMator pins published **TagLibAudioMetadata 0.7.2** at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.

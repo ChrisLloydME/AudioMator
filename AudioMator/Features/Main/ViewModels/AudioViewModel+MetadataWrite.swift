@@ -106,7 +106,10 @@ extension AudioViewModel {
 
         let completedEdits = completedInspectorEditsByID
         let targetFiles = files.filter {
-            selectedAudioIDs.contains($0.id) && multiEdit.hasPendingChanges(excluding: completedEdits[$0.id])
+            selectedAudioIDs.contains($0.id) && multiEdit.hasPendingChanges(
+                comparedTo: inspectorEditSourceFilesByID[$0.id] ?? $0,
+                excluding: completedEdits[$0.id]
+            )
         }
         guard !targetFiles.isEmpty else { return }
         guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }

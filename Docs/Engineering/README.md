@@ -6,6 +6,12 @@ This folder contains dated engineering evidence: performance measurements, inves
 
 | Document | Date / baseline | Status |
 | --- | --- | --- |
+| [Published TagLibAudioMetadata 0.7.2 adoption](TAGLIB_072_ADOPTION_2026-11-11.md) | 2026-11-11, published 0.7.2 | Normal-project lock adopted; absent-Year/present-Date Comment/Lyrics regression blocks release |
+| [Native mapping follow-up package acceptance](NATIVE_MAPPING_REPAIRS_2026-11-11.md) | 2026-11-11, local repair branch | Package gates and consumers pass; all 574 app tests pass with override |
+| [MP4 Content Group package repair](MP4_CONTENT_GROUP_PACKAGE_REPAIR_2026-11-10.md) | 2026-11-10, local repair source | Complete 574-test app suite passes with package override; maintainer publication pending |
+| [Inspector false unsaved-state repair](INSPECTOR_DIRTY_STATE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Reproduced no-op/revert false positives; effective per-target dirty state and save filtering |
+| [Preview and editor save acceptance](PREVIEW_SAVE_ACCEPTANCE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Actual checkbox/preview plans through real persistence and editor draft recovery |
+| [Test system upgrade](TEST_SYSTEM_UPGRADE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Independent manifests, real workflow persistence, mutation sensitivity and exposed Content Group blocker |
 | [Store identifier semantic-type repair](STORE_ID_MAPPING_REPAIR_2026-11-10.md) | 2026-11-10, package 0.7.1 | Dedicated Store ID patch typing and generated AIFF regression evidence |
 | [Mapping 0.7.0 outstanding issues / interrupted-agent handoff](AUDIOMATOR_MAPPING_070_HANDOFF.md) | 2026-11-09, working-tree refactor | Six preserved issue IDs; A02/A08/A09 partial; steer received but final handoff interrupted |
 | [AudioMator 0.7.0 / mapping 2.2 implementation](AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) | 2026-11-09, package 0.7.0 / revision `0f89fbe8` | Application adoption ledger, acceptance evidence, package limitations |
@@ -29,3 +35,5 @@ Performance tests are documented in [Testing](../Development/TESTING.md#performa
 - [Mapping conformance audit — 2026-11-10](MAPPING_CONFORMANCE_2026-11-10.md): current application routes and independent evidence that package 0.7.0 has not completed Mapping conformance.
 
 - [0.7.1 joint Mapping acceptance](MAPPING_071_JOINT_ACCEPTANCE.md): current candidate evidence, repaired historical issues, explicit capability limits and maintainer publication handoff.
+
+- [Metadata state coverage and complete gate evidence](METADATA_STATE_COVERAGE_2026-11-11.md) — package-independent native repairs plus app state/save acceptance using an explicit local candidate.

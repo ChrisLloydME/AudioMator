@@ -1,10 +1,17 @@
-> Current candidate status: [0.7.1 joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md). The 0.7.0 failures below are historical reproduction evidence; YEAR/DATE, FLAC comment and UFID repairs are verified in the candidate. ID3v2.3 independent dates remain read-only, and arbitrary new unknown-advisory assignment remains unsupported.
+> Current dependency: published **0.7.2**, revision `5e6f604b0e9df244f4b69608261407d2ab758788`. [Current adoption and blocker](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md). The 0.7.0/0.7.1 evidence below is historical. Normal builds use the published pin; the unreleased repair candidate uses explicit local override validation described below.
+
 
 # Dependency Limitations
 
 AudioMator depends on the external `TagLibAudioMetadata` package for container metadata behavior. This page records constraints that are observable from the app side and that affect product behavior. It is not a substitute for the package's own issue tracker.
 
 Baseline: `TagLibAudioMetadata` **0.7.0**, revision `0f89fbe83c8fb029a9b6d640d57e397686986930`, mapping contract `AM-TLAM-MAPPING-2.2`. Reproductions use temporary copies of the committed fixtures and the public `applyMetadataPatch`, `numberingInventory`/`planNumberNormalization` and `writeTrackNumberText` APIs. The released package source was read during the 2026-11-10 mapping audit; it was not modified.
+
+## Published 0.7.2 — current blocker
+
+On MP4 with absent YEAR and present standalone DATE, writing only Comment or Lyrics fails verification with `Unedited native date field year changed during the patch.` The original file bytes remain unchanged. `MappingPackageConformanceTests` contains deterministic public-package and app-adapter regressions; the release gate must remain red until the package repair passes them. AudioMator does not synthesize companion dates or substitute raw writes. See [A072-01](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md#a072-01--p1--mp4-commentlyrics-writes-reject-when-year-is-absent-and-standalone-date-is-present).
+
+Previous Content Group/Grouping/Work, Store ID and independent-date controls pass in the initial normal-project run against 0.7.2. ID3v2.3 independent-date writes, typed MP4 RATE and assigning new unknown advisory codes remain explicitly unavailable; those are capability restrictions, not claims of new regressions.
 
 ## 0.7.0 Integration Status
 
@@ -134,3 +141,7 @@ The semantic adapter rejects non-numeric track/disc number text. The accepted se
 See [the current mapping audit](../Engineering/MAPPING_CONFORMANCE_2026-11-10.md). In a direct 0.7.0 package probe, editing FLAC YEAR alone removes the independently stored DATE. This disproves complete mapping conformance. The application no longer uses `TagLibDateCompanion`; it rejects this unsafe operation before mutation. Earlier companion descriptions and green-suite evidence describe the superseded workaround, not current behavior. MP4 Date-only editing without that workaround passed a direct probe.
 
 Unknown advisory codes are preserved during unrelated saves and same-file exchange round trips. Assigning one to a different value/file is explicitly unsupported by the current typed package API and is rejected in preview and execution; it is never converted to unset.
+
+## Post-0.7.2 state-coverage candidate
+
+The normal remote 0.7.2 pin still has the independently reproduced absent-Year/present-Date MP4 Comment/Lyrics defect. `codex/metadata-state-coverage-repairs` is an unreleased package candidate; app tests use the explicit ignored local workspace. The candidate repairs native projection replay and low-level date ownership, array preservation, Artist/ARTISTS and ASF validation/custom-field paths. [Current acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) records actual tests and does not certify the unchanged published tag. No application companion-date or raw-write workaround is installed.

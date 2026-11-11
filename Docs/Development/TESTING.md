@@ -2,6 +2,8 @@
 
 AudioMator has two test targets and no UI automation suite. This document describes what exists, what it validates, and what remains unverified.
 
+The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
+
 Counts and paths below were verified by source inspection at the audited commit. They change; re-count before quoting them in a release.
 
 ## Test Targets
@@ -9,10 +11,10 @@ Counts and paths below were verified by source inspection at the audited commit.
 | Target | Kind | Root | Framework | Test functions |
 | --- | --- | --- | --- | --- |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 499 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 579 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 70 `XCTestCase` classes across both targets (66 app-hosted and four SwiftPM); no custom base class.
+- There are 80 `XCTestCase` classes across both targets (76 app-hosted and four SwiftPM); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
@@ -74,16 +76,16 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 12 | 135 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
-| `Application/MetadataExchange` | 3 | 60 | fixture parsing, planner import/export/matching/limits, field transfer |
+| `Application/MetadataEditing` | 13 | 142 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataExchange` | 4 | 66 | fixture parsing, planner import/export/matching/limits, field transfer |
 | `Application/Rename` | 4 | 23 | template parsing, transaction rollback, filename extraction, refresh safety |
 | `Application/WatchedFolders` | 4 | 21 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
 | `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 3 | 40 | real TagLib reads/writes on temporary fixture copies |
-| `Performance` | 3 + fixture | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
+| `Integration/TagLib` | 9 | 93 | real TagLib reads/writes on temporary fixture copies |
+| `Performance` | 4 | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
 | `Unit/Core` | 18 | 82 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 8 | 35 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
+| `Unit/Presentation` | 10 | 49 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | Root | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 
 Notable coverage:
@@ -137,7 +139,7 @@ Only one workflow exists: `.github/workflows/core-logic.yml` (`Validation`).
 - `swift-test`: 15-minute timeout, runs `swift test`.
 - `xcode-test`: 45-minute timeout, runs the app-hosted suite serially with signing disabled, then builds an unsigned Release artifact and validates it with `scripts/validate-macos-artifact.sh`.
 
-The `xcode-27` runner provision and the `Xcode_27.0.app` path are external to the repository and were not verified. There is no test sharding, artifact upload, or signing secret.
+The `xcode-27` runner provision and the stable `/Applications/Xcode.app` path are external to the repository and were not verified. There is no test sharding, artifact upload, or signing secret.
 
 ## Known Coverage Gaps
 
@@ -252,3 +254,25 @@ Application repair regressions and current release-gate evidence are recorded in
 ## Store ID type regression — 2026-11-10
 
 `StoreIdentifierWriteTests` covers the dedicated text-model-to-integer patch boundary for Album/Artist/Catalog Store IDs. A generated temporary AIFF verifies actual set/replace/clear and reload through the published package and real application adapter. Invalid, negative and overflowing IDs combined with a Title change must fail without byte changes. The test does not access user audio or imply broad AIFF conformance. See [the repair record](../Engineering/STORE_ID_MAPPING_REPAIR_2026-11-10.md).
+
+## Preview-to-save regression gate
+
+`MetadataSaveJourneyTests` exercises actual MusicBrainz/iTunes workbench selection and captured plans through real disk persistence, plus Inspector and Metadata Editor draft/save/recovery paths. See [required journeys](METADATA_TEST_STRATEGY.md#preview-to-save-journeys) and [acceptance evidence](../Engineering/PREVIEW_SAVE_ACCEPTANCE_2026-11-10.md). It does not automate interactive UI acceptance.
+
+## Inspector dirty-state regression
+
+`InspectorDirtyStateTests` asserts no-op and reverted edits remain clean while mixed-value clears and genuine changes remain dirty. Real-file save journeys additionally assert no-op batches leave bytes/versions unchanged and successful save/activation reload becomes clean. See [repair evidence](../Engineering/INSPECTOR_DIRTY_STATE_2026-11-10.md).
+
+## Published 0.7.2 acceptance
+
+The normal Xcode project pins remote 0.7.2 at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. The mandatory lock/disclosure contract rejects missing locks and unrelated revisions. The initial full suite passed 573 of 574 app tests; a CSV Comment write failed for an MP4 with absent YEAR and present DATE. Two fresh-fixture regressions preserve that combination for package Lyrics and app Comment writes. They fail on the published tag and pass on the unreleased repair candidate; they remain normal mandatory tests. See [adoption evidence](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md); previous local-override acceptance does not waive this failure.
+
+## Sparse-state acceptance and complete evidence
+
+The current unreleased repair validation uses `bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata`. The ignored workspace is generated explicitly; the normal project remains pinned to published 0.7.2. A local candidate pass does not certify that published tag. The gate records source identity, test logs, `.xcresult`, summary, the complete test tree and an acceptance JSON under `.deriveddata-codex/Validation`.
+
+`MetadataBoundaryMatrixTests` now runs all 33 dedicated strings through set/replace/clear in each of 16 independent date-presence states (1,584 app operations). `MetadataSaveJourneyTests` runs 688 individual provider field-selection/date-state cases, and 80 displayed-plan/Inspector/Metadata Editor/CSV state journeys. Every case uses a temporary file; transport is offline. The ordinary CSV matrix uses a fresh file per field and stable field order; date interactions are explicit tests rather than incidental dictionary ordering. Original package conformance regressions remain mandatory and unchanged.
+
+`check-test-evidence.py` requires exact equality between source-declared XCTest identities and named `xcresult` Test Case leaves, including critical regression identities and a reviewed floor of 579 app tests. Summary totals must agree; failed, skipped, expected-failure, duplicate, foreign-target, missing or incomplete evidence fails. `check-core-evidence.py` similarly requires all 62 Foundation-only core test identities and a complete passing summary. The parser supports this repository's direct XCTestCase classes and named zero-argument tests; a different test declaration style requires an explicit inventory parser update, not a waiver.
+
+`python3 -m unittest discover -s scripts/tests` runs 13 gate-policy tests, including tampered identities, missing core/app execution, count-only evidence, duplicates, skips/failures, nonzero statuses, removed critical source cases and malformed/changed JSON. This is separate from the app/core test counts. See [state coverage acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) for actual final results and the remaining UI/platform limits.

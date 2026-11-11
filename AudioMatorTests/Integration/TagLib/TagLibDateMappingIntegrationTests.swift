@@ -64,9 +64,8 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
             XCTAssertEqual(file.releaseDate, expectedRelease, fixtureName)
             XCTAssertEqual(file.originalReleaseDate, expectedOriginal, fixtureName)
 
-            // Clear only DATE. On ID3-backed tags the released verifier treats
-            // the legacy PropertyMap DATE projection as an unedited field and
-            // rejects the write; the original bytes must stay intact.
+            // Clear only DATE. YEAR and both other date owners must remain
+            // independent through the published package's native verification.
             edit = SingleFileEditModel(from: file)
             edit.date = ""
             let clearPayload = MetadataEditPayload(edit, comparedTo: file)

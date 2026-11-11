@@ -86,9 +86,9 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
 
     @MainActor
     func testAllDedicatedStringsPersistReplaceAndRemoveOnMP4() async throws {
-        let url = try fixture("m4a")
         let pipeline = TagLibAudioMetadataPipeline()
         for item in cases {
+            let url = try fixture("m4a")
             for value in [item.first, item.second, ""] {
                 let file = try await pipeline.loadAudioFile(at: url, id: UUID())
                 var edit = SingleFileEditModel(from: file)
@@ -182,9 +182,10 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
 
     @MainActor
     func testEveryCSVFieldPlansWritesAndReloadsThroughRealAdapter() async throws {
-        let url = try fixture("m4a")
         let pipeline = TagLibAudioMetadataPipeline()
-        for (field, sample) in exchangeCases {
+        for field in exchangeCases.keys.sorted(by: { $0.placeholderName < $1.placeholderName }) {
+            let sample = try XCTUnwrap(exchangeCases[field])
+            let url = try fixture("m4a")
             let file = try await pipeline.loadAudioFile(at: url, id: UUID())
             let plan = MetadataExchangePlanner.makeCSVImportPlan(template: "{{\(field.placeholderName)}}",
                 sourceText: "\(field.placeholderName)\n\(sample.1)", firstRowIsHeader: true,
@@ -196,10 +197,53 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
             }
             let payload = MetadataEditPayload(edit, comparedTo: file)
             XCTAssertTrue(payload.requestedFields.contains(sample.0), "CSV \(field)")
-            _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
+            let bytesBeforeWrite = try Data(contentsOf: url)
+            do {
+                _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
+            } catch {
+                XCTAssertEqual(try Data(contentsOf: url), bytesBeforeWrite, "Rejected CSV write must not commit")
+                XCTFail("CSV \(field.placeholderName), requested=\(payload.requestedFields), before YEAR=\(file.year), DATE=\(file.date), RELEASEDATE=\(file.releaseDate): \(error)")
+                return
+            }
             let reloaded = try await pipeline.loadAudioFile(at: url, id: file.id)
             XCTAssertEqual(field.value(from: reloaded, index: 0, relativeBasePath: nil), sample.1, "CSV \(field)")
         }
+    }
+
+    /// Each field starts independently, then set/replace/clear is exercised.
+    /// Presence masks are explicit, not dictionary iteration side effects.
+    @MainActor
+    func testEveryDedicatedStringAcrossAllDatePresenceStates() async throws {
+        let keys: [MetadataFieldKey] = [.year, .standaloneDate, .releaseDate, .originalReleaseDate]
+        let dates = ["2004", "2008-03-04", "2017-06-09", "1999-11-12"]
+        let pipeline = TagLibAudioMetadataPipeline()
+        var completed = 0
+        for mask in 0..<16 {
+            for item in cases {
+                let url = try fixture("m4a")
+                let fields = Dictionary(uniqueKeysWithValues: keys.enumerated().map { index, key in
+                    (key, mask & (1 << index) == 0 ? MetadataPatchValue.remove : .text(dates[index]))
+                })
+                try TagLibMetadataManager.applyMetadataPatch(.init(fields: fields), to: url)
+                for value in [item.first, item.second, ""] {
+                    let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+                    var edit = SingleFileEditModel(from: file)
+                    edit[keyPath: item.path] = value
+                    _ = try pipeline.writeMetadata(MetadataEditPayload(edit, comparedTo: file), to: url,
+                        expectedVersion: file.metadataFileVersion)
+                    let saved = try await pipeline.loadAudioFile(at: url, id: file.id)
+                    XCTAssertEqual(SingleFileEditModel(from: saved)[keyPath: item.path], value, "mask=\(mask), \(item.key)")
+                    let afterDates = [saved.year, saved.date, saved.releaseDate, saved.originalReleaseDate]
+                    for (index, key) in keys.enumerated() where key != item.key {
+                        XCTAssertEqual(afterDates[index], mask & (1 << index) == 0 ? "" : dates[index],
+                            "Untouched \(key), mask=\(mask), edited=\(item.key)")
+                    }
+                    completed += 1
+                }
+            }
+        }
+        XCTAssertEqual(cases.count, 33, "Review coverage when dedicated controls change")
+        XCTAssertEqual(completed, 16 * 33 * 3)
     }
 
     @MainActor

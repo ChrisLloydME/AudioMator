@@ -50,4 +50,52 @@ final class MappingPackageConformanceTests: XCTestCase {
         XCTAssertEqual(after.year, "2005")
         XCTAssertEqual(after.date, "2008-03-04")
     }
+
+    func testPackageMP4LyricsPreservesAbsentYearWithStandaloneDate() throws {
+        let url = try fixture("m4a")
+        try TagLibMetadataManager.applyMetadataPatch(.init(fields: [
+            .year: .remove, .standaloneDate: .text("2008-03-04")
+        ]), to: url)
+        let before = try TagLibMetadataManager.readSnapshot(from: url)
+        XCTAssertEqual(before.basic.year, "")
+        XCTAssertEqual(before.basic.date, "2008-03-04")
+        let bytes = try Data(contentsOf: url)
+        do {
+            try TagLibMetadataManager.applyMetadataPatch(.init(fields: [.lyrics: .text("Lyrics only")]), to: url)
+        } catch {
+            XCTAssertEqual(try Data(contentsOf: url), bytes, "Rejected package write must not commit")
+            throw error
+        }
+        let after = try TagLibMetadataManager.readSnapshot(from: url)
+        XCTAssertEqual(after.basic.lyrics, "Lyrics only")
+        XCTAssertEqual(after.basic.year, "")
+        XCTAssertEqual(after.basic.date, "2008-03-04")
+    }
+
+    @MainActor
+    func testAppMP4CommentPreservesAbsentYearWithStandaloneDate() async throws {
+        let url = try fixture("m4a")
+        try TagLibMetadataManager.applyMetadataPatch(.init(fields: [
+            .year: .remove, .standaloneDate: .text("2008-03-04")
+        ]), to: url)
+        let pipeline = TagLibAudioMetadataPipeline()
+        let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+        XCTAssertEqual(file.year, "")
+        XCTAssertEqual(file.date, "2008-03-04")
+        var edit = SingleFileEditModel(from: file)
+        edit.comment = "Comment only"
+        let payload = MetadataEditPayload(edit, comparedTo: file)
+        XCTAssertEqual(TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields, [.comment: .text("Comment only")])
+        let bytes = try Data(contentsOf: url)
+        do {
+            _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
+        } catch {
+            XCTAssertEqual(try Data(contentsOf: url), bytes, "Rejected app write must not commit")
+            throw error
+        }
+        let after = try await pipeline.loadAudioFile(at: url, id: file.id)
+        XCTAssertEqual(after.comment, "Comment only")
+        XCTAssertEqual(after.year, "")
+        XCTAssertEqual(after.date, "2008-03-04")
+    }
 }

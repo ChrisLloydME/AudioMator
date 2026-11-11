@@ -352,6 +352,130 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
     }
 
     @MainActor
+    func testAllDatePresenceStatesThroughDisplayedSaveJourneys() async throws {
+        let keys: [MetadataFieldKey] = [.year, .standaloneDate, .releaseDate, .originalReleaseDate]
+        let dates = ["2004", "2008-03-04", "2017-06-09", "1999-11-12"]
+        var completed = 0
+        for mask in 0..<16 {
+            for journey in ["itunes", "musicbrainz", "inspector", "editor", "csv"] {
+                let original = try await fixture("m4a")
+                try TagLibMetadataManager.applyMetadataPatch(.init(fields: Dictionary(uniqueKeysWithValues:
+                    keys.enumerated().map { index, key in
+                        (key, mask & (1 << index) == 0 ? MetadataPatchValue.remove : .text(dates[index]))
+                    })), to: original.url)
+                let file = try await pipeline.loadAudioFile(at: original.url, id: original.id)
+                let vm = viewModel([file])
+                switch journey {
+                case "itunes":
+                    let store = itunes(file)
+                    store.deselectAllFields(); store.setFieldSelected(true, for: .title)
+                    XCTAssertEqual(Set(try XCTUnwrap(store.plan.writeEntries.first).values.keys), [.title])
+                    await vm.applyiTunesTaggingPlan(store.plan.writeEntries)
+                case "musicbrainz":
+                    let store = musicbrainz(file)
+                    store.deselectAllFields(); store.setFieldSelected(true, for: .title)
+                    XCTAssertEqual(Set(try XCTUnwrap(store.plan.writeEntries.first).values.keys), [.title])
+                    await vm.applyMusicBrainzTaggingPlan(store.plan.writeEntries)
+                case "inspector":
+                    vm.edit?.comment = "Sparse Inspector"
+                    XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+                    vm.saveInspectorEdits()
+                    try await saveFinished(vm)
+                    XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+                case "csv":
+                    let plan = MetadataExchangePlanner.makeCSVImportPlan(template: "{{comment}}",
+                        sourceText: "comment\nSparse CSV", firstRowIsHeader: true,
+                        targetFiles: [file], clearBlankImportedValues: false)
+                    XCTAssertEqual(plan.writeEntries.count, 1)
+                    _ = await vm.applyMetadataExchangeWriteEntries(plan.writeEntries)
+                default:
+                    let store = MetadataEditorStore(metadataPipeline: pipeline)
+                    store.present(targetFiles: [file]); try await loaded(store)
+                    store.upsertField(key: "COMMENT", value: "Sparse Editor")
+                    let result = await vm.applyRawMetadataPropertyMaps(store.draftPropertyMaps, to: store.pendingTargets)
+                    XCTAssertTrue(result.didApplyAllChanges)
+                    store.recordAppliedTargets(result.succeededTargetIDs)
+                    XCTAssertFalse(store.hasUnsavedChanges)
+                }
+                let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
+                if journey == "itunes" || journey == "musicbrainz" { XCTAssertEqual(saved.title, "Remote") }
+                else { XCTAssertEqual(saved.comment, journey == "inspector" ? "Sparse Inspector" : journey == "csv" ? "Sparse CSV" : "Sparse Editor") }
+                XCTAssertEqual([saved.year, saved.date, saved.releaseDate, saved.originalReleaseDate],
+                    dates.enumerated().map { mask & (1 << $0.offset) == 0 ? "" : $0.element },
+                    "\(journey), mask=\(mask)")
+                completed += 1
+            }
+        }
+        XCTAssertEqual(completed, 80)
+    }
+
+    @MainActor
+    func testEveryProviderSelectionAcrossAllDatePresenceStates() async throws {
+        let keys: [MetadataFieldKey] = [.year, .standaloneDate, .releaseDate, .originalReleaseDate]
+        let dates = ["2004", "2008-03-04", "2017-06-09", "1999-11-12"]
+        let browser = MusicBrainzBrowserStore(client: OfflineJourneyMusicBrainzClient())
+        _ = try await browser.recordingDetail(id: "offline-recording")
+        var completed = 0
+        for mask in 0..<16 {
+            for provider in 0..<2 {
+                let count = provider == 0 ? iTunesTagWriteField.allCases.count : MusicBrainzTagWriteField.allCases.count
+                for index in 0..<count {
+                    let original = try await fixture("m4a")
+                    try TagLibMetadataManager.applyMetadataPatch(.init(fields: Dictionary(uniqueKeysWithValues:
+                        keys.enumerated().map { offset, key in
+                            (key, mask & (1 << offset) == 0 ? MetadataPatchValue.remove : .text(dates[offset]))
+                        })), to: original.url)
+                    let file = try await pipeline.loadAudioFile(at: original.url, id: original.id)
+                    let vm = viewModel([file])
+                    var expectedDates = dates.enumerated().map { mask & (1 << $0.offset) == 0 ? "" : $0.element }
+                    if provider == 0 {
+                        let field = iTunesTagWriteField.allCases[index]
+                        let store = itunes(file)
+                        store.deselectAllFields(); store.setFieldSelected(true, for: field)
+                        let plan = store.plan
+                        if field == .barcode {
+                            let before = try Data(contentsOf: file.url)
+                            XCTAssertTrue(plan.writeEntries.isEmpty)
+                            await vm.applyiTunesTaggingPlan(plan.writeEntries)
+                            XCTAssertEqual(try Data(contentsOf: file.url), before)
+                        } else {
+                            let entry = try XCTUnwrap(plan.writeEntries.first)
+                            XCTAssertEqual(Set(entry.values.keys), [field])
+                            await vm.applyiTunesTaggingPlan(plan.writeEntries)
+                            let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
+                            XCTAssertEqual(field.localValue(from: saved), entry.values[field], "mask=\(mask), iTunes \(field)")
+                            for other in iTunesTagWriteField.allCases where other != field {
+                                XCTAssertEqual(other.localValue(from: saved), other.localValue(from: file))
+                            }
+                            if field == .releaseDate { expectedDates[2] = try XCTUnwrap(entry.values[field]) }
+                        }
+                    } else {
+                        let field = MusicBrainzTagWriteField.allCases[index]
+                        let store = musicbrainz(file, browser: browser, recordingID: "offline-recording")
+                        store.deselectAllFields(); store.setFieldSelected(true, for: field)
+                        let plan = store.plan
+                        let entry = try XCTUnwrap(plan.writeEntries.first)
+                        XCTAssertEqual(Set(entry.values.keys), [field])
+                        await vm.applyMusicBrainzTaggingPlan(plan.writeEntries)
+                        let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
+                        XCTAssertEqual(field.localValue(from: saved), entry.values[field], "mask=\(mask), MusicBrainz \(field)")
+                        for other in MusicBrainzTagWriteField.allCases where other != field {
+                            XCTAssertEqual(other.localValue(from: saved), other.localValue(from: file))
+                        }
+                        if field == .releaseDate { expectedDates[2] = try XCTUnwrap(entry.values[field]) }
+                    }
+                    let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
+                    XCTAssertEqual([saved.year, saved.date, saved.releaseDate, saved.originalReleaseDate], expectedDates)
+                    completed += 1
+                }
+            }
+        }
+        XCTAssertEqual(iTunesTagWriteField.allCases.count, 16)
+        XCTAssertEqual(MusicBrainzTagWriteField.allCases.count, 27)
+        XCTAssertEqual(completed, 688)
+    }
+
+    @MainActor
     private func saveFinished(_ vm: AudioViewModel) async throws {
         XCTAssertNotNil(vm.metadataSaveProgress)
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))

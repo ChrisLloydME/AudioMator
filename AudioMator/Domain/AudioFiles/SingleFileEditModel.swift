@@ -297,9 +297,11 @@ struct SingleFileEditModel {
             contentGroup != baseline.contentGroup ||
             grouping != baseline.grouping ||
             work != baseline.work ||
-            containerValues != baseline.containerValues ||
-            trackNumberText != baseline.trackNumberText ||
-            discNumberText != baseline.discNumberText ||
+            presentContainerValues != baseline.presentContainerValues ||
+            trackNumberFieldText != baseline.trackNumberFieldText ||
+            trackTotalFieldText != baseline.trackTotalFieldText ||
+            discNumberFieldText != baseline.discNumberFieldText ||
+            discTotalFieldText != baseline.discTotalFieldText ||
             albumArtist != baseline.albumArtist ||
             releaseDate != baseline.releaseDate ||
             publisher != baseline.publisher ||
@@ -335,6 +337,12 @@ struct SingleFileEditModel {
         }
     }
 
+    // An empty typed text value is an explicit removal, equivalent to an
+    // already absent value for dirty-state purposes. Keep false and zero.
+    private var presentContainerValues: [MetadataFieldKey: ContainerFieldValue] {
+        containerValues.filter { $0.value.patchValue != .remove }
+    }
+
     var trackNumberFieldText: String {
         AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal).displayedNumberText
     }
@@ -352,24 +360,28 @@ struct SingleFileEditModel {
     }
 
     mutating func setTrackNumberFieldText(_ text: String) {
+        guard text != trackNumberFieldText else { return }
         let pair = AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal)
             .replacingNumberText(text)
         applyTrackPair(pair)
     }
 
     mutating func setTrackTotalFieldText(_ text: String) {
+        guard text != trackTotalFieldText else { return }
         let pair = AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal)
             .replacingTotalText(text)
         applyTrackPair(pair)
     }
 
     mutating func setDiscNumberFieldText(_ text: String) {
+        guard text != discNumberFieldText else { return }
         let pair = AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal)
             .replacingNumberText(text)
         applyDiscPair(pair)
     }
 
     mutating func setDiscTotalFieldText(_ text: String) {
+        guard text != discTotalFieldText else { return }
         let pair = AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal)
             .replacingTotalText(text)
         applyDiscPair(pair)
@@ -707,6 +719,14 @@ struct MultiFileEditModel {
             || (hasPendingArtworkChange && artworkEditAction != completed?.artworkEditAction)
     }
 
+    /// Intent tracking alone cannot determine dirtiness: a setter may receive
+    /// the original value or a reverted edit. Compare the effective draft with
+    /// this target's captured baseline, after excluding completed batch intent.
+    func hasPendingChanges(comparedTo file: AudioFile, excluding completed: MultiFileEditModel? = nil) -> Bool {
+        guard hasPendingChanges(excluding: completed) else { return false }
+        return applyingChanges(to: file, excluding: completed).hasUnsavedChanges(comparedTo: file)
+    }
+
     private func isPendingTextEdit(_ field: MultiFileEditableTextField, excluding completed: MultiFileEditModel?) -> Bool {
         guard let completed, completed.modifiedTextFields.contains(field) else { return true }
         return text(for: field) != completed.text(for: field)
@@ -734,6 +754,7 @@ struct MultiFileEditModel {
         case .set(let advisory):
             if explicitEditState != completed?.explicitEditState {
                 result.contentAdvisory = advisory
+                result.clearsUnknownAdvisory = advisory == nil && file.advisoryRawValue != nil
             }
         }
 

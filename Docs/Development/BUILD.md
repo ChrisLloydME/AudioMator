@@ -191,3 +191,11 @@ The 0.7.2 dependency requires Swift tools 6.4; use stable Xcode 27 at `/Applicat
 ### Published mapping repair dependency
 
 AudioMator pins published **TagLibAudioMetadata 0.7.2** at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only for explicitly requested local candidate validation via `scripts/validate-release.sh --local-package`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
+
+## Explicit local package candidate gate
+
+```bash
+bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata
+```
+
+This generates the ignored `.tmp/MappingIntegration.xcworkspace`, runs policy tests, core tests, the full serial app-hosted suite, unsigned Release build and artifact checks with the candidate. It records the package commit, dirty status, diff hash and untracked-file hashes. No alternate derived-data root is used. The default command still resolves the published lock; the local gate does not validate or change that remote release.

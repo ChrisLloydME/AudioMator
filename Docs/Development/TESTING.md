@@ -262,3 +262,7 @@ Application repair regressions and current release-gate evidence are recorded in
 ## Inspector dirty-state regression
 
 `InspectorDirtyStateTests` asserts no-op and reverted edits remain clean while mixed-value clears and genuine changes remain dirty. Real-file save journeys additionally assert no-op batches leave bytes/versions unchanged and successful save/activation reload becomes clean. See [repair evidence](../Engineering/INSPECTOR_DIRTY_STATE_2026-11-10.md).
+
+## Published 0.7.2 acceptance
+
+The normal Xcode project pins remote 0.7.2 at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. The mandatory lock/disclosure contract rejects missing locks and unrelated revisions. The initial full suite passed 573 of 574 app tests; a CSV Comment write failed for an MP4 with absent YEAR and present DATE. Two fresh-fixture regressions preserve that combination for package Lyrics and app Comment writes. They fail on the published tag and pass on the unreleased repair candidate; they remain normal mandatory tests. See [adoption evidence](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md); previous local-override acceptance does not waive this failure.

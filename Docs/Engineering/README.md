@@ -6,7 +6,8 @@ This folder contains dated engineering evidence: performance measurements, inves
 
 | Document | Date / baseline | Status |
 | --- | --- | --- |
-| [Published TagLibAudioMetadata 0.7.2 adoption](TAGLIB_072_ADOPTION_2026-11-11.md) | 2026-11-11, published 0.7.2 | Normal-project lock adopted; absent-Year/present-Date Comment/Lyrics regression blocks release |
+| [Published TagLibAudioMetadata 0.7.3 release readiness](TAGLIB_073_RELEASE_READINESS_2026-11-12.md) | 2026-11-12, published 0.7.3 | Normal-project gate passed: 62 core/579 app tests, Release build and unsigned Archive; manual distribution remains |
+| [Published TagLibAudioMetadata 0.7.2 adoption](TAGLIB_072_ADOPTION_2026-11-11.md) | 2026-11-11, published 0.7.2 | Historical failing 0.7.2 adoption; superseded by 0.7.3 acceptance |
 | [Native mapping follow-up package acceptance](NATIVE_MAPPING_REPAIRS_2026-11-11.md) | 2026-11-11, local repair branch | Package gates and consumers pass; all 574 app tests pass with override |
 | [MP4 Content Group package repair](MP4_CONTENT_GROUP_PACKAGE_REPAIR_2026-11-10.md) | 2026-11-10, local repair source | Complete 574-test app suite passes with package override; maintainer publication pending |
 | [Inspector false unsaved-state repair](INSPECTOR_DIRTY_STATE_2026-11-10.md) | 2026-11-10, package 0.7.1 | Reproduced no-op/revert false positives; effective per-target dirty state and save filtering |

@@ -17,7 +17,7 @@ Verified in this audit:
 | Xcode | 27.1 (27A9275) |
 | Swift compiler | Apple Swift 6.4 |
 | App deployment target | macOS 15.0 |
-| Package pin | Exact published `0.7.2`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.2), committed remote revision lock |
+| Package pin | Exact published `0.7.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3), committed remote revision lock |
 
 The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested.
 
@@ -35,7 +35,7 @@ Select the `AudioMator` scheme and a macOS destination. Xcode resolves the remot
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The committed package requirement is **exact version `0.7.2`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
+The committed package requirement is **exact version `0.7.3`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
 
 ## Scheme and Configurations
 
@@ -185,12 +185,12 @@ Sandbox restrictions initially prevented writes to user compiler/SwiftPM caches;
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Release Engineering](RELEASE.md)
 
-The 0.7.2 dependency requires Swift tools 6.4; use stable Xcode 27 at `/Applications/Xcode.app`. The Foundation-only SwiftPM harness retains its independent tools version and does not compile the dependency.
+The 0.7.3 dependency requires Swift tools 6.4; use stable Xcode 27 at `/Applications/Xcode.app`. The Foundation-only SwiftPM harness retains its independent tools version and does not compile the dependency.
 
 
 ### Published mapping repair dependency
 
-AudioMator pins published **TagLibAudioMetadata 0.7.2** at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only for explicitly requested local candidate validation via `scripts/validate-release.sh --local-package`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
+AudioMator pins published **TagLibAudioMetadata 0.7.3** at revision `7ca1b75326388a5902815f70145b600299944ae0`. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only for explicitly requested local candidate validation via `scripts/validate-release.sh --local-package`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
 
 ## Explicit local package candidate gate
 

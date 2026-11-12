@@ -2,7 +2,7 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
-AudioMator targets `TagLibAudioMetadata` **0.7.1**, verified using the maintainer-authorized local override of the package repair branch. The old 0.7.0 lockfile is removed; the maintainer will publish the package and then regenerate the normal exact-version lock. [Joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) supersedes the earlier 0.7.0 blocker evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
+AudioMator pins published `TagLibAudioMetadata` **0.7.3**, resolved through the normal Xcode project and committed remote lock. No local override is needed for this release candidate. [Published dependency acceptance](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records the release-gate evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
 
 ## Boundary Summary
 

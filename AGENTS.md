@@ -114,7 +114,7 @@ xcodebuild \
 
 ## Dependency Notes
 
-- `TagLibAudioMetadata` is pinned to published exact version `0.7.2`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.2) is resolved through the normal Xcode project.
+- `TagLibAudioMetadata` is pinned to published exact version `0.7.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3) is resolved through the normal Xcode project.
 - App deployment target: macOS 15.0.
 - Do not vendor package or TagLib source.
 - Keep `AudioMator/Resources/Licenses`, `Core/Legal/LicenseDisclosure.swift`, the in-app Acknowledgements sheet, and the legal docs in sync when dependency versions or licenses change.
@@ -136,4 +136,4 @@ A behavior change is incomplete without documentation. Use the [update matrix](D
 
 ### Published mapping repair dependency
 
-AudioMator pins published **TagLibAudioMetadata 0.7.2** at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only for explicitly requested local candidate validation via `scripts/validate-release.sh --local-package`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
+AudioMator pins published **TagLibAudioMetadata 0.7.3** at revision `7ca1b75326388a5902815f70145b600299944ae0`. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only for explicitly requested local candidate validation via `scripts/validate-release.sh --local-package`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.

@@ -1,5 +1,7 @@
 # AudioMator / TagLibAudioMetadata 0.7.1 joint Mapping acceptance
 
+> Historical record. Superseded by the published 0.7.1 dependency and by [published 0.7.3 acceptance](TAGLIB_073_RELEASE_READINESS_2026-11-12.md). This local-candidate result does not establish current released-package behavior.
+
 Date: 2026-11-10. Contract: `AM-TLAM-MAPPING-2.2`. Scope: source repair and local-override acceptance. The maintainer explicitly owns manual publication; this task creates no tag or GitHub Release.
 
 ## Repositories and candidate identity

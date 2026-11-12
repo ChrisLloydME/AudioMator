@@ -2,7 +2,7 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
-AudioMator pins published `TagLibAudioMetadata` **0.7.3**, resolved through the normal Xcode project and committed remote lock. No local override is needed for this release candidate. [Published dependency acceptance](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records the release-gate evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
+AudioMator pins published `TagLibAudioMetadata` **0.7.3**, resolved through the normal Xcode project and committed remote lock. No local override is needed for normal builds. [Published dependency acceptance](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records the release-gate evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
 
 ## Boundary Summary
 
@@ -102,7 +102,7 @@ Track and disc data is represented by:
 - display text `trackNumberText`, `discNumberText`,
 - derived field text used by the inspector.
 
-`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. Track and disc are component intents: a number edit submits only the changed number component, a total edit submits only the changed total, and a cleared component is an explicit removal. The untouched sibling is never rewritten or removed. MP4 uses native `trkn`/`disk`; ID3 uses combined `TRCK`/`TPOS` text; Xiph/APE use separate keys. The package may normalize displayed text padding (for example MP4 `07` to `7`); a numeric readback match with changed padding is reported as normalization, not failure. `MetadataNumberResolutionPolicy`/`numberingInventory` expose native, recoveredLegacy, ambiguous and invalid states; the Inspector offers a focused preview/Apply for explicit cleanup. `MetadataEditPayload.numberPairValidationMessage` rejects non-numeric semantic number text. The legacy `writeTrackNumberText` API remains available but is no longer the renumbering path, and the low-level raw editor remains the explicit exception.
+`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. Track and disc are component intents: a number edit submits only the changed number component, a total edit submits only the changed total, and a cleared component is an explicit removal. The untouched sibling is never rewritten or removed. Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`; whole-pair clearing removes both components. MP4 uses native `trkn`/`disk`; ID3 uses combined `TRCK`/`TPOS` text; Xiph/APE use separate keys. The package may normalize displayed text padding (for example MP4 `07` to `7`); a numeric readback match with changed padding is reported as normalization, not failure. `MetadataNumberResolutionPolicy`/`numberingInventory` expose native, recoveredLegacy, ambiguous and invalid states; the Inspector offers a focused preview/Apply for explicit cleanup. `MetadataEditPayload.numberPairValidationMessage` rejects non-numeric semantic number text. MP3 disc-only updates and AAC total clearing use the corrected package contract. The legacy `writeTrackNumberText` API remains available but is no longer the renumbering path, and the low-level raw editor remains the explicit exception.
 
 ### Year and release date
 
@@ -117,7 +117,7 @@ Track and disc data is represented by:
 
 The package's legacy `.date` case is a YEAR alias and is never used for a new semantic write. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text. `.date` and `.year` are never submitted together.
 
-**0.7.1 independent-date behavior.** No companion date writes are synthesized. The repaired package preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
+**Independent-date behavior.** No companion date writes are synthesized. Published 0.7.3 preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
 
 ### Content advisory
 
@@ -126,6 +126,8 @@ The package's legacy `.date` case is a YEAR alias and is never used for a new se
 ### Artwork
 
 `ArtworkEditAction` is `unchanged`, `replace(PendingArtwork)`, or `remove`. Replacement carries bytes and a MIME type. The adapter converts this into a `MetadataArtworkPatch` with one `StructuredArtwork` entry, or `.removeAll`.
+
+Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. Existing byte and pixel caps remain enforced. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
 
 ## Write Preflight
 
@@ -154,6 +156,10 @@ Before any semantic write, `persistMetadataEdit`:
 - includes number text only when the corresponding text flag changed.
 
 An unchanged revision with an empty patch performs no write but rechecks the file version.
+
+### Store identifier encoding
+
+The dedicated Inspector/provider/exchange models retain Album, Artist and Catalog Store IDs as display strings. At the shared semantic patch boundary, requested non-empty fields whose registry accepts only integers are encoded as `.integer`; an empty edit remains `.remove`. Text identifiers such as MusicBrainz IDs, barcode and catalog number are not converted. Invalid or overflowing numeric IDs remain validation failures: no clamping, truncation, field dropping or partial per-file save is allowed. Untouched fields are filtered before conversion.
 
 ## Conflict Resolution
 
@@ -235,7 +241,7 @@ Erase is exposed only as a destructive batch operation with an unchanged-revisio
 
 The app does not maintain a per-format write table. It consumes the package's capability snapshot and must be tested per format for behavior that matters. Known cross-format differences documented by AudioMator include:
 
-- ID3, MP4 and Xiph layouts can hold the four date identities independently; ID3v2.3 TDAT and TDRL remain package limitations documented in the ledger.
+- ID3, MP4 and Xiph layouts can hold the four date identities independently; ID3v2.3 TDAT and TDRL remain package limitations documented in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 - MP4 has one standard date slot.
 - MP4 track/disc use `trkn`/`disk`; containers may normalize combined text.
 - Multi-artwork roles are not uniformly writable; AudioMator writes a single selected cover.
@@ -251,6 +257,10 @@ The app does not maintain a per-format write table. It consumes the package's ca
 | Cocoa file errors | Permission, missing file, access denied | Failure; ask for folder access when applicable |
 | Cancellation | Task cancelled before irreversible work | Report cancelled; no write |
 
+## Number Text Validation
+
+Changed number-text pairs are validated centrally before semantic writes. Missing-number totals and non-numeric number text have separate explanations. The pinned package accepts unsigned decimal number text; existing non-numeric raw values remain untouched during unrelated edits. See [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+
 ## Known Gaps and Unverified Areas
 
 - The package's internal representation and verification logic were not audited in this repository; the app documents the interface it consumes.
@@ -264,16 +274,3 @@ The app does not maintain a per-format write table. It consumes the package's ca
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
-
-Changed number-text pairs are validated centrally before semantic writes. Missing-number totals and non-numeric number text have separate explanations. The pinned package accepts unsigned decimal number text; existing non-numeric raw values remain untouched during unrelated edits. See [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
-
-## 0.7.0 Number Text and Artwork Import
-
-Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`. Whole-pair clearing still removes both components. Non-numeric semantic number text remains rejected. MP3 disc-only updates and AAC total clearing now use the corrected package contract. FLAC semantic comment writes remain an upstream integration blocker; see [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
-
-Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. Existing byte and pixel caps remain enforced. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
-
-
-## Store identifier value shapes
-
-The dedicated Inspector/provider/exchange models retain Album, Artist and Catalog Store IDs as display strings. At the shared semantic patch boundary, requested non-empty fields whose registry accepts only integers are encoded as `.integer`; an empty edit remains `.remove`. Text identifiers such as MusicBrainz IDs, barcode and catalog number are not converted. Invalid or overflowing numeric IDs remain validation failures: no clamping, truncation, field dropping or partial per-file save is allowed. Untouched fields are filtered before conversion.

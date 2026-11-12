@@ -4,17 +4,17 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were verified by source inspection at the audited commit. They change; re-count before quoting them in a release.
+Counts and paths below were verified by source inspection on 2026-11-12. They change; re-count before quoting them in a release.
 
 ## Test Targets
 
-| Target | Kind | Root | Framework | Test functions |
-| --- | --- | --- | --- | --- |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 579 |
+| Target | Kind | Root | Framework | Test functions | XCTestCase classes |
+| --- | --- | --- | --- | ---: | ---: |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 579 | 76 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 80 `XCTestCase` classes across both targets (76 app-hosted and four SwiftPM); no custom base class.
+- There are 80 `XCTestCase` classes across both targets; no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
@@ -52,13 +52,19 @@ xcodebuild ... \
 
 Always keep the serial flags for Agent-driven runs. The test bundle is app-hosted and each parallel runner launches another app instance.
 
+The unified release gate is:
+
+```bash
+bash scripts/validate-release.sh
+```
+
 Performance tests are part of the same scheme and run in CI. See [Performance tests](#performance-tests).
 
 ## SwiftPM Fast Target
 
-`Package.swift` compiles exactly 30 Foundation-only production files:
+`Package.swift` compiles exactly 31 Foundation-only production files:
 
-- Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, fuzzy similarity.
+- Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, fuzzy similarity, independent date text.
 - Domain: metadata model core, fingerprint, file collection, mutation directory plan, conflict policy, text edit pipeline, mutation coordinator, CSV and template syntax, MuseAmp IDs, rename plan/template/sanitizer, filename extraction, track renumber.
 - Infrastructure pure cores: iTunes artwork/provider, LRCLIB models/ranker/request builder, MusicBrainz provider core/Lucene builder/request scheduling, online selection core.
 
@@ -68,7 +74,7 @@ It intentionally excludes:
 - TagLib adapters and `AudioFile` loading,
 - network clients and services,
 - app models (`AudioFile`, edit models, pipeline contract, conflict baseline),
-- the app metadata exchange planner, template models, and filename plan builders.
+- the app metadata exchange planner and template models.
 
 A file in this target must stay Foundation-only and deterministic. It may use a temporary directory for path-semantics tests, but it must not contact the network, invoke TagLib, or depend on app-hosted types.
 
@@ -77,12 +83,12 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
 | `Application/MetadataEditing` | 13 | 142 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
-| `Application/MetadataExchange` | 4 | 66 | fixture parsing, planner import/export/matching/limits, field transfer |
+| `Application/MetadataExchange` | 4 | 66 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
 | `Application/Rename` | 4 | 23 | template parsing, transaction rollback, filename extraction, refresh safety |
 | `Application/WatchedFolders` | 4 | 21 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
 | `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 9 | 93 | real TagLib reads/writes on temporary fixture copies |
+| `Integration/TagLib` | 9 | 93 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
 | `Performance` | 4 | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
 | `Unit/Core` | 18 | 82 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 10 | 49 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
@@ -98,6 +104,7 @@ Notable coverage:
 - Provider URLProtocol tests cover stale-ID fallback and MusicBrainz results beyond the detail-verification cap.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget.
+- `MetadataBoundaryMatrixTests` and `MetadataSaveJourneyTests` exercise sparse date-presence states, CSV/profile behavior, provider field selection, Inspector/Editor drafts, and real disk reloads.
 
 ## Fixtures
 
@@ -135,11 +142,24 @@ They are regression sensors for algorithmic blowups, not benchmarks for a specif
 Only one workflow exists: `.github/workflows/core-logic.yml` (`Validation`).
 
 - Triggers: pull requests and pushes to `main`.
-- Runner label: `xcode-27`; `DEVELOPER_DIR` points at `/Applications/Xcode_27.0.app/Contents/Developer`.
+- Runner label: `xcode-27`; `DEVELOPER_DIR` points at `/Applications/Xcode.app/Contents/Developer`.
 - `swift-test`: 15-minute timeout, runs `swift test`.
-- `xcode-test`: 45-minute timeout, runs the app-hosted suite serially with signing disabled, then builds an unsigned Release artifact and validates it with `scripts/validate-macos-artifact.sh`.
+- `xcode-test`: 45-minute timeout, runs `bash scripts/validate-release.sh`.
+- The gate disables signing, records evidence under `.deriveddata-codex/Validation/`, and uploads that directory with `actions/upload-artifact` even when the gate fails.
 
-The `xcode-27` runner provision and the stable `/Applications/Xcode.app` path are external to the repository and were not verified. There is no test sharding, artifact upload, or signing secret.
+The `xcode-27` runner provision is external to the repository and was not verified. There is no test sharding, live-service test, or signing secret.
+
+## Release Gate Evidence
+
+`bash scripts/validate-release.sh` is the current acceptance path. It:
+
+1. runs the 13 policy tests with `python3 -m unittest discover -s scripts/tests`,
+2. runs all 62 core tests and checks complete named execution,
+3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality, critical regressions, and zero failures/skips/expected failures,
+4. builds an unsigned Release app and runs the artifact validator,
+5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
+
+The recorded published 0.7.3 gate passed all phases. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) for evidence paths and the manual distribution boundary. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
 
 ## Known Coverage Gaps
 
@@ -152,7 +172,7 @@ The `xcode-27` runner provision and the stable `/Applications/Xcode.app` path ar
 7. **Positive container-normalization warning coverage is missing.** Current fixtures assert the warning is absent; no test forces the normalized-warning branch.
 8. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
 9. **Source-policy tests depend on repository layout.** Tests read files via `#filePath`; moving those files breaks the tests.
-10. **Historical test documents are stale.** Dated counts (38 or 404 tests) do not describe the current suite. They are archived under `Docs/Engineering/HISTORY/`.
+10. **Historical test documents are stale.** Dated counts (38, 404, 438, 472, 528, 534, 540, or 574 tests) do not describe the current suite. They are archived or retained as engineering evidence.
 
 ## Manual Verification Boundary
 
@@ -160,7 +180,7 @@ Automated tests and builds are the Agent verification boundary. Interactive acce
 
 - import, single and batch edit, save, reload,
 - rename and renumber previews and failure reporting,
-- text/CSV import and export,
+- text/CSV import and export, including profile v2 and `<remove>` handling,
 - online metadata apply and cancellation,
 - watched-folder restore and degraded status,
 - settings persistence and conflict policies.
@@ -178,105 +198,19 @@ These are proposals, not current coverage:
 5. Add a UI test host with stable accessibility identifiers for selection, save, and window flows.
 6. Add real bookmark/security-scope integration tests on a signed sandboxed build.
 
-## Verification Status
+## Historical Verification
 
-Executed on 2026-10-17 with Xcode 27.1 during independent post-repair verification:
+Earlier package adoptions and application repairs are documented as engineering evidence. They do not establish current behavior:
 
-- `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --filter AudioMatorCoreLogicTests`: 62 tests passed.
-- Full serial Debug app-hosted suite with signing disabled: 472 tests passed, zero failures. The final Test action pins English/US, ignores saved window restoration, and enables isolated host startup.
-- Focused suites exercised identity fallback/replacement refusal, provider cancellation and semantic writes, progressive import, rename recovery ordering, skipped-row reporting, corrupt-log recovery, provider fallbacks, disclosure policy, and metadata fixture round trips.
-- Direct unsigned Release generic build: succeeded; universal `x86_64 arm64` executable.
-- `scripts/validate-macos-artifact.sh .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0`: passed for both bundled Mach-O files.
-
-The initial sandboxed commands could not write compiler/manifest caches. Reruns with appropriate cache access passed. The package pin, Swift language/concurrency settings, and macOS 15.0 deployment setting were unchanged.
-
-Not executed: CI itself, signed/notarized distribution, a macOS 15 runtime test, interactive UI acceptance, live services, real network-volume/bookmark authorization, and the TagLib bridge smoke tool. See the dated [post-repair review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) for exact focused runs, limitations, and findings.
+- [Published 0.7.2 adoption](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md) — failed on the absent-Year/present-Date MP4 Comment/Lyrics case; retained as a mandatory regression on 0.7.3.
+- [0.7.1 joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) — local-candidate acceptance, superseded by published dependencies.
+- [0.7.0 implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) and [acceptance](../Engineering/AUDIOMATOR_MAPPING_070_ACCEPTANCE_2026-11-10.md) — superseded 0.7.0 evidence.
+- [0.6.0 integration](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) — historical migration record; its FLAC semantic-comment blocker is fixed in later releases.
+- [Post-repair review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) — historical 472-test verification and finding matrix.
 
 ## Related Documents
 
 - [Build](BUILD.md)
+- [Metadata test strategy](METADATA_TEST_STRATEGY.md)
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
-
-## Independent Date Regression Check (2026-11-09, 0.7.0)
-
-Focused `TagLibDateMappingIntegrationTests` run with stable `/Applications/Xcode.app`, serial Debug app-hosted tests, `.deriveddata-codex`, and signing disabled:
-
-- seed YEAR=2004, DATE=2008-03-04, RELEASEDATE=2017-06-09 and ORIGINALDATE=1999-11-12 on MP3, M4A, FLAC, Ogg, AAC and WAV temporary copies, then verify each identity through the structured/native snapshot and the reloaded app model;
-- change only YEAR and clear only DATE, asserting the other three values are untouched;
-- verify complete YEAR text (`2004-07-15`) survives selection/model copy, an unrelated title edit, export and reload;
-- verify MP4 Year is editable and does not touch DATE/RELEASEDATE;
-- verify an ID3v2.3 TDAT/RELEASE DATE write fails safely with unchanged bytes (package limitation).
-
-The package's legacy `.date` alias is a YEAR spelling; semantic Year writes use `.year`. Earlier `testInspectorYearEditIsExplicitlyUnsupportedForMP4` behavior is obsolete and has been replaced by a successful MP4 round trip.
-
-## Reassessment Regression Coverage (2026-10-18)
-
-Recovery tests now exercise activation, watched-folder rescans, deferred flushes and explicit verified reload. Batch tests use controlled reload gates and real temporary FLAC copies to check committed outcomes and untouched complete raw maps for provider, filename, CSV, raw-map and renumber cancellation; queued cancellation asserts zero writes. Test-host diagnostics inspect the actual app-owned models, with one isolated preference store also used by view `AppStorage` and About commands. Debug custom runners using `XCTestConfigurationFilePath` use that isolation; Release ignores test environment flags. Static source-policy tests remain supplemental checks, not runtime coverage.
-
-### 0.6.0 Upgrade Verification
-
-The same-inode WAV replacement regression now covers typed writes, raw writes, and Metadata Editor baseline refresh and requires rejection without byte changes under every policy. Conflict-strategy tests retain metadata-only FLAC positive controls. A separate M4A test requires explicit reload after a revision change because its audio identity is unavailable. Final version-race tests remain enabled.
-
-`TagLibUpgradeContractTests` verifies exact pin/disclosure consistency, existential raw dispatch, the FLAC comment contract, and number-only semantic imports retaining totals on all six fixtures. The FLAC comment regression intentionally remains a normal failing test until the package owner fixes 0.6.0; no expected-failure or skip hides it. The field-transfer matrix now expects total-only pairs, MP3 disc-only edits, and AAC total clearing to succeed. A gated artwork decoder checks that the main actor can resume while normalization is blocked.
-
-See the [0.6.0 integration record](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) for the commands and final results. Historical 2026-10-18 results above describe the previous pin and do not establish current coverage.
-
-### Historical 0.7.0 Mapping Contract Verification
-
-New suites in `AudioMatorTests/Integration/TagLib`:
-
-- `TagLibDateMappingIntegrationTests` — four independent date identities, native-oracle checks, full YEAR text, MP4 Year editing, ID3v2.3 safe rejection.
-- `TagLibMappingContractIntegrationTests` — component-preserving number edits on all six fixtures, legacy total recovery, captured cleanup plan and stale-plan rejection, advisory 0/1/2/absent plus unknown-code preservation, typed MP4-exclusive fields and RATE read-only classification, contentGroup/grouping/work independence, raw PropertyMap DATE meaning.
-
-At the 0.7.0 baseline, `TagLibUpgradeContractTests` asserted its exact version/revision, remote URL, absence of a local override, mapping contract `AM-TLAM-MAPPING-2.2`, canonical YEAR/DATE identities and RATE read-only capability.
-
-The following were 0.7.0 package blockers. They are historical; current 0.7.3 regressions remain mandatory, and current capability restrictions are listed in Dependency Limitations:
-
-- FLAC semantic `.comment` writes fail verification with unchanged bytes (`testFLACSemanticCommentSetReplaceAndClearContract`).
-- ID3v2.3 TDAT/TDRL are flattened by TagLib and are not independently round-trippable.
-- The released verifier rejects DATE writes/removals when YEAR is absent on ID3/MP4 and drops DATE during a Xiph YEAR write; the then-existing `TagLibDateCompanion` mitigated this narrowly and was subsequently removed.
-- Typed removal of `musicBrainzTrackID` on ID3 fails inside the bridge.
-
-At that baseline, workflow tests exercised safe failure and byte preservation. Current supported-write regressions require successful persistence and reload; unsupported-layout regressions still require safe rejection.
-
-Final verification on 2026-11-09 (Xcode 27.2, Swift 6.4.2): Foundation-only suite 62/62; Debug and Release generic builds succeeded with no project warnings; Release bundle validation passed for macOS 15.0; full serial app-hosted suite 528/528 with zero failures and zero skips. See the [implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) for commands and focused-suite counts, and [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md) for the remaining package gaps.
-
-
-## Independent mapping acceptance — 2026-11-10
-
-Application repair regressions and current release-gate evidence are recorded in [the acceptance report](../Engineering/AUDIOMATOR_MAPPING_070_ACCEPTANCE_2026-11-10.md). The serial suite passed 534 tests before restoring the additional positive FLAC comment contract; that restored gate fails normally on package 0.7.0. Do not claim the final release suite passes or hide the failure with an expected-failure annotation.
-
-
-## 0.7.1 candidate validation
-
-[Joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) records the final candidate results: 62 core tests, 540 serial app-hosted tests, unsigned Release build and artifact validation all pass using the local override. Positive FLAC comment and independent date requirements remain normal tests and now pass on supported layouts. The unverified ID3v2.3 layout has explicit pre-write/read-only and canonical-export safety tests; safe rejection is not labeled native codec support. Normal remote 0.7.1 resolution remains a postpublication step.
-## Store ID type regression — 2026-11-10
-
-`StoreIdentifierWriteTests` covers the dedicated text-model-to-integer patch boundary for Album/Artist/Catalog Store IDs. A generated temporary AIFF verifies actual set/replace/clear and reload through the published package and real application adapter. Invalid, negative and overflowing IDs combined with a Title change must fail without byte changes. The test does not access user audio or imply broad AIFF conformance. See [the repair record](../Engineering/STORE_ID_MAPPING_REPAIR_2026-11-10.md).
-
-## Preview-to-save regression gate
-
-`MetadataSaveJourneyTests` exercises actual MusicBrainz/iTunes workbench selection and captured plans through real disk persistence, plus Inspector and Metadata Editor draft/save/recovery paths. See [required journeys](METADATA_TEST_STRATEGY.md#preview-to-save-journeys) and [acceptance evidence](../Engineering/PREVIEW_SAVE_ACCEPTANCE_2026-11-10.md). It does not automate interactive UI acceptance.
-
-## Inspector dirty-state regression
-
-`InspectorDirtyStateTests` asserts no-op and reverted edits remain clean while mixed-value clears and genuine changes remain dirty. Real-file save journeys additionally assert no-op batches leave bytes/versions unchanged and successful save/activation reload becomes clean. See [repair evidence](../Engineering/INSPECTOR_DIRTY_STATE_2026-11-10.md).
-
-## Historical published 0.7.2 acceptance
-
-The 2026-11-11 normal Xcode project pinned remote 0.7.2 at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. The mandatory lock/disclosure contract rejects missing locks and unrelated revisions. The initial full suite passed 573 of 574 app tests; a CSV Comment write failed for an MP4 with absent YEAR and present DATE. Two fresh-fixture regressions preserve that combination for package Lyrics and app Comment writes. They failed on 0.7.2 and passed on the then-unreleased repair candidate; they remain normal mandatory tests on 0.7.3. See [adoption evidence](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md); previous local-override acceptance does not waive this failure.
-
-## Sparse-state acceptance and complete evidence
-
-Current release validation uses `bash scripts/validate-release.sh` against published 0.7.3 in the normal project. The earlier repair candidate used the explicit `--local-package` option; that result did not certify 0.7.2. The gate records source identity, test logs, `.xcresult`, summary, the complete test tree and an acceptance JSON under `.deriveddata-codex/Validation`.
-
-`MetadataBoundaryMatrixTests` now runs all 33 dedicated strings through set/replace/clear in each of 16 independent date-presence states (1,584 app operations). `MetadataSaveJourneyTests` runs 688 individual provider field-selection/date-state cases, and 80 displayed-plan/Inspector/Metadata Editor/CSV state journeys. Every case uses a temporary file; transport is offline. The ordinary CSV matrix uses a fresh file per field and stable field order; date interactions are explicit tests rather than incidental dictionary ordering. Original package conformance regressions remain mandatory and unchanged.
-
-`check-test-evidence.py` requires exact equality between source-declared XCTest identities and named `xcresult` Test Case leaves, including critical regression identities and a reviewed floor of 579 app tests. Summary totals must agree; failed, skipped, expected-failure, duplicate, foreign-target, missing or incomplete evidence fails. `check-core-evidence.py` similarly requires all 62 Foundation-only core test identities and a complete passing summary. The parser supports this repository's direct XCTestCase classes and named zero-argument tests; a different test declaration style requires an explicit inventory parser update, not a waiver.
-
-`python3 -m unittest discover -s scripts/tests` runs 13 gate-policy tests, including tampered identities, missing core/app execution, count-only evidence, duplicates, skips/failures, nonzero statuses, removed critical source cases and malformed/changed JSON. This is separate from the app/core test counts. See [state coverage acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) for actual final results and the remaining UI/platform limits.
-
-## Published 0.7.3 release acceptance
-
-The normal project pins remote 0.7.3 at revision `7ca1b75326388a5902815f70145b600299944ae0`. The same complete, serial gate is used without a local workspace or test filters. The full normal-project gate passed: 13 policy tests, 62 core tests, 579 serial app tests with zero failures/skips, unsigned Release build and artifact checks. An additional unsigned Archive passed structure, architecture, license and dependency-path checks. The mandatory pin/disclosure contract and all original Comment/Lyrics, date, provider, Inspector, Editor and mutation-safety regressions remain enabled. [Release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records actual results and the manual distribution boundary.

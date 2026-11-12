@@ -1,3 +1,5 @@
+> Historical local-candidate evidence. Superseded by [published 0.7.3 acceptance](TAGLIB_073_RELEASE_READINESS_2026-11-12.md); the sparse-state matrices remain required tests on the published dependency.
+
 # Metadata state coverage — 2026-11-11
 
 App branch: `codex/metadata-state-coverage-tests`, retaining the uncommitted 0.7.2 adoption changes. Package candidate branch: `codex/metadata-state-coverage-repairs`, based on published 0.7.2. The normal app project/lock remains pinned to the real remote 0.7.2 revision `5e6f604b0e9df244f4b69608261407d2ab758788`. No package publication, app release, commit, tag or push is part of this work.

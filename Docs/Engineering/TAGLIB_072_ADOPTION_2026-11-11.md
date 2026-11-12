@@ -1,5 +1,7 @@
 # Published TagLibAudioMetadata 0.7.2 adoption
 
+> Historical record. Superseded by [published 0.7.3 acceptance](TAGLIB_073_RELEASE_READINESS_2026-11-12.md). The failing 0.7.2 regressions below remain dated evidence and are mandatory passing tests on 0.7.3.
+
 Date: 2026-11-11. Application baseline: `c778987d`, with existing documentation changes preserved. Branch: `codex/taglib-0.7.2-upgrade`. Environment: stable Xcode 27.2 at `/Applications/Xcode.app`, macOS 27.2, arm64. This record concerns the published dependency and normal `AudioMator.xcodeproj`; the historical local-override workspace was not used.
 
 ## Verdict

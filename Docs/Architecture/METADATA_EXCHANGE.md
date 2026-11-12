@@ -153,9 +153,15 @@ Writes are **not** a group transaction. A summary may contain successes and fail
 ## Known Gaps
 
 - The full planner depends on app-only `AudioFile` models and is compiled only in the app-hosted test target. The SwiftPM fast target covers the syntax, CSV, locator index, and budget cores.
-- Plain text intentionally has no escaping; it is not a lossless format for arbitrary values.
+- Plain text has no general escaping and is not a lossless format for arbitrary values; the v2 removal-token escape is the exception described above.
 - Export/import handles metadata represented in the app's field schema; unknown raw PropertyMap keys are outside these modes.
 - Positive tests for some container-specific number edge cases depend on temporary fixture copies and the external package.
+
+## Completion Accounting
+
+Filename, text, CSV, and field-transfer apply summaries count write entries plus skipped issue rows. Skipped rows have their own bucket and are labeled skipped, rather than counted as files saved with warnings. Issue logs retain their filenames and explanations. Unchanged preview rows require no operation and are excluded from that denominator.
+
+CSV header identity validation accepts explicit external aliases (in the v2 profile, `DATE` is reserved for YEAR compatibility; use `Date` for the independent Date column) (`Name` for File Name, `Comments`, `Track #`/`Track Number`, `Disc #`/`Disc Number`/`Disk Number`). Aliases do not relax column ordering or field validation. Placeholder/property keys are stable across locales; arbitrary labels from another export language are not automatically translated.
 
 ## Related Documents
 
@@ -163,9 +169,3 @@ Writes are **not** a group transaction. A summary may contain successes and fail
 - [Metadata Pipeline](METADATA_PIPELINE.md)
 - [Testing](../Development/TESTING.md)
 - [ADR 0004](Decisions/0004-metadata-exchange-responsibility-boundaries.md)
-
-## Completion accounting
-
-Filename, text, CSV, and field-transfer apply summaries count write entries plus skipped issue rows. Skipped rows have their own bucket and are labeled skipped, rather than counted as files saved with warnings. Issue logs retain their filenames and explanations. Unchanged preview rows require no operation and are excluded from that denominator.
-
-CSV header identity validation accepts explicit external aliases (in the v2 profile, `DATE` is reserved for YEAR compatibility; use `Date` for the independent Date column) (`Name` for File Name, `Comments`, `Track #`/`Track Number`, `Disc #`/`Disc Number`/`Disk Number`). Aliases do not relax column ordering or field validation. Placeholder/property keys are stable across locales; arbitrary labels from another export language are not automatically translated.

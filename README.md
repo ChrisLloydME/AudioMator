@@ -60,6 +60,14 @@ swift test
 bash scripts/codex-build.sh --force
 ```
 
+The full local release gate is:
+
+```bash
+bash scripts/validate-release.sh
+```
+
+It runs the policy tests, Foundation-only core tests, the complete serial app-hosted suite, an unsigned Release build, and artifact validation, recording evidence under `.deriveddata-codex/Validation/`.
+
 The app-hosted test suite must run serially:
 
 ```bash
@@ -122,11 +130,13 @@ The authoritative documentation set starts at [`Docs/README.md`](Docs/README.md)
 - [User Guide](Docs/Product/USER_GUIDE.md)
 - [Architecture Overview](Docs/Architecture/OVERVIEW.md)
 - [Metadata Pipeline](Docs/Architecture/METADATA_PIPELINE.md)
+- [Metadata Mapping Specification](Docs/Architecture/METADATA_MAPPING_SPEC.md)
 - [File Revision and Reload](Docs/Architecture/FILE_REVISION_AND_RELOAD.md)
 - [Build](Docs/Development/BUILD.md)
 - [Testing](Docs/Development/TESTING.md)
 - [Release Engineering](Docs/Development/RELEASE.md)
 - [Security and Data Integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md)
+- [Published 0.7.3 Release Readiness](Docs/Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Agent Guide](AGENTS.md)

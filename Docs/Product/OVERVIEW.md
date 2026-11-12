@@ -2,7 +2,7 @@
 
 AudioMator is a native macOS application for inspecting, editing, organizing, and enriching audio-file metadata. It is local-first: ordinary editing operates on files the user selects or authorizes, and network access is limited to explicitly started online features.
 
-This document describes the product as implemented at the audited commit. See [Configuration](../Reference/CONFIGURATION.md) for exact build settings and [Architecture Overview](../Architecture/OVERVIEW.md) for how the system is assembled.
+This document describes the product as implemented in the current source. See [Configuration](../Reference/CONFIGURATION.md) for exact build settings and [Architecture Overview](../Architecture/OVERVIEW.md) for how the system is assembled.
 
 ## Purpose and Scope
 
@@ -77,7 +77,7 @@ This list is a point-in-time statement about the dependency, not an app-owned co
 ## System Requirements
 
 - **Runtime platform:** macOS 15.0 or later. The app target's `MACOSX_DEPLOYMENT_TARGET` is `15.0`.
-- **Development toolchain:** stable Xcode 27. This audit built and tested with Xcode 27.1 (build 27A9275) and Apple Swift 6.4.
+- **Development toolchain:** stable Xcode 27. Source inspection on 2026-11-12 used Xcode 27.2 (27B52) and Apple Swift 6.4.2; the recorded 0.7.3 release gate used the stable `/Applications/Xcode.app` toolchain.
 - **Dependency resolution:** network access to GitHub the first time Swift Package Manager resolves `TagLibAudioMetadata`.
 
 The repository has no verified CI or test evidence for older macOS versions or for prerelease Xcode toolchains. Do not claim support that has not been built and tested.
@@ -117,7 +117,7 @@ The exact boundary and known dependency limitations are documented in [Metadata 
 
 ## Current Version and License
 
-The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). At the audited commit they were marketing version `2.7`, build `2697`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
+The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `2.7`, build `2697`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
 
 The project is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE) and the [Third-Party Notices](../THIRD_PARTY_NOTICES.md). The app bundle includes the AGPL-3.0 text plus the TagLib LGPL-2.1/MPL-1.1, TagLibAudioMetadata MIT, and utf8-cpp Boost texts.
 

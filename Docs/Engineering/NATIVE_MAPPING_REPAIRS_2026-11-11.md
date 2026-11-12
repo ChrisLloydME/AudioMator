@@ -1,3 +1,5 @@
+> Historical local-candidate evidence. Superseded by [published 0.7.3 acceptance](TAGLIB_073_RELEASE_READINESS_2026-11-12.md); this result does not establish current released-package behavior.
+
 # Native mapping follow-up package acceptance
 
 AudioMator used the existing ignored `.tmp/MappingIntegration.xcworkspace` against package branch `codex/native-mapping-followup-repairs`. The local package retains exact source version 0.7.1 for this development run; no published dependency, lock, version, commit or tag was changed.

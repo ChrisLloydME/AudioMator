@@ -126,7 +126,7 @@ Open **Filename & Metadata** from the toolbar. The tool has seven modes:
 6. **CSV to Metadata** — import CSV columns into selected files.
 7. **Copy or Cut Metadata Fields** — copy or move one field into another for each selected file.
 
-Templates use `{{field}}` placeholders. Filename templates support fields such as `{{title}}`, `{{artist}}`, `{{album}}`, `{{albumArtist}}`, `{{trackNumber}}`, `{{discNumber}}`, `{{year}}`, `{{releaseDate}}`, `{{comment}}`, `{{publisher}}`, `{{copyright}}`, and `{{credits}}`.
+Templates use `{{field}}` placeholders. Filename templates support fields such as `{{title}}`, `{{artist}}`, `{{album}}`, `{{albumArtist}}`, `{{trackNumber}}`, `{{discNumber}}`, `{{year}}`, `{{date}}`, `{{releaseDate}}`, `{{originalReleaseDate}}`, `{{comment}}`, `{{publisher}}`, `{{copyright}}`, and `{{credits}}`.
 
 ### Preview before writing
 
@@ -134,7 +134,9 @@ Every mode builds a preview plan before applying changes. The preview identifies
 
 ### Text and CSV rules
 
-- Plain-text templates have no escaping syntax. Use CSV when a value can contain a line break or the template's literal separators.
+- Text and CSV exports start with `# AudioMator-Metadata-Profile: 2`, which marks the exchange profile and lets reimports preserve independent Year, Date, Release Date and Original Release Date values. Files without the marker are read with the legacy v1 meanings.
+- In a v2 export, an unquoted `<remove>` cell removes that field; a quoted `"<remove>"` is literal text. In v2 text exports, a literal token is escaped with a backslash. Legacy or unmarked imports treat `<remove>` as literal text.
+- Plain-text templates otherwise have no general escaping syntax. Use CSV when a value can contain a line break or the template's literal separators.
 - CSV templates support comma, semicolon, pipe, and tab delimiters, quoted fields, doubled quotes, embedded line breaks, optional headers, and reversible spreadsheet-formula protection.
 - Imports can match by selection order or by unambiguous locators: File Name, Base Name, Path, Relative Path, or Index.
 - Blank imported values are ignored unless **clear empty values** is enabled.

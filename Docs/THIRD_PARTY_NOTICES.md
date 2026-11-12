@@ -130,7 +130,7 @@ No MuseAmp source code is copied into AudioMator. The acknowledgement and licens
 
 ### Service Notice
 
-GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.3B26512`.
+GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.7B2697`.
 
 ## Bundled License Resources
 
@@ -143,9 +143,4 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 
 Release validation must confirm those five files are present in the built app's `Contents/Resources` directory. The in-app Acknowledgements sheet loads them by resource name and fails closed with a visible fallback if a text is missing.
 
-At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.7.3 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license.
-
-
-### Published mapping repair dependency
-
-AudioMator pins published **TagLibAudioMetadata 0.7.3** at revision `7ca1b75326388a5902815f70145b600299944ae0`. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
+At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.7.3 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation.

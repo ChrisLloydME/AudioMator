@@ -24,6 +24,7 @@ Use the current documentation instead:
 | [RELIABILITY_REMEDIATION_EVIDENCE.md](RELIABILITY_REMEDIATION_EVIDENCE.md) | `Tests` | 2026-06 remediation evidence; CI/toolchain claims are stale |
 | [FAST_TEST_GAPS.md](FAST_TEST_GAPS.md) | `Tests` | Fast-test scope and gaps at an earlier point; some statements are superseded |
 | [METADATA_FIELD_TRANSFER_VERIFICATION_2026-10-11.md](METADATA_FIELD_TRANSFER_VERIFICATION_2026-10-11.md) | `Docs` | Field-transfer dependency observations; current summary is [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) |
+| [AUDIOMATOR_MAPPING_070_AGENT_PROMPT.md](AUDIOMATOR_MAPPING_070_AGENT_PROMPT.md) | `Docs/Development` | Retired repository-scoped task prompt for the completed 0.7.0 mapping adoption |
 
 ## Notes on Validity
 

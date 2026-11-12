@@ -210,6 +210,16 @@ Not verified:
 - signed/notarized distribution,
 - CI runner provisioning.
 
+## Save Issue-Log Recovery
+
+Issue-log persistence is best effort and never traps on an I/O failure. Each unreadable history is copied to its own quarantine file before replacement. If that copy fails, persistence is disabled for that store instance so the unreadable original is retained; new issues remain visible in memory. This log is diagnostic history, not a backup of audio metadata.
+
+## Audio-Content Identity Limits
+
+A session recovery decision is sticky across automatic reads and is rechecked by the shared executor after reservation acquisition, including writes submitted with stale editor targets. Explicit Reload from Disk is the recovery path after resolving pending drafts.
+
+Path/device/inode continuity does not establish unchanged audio content. The loader requests the package's optional audio-content identity. When a revision changes, automatic typed/raw conflict resolution and Metadata Editor baseline refresh require matching non-nil audio identities; the final write retains the original audio token and exact current revision. Different PCM at the same inode is rejected under every policy. Formats or layouts without package audio-identity support require explicit reload after a revision change. Unchanged exact revisions remain writable. Tokens are session-only and hashing adds streaming I/O; optimistic checks do not eliminate the filesystem check/rename race.
+
 ## Related Documents
 
 - [Online Metadata](../Architecture/ONLINE_METADATA.md)
@@ -218,13 +228,3 @@ Not verified:
 - [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md)
 - [Third-Party Notices](../THIRD_PARTY_NOTICES.md)
 - [Configuration](../Reference/CONFIGURATION.md)
-
-## Save issue-log recovery
-
-Issue-log persistence is best effort and never traps on an I/O failure. Each unreadable history is copied to its own quarantine file before replacement. If that copy fails, persistence is disabled for that store instance so the unreadable original is retained; new issues remain visible in memory. This log is diagnostic history, not a backup of audio metadata.
-
-## Unresolved Audio-Content Identity Risk (2026-10-18)
-
-A session recovery decision is sticky across automatic reads and is rechecked by the shared executor after reservation acquisition, including writes submitted with stale editor targets. Explicit Reload from Disk is the recovery path after resolving pending drafts.
-
-Path/device/inode continuity does not establish unchanged audio content. The loader requests the package's optional audio-content identity. When a revision changes, automatic typed/raw conflict resolution and Metadata Editor baseline refresh require matching non-nil audio identities; the final write retains the original audio token and exact current revision. Different PCM at the same inode is rejected under every policy. Formats or layouts without package audio-identity support require explicit reload after a revision change. Unchanged exact revisions remain writable. Tokens are session-only and hashing adds streaming I/O; optimistic checks do not eliminate the filesystem check/rename race.

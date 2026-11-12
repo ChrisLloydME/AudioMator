@@ -9,17 +9,16 @@ This document describes how to build AudioMator from this repository and what th
 - Network access the first time the `TagLibAudioMetadata` package is resolved.
 - No sibling checkout of `TagLibAudioMetadata` is required.
 
-Verified in this audit:
+Current checkout verified by source inspection on 2026-11-12:
 
 | Item | Value |
 | --- | --- |
-| Host | macOS 27 |
-| Xcode | 27.1 (27A9275) |
-| Swift compiler | Apple Swift 6.4 |
+| Toolchain | Xcode 27.2 (27B52), Apple Swift 6.4.2 |
 | App deployment target | macOS 15.0 |
-| Package pin | Exact published `0.7.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3), committed remote revision lock |
+| Package pin | Exact published `0.7.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3), revision `7ca1b75326388a5902815f70145b600299944ae0` |
+| Recorded release gate | [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) |
 
-The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested.
+The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested. The dependency itself requires Swift tools 6.4; the separate Foundation-only SwiftPM harness in this repository declares Swift tools 6.0 and does not compile the dependency.
 
 ## Repository Setup
 
@@ -43,18 +42,18 @@ There is one shared scheme, `AudioMator`. It builds the app and includes the app
 
 Both configurations target macOS 15.0, use Swift 5 language mode with complete strict concurrency and MainActor default isolation, and enable App Sandbox and Hardened Runtime. Debug and Release use different bundle identifiers, so they have separate sandbox containers, bookmarks, and preferences.
 
-For the authoritative current version, build number, bundle identifiers, entitlements, and preference keys, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release.
+For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release.
 
 ## Swift Package (Core Logic Tests)
 
-`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of Foundation-only production files for fast tests.
+`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of 31 Foundation-only production files for fast tests.
 
 ```bash
 swift test
 swift test --filter AudioMatorCoreLogicTests
 ```
 
-It is not the app dependency graph and is not linked into the app. It has no `TagLibAudioMetadata` dependency.
+It is not the app dependency graph and is not linked into the app. It has no `TagLibAudioMetadata` dependency. See [Testing](TESTING.md#swiftpm-fast-target) for the file selection rules.
 
 ## Build Commands
 
@@ -122,6 +121,16 @@ xcodebuild \
 
 The app-hosted test target launches the app as its test host. Always keep the serial flags for Agent-driven runs; each parallel runner launches another app instance.
 
+### Unified release validation gate
+
+```bash
+bash scripts/validate-release.sh
+```
+
+This is the normal release gate. It runs the policy tests, the 62 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
+
+The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate).
+
 ### Artifact compatibility check
 
 ```bash
@@ -149,6 +158,14 @@ It does not verify signing, notarization, entitlements, architectures, bundle ID
 - **Synchronized source root.** `AudioMator/` is attached through Xcode's file-system synchronized group. New files under that root are picked up automatically; configuration inputs stay in `Config/`.
 - **No alternate derived-data roots.** Use `.deriveddata-codex` for Agent-triggered builds.
 
+## Local Package Candidate Gate
+
+```bash
+bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata
+```
+
+This generates the ignored `.tmp/MappingIntegration.xcworkspace`, runs the same policy/core/app/Release/artifact phases with the candidate, and records the package commit, dirty status, diff hash, and untracked-file hashes. It does not use an alternate derived-data root. The default command still resolves the published lock; the local gate does not validate or change that remote release. Only use this form when explicitly evaluating a package candidate.
+
 ## Common Build Problems
 
 ### Cache or sandbox failures
@@ -157,7 +174,7 @@ Symptoms include inability to write SwiftPM manifests, Clang module caches, or X
 
 ### CI toolchain path
 
-The GitHub Actions workflow sets `DEVELOPER_DIR=/Applications/Xcode_27.0.app/Contents/Developer` and uses the `xcode-27` runner label. Those are CI-specific. A developer Mac with only `/Applications/Xcode.app` should not copy that value.
+The GitHub Actions workflow sets `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` and uses the `xcode-27` runner label. Those are CI-specific. A developer Mac with only `/Applications/Xcode.app` should use the same stable path, not an older versioned Xcode directory.
 
 ### AppIcon tool crash
 
@@ -167,16 +184,18 @@ The GitHub Actions workflow sets `DEVELOPER_DIR=/Applications/Xcode_27.0.app/Con
 
 Run dependency resolution first and verify `Package.resolved`. App-hosted tests copy fixtures from the test bundle; a stale or incomplete build product can break fixture lookup.
 
-## Verification Performed for This Documentation
+## Recorded Verification
 
-On 2026-10-17, with stable Xcode 27.1 at `/Applications/Xcode.app`, independent post-repair verification ran:
+The most recent recorded acceptance is the published 0.7.3 gate on 2026-11-12:
 
-- `swift test --filter AudioMatorCoreLogicTests`: 62 tests passed.
-- The full serial Debug app-hosted suite with signing disabled: 472 tests passed.
-- The direct unsigned Release generic build documented above: succeeded, producing `x86_64 arm64`.
-- `scripts/validate-macos-artifact.sh .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0`: passed. The app executable minimum is 15.0; the bundled TagLib framework minimum is 13.0.
+- 13 policy tests passed,
+- 62 Foundation-only core tests passed with complete named execution,
+- 579 serial app-hosted tests passed with zero failures, skips, or expected failures,
+- the exact dependency/disclosure contract passed,
+- the unsigned Release build and artifact validation passed,
+- an additional unsigned Archive passed structure, architecture, license, and dependency-path checks.
 
-Sandbox restrictions initially prevented writes to user compiler/SwiftPM caches; reruns with appropriate cache access passed. This verification used the direct build command, not the pruning/build wrapper. It did not sign, notarize, manually launch the application, execute CI, or prove behavior on an actual macOS 15 installation. See the [dated review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) for detailed evidence.
+See [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) for the exact commands, evidence paths, and the manual distribution boundary. Earlier dated counts in engineering records are historical; re-run the current gate before quoting new numbers.
 
 ## Related Documents
 
@@ -184,18 +203,3 @@ Sandbox restrictions initially prevented writes to user compiler/SwiftPM caches;
 - [Debugging](DEBUGGING.md)
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Release Engineering](RELEASE.md)
-
-The 0.7.3 dependency requires Swift tools 6.4; use stable Xcode 27 at `/Applications/Xcode.app`. The Foundation-only SwiftPM harness retains its independent tools version and does not compile the dependency.
-
-
-### Published mapping repair dependency
-
-AudioMator pins published **TagLibAudioMetadata 0.7.3** at revision `7ca1b75326388a5902815f70145b600299944ae0`. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only for explicitly requested local candidate validation via `scripts/validate-release.sh --local-package`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
-
-## Explicit local package candidate gate
-
-```bash
-bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata
-```
-
-This generates the ignored `.tmp/MappingIntegration.xcworkspace`, runs policy tests, core tests, the full serial app-hosted suite, unsigned Release build and artifact checks with the candidate. It records the package commit, dirty status, diff hash and untracked-file hashes. No alternate derived-data root is used. The default command still resolves the published lock; the local gate does not validate or change that remote release.

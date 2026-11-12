@@ -170,8 +170,3 @@ If you stay inside local editing features, AudioMator stays offline. If you use 
 E-mail: AudioMator@lloydME.com
 
 See [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) for security limitations and vulnerability reporting.
-
-
-### Published mapping repair dependency
-
-AudioMator resolves published **TagLibAudioMetadata 0.7.3** through the normal Xcode project and committed remote lock. The historical local-override workspace is not used for current validation. The upgrade changes metadata handling and tests, not user-initiated network disclosure or the pinned TagLib binary asset.

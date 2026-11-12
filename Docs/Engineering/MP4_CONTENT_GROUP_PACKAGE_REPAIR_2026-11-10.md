@@ -1,3 +1,5 @@
+> Historical local repair record. The repair is included in later published releases; current evidence is [published 0.7.3 acceptance](TAGLIB_073_RELEASE_READINESS_2026-11-12.md).
+
 # MP4 Content Group package repair acceptance
 
 Package branch: `codex/mp4-content-group-verification`, based on published 0.7.1 (`649b7a9`). Application branch: `codex/test-system-upgrade`. No publication, version bump, commit or lock-file update was performed.

@@ -233,3 +233,7 @@ MusicBrainz and iTunes apply stop before the next file when cancelled. A started
 - [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md)
 - [Third-Party Notices](../THIRD_PARTY_NOTICES.md)
 - [Metadata Pipeline](METADATA_PIPELINE.md)
+
+## Bounded plan persistence
+
+MusicBrainz and iTunes apply captured write plans through the same four-file bound used by Inspector. File values and fingerprints are captured before work begins; per-file mutation reservations, version checks, commit and reload remain intact. Completion order does not change issue ordering. Cancelling prevents queued writes from starting while reporting every in-flight commit's actual outcome. See [write-concurrency evidence](../Engineering/WRITE_CONCURRENCY_2026-11-12.md).

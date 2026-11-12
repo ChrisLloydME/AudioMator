@@ -48,7 +48,7 @@ The Inspector edits the fields visible for the current selection. For a single f
 
 Saves write only the fields that changed from the draft's baseline. Before writing, AudioMator checks that the format supports each requested field. If any requested field is unsupported, the file is not written and the unsupported fields are reported.
 
-For multiple files, Inspector saves process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. The save issue log records non-success outcomes (Settings → Logs).
+For multiple files, Inspector, MusicBrainz/iTunes plans, and filename/CSV metadata imports process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records non-success outcomes (Settings → Logs).
 
 ### Artwork
 

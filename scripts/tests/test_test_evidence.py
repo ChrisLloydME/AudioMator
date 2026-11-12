@@ -13,8 +13,8 @@ SPEC.loader.exec_module(GATE)
 
 class TestEvidencePolicy(unittest.TestCase):
     def setUp(self):
-        self.expected = GATE.CRITICAL | {f'OtherTests/test{i}()' for i in range(579 - len(GATE.CRITICAL))}
-        self.summary = dict(result='Passed', totalTestCount=579, passedTests=579,
+        self.expected = GATE.CRITICAL | {f'OtherTests/test{i}()' for i in range(580 - len(GATE.CRITICAL))}
+        self.summary = dict(result='Passed', totalTestCount=580, passedTests=580,
                             failedTests=0, skippedTests=0, expectedFailures=0)
         self.tree = {'testNodes': [dict(nodeType='Test Case', nodeIdentifier=name, result='Passed',
             nodeIdentifierURL='test://AudioMator/AudioMatorTests/' + name) for name in sorted(self.expected)]}
@@ -67,7 +67,7 @@ class TestEvidencePolicy(unittest.TestCase):
 
     def test_current_source_inventory_has_critical_cases(self):
         expected = GATE.inventory(Path(__file__).resolve().parents[2] / 'AudioMatorTests')
-        self.assertGreaterEqual(len(expected), 579)
+        self.assertGreaterEqual(len(expected), 580)
         self.assertLessEqual(GATE.CRITICAL, expected)
 
     def test_cli_malformed_or_changed_json_fails_closed_with_record(self):

@@ -169,3 +169,5 @@ CSV header identity validation accepts explicit external aliases (in the v2 prof
 - [Metadata Pipeline](METADATA_PIPELINE.md)
 - [Testing](../Development/TESTING.md)
 - [ADR 0004](Decisions/0004-metadata-exchange-responsibility-boundaries.md)
+
+Filename-to-metadata and CSV/text write plans execute up to four independent entries concurrently through `executeBoundedMetadataPlan`. Existing duplicate-ID, field/value and expected-fingerprint checks remain mandatory. Results retain captured plan order; cancellation leaves unstarted entries unwritten and drains started commits.

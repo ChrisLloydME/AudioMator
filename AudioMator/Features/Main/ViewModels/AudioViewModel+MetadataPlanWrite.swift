@@ -33,47 +33,21 @@ extension AudioViewModel {
         )
         defer { endMetadataSaveProgress() }
 
-        for (index, entry) in entries.enumerated() {
-            if Task.isCancelled {
-                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
-                break
-            }
-            updateMetadataSaveProgress(
-                subtitle: entry.fileName,
-                completedUnitCount: index
-            )
-
+        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+            let entry = entries[index]
             guard let matchingFiles = filesByID[entry.fileID], matchingFiles.count == 1,
                   let file = matchingFiles.first else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: [metadataPlanFileLookupFailureMessage(matchingFiles: filesByID[entry.fileID])]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure(metadataPlanFileLookupFailureMessage(matchingFiles: filesByID[entry.fileID])))
             }
 
             guard entry.values.allSatisfy({ field, value in
                 field.supportsFilenameToMetadataWriting && field.acceptsExtractedValue(value)
             }) else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: [String(localized: "The filename metadata plan contains an invalid field or value. Refresh the preview and try again.")]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure(String(localized: "The filename metadata plan contains an invalid field or value. Refresh the preview and try again.")))
             }
 
             guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: [String(localized: "The file version could not be verified. Refresh the preview and try again.")]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure(String(localized: "The file version could not be verified. Refresh the preview and try again.")))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -82,14 +56,20 @@ extension AudioViewModel {
                 field.applyExtractedValue(value, to: &edit)
             }
 
-            let result = await persistMetadataEdit(
+            let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: expectedFileFingerprint
             )
-
-            switch result {
+            return (file.url.lastPathComponent, result)
+        }
+        for (index, entry) in entries.enumerated() {
+            guard let outcome = outcomes[index] else {
+                summary.recordCancelledFiles([entry.fileName])
+                continue
+            }
+            switch outcome.result {
             case .success(let success):
                 summary.succeeded += 1
                 summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
@@ -97,7 +77,7 @@ extension AudioViewModel {
                 if !success.warnings.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
+                            fileName: outcome.fileName,
                             messages: success.warnings
                         )
                     )
@@ -105,7 +85,7 @@ extension AudioViewModel {
             case .failure(let reason):
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
+                        fileName: outcome.fileName,
                         messages: [reason]
                     )
                 )
@@ -160,25 +140,11 @@ extension AudioViewModel {
         )
         defer { endMetadataSaveProgress() }
 
-        for (index, entry) in entries.enumerated() {
-            if Task.isCancelled {
-                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
-                break
-            }
-            updateMetadataSaveProgress(
-                subtitle: entry.fileName,
-                completedUnitCount: index
-            )
-
+        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+            let entry = entries[index]
             guard let matchingFiles = filesByID[entry.fileID], matchingFiles.count == 1,
                   let file = matchingFiles.first else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: [metadataPlanFileLookupFailureMessage(matchingFiles: filesByID[entry.fileID])]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure(metadataPlanFileLookupFailureMessage(matchingFiles: filesByID[entry.fileID])))
             }
 
             guard entry.values.allSatisfy({ field, value in
@@ -189,23 +155,11 @@ extension AudioViewModel {
                         : field.importedValueValidationMessage(value)) == nil
                 )
             }) else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: [String(localized: "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again.")]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure(String(localized: "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again.")))
             }
 
             guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: [String(localized: "The file version could not be verified. Refresh the preview and try again.")]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure(String(localized: "The file version could not be verified. Refresh the preview and try again.")))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -218,14 +172,20 @@ extension AudioViewModel {
                 )
             }
 
-            let result = await persistMetadataEdit(
+            let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: expectedFileFingerprint
             )
-
-            switch result {
+            return (file.url.lastPathComponent, result)
+        }
+        for (index, entry) in entries.enumerated() {
+            guard let outcome = outcomes[index] else {
+                summary.recordCancelledFiles([entry.fileName])
+                continue
+            }
+            switch outcome.result {
             case .success(let success):
                 summary.succeeded += 1
                 summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
@@ -233,7 +193,7 @@ extension AudioViewModel {
                 if !success.warnings.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
+                            fileName: outcome.fileName,
                             messages: success.warnings
                         )
                     )
@@ -241,7 +201,7 @@ extension AudioViewModel {
             case .failure(let reason):
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
+                        fileName: outcome.fileName,
                         messages: [reason]
                     )
                 )

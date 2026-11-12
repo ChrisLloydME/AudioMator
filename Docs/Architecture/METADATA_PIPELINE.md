@@ -115,7 +115,7 @@ Track and disc data is represented by:
 | `releaseDate` | `.releaseDate` |
 | `originalReleaseDate` | `.originalReleaseDate` |
 
-The package's legacy `.date` case is a YEAR alias and is never used for a new semantic write. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text. `.date` and `.year` are never submitted together.
+Published package 0.7.3 exposes the legacy typed `.date` YEAR alias; the unreleased API candidate removes it. This adapter uses only `.year` for YEAR and `.standaloneDate` for DATE. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
 
 **Independent-date behavior.** No companion date writes are synthesized. Published 0.7.3 preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
 

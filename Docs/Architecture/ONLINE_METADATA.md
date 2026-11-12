@@ -223,13 +223,13 @@ App-hosted tests use injected clients and `URLProtocol` fakes. They assert:
 
 No automated test contacts a live service. Live API behavior, remote rate limits, Apple host selection, and WebKit subresource behavior are unverified by the test suite.
 
+## Provider Apply Cancellation
+
+MusicBrainz and iTunes apply stop before the next file when cancelled. A started commit is observed to completion and included in the summary, including warnings. Unprocessed entries are recorded as cancelled failures so successful, failed, and cancelled counts reconcile with the captured plan. Cancellation does not discard an already committed file's outcome.
+
 ## Related Documents
 
 - [Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md)
 - [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md)
 - [Third-Party Notices](../THIRD_PARTY_NOTICES.md)
 - [Metadata Pipeline](METADATA_PIPELINE.md)
-
-## Provider apply cancellation
-
-MusicBrainz and iTunes apply stop before the next file when cancelled. A started commit is observed to completion and included in the summary, including warnings. Unprocessed entries are recorded as cancelled failures so successful, failed, and cancelled counts reconcile with the captured plan. Cancellation does not discard an already committed file's outcome.

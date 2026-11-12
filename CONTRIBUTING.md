@@ -81,6 +81,14 @@ xcodebuild \
 
 Run the smallest relevant suite. Use `-only-testing:AudioMatorTests/<Class>` when appropriate. Add or update tests for behavior changes. Do not claim coverage that does not exist; see [Testing](Docs/Development/TESTING.md) for current gaps.
 
+For a release-readiness change or a full local validation, run the unified gate:
+
+```bash
+bash scripts/validate-release.sh
+```
+
+It runs the policy tests, all Foundation-only core tests, the complete serial app-hosted suite, an unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
+
 Agents must verify their own changes through code inspection, compilation, and the smallest relevant automated tests. Interactive UI acceptance remains the maintainer's responsibility. Do not launch the app manually, use GUI automation, or take screenshots as proof of completion.
 
 ## Code Conventions

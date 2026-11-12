@@ -9,15 +9,15 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 | Understand what AudioMator does and what it does not do | [Product Overview](Product/OVERVIEW.md) |
 | Use the app | [User Guide](Product/USER_GUIDE.md), [FAQ](Product/FAQ.md), [Troubleshooting](Product/TROUBLESHOOTING.md) |
 | Build and run the project | [Build](Development/BUILD.md) |
-| Run tests and judge coverage | [Testing](Development/TESTING.md) |
+| Run tests and judge coverage | [Testing](Development/TESTING.md), [Metadata test strategy](Development/METADATA_TEST_STRATEGY.md) |
 | Understand the architecture | [Architecture Overview](Architecture/OVERVIEW.md) |
 | Work on metadata reading/writing | [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) |
-| Refactor metadata mappings | [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (shared contract, implemented by package 0.7.0) |
-| Review the 0.7.0 application adoption | [Implementation ledger](Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) |
+| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by package 0.7.3) |
 | Work on conflicts, reloads, or file revisions | [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) |
 | Work on filename/text/CSV workflows | [Metadata Exchange](Architecture/METADATA_EXCHANGE.md), [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) |
 | Work on online providers | [Online Metadata](Architecture/ONLINE_METADATA.md) |
 | Review privacy or data-integrity risk | [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) |
+| Review the current dependency acceptance | [Published 0.7.3 Release Readiness](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) |
 | Prepare a release | [Release Engineering](Development/RELEASE.md) |
 | Contribute code | [Contributing](../CONTRIBUTING.md), [Documentation Maintenance](Development/DOCUMENTATION.md) |
 | Work as an AI coding agent | [AGENTS.md](../AGENTS.md) |
@@ -36,11 +36,9 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Architecture Overview](Architecture/OVERVIEW.md) — layers, composition, runtime flows, concurrency, error propagation, extension points.
 - [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) — state categories, file identity, mutation lifecycle, recovery semantics.
 - [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) — loading, editing, write preflight, conflict resolution, persistence, artwork, format behavior.
-- [Published 0.7.3 Release Readiness](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) — current remote dependency adoption and normal-project release-gate evidence.
-- [0.7.1 Joint Mapping Acceptance](Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) — historical local-candidate acceptance.
-- [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — shared native-field interoperability contract, per-format target matrix, legacy totals/private-field migration and conformance gates. Implemented by package 0.7.0; application evidence lives in the implementation ledger.
+- [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — shared native-field interoperability contract, per-format target matrix, legacy totals/private-field migration, and conformance gates.
 - [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) — revision guards, conflict policies, reload paths, detection limits.
-- [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, field-transfer planning and write behavior.
+- [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, field-transfer planning, exchange profile versioning, and write behavior.
 - [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) — rename templates, two-phase transactions, track renumbering.
 - [Online Metadata](Architecture/ONLINE_METADATA.md) — MusicBrainz, iTunes, LRCLIB, release notes, update checks, network constraints.
 - [Dependency Rules](Architecture/DEPENDENCY_RULES.md) — allowed dependency direction and enforced boundaries.
@@ -48,38 +46,38 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 
 ### Development
 
-- [Build](Development/BUILD.md) — toolchain, configurations, commands, common build failures.
+- [Build](Development/BUILD.md) — toolchain, configurations, commands, common build failures, release validation.
 - [Metadata Test Strategy](Development/METADATA_TEST_STRATEGY.md) — independent field manifests, real persistence coverage, explicit gaps and release gates.
-- [Testing](Development/TESTING.md) — targets, suites, Fixtures, coverage gaps, manual verification boundaries.
-- [Metadata Mapping Implementation Prompt](Development/AUDIOMATOR_METADATA_MAPPING_AGENT_PROMPT.md) — repository-scoped Xcode agent instructions for adopting package 0.7.0, phased implementation, and acceptance criteria.
+- [Testing](Development/TESTING.md) — targets, suites, fixtures, coverage gaps, manual verification boundaries.
 - [Debugging](Development/DEBUGGING.md) — build logs, bridge smoke tool, performance probes, diagnostics.
 - [Release Engineering](Development/RELEASE.md) — versioning, current release process, what is and is not automated.
 - [Documentation Maintenance](Development/DOCUMENTATION.md) — ownership, update matrix, style, and verification rules.
 
 ### Reference
 
-- [Project Structure](Reference/PROJECT_STRUCTURE.md) — repository layout and module inventory.
-- [Configuration](Reference/CONFIGURATION.md) — build settings, bundle identifiers, entitlements, preference keys, persisted data.
+- [Project Structure](Reference/PROJECT_STRUCTURE.md) — repository layout, module inventory, test and script inventory.
+- [Configuration](Reference/CONFIGURATION.md) — build settings, bundle identifiers, entitlements, preference keys, persisted data, CI.
 - [Terminology](Reference/TERMINOLOGY.md) — project-specific terms used across the docs and source.
-- [Dependency Limitations](Reference/DEPENDENCY_LIMITATIONS.md) — known TagLibAudioMetadata behavior that constrains AudioMator.
-- [0.7.0 Implementation Ledger](Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) — acceptance evidence, package limitations, and verification results for mapping contract 2.2.
+- [Dependency Limitations](Reference/DEPENDENCY_LIMITATIONS.md) — current TagLibAudioMetadata behavior and historical observations that constrain AudioMator.
 
-### Security and Operations
+### Security and Legal
 
-- [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) — sandboxing, file access, local data, network disclosure, failure modes, and vulnerability reporting.
-- [Third-Party Notices](THIRD_PARTY_NOTICES.md) and [Acknowledgements and Privacy](ACKNOWLEDGEMENTS_AND_PRIVACY.md).
+- [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) — sandboxing, file access, local data, network disclosure, failure modes, vulnerability reporting.
+- [Third-Party Notices](THIRD_PARTY_NOTICES.md) — bundled software licenses and service obligations.
+- [Acknowledgements and Privacy](ACKNOWLEDGEMENTS_AND_PRIVACY.md) — user-facing privacy, network, and attribution disclosure.
 
-### Engineering Records
+### Engineering Evidence
 
-- [Engineering Notes](Engineering/README.md) — performance measurements and historical engineering records. These are evidence, not current contracts.
-- [History](Engineering/HISTORY/README.md) — dated progress logs and audits.
+- [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, and release evidence. These are evidence, not current contracts.
+- [Current published 0.7.3 acceptance](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) — normal-project release gate, unsigned Release build, archive checks, and the manual distribution boundary.
+- [History](Engineering/HISTORY/README.md) — superseded progress logs, audits, and task prompts retained for traceability.
 
 ## Documentation Conventions
 
 Every document states current behavior unless it is explicitly marked otherwise.
 
-- **Current-state documents** describe what the code does today and should be updated with the code.
-- **Engineering records** preserve dated measurements, investigations, and decisions. They may describe superseded behavior and are never the authority for current behavior.
+- **Current-state documents** describe what the code does today and are updated with the code. They live in `Docs/Product`, `Docs/Architecture`, `Docs/Development`, `Docs/Reference`, and `Docs/Security`.
+- **Engineering records** preserve dated measurements, investigations, and release evidence. They may describe superseded behavior and are never the authority for current behavior.
 - **Proposals and known gaps** are labeled as such. They are not features.
 - Behavior that could not be verified is described as unverified or omitted.
 

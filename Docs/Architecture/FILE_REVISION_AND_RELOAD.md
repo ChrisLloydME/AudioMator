@@ -126,10 +126,12 @@ App-hosted tests cover:
 
 Tests use temporary copies of committed fixtures. They do not establish behavior for every real volume, file provider, or external editor.
 
+## Refresh-Required Acceptance
+
+Automatic activation and folder observations retain refresh-required state. Explicit Reload from Disk may clear it only with a successfully read fingerprint and package revision; it means the user accepts the file currently at that URL, not that the original recording has been located automatically.
+
 ## Related Documents
 
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [Metadata Pipeline](METADATA_PIPELINE.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
-
-Automatic activation and folder observations retain refresh-required state. Explicit Reload from Disk may clear it only with a successfully read fingerprint and package revision; it means the user accepts the file currently at that URL, not that the original recording has been located automatically.

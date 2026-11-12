@@ -26,7 +26,7 @@ The project resolves `TagLibAudioMetadata` from GitHub. Check network access and
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-Then verify that the resolved version matches `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (currently 0.7.0).
+Then verify that the resolved version matches `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (currently exact 0.7.3, revision `7ca1b75326388a5902815f70145b600299944ae0`).
 
 ### `xcodebuild` cannot write caches
 
@@ -38,10 +38,10 @@ Sandboxed environments may block writes to SwiftPM, Clang, simulator, or Xcode c
 
 ```yaml
 env:
-  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 ```
 
-and runs on the `xcode-27` runner label. This is a CI-specific path, not the normal developer setup. On a developer Mac with only `/Applications/Xcode.app`, do not copy that environment variable. Use the installed stable Xcode 27.
+and runs on the `xcode-27` runner label. This is a CI-specific path, not the normal developer setup. On a developer Mac with only `/Applications/Xcode.app`, use that stable path and do not copy an older versioned Xcode directory.
 
 ### `scripts/codex-build.sh` reports an AppIcon tool crash
 

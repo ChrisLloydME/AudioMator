@@ -20,6 +20,9 @@ Terms used throughout the AudioMator documentation and source.
 | **PropertyMap** | TagLib's key → ordered value-list projection used by the raw editor and raw patches. |
 | **Tag Inspector** | Read-only raw dump of TagLib properties, ID3v2 frames, legacy sections, and compatibility notes. |
 | **Write plan** | A previewed set of per-file metadata changes produced by a converter or provider before applying. |
+| **Exchange profile** | The version marker at the start of text/CSV exports (`# AudioMator-Metadata-Profile: 2`) that defines column meanings and removal syntax. |
+| **Removal token** | An unquoted `<remove>` cell in exchange profile v2 meaning an explicit field removal; a quoted token is literal text. |
+| **Number normalization** | The explicit preview/Apply cleanup of legacy, ambiguous, or private track/disc number candidates. It is separate from ordinary pair edits. |
 | **Provider** | An online metadata source: MusicBrainz, iTunes, or LRCLIB. |
 | **Batch partial success** | Per-file commits where some targets succeed and others fail; there is no group rollback. |
 | **Durability uncertain** | The package observed a commit but could not confirm directory durability. Treated as committed with a warning. |

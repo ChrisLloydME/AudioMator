@@ -48,6 +48,10 @@ The Metadata Editor exposes TagLib's PropertyMap projection. Container-native st
 
 They are separate edit intents. Some formats can store both independently; MP4 has one standard date slot, so an independent Year edit is rejected rather than silently overwriting Release Date.
 
+### Why does an exported CSV or text file start with an AudioMator comment?
+
+Text and CSV exports begin with `# AudioMator-Metadata-Profile: 2`, which identifies the exchange profile. Version 2 carries Year, Date, Release Date and Original Release Date as independent columns. Files without the marker are read with the legacy v1 meanings. An unquoted `<remove>` in a v2 cell means "remove this field"; a quoted `"<remove>"` is literal text. See [Metadata Exchange](../Architecture/METADATA_EXCHANGE.md#exchange-profile-versioning).
+
 ### Why does Erase All Metadata not remove everything?
 
 Erase-all is best effort because supported tag surfaces differ by container. Some formats retain structures the package cannot remove or that are not represented in PropertyMap.
@@ -120,7 +124,7 @@ When enabled, the track list context menu can generate MuseAmp album/track IDs a
 
 ### Which Xcode version is required?
 
-The repository targets stable Xcode 27 (see [Build](../Development/BUILD.md)). This audit used Xcode 27.1. Beta toolchains are not supported by repository policy.
+The repository targets stable Xcode 27 (see [Build](../Development/BUILD.md)). Source inspection on 2026-11-12 used Xcode 27.2; beta toolchains are not supported by repository policy.
 
 ### Why does `swift test` not cover UI or TagLib behavior?
 

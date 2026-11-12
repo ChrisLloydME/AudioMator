@@ -1,14 +1,14 @@
 # Metadata Mapping Specification
 
-Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepted target; 0.7.1 candidate implementation verified with explicit version-specific capability gates**. Application-side evidence and remaining package gaps are recorded in the [0.7.0 implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md). This specification is the refactoring contract, not a claim about 0.6.0 behavior or current capabilities. Existing APIs and tests remain descriptive of the current implementation until explicitly migrated. A normal failing legacy test must not be hidden to claim conformance.
+Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepted and implemented by published TagLibAudioMetadata 0.7.3**. Application adoption and release-gate evidence are recorded in [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md); current capability restrictions and fixture limits are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). This specification remains the shared normative contract. It is not a claim that every format, tag version, or layout is writable; unsupported operations must fail safely rather than be inferred from this document. A normal failing legacy test must not be hidden to claim conformance.
 
-An identical copy is maintained as `Docs/Architecture/METADATA_MAPPING_SPEC.md` in AudioMator. The two copies are one shared contract, not independently editable policies. Any normative change must update both copies, increment the contract version, and state migration and test implications. The package owns native mapping/verification; AudioMator owns edit intent and presentation. Neither repository may silently override the other layer's semantics.
+AudioMator and TagLibAudioMetadata maintain one shared contract, not independently editable policies. Any normative change must update both copies, increment the contract version, and state migration and test implications. The package owns native mapping/verification; AudioMator owns edit intent and presentation. Neither repository may silently override the other layer's semantics.
 
 ## 1. Sources, scope, and precedence
 
 This document defines the package's metadata interoperability profile. The explicit per-format matrix and divergence decisions are normative. The [TagLib PropertyMap mapping](https://taglib.org/api/p_propertymapping.html), reviewed on 2026-11-09, supplies supplementary engine vocabulary and native mapping context. External application defaults and user-configurable mappings do not override this contract. Cross-tool testing is an interoperability oracle, not a second automatic mapping policy.
 
-The current engine baseline is TagLib 2.3.1, upstream revision `54ae7d8ac45755e286a5c574280f48d5bef93aef`, distributed by package 0.6.0. The online table can describe newer behavior. It does not upgrade the engine or establish write support. In particular, newer documented mappings must be implemented or capability-gated before advertising them.
+The current engine baseline is TagLib 2.3.1, upstream revision `54ae7d8ac45755e286a5c574280f48d5bef93aef`, distributed by package 0.7.3. The online table can describe newer behavior. It does not upgrade the engine or establish write support. In particular, newer documented mappings must be implemented or capability-gated before advertising them.
 
 Resolve a mapping in this order:
 
@@ -463,6 +463,8 @@ The app never writes containers directly, falls back to an unverified raw write,
 
 ## 11. Migration and rollout
 
+This section records the rollout plan used for the 0.7.x adoption. Published 0.7.3 implements the contract and the application gate is current; the historical gaps and candidate evidence remain in the engineering archive.
+
 1. Preserve the current pin and current-state documentation until an independently versioned package release implements this contract. Add target conformance tests alongside legacy tests with explicit intent; update obsolete assertions only when implementation changes. Inventory both standalone total aliases and formatted-pair private atoms; neither may be bulk-deleted or migrated during scanning.
 2. Refactor the package registry, full-fidelity snapshot and patch planner together. Separate semantic keys from the engine PropertyMap dialect. Migrate old grouping/work projections using exact native provenance; never reinterpret old scalar drafts by property name. Publish the mapping contract version separately from the package version. Keep deprecated Basic projections source-compatible where feasible, but document any semantic change and provide explicit new date operations. Do not silently reinterpret a public enum on a patch release.
 3. Release the package normally, then upgrade AudioMator's exact pin, disclosures and adapter. Update Inspector, provider application, CSV/filename schemas, conflicts and reload together. No user file migration runs on import, launch, scan or reload.
@@ -472,7 +474,7 @@ The app never writes containers directly, falls back to an unverified raw write,
 
 ## 12. Required conformance and release gates
 
-The following are requirements for the later implementation, **not tests executed by this documentation change**:
+The following are contract requirements. The application-side release gate, complete named test inventory, and package acceptance are recorded in [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) and [Testing](../Development/TESTING.md).
 
 - Enumerate every public field and every app edit property; fail registry coverage if one lacks a mapping, explicit unsupported reason or declared display-only status. Test native atom spelling/case, freeform namespace/description and source-dialect aliases.
 - For each advertised field/family/version, test set, replace, remove, absent no-op, unrelated-edit preservation and unsupported rejection with original-byte preservation. Use an independent native inspector where possible, not only the same projection that wrote the field.
@@ -484,10 +486,10 @@ The following are requirements for the later implementation, **not tests execute
 - All AudioMator routes must produce the same semantic plan for equivalent intent. Test previews, mixed-format preflight, CSV profile/version handling, provider dates, conflicts, atomic rejection and post-commit reload. Preserve transaction, audio identity and durability semantics.
 - A new package release and app adoption must document implemented contract version, per-format evidence, intentional gaps, migration behavior and exact commands/results. No support claim may be inferred from this specification alone.
 
-## 13. Current implementation gaps
+## 13. Historical implementation gaps at the 0.6.0 baseline
 
-> Historical record: this section describes the 0.6.0 state that motivated contract 2.2. Package 0.7.0 implements the contract, and the application-side adoption plus remaining package verification gaps are recorded in the [0.7.0 implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md).
+> Historical record: this section describes the 0.6.0 state that motivated contract 2.2. Published 0.7.3 implements the contract; the application-side adoption and release-gate evidence are recorded in [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md). Current capability restrictions are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
-At the inspected package 0.6.0 revision, `.date` is labeled Recording Date and rejected for typed MP4 writes; `.releaseDate` maps to ©day; Basic year is a four-character projection. AudioMator maps Year directly to `.date` and can discard the rest of DATE when that field is edited. Its current Inspector allows unsupported MP4 Year intent. These are known differences from the target, not reasons to amend the target back to current behavior.
+At the inspected package 0.6.0 revision, `.date` is labeled Recording Date and rejected for typed MP4 writes; `.releaseDate` maps to ©day; Basic year is a four-character projection. At that baseline, AudioMator mapped Year directly to `.date` and could discard the rest of DATE when that field was edited. Its then-current Inspector allowed unsupported MP4 Year intent. These are known differences from the target, not reasons to amend the target back to current behavior.
 
-Other migration targets include ARTIST/ARTISTS separation, CONTENTGROUP/WORK/GROUPING placement, conductor and label native slots, encoder-field separation, canonical media/release mappings, native iTunes atoms and MusicBrainz UFID. Current private-number-text migration creates package-prefixed replacement atoms; target 2.2 instead retires both namespaces under section 6. Current generated schema tables describe existing code; do not regenerate them from this target document before changing code. The earlier Year round-trip tests establish only their asserted current behavior, not complete date-preserving conformance.
+Other migration targets included ARTIST/ARTISTS separation, CONTENTGROUP/WORK/GROUPING placement, conductor and label native slots, encoder-field separation, canonical media/release mappings, native iTunes atoms and MusicBrainz UFID. At that baseline, private-number-text migration created package-prefixed replacement atoms; target 2.2 instead retires both namespaces under section 6. Generated schema tables at that time described existing code; do not regenerate them from this target document before changing code. The earlier Year round-trip tests establish only their asserted behavior at that baseline, not complete date-preserving conformance.

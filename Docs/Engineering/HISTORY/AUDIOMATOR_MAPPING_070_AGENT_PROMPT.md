@@ -1,5 +1,7 @@
 # AudioMator metadata mapping implementation prompt
 
+> **Historical record.** This was the repository-scoped task prompt for the completed TagLibAudioMetadata 0.7.0 adoption. It is not current guidance: the dependency is now published 0.7.3, the mapping contract is implemented, and current behavior is documented in [Metadata Pipeline](../../Architecture/METADATA_PIPELINE.md), [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md), and [Testing](../../Development/TESTING.md). It is retained only to explain the original adoption requirements.
+
 Copy the instructions below into the agent attached to the AudioMator project in Xcode Code Intelligence. This is an implementation task, not a request for another design proposal.
 
 ## Objective and completion boundary

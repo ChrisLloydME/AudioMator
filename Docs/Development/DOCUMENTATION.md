@@ -32,6 +32,8 @@ When a historical record's claim is needed for current work, re-verify it and mo
 | Network provider, endpoint, data sent, timeout | `Docs/Architecture/ONLINE_METADATA.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, `NetworkServiceDisclosure.swift`, privacy sheet text |
 | Entitlement, sandbox, file access, logging | `Docs/Security/SECURITY_AND_DATA_INTEGRITY.md`, `Docs/Reference/CONFIGURATION.md` |
 | Build setting, toolchain, package version | `Docs/Development/BUILD.md`, `Docs/Reference/CONFIGURATION.md`, `Docs/THIRD_PARTY_NOTICES.md` |
+| Dependency acceptance or package adoption | `Docs/Engineering/TAGLIB_*` dated record, `Docs/Engineering/README.md`, and the current-state dependency documents |
+| Documentation index or document class | `Docs/README.md`, `Docs/Engineering/README.md`, this file |
 | License, attribution, or bundled license text | `Docs/THIRD_PARTY_NOTICES.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, `AudioMator/Core/Legal/LicenseDisclosure.swift`, `AudioMator/Resources/Licenses` |
 | Test target, suite, fixture, CI | `Docs/Development/TESTING.md` |
 | Release process, signing, versioning | `Docs/Development/RELEASE.md` |
@@ -79,9 +81,11 @@ See [the ADR index](../Architecture/Decisions/README.md).
 
 ## Engineering Records and History
 
-- `Docs/Engineering/` holds dated performance measurements and investigation records. They may contain numbers that are stale; each must state its date and baseline.
-- `Docs/Engineering/HISTORY/` holds superseded progress logs and audits. They are retained for traceability and are not maintained.
+- `Docs/Engineering/` holds dated package adoption and release evidence, performance measurements, and investigation records. They may contain numbers that are stale; each must state its date and baseline.
+- `Docs/Engineering/README.md` is the index. It separates current release evidence from superseded candidate records and historical measurements.
+- `Docs/Engineering/HISTORY/` holds superseded progress logs, audits, coverage maps, and retired task prompts. They are retained for traceability and are not maintained.
 - Do not copy current guidance out of a historical record without re-verifying it.
+- When a package adoption record is superseded, label it in the engineering index rather than rewriting its dated results. Put the current fact in the current-state document and link the evidence.
 
 ## AI Coding Agents
 

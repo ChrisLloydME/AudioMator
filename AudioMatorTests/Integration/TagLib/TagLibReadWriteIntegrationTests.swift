@@ -332,7 +332,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             defer { removeTemporaryFixtureDirectory(containing: url) }
             let pipeline = TagLibAudioMetadataPipeline()
             _ = try TagLibMetadataManager.applyMetadataPatch(
-                MetadataPatch(fields: [.date: .text("2020"), .releaseDate: .text("2019-05-31")]),
+                MetadataPatch(fields: [.year: .text("2020"), .releaseDate: .text("2019-05-31")]),
                 to: url
             )
             for year in ["2021", ""] {
@@ -357,7 +357,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         _ = try TagLibMetadataManager.applyMetadataPatch(
             MetadataPatch(fields: [
-                .date: .text("2020"),
+                .year: .text("2020"),
                 .releaseDate: .text("2020-05-31"),
             ]),
             to: workingURL
@@ -442,7 +442,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
             XCTAssertTrue(
-                TagLibMetadataManager.isReadableFormat(fixtureURL.pathExtension),
+                TagLibMetadataManager.isReadableExtension(fixtureURL.pathExtension),
                 "\(fixtureName) should be reported as readable."
             )
 
@@ -552,7 +552,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var executedFixtureCount = 0
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
-            guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
+            guard TagLibMetadataManager.isWritableExtension(fixtureURL.pathExtension) else {
                 continue
             }
             executedFixtureCount += 1
@@ -599,7 +599,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
-            guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
+            guard TagLibMetadataManager.isWritableExtension(fixtureURL.pathExtension) else {
                 continue
             }
             executedFixtureCount += 1
@@ -692,7 +692,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
-            guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
+            guard TagLibMetadataManager.isWritableExtension(fixtureURL.pathExtension) else {
                 continue
             }
             executedFixtureCount += 1
@@ -817,7 +817,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var executedFixtureCount = 0
         for fixtureName in Self.artworkFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
-            guard TagLibMetadataManager.isWritableFormat(fixtureURL.pathExtension) else {
+            guard TagLibMetadataManager.isWritableExtension(fixtureURL.pathExtension) else {
                 continue
             }
             executedFixtureCount += 1
@@ -830,8 +830,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                     fields: [.title: .text("Artwork Round Trip")],
                     artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])
                 ),
-                to: workingURL,
-                failurePolicy: .throw
+                to: workingURL
             )
 
             let withArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)
@@ -839,8 +838,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
             _ = try TagLibMetadataManager.applyMetadataPatch(
                 MetadataPatch(artwork: .removeAll),
-                to: workingURL,
-                failurePolicy: .throw
+                to: workingURL
             )
 
             let withoutArtwork = try TagLibMetadataManager.readMetadataResult(from: workingURL)

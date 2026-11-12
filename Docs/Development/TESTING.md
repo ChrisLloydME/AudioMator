@@ -214,3 +214,7 @@ Earlier package adoptions and application repairs are documented as engineering 
 - [Metadata test strategy](METADATA_TEST_STRATEGY.md)
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
+
+## Unreleased API/performance candidate
+
+The adapter migration is exercised against `codex/api-mapping-performance` with `scripts/validate-release.sh --local-package /absolute/path/to/TagLibAudioMetadata`. Its native mapping contract remains 2.2. The normal project pin remains 0.7.3; the local workspace is ignored. The full serial app-hosted suite and unsigned Release build are required before claiming candidate integration acceptance; see [the candidate evidence record](../Engineering/TAGLIB_API_PERFORMANCE_CANDIDATE_2026-11-12.md). No interactive UI acceptance is implied.

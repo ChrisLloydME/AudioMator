@@ -391,7 +391,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
         // MKV must not be advertised as writable and the two TV registrations
         // remain gated/unsupported for Matroska.
-        XCTAssertFalse(TagLibMetadataManager.isWritableFormat("mkv"))
+        XCTAssertFalse(TagLibMetadataManager.isWritableExtension("mkv"))
         XCTAssertEqual(
             MetadataFieldRegistry.schema(for: .tvEpisode)?.capability(for: MetadataNativeFamily.matroska),
             .unsupported

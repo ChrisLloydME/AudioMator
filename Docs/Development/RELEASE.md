@@ -8,6 +8,7 @@ This document describes the release process that exists in the repository and cl
 | --- | --- |
 | Version/build values in the Xcode project | Implemented as static build settings |
 | Unsigned Debug/Release build | Implemented |
+| Unsigned Xcode Archive | Validated with the published 0.7.3 candidate; [evidence](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md#unsigned-archive) |
 | Unsigned app-hosted test run in CI | Implemented |
 | Minimum-OS/Mach-O validation script | Implemented |
 | Signed/notarized archive creation | **Not implemented** |
@@ -46,7 +47,7 @@ The following steps are the minimum supported procedure. Only steps marked **imp
 
 1. **Choose the version and build.** Edit `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in both app target configurations. Confirm the Release bundle ID.
 2. **Run tests.**
-   - `swift test` (implemented, 61 tests at audit time).
+   - `swift test` (implemented; current core counts are in [Testing](TESTING.md)).
    - Serial app-hosted `xcodebuild test` (implemented; current counts are in [Testing](TESTING.md)).
 3. **Build Release.**
    - `xcodebuild -configuration Release -destination 'generic/platform=macOS'` (implemented; produces a universal binary in the audited environment).
@@ -84,13 +85,13 @@ The repository does not include a certificate, provisioning profile, export opti
 - runs the app-hosted suite serially with signing disabled (45-minute timeout),
 - builds an unsigned Release artifact and validates it with `scripts/validate-macos-artifact.sh`.
 
-It has read-only repository permissions, no secrets, no artifact upload, and no release job. Passing CI does not produce a distributable app.
+It has read-only repository permissions, no release secrets and no release job. Validation logs and `.xcresult` are uploaded with `actions/upload-artifact`, including on failure. Passing CI does not produce a distributable app.
 
 ## Compatibility Checks
 
 - Deployment target: macOS 15.0. The validation script enforces that no Mach-O in the bundle declares a higher minimum.
 - Architecture: the unsigned generic macOS Release build from this audit produced a universal executable (`x86_64` and `arm64`). The validation script does not check architectures, so verify with `lipo -info` if that matters.
-- Package: exact `TagLibAudioMetadata` 0.7.2 pin. A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
+- Package: exact `TagLibAudioMetadata` 0.7.3 pin. A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
 - Swift: Xcode 27 stable toolchain; Swift 5 language mode with complete strict concurrency.
 
 There is no automated compatibility matrix for older macOS versions or prerelease toolchains.
@@ -175,4 +176,4 @@ Because updates are manual:
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
 
-Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#explicit-local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current state-coverage evidence](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md).
+Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#explicit-local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current published-tag acceptance](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md); the earlier [state-coverage evidence](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) describes the local candidate.

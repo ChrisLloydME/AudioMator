@@ -222,23 +222,23 @@ The same-inode WAV replacement regression now covers typed writes, raw writes, a
 
 See the [0.6.0 integration record](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) for the commands and final results. Historical 2026-10-18 results above describe the previous pin and do not establish current coverage.
 
-### 0.7.0 Mapping Contract Verification
+### Historical 0.7.0 Mapping Contract Verification
 
 New suites in `AudioMatorTests/Integration/TagLib`:
 
 - `TagLibDateMappingIntegrationTests` — four independent date identities, native-oracle checks, full YEAR text, MP4 Year editing, ID3v2.3 safe rejection.
 - `TagLibMappingContractIntegrationTests` — component-preserving number edits on all six fixtures, legacy total recovery, captured cleanup plan and stale-plan rejection, advisory 0/1/2/absent plus unknown-code preservation, typed MP4-exclusive fields and RATE read-only classification, contentGroup/grouping/work independence, raw PropertyMap DATE meaning.
 
-`TagLibUpgradeContractTests` now asserts the exact 0.7.0 version/revision, remote URL, absence of a local override, mapping contract `AM-TLAM-MAPPING-2.2`, canonical YEAR/DATE identities and RATE read-only capability.
+At the 0.7.0 baseline, `TagLibUpgradeContractTests` asserted its exact version/revision, remote URL, absence of a local override, mapping contract `AM-TLAM-MAPPING-2.2`, canonical YEAR/DATE identities and RATE read-only capability.
 
-Known package blockers that remain explicit (not skipped):
+The following were 0.7.0 package blockers. They are historical; current 0.7.3 regressions remain mandatory, and current capability restrictions are listed in Dependency Limitations:
 
 - FLAC semantic `.comment` writes fail verification with unchanged bytes (`testFLACSemanticCommentSetReplaceAndClearContract`).
 - ID3v2.3 TDAT/TDRL are flattened by TagLib and are not independently round-trippable.
-- The released verifier rejects DATE writes/removals when YEAR is absent on ID3/MP4 and drops DATE during a Xiph YEAR write; `TagLibDateCompanion` mitigates this narrowly.
+- The released verifier rejects DATE writes/removals when YEAR is absent on ID3/MP4 and drops DATE during a Xiph YEAR write; the then-existing `TagLibDateCompanion` mitigated this narrowly and was subsequently removed.
 - Typed removal of `musicBrainzTrackID` on ID3 fails inside the bridge.
 
-Workflow tests that exercise FLAC comments or ID3 number-text removal assert the safe failure and byte preservation rather than treating the package error as success.
+At that baseline, workflow tests exercised safe failure and byte preservation. Current supported-write regressions require successful persistence and reload; unsupported-layout regressions still require safe rejection.
 
 Final verification on 2026-11-09 (Xcode 27.2, Swift 6.4.2): Foundation-only suite 62/62; Debug and Release generic builds succeeded with no project warnings; Release bundle validation passed for macOS 15.0; full serial app-hosted suite 528/528 with zero failures and zero skips. See the [implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) for commands and focused-suite counts, and [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md) for the remaining package gaps.
 
@@ -263,16 +263,20 @@ Application repair regressions and current release-gate evidence are recorded in
 
 `InspectorDirtyStateTests` asserts no-op and reverted edits remain clean while mixed-value clears and genuine changes remain dirty. Real-file save journeys additionally assert no-op batches leave bytes/versions unchanged and successful save/activation reload becomes clean. See [repair evidence](../Engineering/INSPECTOR_DIRTY_STATE_2026-11-10.md).
 
-## Published 0.7.2 acceptance
+## Historical published 0.7.2 acceptance
 
-The normal Xcode project pins remote 0.7.2 at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. The mandatory lock/disclosure contract rejects missing locks and unrelated revisions. The initial full suite passed 573 of 574 app tests; a CSV Comment write failed for an MP4 with absent YEAR and present DATE. Two fresh-fixture regressions preserve that combination for package Lyrics and app Comment writes. They fail on the published tag and pass on the unreleased repair candidate; they remain normal mandatory tests. See [adoption evidence](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md); previous local-override acceptance does not waive this failure.
+The 2026-11-11 normal Xcode project pinned remote 0.7.2 at revision `5e6f604b0e9df244f4b69608261407d2ab758788`. The mandatory lock/disclosure contract rejects missing locks and unrelated revisions. The initial full suite passed 573 of 574 app tests; a CSV Comment write failed for an MP4 with absent YEAR and present DATE. Two fresh-fixture regressions preserve that combination for package Lyrics and app Comment writes. They failed on 0.7.2 and passed on the then-unreleased repair candidate; they remain normal mandatory tests on 0.7.3. See [adoption evidence](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md); previous local-override acceptance does not waive this failure.
 
 ## Sparse-state acceptance and complete evidence
 
-The current unreleased repair validation uses `bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata`. The ignored workspace is generated explicitly; the normal project remains pinned to published 0.7.2. A local candidate pass does not certify that published tag. The gate records source identity, test logs, `.xcresult`, summary, the complete test tree and an acceptance JSON under `.deriveddata-codex/Validation`.
+Current release validation uses `bash scripts/validate-release.sh` against published 0.7.3 in the normal project. The earlier repair candidate used the explicit `--local-package` option; that result did not certify 0.7.2. The gate records source identity, test logs, `.xcresult`, summary, the complete test tree and an acceptance JSON under `.deriveddata-codex/Validation`.
 
 `MetadataBoundaryMatrixTests` now runs all 33 dedicated strings through set/replace/clear in each of 16 independent date-presence states (1,584 app operations). `MetadataSaveJourneyTests` runs 688 individual provider field-selection/date-state cases, and 80 displayed-plan/Inspector/Metadata Editor/CSV state journeys. Every case uses a temporary file; transport is offline. The ordinary CSV matrix uses a fresh file per field and stable field order; date interactions are explicit tests rather than incidental dictionary ordering. Original package conformance regressions remain mandatory and unchanged.
 
 `check-test-evidence.py` requires exact equality between source-declared XCTest identities and named `xcresult` Test Case leaves, including critical regression identities and a reviewed floor of 579 app tests. Summary totals must agree; failed, skipped, expected-failure, duplicate, foreign-target, missing or incomplete evidence fails. `check-core-evidence.py` similarly requires all 62 Foundation-only core test identities and a complete passing summary. The parser supports this repository's direct XCTestCase classes and named zero-argument tests; a different test declaration style requires an explicit inventory parser update, not a waiver.
 
 `python3 -m unittest discover -s scripts/tests` runs 13 gate-policy tests, including tampered identities, missing core/app execution, count-only evidence, duplicates, skips/failures, nonzero statuses, removed critical source cases and malformed/changed JSON. This is separate from the app/core test counts. See [state coverage acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) for actual final results and the remaining UI/platform limits.
+
+## Published 0.7.3 release acceptance
+
+The normal project pins remote 0.7.3 at revision `7ca1b75326388a5902815f70145b600299944ae0`. The same complete, serial gate is used without a local workspace or test filters. The full normal-project gate passed: 13 policy tests, 62 core tests, 579 serial app tests with zero failures/skips, unsigned Release build and artifact checks. An additional unsigned Archive passed structure, architecture, license and dependency-path checks. The mandatory pin/disclosure contract and all original Comment/Lyrics, date, provider, Inspector, Editor and mutation-safety regressions remain enabled. [Release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records actual results and the manual distribution boundary.

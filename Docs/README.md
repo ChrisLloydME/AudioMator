@@ -36,7 +36,8 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Architecture Overview](Architecture/OVERVIEW.md) — layers, composition, runtime flows, concurrency, error propagation, extension points.
 - [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) — state categories, file identity, mutation lifecycle, recovery semantics.
 - [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) — loading, editing, write preflight, conflict resolution, persistence, artwork, format behavior.
-- [0.7.1 Joint Mapping Acceptance](Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) — current cross-repository candidate results and manual publication handoff.
+- [Published 0.7.3 Release Readiness](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) — current remote dependency adoption and normal-project release-gate evidence.
+- [0.7.1 Joint Mapping Acceptance](Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) — historical local-candidate acceptance.
 - [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — shared native-field interoperability contract, per-format target matrix, legacy totals/private-field migration and conformance gates. Implemented by package 0.7.0; application evidence lives in the implementation ledger.
 - [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) — revision guards, conflict policies, reload paths, detection limits.
 - [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, field-transfer planning and write behavior.

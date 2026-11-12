@@ -17,24 +17,10 @@ extension AudioViewModel {
         )
         defer { endMetadataSaveProgress() }
 
-        for (index, entry) in entries.enumerated() {
-            if Task.isCancelled {
-                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
-                break
-            }
-            updateMetadataSaveProgress(
-                subtitle: entry.fileName,
-                completedUnitCount: index
-            )
-
+        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+            let entry = entries[index]
             guard let file = filesByID[entry.fileID] else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: ["The file is no longer loaded in AudioMator."]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure("The file is no longer loaded in AudioMator."))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -44,15 +30,20 @@ extension AudioViewModel {
                 field.apply(value, to: &edit)
             }
 
-            let result = await persistMetadataEdit(
+            let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            // Once a commit starts, the executor observes its actual outcome
-            // even after cancellation. Account for that outcome before stopping.
-            switch result {
+            return (file.url.lastPathComponent, result)
+        }
+        for (index, entry) in entries.enumerated() {
+            guard let outcome = outcomes[index] else {
+                summary.recordCancelledFiles([entry.fileName])
+                continue
+            }
+            switch outcome.result {
             case .success(let success):
                 summary.succeeded += 1
                 summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
@@ -60,7 +51,7 @@ extension AudioViewModel {
                 if !success.warnings.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
+                            fileName: outcome.fileName,
                             messages: success.warnings
                         )
                     )
@@ -68,7 +59,7 @@ extension AudioViewModel {
             case .failure(let reason):
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
+                        fileName: outcome.fileName,
                         messages: [reason]
                     )
                 )
@@ -103,24 +94,10 @@ extension AudioViewModel {
         )
         defer { endMetadataSaveProgress() }
 
-        for (index, entry) in entries.enumerated() {
-            if Task.isCancelled {
-                summary.recordCancelledFiles(entries.dropFirst(index).map(\.fileName))
-                break
-            }
-            updateMetadataSaveProgress(
-                subtitle: entry.fileName,
-                completedUnitCount: index
-            )
-
+        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+            let entry = entries[index]
             guard let file = filesByID[entry.fileID] else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: entry.fileName,
-                        messages: ["The file is no longer loaded in AudioMator."]
-                    )
-                )
-                continue
+                return (entry.fileName, .failure("The file is no longer loaded in AudioMator."))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -130,15 +107,20 @@ extension AudioViewModel {
                 field.apply(value, to: &edit)
             }
 
-            let result = await persistMetadataEdit(
+            let result = await self.persistMetadataEdit(
                 edit,
                 to: file,
                 syncInspectorAfterReload: false,
                 expectedFileFingerprint: entry.expectedFileFingerprint
             )
-            // Once a commit starts, the executor observes its actual outcome
-            // even after cancellation. Account for that outcome before stopping.
-            switch result {
+            return (file.url.lastPathComponent, result)
+        }
+        for (index, entry) in entries.enumerated() {
+            guard let outcome = outcomes[index] else {
+                summary.recordCancelledFiles([entry.fileName])
+                continue
+            }
+            switch outcome.result {
             case .success(let success):
                 summary.succeeded += 1
                 summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
@@ -146,7 +128,7 @@ extension AudioViewModel {
                 if !success.warnings.isEmpty {
                     summary.warningIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
+                            fileName: outcome.fileName,
                             messages: success.warnings
                         )
                     )
@@ -154,7 +136,7 @@ extension AudioViewModel {
             case .failure(let reason):
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
+                        fileName: outcome.fileName,
                         messages: [reason]
                     )
                 )

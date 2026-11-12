@@ -11,7 +11,7 @@ Counts and paths below were verified by source inspection on 2026-11-12. They ch
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 579 | 76 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 580 | 76 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 80 `XCTestCase` classes across both targets; no custom base class.
@@ -82,7 +82,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 13 | 142 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataEditing` | 13 | 143 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
 | `Application/MetadataExchange` | 4 | 66 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
 | `Application/Rename` | 4 | 23 | template parsing, transaction rollback, filename extraction, refresh safety |
 | `Application/WatchedFolders` | 4 | 21 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
@@ -218,3 +218,7 @@ Earlier package adoptions and application repairs are documented as engineering 
 ## Unreleased API/performance candidate
 
 The adapter migration is exercised against `codex/api-mapping-performance` with `scripts/validate-release.sh --local-package /absolute/path/to/TagLibAudioMetadata`. Its native mapping contract remains 2.2. The normal project pin remains 0.7.3; the local workspace is ignored. The full serial app-hosted suite and unsigned Release build are required before claiming candidate integration acceptance; see [the candidate evidence record](../Engineering/TAGLIB_API_PERFORMANCE_CANDIDATE_2026-11-12.md). No interactive UI acceptance is implied.
+
+The write-concurrency follow-up expands `MetadataIOPerformanceTests.testBoundedConcurrentGuardedWritesAcrossFormats` to ordinary/heavy metadata and 1/2/4/8 workers, retaining real write/reload and array checks. `ProviderTaggingCancellationTests` now verifies a four-file in-flight window and queued cancellation across all seven targets for provider/filename/CSV paths, preserving exact raw-map and ordered-summary assertions. See [write-concurrency evidence](../Engineering/WRITE_CONCURRENCY_2026-11-12.md).
+
+`testCapturedPlanResultsStayOrderedThroughReversedCompletions` holds the initial four slots and releases results out of order, requiring captured-index outcomes and the exact concurrency bound. The current app suite contains 580 tests; the 579-test release records are historical.

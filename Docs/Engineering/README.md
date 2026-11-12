@@ -55,3 +55,5 @@ Performance tests are documented in [Testing](../Development/TESTING.md#performa
 Do not move current guidance into the archive, and do not copy historical claims out of it without re-verifying them.
 
 - [Unreleased package API/performance candidate, 2026-11-12](TAGLIB_API_PERFORMANCE_CANDIDATE_2026-11-12.md) — current isolated adapter migration and local-candidate verification.
+
+- [Bounded write concurrency, 2026-11-12](WRITE_CONCURRENCY_2026-11-12.md) — measured worker limits and bounded provider/import scheduling.

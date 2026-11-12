@@ -53,3 +53,5 @@ Performance tests are documented in [Testing](../Development/TESTING.md#performa
 - [Metadata mapping 0.7.0 agent prompt](HISTORY/AUDIOMATOR_MAPPING_070_AGENT_PROMPT.md) — retired repository-scoped task prompt for the completed 0.7.0 adoption.
 
 Do not move current guidance into the archive, and do not copy historical claims out of it without re-verifying them.
+
+- [Unreleased package API/performance candidate, 2026-11-12](TAGLIB_API_PERFORMANCE_CANDIDATE_2026-11-12.md) — current isolated adapter migration and local-candidate verification.

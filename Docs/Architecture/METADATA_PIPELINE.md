@@ -274,3 +274,9 @@ Changed number-text pairs are validated centrally before semantic writes. Missin
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
+
+## Unreleased package API integration
+
+The `codex/package-api-performance-integration` branch prepares the adapter and its tests for the package's unreleased API cleanup. Typed YEAR uses only `.year`; independent DATE uses `.standaloneDate`. The application no longer references the old typed `.date` YEAR alias or obsolete verification-policy/format-check helpers. Application `AudioFile.date`, CSV Date, and `BasicMetadata.date` retain their independent DATE meaning.
+
+The committed dependency remains published 0.7.3. Candidate validation uses the explicitly requested local package override; no local path is committed to project resolution. This work does not publish or adopt a new package release, and no application performance improvement is claimed from a package microbenchmark.

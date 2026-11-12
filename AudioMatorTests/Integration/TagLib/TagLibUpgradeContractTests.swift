@@ -28,7 +28,7 @@ nonisolated final class TagLibUpgradeContractTests: XCTestCase {
         XCTAssertEqual(state["revision"], revision)
         XCTAssertEqual(MetadataMappingCatalog.contractVersion, "AM-TLAM-MAPPING-2.2")
         XCTAssertEqual(MetadataFieldRegistry.schema(for: .year)?.semanticKey, "YEAR")
-        XCTAssertEqual(MetadataFieldRegistry.schema(for: .date)?.semanticKey, "YEAR")
+        XCTAssertEqual(MetadataFieldRegistry.canonicalSchema(forSemanticKey: "YEAR")?.key, .year)
         XCTAssertEqual(MetadataFieldRegistry.schema(for: .standaloneDate)?.semanticKey, "DATE")
         XCTAssertEqual(MetadataFieldRegistry.schema(for: .releaseDate)?.semanticKey, "RELEASEDATE")
         XCTAssertEqual(MetadataFieldRegistry.schema(for: .originalReleaseDate)?.semanticKey, "ORIGINALDATE")

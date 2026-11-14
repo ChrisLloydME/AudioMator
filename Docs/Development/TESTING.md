@@ -224,3 +224,5 @@ The write-concurrency follow-up expands `MetadataIOPerformanceTests.testBoundedC
 `testCapturedPlanResultsStayOrderedThroughReversedCompletions` holds the initial four slots and releases results out of order, requiring captured-index outcomes and the exact concurrency bound. The current app suite contains 580 tests; the 579-test release records are historical.
 
 The complete local-candidate gate after bounded plan scheduling passed 62 core and 580 app-hosted tests, 13 policy tests, unsigned Release build and artifact validation. Evidence: `.deriveddata-codex/Validation/20261112-140557-25955/`; see the write-concurrency record for source identities and measured limits.
+
+The local-candidate gate after package advisory-review repairs also passed 62 core and 580 app-hosted tests, policy checks, unsigned Release build and artifact validation. See [2026-11-14 acceptance](../Engineering/TAGLIB_REVIEW_REPAIR_2026-11-14.md) for exact package/source identities and scope.

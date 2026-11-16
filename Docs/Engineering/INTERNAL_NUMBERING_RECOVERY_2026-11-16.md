@@ -11,3 +11,5 @@ The Inspector action/sheet, choice enum, published session state and application
 ## Verification scope
 
 Focused application recovery/mapping tests passed with the local candidate. Package tests independently verify native bytes/audio, both groups/namespaces, set/remove/text/mixed saves, one staging operation, conflict/opaque/stale/invalid safety. Final Debug-only gates are recorded below. Release builds/tests are skipped by request; no interactive app launch is performed. The committed published pin remains 0.8.0 until the repaired package is published and adopted; local override acceptance does not establish that published 0.8.0 implements the new behavior.
+
+An adapter inspection also found discarded returned `MetadataWriteResult.commitStatus`: the old interpreter accepted only warning arrays. It now accepts the complete package result and preserves both warnings and committed/durability-uncertain status for semantic/raw/erase/number-text writes. The existing post-commit exception handling remains. A direct result-contract regression verifies returned uncertain and durable results with warnings; a typed return prevents future `.warnings`-only forwarding.

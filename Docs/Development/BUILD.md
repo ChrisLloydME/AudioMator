@@ -15,8 +15,8 @@ Current checkout verified by source inspection on 2026-11-12:
 | --- | --- |
 | Toolchain | Xcode 27.2 (27B52), Apple Swift 6.4.2 |
 | App deployment target | macOS 15.0 |
-| Package pin | Exact published `0.7.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3), revision `7ca1b75326388a5902815f70145b600299944ae0` |
-| Recorded release gate | [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) |
+| Package pin | Exact published `0.8.0`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.0), revision `e91d822bf584c354f9d9b68803391731a9e7c9a8` |
+| Recorded release gate | [Published 0.8.0 release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) |
 
 The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested. The dependency itself requires Swift tools 6.4; the separate Foundation-only SwiftPM harness in this repository declares Swift tools 6.0 and does not compile the dependency.
 
@@ -34,7 +34,7 @@ Select the `AudioMator` scheme and a macOS destination. Xcode resolves the remot
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The committed package requirement is **exact version `0.7.3`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
+The committed package requirement is **exact version `0.8.0`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
 
 ## Scheme and Configurations
 
@@ -186,16 +186,7 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Recorded Verification
 
-The most recent recorded acceptance is the published 0.7.3 gate on 2026-11-12:
-
-- 13 policy tests passed,
-- 62 Foundation-only core tests passed with complete named execution,
-- 579 serial app-hosted tests passed with zero failures, skips, or expected failures,
-- the exact dependency/disclosure contract passed,
-- the unsigned Release build and artifact validation passed,
-- an additional unsigned Archive passed structure, architecture, license, and dependency-path checks.
-
-See [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) for the exact commands, evidence paths, and the manual distribution boundary. Earlier dated counts in engineering records are historical; re-run the current gate before quoting new numbers.
+Current published 0.8.0 adoption results are recorded in [release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency.
 
 ## Related Documents
 

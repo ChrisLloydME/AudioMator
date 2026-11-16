@@ -8,8 +8,8 @@ nonisolated final class TagLibUpgradeContractTests: XCTestCase {
     func testExactDependencyPinMatchesProjectAndCurrentDisclosures() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let version = "0.7.3"
-        let revision = "7ca1b75326388a5902815f70145b600299944ae0"
+        let version = "0.8.0"
+        let revision = "e91d822bf584c354f9d9b68803391731a9e7c9a8"
         let project = try String(contentsOf: root.appendingPathComponent("AudioMator.xcodeproj/project.pbxproj"), encoding: .utf8)
         XCTAssertTrue(project.contains("kind = exactVersion;\n\t\t\t\tversion = \(version);"))
         XCTAssertTrue(project.contains("repositoryURL = \"https://github.com/ChrisLloydME/TagLibAudioMetadata.git\";"))

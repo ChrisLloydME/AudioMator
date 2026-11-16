@@ -126,14 +126,14 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
         // Preview the explicit normalization.
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        let preview = try pipeline.planNumberNormalization(
+        let preview = try TagLibMetadataManager.planNumberNormalization(
             at: url,
             policy: .useLegacy,
             groups: [.track]
         )
-        XCTAssertEqual(preview.plan.trackNumber, 3)
-        XCTAssertEqual(preview.plan.trackTotal, 12)
-        XCTAssertFalse(preview.removalIdentities.isEmpty)
+        XCTAssertEqual(preview.trackNumber, 3)
+        XCTAssertEqual(preview.trackTotal, 12)
+        XCTAssertFalse((preview.removals + preview.privateRemovals).isEmpty)
 
         // Stale plan: another edit changes the file version.
         _ = try TagLibMetadataManager.applyMetadataPatch(
@@ -142,13 +142,13 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
         let staleBytes = try Data(contentsOf: url)
         XCTAssertThrowsError(
-            try pipeline.applyNumberNormalization(preview, to: url, expectedVersion: preview.fileVersion)
+            try TagLibMetadataManager.applyNumberNormalization(preview, to: url, expectedVersion: preview.fileVersion)
         )
         XCTAssertEqual(try Data(contentsOf: url), staleBytes)
 
         // Fresh preview applies the exact captured plan.
-        let fresh = try pipeline.planNumberNormalization(at: url, policy: .useLegacy, groups: [.track])
-        _ = try pipeline.applyNumberNormalization(fresh, to: url, expectedVersion: nil)
+        let fresh = try TagLibMetadataManager.planNumberNormalization(at: url, policy: .useLegacy, groups: [.track])
+        _ = try TagLibMetadataManager.applyNumberNormalization(fresh, to: url, expectedVersion: nil)
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
         XCTAssertEqual(file.track, 3)
         XCTAssertEqual(file.trackTotal, 12)
@@ -175,12 +175,12 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
 
         let pipeline = TagLibAudioMetadataPipeline()
-        let preview = try pipeline.planNumberNormalization(
+        let preview = try TagLibMetadataManager.planNumberNormalization(
             at: url,
             policy: .useLegacy,
             groups: [.track]
         )
-        _ = try pipeline.applyNumberNormalization(preview, to: url, expectedVersion: nil)
+        _ = try TagLibMetadataManager.applyNumberNormalization(preview, to: url, expectedVersion: nil)
 
         let file = try await pipeline.loadAudioFile(at: url, id: UUID())
         XCTAssertEqual(file.track, 3)

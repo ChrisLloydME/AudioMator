@@ -84,25 +84,34 @@ extension AudioFile {
         self.metadataFileVersion = snapshot.fileVersion
         self.requiresMetadataRefreshBeforeWriting = false
 
+        let numberingInventory = try? TagLibMetadataManager.numberingInventory(at: url)
+        if let version = numberingInventory?.fileVersion, version != snapshot.fileVersion {
+            throw TagLibManagerError.fileChanged
+        }
+        let trackPair = TagLibNumberingProjection.pair(number: tag.track, total: tag.trackTotal,
+            text: tag.trackNumberText, inventory: numberingInventory?.track)
+        let discPair = TagLibNumberingProjection.pair(number: tag.disc, total: tag.discTotal,
+            text: tag.discNumberText, inventory: numberingInventory?.disc)
+
         self.title       = tag.title
         self.artist      = tag.artist
         self.album       = tag.album
         self.composer    = tag.composer
         self.genre       = tag.genre
         self.comment     = tag.comment
-        self.track       = tag.track
-        self.trackTotal  = tag.trackTotal
-        self.disc        = tag.disc
-        self.discTotal   = tag.discTotal
+        self.track       = trackPair.number
+        self.trackTotal  = trackPair.total
+        self.disc        = discPair.number
+        self.discTotal   = discPair.total
         self.trackNumberText = AudioFile.normalizedNumberText(
-            rawText: tag.trackNumberText,
-            number: tag.track,
-            total: tag.trackTotal
+            rawText: trackPair.text,
+            number: trackPair.number,
+            total: trackPair.total
         )
         self.discNumberText = AudioFile.normalizedNumberText(
-            rawText: tag.discNumberText,
-            number: tag.disc,
-            total: tag.discTotal
+            rawText: discPair.text,
+            number: discPair.number,
+            total: discPair.total
         )
 
         // Year, Date, Release Date and Original Release Date are independent.
@@ -142,19 +151,8 @@ extension AudioFile {
         self.advisoryRawValue = tag.explicitAdvisoryRawValue
         self.containerValues = Self.containerValues(from: tag, atoms: snapshot.structured.mp4Atoms)
 
-        let numberingInventory = try? TagLibMetadataManager.numberingInventory(at: url)
-        if let numberingInventory {
-            // The inventory must describe the same revision as the snapshot.
-            if let inventoryVersion = numberingInventory.fileVersion,
-               inventoryVersion != snapshot.fileVersion {
-                throw TagLibManagerError.fileChanged
-            }
-            self.trackNumberInventory = numberingInventory.track
-            self.discNumberInventory = numberingInventory.disc
-        } else {
-            self.trackNumberInventory = nil
-            self.discNumberInventory = nil
-        }
+        self.trackNumberInventory = numberingInventory?.track
+        self.discNumberInventory = numberingInventory?.disc
 
         let asset = AVURLAsset(url: url)
 

@@ -141,61 +141,17 @@ Verification must independently inspect the native pair and every selected alias
 
 Absence is represented as optional components in the semantic model. Positive-value bounds are checked before staging; the API does not infer an absent value by integer parse failure. Existing non-numeric text stays raw and is preserved until explicitly replaced. A total smaller than the number is surfaced as unusual metadata, not silently corrected or swapped.
 
-### 6.2. Private MP4 number-text inventory and retirement
+### 6.2. Internal numbering compatibility (amended 2026-11-16)
 
-The inspected 0.6.0 bridge declares these exact native identities in TLMetadataCore.inc. All are MP4 freeforms under the exact namespace `com.apple.iTunes`:
+This amendment supersedes the former user-visible Restore/Cleanup preview requirement. Storage-source choice and private provenance are implementation details, not normal user tasks. The exact historical `com.apple.iTunes` freeforms `AUDIOMATOR_TRACKNUMBER_TEXT`, `AUDIOMATOR_DISCNUMBER_TEXT`, `TAGLIBAUDIOMETADATA_TRACKNUMBER_TEXT` and `TAGLIBAUDIOMETADATA_DISCNUMBER_TEXT` remain recognized internally. Do not create private fields, rename prefixes, or treat foreign namespaces and similarly named fields as ours.
 
-| Description | Scope | Historical meaning |
-| --- | --- | --- |
-| AUDIOMATOR_TRACKNUMBER_TEXT | Track pair | Legacy app-owned formatted text, e.g. 03/12 |
-| AUDIOMATOR_DISCNUMBER_TEXT | Disc pair | Legacy app-owned formatted text, e.g. 01/02 |
-| TAGLIBAUDIOMETADATA_TRACKNUMBER_TEXT | Track pair | Package-owned formatted text |
-| TAGLIBAUDIOMETADATA_DISCNUMBER_TEXT | Disc pair | Package-owned formatted text |
+Reading/importing never migrates files. Use a valid canonical component first; if missing, display an unambiguous recovered value from the package inventory. A recovered value is editable in the ordinary number/total fields. Do not display an arbitrary first candidate when no canonical value exists. Preserve malformed text for inspection. Users must not be asked to choose Native/Legacy/private storage or acknowledge a maintenance preview.
 
-Their fully qualified native name is `----:com.apple.iTunes:<description>`. The short uppercase names and uppercase fully qualified strings in the facade's hidden-key set are filter/lookup forms of these identities, not additional physical fields. Do not create missing unqualified copies or treat arbitrary similarly prefixed fields as ours.
+### 6.3. Atomic ordinary edits and retirement
 
-Current source behavior: native trkn/disk set the numeric values; extraction also considers private text for formatted display. Numeric pair edits can migrate the touched AUDIOMATOR description to TAGLIBAUDIOMETADATA while retaining padding. Ordinary numeric edits on a standard-only file do not create that provenance. The standard raw-delta validator reserves these keys; structured MP4 atoms are needed to inventory them. These observations come from source inspection, not a new executed media round trip.
+A normal edit supplies component values/removals, retains valid canonical siblings, and recovers only unambiguous missing siblings. An unreadable or ambiguous untouched component requires its intended value in the ordinary field. Once resolved, the package writes the pair and retires only that group's exact recognized private records in the same staged transaction as other requested fields. Clearing both components must not leave a candidate that resurrects them. Unedited groups, unknown lookalikes, arrays and audio remain unchanged. Title/other unrelated saves preserve private records. The app must not split semantic saving and cleanup into separate transactions or substitute a raw/write-all workaround.
 
-**Target decision: retire both namespaces.** No default writer creates either namespace, including explicit number-text APIs. Do not rename the app-owned fields into package-owned fields as a compatibility migration. MP4 totals are always stored in trkn/disk. Exact MP4 text padding is not portable metadata; render it through an app display preference or report normalization. This decision does not authorize adding sidecar files or another persistent private namespace.
-
-Read the complete native pair and the complete private inventory before deciding which case applies. Strict private parsing permits only positive decimal components with leading zeros and an optional slash; missing components are distinct from zero. Enforce the target codec bounds and reject extra separators, arbitrary words, negative values or overflow as recovery candidates. Keep original bytes/text even when parsing fails. A string can be valid recovery text without being consistent formatting provenance.
-
-| Observed state | Read and unrelated-save behavior | Explicit pair edit or cleanup behavior |
-| --- | --- | --- |
-| Native pair only | Native numbers; no private fields created | Update only native pair |
-| Native pair plus numerically identical private text | Native numeric authority; optional legacy padding display; retain original atoms on unrelated saves | Preview padding normalization, then retire the touched pair's exact private atoms in the same transaction as the native write |
-| Native pair and private text disagree, including a private-only total | Native numbers remain the normal projection; expose the alternate candidate and discrepancy; preserve all atoms | Require a resolution choosing native, private candidate, or an explicit replacement pair; show removals before commit |
-| No native pair, one valid private candidate | Show a legacy-recovery candidate with provenance; do not quietly expose it as a verified native total or publish zero as if no candidate existed | Explicit Restore Numbers writes native pair and retires only the approved private atoms in one transaction |
-| No native pair, multiple agreeing private candidates | One recovery candidate with all provenance; preserve originals | Same recovery action, enumerating every retired identity |
-| Both private namespaces disagree, or private text is multi-valued/malformed/overflowed | Show ambiguity/diagnostic and preserve exact values | No automatic migration; explicit full replacement or exact cleanup preview required |
-| Track changes, disc unchanged | Preserve disc pair and its private atoms exactly | Retire track provenance only; no cross-pair cleanup |
-| User requests removal of all numbering | Preview native values, recovery-only values and exact private locations | Remove only the approved numbering identities atomically; verify their absence |
-
-Private text may affect a legacy display projection only after strict numeric equivalence with all native components is established. It must never replace a native total, and the package-owned prefix must not automatically win over the app-owned prefix. Conflicting private text is diagnostic data, not a reason to overwrite verified native values during a Title save.
-
-An ordinary pair edit may retire consistent, recognized provenance only when its preview explicitly includes that normalization. If no such preview has been acknowledged, leave the operation pending; elapsed time is not consent. Existing malformed or conflicting private atoms require a separate resolution plan. A complete replacement intent can supply that plan, but the discarded values still appear in the preview. Headless callers must supply an explicit cleanup/resolution policy rather than inheriting an app UI choice.
-
-### 6.3. Cleanup API, raw visibility and verification
-
-Provide a package-owned inventory plus a version-guarded pair normalization/recovery operation. These are future API requirements, not current method names. The plan records native before-values, private identities/types/value arrays, chosen after-pair, exact removals and normalization warnings. The app executes it inside FileMutationCoordinator; the package stages native writes and retirement together. A final version/audio guard failure preserves the original file, and a successful commit is never retried after a durability warning.
-
-Do not implement cleanup through the current public raw delta API, which rejects reserved internal keys, or by replacing the whole MP4 atom collection. Extend the narrow package operation instead. Raw PropertyMap projection may remain filtered for compatibility, but Tag Inspector and the cleanup preview must expose this separate structured inventory. Whole-map replacement and erase-all must state their scope: omission of filtered private keys is not proof of removal. A dedicated exact removal needs structured readback of all four identities.
-
-Conformance requires native values AND independent inventory checks: requested components round-trip in trkn/disk; approved legacy atoms are absent; untouched counterpart atoms/arrays are unchanged; unknown lookalike descriptions and namespaces survive; no replacement TAGLIBAUDIOMETADATA atom or duplicate total freeform is created. Test both namespaces independently and together, total-only pairs, stale candidates, absent native fields, malformed/multi-value private text, oversized values, zero/absent distinctions, case-sensitive near-matches, cancellation and version races. Existing tests expecting prefix renaming must be replaced only when the implementation changes, with explicit retirement assertions rather than deleted coverage.
-
-The compatibility break in exact MP4 formatted-text persistence must be documented in the next package release and app adoption. Preserve read/recovery support for both old namespaces throughout the migration; do not remove the legacy reader simply because new writes no longer create private data. Unrelated saves must preserve old provenance until the user actually chooses migration.
-
-### 6.4. Other value shapes
-
-Use ordered arrays for multi-value text and people. A single-line Inspector replacement of a multi-value field is an explicit replacement, with a preview when values would be collapsed. No automatic trimming, Unicode normalization, case conversion or punctuation splitting on reads or unrelated saves. Validate new semantic values without silently changing them; any intentional formatting must be shown before commit.
-
-`MUSICBRAINZ_TRACKID` identifies the recording; `MUSICBRAINZ_RELEASETRACKID` identifies the track on a release. ID3 recording ID uses the MusicBrainz-owned UFID, not a substitute TXXX on new writes. Labels, catalog numbers, barcodes, ISRCs and store IDs are strings or constrained native numeric values as declared by the registry; preserve leading zeros and reject out-of-range native values. Never infer equality between UPC/EAN variants or strip catalog punctuation. ID validation must not rewrite unrelated existing identifiers.
-
-Role-qualified people need structured role/person pairs. Preserve description, language and role. TIPL and TMCL are shared native collections: editing one role must retain others. Do not union performer and musician-credit edits by flattening their text. ID3v2.3 IPLS must be treated as one shared group when representing both v2.4 collections; reject incompatible independent updates. `ARTISTS` remains a distinct canonical list when present, not an alias that can overwrite ARTIST.
-
-Comments and lyrics preserve language/description and multiplicity. The simple Inspector edits only its explicitly selected/default entry; it does not delete every native comment or lyric. Artwork is a structured binary collection: native APIC/covr/FLAC picture or the engine's supported complex-property codec; do not store images as ordinary text. Replacement/removal scope must distinguish a selected/front image from all images and preserve unrelated picture entries unless remove-all was requested.
-
-Advisory is the four-state enum specified in section 8.3: absent/unset, 0=not Explicit, 1=Explicit, 2=Clean. Use native MP4 rtng; conventional ITUNESADVISORY elsewhere is an extension with its own capability and uses the same four semantic states. Do not reduce it to Boolean or claim identical native representation across formats. Compilation, ratings, ReplayGain and iTunes numeric atoms likewise retain their own declared types. Ratings/popularity require an owner/profile, scale and optional play count; no universal unqualified RATING mapping is invented.
+Package normalization-plan APIs can remain for headless maintenance callers; they do not imply an app dialog. All normal writes keep FileMutationCoordinator ownership, captured version/audio guards and durability handling. Native-byte tests must verify recovery, set/remove/clear, both namespaces, canonical conflicts, malformed/multi-value input, mixed-field atomicity, untouched groups/lookalikes/audio, and failed/stale request preservation.
 
 ## 7. Versioned ID3 and custom fields
 

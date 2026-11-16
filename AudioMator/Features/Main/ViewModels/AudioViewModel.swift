@@ -76,22 +76,7 @@ final class AudioViewModel: ObservableObject {
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
-    // Explicit number recovery/cleanup session. The preview owns the captured
-    // package plan; Apply never rebuilds it.
-    @Published var numberNormalizationPreview: NumberNormalizationPreview?
-    @Published var isNumberNormalizationPresented = false
-    @Published var numberNormalizationChoice: NumberNormalizationChoice = .useNative {
-        didSet { numberNormalizationPreview = nil }
-    }
-    @Published var numberNormalizationGroups: Set<MetadataNumberGroup> = [.track, .disc] {
-        didSet { numberNormalizationPreview = nil }
-    }
-    @Published var numberNormalizationReplaceNumber = "" {
-        didSet { numberNormalizationPreview = nil }
-    }
-    @Published var numberNormalizationReplaceTotal = "" {
-        didSet { numberNormalizationPreview = nil }
-    }
+
     @Published var isReloadingSelectedFiles = false
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
     @Published private(set) var fileAccessGrants: [FileAccessGrant] = []

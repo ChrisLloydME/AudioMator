@@ -52,6 +52,10 @@ Saves write only the fields that changed from the draft's baseline. Before writi
 
 For multiple files, Inspector, MusicBrainz/iTunes plans, and filename/CSV metadata imports process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records non-success outcomes (Settings → Logs).
 
+### Numbering compatibility
+
+Older numbering values are handled internally and can appear in the normal Track Number, Total Tracks, Disc Number and Total Discs fields. Opening/importing files does not rewrite them. Saving a number change uses the intended field values and preserves the other pair; there is no separate Restore/Cleanup operation. If a number or total cannot be determined safely, enter its intended value in that ordinary field and save again. Unrelated edits preserve existing numbering data.
+
 ### Artwork
 
 Artwork can be replaced from a local image or clipboard data, or cleared. The original embedded bytes are retained for unchanged files. Replacement bytes and MIME type are sent to the metadata pipeline as one artwork patch. Artwork write support is format-dependent and is preflighted like other fields.

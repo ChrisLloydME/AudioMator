@@ -31,7 +31,7 @@ TagLib is linked as a separate dynamic framework inside the app. Releases must k
 
 - Project: <https://github.com/ChrisLloydME/TagLibAudioMetadata>
 - Role: Swift Package Manager dependency that exposes the TagLib-backed metadata manager used by AudioMator.
-- Version: exact published `0.7.3`, revision `7ca1b75326388a5902815f70145b600299944ae0`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3).
+- Version: exact published `0.8.0`, revision `e91d822bf584c354f9d9b68803391731a9e7c9a8`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.0).
 - License: MIT License.
 - Copyright: Copyright (c) 2026 Christopher Lloyd.
 - Bundle resource: `TagLibAudioMetadata-MIT.txt`.

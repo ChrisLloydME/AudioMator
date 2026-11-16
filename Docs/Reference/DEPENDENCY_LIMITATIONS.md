@@ -1,10 +1,10 @@
 # Dependency Limitations
 
-AudioMator pins published **TagLibAudioMetadata 0.7.3**, revision `7ca1b75326388a5902815f70145b600299944ae0`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. [Current adoption evidence](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records validation against that tag; the older local workspace is only an explicit candidate tool.
+AudioMator pins published **TagLibAudioMetadata 0.8.0**, revision `e91d822bf584c354f9d9b68803391731a9e7c9a8`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. [Current adoption evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) records validation against that tag; the older local workspace is only an explicit candidate tool.
 
 ## Published Repair Boundary
 
-Version 0.7.3 includes the native-owner and sparse-state repairs that were tested using the local candidate. The absent-Year/present-Date MP4 Comment/Lyrics reproduction remains a mandatory, ordinary regression test and passes in the published-tag gate. No application companion-date or raw-write workaround is installed. Field-selection intent, Inspector/Editor state and expected-version safety remain app responsibilities; native codec behavior remains package-owned.
+Version 0.8.0 retains the native-owner and sparse-state repairs that were tested using the local candidate. The absent-Year/present-Date MP4 Comment/Lyrics reproduction remains a mandatory, ordinary regression test and passes in the published-tag gate. No application companion-date or raw-write workaround is installed. Field-selection intent, Inspector/Editor state and expected-version safety remain app responsibilities; native codec behavior remains package-owned.
 
 The [0.7.2 failing adoption](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md), [local state-coverage acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md), [0.7.0 ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) and [0.6.0 integration](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) are historical evidence. Their superseded failures are not current capability claims. Current regressions must pass the published-tag gate; a package release note alone is insufficient acceptance.
 
@@ -69,11 +69,11 @@ Do not modify the package checkout from the AudioMator repository. Keep any Audi
 
 ## Historical Audits
 
-The [2026-11-10 audit](../Engineering/MAPPING_CONFORMANCE_2026-11-10.md) reproduced failures on 0.7.0. Those reports describe superseded behavior. The published 0.7.3 acceptance exercises the retained independent-date regressions through the real app adapter, with no `TagLibDateCompanion` or raw-write substitution. The [0.7.2 adoption record](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md) documents the MP4 absent-Year/present-Date failure that later releases fixed.
+The [2026-11-10 audit](../Engineering/MAPPING_CONFORMANCE_2026-11-10.md) reproduced failures on 0.7.0. Those reports describe superseded behavior. The current published-tag acceptance exercises the retained independent-date regressions through the real app adapter, with no `TagLibDateCompanion` or raw-write substitution. The [0.7.2 adoption record](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md) documents the MP4 absent-Year/present-Date failure that later releases fixed.
 
 ## Related Documents
 
 - [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md)
 - [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md)
 - [Testing](../Development/TESTING.md)
-- [Published 0.7.3 release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md)
+- [Published 0.8.0 release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md)

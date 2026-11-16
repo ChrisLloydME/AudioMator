@@ -149,4 +149,147 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), before)
     }
 
+    // 2.6 (V2.6B2691) pinned package cafcf403 / 0.5.1. Its MP4 writer
+    // retained both private namespaces and native pairs independently.
+    // Reconstruct those layouts without running old code against user files.
+    func testHistoricalNumberLayoutsRemainCleanAcrossInspectorLifecycle() async throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+        for prefix in ["AUDIOMATOR", "TAGLIBAUDIOMETADATA"] {
+            for layout in 0..<8 {
+                let url = try fixture()
+                let native: (Int, Int)? = switch layout {
+                case 0, 4, 5: nil
+                case 1: (3, 12) // Matching native / zero-padded private text.
+                case 2: (3, 6) // Stale private total must not win.
+                case 3: (3, 0) // Recover only the missing component.
+                case 6: (0, 12) // Total-only native pair.
+                default: (0, 0)
+                }
+                let text = layout == 4 ? "side A" : "03 / 12"
+                var atoms: [StructuredMP4Atom] = [
+                    .init(key: "trkn", type: "intPair", first: native?.0, second: native?.1, remove: native == nil),
+                    .init(key: "disk", type: "intPair", remove: true),
+                    .init(key: "----:com.apple.iTunes:\(prefix)_TRACKNUMBER_TEXT", type: "stringList", values: [text]),
+                    .init(key: "----:com.apple.iTunes:\(prefix)_DISCNUMBER_TEXT", type: "stringList", values: ["01/02"])
+                ]
+                if layout == 5 {
+                    let other = prefix == "AUDIOMATOR" ? "TAGLIBAUDIOMETADATA" : "AUDIOMATOR"
+                    atoms.append(.init(key: "----:com.apple.iTunes:\(other)_TRACKNUMBER_TEXT", type: "stringList", values: ["04/14"]))
+                }
+                try TagLibMetadataManager.writeStructuredMetadataWithVerification(.init(mp4Atoms: atoms), to: url)
+                let before = try Data(contentsOf: url)
+                let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+                let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+                vm.mergeQuickImportFiles([file])
+                vm.setSelectedAudioIDs([file.id])
+                let context = "\(prefix) layout \(layout)"
+                XCTAssertFalse(vm.hasUnsavedInspectorChanges, context)
+                XCTAssertTrue(MetadataEditPayload(try XCTUnwrap(vm.edit), comparedTo: file).requestedFields.isEmpty, context)
+                // Exercise the component bindings, including their formatting guards.
+                let displayed = try XCTUnwrap(vm.edit)
+                vm.edit?.setTrackNumberFieldText(displayed.trackNumberFieldText)
+                vm.edit?.setTrackTotalFieldText(displayed.trackTotalFieldText)
+                vm.edit?.setDiscNumberFieldText(displayed.discNumberFieldText)
+                vm.edit?.setDiscTotalFieldText(displayed.discTotalFieldText)
+                XCTAssertFalse(vm.hasUnsavedInspectorChanges, context)
+                vm.saveInspectorEdits()
+                XCTAssertNil(vm.metadataSaveProgress, "No-op Save must not start a transaction: \(context)")
+                await vm.refreshSelectedFilesAfterActivation()
+                await vm.reloadSelectedFilesFromDisk()
+                XCTAssertFalse(vm.hasUnsavedInspectorChanges, context)
+                var confirmations = 0
+                ContentView.performSidebarSelectionChange(hasUnsavedInspectorChanges: vm.hasUnsavedInspectorChanges,
+                    suppressesDiscardWarning: false, requestDiscardConfirmation: { _ in confirmations += 1 },
+                    discardInspectorEdits: { XCTFail("Read-only recovery is not a draft") },
+                    commitSelection: { vm.setSelectedAudioIDs([]) })
+                XCTAssertEqual(confirmations, 0, context)
+                vm.setSelectedAudioIDs([file.id])
+                XCTAssertFalse(vm.hasUnsavedInspectorChanges, context)
+                XCTAssertEqual(try pipeline.metadataFileVersion(at: url), file.metadataFileVersion, context)
+                XCTAssertEqual(try Data(contentsOf: url), before, context)
+            }
+        }
+    }
+
+    func testRecoveredBatchReloadAndRealDraftHaveDistinctDirtyState() async throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+        var files: [AudioFile] = []
+        var originals: [URL: Data] = [:]
+        for (index, prefix) in ["AUDIOMATOR", "TAGLIBAUDIOMETADATA"].enumerated() {
+            let url = try fixture()
+            try TagLibMetadataManager.writeStructuredMetadataWithVerification(.init(mp4Atoms: [
+                .init(key: "trkn", type: "intPair", remove: true),
+                .init(key: "----:com.apple.iTunes:\(prefix)_TRACKNUMBER_TEXT", type: "stringList", values: ["0\(index + 1)/12"])
+            ]), to: url)
+            originals[url] = try Data(contentsOf: url)
+            files.append(try await pipeline.loadAudioFile(at: url, id: UUID()))
+        }
+        let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        vm.mergeQuickImportFiles(files)
+        vm.setSelectedAudioIDs(Set(files.map(\.id)))
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges, "Mixed recovered numbers are placeholders, not edits")
+        vm.saveInspectorEdits()
+        XCTAssertNil(vm.metadataSaveProgress)
+        await vm.reloadSelectedFilesFromDisk()
+        await vm.refreshSelectedFilesAfterActivation()
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+        vm.multiEdit?.setText("Real draft", for: .title)
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+        await vm.refreshSelectedFilesAfterActivation()
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges, "Recovery must not discard a real user draft")
+        vm.cancelEditing()
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+        vm.setSelectedAudioIDs([files[0].id])
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+        vm.edit?.setTrackNumberFieldText("9")
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+        await vm.refreshSelectedFilesAfterActivation()
+        XCTAssertEqual(vm.edit?.trackNumberFieldText, "9")
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+        vm.cancelEditing()
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+        for file in files { XCTAssertEqual(try Data(contentsOf: file.url), originals[file.url]) }
+    }
+
+    func testSingleAndBatchNumberMigrationFinishWithCleanInspector() async throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+        for count in [1, 2] {
+            var files: [AudioFile] = []
+            for prefix in ["AUDIOMATOR", "TAGLIBAUDIOMETADATA"].prefix(count) {
+                let url = try fixture()
+                try TagLibMetadataManager.writeStructuredMetadataWithVerification(.init(mp4Atoms: [
+                    .init(key: "trkn", type: "intPair", remove: true),
+                    .init(key: "----:com.apple.iTunes:\(prefix)_TRACKNUMBER_TEXT", type: "stringList", values: ["03/12"])
+                ]), to: url)
+                files.append(try await pipeline.loadAudioFile(at: url, id: UUID()))
+            }
+            let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            vm.mergeQuickImportFiles(files)
+            vm.setSelectedAudioIDs(Set(files.map(\.id)))
+            if count == 1 { vm.edit?.setTrackNumberFieldText("5") }
+            else { vm.multiEdit?.setText("5", for: .trackNumber) }
+            XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+            vm.saveInspectorEdits()
+            XCTAssertNotNil(vm.metadataSaveProgress)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+            while vm.metadataSaveProgress != nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertNil(vm.metadataSaveProgress, "Save must finish")
+            XCTAssertFalse(vm.hasUnsavedInspectorChanges, "Committed recovery must become the new clean baseline")
+            for file in vm.files {
+                XCTAssertEqual(file.track, 5)
+                XCTAssertEqual(file.trackTotal, 12)
+                let atoms = try TagLibMetadataManager.readSnapshot(from: file.url).structured.mp4Atoms
+                XCTAssertFalse(atoms.contains { $0.key.hasSuffix("_TRACKNUMBER_TEXT") })
+            }
+            let savedBytes = try Dictionary(uniqueKeysWithValues: files.map { ($0.url, try Data(contentsOf: $0.url)) })
+            vm.saveInspectorEdits()
+            XCTAssertNil(vm.metadataSaveProgress, "A second unchanged Save is a no-op")
+            await vm.reloadSelectedFilesFromDisk()
+            XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+            for file in files { XCTAssertEqual(try Data(contentsOf: file.url), savedBytes[file.url]) }
+        }
+    }
+
 }

@@ -8,7 +8,7 @@ This document describes the release process that exists in the repository and cl
 | --- | --- |
 | Version/build values in the Xcode project | Implemented as static build settings |
 | Unsigned Debug/Release build | Implemented |
-| Unsigned Xcode Archive | Validated with published 0.7.3; [evidence](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md#unsigned-archive) |
+| Unsigned Xcode Archive | Validated with published 0.8.0; [evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive) |
 | Unsigned app-hosted test run in CI | Implemented |
 | Minimum-OS/Mach-O validation script | Implemented |
 | Signed/notarized archive creation | **Not implemented** |
@@ -55,7 +55,7 @@ The following steps are the minimum supported procedure. The repository implemen
 8. **Verify the update path.** Open the published release and confirm the tag parses and the app's **Check for Updates…** reports it correctly.
 9. **Announce** through the project's channels.
 
-For an unsigned archive validation separate from the gate, use the command in [the 0.7.3 evidence](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md#unsigned-archive) with the normal project and `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`.
+For an unsigned archive validation separate from the gate, use the settings in [the 0.8.0 evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive) with the normal project and `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`.
 
 Do not describe the app as signed, notarized, or installer-packaged unless the corresponding step was actually performed and verified.
 

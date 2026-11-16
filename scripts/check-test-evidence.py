@@ -10,6 +10,9 @@ from pathlib import Path
 import re
 
 CRITICAL = {
+    'AutomaticNumberRecoveryTests/testHistoricalNumberLayoutsRemainCleanAcrossInspectorLifecycle()',
+    'AutomaticNumberRecoveryTests/testRecoveredBatchReloadAndRealDraftHaveDistinctDirtyState()',
+    'AutomaticNumberRecoveryTests/testSingleAndBatchNumberMigrationFinishWithCleanInspector()',
     'AudioMetadataPipelineContractTests/testTagLibAdapterPreservesReturnedCommitStatusAndWarnings()',
     'AutomaticNumberRecoveryTests/testPrivateOnlyValuesAreRecoveredWithoutWritingTheFile()',
     'AutomaticNumberRecoveryTests/testOrdinarySaveMigratesEditedPairWithTitleAndClearDoesNotResurrectIt()',

@@ -16,6 +16,20 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertTrue(result.warnings.isEmpty)
     }
 
+    func testTagLibAdapterPreservesReturnedCommitStatusAndWarnings() throws {
+        let uncertain = try TagLibAudioMetadataPipeline.interpretingWrite {
+            TagLibMetadataManager.MetadataWriteResult(warnings: ["Keep this warning"],
+                commitStatus: .durabilityUncertain("Directory sync failed after commit"))
+        }
+        XCTAssertEqual(uncertain.warnings, ["Keep this warning"])
+        XCTAssertEqual(uncertain.commitStatus, .durabilityUncertain("Directory sync failed after commit"))
+        let durable = try TagLibAudioMetadataPipeline.interpretingWrite {
+            TagLibMetadataManager.MetadataWriteResult(warnings: ["Container normalized padding"], commitStatus: .durable)
+        }
+        XCTAssertEqual(durable.commitStatus, .durable)
+        XCTAssertEqual(durable.warnings, ["Container normalized padding"])
+    }
+
     func testArtworkIntentMapsToTheDependencyPatch() {
         var edit = SingleFileEditModel()
         let artworkData = Data([0x89, 0x50, 0x4E, 0x47])

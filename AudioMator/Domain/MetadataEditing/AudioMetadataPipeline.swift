@@ -139,30 +139,6 @@ struct AudioMetadataWriteResult: Sendable {
 
 typealias RawMetadataValueMap = [String: [String]]
 
-/// A frozen number-normalization preview. The package plan and its captured
-/// file version are carried as opaque adapter values: Domain never inspects or
-/// regenerates them, and Apply must execute exactly this plan.
-struct NumberNormalizationPreview: Sendable {
-    let track: MetadataNumberGroupInventory
-    let disc: MetadataNumberGroupInventory
-    let plan: MetadataNumberNormalizationPlan
-    let warnings: [String]
-
-    nonisolated var fileVersion: MetadataFileVersion { plan.fileVersion }
-
-    nonisolated var nativeIdentities: [String] {
-        Array(Set(track.nativeIdentities + disc.nativeIdentities)).sorted()
-    }
-
-    nonisolated var privateTextIdentities: [String] {
-        (track.privateTexts + disc.privateTexts).map(\.identity).sorted()
-    }
-
-    nonisolated var removalIdentities: [String] {
-        (plan.removals + plan.privateRemovals).sorted()
-    }
-}
-
 protocol AudioMetadataPipeline: Sendable {
     nonisolated var requiresTransactionalDirectoryAccess: Bool { get }
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile
@@ -205,16 +181,7 @@ protocol AudioMetadataPipeline: Sendable {
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
     nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory
-    nonisolated func planNumberNormalization(
-        at url: URL,
-        policy: MetadataNumberResolutionPolicy,
-        groups: Set<MetadataNumberGroup>
-    ) throws -> NumberNormalizationPreview
-    nonisolated func applyNumberNormalization(
-        _ preview: NumberNormalizationPreview,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult
+
 }
 
 extension AudioMetadataPipeline {
@@ -305,19 +272,5 @@ extension AudioMetadataPipeline {
         throw CocoaError(.featureUnsupported)
     }
 
-    nonisolated func planNumberNormalization(
-        at url: URL,
-        policy: MetadataNumberResolutionPolicy,
-        groups: Set<MetadataNumberGroup>
-    ) throws -> NumberNormalizationPreview {
-        throw CocoaError(.featureUnsupported)
-    }
 
-    nonisolated func applyNumberNormalization(
-        _ preview: NumberNormalizationPreview,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        throw CocoaError(.featureUnsupported)
-    }
 }

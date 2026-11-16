@@ -26,10 +26,24 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated static func interpretingWrite(
-        _ operation: () throws -> [String]
+        _ operation: () throws -> TagLibMetadataManager.MetadataWriteResult
     ) throws -> AudioMetadataWriteResult {
         do {
-            return AudioMetadataWriteResult(warnings: try operation())
+            let result = try operation()
+            let status: AudioMetadataCommitStatus = switch result.commitStatus {
+            case .durable: .durable
+            case .durabilityUncertain(let detail): .durabilityUncertain(detail)
+            }
+            return AudioMetadataWriteResult(warnings: result.warnings, commitStatus: status)
+        } catch MetadataPatchValidationError.ambiguousNumberRecovery(let field, _) {
+            let label: String = switch field {
+            case "trackTotal": String(localized: "Total Tracks")
+            case "discTotal": String(localized: "Total Discs")
+            case "disc": String(localized: "Disc Number")
+            default: String(localized: "Track Number")
+            }
+            throw NSError(domain: "AudioMator.Numbering", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                label + " — " + String(localized: "This file has conflicting or unreadable numbering values. Enter the value to save for this field and try again.")])
         } catch TagLibManagerError.committedButDurabilityUncertain(let detail) {
             return AudioMetadataWriteResult(
                 warnings: [],
@@ -118,7 +132,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
                 to: url,
                 expectedVersion: expectedVersion
-            ).warnings
+            )
         }
     }
 
@@ -136,7 +150,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 patch,
                 to: url,
                 expectedVersion: expectedVersion
-            ).warnings
+            )
         }
     }
 
@@ -151,7 +165,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
                 to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
-            ).warnings
+            )
         }
     }
 
@@ -165,7 +179,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             try TagLibMetadataManager.applyRawMetadataPatch(
                 patch, to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
-            ).warnings
+            )
         }
     }
 
@@ -181,7 +195,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             try TagLibMetadataManager.eraseAllMetadataWithVerification(
                 from: url,
                 expectedVersion: expectedVersion
-            ).warnings
+            )
         }
     }
 
@@ -215,12 +229,13 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 verifyAfterWrite: verifyAfterWrite,
                 expectedVersion: expectedVersion
             )
-            return MetadataPipelineSupport.numberTextWriteWarnings(
+            let warnings = MetadataPipelineSupport.numberTextWriteWarnings(
                 writeResult.warnings,
                 expectedTrackNumberText: trackNumberText,
                 expectedDiscNumberText: discNumberText,
                 for: url
             )
+            return TagLibMetadataManager.MetadataWriteResult(warnings: warnings, commitStatus: writeResult.commitStatus)
         }
     }
 
@@ -228,42 +243,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         try TagLibMetadataManager.numberingInventory(at: url)
     }
 
-    nonisolated func planNumberNormalization(
-        at url: URL,
-        policy: MetadataNumberResolutionPolicy,
-        groups: Set<MetadataNumberGroup>
-    ) throws -> NumberNormalizationPreview {
-        let plan = try TagLibMetadataManager.planNumberNormalization(
-            at: url,
-            policy: policy,
-            groups: groups
-        )
-        return NumberNormalizationPreview(
-            track: plan.inventory.track,
-            disc: plan.inventory.disc,
-            plan: plan,
-            warnings: plan.warnings + plan.inventory.warnings
-        )
-    }
 
-    nonisolated func applyNumberNormalization(
-        _ preview: NumberNormalizationPreview,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        if let expectedVersion, expectedVersion != preview.plan.fileVersion {
-            // The preview captures its own version; passing a different token
-            // would silently apply a plan to a revision it was not built from.
-            throw TagLibManagerError.fileChanged
-        }
-        return try Self.interpretingWrite {
-            try TagLibMetadataManager.applyNumberNormalization(
-                preview.plan,
-                to: url,
-                expectedVersion: preview.plan.fileVersion
-            ).warnings
-        }
-    }
 }
 
 private enum MetadataPipelineSupport {

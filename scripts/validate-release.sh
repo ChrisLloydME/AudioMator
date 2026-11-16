@@ -4,9 +4,21 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 XCODE_INPUT=(-project AudioMator.xcodeproj)
 PACKAGE_SOURCE="published Package.resolved"
-if [[ $# -gt 0 ]]; then
-    [[ $# -eq 2 && "$1" == --local-package ]] || { echo 'Usage: validate-release.sh [--local-package /absolute/package/path]' >&2; exit 2; }
-    [[ "$2" == /* && -f "$2/Package.swift" ]] || { echo 'Local package must be an absolute package path' >&2; exit 2; }
+TESTS_ONLY=0
+LOCAL_PACKAGE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --tests-only)
+            [[ "$TESTS_ONLY" == 0 ]] || { echo 'Duplicate --tests-only' >&2; exit 2; }
+            TESTS_ONLY=1; shift ;;
+        --local-package)
+            [[ $# -ge 2 && -z "$LOCAL_PACKAGE" && "$2" == /* && -f "$2/Package.swift" ]] || { echo 'Local package must be one absolute package path' >&2; exit 2; }
+            LOCAL_PACKAGE="$2"; shift 2 ;;
+        *) echo 'Usage: validate-release.sh [--tests-only] [--local-package /absolute/package/path]' >&2; exit 2 ;;
+    esac
+done
+if [[ -n "$LOCAL_PACKAGE" ]]; then
+    set -- --local-package "$LOCAL_PACKAGE"
     PACKAGE_SOURCE="$2"
     python3 - "$2" <<'WORKSPACE'
 from pathlib import Path
@@ -68,6 +80,10 @@ xcrun xcresulttool get test-results tests --path "$VALIDATION_DIR/AppTests.xcres
     > "$VALIDATION_DIR/test-tree.json" 2> "$VALIDATION_DIR/tree-error.log" || true
 python3 scripts/check-test-evidence.py "$VALIDATION_DIR/test-summary.json" \
     "$VALIDATION_DIR/test-tree.json" "$APP_STATUS" "$VALIDATION_DIR/test-gate.json"
+if [[ "$TESTS_ONLY" == 1 ]]; then
+    echo "Debug test gate passed ($PACKAGE_SOURCE); Release build and artifact checks skipped by request. Evidence: $VALIDATION_DIR"
+    exit 0
+fi
 run_check release xcodebuild "${XCODE_INPUT[@]}" -scheme AudioMator \
     -configuration Release -destination 'generic/platform=macOS' \
     -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build

@@ -11,7 +11,7 @@ Counts and paths below were verified by source inspection on 2026-11-12. They ch
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 586 | 77 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 596 | 78 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 80 `XCTestCase` classes across both targets; no custom base class.
@@ -230,3 +230,9 @@ The local-candidate gate after package advisory-review repairs also passed 62 co
 ## Inspector field visibility contract
 
 The current source inventory has 586 app-hosted tests. `InspectorFieldConfigurationTests` freezes curated defaults, independent optional dates, exact preference persistence, existing preference recovery, single/multi draft retention and the sole preference-controlled Inspector route. `MetadataSaveJourneyTests.testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves` saves real files after hiding draft fields and verifies title intent plus unchanged album/date/store/comment values. The route, persistence and real-save tests are critical release-gate identities; deleting them blocks acceptance. See [restoration evidence](../Engineering/INSPECTOR_FIELD_VISIBILITY_2026-11-16.md). These tests do not claim automated visual UI acceptance.
+
+## Internal automatic numbering
+
+`AutomaticNumberRecoveryTests` verifies read-only recovery of both historical private namespaces, no guessed ambiguity, canonical authority, normal mixed-field migration/clear without resurrection, ordinary field validation and stale-revision rejection. Mapping acceptance tests require storage-policy controls and their published application state to remain absent. Captured package-plan tests remain direct package integration tests, not application UI workflows. Debug-only local candidate validation uses `bash scripts/validate-release.sh --tests-only --local-package /absolute/path/to/TagLibAudioMetadata`; this runs all policies/core/app tests and named evidence gates but explicitly skips Release and artifact checks. It is not full release acceptance.
+
+The current source inventory after internal numbering recovery has 593 app-hosted tests. The package-result adapter contract also requires preservation of both returned warnings and durable/durability-uncertain commit status; discarding the status must not turn a committed write into a retryable failure or a falsely durable result. Earlier 586-test Inspector restoration evidence remains a dated baseline.

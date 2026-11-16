@@ -56,12 +56,13 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         XCTAssertEqual(after.containerValues[.itunesPurchaseDate], .text("2017-06-09T10:00:00Z"))
     }
 
-    func testInvalidReplacementMustNotBecomeRemoval() throws {
-        XCTAssertNil(try NumberNormalizationChoice.replacementComponent("  "))
-        XCTAssertEqual(try NumberNormalizationChoice.replacementComponent("03"), 3)
-        for text in ["abc", "3/12", "-1", "0", "+1", "999999999999999999999999"] {
-            XCTAssertThrowsError(try NumberNormalizationChoice.replacementComponent(text), text)
-        }
+    func testStorageResolutionControlsAreAbsentFromInspector() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let source = try String(contentsOf: root.appendingPathComponent("AudioMator/Features/Main/Views/InspectorPane.swift"), encoding: .utf8)
+        XCTAssertFalse(source.contains("openNumberNormalizationPreview"))
+        XCTAssertFalse(source.contains("NumberNormalizationSheet"))
+        XCTAssertFalse(source.contains("Restore or Clean Up Numbers"))
     }
 
     func testExportedRemovalTokenIsLiteralOnReimport() throws {
@@ -129,10 +130,10 @@ final class MappingAcceptanceRepairTests: XCTestCase {
                 .init(key: foreign, type: "stringList", values: ["99/99"])
             ]), to: url)
             let pipeline = TagLibAudioMetadataPipeline()
-            let preview = try pipeline.planNumberNormalization(at: url, policy: .useLegacy, groups: [.track])
-            XCTAssertEqual(preview.plan.trackNumber, 3)
-            XCTAssertEqual(preview.plan.trackTotal, 12)
-            _ = try pipeline.applyNumberNormalization(preview, to: url, expectedVersion: preview.fileVersion)
+            let preview = try TagLibMetadataManager.planNumberNormalization(at: url, policy: .useLegacy, groups: [.track])
+            XCTAssertEqual(preview.trackNumber, 3)
+            XCTAssertEqual(preview.trackTotal, 12)
+            _ = try TagLibMetadataManager.applyNumberNormalization(preview, to: url, expectedVersion: preview.fileVersion)
             let atoms = try TagLibMetadataManager.readSnapshot(from: url).structured.mp4Atoms
             XCTAssertFalse(atoms.contains { $0.key == track })
             XCTAssertEqual(atoms.first { $0.key == disc }?.values, ["01/02"])
@@ -142,20 +143,12 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         }
     }
 
-    func testReplacementEditsInvalidateCapturedPreview() throws {
-        let source = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "testAudioFile", withExtension: "m4a", subdirectory: "Fixtures/Audio")
-            ?? Bundle(for: Self.self).url(forResource: "testAudioFile", withExtension: "m4a"))
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("m4a")
-        try FileManager.default.copyItem(at: source, to: url)
-        defer { try? FileManager.default.removeItem(at: url) }
-        let pipeline = TagLibAudioMetadataPipeline()
-        let preview = try pipeline.planNumberNormalization(at: url, policy: .useNative, groups: [.track])
-        let model = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        model.numberNormalizationPreview = preview
-        model.numberNormalizationReplaceNumber = "5"
-        XCTAssertNil(model.numberNormalizationPreview)
-        model.numberNormalizationPreview = preview
-        model.numberNormalizationReplaceTotal = "12"
-        XCTAssertNil(model.numberNormalizationPreview)
+    func testNumberingMaintenanceIsNotPublishedApplicationState() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let source = try String(contentsOf: root.appendingPathComponent("AudioMator/Features/Main/ViewModels/AudioViewModel.swift"), encoding: .utf8)
+        XCTAssertFalse(source.contains("numberNormalizationPreview"))
+        XCTAssertFalse(source.contains("numberNormalizationChoice"))
+        XCTAssertFalse(source.contains("numberNormalizationReplaceNumber"))
     }
 }

@@ -556,7 +556,7 @@ private struct InterfaceSettingsTab: View {
             )
 
             LazyVGrid(columns: optionGridColumns, alignment: .leading, spacing: 12) {
-                ForEach(InspectorMetadataField.allCases) { field in
+                ForEach(InspectorMetadataField.configurableFields) { field in
                     Toggle(field.displayName, isOn: metadataFieldVisibilityBinding(field))
                         .disabled(isLastVisibleMetadataField(field))
                 }

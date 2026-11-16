@@ -10,6 +10,9 @@ from pathlib import Path
 import re
 
 CRITICAL = {
+    'InspectorFieldConfigurationTests/testInspectorAndSettingsHaveOneControlledFieldRoute()',
+    'InspectorFieldConfigurationTests/testSettingsPersistExactChoicesWithoutReenablingHiddenFields()',
+    'MetadataSaveJourneyTests/testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves()',
     'ProviderTaggingCancellationTests/testCapturedPlanResultsStayOrderedThroughReversedCompletions()',
     'ProviderTaggingCancellationTests/testEveryBatchWriterCancelsWhileQueuedWithoutWriting()',
     'ProviderTaggingCancellationTests/testAllBatchWritersDrainStartedCommitsAndCancelRemainingFiles()',

@@ -40,6 +40,8 @@ Files appear in the middle list with configurable columns. Sorting is available 
 
 ## Editing Common Metadata (Inspector)
 
+The right Inspector is a curated common-field editor. Settings → Interface → Inspector Metadata Fields controls its rows for both single and multiple selection. Container-specific fields are not automatically appended; use Metadata Editor for additional PropertyMap fields and Tag Inspector for native inspection. New installations use the common-field defaults; Date, Original Release Date, Content Group, Grouping and Work are optional. Existing saved field choices are preserved. Hiding a row changes presentation only: it neither deletes file metadata nor discards an existing draft. Save still applies all pending changes, including a draft entered before its row was hidden.
+
 The Inspector edits the fields visible for the current selection. For a single file it is a direct draft of that file. For multiple files it shows shared values and marks mixed values; edited fields are applied to every selected file.
 
 1. Select one or more files.

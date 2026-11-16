@@ -11,6 +11,10 @@ The current-state documentation lives in `Docs/Product`, `Docs/Architecture`, `D
 | [Published TagLibAudioMetadata 0.8.0 release readiness](TAGLIB_080_RELEASE_READINESS_2026-11-16.md) | 2026-11-16, exact published 0.8.0 | Current automated acceptance: 13 policy, 62 core and 580 serial app tests; unsigned Release and Archive checks pass. Manual distribution boundary remains. |
 | [Published TagLibAudioMetadata 0.7.3 release readiness](TAGLIB_073_RELEASE_READINESS_2026-11-12.md) | 2026-11-12, published 0.7.3, revision `7ca1b75326388a5902815f70145b600299944ae0` | Historical 0.7.3 acceptance, superseded for the current dependency. Normal-project gate passed: 13 policy tests, 62 core tests, 579 serial app tests, unsigned Release build, artifact checks, and unsigned Archive; interactive UI acceptance and manual distribution remain maintainer work. |
 
+## Inspector product restoration
+
+- [Common-field visibility restoration](INSPECTOR_FIELD_VISIBILITY_2026-11-16.md) — Settings-controlled single/multi Inspector fields, curated defaults and preservation regressions.
+
 ## Application and Package Records
 
 These records document earlier package adoption, candidate validation, and application repairs. Superseded records remain for traceability; their failures are not current capability claims.

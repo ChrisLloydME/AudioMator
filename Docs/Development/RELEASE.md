@@ -8,7 +8,7 @@ This document describes the release process that exists in the repository and cl
 | --- | --- |
 | Version/build values in the Xcode project | Implemented as static build settings |
 | Unsigned Debug/Release build | Implemented |
-| Unsigned Xcode Archive | Validated with published 0.7.3; [evidence](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md#unsigned-archive) |
+| Unsigned Xcode Archive | Validated with published 0.8.0; [evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive) |
 | Unsigned app-hosted test run in CI | Implemented |
 | Minimum-OS/Mach-O validation script | Implemented |
 | Signed/notarized archive creation | **Not implemented** |
@@ -46,7 +46,7 @@ Both Debug and Release currently share the same marketing/build values but use d
 The following steps are the minimum supported procedure. The repository implements the build, gate, and artifact checks; signing, notarization, packaging, publication, and UI acceptance remain manual.
 
 1. **Choose the version and build.** Edit `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in both app target configurations. Confirm the Release bundle ID.
-2. **Run the unified gate.** `bash scripts/validate-release.sh` runs the policy tests, 62 core tests, 579 serial app-hosted tests, unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
+2. **Run the unified gate.** `bash scripts/validate-release.sh` runs the policy tests, 62 core tests, 580 serial app-hosted tests, unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
 3. **Smoke test on temporary copies.** Verify import, read, single/batch edit, save, reload, rename, renumber, conversion, and failure reporting. Manual.
 4. **Sign.** Sign the app and embedded frameworks with a Developer ID identity, preserving hardened runtime and entitlements. Not automated and not configured in the repository.
 5. **Notarize and staple.** Submit to Apple's notary service and staple the ticket. Not automated and not verified in this repository.
@@ -55,7 +55,7 @@ The following steps are the minimum supported procedure. The repository implemen
 8. **Verify the update path.** Open the published release and confirm the tag parses and the app's **Check for Updates…** reports it correctly.
 9. **Announce** through the project's channels.
 
-For an unsigned archive validation separate from the gate, use the command in [the 0.7.3 evidence](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md#unsigned-archive) with the normal project and `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`.
+For an unsigned archive validation separate from the gate, use the settings in [the 0.8.0 evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive) with the normal project and `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`.
 
 Do not describe the app as signed, notarized, or installer-packaged unless the corresponding step was actually performed and verified.
 
@@ -87,7 +87,7 @@ It has read-only repository permissions, no release secrets and no release job. 
 
 - Deployment target: macOS 15.0. The validation script enforces that no Mach-O in the bundle declares a higher minimum.
 - Architecture: the recorded unsigned generic macOS Release build produced a universal executable (`x86_64` and `arm64`). The validation script does not check architectures, so verify with `lipo -info` if that matters.
-- Package: exact `TagLibAudioMetadata` 0.7.3 pin. A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
+- Package: exact `TagLibAudioMetadata` 0.8.0 pin. A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
 - Swift: Xcode 27 stable toolchain; Swift 5 language mode with complete strict concurrency.
 
 There is no automated compatibility matrix for older macOS versions or prerelease toolchains.
@@ -172,4 +172,4 @@ Because updates are manual:
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
 
-Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current published-tag acceptance](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md); the earlier [state-coverage evidence](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) describes the local candidate.
+Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current published-tag acceptance](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md); the earlier [state-coverage evidence](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md) describes the local candidate.

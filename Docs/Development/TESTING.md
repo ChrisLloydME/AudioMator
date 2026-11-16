@@ -11,7 +11,7 @@ Counts and paths below were verified by source inspection on 2026-11-12. They ch
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 580 | 76 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 586 | 77 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 80 `XCTestCase` classes across both targets; no custom base class.
@@ -226,3 +226,7 @@ The write-concurrency follow-up expands `MetadataIOPerformanceTests.testBoundedC
 The complete local-candidate gate after bounded plan scheduling passed 62 core and 580 app-hosted tests, 13 policy tests, unsigned Release build and artifact validation. Evidence: `.deriveddata-codex/Validation/20261112-140557-25955/`; see the write-concurrency record for source identities and measured limits.
 
 The local-candidate gate after package advisory-review repairs also passed 62 core and 580 app-hosted tests, policy checks, unsigned Release build and artifact validation. See [2026-11-14 acceptance](../Engineering/TAGLIB_REVIEW_REPAIR_2026-11-14.md) for exact package/source identities and scope.
+
+## Inspector field visibility contract
+
+The current source inventory has 586 app-hosted tests. `InspectorFieldConfigurationTests` freezes curated defaults, independent optional dates, exact preference persistence, existing preference recovery, single/multi draft retention and the sole preference-controlled Inspector route. `MetadataSaveJourneyTests.testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves` saves real files after hiding draft fields and verifies title intent plus unchanged album/date/store/comment values. The route, persistence and real-save tests are critical release-gate identities; deleting them blocks acceptance. See [restoration evidence](../Engineering/INSPECTOR_FIELD_VISIBILITY_2026-11-16.md). These tests do not claim automated visual UI acceptance.

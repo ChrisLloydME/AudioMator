@@ -83,7 +83,7 @@ final class SharedState: ObservableObject {
             }
 
             userDefaults.set(
-                InspectorMetadataField.allCases
+                InspectorMetadataField.configurableFields
                     .filter(normalizedFields.contains)
                     .map(\.rawValue),
                 forKey: Self.visibleInspectorMetadataFieldsDefaultsKey
@@ -124,6 +124,12 @@ final class SharedState: ObservableObject {
         if visibleInspectorMetadataFields.isEmpty {
             visibleInspectorMetadataFields = fallbackInspectorMetadataFields
         }
+    }
+
+    /// Both single- and multi-selection Inspector rows use this projection.
+    /// Visibility is presentation state and must never mutate editing drafts.
+    var orderedVisibleInspectorMetadataFields: [InspectorMetadataField] {
+        InspectorMetadataField.configurableFields.filter(visibleInspectorMetadataFields.contains)
     }
 
     var currentFileSourceMode: FileSourceMode {

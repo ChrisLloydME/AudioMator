@@ -1,6 +1,5 @@
 import Foundation
 import TagLibAudioMetadata
-import TagLibAudioMetadata
 
 private let supportedTagWriteExtensions = AudioFormatSupport.metadataWritableExtensions
 
@@ -47,20 +46,6 @@ extension AudioViewModel {
             return String(localized: "This format cannot write") + " \(field.displayName)."
         }
         return String(localized: "Some selected formats cannot write") + " \(field.displayName)."
-    }
-
-    func containerFieldUnsupportedReason(
-        _ key: MetadataFieldKey,
-        in files: [AudioFile]
-    ) -> String? {
-        guard !files.isEmpty else { return nil }
-        let unsupportedCount = files.filter { !Self.canWrite(key, to: $0) }.count
-        guard unsupportedCount > 0 else { return nil }
-        let name = ContainerMetadataFieldCatalog.displayName(for: key)
-        if unsupportedCount == files.count {
-            return String(localized: "This format cannot write") + " \(name)."
-        }
-        return String(localized: "Some selected formats cannot write") + " \(name)."
     }
 
     nonisolated static func canWrite(_ key: MetadataFieldKey, to file: AudioFile) -> Bool {

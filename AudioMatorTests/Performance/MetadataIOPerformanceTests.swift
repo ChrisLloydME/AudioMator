@@ -15,63 +15,83 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let pipeline = TagLibAudioMetadataPipeline()
         let executor = MetadataFileMutationExecutor(metadataPipeline: pipeline, fileMutationCoordinator: FileMutationCoordinator())
-        var files: [AudioFile] = []
-        for index in 0..<48 {
-            let ext = ["mp3", "m4a", "flac", "aac", "ogg", "wav"][index % 6]
-            let name = "testAudioFile.\(ext)"
-            let source = try XCTUnwrap(bundle.url(forResource: name, withExtension: nil, subdirectory: "Fixtures/Audio")
-                ?? bundle.url(forResource: name, withExtension: nil))
-            let url = directory.appendingPathComponent("\(index).\(ext)")
-            try FileManager.default.copyItem(at: source, to: url)
-            files.append(try await pipeline.loadAudioFile(at: url, id: UUID()))
-        }
-        var timings: [Int: [Double]] = [:]
-        for (round, limit) in [1, 4, 4, 1, 1, 4].enumerated() {
-            let targets = files
-            let title = "Concurrent round \(round)"
-            let payloads = targets.map { file in
-                var draft = SingleFileEditModel(from: file)
-                draft.title = title
-                return MetadataEditPayload(draft, comparedTo: file)
+        for density in ["ordinary", "metadata-heavy"] {
+            let workDirectory = directory.appendingPathComponent(density)
+            try FileManager.default.createDirectory(at: workDirectory, withIntermediateDirectories: true)
+            var files: [AudioFile] = []
+            for index in 0..<48 {
+                let ext = ["mp3", "m4a", "flac", "aac", "ogg", "wav"][index % 6]
+                let name = "testAudioFile.\(ext)"
+                let source = try XCTUnwrap(bundle.url(forResource: name, withExtension: nil, subdirectory: "Fixtures/Audio")
+                    ?? bundle.url(forResource: name, withExtension: nil))
+                let url = workDirectory.appendingPathComponent("\(index).\(ext)")
+                try FileManager.default.copyItem(at: source, to: url)
+                if density == "metadata-heavy" {
+                    let custom = Dictionary(uniqueKeysWithValues: (0..<64).map { field in
+                        ("PERF_FIELD_\(field)", [String(repeating: "Metadata ", count: 64), "duplicate", "duplicate", "  padded  "])
+                    })
+                    _ = try pipeline.writeRawMetadataPatch(.init(valuesToSet: custom), to: url, expectedVersion: nil)
+                }
+                files.append(try await pipeline.loadAudioFile(at: url, id: UUID()))
             }
-            let probe = ConcurrentBatchProbe()
-            let start = ContinuousClock.now
-            await MetadataBatchExecutor.execute(count: targets.count, maximumConcurrentMutations: limit) { index in
-                let file = targets[index]
-                let payload = payloads[index]
-                let baseline = file.metadataConflictBaseline
-                let fingerprint = file.fileFingerprint
-                let version = file.metadataFileVersion
-                probe.begin()
-                defer { probe.end() }
-                return await executor.execute(at: file.url, id: file.id, expectedFileFingerprint: nil) { pipeline, url in
-                    guard let baseline, let fingerprint, let version else {
-                        throw CocoaError(.fileReadUnknown)
+            var timings: [Int: [Double]] = [:]
+            for (round, limit) in [1, 2, 4, 8, 8, 4, 2, 1, 2, 4, 8, 1].enumerated() {
+                let targets = files
+                let title = "Concurrent round \(round)"
+                let payloads = targets.map { file in
+                    var draft = SingleFileEditModel(from: file)
+                    draft.title = title
+                    return MetadataEditPayload(draft, comparedTo: file)
+                }
+                let probe = ConcurrentBatchProbe()
+                let start = ContinuousClock.now
+                await MetadataBatchExecutor.execute(count: targets.count, maximumConcurrentMutations: limit) { index in
+                    let file = targets[index]
+                    let payload = payloads[index]
+                    let baseline = file.metadataConflictBaseline
+                    let fingerprint = file.fileFingerprint
+                    let version = file.metadataFileVersion
+                    probe.begin()
+                    defer { probe.end() }
+                    return await executor.execute(at: file.url, id: file.id, expectedFileFingerprint: nil) { pipeline, url in
+                        guard let baseline, let fingerprint, let version else {
+                            throw CocoaError(.fileReadUnknown)
+                        }
+                        return try MetadataConflictResolver.writeMetadata(
+                            payload, original: baseline, originalFingerprint: fingerprint, originalVersion: version,
+                            policy: .mergeNonConflicting, pipeline: pipeline, url: url
+                        )
                     }
-                    return try MetadataConflictResolver.writeMetadata(
-                        payload, original: baseline, originalFingerprint: fingerprint, originalVersion: version,
-                        policy: .mergeNonConflicting, pipeline: pipeline, url: url
-                    )
+                } onCompletion: { index, result in
+                    probe.complete()
+                    guard case .success(let outcome) = result, let reloaded = outcome.reloadedFile else {
+                        return XCTFail("Guarded transaction or reload failed at \(index): \(result)")
+                    }
+                    XCTAssertEqual(reloaded.id, targets[index].id)
+                    XCTAssertEqual(reloaded.title, title)
+                    XCTAssertEqual(reloaded.artist, targets[index].artist)
+                    XCTAssertEqual(reloaded.album, targets[index].album)
+                    XCTAssertTrue(outcome.writeResult.warnings.isEmpty)
+                    files[index] = reloaded
                 }
-            } onCompletion: { index, result in
-                probe.complete()
-                guard case .success(let outcome) = result, let reloaded = outcome.reloadedFile else {
-                    return XCTFail("Guarded transaction or reload failed at \(index): \(result)")
+                XCTAssertEqual(probe.completedCount, targets.count, "Every target must complete")
+                XCTAssertLessThanOrEqual(probe.maximumActiveCount, limit)
+                timings[limit, default: []].append(milliseconds(start.duration(to: .now)))
+                if density == "metadata-heavy" {
+                    // Validate retained arrays after stopping the batch timer.
+                    for file in files {
+                        let values = try pipeline.rawMetadataValueMap(for: file.url)
+                        for field in 0..<64 {
+                            XCTAssertEqual(values["PERF_FIELD_\(field)"],
+                                [String(repeating: "Metadata ", count: 64), "duplicate", "duplicate", "  padded  "])
+                        }
+                    }
                 }
-                XCTAssertEqual(reloaded.id, targets[index].id)
-                XCTAssertEqual(reloaded.title, title)
-                XCTAssertEqual(reloaded.artist, targets[index].artist)
-                XCTAssertEqual(reloaded.album, targets[index].album)
-                XCTAssertTrue(outcome.writeResult.warnings.isEmpty)
-                files[index] = reloaded
             }
-            XCTAssertEqual(probe.completedCount, targets.count, "Every target must complete")
-            XCTAssertLessThanOrEqual(probe.maximumActiveCount, limit)
-            timings[limit, default: []].append(milliseconds(start.duration(to: .now)))
-        }
-        for limit in [1, 4] {
-            let samples = try XCTUnwrap(timings[limit]).sorted()
-            print("Guarded write + reload 48 files / 6 formats, concurrency=\(limit), samples=\(samples) ms, median=\(samples[1]) ms")
+            for limit in [1, 2, 4, 8] {
+                let samples = try XCTUnwrap(timings[limit]).sorted()
+                print("Guarded write + reload 48 files / 6 formats, density=\(density), concurrency=\(limit), samples=\(samples) ms, median=\(samples[1]) ms")
+            }
         }
     }
 

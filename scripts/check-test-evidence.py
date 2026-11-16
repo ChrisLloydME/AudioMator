@@ -10,6 +10,11 @@ from pathlib import Path
 import re
 
 CRITICAL = {
+    'ProviderTaggingCancellationTests/testCapturedPlanResultsStayOrderedThroughReversedCompletions()',
+    'ProviderTaggingCancellationTests/testEveryBatchWriterCancelsWhileQueuedWithoutWriting()',
+    'ProviderTaggingCancellationTests/testAllBatchWritersDrainStartedCommitsAndCancelRemainingFiles()',
+    'ProviderTaggingCancellationTests/testITunesCancellationAfterCommitKeepsActualOutcomeAndAccountsForRemainingFiles()',
+    'ProviderTaggingCancellationTests/testMusicBrainzCancellationAfterCommitKeepsActualOutcomeAndAccountsForRemainingFiles()',
     'MetadataSaveJourneyTests/testEveryProviderSelectionAcrossAllDatePresenceStates()',
     'MetadataBoundaryMatrixTests/testEveryDedicatedStringAcrossAllDatePresenceStates()',
     'MetadataBoundaryMatrixTests/testEveryCSVFieldPlansWritesAndReloadsThroughRealAdapter()',

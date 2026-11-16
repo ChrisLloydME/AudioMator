@@ -65,7 +65,7 @@ The Boost license permits distribution in machine-executable object form without
 
 - **Project**: TagLibAudioMetadata
 - **Source**: https://github.com/ChrisLloydME/TagLibAudioMetadata.git
-- **Pinned version**: exact published `0.7.3`, revision `7ca1b75326388a5902815f70145b600299944ae0`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.7.3).
+- **Pinned version**: exact published `0.8.0`, revision `e91d822bf584c354f9d9b68803391731a9e7c9a8`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.0).
 - **Copyright**: Copyright (c) 2026 Christopher Lloyd.
 - **License**: MIT License.
 - **Usage in this repository**: Swift Package Manager dependency that exposes the TagLib-backed APIs consumed by AudioMator's metadata pipeline.
@@ -143,4 +143,4 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 
 Release validation must confirm those five files are present in the built app's `Contents/Resources` directory. The in-app Acknowledgements sheet loads them by resource name and fails closed with a visible fallback if a text is missing.
 
-At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.7.3 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation.
+At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.8.0 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation.

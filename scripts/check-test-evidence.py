@@ -10,6 +10,11 @@ from pathlib import Path
 import re
 
 CRITICAL = {
+    'AutomaticNumberRecoveryTests/testPrivateOnlyValuesAreRecoveredWithoutWritingTheFile()',
+    'AutomaticNumberRecoveryTests/testOrdinarySaveMigratesEditedPairWithTitleAndClearDoesNotResurrectIt()',
+    'AutomaticNumberRecoveryTests/testAmbiguityRequestsOrdinaryTotalAndAcceptsItsReplacement()',
+    'MappingAcceptanceRepairTests/testStorageResolutionControlsAreAbsentFromInspector()',
+
     'InspectorFieldConfigurationTests/testInspectorAndSettingsHaveOneControlledFieldRoute()',
     'InspectorFieldConfigurationTests/testSettingsPersistExactChoicesWithoutReenablingHiddenFields()',
     'MetadataSaveJourneyTests/testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves()',

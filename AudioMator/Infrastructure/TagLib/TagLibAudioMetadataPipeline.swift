@@ -30,6 +30,15 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         do {
             return AudioMetadataWriteResult(warnings: try operation())
+        } catch MetadataPatchValidationError.ambiguousNumberRecovery(let field, _) {
+            let label: String = switch field {
+            case "trackTotal": String(localized: "Total Tracks")
+            case "discTotal": String(localized: "Total Discs")
+            case "disc": String(localized: "Disc Number")
+            default: String(localized: "Track Number")
+            }
+            throw NSError(domain: "AudioMator.Numbering", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                label + " — " + String(localized: "This file has conflicting or unreadable numbering values. Enter the value to save for this field and try again.")])
         } catch TagLibManagerError.committedButDurabilityUncertain(let detail) {
             return AudioMetadataWriteResult(
                 warnings: [],
@@ -228,42 +237,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         try TagLibMetadataManager.numberingInventory(at: url)
     }
 
-    nonisolated func planNumberNormalization(
-        at url: URL,
-        policy: MetadataNumberResolutionPolicy,
-        groups: Set<MetadataNumberGroup>
-    ) throws -> NumberNormalizationPreview {
-        let plan = try TagLibMetadataManager.planNumberNormalization(
-            at: url,
-            policy: policy,
-            groups: groups
-        )
-        return NumberNormalizationPreview(
-            track: plan.inventory.track,
-            disc: plan.inventory.disc,
-            plan: plan,
-            warnings: plan.warnings + plan.inventory.warnings
-        )
-    }
 
-    nonisolated func applyNumberNormalization(
-        _ preview: NumberNormalizationPreview,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        if let expectedVersion, expectedVersion != preview.plan.fileVersion {
-            // The preview captures its own version; passing a different token
-            // would silently apply a plan to a revision it was not built from.
-            throw TagLibManagerError.fileChanged
-        }
-        return try Self.interpretingWrite {
-            try TagLibMetadataManager.applyNumberNormalization(
-                preview.plan,
-                to: url,
-                expectedVersion: preview.plan.fileVersion
-            ).warnings
-        }
-    }
 }
 
 private enum MetadataPipelineSupport {

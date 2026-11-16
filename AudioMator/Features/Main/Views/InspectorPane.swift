@@ -294,9 +294,6 @@ struct InspectorPane: View {
         .sheet(item: artworkLookupSessionBinding) { _ in
             AlbumArtworkLookupSheet(viewModel: viewModel)
         }
-        .sheet(isPresented: $viewModel.isNumberNormalizationPresented) {
-            NumberNormalizationSheet(viewModel: viewModel)
-        }
         .photosPicker(
             isPresented: $isPhotoLibraryArtworkPickerPresented,
             selection: $selectedPhotoLibraryArtworkItem,
@@ -630,17 +627,7 @@ struct InspectorPane: View {
                     .disabled(viewModel.metadataFieldUnsupportedReason(field, in: [file]) != nil)
                 }
 
-                if viewModel.canOfferNumberNormalization(for: file) {
-                    Divider()
-                    HStack {
-                        Spacer()
-                        Button("Restore or Clean Up Numbers…") {
-                            viewModel.openNumberNormalizationPreview()
-                        }
-                        .buttonStyle(.link)
-                    }
-                    .padding(.top, 2)
-                }
+
             }
             .padding(.vertical, 3)
         } label: {

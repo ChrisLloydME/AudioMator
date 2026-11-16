@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 
 CRITICAL = {
+    'AudioMetadataPipelineContractTests/testTagLibAdapterPreservesReturnedCommitStatusAndWarnings()',
     'AutomaticNumberRecoveryTests/testPrivateOnlyValuesAreRecoveredWithoutWritingTheFile()',
     'AutomaticNumberRecoveryTests/testOrdinarySaveMigratesEditedPairWithTitleAndClearDoesNotResurrectIt()',
     'AutomaticNumberRecoveryTests/testAmbiguityRequestsOrdinaryTotalAndAcceptsItsReplacement()',

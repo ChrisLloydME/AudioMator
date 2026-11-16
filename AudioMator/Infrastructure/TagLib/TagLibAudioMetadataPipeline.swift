@@ -26,10 +26,15 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     }
 
     nonisolated static func interpretingWrite(
-        _ operation: () throws -> [String]
+        _ operation: () throws -> TagLibMetadataManager.MetadataWriteResult
     ) throws -> AudioMetadataWriteResult {
         do {
-            return AudioMetadataWriteResult(warnings: try operation())
+            let result = try operation()
+            let status: AudioMetadataCommitStatus = switch result.commitStatus {
+            case .durable: .durable
+            case .durabilityUncertain(let detail): .durabilityUncertain(detail)
+            }
+            return AudioMetadataWriteResult(warnings: result.warnings, commitStatus: status)
         } catch MetadataPatchValidationError.ambiguousNumberRecovery(let field, _) {
             let label: String = switch field {
             case "trackTotal": String(localized: "Total Tracks")
@@ -127,7 +132,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
                 to: url,
                 expectedVersion: expectedVersion
-            ).warnings
+            )
         }
     }
 
@@ -145,7 +150,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 patch,
                 to: url,
                 expectedVersion: expectedVersion
-            ).warnings
+            )
         }
     }
 
@@ -160,7 +165,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
                 to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
-            ).warnings
+            )
         }
     }
 
@@ -174,7 +179,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             try TagLibMetadataManager.applyRawMetadataPatch(
                 patch, to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
-            ).warnings
+            )
         }
     }
 
@@ -190,7 +195,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             try TagLibMetadataManager.eraseAllMetadataWithVerification(
                 from: url,
                 expectedVersion: expectedVersion
-            ).warnings
+            )
         }
     }
 
@@ -224,12 +229,13 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 verifyAfterWrite: verifyAfterWrite,
                 expectedVersion: expectedVersion
             )
-            return MetadataPipelineSupport.numberTextWriteWarnings(
+            let warnings = MetadataPipelineSupport.numberTextWriteWarnings(
                 writeResult.warnings,
                 expectedTrackNumberText: trackNumberText,
                 expectedDiscNumberText: discNumberText,
                 for: url
             )
+            return TagLibMetadataManager.MetadataWriteResult(warnings: warnings, commitStatus: writeResult.commitStatus)
         }
     }
 

@@ -76,7 +76,21 @@ enum InspectorMetadataField: String, CaseIterable, Identifiable {
         }
     }
 
-    static let defaultVisibleFields: [InspectorMetadataField] = Self.allCases
+    // This is the product's curated quick-edit catalog, not the package registry.
+    // New enum cases require an explicit decision about availability and defaults.
+    static let configurableFields: [InspectorMetadataField] = [
+        .title, .artist, .album, .composer, .genre, .year, .date,
+        .releaseDate, .originalReleaseDate, .trackNumber, .totalTracks,
+        .discNumber, .totalDiscs, .comment, .albumArtist, .contentGroup,
+        .grouping, .work, .publisher, .copyright, .explicit, .credits,
+    ]
+
+    static let defaultVisibleFields: [InspectorMetadataField] = [
+        .title, .artist, .album, .composer, .genre, .year,
+        .trackNumber, .totalTracks, .discNumber, .totalDiscs,
+        .comment, .albumArtist, .releaseDate, .publisher, .copyright,
+        .explicit, .credits,
+    ]
 
     /// The semantic identity this row edits. `nil` means display-only.
     var metadataFieldKey: MetadataFieldKey? {

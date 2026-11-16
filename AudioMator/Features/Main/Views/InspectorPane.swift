@@ -214,7 +214,6 @@ struct InspectorPane: View {
                         fileSection(file)
                         artworkSection(file)
                         metadataSection(file)
-                        containerFieldsSection(file)
                         technicalSection(file)
                     }
                     .padding()
@@ -226,7 +225,6 @@ struct InspectorPane: View {
                         multiSelectionSection(selectedFiles)
                         multiArtworkSection(selectedFiles)
                         multiMetadataSection(selectedFiles)
-                        multiContainerFieldsSection(selectedFiles)
                     }
                     .padding()
                 }
@@ -651,118 +649,6 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
-    private func containerFieldsSection(_ file: AudioFile) -> some View {
-        if Self.supportsContainerExclusiveFields(file) {
-            GroupBox {
-                VStack(spacing: 6) {
-                    ForEach(
-                        Array(ContainerMetadataFieldCatalog.visibleKeys.enumerated()),
-                        id: \.element.rawValue
-                    ) { index, key in
-                        if index > 0 {
-                            Divider()
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            editableRow(
-                                label: ContainerMetadataFieldCatalog.displayName(for: key),
-                                text: containerBinding(for: file, key: key)
-                            )
-                            if let reason = viewModel.containerFieldUnsupportedReason(key, in: [file]) {
-                                Text(reason)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            } else if ContainerMetadataFieldCatalog.isReadOnly(key),
-                                      let rawValue = file.containerValues[key]?.displayText {
-                                Text(String(localized: "Read-only native value:") + " \(rawValue)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .disabled(
-                            viewModel.containerFieldUnsupportedReason(key, in: [file]) != nil ||
-                                ContainerMetadataFieldCatalog.isReadOnly(key)
-                        )
-                    }
-                }
-                .padding(.vertical, 3)
-            } label: {
-                inspectorSectionLabel("Container Fields", systemImage: "shippingbox")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func multiContainerFieldsSection(_ files: [AudioFile]) -> some View {
-        if !files.isEmpty, files.allSatisfy(Self.supportsContainerExclusiveFields) {
-            GroupBox {
-                VStack(spacing: 6) {
-                    ForEach(
-                        Array(ContainerMetadataFieldCatalog.visibleKeys.enumerated()),
-                        id: \.element.rawValue
-                    ) { index, key in
-                        if index > 0 {
-                            Divider()
-                        }
-                        VStack(alignment: .leading, spacing: 2) {
-                            editableRow(
-                                label: ContainerMetadataFieldCatalog.displayName(for: key),
-                                text: multiContainerBinding(key: key)
-                            )
-                            if let reason = viewModel.containerFieldUnsupportedReason(key, in: files) {
-                                Text(reason)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .disabled(viewModel.containerFieldUnsupportedReason(key, in: files) != nil)
-                    }
-                }
-                .padding(.vertical, 3)
-            } label: {
-                inspectorSectionLabel("Container Fields", systemImage: "shippingbox")
-            }
-        }
-    }
-
-    private func containerBinding(for file: AudioFile, key: MetadataFieldKey) -> Binding<String> {
-        Binding(
-            get: {
-                currentEdit(for: file)?.containerValues[key]?.displayText
-                    ?? file.containerValues[key]?.displayText
-                    ?? ""
-            },
-            set: { newValue in
-                updateEdit(for: file) { model in
-                    let accepted = ContainerMetadataFieldCatalog.acceptedKinds(for: key)
-                    if let value = ContainerFieldValue.parse(newValue, acceptedKinds: accepted) {
-                        model.containerValues[key] = value
-                    }
-                }
-            }
-        )
-    }
-
-    private func multiContainerBinding(key: MetadataFieldKey) -> Binding<String> {
-        Binding(
-            get: {
-                viewModel.multiEdit?.values.containerValues[key]?.displayText ?? ""
-            },
-            set: { newValue in
-                guard var current = viewModel.multiEdit else { return }
-                let accepted = ContainerMetadataFieldCatalog.acceptedKinds(for: key)
-                if let value = ContainerFieldValue.parse(newValue, acceptedKinds: accepted) {
-                    current.setContainerValue(value, for: key)
-                }
-                viewModel.multiEdit = current
-            }
-        )
-    }
-
-    private static func supportsContainerExclusiveFields(_ file: AudioFile) -> Bool {
-        ["m4a", "mp4", "m4b"].contains(file.url.pathExtension.lowercased())
-    }
-
-    @ViewBuilder
     private func multiMetadataSection(_ files: [AudioFile]) -> some View {
         let merged = MergedAudioFile(files: files)
         let fields = visibleInspectorMetadataFields
@@ -793,7 +679,7 @@ struct InspectorPane: View {
     }
 
     private var visibleInspectorMetadataFields: [InspectorMetadataField] {
-        InspectorMetadataField.allCases.filter(state.visibleInspectorMetadataFields.contains)
+        state.orderedVisibleInspectorMetadataFields
     }
 
     @ViewBuilder

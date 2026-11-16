@@ -127,3 +127,7 @@ Unchanged Track/Disc component setters preserve stored pair text. Dirty comparis
 - [Metadata Pipeline](METADATA_PIPELINE.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Architecture Overview](OVERVIEW.md)
+
+## Inspector field visibility
+
+`InspectorMetadataField.configurableFields` is the curated quick-edit catalog; `defaultVisibleFields` explicitly lists the original common-field defaults. Neither list is generated from the package registry. Settings and the single/multiple-selection Inspector use this catalog through `SharedState.orderedVisibleInspectorMetadataFields`. Additional container fields are not rendered through a second, uncontrolled Inspector route. Existing visibility preferences remain authoritative, including previously enabled optional fields; unknown preference keys are ignored and an empty configuration falls back to common defaults. Visibility is presentation state, independent of edit intent: hiding fields preserves drafts and on-disk values, and Save applies all pending edits. Format capabilities disable unsupported edits without adding rows.

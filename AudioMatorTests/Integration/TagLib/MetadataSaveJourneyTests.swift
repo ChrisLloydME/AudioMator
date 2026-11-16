@@ -10,6 +10,35 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
     private var pipeline: TagLibAudioMetadataPipeline { TagLibAudioMetadataPipeline() }
 
     @MainActor
+    func testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves() async throws {
+        let name = "InspectorVisibilitySave.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let state = SharedState(userDefaults: defaults)
+        for count in [1, 2] {
+            var files: [AudioFile] = []
+            for _ in 0..<count { files.append(try await fixture("m4a")) }
+            let vm = viewModel(files)
+            if count == 1 { vm.edit?.title = "Visible title" }
+            else { vm.multiEdit?.setText("Visible title", for: .title) }
+            state.visibleInspectorMetadataFields = [.artist] // Hide the edited title too.
+            XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+            vm.saveInspectorEdits()
+            try await saveFinished(vm)
+            for file in files {
+                let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
+                XCTAssertEqual(saved.title, "Visible title")
+                XCTAssertEqual(saved.album, file.album)
+                XCTAssertEqual(saved.year, "2004")
+                XCTAssertEqual(saved.releaseDate, "2017-06-09")
+                XCTAssertEqual(saved.itunesArtistID, file.itunesArtistID)
+                XCTAssertEqual(saved.comment, file.comment)
+            }
+            XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+        }
+    }
+
+    @MainActor
     func testiTunesEachCheckedFieldWritesAndUncheckedFieldsSurvive() async throws {
         let expected: Set<iTunesTagWriteField> = [.title, .artist, .albumArtist, .album, .genre,
             .trackNumber, .trackTotal, .discNumber, .discTotal, .releaseDate, .copyright,

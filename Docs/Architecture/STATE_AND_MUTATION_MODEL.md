@@ -65,7 +65,7 @@ prepare immutable input + expected fingerprint/version
 
 Conflict groups follow actual native storage: `track`/`trackTotal` share one group, `disc`/`discTotal` share another, and YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent groups. A changed YEAR therefore does not create a blanket date conflict, while a shared native number pair remains protected. Alias/private-number cleanup is an explicit captured plan, not a conflict-resolution side effect.
 
-Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename, CSV/text, raw-map, and renumber loops check cancellation before each next target, retain the current commit outcome, and account for the remaining targets as cancelled without invoking their writers. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
+Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename and CSV/text plans run up to four independent targets concurrently. Cancellation prevents unstarted targets from invoking their writers; up to four already started commits may finish and all actual outcomes are retained. Results and cancelled entries are accounted for in captured plan order. Raw-map and renumber loops retain their sequential cancellation checks. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 
 ## Reservation Rules
 
@@ -105,7 +105,7 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Track renumber | Per file, serial | Yes, verification enabled | Yes |
 | Rename | One multi-file two-phase transaction | Per completed move | No; rollback or recovery report |
 | LRCLIB lyrics apply | Per file raw patch | Yes | Batch auto-match yes |
-| Provider tagging plan | Per file | Yes | Yes |
+| Provider tagging plan | Up to four files concurrently, per-file commits | Yes | Yes |
 | Selected-file reload | Per file | Read only | Yes |
 
 ## Persistence Boundaries

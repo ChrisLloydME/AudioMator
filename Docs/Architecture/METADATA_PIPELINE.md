@@ -115,7 +115,7 @@ Track and disc data is represented by:
 | `releaseDate` | `.releaseDate` |
 | `originalReleaseDate` | `.originalReleaseDate` |
 
-The package's legacy `.date` case is a YEAR alias and is never used for a new semantic write. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text. `.date` and `.year` are never submitted together.
+Published package 0.7.3 exposes the legacy typed `.date` YEAR alias; the unreleased API candidate removes it. This adapter uses only `.year` for YEAR and `.standaloneDate` for DATE. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
 
 **Independent-date behavior.** No companion date writes are synthesized. Published 0.7.3 preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
 
@@ -274,3 +274,9 @@ Changed number-text pairs are validated centrally before semantic writes. Missin
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
+
+## Unreleased package API integration
+
+The `codex/package-api-performance-integration` branch prepares the adapter and its tests for the package's unreleased API cleanup. Typed YEAR uses only `.year`; independent DATE uses `.standaloneDate`. The application no longer references the old typed `.date` YEAR alias or obsolete verification-policy/format-check helpers. Application `AudioFile.date`, CSV Date, and `BasicMetadata.date` retain their independent DATE meaning.
+
+The committed dependency remains published 0.7.3. Candidate validation uses the explicitly requested local package override; no local path is committed to project resolution. This work does not publish or adopt a new package release, and no application performance improvement is claimed from a package microbenchmark.

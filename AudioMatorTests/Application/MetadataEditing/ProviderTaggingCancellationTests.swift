@@ -15,7 +15,7 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
     }
 
     @MainActor
-    func testAllBatchWritersStopAfterCommittedFile() async throws {
+    func testAllBatchWritersDrainStartedCommitsAndCancelRemainingFiles() async throws {
         for workflow in ["filename", "csv", "raw", "renumber"] {
             try await checkCancellation(workflow: workflow)
         }
@@ -29,6 +29,40 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
     }
 
     @MainActor
+    func testCapturedPlanResultsStayOrderedThroughReversedCompletions() async throws {
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: PausedProviderReloadPipeline())
+        let gate = PlanCompletionGate()
+        let names = (0..<7).map { "\($0).flac" }
+        let task = Task {
+            await viewModel.executeBoundedMetadataPlan(fileNames: names) { index in
+                await gate.wait(index)
+                return (names[index], .failure("failure \(index)"))
+            }
+        }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while await gate.enteredCount < 4, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let initiallyEntered = await gate.enteredCount
+        XCTAssertEqual(initiallyEntered, 4, "Exactly four targets may enter while all completions are blocked")
+        for index in [3, 4, 5] {
+            await gate.release(index)
+            while await gate.enteredCount < index + 2, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+        }
+        for index in [6, 2, 1, 0] { await gate.release(index) }
+        let outcomes = await task.value
+        XCTAssertEqual(outcomes.count, names.count)
+        for index in names.indices {
+            let outcome = try XCTUnwrap(outcomes[index])
+            XCTAssertEqual(outcome.fileName, names[index])
+            guard case .failure(let reason) = outcome.result else { return XCTFail("Expected captured failure") }
+            XCTAssertEqual(reason, "failure \(index)")
+        }
+    }
+
+    @MainActor
     private func checkCancellation(workflow: String, queued: Bool = false) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ProviderCancellation-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -37,8 +71,11 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile.flac", withExtension: nil, subdirectory: "Fixtures/Audio")
             ?? bundle.url(forResource: "testAudioFile.flac", withExtension: nil))
         let base = TagLibAudioMetadataPipeline()
+        let parallel = ["itunes", "musicbrainz", "filename", "csv"].contains(workflow)
+        let names = parallel ? ["first.flac", "second.flac", "third.flac", "fourth.flac", "fifth.flac", "sixth.flac", "seventh.flac"] : ["first.flac", "second.flac"]
+        let expectedWrites = queued ? 0 : (parallel ? 4 : 1)
         var files: [AudioFile] = []
-        for name in ["first.flac", "second.flac"] {
+        for name in names {
             let url = directory.appendingPathComponent(name)
             try FileManager.default.copyItem(at: source, to: url)
             _ = try base.writeRawMetadataPatch(RawMetadataPatch(valuesToSet: [
@@ -54,7 +91,7 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         let releaseReservation = CancellationTestGate()
         let reservation = Task {
             if queued {
-                try await viewModel.fileMutationCoordinator.withExclusiveAccess(to: [files[0].url]) {
+                try await viewModel.fileMutationCoordinator.withExclusiveAccess(to: files.map(\.url)) {
                     await reserved.open()
                     await releaseReservation.wait()
                 }
@@ -100,14 +137,19 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         }
         if queued {
             let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-            while await viewModel.fileMutationCoordinator.queuedMutationCount == 0, ContinuousClock.now < deadline {
+            while await viewModel.fileMutationCoordinator.queuedMutationCount < (parallel ? 4 : 1), ContinuousClock.now < deadline {
                 try await Task.sleep(for: .milliseconds(10))
             }
             let queuedCount = await viewModel.fileMutationCoordinator.queuedMutationCount
-            XCTAssertEqual(queuedCount, 1)
+            XCTAssertEqual(queuedCount, parallel ? 4 : 1)
         } else {
             do {
                 try await pipeline.waitUntilReload()
+                let commitDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+                while pipeline.writeCount < expectedWrites, ContinuousClock.now < commitDeadline {
+                    try await Task.sleep(for: .milliseconds(10))
+                }
+                XCTAssertEqual(pipeline.writeCount, expectedWrites)
             } catch {
                 task.cancel()
                 await pipeline.releaseReload()
@@ -122,18 +164,19 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         await releaseReservation.open()
         try await reservation.value
         await task.value
-        XCTAssertEqual(pipeline.writeCount, queued ? 0 : 1)
-        var expectedFirst = originalMaps[0]
-        if !queued {
-            expectedFirst[workflow == "renumber" ? "TRACKNUMBER" : "TITLE"] = [workflow == "renumber" ? "7" : "Applied"]
+        XCTAssertEqual(pipeline.writeCount, expectedWrites)
+        for index in files.indices {
+            var expected = originalMaps[index]
+            if index < expectedWrites {
+                expected[workflow == "renumber" ? "TRACKNUMBER" : "TITLE"] = [workflow == "renumber" ? "7" : "Applied"]
+            }
+            XCTAssertEqual(try base.rawMetadataValueMap(for: files[index].url), expected, files[index].url.lastPathComponent)
         }
-        XCTAssertEqual(try base.rawMetadataValueMap(for: files[0].url), expectedFirst)
-        XCTAssertEqual(try base.rawMetadataValueMap(for: files[1].url), originalMaps[1])
         XCTAssertNil(viewModel.metadataSaveProgress)
         guard workflow != "renumber" else { return }
         let entry = try XCTUnwrap(viewModel.saveIssueLogStore.entries.first)
-        XCTAssertTrue(entry.summary.contains(queued ? "No files were saved" : "1 of 2"), entry.summary)
-        XCTAssertEqual(entry.issues.map(\.fileName), queued ? ["first.flac", "second.flac"] : ["second.flac"])
+        XCTAssertTrue(entry.summary.contains(queued ? "No files were saved" : "\(expectedWrites) of \(files.count)"), entry.summary)
+        XCTAssertEqual(entry.issues.map(\.fileName), Array(names.dropFirst(expectedWrites)))
         XCTAssertTrue(entry.issues[0].messages.joined().localizedCaseInsensitiveContains("cancel"))
     }
 }
@@ -269,5 +312,24 @@ private actor CancellationTestGate {
         let pending = waiters
         waiters.removeAll()
         pending.forEach { $0.resume() }
+    }
+}
+
+
+private actor PlanCompletionGate {
+    private var entered: Set<Int> = []
+    private var released: Set<Int> = []
+    private var waiting: [Int: CheckedContinuation<Void, Never>] = [:]
+    var enteredCount: Int { entered.count }
+
+    func wait(_ index: Int) async {
+        entered.insert(index)
+        if released.contains(index) { return }
+        await withCheckedContinuation { waiting[index] = $0 }
+    }
+
+    func release(_ index: Int) {
+        released.insert(index)
+        waiting.removeValue(forKey: index)?.resume()
     }
 }

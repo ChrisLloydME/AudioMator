@@ -1,0 +1,95 @@
+{
+  "packageProductionCandidate": "bbf64c3",
+  "configuration": "Debug app-hosted",
+  "metric": "median of three counterbalanced guarded write-and-reload batches; includes mutation coordinator and reload, excludes fixture setup and extra array correctness probes",
+  "rows": [
+    {
+      "density": "ordinary",
+      "workers": 1,
+      "files": 48,
+      "batchSamplesMs": [
+        662.222708,
+        709.806666,
+        789.974666
+      ],
+      "medianMs": 709.806666
+    },
+    {
+      "density": "ordinary",
+      "workers": 2,
+      "files": 48,
+      "batchSamplesMs": [
+        486.023958,
+        513.445625,
+        681.45475
+      ],
+      "medianMs": 513.445625
+    },
+    {
+      "density": "ordinary",
+      "workers": 4,
+      "files": 48,
+      "batchSamplesMs": [
+        340.592,
+        342.55125,
+        414.873084
+      ],
+      "medianMs": 342.55125
+    },
+    {
+      "density": "ordinary",
+      "workers": 8,
+      "files": 48,
+      "batchSamplesMs": [
+        302.812708,
+        315.660875,
+        352.836166
+      ],
+      "medianMs": 315.660875
+    },
+    {
+      "density": "metadata-heavy",
+      "workers": 1,
+      "files": 48,
+      "batchSamplesMs": [
+        1462.12375,
+        1481.910458,
+        1545.1620830000002
+      ],
+      "medianMs": 1481.910458
+    },
+    {
+      "density": "metadata-heavy",
+      "workers": 2,
+      "files": 48,
+      "batchSamplesMs": [
+        896.465584,
+        909.805208,
+        1000.155958
+      ],
+      "medianMs": 909.805208
+    },
+    {
+      "density": "metadata-heavy",
+      "workers": 4,
+      "files": 48,
+      "batchSamplesMs": [
+        763.036042,
+        770.076125,
+        789.890916
+      ],
+      "medianMs": 770.076125
+    },
+    {
+      "density": "metadata-heavy",
+      "workers": 8,
+      "files": 48,
+      "batchSamplesMs": [
+        742.063292,
+        744.855958,
+        760.557167
+      ],
+      "medianMs": 744.855958
+    }
+  ]
+}

@@ -209,3 +209,25 @@ extension AudioViewModel {
     }
 
 }
+
+
+extension AudioViewModel {
+    /// Runs independent captured plan entries with the existing four-file
+    /// bound. Results remain in plan order; nil means cancelled before entry.
+    func executeBoundedMetadataPlan(
+        fileNames: [String],
+        operation: @escaping @MainActor @Sendable (Int) async -> (fileName: String, result: MetadataWriteExecutionResult)
+    ) async -> [(fileName: String, result: MetadataWriteExecutionResult)?] {
+        var results = Array<(fileName: String, result: MetadataWriteExecutionResult)?>(repeating: nil, count: fileNames.count)
+        var completed = 0
+        await MetadataBatchExecutor.execute(count: fileNames.count) { index -> (fileName: String, result: MetadataWriteExecutionResult)? in
+            guard !Task.isCancelled else { return nil }
+            return await operation(index)
+        } onCompletion: { index, result in
+            results[index] = result
+            completed += 1
+            self.updateMetadataSaveProgress(subtitle: fileNames[index], completedUnitCount: completed)
+        }
+        return results
+    }
+}

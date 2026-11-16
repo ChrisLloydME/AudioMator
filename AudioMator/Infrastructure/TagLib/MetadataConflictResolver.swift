@@ -259,8 +259,8 @@ enum MetadataConflictResolver {
         case .track, .trackTotal: [.track, .trackTotal]
         case .disc, .discTotal: [.disc, .discTotal]
         // YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent native
-        // groups. Only a legacy alias resolution plan may bind them.
-        case .year, .date: [field]
+        // groups. No date identity is an alias of another.
+        case .year: [field]
         case .standaloneDate, .releaseDate, .originalReleaseDate: [field]
         case .performer, .musicianCredits: [.performer, .musicianCredits]
         default: [field]

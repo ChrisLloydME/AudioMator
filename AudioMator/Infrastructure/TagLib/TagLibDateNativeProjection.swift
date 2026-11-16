@@ -28,7 +28,7 @@ nonisolated enum TagLibDateNativeProjection {
         fileExtension: String
     ) -> [String] {
         switch field {
-        case .year, .date:
+        case .year:
             return yearValues(structured, basicYear: basicYear, fileExtension: fileExtension)
         case .standaloneDate:
             return standaloneDateValues(structured, fileExtension: fileExtension)
@@ -43,7 +43,7 @@ nonisolated enum TagLibDateNativeProjection {
 
     static func isDateIdentity(_ field: MetadataFieldKey) -> Bool {
         switch field {
-        case .year, .date, .standaloneDate, .releaseDate, .originalReleaseDate:
+        case .year, .standaloneDate, .releaseDate, .originalReleaseDate:
             return true
         default:
             return false

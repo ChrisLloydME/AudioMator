@@ -1,5 +1,8 @@
 # Dependency Limitations
 
+
+> Development candidate: the internal numbering branch requires the package's automatic edited-group retirement amendment. The normal published 0.8.0 pin does not implement that amendment; only an explicitly requested local candidate has been validated. See [internal numbering recovery](../Engineering/INTERNAL_NUMBERING_RECOVERY_2026-11-16.md). Publish/adopt the repaired dependency before an application release.
+
 AudioMator pins published **TagLibAudioMetadata 0.8.0**, revision `e91d822bf584c354f9d9b68803391731a9e7c9a8`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. [Current adoption evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) records validation against that tag; the older local workspace is only an explicit candidate tool.
 
 ## Published Repair Boundary

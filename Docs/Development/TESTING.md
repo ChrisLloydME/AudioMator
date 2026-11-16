@@ -159,7 +159,7 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 
-The recorded published 0.7.3 gate passed all phases. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) for evidence paths and the manual distribution boundary. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
+The published 0.8.0 gate passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
 
 ## Known Coverage Gaps
 

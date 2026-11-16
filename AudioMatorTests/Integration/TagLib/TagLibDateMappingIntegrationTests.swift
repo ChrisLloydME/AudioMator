@@ -187,12 +187,11 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
 
         let pipeline = TagLibAudioMetadataPipeline()
         let file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        // Observed 0.7.0 behavior: TagLib normalizes ID3v2.3 TYER+TDAT into a
-        // single TDRC text projection, so TDAT is not exposed as DATE. The
-        // package's TDAT registration is therefore not independently writable
-        // and readable; the app must not invent or coerce a value.
-        XCTAssertEqual(file.year, "2004-04-03")
-        XCTAssertEqual(file.date, "")
+        // Literal v2.3 owners remain independent even though TagLib's engine
+        // synthesizes a TDRC projection internally. The package now reads the
+        // native evidence; concrete v2.3 date writes remain read-only.
+        XCTAssertEqual(file.year, "2004")
+        XCTAssertEqual(file.date, "0304")
 
         for candidate in ["2008-03-04", "0403"] {
             let before = try Data(contentsOf: url)
@@ -201,7 +200,7 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
                     MetadataPatch(fields: [.standaloneDate: .text(candidate)]),
                     to: url
                 ),
-                "ID3v2.3 DATE must fail safely until the package verifies TDAT independently"
+                "ID3v2.3 DATE writes must remain safely read-only"
             )
             XCTAssertEqual(try Data(contentsOf: url), before)
         }

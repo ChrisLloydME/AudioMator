@@ -72,11 +72,11 @@ struct MetadataEditPayload: Sendable {
     /// Preserve numeric text validation while allowing total-only pairs.
     nonisolated var numberPairValidationMessage: String? {
         if trackNumberTextChanged, !AudioTagNumberText.components(from: trackNumberText).number.isEmpty,
-           Int(AudioTagNumberText.components(from: trackNumberText).number) == nil {
+           !AudioTagNumberText.hasIntegerSyntax(AudioTagNumberText.components(from: trackNumberText).number) {
             return String(localized: "This numbering change can’t be saved while Track Number contains text such as “A1”. Enter a numeric track number, or edit these fields in the Metadata Editor.")
         }
         if discNumberTextChanged, !AudioTagNumberText.components(from: discNumberText).number.isEmpty,
-           Int(AudioTagNumberText.components(from: discNumberText).number) == nil {
+           !AudioTagNumberText.hasIntegerSyntax(AudioTagNumberText.components(from: discNumberText).number) {
             return String(localized: "This numbering change can’t be saved while Disc Number contains text such as “B2”. Enter a numeric disc number, or edit these fields in the Metadata Editor.")
         }
         for (changed, text, label, numberLabel) in [

@@ -13,6 +13,13 @@ enum AudioTagNumberText {
         return (number, total)
     }
 
+    /// Recognizes integer syntax without parsing into a bounded machine integer.
+    nonisolated static func hasIntegerSyntax(_ text: String) -> Bool {
+        var value = text.trimmingCharacters(in: .whitespacesAndNewlines)[...]
+        if value.first == "+" || value.first == "-" { value = value.dropFirst() }
+        return !value.isEmpty && value.utf8.allSatisfy { (48...57).contains($0) }
+    }
+
     /// Empty text removes a component; malformed text must never become zero.
     nonisolated static func isWritableComponent(_ text: String) -> Bool {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines)

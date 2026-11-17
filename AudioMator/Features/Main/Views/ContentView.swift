@@ -558,6 +558,8 @@ private struct MetadataWriteHUDView: View {
                 Text(hud.omissionNotice)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .lineLimit(5)
+                    .truncationMode(.tail)
             }
         }
         .frame(width: 372)

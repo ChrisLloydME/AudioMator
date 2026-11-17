@@ -34,8 +34,14 @@ struct MetadataWriteHUD: Identifiable, Equatable {
         self.details = details ?? lines.dropFirst().joined(separator: "\n")
     }
 
+    private var normalizedDetails: String {
+        details.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var previewGroups: [String] {
-        let groups = details.components(separatedBy: "\n\n")
+        let groups = normalizedDetails.components(separatedBy: "\n\n")
         var shown: [String] = []
         for group in groups {
             let candidate = (shown + [group]).joined(separator: "\n\n")
@@ -46,21 +52,33 @@ struct MetadataWriteHUD: Identifiable, Equatable {
     }
 
     var detailPreview: String {
-        if previewGroups.isEmpty { return String(details.prefix(1000)) }
+        if previewGroups.isEmpty {
+            let lines = normalizedDetails.components(separatedBy: .newlines).prefix(14)
+            return String(lines.joined(separator: "\n").prefix(1000))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         return previewGroups.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var hasOmittedDetails: Bool {
-        detailPreview != details.trimmingCharacters(in: .whitespacesAndNewlines)
+        detailPreview != normalizedDetails
     }
 
     var omissionNotice: String {
         if previewGroups.isEmpty {
-            return String(localized: "Additional detail characters not shown: \(max(0, details.count - detailPreview.count)).")
+            return String(localized: "Additional detail characters not shown: \(max(0, normalizedDetails.count - detailPreview.count)).")
         }
-        let omitted = details.components(separatedBy: "\n\n").dropFirst(previewGroups.count)
-        let headings = omitted.compactMap { $0.components(separatedBy: .newlines).first }.filter { !$0.isEmpty }
-        return String(localized: "Additional detail groups not shown: \(headings.count). \(headings.joined(separator: "; "))")
+        let omitted = normalizedDetails.components(separatedBy: "\n\n").dropFirst(previewGroups.count)
+        let headings = omitted.prefix(3).map { group in
+            let heading = group.components(separatedBy: .newlines).first ?? ""
+            return String(heading.prefix(40)) + (heading.count > 40 ? "…" : "")
+        }
+        let remaining = omitted.count - headings.count
+        var notice = String(localized: "Additional detail groups not shown: \(omitted.count). \(headings.joined(separator: "; "))")
+        if remaining > 0 {
+            notice += " " + String(localized: "And \(remaining) more groups.")
+        }
+        return notice
     }
 
     var displayDuration: Duration {

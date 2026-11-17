@@ -2,9 +2,9 @@
 
 Choose **Help → Metadata Field Guide** to open a separate, reusable reference window. The guide is available without opening a file or connecting to a service. It covers all 100 package metadata fields plus Credits and five technical display values.
 
-Search by a field name, a word in its explanation or a storage name such as `©day` or `TDRL`. Choose a result to read what the field is for and where to find it in AudioMator. Expand **Where This Field Is Stored** for format-specific locations. **Learn More** opens a primary reference in the default browser only when selected.
+Search by a field name, a word in its explanation or a storage name such as `©day` or `TDRL`. Choose a result to read what the field is for and where to find it in AudioMator. **Where This Field Is Stored** always shows a padded, two-column table of tag formats, storage locations and availability. **Learn More** opens a primary reference in the default browser only when selected.
 
-The guide follows the system appearance and standard resizable window, searchable list, split-view selection and disclosure controls. It uses system text styles, selectable text and descriptive link labels. Technical mappings are secondary to the explanation. It is a reference, not another editor: it does not select music files, create drafts or change metadata. Inspector visibility remains controlled by Settings.
+The guide follows the system appearance and standard resizable window, searchable list, split-view selection and native GroupBox/Grid table controls. It uses system text styles, selectable text and descriptive link labels. Technical mappings follow the explanation and remain visible without a disclosure control. It is a reference, not another editor: it does not select music files, create drafts or change metadata. Inspector visibility remains controlled by Settings.
 
 ## Meaning and mapping
 
@@ -23,3 +23,5 @@ This is presentation, not whole-file canonicalisation. Existing raw keys and exa
 ## Settings and Inspector labels
 
 Settings → Interface, single/batch Inspector rows, batch edit labels, technical information and list column labels use the same AudioMator name source as the guide and Metadata Editor. Track and Disc list headers now say Track Number and Disc Number; their existing number/total display remains unchanged. Stored preference identifiers, curated defaults, selection, order, visibility and native write targets do not change.
+
+The field list’s preferred width is measured from the longest localized field name at the system body font size, including space for insets and a scrollbar. The list can be resized, and labels wrap when narrowed. The reference window opens wider to retain useful detail space alongside the list.

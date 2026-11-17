@@ -90,7 +90,7 @@ struct AudioMatorApp: App {
         Window("Metadata Field Guide", id: MetadataFieldGuideView.windowID) {
             MetadataFieldGuideView()
         }
-        .defaultSize(width: 900, height: 650)
+        .defaultSize(width: max(1_040, MetadataFieldGuideView.preferredSidebarWidth + 660), height: 700)
         .restorationBehavior(.disabled)
 
         Settings {

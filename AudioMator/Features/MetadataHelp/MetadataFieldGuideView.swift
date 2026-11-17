@@ -1,8 +1,19 @@
 import SwiftUI
+import AppKit
 import TagLibAudioMetadata
 
 struct MetadataFieldGuideView: View {
     static let windowID = "metadata-field-guide"
+    /// Use the actual localized labels at the system body size, including row
+    /// insets and the scrollbar, rather than guessing from character counts.
+    static var preferredSidebarWidth: CGFloat {
+        let font = NSFont.preferredFont(forTextStyle: .body)
+        let longest = MetadataFieldGuide.entries.map {
+            ($0.title as NSString).size(withAttributes: [.font: font]).width
+        }.max() ?? 0
+        return max(320, ceil(longest) + 64)
+    }
+
     @State private var query = ""
     @State private var selection: String? = MetadataFieldKey.title.rawValue
 
@@ -15,7 +26,10 @@ struct MetadataFieldGuideView: View {
         NavigationSplitView {
             List(selection: $selection) {
                 ForEach(results) { entry in
-                    Text(entry.title).tag(entry.id)
+                    Text(entry.title)
+                        .font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .tag(entry.id)
                 }
             }
             .overlay {
@@ -23,7 +37,7 @@ struct MetadataFieldGuideView: View {
                     ContentUnavailableView.search(text: query)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
+            .navigationSplitViewColumnWidth(min: 300, ideal: Self.preferredSidebarWidth, max: max(520, Self.preferredSidebarWidth))
             .searchable(text: $query, prompt: Text("Find a field or storage name"))
         } detail: {
             if let entry = results.first(where: { $0.id == selection }) {
@@ -38,7 +52,7 @@ struct MetadataFieldGuideView: View {
         .onChange(of: query) { _, _ in
             if !results.contains(where: { $0.id == selection }) { selection = results.first?.id }
         }
-        .frame(minWidth: 720, minHeight: 480)
+        .frame(minWidth: 840, minHeight: 480)
     }
 
     private func detail(_ entry: MetadataFieldGuide.Entry) -> some View {
@@ -75,11 +89,17 @@ struct MetadataFieldGuideView: View {
                 }
 
                 if entry.key != nil {
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("The names below are the storage locations used by AudioMator. They can differ from the names shown by other editors. Availability also depends on the tag version and the individual file.")
-                                .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Where This Field Is Stored").font(.headline).accessibilityAddTraits(.isHeader)
+                        Text("The names below are the storage locations used by AudioMator. They can differ from the names shown by other editors. Availability also depends on the tag version and the individual file.")
+                            .foregroundStyle(.secondary)
+                        GroupBox {
                             Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
+                                GridRow {
+                                    Text("Tag Format").font(.headline)
+                                    Text("Stored Field and Availability").font(.headline)
+                                }
+                                Divider().gridCellColumns(2)
                                 ForEach(MetadataNativeFamily.allCases, id: \.self) { family in
                                     GridRow(alignment: .top) {
                                         Text(familyTitle(family)).fontWeight(.medium)
@@ -92,20 +112,22 @@ struct MetadataFieldGuideView: View {
                                                 ForEach(Array(targets.enumerated()), id: \.offset) { _, target in
                                                     Text(nativeName(target)).font(.system(.body, design: .monospaced))
                                                 }
-                                                Text(availability(entry, family: family)).foregroundStyle(.secondary)
+                                                Text(availability(entry, family: family)).font(.callout).foregroundStyle(.secondary)
                                             }
                                         }
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    if family != MetadataNativeFamily.allCases.last {
+                                        Divider().gridCellColumns(2)
                                     }
                                 }
                             }
-                            Text("MP3 and some WAV, AIFF and DSD files use ID3 tags. FLAC and supported Ogg files use Vorbis comments; WMA uses ASF. A WAV file can contain both ID3 and RIFF INFO. These are tag formats, not guarantees based on a filename.")
-                                .foregroundStyle(.secondary)
+                            .padding(8)
                         }
-                        .padding(.top, 12)
-                    } label: {
-                        Text("Where This Field Is Stored").font(.headline)
+                        Text("MP3 and some WAV, AIFF and DSD files use ID3 tags. FLAC and supported Ogg files use Vorbis comments; WMA uses ASF. A WAV file can contain both ID3 and RIFF INFO. These are tag formats, not guarantees based on a filename.")
+                            .foregroundStyle(.secondary)
                     }
-
                 }
 
                 VStack(alignment: .leading, spacing: 8) {

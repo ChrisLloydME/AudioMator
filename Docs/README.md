@@ -12,7 +12,8 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 | Run tests and judge coverage | [Testing](Development/TESTING.md), [Metadata test strategy](Development/METADATA_TEST_STRATEGY.md) |
 | Understand the architecture | [Architecture Overview](Architecture/OVERVIEW.md) |
 | Work on metadata reading/writing | [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) |
-| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by package 0.7.3) |
+| Look up UI, app, package and native fields together | [Complete mapping table](Reference/METADATA_FIELD_MAPPING_TABLE.md) (published package 0.8.1) |
+| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by package 0.8.1) |
 | Work on conflicts, reloads, or file revisions | [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) |
 | Work on filename/text/CSV workflows | [Metadata Exchange](Architecture/METADATA_EXCHANGE.md), [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) |
 | Work on online providers | [Online Metadata](Architecture/ONLINE_METADATA.md) |
@@ -37,6 +38,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Architecture Overview](Architecture/OVERVIEW.md) — layers, composition, runtime flows, concurrency, error propagation, extension points.
 - [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) — state categories, file identity, mutation lifecycle, recovery semantics.
 - [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) — loading, editing, write preflight, conflict resolution, persistence, artwork, format behavior.
+- [Complete Metadata Field Mapping Table](Reference/METADATA_FIELD_MAPPING_TABLE.md) — UI labels, AudioMator properties, package identities and native mappings in one table.
 - [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — shared native-field interoperability contract, per-format target matrix, legacy totals/private-field migration, and conformance gates.
 - [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) — revision guards, conflict policies, reload paths, detection limits.
 - [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, field-transfer planning, exchange profile versioning, and write behavior.

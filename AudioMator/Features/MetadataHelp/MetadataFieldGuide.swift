@@ -3,14 +3,14 @@ import TagLibAudioMetadata
 
 /// Offline editorial explanations. Native targets come from the installed package,
 /// never from this copy or from a live web page.
-enum MetadataFieldGuide {
-    struct Source: Identifiable {
+nonisolated enum MetadataFieldGuide {
+    struct Source: Identifiable, Sendable {
         let id: String
         let title: String
         let url: URL
     }
 
-    struct Entry: Identifiable {
+    struct Entry: Identifiable, Sendable {
         let key: MetadataFieldKey?
         private let displayID: String?
         private let displayTitle: String?
@@ -28,8 +28,7 @@ enum MetadataFieldGuide {
         var schema: MetadataFieldSchema? { key.flatMap { MetadataFieldRegistry.schema(for: $0) } }
         var title: String {
             guard let key else { return displayTitle ?? id }
-            return InspectorMetadataField.configurableFields.first { $0.metadataFieldKey == key }?.displayName
-                ?? displayTitle ?? schema?.displayName ?? id
+            return MetadataFieldGuide.displayName(for: key)
         }
         func matches(_ query: String) -> Bool {
             let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -38,6 +37,33 @@ enum MetadataFieldGuide {
                 + (schema?.nativeTargets.map(\.nativeIdentity) ?? [])).joined(separator: " ")
             return terms.allSatisfy { text.localizedStandardContains($0) }
         }
+    }
+
+    static func displayName(for key: MetadataFieldKey) -> String {
+        switch key {
+        case .trackTotal: return L10n.string("Total Tracks")
+        case .discTotal: return L10n.string("Total Discs")
+        case .explicitContent: return L10n.string("Explicit")
+        default: return L10n.string(MetadataFieldRegistry.schema(for: key)?.displayName ?? key.rawValue)
+        }
+    }
+
+    /// Raw keys remain identities. Only presentation is translated here.
+    static func displayName(forRawKey key: String, fileExtensions: [String] = []) -> String {
+        let normalized = MetadataFieldRegistry.normalizePropertyMapKey(key)
+        if normalized == "RELEASETIME" { return displayName(for: .releaseDate) }
+        if normalized == "DATE", !fileExtensions.isEmpty {
+            let literalDateFamilies: Set<String> = ["flac", "ogg", "oga", "opus", "spx", "ape", "wv", "mpc"]
+            let owners = Set(fileExtensions.map { literalDateFamilies.contains($0.lowercased()) ? MetadataFieldKey.standaloneDate : .year })
+            if owners.count > 1 { return displayName(for: .year) + " / " + displayName(for: .standaloneDate) }
+            if owners.contains(.standaloneDate) { return displayName(for: .standaloneDate) }
+        }
+        guard let schema = MetadataFieldRegistry.schema(forPropertyMapKey: normalized) else { return key }
+        let name = displayName(for: schema.key)
+        if let colon = key.firstIndex(of: ":"), schema.isRoleQualified || schema.key == .comment || schema.key == .lyrics {
+            return name + " (" + key[key.index(after: colon)...] + ")"
+        }
+        return name
     }
 
     static let sources: [Source] = [

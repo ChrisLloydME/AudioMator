@@ -185,7 +185,8 @@ final class MetadataEditorStore: ObservableObject {
             mode: .edit,
             key: key,
             initialValue: isUniform ? firstValues.joined(separator: "\n") : "",
-            isMixed: !isUniform
+            isMixed: !isUniform,
+            displayName: MetadataFieldGuide.displayName(forRawKey: key, fileExtensions: targets.map { $0.url.pathExtension })
         )
     }
 

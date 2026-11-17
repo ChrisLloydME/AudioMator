@@ -4,6 +4,7 @@ import TagLibAudioMetadata
 struct MetadataFieldSuggestion: Identifiable, Hashable {
     let canonicalKey: String
     let displayName: String
+    let purpose: String
     let category: MetadataFieldCategory
     let aliases: [String]
     let searchKeys: [String]
@@ -11,7 +12,7 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
     nonisolated var id: String { canonicalKey }
 
     nonisolated var detailText: String {
-        "\(canonicalKey) · \(category.displayName)"
+        "\(canonicalKey) · \(purpose)"
     }
 
     nonisolated static let allSupported: [MetadataFieldSuggestion] = {
@@ -36,13 +37,15 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
 
         let aliases = Self.uniqueNormalizedKeys(schema.propertyMapKeys)
         let searchKeys = Self.uniqueSearchKeys([
-            schema.displayName,
+            MetadataFieldGuide.displayName(for: schema.key),
+            MetadataFieldGuide.entries.first { $0.key == schema.key }?.purpose ?? "",
             schema.category.displayName,
             canonicalKey
         ] + aliases)
 
         self.canonicalKey = canonicalKey
-        self.displayName = schema.displayName
+        self.displayName = MetadataFieldGuide.displayName(for: schema.key)
+        self.purpose = MetadataFieldGuide.entries.first { $0.key == schema.key }?.purpose ?? ""
         self.category = schema.category
         self.aliases = aliases
         self.searchKeys = searchKeys
@@ -62,8 +65,11 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
         guard !trimmedInput.isEmpty else { return "" }
 
         let normalizedInput = MetadataFieldRegistry.normalizePropertyMapKey(trimmedInput)
-        if let matchingAlias = suggestions.first(where: { $0.aliases.contains(normalizedInput) }) {
-            return matchingAlias.canonicalKey
+        // Uppercase raw input is explicit; do not redirect DATE to YEAR or
+        // retire an existing alias merely because its display name changed.
+        if trimmedInput == normalizedInput,
+           suggestions.contains(where: { $0.aliases.contains(normalizedInput) }) {
+            return normalizedInput
         }
 
         let displayNameMatches = suggestions.filter {
@@ -73,6 +79,9 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
             return match.canonicalKey
         }
 
+        if suggestions.contains(where: { $0.aliases.contains(normalizedInput) }) {
+            return normalizedInput
+        }
         return trimmedInput
     }
 

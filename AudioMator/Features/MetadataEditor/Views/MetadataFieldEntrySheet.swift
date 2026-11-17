@@ -12,6 +12,7 @@ struct MetadataFieldEditorContext: Identifiable {
     let key: String?
     let initialValue: String
     let isMixed: Bool
+    var displayName: String? = nil
 
     var id: String {
         switch mode {
@@ -30,6 +31,7 @@ struct MetadataFieldEntrySheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var fieldKey: String
+    @State private var selectedMappingKey: String?
     @State private var fieldValue: String
 
     init(
@@ -62,7 +64,7 @@ struct MetadataFieldEntrySheet: View {
     private var descriptionText: String {
         switch context.mode {
         case .add:
-            return L10n.string("Enter the property-map field name and its values, one value per line.")
+            return L10n.string("Choose an AudioMator field or enter a custom field name. Enter one value per line.")
         case .edit:
             if context.isMixed {
                 return L10n.string("Selected files currently contain different values. Saving replaces them with the same value list, one value per line.")
@@ -90,8 +92,9 @@ struct MetadataFieldEntrySheet: View {
 
                     MetadataFieldKeyAutocompleteField(
                         text: $fieldKey,
+                        selectedKey: $selectedMappingKey,
                         suggestions: MetadataFieldSuggestion.allSupported,
-                        placeholder: "For example: MUSICBRAINZ_ALBUMID"
+                        placeholder: "For example: Album or Release Date"
                     )
                     .frame(height: 24)
                 }
@@ -100,8 +103,8 @@ struct MetadataFieldEntrySheet: View {
                     Text("Field")
                         .font(.headline)
 
-                    Text(context.key ?? "")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    Text(context.displayName ?? MetadataFieldGuide.displayName(forRawKey: context.key ?? ""))
+                        .font(.system(size: 13, weight: .medium))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -134,7 +137,7 @@ struct MetadataFieldEntrySheet: View {
                 }
 
                 Button(context.mode == .add ? "Add" : "Save") {
-                    onSave(trimmedFieldKey, fieldValue)
+                    onSave(selectedMappingKey ?? MetadataFieldSuggestion.resolvedKey(for: trimmedFieldKey), fieldValue)
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -148,6 +151,7 @@ struct MetadataFieldEntrySheet: View {
 
 private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
     @Binding var text: String
+    @Binding var selectedKey: String?
     let suggestions: [MetadataFieldSuggestion]
     let placeholder: String
 
@@ -160,7 +164,7 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
         textField.delegate = context.coordinator
         textField.focusDelegate = context.coordinator
         textField.placeholderString = placeholder
-        textField.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        textField.font = .systemFont(ofSize: 13)
         textField.controlSize = .regular
         textField.focusRingType = .default
         textField.sendsSearchStringImmediately = true
@@ -224,6 +228,7 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             guard let textField = notification.object as? NSSearchField else { return }
 
             let newText = textField.stringValue
+            parent.selectedKey = nil
             parent.text = newText
             refreshSuggestions(for: newText)
             showDropdown()
@@ -303,12 +308,13 @@ private struct MetadataFieldKeyAutocompleteField: NSViewRepresentable {
             }
 
             let suggestion = filteredSuggestions[row]
-            textField.stringValue = suggestion.canonicalKey
-            parent.text = suggestion.canonicalKey
+            textField.stringValue = suggestion.displayName
+            parent.text = suggestion.displayName
+            parent.selectedKey = suggestion.canonicalKey
             closeDropdown()
 
             if let editor = textField.currentEditor() {
-                editor.selectedRange = NSRange(location: suggestion.canonicalKey.utf16.count, length: 0)
+                editor.selectedRange = NSRange(location: suggestion.displayName.utf16.count, length: 0)
                 textField.window?.makeFirstResponder(editor)
             }
         }

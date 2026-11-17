@@ -4,6 +4,7 @@ struct MetadataEditorRow: Identifiable, Hashable {
     let key: String
     let value: String
     let isMixed: Bool
+    var displayName: String = ""
 
     var id: String { key }
 
@@ -28,7 +29,8 @@ enum MetadataEditorDraftRows {
                 return MetadataEditorRow(
                     key: key,
                     value: firstValues.joined(separator: "\n"),
-                    isMixed: !isUniform
+                    isMixed: !isUniform,
+                    displayName: MetadataFieldGuide.displayName(forRawKey: key, fileExtensions: targets.map { $0.url.pathExtension })
                 )
             }
             .sorted { lhs, rhs in

@@ -5,6 +5,23 @@ import TagLibAudioMetadata
 #if os(macOS)
 @MainActor
 final class MetadataEditorStoreTests: XCTestCase {
+    func testFriendlyNamesNeverRedirectExistingRawDateOrAliasKeys() async throws {
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/aliases.m4a"))
+        let store = MetadataEditorStore(metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
+            file.url: ["DATE": "2004", "YEAR": "Keep", "ALBUM ARTIST": "Original"]
+        ]))
+        store.present(targetFiles: [file])
+        try await waitUntilLoaded(store)
+        store.upsertField(key: "DATE", value: "2005")
+        store.upsertField(key: "ALBUM ARTIST", value: "Updated")
+        store.upsertField(key: "Date", value: "2017-06-09")
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["DATE"], ["2005"])
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["YEAR"], ["Keep"])
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["ALBUM ARTIST"], ["Updated"])
+        XCTAssertNil(store.draftPropertyMaps[file.id]?["ALBUMARTIST"])
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["STANDALONEDATE"], ["2017-06-09"])
+    }
+
     func testPresentLoadsDraftMapsAndSelectsFirstField() async throws {
         let firstID = UUID()
         let secondID = UUID()

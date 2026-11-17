@@ -16,7 +16,7 @@ The reference layout follows Apple's [Offering help](https://developer.apple.com
 
 ## Shared field names in Metadata Editor
 
-The guide and Metadata Editor use the same AudioMator labels. The Add Field list shows the label first, then the actual PropertyMap key and purpose. Choosing a suggestion displays its friendly name while retaining its mapping identity separately. The Field table column and Edit Field sheet use friendly names; hovering a table field reveals its exact raw key. Custom names are preserved, and role/language/description suffixes remain distinguishable.
+The guide and Metadata Editor use the same AudioMator labels. The Add Field list shows the label first, then its purpose, without a Native or PropertyMap key. Choosing a suggestion displays its friendly name while retaining its mapping identity separately. The Field table column and Edit Field sheet use friendly names; hovering a table field reveals its exact raw key. Custom names are preserved, and role/language/description suffixes remain distinguishable.
 
 This is presentation, not whole-file canonicalisation. Existing raw keys and exact value arrays remain separate draft identities, even when two keys share a label. Explicit uppercase raw input remains raw; a friendly `Date` selection resolves to `STANDALONEDATE`, whereas existing raw `DATE` is not silently rewritten as `YEAR`. A DATE row is named according to the supported tag-family dialect (Year for ID3/MP4 engine DATE, Date for Xiph/APE literal DATE); a mixed-family row uses Year / Date rather than implying one meaning for all targets. Editing still uses the original raw key. The RELEASETIME display alias is shown as Release Date without renaming its stored key.
 

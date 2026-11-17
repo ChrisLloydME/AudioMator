@@ -39,3 +39,7 @@ Serial Debug compilation and the three MetadataFieldGuideTests passed with zero 
 ## Remove usage section
 
 Removed the entire “Using This Field” section at the maintainer's request. The detail view now contains purpose, the always-visible storage table where applicable, and references. `bash scripts/codex-build.sh` passed the Debug build; `git diff --check` passed. Build output: `.tmp/field-guide-remove-usage-build.log`. No tests, Release build or interactive app launch was performed for this view-only deletion.
+
+## Simplify suggestion subtitles
+
+On `fix-native-field-suggestions`, the maintainer chose to remove mapping names from the Add Field dropdown rather than add destination-specific native mapping subtitles. Suggestions now show only the shared AudioMator name and purpose. No native-format inference was retained, and write keys, aliases, row identity and the field-guide mapping table remain unchanged. Serial Debug compilation and all four MetadataEditorDraftRowsTests passed. Evidence: `.deriveddata-codex/Logs/Test/Test-AudioMator-2026.11.17_15-42-44-+0800.xcresult`; log `.tmp/suggestion-purpose-only-tests.log`. `git diff --check` passed. No Release build, full-suite run, manual UI launch or push was performed.

@@ -12,7 +12,7 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
     nonisolated var id: String { canonicalKey }
 
     nonisolated var detailText: String {
-        "\(canonicalKey) · \(purpose)"
+        purpose
     }
 
     nonisolated static let allSupported: [MetadataFieldSuggestion] = {

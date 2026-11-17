@@ -307,7 +307,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         guard case .failure(let reason) = result else {
             return XCTFail("Expected an unsupported-field failure")
         }
-        XCTAssertTrue(reason.contains("cannot write the requested metadata fields"))
+        XCTAssertTrue(reason.contains("can’t be saved in this file format"))
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
     }
 
@@ -374,7 +374,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             "Inspector writes must fail closed when the file changed after it was loaded."
         )
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
-        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("changed after the preview") == true)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("has changed since it was last checked") == true)
     }
 
     func testReloadedSnapshotRefreshesAnUnmodifiedInspectorDraft() {
@@ -464,7 +464,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
-        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("changed after the preview") == true)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("has changed since it was last checked") == true)
     }
 
     func testSaveInspectorEditsAppliesOnlyModifiedMultiFileFieldsToEachFile() async throws {
@@ -583,7 +583,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertFalse(applyResult.didApplyAllChanges)
         XCTAssertEqual(applyResult.failedTargetIDs, [file.id])
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
-        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("metadata was not loaded") == true)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("Metadata wasn’t loaded") == true)
     }
 
     func testMetadataEditorRawMapApplyRejectsFileChangedSinceEditorOpened() async throws {
@@ -614,7 +614,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             "Raw metadata writes must fail closed when the file changed after the editor opened."
         )
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
-        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("changed after the preview") == true)
+        XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("has changed since it was last checked") == true)
     }
 
     func testEraseMetadataRejectsFileChangedSinceSelection() async throws {
@@ -640,7 +640,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         guard case .failure(let reason) = result else {
             return XCTFail("Expected metadata erase to reject the stale file.")
         }
-        XCTAssertTrue(reason.contains("changed after the preview"))
+        XCTAssertTrue(reason.contains("has changed since it was last checked"))
         XCTAssertEqual(
             pipeline.eraseCount,
             0,

@@ -5,7 +5,7 @@ struct MetadataConflictError: LocalizedError {
     let fields: [String]
 
     nonisolated var errorDescription: String? {
-        String(localized: "The same metadata fields changed on disk and in your draft. Your draft was kept; choose a conflict strategy in Settings or reload before editing.")
+        String(localized: "Changes couldn’t be merged because these fields were edited both here and in the file. Your unsaved edits have been kept. Choose how to handle conflicts in Settings. Affected fields:")
             + " " + fields.sorted().joined(separator: ", ")
     }
 }
@@ -245,7 +245,7 @@ enum MetadataConflictResolver {
     ) -> AudioMetadataWriteResult {
         guard !fields.isEmpty else { return result }
         return AudioMetadataWriteResult(
-            warnings: result.warnings + [String(localized: "Kept disk changes instead of conflicting draft edits:") + " " + fields.sorted().joined(separator: ", ")],
+            warnings: result.warnings + [String(localized: "These fields kept the values already on disk. Your edits to them weren't saved:") + " " + fields.sorted().joined(separator: ", ")],
             commitStatus: result.commitStatus
         )
     }

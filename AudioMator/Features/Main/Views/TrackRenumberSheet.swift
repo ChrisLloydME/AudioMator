@@ -304,7 +304,7 @@ struct TrackRenumberSheet: View {
                     Divider()
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Failed Files", systemImage: "exclamationmark.triangle.fill")
+                        Label(String(localized: "Files That Couldn't Be Updated"), systemImage: "exclamationmark.triangle.fill")
                             .font(.headline)
                             .foregroundStyle(.secondary)
 

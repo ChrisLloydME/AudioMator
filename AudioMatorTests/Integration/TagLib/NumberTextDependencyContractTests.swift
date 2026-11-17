@@ -36,7 +36,7 @@ nonisolated final class NumberTextDependencyContractTests: XCTestCase {
             guard case .failure(let reason) = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file) else {
                 return XCTFail("Unsupported text must not be reported as saved")
             }
-            XCTAssertTrue(reason.contains(disc ? "Non-numeric disc" : "Non-numeric track"))
+            XCTAssertTrue(reason.contains(disc ? "Disc Number contains text" : "Track Number contains text"))
             XCTAssertEqual(try Data(contentsOf: url), beforeBytes)
             // Unedited text is legal stored metadata and must not block title edits.
             var unrelated = SingleFileEditModel(from: file)

@@ -56,14 +56,14 @@ nonisolated enum MetadataExchangeProfile {
             return Extraction(
                 source: source,
                 version: nil,
-                errorMessage: "The AudioMator metadata profile marker is not a valid version."
+                errorMessage: String(localized: "The import file's AudioMator version label isn't valid. Check the label or export the file again from AudioMator.")
             )
         }
         guard version >= legacyVersion, version <= currentVersion else {
             return Extraction(
                 source: source,
                 version: version,
-                errorMessage: "This AudioMator metadata profile version (\(version)) is newer than the supported version (\(currentVersion)). Update AudioMator before importing."
+                errorMessage: String(localized: "This file was exported with a newer metadata profile (\(version)). This version of AudioMator supports up to \(currentVersion). Update AudioMator before importing it.")
             )
         }
 
@@ -244,7 +244,7 @@ enum MetadataExchangeCSV {
             if let maximumFieldUTF8ByteCount,
                (additionalByteCount > maximumFieldUTF8ByteCount ||
                 fieldUTF8ByteCount > maximumFieldUTF8ByteCount - additionalByteCount) {
-                throw limitError("A CSV field exceeds the allowed size.")
+                throw limitError(String(localized: "A CSV cell is too large to import. Shorten its value or split the data into smaller parts."))
             }
             field.append(character)
             fieldUTF8ByteCount += additionalByteCount
@@ -253,7 +253,7 @@ enum MetadataExchangeCSV {
 
         func appendField() throws {
             if let maximumFieldCountPerRow, row.count >= maximumFieldCountPerRow {
-                throw limitError("A CSV row contains more columns than the template.")
+                throw limitError(String(localized: "This CSV row has more columns than the template. Remove the extra columns or add the corresponding fields to the template."))
             }
             row.append(MetadataExchangeCSVField(value: field, wasQuoted: fieldWasQuoted))
             field = ""
@@ -265,7 +265,7 @@ enum MetadataExchangeCSV {
 
         func appendRow() throws {
             if let maximumRowCount, rows.count >= maximumRowCount {
-                throw limitError("The CSV contains too many rows.")
+                throw limitError(String(localized: "This CSV has too many rows to import at once. Split it into smaller files."))
             }
             try appendField()
             rows.append(row)
@@ -304,7 +304,7 @@ enum MetadataExchangeCSV {
                     throw NSError(
                         domain: "MetadataExchangeCSV",
                         code: 1,
-                        userInfo: [NSLocalizedDescriptionKey: "Unexpected quote in an unquoted CSV field."]
+                        userInfo: [NSLocalizedDescriptionKey: String(localized: "A CSV cell contains a quote in the wrong place. Enclose the whole cell in quotes and write quotes inside it as two double quotes.")]
                     )
                 }
                 isQuoted = true
@@ -332,7 +332,7 @@ enum MetadataExchangeCSV {
                         throw NSError(
                             domain: "MetadataExchangeCSV",
                             code: 3,
-                            userInfo: [NSLocalizedDescriptionKey: "Unexpected text after a closing CSV quote."]
+                            userInfo: [NSLocalizedDescriptionKey: String(localized: "A CSV cell has text after its closing quote. Move that text inside the quotes or into another column.")]
                         )
                     }
                     index = text.index(after: index)
@@ -348,7 +348,7 @@ enum MetadataExchangeCSV {
             throw NSError(
                 domain: "MetadataExchangeCSV",
                 code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "CSV input ended inside a quoted field."]
+                userInfo: [NSLocalizedDescriptionKey: String(localized: "A quoted CSV cell is missing its closing quote. Add the closing quote before importing.")]
             )
         }
 

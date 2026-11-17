@@ -215,19 +215,19 @@ nonisolated enum MusicBrainzClientError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .emptyQuery:
-            return "Enter at least one search field."
+            return String(localized: "Fill in at least one search field.")
         case .invalidLink:
-            return "Paste a valid MusicBrainz link."
+            return String(localized: "This MusicBrainz link isn't valid. Check the link and paste it again.")
         case .unsupportedLink:
-            return "Only MusicBrainz release and recording links are supported."
+            return String(localized: "Paste a MusicBrainz release or recording link. Other MusicBrainz link types aren't supported here.")
         case .invalidRequest:
-            return "Couldn't create the MusicBrainz request."
+            return String(localized: "This MusicBrainz lookup couldn’t be started. Check the search details or link and try again.")
         case .requestFailed(let statusCode):
-            return "MusicBrainz returned HTTP \(statusCode)."
+            return String(localized: "This MusicBrainz lookup couldn’t be completed. Try again later.\nDetails: HTTP \(statusCode).")
         case .invalidResponse:
-            return "MusicBrainz returned an unexpected response."
+            return String(localized: "The response from MusicBrainz couldn’t be read. Try again later.")
         case .decodingFailed(let detail):
-            return "MusicBrainz returned data AudioMator couldn't read. \(detail)"
+            return String(localized: "The metadata from MusicBrainz couldn’t be read. Try again later.\nDetails: \(detail)")
         }
     }
 }

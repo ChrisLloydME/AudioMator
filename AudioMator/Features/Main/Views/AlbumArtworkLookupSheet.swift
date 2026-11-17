@@ -86,13 +86,13 @@ struct AlbumArtworkLookupSheet: View {
                     )
                 } else if let errorMessage = session.errorMessage {
                     ContentUnavailableView(
-                        "Artwork Lookup Failed",
+                        String(localized: "Artwork Lookup Couldn’t Be Completed"),
                         systemImage: "exclamationmark.triangle",
                         description: Text(errorMessage)
                     )
                 } else if let emptyMessage = session.emptyMessage {
                     ContentUnavailableView(
-                        "No Artwork Found",
+                        String(localized: "No Matching Artwork"),
                         systemImage: "photo.on.rectangle.angled",
                         description: Text(emptyMessage)
                     )

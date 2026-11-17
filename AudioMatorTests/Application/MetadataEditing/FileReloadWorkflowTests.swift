@@ -111,7 +111,7 @@ final class FileReloadWorkflowTests: XCTestCase {
 
         XCTAssertEqual(viewModel.files.first?.snapshotID, original.snapshotID)
         XCTAssertEqual(viewModel.edit?.title, "Original")
-        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Reload Failed")
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Files Couldn’t Be Reloaded")
         XCTAssertFalse(viewModel.isReloadingSelectedFiles)
     }
 

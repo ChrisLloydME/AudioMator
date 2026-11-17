@@ -319,7 +319,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
         XCTAssertEqual(
             store.loadErrorMessage,
-            "unreadable.mp3: The metadata could not be read."
+            "Metadata couldn’t be read from “unreadable.mp3”.\nDetails: The metadata could not be read."
         )
     }
 

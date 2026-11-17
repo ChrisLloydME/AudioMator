@@ -49,7 +49,7 @@ extension AudioViewModel {
         guard let data else {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
-                reason: "The selected photo could not be loaded."
+                reason: String(localized: "AudioMator couldn't load this photo. Choose another photo or import an image file.")
             )
             return
         }
@@ -78,7 +78,7 @@ extension AudioViewModel {
         guard let data = MacPasteboard.imageData else {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
-                reason: "No image was found in the clipboard."
+                reason: String(localized: "The clipboard doesn't contain an image. Copy an image, then paste again.")
             )
             return
         }
@@ -124,7 +124,7 @@ extension AudioViewModel {
                     guard !Task.isCancelled else { return }
                     self.presentMetadataWriteHUD(
                         style: .failure,
-                        title: "Artwork Update Failed",
+                        title: String(localized: "Artwork Couldn’t Be Updated"),
                         subtitle: (error as NSError).localizedDescription
                     )
                 }
@@ -142,8 +142,8 @@ extension AudioViewModel {
         guard let data else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Artwork Update Failed",
-                subtitle: "The selected photo could not be loaded."
+                title: String(localized: "Artwork Couldn’t Be Updated"),
+                subtitle: String(localized: "AudioMator couldn't load this photo. Choose another photo or import an image file.")
             )
             return
         }
@@ -160,7 +160,7 @@ extension AudioViewModel {
                 guard !Task.isCancelled else { return }
                 presentMetadataWriteHUD(
                     style: .failure,
-                    title: "Artwork Update Failed",
+                    title: String(localized: "Artwork Couldn’t Be Updated"),
                     subtitle: (error as NSError).localizedDescription
                 )
             }
@@ -173,8 +173,8 @@ extension AudioViewModel {
         guard let data = MacPasteboard.imageData else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Artwork Update Failed",
-                subtitle: "No image was found in the clipboard."
+                title: String(localized: "Artwork Couldn’t Be Updated"),
+                subtitle: String(localized: "The clipboard doesn't contain an image. Copy an image, then paste again.")
             )
             return
         }
@@ -191,7 +191,7 @@ extension AudioViewModel {
                 guard !Task.isCancelled else { return }
                 presentMetadataWriteHUD(
                     style: .failure,
-                    title: "Artwork Update Failed",
+                    title: String(localized: "Artwork Couldn’t Be Updated"),
                     subtitle: (error as NSError).localizedDescription
                 )
             }
@@ -214,7 +214,7 @@ extension AudioViewModel {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
             presentMetadataWriteFailure(
                 for: file.url.lastPathComponent,
-                reason: "This format does not support embedded artwork writing yet."
+                reason: String(localized: "This file format doesn't support saving embedded artwork in AudioMator.")
             )
             return false
         }
@@ -226,15 +226,15 @@ extension AudioViewModel {
         let unsupportedFiles = files.filter { !isArtworkWriteSupportedExtension($0.url.pathExtension) }
         guard unsupportedFiles.isEmpty else {
             let fileNames = unsupportedFiles.prefix(3).map(\.url.lastPathComponent)
-            var lines = ["Embedded artwork writing is not supported for all selected files."]
+            var lines = [String(localized: "Artwork can't be saved to every selected file. Select only files with supported formats before continuing.")]
             lines.append(contentsOf: fileNames)
             if unsupportedFiles.count > fileNames.count {
-                lines.append("...and \(unsupportedFiles.count - fileNames.count) more")
+                lines.append(String(localized: "Additional unsupported files: \(unsupportedFiles.count - fileNames.count)."))
             }
 
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Artwork Edit Unavailable",
+                title: String(localized: "Can't Edit Artwork for This Selection"),
                 subtitle: lines.joined(separator: "\n")
             )
             return false

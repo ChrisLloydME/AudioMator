@@ -23,13 +23,13 @@ enum UpdateCheckError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .missingCurrentVersion:
-            return "AudioMator could not read the current app version."
+            return String(localized: "The current app version couldn’t be determined, so updates can’t be checked.")
         case .missingReleaseVersion:
-            return "GitHub did not return a usable release version."
+            return String(localized: "The latest GitHub release doesn't include a usable version number. Check GitHub Releases manually.")
         case .malformedReleaseResponse:
-            return "GitHub returned release information AudioMator could not read."
+            return String(localized: "The version information from GitHub couldn’t be read. Check GitHub Releases manually.")
         case .rateLimited:
-            return "GitHub rate limited the update check. Please try again later."
+            return String(localized: "GitHub is limiting update checks. Wait a while before checking again.")
         case .requestFailed(let message):
             return message
         }

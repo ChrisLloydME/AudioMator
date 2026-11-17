@@ -9,13 +9,13 @@ enum LRCLIBClientError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .emptyQuery:
-            return "The selected file does not have enough title or artist metadata to search LRCLIB."
+            return String(localized: "Add a title or artist to this file before searching for lyrics.")
         case .invalidRequest:
-            return "AudioMator could not build a valid LRCLIB request."
+            return String(localized: "This LRCLIB search couldn’t be started. Check the search details and try again.")
         case .invalidResponse:
-            return "LRCLIB returned an unexpected response."
+            return String(localized: "The response from LRCLIB couldn’t be read. Try again later.")
         case .requestFailed(let statusCode):
-            return "LRCLIB request failed with HTTP \(statusCode)."
+            return String(localized: "This LRCLIB search couldn’t be completed. Try again later.\nDetails: HTTP \(statusCode).")
         }
     }
 }

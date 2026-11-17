@@ -331,9 +331,9 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
     }
 
     func applyDisabledReason(using plan: iTunesTaggingPlan) -> String? {
-        if selectedAvailableFields.isEmpty { return L10n.string("Choose at least one field to write.") }
-        if hasDuplicateTrackAssignments { return L10n.string("Each iTunes track can only be assigned once before writing.") }
-        if plan.writeEntries.isEmpty { return L10n.string("No selected fields would change any loaded files.") }
+        if selectedAvailableFields.isEmpty { return L10n.string("Select at least one metadata field to apply.") }
+        if hasDuplicateTrackAssignments { return L10n.string("Assign each iTunes track to only one file before applying metadata.") }
+        if plan.writeEntries.isEmpty { return L10n.string("There are no changes to apply to the loaded files. Check your selected fields and track assignments.") }
         return nil
     }
 
@@ -413,9 +413,9 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
 
         let issueMessage: String?
         if file == nil {
-            issueMessage = "The file is no longer loaded in AudioMator."
+            issueMessage = String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
         } else if file?.fileFingerprint == nil {
-            issueMessage = "The file version could not be captured. Reload the file before applying tags."
+            issueMessage = String(localized: "This file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying metadata.")
         } else if selectedTrack == nil {
             issueMessage = "No iTunes track is assigned."
         } else {

@@ -53,12 +53,12 @@ struct FileAccessSettingsTab: View {
             watchedFolderSelection.retainAvailableFolders(Set(folderIDs))
         }
         .alert(
-            String(localized: "Couldn't Add Folder"),
+            String(localized: "This Folder Couldn’t Be Added"),
             isPresented: authorizationErrorBinding
         ) {
             Button(String(localized: "OK"), role: .cancel) {}
         } message: {
-            Text(authorizationError ?? String(localized: "AudioMator couldn't save access to this folder."))
+            Text(authorizationError ?? String(localized: "Access to this folder couldn’t be saved for future use."))
         }
     }
 

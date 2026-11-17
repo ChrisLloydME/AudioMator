@@ -108,11 +108,11 @@ enum FilenameMetadataPreviewStatus: Equatable {
         case .unchanged:
             return L10n.string("Unchanged")
         case .noMatch:
-            return L10n.string("No Match")
+            return L10n.string("No Match Found")
         case .sourceUnavailable:
-            return L10n.string("File Unavailable")
+            return L10n.string("Couldn't Check File")
         case .noWritableFields:
-            return L10n.string("No Writable Fields")
+            return L10n.string("No Editable Fields")
         }
     }
 
@@ -123,11 +123,11 @@ enum FilenameMetadataPreviewStatus: Equatable {
         case .unchanged:
             return L10n.string("The extracted metadata already matches the file's current tags.")
         case .noMatch:
-            return L10n.string("The filename did not fully match the template.")
+            return L10n.string("The filename doesn't fully match the template. Check the field order and fixed text, leaving out the file extension.")
         case .sourceUnavailable:
-            return L10n.string("The file version could not be verified. Reload the file and try again.")
+            return L10n.string("The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
         case .noWritableFields:
-            return L10n.string("The template matched, but it did not extract any writable metadata fields.")
+            return L10n.string("The filename matches, but the template didn't extract any editable metadata. Add an editable field to the template.")
         }
     }
 
@@ -216,7 +216,7 @@ func makeFilenameMetadataPlan(
         return FilenameMetadataPlan(
             template: template,
             replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
-            validationMessage: L10n.string("The filename template is too large."),
+            validationMessage: L10n.string("This filename template is too long. Shorten it before continuing."),
             rows: []
         )
     }
@@ -288,7 +288,7 @@ private struct FilenameMetadataPlanBuilder {
         for index in document.segments.indices.dropLast() {
             guard case .field = document.segments[index] else { continue }
             guard case .field = document.segments[index + 1] else { continue }
-            return L10n.string("Add literal separators between metadata fields so AudioMator can parse the filename unambiguously.")
+            return L10n.string("Add text between adjacent fields so AudioMator can tell where each value starts and ends.")
         }
 
         return nil

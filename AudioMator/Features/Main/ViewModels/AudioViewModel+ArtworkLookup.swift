@@ -42,7 +42,7 @@ struct ArtworkLookupSession: Identifiable {
 extension AudioViewModel {
     func artworkLookupDisabledReason(for file: AudioFile) -> String? {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
-            return L10n.string("This format does not support embedded artwork writing yet.")
+            return L10n.string("This file format doesn't support saving embedded artwork in AudioMator.")
         }
 
         return makeArtworkLookupRequest(for: file) == nil
@@ -53,7 +53,7 @@ extension AudioViewModel {
     func artworkLookupDisabledReason(for files: [AudioFile]) -> String? {
         let unsupportedFiles = files.filter { !isArtworkWriteSupportedExtension($0.url.pathExtension) }
         guard unsupportedFiles.isEmpty else {
-            return L10n.string("Some selected formats do not support embedded artwork writing yet.")
+            return L10n.string("Some selected files use formats that don't support saving embedded artwork in AudioMator.")
         }
 
         if makeArtworkLookupRequest(for: files) != nil {
@@ -69,14 +69,14 @@ extension AudioViewModel {
             return L10n.string("Online artwork lookup for multiple files is only available when all selected tracks belong to the same album.")
         }
 
-        return L10n.string("Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value.")
+        return L10n.string("To look up artwork for several files together, select files with the same iTunes Album ID or the same Album value.")
     }
 
     func findOnlineArtwork(for file: AudioFile) {
         if let reason = artworkLookupDisabledReason(for: file) {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Artwork Lookup Unavailable",
+                title: String(localized: "Can't Look Up Artwork for This Selection"),
                 subtitle: reason
             )
             return
@@ -95,7 +95,7 @@ extension AudioViewModel {
         if let reason = artworkLookupDisabledReason(for: files) {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Artwork Lookup Unavailable",
+                title: String(localized: "Can't Look Up Artwork for This Selection"),
                 subtitle: reason
             )
             return
@@ -149,7 +149,7 @@ extension AudioViewModel {
             do {
                 let downloadedArtwork = try await withAsyncTimeout(
                     operationTimeout,
-                    operationName: "iTunes artwork download"
+                    operationName: String(localized: "Downloading artwork from iTunes")
                 ) {
                     try await service.downloadArtworkData(for: selectedResult)
                 }
@@ -167,7 +167,7 @@ extension AudioViewModel {
                         domain: "AudioMator.ArtworkLookup",
                         code: 1,
                         userInfo: [
-                            NSLocalizedDescriptionKey: "The selected files are no longer available."
+                            NSLocalizedDescriptionKey: String(localized: "The files selected for this artwork lookup are no longer available. Select the files again.")
                         ]
                     )
                 }
@@ -185,7 +185,7 @@ extension AudioViewModel {
                 guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
                 currentSession.isApplying = false
-                currentSession.errorMessage = L10n.string("The artwork download was cancelled.")
+                currentSession.errorMessage = L10n.string("Artwork download cancelled.")
                 artworkLookupSession = currentSession
                 artworkLookupTask = nil
             } catch {
@@ -225,7 +225,7 @@ extension AudioViewModel {
                 )
                 let results = try await withAsyncTimeout(
                     operationTimeout,
-                    operationName: "iTunes artwork search"
+                    operationName: String(localized: "Searching iTunes for artwork")
                 ) {
                     try await service.search(searchRequest)
                 }
@@ -236,7 +236,7 @@ extension AudioViewModel {
                 currentSession.isLoading = false
                 currentSession.results = results
                 currentSession.selectedResultID = results.first?.id
-                currentSession.emptyMessage = results.isEmpty ? "No artwork matched this search." : nil
+                currentSession.emptyMessage = results.isEmpty ? String(localized: "No artwork matches this search. Try a different album or artist name.") : nil
                 currentSession.errorMessage = nil
                 artworkLookupSession = currentSession
                 artworkLookupTask = nil
@@ -244,7 +244,7 @@ extension AudioViewModel {
                 guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
                 currentSession.isLoading = false
-                currentSession.errorMessage = L10n.string("The artwork search was cancelled.")
+                currentSession.errorMessage = L10n.string("Artwork search cancelled.")
                 currentSession.emptyMessage = nil
                 artworkLookupSession = currentSession
                 artworkLookupTask = nil

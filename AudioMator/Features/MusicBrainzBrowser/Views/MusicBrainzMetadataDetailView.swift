@@ -27,7 +27,7 @@ struct MusicBrainzMetadataDetailView: View {
 
             case .failed(let message):
                 ContentUnavailableView(
-                    "Unable to Load Metadata",
+                    String(localized: "Metadata Couldn’t Be Loaded"),
                     systemImage: "exclamationmark.triangle",
                     description: Text(message)
                 )
@@ -431,7 +431,7 @@ struct MusicBrainzMetadataDetailView: View {
                 do {
                     loadedMetadata.releasePresentation = try await withAsyncTimeout(
                         .seconds(10),
-                        operationName: "MusicBrainz match preview",
+                        operationName: String(localized: "Preparing the MusicBrainz match preview"),
                         priority: .userInitiated
                     ) {
                         MusicBrainzMetadataComparisonBuilder.presentation(

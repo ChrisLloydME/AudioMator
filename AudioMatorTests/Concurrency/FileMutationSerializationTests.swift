@@ -193,7 +193,7 @@ final class FileMutationSerializationTests: XCTestCase {
             return XCTFail("A post-commit reload timeout must not turn a successful write into a failure.")
         }
         XCTAssertFalse(success.didReloadFile)
-        XCTAssertTrue(success.reloadErrorDescription?.contains("timed out") == true)
+        XCTAssertTrue(success.reloadErrorDescription?.contains("took too long") == true)
 
         let followUpEntered = AsyncTestLatch()
         let followUpTask = Task {

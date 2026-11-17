@@ -13,7 +13,7 @@ extension AudioViewModel {
         guard values.count == targetFiles.count else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Import Failed",
+                title: String(localized: "Values Couldn’t Be Imported"),
                 subtitle: "Imported \(values.count) values for \(targetFiles.count) selected files."
             )
             return

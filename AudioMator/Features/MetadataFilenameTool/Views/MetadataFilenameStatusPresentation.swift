@@ -55,7 +55,7 @@ enum MetadataFilenameStatusPresentation {
         }
 
         if plan.noWritableCount > 0 {
-            return L10n.string("The template matched, but it did not extract any writable metadata fields.")
+            return L10n.string("The filename matches, but the template didn't extract any editable metadata. Add an editable field to the template.")
         }
 
         return "The extracted metadata already matches the current tags."

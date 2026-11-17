@@ -30,14 +30,14 @@ extension AudioViewModel {
                     )
                 } else {
                     self.presentMetadataWriteWarning(
-                        title: "Cleared with Issues",
+                        title: String(localized: "Metadata Cleared with Warnings"),
                         subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n"),
                         operation: .clear
                     )
                 }
             case .failure(let reason):
                 self.saveIssueLogStore.recordSingleIssue(
-                    title: "Clear Failed",
+                    title: String(localized: "Metadata Couldn’t Be Cleared"),
                     subtitle: [file.url.lastPathComponent, reason]
                         .filter { !$0.isEmpty }
                         .joined(separator: "\n"),
@@ -48,7 +48,7 @@ extension AudioViewModel {
                 )
                 self.presentMetadataWriteHUD(
                     style: .failure,
-                    title: "Clear Failed",
+                    title: String(localized: "Metadata Couldn’t Be Cleared"),
                     subtitle: [file.url.lastPathComponent, reason]
                         .filter { !$0.isEmpty }
                         .joined(separator: "\n")
@@ -134,11 +134,11 @@ extension AudioViewModel {
     ) async -> MetadataWriteExecutionResult {
         guard !file.requiresMetadataRefreshBeforeWriting else {
             return .failure(
-                "The file revision could not be verified after it moved. Reload the file before clearing metadata."
+                String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata.")
             )
         }
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            return .failure("This format does not support metadata writing yet.")
+            return .failure(String(localized: "AudioMator doesn't support saving metadata to this file format."))
         }
 
         return await executeMetadataFileMutation(

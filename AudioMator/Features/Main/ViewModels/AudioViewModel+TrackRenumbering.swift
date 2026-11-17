@@ -43,7 +43,7 @@ extension AudioViewModel {
         let skippedUnsupported = allTargets.count - supportedTargets.count
         let refreshFailures = supportedTargets.filter(\.requiresMetadataRefresh).map {
             TrackRenumberFailure(fileName: $0.url.lastPathComponent,
-                reason: String(localized: "The file revision could not be verified after it moved. Reload the file before renumbering tracks."))
+                reason: String(localized: "The file couldn’t be checked after it moved. Close this tool and choose Reload from Disk from the file’s context menu before changing track numbers."))
         }
         let writeTargets = supportedTargets.filter { !$0.requiresMetadataRefresh }
 
@@ -109,7 +109,7 @@ extension AudioViewModel {
                     result.failed += unprocessed.count
                     result.failures.append(contentsOf: unprocessed.map {
                         TrackRenumberFailure(fileName: $0.url.lastPathComponent,
-                            reason: String(localized: "Cancelled before this file was processed. No changes were made."))
+                            reason: String(localized: "Cancelled before this file was processed. This file wasn't changed."))
                     })
                     break
                 }
@@ -124,7 +124,7 @@ extension AudioViewModel {
                     result.failures.append(
                         TrackRenumberFailure(
                             fileName: target.url.lastPathComponent,
-                            reason: String(localized: "The file is no longer loaded in AudioMator.")
+                            reason: String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
                         )
                     )
                     continue
@@ -159,11 +159,11 @@ extension AudioViewModel {
 
                     var warningMessages = success.writeResult.warnings
                     if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
-                        warningMessages.append(String(localized: "Saved to disk, but macOS could not confirm directory durability. Do not retry this save as though it failed.") + " " + detail)
+                        warningMessages.append(String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.") + " " + detail)
                     }
                     if let reloadErrorDescription = success.reloadErrorDescription {
                         warningMessages.append(
-                            "Saved to disk, but the file could not be refreshed: \(reloadErrorDescription)"
+                            String(localized: "Your changes were saved, but the file couldn’t be reloaded. Choose Reload from Disk from its context menu to read the saved values.\nDetails: \(reloadErrorDescription)")
                         )
                     }
                     if !warningMessages.isEmpty {
@@ -184,7 +184,7 @@ extension AudioViewModel {
                     result.failures.append(
                         TrackRenumberFailure(
                             fileName: target.url.lastPathComponent,
-                            reason: "The track renumber operation was cancelled before it started."
+                            reason: String(localized: "Track numbering was cancelled before it began. No track numbers were changed.")
                         )
                     )
                 }

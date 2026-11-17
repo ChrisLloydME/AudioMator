@@ -81,7 +81,7 @@ extension AudioViewModel {
                     self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
                 } else {
                     self.presentMetadataWriteWarning(
-                        title: "Saved with Issues",
+                        title: String(localized: "Changes Saved with Warnings"),
                         subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
                     )
                 }
@@ -218,11 +218,11 @@ extension AudioViewModel {
     ) async -> MetadataWriteExecutionResult {
         guard !file.requiresMetadataRefreshBeforeWriting else {
             return .failure(
-                "The file revision could not be verified after it moved. Reload the file before editing metadata."
+                String(localized: "The file couldn’t be checked after it moved. Before editing, choose Reload from Disk from the file’s context menu. Unsaved Inspector edits must be discarded to reload.")
             )
         }
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            return .failure("This format does not support metadata writing yet.")
+            return .failure(String(localized: "AudioMator doesn't support saving metadata to this file format."))
         }
 
         let editPayload = MetadataEditPayload(edit, comparedTo: sourceFile ?? file)
@@ -239,7 +239,7 @@ extension AudioViewModel {
         if !unsupportedFields.isEmpty {
             let labels = unsupportedFields.map(\.rawValue).sorted().joined(separator: ", ")
             return .failure(
-                "This format cannot write the requested metadata fields: \(labels). No changes were made."
+                String(localized: "Changes to \(labels) can’t be saved in this file format. No changes were saved.")
             )
         }
 

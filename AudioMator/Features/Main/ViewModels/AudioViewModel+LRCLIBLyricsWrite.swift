@@ -11,8 +11,8 @@ extension AudioViewModel {
         guard let file = files.first(where: { $0.id == fileID }) else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Apply Lyrics Failed",
-                subtitle: "The file is no longer loaded in AudioMator."
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
+                subtitle: String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
             )
             return false
         }
@@ -20,8 +20,8 @@ extension AudioViewModel {
         guard !file.requiresMetadataRefreshBeforeWriting else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Apply Lyrics Failed",
-                subtitle: "The file revision could not be verified after it moved. Reload the file before applying lyrics."
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
+                subtitle: String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before applying lyrics.")
             )
             return false
         }
@@ -29,8 +29,8 @@ extension AudioViewModel {
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Apply Lyrics Failed",
-                subtitle: "This format does not support metadata writing yet."
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
+                subtitle: String(localized: "AudioMator doesn't support saving metadata to this file format.")
             )
             return false
         }
@@ -40,8 +40,8 @@ extension AudioViewModel {
         ).isEmpty else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Apply Lyrics Failed",
-                subtitle: "This format cannot write lyrics. No changes were made."
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
+                subtitle: String(localized: "This file format doesn't support saving lyrics in AudioMator. No changes were saved.")
             )
             return false
         }
@@ -81,7 +81,7 @@ extension AudioViewModel {
                 )
             } else {
                 presentMetadataWriteWarning(
-                    title: "Lyrics Applied with Issues",
+                    title: String(localized: "Lyrics Saved with Warnings"),
                     subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
                 )
             }
@@ -95,7 +95,7 @@ extension AudioViewModel {
             )
             endMetadataSaveProgress()
             saveIssueLogStore.recordSingleIssue(
-                title: "Apply Lyrics Failed",
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
                 subtitle: [file.url.lastPathComponent, reason]
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n"),
@@ -105,7 +105,7 @@ extension AudioViewModel {
             )
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Apply Lyrics Failed",
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
                 subtitle: [file.url.lastPathComponent, reason]
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n")
@@ -119,8 +119,8 @@ extension AudioViewModel {
         guard !matches.isEmpty else {
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "No Synced Lyrics Found",
-                subtitle: "LRCLIB did not return synced lyrics for the selected files."
+                title: String(localized: "No Synced Lyrics Available"),
+                subtitle: String(localized: "LRCLIB didn't find synced lyrics for these files. Try different search details or choose another result.")
             )
             return []
         }
@@ -149,7 +149,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: match.fileName,
-                        messages: ["LRCLIB returned empty synced lyrics."]
+                        messages: [String(localized: "This lyrics result is empty. Choose another result.")]
                     )
                 )
                 continue
@@ -159,7 +159,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: match.fileName,
-                        messages: ["The file is no longer loaded in AudioMator."]
+                        messages: [String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")]
                     )
                 )
                 continue
@@ -169,7 +169,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: file.url.lastPathComponent,
-                        messages: ["The file revision could not be verified after it moved. Reload the file before applying lyrics."]
+                        messages: [String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before applying lyrics.")]
                     )
                 )
                 continue
@@ -179,7 +179,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: file.url.lastPathComponent,
-                        messages: ["This format does not support metadata writing yet."]
+                        messages: [String(localized: "AudioMator doesn't support saving metadata to this file format.")]
                     )
                 )
                 continue
@@ -191,7 +191,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: file.url.lastPathComponent,
-                        messages: ["This format cannot write lyrics. No changes were made."]
+                        messages: [String(localized: "This file format doesn't support saving lyrics in AudioMator. No changes were saved.")]
                     )
                 )
                 continue

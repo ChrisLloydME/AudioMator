@@ -41,7 +41,7 @@ extension AudioViewModel {
             do {
                 try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) {
                     let refreshed = try await withAsyncTimeout(
-                        .seconds(60), operationName: "File reload", priority: .utility
+                        .seconds(60), operationName: String(localized: "Reloading the file"), priority: .utility
                     ) {
                         if !forceReload,
                            let fingerprint = target.fileFingerprint,
@@ -68,14 +68,14 @@ extension AudioViewModel {
             } catch is CancellationError {
                 break
             } catch {
-                failures.append("\(target.url.lastPathComponent): \((error as NSError).localizedDescription)")
+                failures.append(String(localized: "“\(target.url.lastPathComponent)” couldn’t be reloaded.\nDetails: \((error as NSError).localizedDescription)"))
             }
         }
 
         if forceReload, !failures.isEmpty {
             presentMetadataWriteHUD(
                 style: .warning,
-                title: String(localized: "Reload Failed"),
+                title: String(localized: "Files Couldn’t Be Reloaded"),
                 subtitle: failures.joined(separator: "\n")
             )
         }

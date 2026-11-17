@@ -19,7 +19,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> MetadataPatch {
         if edit.unsupportedAdvisoryImport != nil {
             throw CocoaError(.featureUnsupported, userInfo: [NSLocalizedDescriptionKey:
-                String(localized: "The dependency cannot assign unknown advisory codes. Existing unknown values are preserved; choose a known state explicitly to replace one.")])
+                String(localized: "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option.")])
         }
         let patch = MetadataPipelineSupport.metadataPatch(from: edit)
         return patch
@@ -43,7 +43,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             default: String(localized: "Track Number")
             }
             throw NSError(domain: "AudioMator.Numbering", code: 1, userInfo: [NSLocalizedDescriptionKey:
-                label + " — " + String(localized: "This file has conflicting or unreadable numbering values. Enter the value to save for this field and try again.")])
+                label + " — " + String(localized: "This numbering value couldn’t be determined. Enter the value you want to save.")])
         } catch TagLibManagerError.committedButDurabilityUncertain(let detail) {
             return AudioMetadataWriteResult(
                 warnings: [],

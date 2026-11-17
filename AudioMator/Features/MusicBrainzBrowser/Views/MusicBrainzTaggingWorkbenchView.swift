@@ -78,7 +78,7 @@ struct MusicBrainzTaggingWorkbenchView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     if store.hasDuplicateTrackAssignments {
                         WarningLabel(
-                            text: "Some MusicBrainz tracks are assigned to more than one file."
+                            text: String(localized: "Some MusicBrainz tracks are assigned to several files. Assign each track to only one file before applying metadata.")
                         )
                     }
 
@@ -90,13 +90,13 @@ struct MusicBrainzTaggingWorkbenchView: View {
 
                     if store.recordingFailureCount > 0 {
                         WarningLabel(
-                            text: "Some recording-detail lookups failed. Those fields will keep their current file tags."
+                            text: String(localized: "Some recording details couldn't be loaded. Those fields will keep their existing values.")
                         )
                     }
 
                     if plan.unresolvedIssueCount > 0 {
                         WarningLabel(
-                            text: "\(plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to a MusicBrainz track and remain loaded."
+                            text: String(localized: "\(plan.unresolvedIssueCount) files aren't ready for changes. Make sure each file is loaded in AudioMator and assigned to a MusicBrainz track.")
                         )
                     }
                 }
@@ -514,7 +514,7 @@ private enum MusicBrainzWorkbenchAppKitFactory {
                 selectedTrack.map(trackDetailLine),
                 assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" }
             ].compactMap { $0 },
-            warning: isDuplicate ? "This MusicBrainz track is assigned to more than one file." : nil,
+            warning: isDuplicate ? String(localized: "This MusicBrainz track is assigned to several files. Keep only one assignment before applying metadata.") : nil,
             optionTitles: tracks.map(trackOptionTitle),
             selectedOptionIndex: selectedOptionIndex,
             isEnabled: !isApplying
@@ -544,7 +544,7 @@ private enum MusicBrainzWorkbenchAppKitFactory {
             detailLines: [
                 selectedTrackDetail,
                 assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" },
-                isDuplicate ? "This MusicBrainz track is assigned to more than one file." : nil
+                isDuplicate ? String(localized: "This MusicBrainz track is assigned to several files. Keep only one assignment before applying metadata.") : nil
             ].compactMap { $0 },
             textHeightCache: textHeightCache
         )
@@ -686,7 +686,7 @@ private enum MusicBrainzWorkbenchAppKitFactory {
             case .loading, .idle:
                 return "Loading recording details..."
             case .failed:
-                return "Recording lookup failed."
+                return String(localized: "Recording details couldn’t be loaded. Try the lookup again.")
             case .loaded:
                 return change.remoteValue.isEmpty ? "—" : change.remoteValue
             }
@@ -945,7 +945,7 @@ private struct AssignmentEditorRow: View {
             }
 
             if isDuplicate {
-                Label("This MusicBrainz track is assigned to more than one file.", systemImage: "exclamationmark.triangle.fill")
+                Label(String(localized: "This MusicBrainz track is assigned to several files. Keep only one assignment before applying metadata."), systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(.orange)
             }
@@ -1078,7 +1078,7 @@ private struct PlanChangeRow: View {
             case .loading:
                 return "Loading recording details..."
             case .failed(let message):
-                return message.isEmpty ? "Recording lookup failed." : "Recording lookup failed."
+                return message.isEmpty ? String(localized: "Recording details couldn’t be loaded. Try the lookup again.") : String(localized: "Recording details couldn’t be loaded. Try the lookup again.")
             case .idle:
                 return "Loading recording details..."
             case .loaded:

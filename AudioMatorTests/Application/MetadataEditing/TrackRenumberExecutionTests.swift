@@ -108,7 +108,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
 
         XCTAssertEqual(result.failed, 1)
         XCTAssertEqual(result.succeeded, 0)
-        XCTAssertTrue(result.failures.first?.reason.contains("changed after the preview") == true)
+        XCTAssertTrue(result.failures.first?.reason.contains("has changed since it was last checked") == true)
         XCTAssertTrue(
             pipeline.verifyAfterWriteValues.isEmpty,
             "Track renumbering must not write when its loaded file fingerprint is stale."

@@ -217,12 +217,12 @@ final class AudioViewModel: ObservableObject {
 
         if watchedFolderStore.loadState == .corrupt {
             bookmarkPersistenceWarnings.append(
-                String(localized: "Saved watched folders could not be read. The original data was preserved for recovery and will not be overwritten.")
+                String(localized: "Your watched folder list couldn’t be loaded. The saved list has been kept and won’t be overwritten.")
             )
         }
         if fileAccessGrantStore.loadState == .corrupt {
             bookmarkPersistenceWarnings.append(
-                String(localized: "Saved file-access folders could not be read. The original data was preserved for recovery and will not be overwritten.")
+                String(localized: "Your saved folder permissions couldn’t be loaded. The saved records have been kept and won’t be overwritten.")
             )
         }
 
@@ -404,7 +404,7 @@ final class AudioViewModel: ObservableObject {
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
         saveIssueLogStore.recordSingleIssue(
-            title: "Save Failed",
+            title: String(localized: "Changes Couldn’t Be Saved"),
             subtitle: subtitle,
             fileName: fileName,
             messages: [reason],
@@ -413,7 +413,7 @@ final class AudioViewModel: ObservableObject {
 
         presentMetadataWriteHUD(
             style: .failure,
-            title: "Save Failed",
+            title: String(localized: "Changes Couldn’t Be Saved"),
             subtitle: subtitle
         )
     }
@@ -518,7 +518,7 @@ final class AudioViewModel: ObservableObject {
             presentMetadataWriteHUD(
                 style: .failure,
                 title: String(localized: "Folder Not Added"),
-                subtitle: String(localized: "AudioMator preserved unreadable saved-folder data instead of overwriting it.")
+                subtitle: String(localized: "The saved folder records couldn't be read. AudioMator has kept the original records without overwriting them.")
             )
             return duplicateSelection ?? .watchedLibrary
         }
@@ -541,9 +541,9 @@ final class AudioViewModel: ObservableObject {
     nonisolated static func watchedFolderAccessFailureMessage(for displayNames: [String]) -> String {
         guard let firstName = displayNames.first else { return "" }
         if displayNames.count == 1 {
-            return String(localized: "AudioMator couldn't save access to “\(firstName)”.")
+            return String(localized: "Access to “\(firstName)” couldn’t be saved for future use.")
         }
-        return String(localized: "AudioMator couldn't save access to \(displayNames.count) selected folders.")
+        return String(localized: "Access to \(displayNames.count) selected folders couldn’t be saved for future use.")
     }
 
     func removeWatchedFolder(id: UUID) {
@@ -839,11 +839,11 @@ final class AudioViewModel: ObservableObject {
                 let detail = (error as NSError).localizedDescription
                 if safetyState.0 != nil, safetyState.1 != nil {
                     warnings.append(
-                        "\(change.newURL.lastPathComponent): Renamed successfully and recovered its safety revision, but the full metadata refresh failed: \(detail)"
+                        String(localized: "“\(change.newURL.lastPathComponent)” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: \(detail)")
                     )
                 } else {
                     warnings.append(
-                        "\(change.newURL.lastPathComponent): Renamed successfully, but its safety revision could not be refreshed. Metadata editing is disabled until the file is reloaded: \(detail)"
+                        String(localized: "“\(change.newURL.lastPathComponent)” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: \(detail)")
                     )
                 }
             }
@@ -1283,12 +1283,12 @@ final class AudioViewModel: ObservableObject {
             return "\(fileName): \(reason)"
         }
         if failures.count > lines.count {
-            lines.append("...and \(failures.count - lines.count) more")
+            lines.append(String(localized: "Additional files couldn’t be imported: \(failures.count - lines.count)."))
         }
 
         presentMetadataWriteHUD(
             style: .warning,
-            title: failures.count == 1 ? "File Not Imported" : "Some Files Were Not Imported",
+            title: failures.count == 1 ? String(localized: "This File Couldn’t Be Imported") : String(localized: "Some Files Couldn’t Be Imported"),
             subtitle: lines.joined(separator: "\n")
         )
     }
@@ -1317,7 +1317,7 @@ final class AudioViewModel: ObservableObject {
         )
 
         guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
-            return String(localized: "Modifying files requires folder access for “\(displayName)”.")
+            return String(localized: "Allow access to “\(displayName)” to change files inside it.")
         }
 
         guard Self.urlKey(for: selectedURL) == key else {
@@ -1329,7 +1329,7 @@ final class AudioViewModel: ObservableObject {
             return nil
         } catch {
             return String(
-                localized: "AudioMator couldn't save access to “\(displayName)”: \((error as NSError).localizedDescription)"
+                localized: "Access to “\(displayName)” couldn’t be saved for future use.\nDetails: \((error as NSError).localizedDescription)"
             )
         }
     }

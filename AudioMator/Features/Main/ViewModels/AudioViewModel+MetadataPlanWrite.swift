@@ -43,11 +43,11 @@ extension AudioViewModel {
             guard entry.values.allSatisfy({ field, value in
                 field.supportsFilenameToMetadataWriting && field.acceptsExtractedValue(value)
             }) else {
-                return (entry.fileName, .failure(String(localized: "The filename metadata plan contains an invalid field or value. Refresh the preview and try again.")))
+                return (entry.fileName, .failure(String(localized: "Some values in this filename preview can’t be applied. Close and reopen this tool, then check the template and preview.")))
             }
 
             guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
-                return (entry.fileName, .failure(String(localized: "The file version could not be verified. Refresh the preview and try again.")))
+                return (entry.fileName, .failure(String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -155,11 +155,11 @@ extension AudioViewModel {
                         : field.importedValueValidationMessage(value)) == nil
                 )
             }) else {
-                return (entry.fileName, .failure(String(localized: "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again.")))
+                return (entry.fileName, .failure(String(localized: "Some values in this import preview can’t be applied. Close and reopen this tool, then check the template and imported values.")))
             }
 
             guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
-                return (entry.fileName, .failure(String(localized: "The file version could not be verified. Refresh the preview and try again.")))
+                return (entry.fileName, .failure(String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -226,8 +226,8 @@ extension AudioViewModel {
     private func presentDuplicateMetadataPlanFailure() {
         presentMetadataWriteHUD(
             style: .failure,
-            title: String(localized: "Write Failed"),
-            subtitle: String(localized: "The write plan contains more than one entry for the same file. Refresh the preview and try again.")
+            title: String(localized: "Changes Couldn’t Be Applied"),
+            subtitle: String(localized: "The same file is included more than once in this preview. Close and reopen this tool before applying changes.")
         )
     }
 
@@ -242,8 +242,8 @@ extension AudioViewModel {
 
 private func metadataPlanFileLookupFailureMessage(matchingFiles: [AudioFile]?) -> String {
     guard matchingFiles != nil else {
-        return String(localized: "The file is no longer loaded in AudioMator.")
+        return String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
     }
 
-    return String(localized: "More than one loaded file has the same identifier. Reload the files and try again.")
+    return String(localized: "These loaded files couldn’t be uniquely identified. Remove them from AudioMator and import them again.")
 }

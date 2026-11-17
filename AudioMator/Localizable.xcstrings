@@ -46,6 +46,65 @@
         }
       }
     },
+    "“%@” couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying changes." : {
+
+    },
+    "“%@” couldn’t be reloaded.\nDetails: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” couldn’t be reloaded.\nDetails: %2$@"
+          }
+        }
+      }
+    },
+    "“%@” couldn’t be renamed.\nDetails: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” couldn’t be renamed.\nDetails: %2$@"
+          }
+        }
+      }
+    },
+    "“%@” couldn’t be restored to “%@”. Check its current location before renaming it again.\nDetails: " : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” couldn’t be restored to “%2$@”. Check its current location before renaming it again.\nDetails: "
+          }
+        }
+      }
+    },
+    "“%@” has changed since it was last checked. The current values must be reviewed before these changes can be applied." : {
+
+    },
+    "“%@” isn't a supported field. Choose a field from the available list." : {
+
+    },
+    "“%@” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: %2$@"
+          }
+        }
+      }
+    },
+    "“%@” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: %2$@"
+          }
+        }
+      }
+    },
     "%@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Short UI token; keep compact and verify it still fits in tight controls. Usage may be indirect through localized keys or generated SwiftUI extraction.",
       "extractionState" : "stale",
@@ -172,16 +231,6 @@
         }
       }
     },
-    "%@ = %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ = %2$@"
-          }
-        }
-      }
-    },
     "%@ change%@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 2 %@ placeholders and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
       "extractionState" : "stale",
@@ -265,6 +314,9 @@
           }
         }
       }
+    },
+    "%@ contains a hidden character that can’t be saved. Remove it before importing.\nDetails: null character (U+0000)." : {
+
     },
     "%@ files selected" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -392,6 +444,9 @@
         }
       }
     },
+    "%@ took too long to complete." : {
+
+    },
     "%lld" : {
 
     },
@@ -415,6 +470,9 @@
         }
       }
     },
+    "%lld audio files couldn't be read" : {
+
+    },
     "%lld change%@" : {
       "localizations" : {
         "en" : {
@@ -425,10 +483,37 @@
         }
       }
     },
-    "%lld file(s) skipped" : {
+    "%lld files" : {
+
+    },
+    "%lld files aren't ready for changes. Make sure each file is loaded in AudioMator and assigned to a MusicBrainz track." : {
+
+    },
+    "%lld files aren't ready for changes. Make sure each file is loaded in AudioMator and assigned to an iTunes track." : {
+
+    },
+    "%lld files couldn’t be updated." : {
+
+    },
+    "%lld files have warnings." : {
 
     },
     "%lld files selected" : {
+
+    },
+    "%lld files were renamed." : {
+
+    },
+    "%lld files were skipped." : {
+
+    },
+    "%lld folder scans couldn't be completed" : {
+
+    },
+    "%lld folders couldn't be opened" : {
+
+    },
+    "%lld folders exceed the monitoring limit" : {
 
     },
     "%lld of %lld recording details loaded" : {
@@ -533,6 +618,48 @@
     "1" : {
 
     },
+    "1 audio file couldn’t be read" : {
+
+    },
+    "1 file" : {
+
+    },
+    "1 file couldn’t be updated." : {
+
+    },
+    "1 file has warnings." : {
+
+    },
+    "1 file was renamed." : {
+
+    },
+    "1 file was skipped." : {
+
+    },
+    "1 folder scan couldn’t be completed" : {
+
+    },
+    "A content advisory: Not Explicit (0), Explicit (1), Clean (2), or Unset when absent. This describes the content, not its audio quality." : {
+
+    },
+    "A content-group label. AudioMator stores it separately from Grouping and Work; other editors may name these slots differently." : {
+
+    },
+    "A copyright notice, including any year and owner." : {
+
+    },
+    "A CSV cell contains a quote in the wrong place. Enclose the whole cell in quotes and write quotes inside it as two double quotes." : {
+
+    },
+    "A CSV cell has text after its closing quote. Move that text inside the quotes or into another column." : {
+
+    },
+    "A CSV cell is too large to import. Shorten its value or split the data into smaller parts." : {
+
+    },
+    "A description supplied for a store item." : {
+
+    },
     "A different file already exists at the target path." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:135.",
       "extractionState" : "stale",
@@ -575,6 +702,48 @@
         }
       }
     },
+    "A field you name yourself. Use it only when no existing field describes the information." : {
+
+    },
+    "A grouping label for organising related tracks. AudioMator keeps this separate from Work and Content Group." : {
+
+    },
+    "A mood description for browsing." : {
+
+    },
+    "A name for this disc within a set." : {
+
+    },
+    "A playback volume adjustment for this track." : {
+
+    },
+    "A quoted CSV cell is missing its closing quote. Add the closing quote before importing." : {
+
+    },
+    "A recording’s industry identification code." : {
+
+    },
+    "A separate Date value already used by some files. Leave it empty unless you need it; AudioMator never fills it from Year or Release Date." : {
+
+    },
+    "A shared playback adjustment preserving an album’s relative levels." : {
+
+    },
+    "A sorting name for the album artist." : {
+
+    },
+    "A sorting name for the composer." : {
+
+    },
+    "A stored gapless-playback flag; it does not remove silence." : {
+
+    },
+    "A stored high-definition video flag." : {
+
+    },
+    "A style used for browsing music." : {
+
+    },
     "A total without a number cannot be saved safely. Choose different fields; no changes were made." : {
       "comment" : "Metadata Exchange field transfer safety guard for total-only number pairs.",
       "extractionState" : "manual",
@@ -613,6 +782,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
+          }
+        }
+      }
+    },
+    "A value in the response uses an unexpected format.\nDetails: expected %@ at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "A value in the response uses an unexpected format.\nDetails: expected %1$@ at %2$@."
+          }
+        }
+      }
+    },
+    "A value is missing from the response.\nDetails: expected %@ at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "A value is missing from the response.\nDetails: expected %1$@ at %2$@."
           }
         }
       }
@@ -712,6 +901,25 @@
         }
       }
     },
+    "Access to “%@” couldn’t be saved for future use." : {
+
+    },
+    "Access to “%@” couldn’t be saved for future use.\nDetails: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Access to “%1$@” couldn’t be saved for future use.\nDetails: %2$@"
+          }
+        }
+      }
+    },
+    "Access to %lld selected folders couldn’t be saved for future use." : {
+
+    },
+    "Access to this folder couldn’t be saved for future use." : {
+
+    },
     "Acknowledgements" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:18.",
       "localizations" : {
@@ -767,6 +975,9 @@
 
     },
     "Add a Template" : {
+
+    },
+    "Add a title or artist to this file before searching for lyrics." : {
 
     },
     "Add at least one metadata field to extract from the filename." : {
@@ -1244,6 +1455,18 @@
         }
       }
     },
+    "Additional files couldn’t be imported: %lld." : {
+
+    },
+    "Additional title information." : {
+
+    },
+    "Additional unsupported files: %lld." : {
+
+    },
+    "Additional warnings: %lld." : {
+
+    },
     "Album" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:31, AudioMator/Domain/UIState/MiddleListColumn.swift:37, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:116, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:34.",
       "extractionState" : "stale",
@@ -1331,10 +1554,43 @@
     "Allow" : {
 
     },
+    "Allow access to “%@” to change files inside it." : {
+
+    },
     "Allow File Access" : {
 
     },
     "Allow Folder Access" : {
+
+    },
+    "An AcoustID match identifier." : {
+
+    },
+    "An alternative album name used for sorting." : {
+
+    },
+    "An alternative artist name used for sorting." : {
+
+    },
+    "An alternative series name used for sorting." : {
+
+    },
+    "An alternative title used for sorting." : {
+
+    },
+    "An Amazon catalogue identifier." : {
+
+    },
+    "An audio fingerprint used for matching." : {
+
+    },
+    "An episode’s text identifier, separate from its number." : {
+
+    },
+    "An existing rating value. AudioMator does not offer typed editing because no rating scale is established." : {
+
+    },
+    "An older MusicIP matching identifier; preserve existing values." : {
 
     },
     "Any" : {
@@ -1350,9 +1606,6 @@
 
     },
     "Apply a text transform to selected metadata values. Fields missing from a file are skipped." : {
-
-    },
-    "Apply Cleanup" : {
 
     },
     "Apply Synced Lyrics" : {
@@ -1486,6 +1739,9 @@
         }
       }
     },
+    "Artwork can't be saved to every selected file. Select only files with supported formats before continuing." : {
+
+    },
     "Artwork changes stay pending until you tap Save." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/iPad/Views/IPadInspectorView.swift:566.",
       "extractionState" : "stale",
@@ -1527,6 +1783,9 @@
           }
         }
       }
+    },
+    "Artwork Couldn’t Be Updated" : {
+
     },
     "Artwork differs across selected files" : {
       "comment" : "User-facing UI text. Context: album artwork editing or lookup workflow. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:546.",
@@ -1570,7 +1829,7 @@
         }
       }
     },
-    "Artwork Lookup Failed" : {
+    "Artwork Lookup Couldn’t Be Completed" : {
 
     },
     "Artwork will be removed from all selected files" : {
@@ -1656,6 +1915,12 @@
         }
       }
     },
+    "Asks compatible players to display work and movement information." : {
+
+    },
+    "Audio samples per second. Changing this requires audio conversion, not a metadata edit." : {
+
+    },
     "AudioMator" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/App/AudioMatorApp.swift:2, AudioMator/Domain/AudioFiles/AudioFile.swift:3, AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift:202, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:337.",
       "extractionState" : "stale",
@@ -1740,29 +2005,10 @@
         }
       }
     },
-    "AudioMator can only import a regular text file." : {
+    "AudioMator couldn't load this photo. Choose another photo or import an image file." : {
 
     },
-    "AudioMator couldn't read that file as UTF-8, UTF-16, Windows-1252, or Mac Roman text." : {
-
-    },
-    "AudioMator couldn't save access to “%@”: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "AudioMator couldn't save access to “%1$@”: %2$@"
-          }
-        }
-      }
-    },
-    "AudioMator couldn't save access to “%@”." : {
-
-    },
-    "AudioMator couldn't save access to %lld selected folders." : {
-
-    },
-    "AudioMator couldn't save access to this folder." : {
+    "AudioMator doesn't support saving metadata to this file format." : {
 
     },
     "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers." : {
@@ -1932,9 +2178,6 @@
         }
       }
     },
-    "AudioMator preserved unreadable saved-folder data instead of overwriting it." : {
-
-    },
     "AudioMator runs in the macOS App Sandbox. It can read and edit files only in folders you choose." : {
 
     },
@@ -1987,6 +2230,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自动匹配：%@"
+          }
+        }
+      }
+    },
+    "Automatic refresh is active for %lld of %lld folders.\nDetails: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Automatic refresh is active for %1$lld of %2$lld folders.\nDetails: %3$@."
           }
         }
       }
@@ -2095,7 +2348,6 @@
     },
     "Bitrate" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:65, AudioMator/Domain/AudioFiles/AudioFile.swift:548, AudioMator/Features/Main/Views/InspectorPane.swift:829, AudioMator/Features/Main/Views/Formatters.swift:18.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2176,7 +2428,10 @@
         }
       }
     },
-    "Build a Preview" : {
+    "Can't Edit Artwork for This Selection" : {
+
+    },
+    "Can't Look Up Artwork for This Selection" : {
 
     },
     "Cancel" : {
@@ -2261,7 +2516,7 @@
         }
       }
     },
-    "Cancelled before this file was processed. No changes were made." : {
+    "Cancelled before this file was processed. This file wasn't changed." : {
 
     },
     "Candidates" : {
@@ -2480,9 +2735,42 @@
         }
       }
     },
+    "Changes Couldn’t Be Applied" : {
+
+    },
+    "Changes couldn’t be merged because these fields were edited both here and in the file. Your unsaved edits have been kept. Choose how to handle conflicts in Settings. Affected fields:" : {
+
+    },
+    "Changes Couldn’t Be Saved" : {
+
+    },
+    "Changes in some subfolders may take longer to appear." : {
+
+    },
+    "Changes Saved to Some Files" : {
+
+    },
+    "Changes Saved with Warnings" : {
+
+    },
+    "Changes to %@ can’t be saved in this file format. No changes were saved." : {
+
+    },
+    "Changes were saved to %lld of %lld files." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Changes were saved to %1$lld of %2$lld files."
+          }
+        }
+      }
+    },
+    "Changes were saved to this file." : {
+
+    },
     "Channels" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:69, AudioMator/Domain/AudioFiles/AudioFile.swift:562, AudioMator/Features/Main/Views/InspectorPane.swift:833, AudioMator/Features/iPad/Views/IPadInspectorView.swift:156.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2523,6 +2811,12 @@
       }
     },
     "Check for Updates…" : {
+
+    },
+    "Check the locations of these files before continuing (%@):" : {
+
+    },
+    "Choose a destination field different from the source field." : {
 
     },
     "Choose a different destination field." : {
@@ -2567,7 +2861,13 @@
         }
       }
     },
+    "Choose a Field" : {
+
+    },
     "Choose a result to preview the lyrics before applying." : {
+
+    },
+    "Choose an editable source field and an editable destination field." : {
 
     },
     "Choose another candidate with synced lyrics." : {
@@ -2656,6 +2956,9 @@
           }
         }
       }
+    },
+    "Choose between 1 and 200 search results." : {
+
     },
     "Choose exactly which iTunes values should overwrite the current file tags." : {
 
@@ -2868,9 +3171,6 @@
           }
         }
       }
-    },
-    "Choose how numbering should be resolved, then build the preview before applying it." : {
-
     },
     "Choose one artwork result." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/Main/Views/AlbumArtworkLookupSheet.swift:142.",
@@ -3164,15 +3464,6 @@
           }
         }
       }
-    },
-    "Cleaning Up Numbering" : {
-
-    },
-    "Cleanup Failed" : {
-
-    },
-    "Cleanup Preview Failed" : {
-
     },
     "Clear" : {
 
@@ -3480,6 +3771,9 @@
           }
         }
       }
+    },
+    "Comparing metadata with iTunes" : {
+
     },
     "Composer" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:33, AudioMator/Domain/UIState/MiddleListColumn.swift:41, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:120, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:306.",
@@ -3915,7 +4209,7 @@
         }
       }
     },
-    "Couldn't Add Folder" : {
+    "Cover images stored with the audio." : {
 
     },
     "Create IDs" : {
@@ -3926,7 +4220,6 @@
     },
     "Credits" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:59, AudioMator/Domain/UIState/MiddleListColumn.swift:59, AudioMator/Domain/AudioFiles/AudioFile.swift:498, AudioMator/Domain/Rename/FileRenameTemplate.swift:52.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3962,6 +4255,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "製作名單"
+          }
+        }
+      }
+    },
+    "CSV column %lld is “%@”, but the template expects %@. Reorder the CSV columns or change the template to match." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "CSV column %1$lld is “%2$@”, but the template expects %3$@. Reorder the CSV columns or change the template to match."
           }
         }
       }
@@ -4010,6 +4313,9 @@
           }
         }
       }
+    },
+    "Current location couldn't be determined" : {
+
     },
     "Current Name" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:1581.",
@@ -4306,9 +4612,6 @@
     "Date" : {
 
     },
-    "Date-based filenames are unavailable for unverified ID3v2.3 date projections." : {
-
-    },
     "Dates" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:121.",
       "extractionState" : "stale",
@@ -4484,6 +4787,7 @@
     },
     "Disc" : {
       "comment" : "Short UI label. Context: disc-number metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:13, AudioMator/Domain/UIState/MiddleListColumn.swift:49, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:128, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:247.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4525,7 +4829,6 @@
     },
     "Disc Number" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: disc-number metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:43, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:128, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:316, AudioMator/Domain/Rename/FileRenameTemplate.swift:42.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4561,16 +4864,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "碟片編號"
-          }
-        }
-      }
-    },
-    "Disc: %@ / %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Disc: %1$@ / %2$@"
           }
         }
       }
@@ -4705,6 +4998,9 @@
         }
       }
     },
+    "Downloading artwork from iTunes" : {
+
+    },
     "Duplicate Target" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:118.",
       "extractionState" : "stale",
@@ -4749,7 +5045,6 @@
     },
     "Duration" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:63, AudioMator/Infrastructure/LRCLIB/LRCLIBCandidateRanker.swift:37, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:576, AudioMator/Features/Main/ViewModels/AudioViewModel.swift:14.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5299,9 +5594,6 @@
         }
       }
     },
-    "Enter a positive whole number, or leave the field empty to remove it." : {
-
-    },
     "Enter a template or drag metadata chips into the field." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:283.",
       "extractionState" : "stale",
@@ -5343,6 +5635,12 @@
           }
         }
       }
+    },
+    "Enter a two-letter store region code, such as US or GB." : {
+
+    },
+    "Enter something to search for." : {
+
     },
     "Enter the property-map field name and the value to write." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:964.",
@@ -5430,6 +5728,12 @@
     "Erase all metadata tags?" : {
 
     },
+    "Existing iTunes playback data associated with encoder delay and padding. Preserve it; AudioMator does not interpret its internal encoding." : {
+
+    },
+    "Existing Sound Check data; leave unchanged unless you know its encoding." : {
+
+    },
     "Explicit" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:57, AudioMator/Domain/UIState/MiddleListColumn.swift:61, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:50, AudioMator/Domain/AudioFiles/AudioFile.swift:62.",
       "localizations" : {
@@ -5470,9 +5774,6 @@
           }
         }
       }
-    },
-    "Failed Files" : {
-
     },
     "Field" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3, AudioMator/Domain/UIState/MiddleListColumn.swift:246, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:76.",
@@ -5856,13 +6157,37 @@
     "Files are checked again before saving. If a file was replaced, cannot be read reliably, or changes again during saving, the save stops and your draft is kept. Preview-based tools and Clear All Metadata always require an unchanged revision." : {
 
     },
+    "Files Couldn’t Be Reloaded" : {
+
+    },
+    "Files Couldn’t Be Renamed" : {
+
+    },
     "Files here are cleared when AudioMator closes." : {
+
+    },
+    "Files Renamed with Warnings" : {
+
+    },
+    "Files skipped: %lld." : {
+
+    },
+    "Files That Couldn't Be Updated" : {
+
+    },
+    "Files unchanged: %lld." : {
+
+    },
+    "Fill in at least one search field." : {
 
     },
     "Filters" : {
 
     },
     "Find" : {
+
+    },
+    "Find a field or storage name" : {
 
     },
     "Find matching releases, then map the selected files to album tracks." : {
@@ -5906,6 +6231,9 @@
           }
         }
       }
+    },
+    "Find out what a field means and where AudioMator stores it." : {
+
     },
     "Find the best recording match from the selected file's metadata." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:628.",
@@ -5952,6 +6280,9 @@
     "Finder" : {
 
     },
+    "Finding matching iTunes tracks" : {
+
+    },
     "Finishing..." : {
 
     },
@@ -5964,9 +6295,6 @@
     "First row is header" : {
 
     },
-    "Folder Access Needed" : {
-
-    },
     "Folder monitoring degraded" : {
 
     },
@@ -5976,9 +6304,17 @@
     "Folders" : {
 
     },
+    "For %@, enter a whole number from 0 to 2147483647." : {
+
+    },
+    "For %@, enter a whole number from 0 to 2147483647. You can add a total after a slash, such as 3/12; the total must be in the same range." : {
+
+    },
+    "For Content Advisory, enter a supported advisory label or a whole-number code from 0 to 255." : {
+
+    },
     "Format" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:71, AudioMator/Domain/AudioFiles/AudioFile.swift:556, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:232, AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:3.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6152,7 +6488,7 @@
     "Get Started" : {
 
     },
-    "has an unsupported date shape. Enter a full value for that field or clear it explicitly; AudioMator will not truncate or guess." : {
+    "GitHub is limiting update checks. Wait a while before checking again." : {
 
     },
     "Hidden characters are shown while editing." : {
@@ -6237,6 +6573,18 @@
         }
       }
     },
+    "How long the audio plays. Changing a tag does not change its length." : {
+
+    },
+    "How many discs the release contains." : {
+
+    },
+    "How many movements the work has." : {
+
+    },
+    "How many tracks are on that disc." : {
+
+    },
     "Identifiers" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:129, AudioMator/Features/Main/ViewModels/AudioViewModel+Import.swift:2, AudioMator/Features/Main/Views/ContentPane.swift:2, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:6.",
       "extractionState" : "stale",
@@ -6278,6 +6626,27 @@
           }
         }
       }
+    },
+    "Identifies a MusicBrainz recording, even though the tag name says Track ID." : {
+
+    },
+    "Identifies a particular MusicBrainz release edition." : {
+
+    },
+    "Identifies a track artist in MusicBrainz." : {
+
+    },
+    "Identifies a track entry on a particular release." : {
+
+    },
+    "Identifies an album artist in MusicBrainz." : {
+
+    },
+    "Identifies the release family that groups related editions." : {
+
+    },
+    "Identifies the underlying musical work in MusicBrainz." : {
+
     },
     "If a folder is moved or renamed, macOS may require you to authorize it again." : {
 
@@ -6418,13 +6787,7 @@
     "Include header row" : {
 
     },
-    "Independent date editing is read-only for selected ID3v2.3 tags. No date conversion will be performed." : {
-
-    },
-    "Independent date export is unavailable for unverified ID3v2.3 date projections." : {
-
-    },
-    "Independent date transfer is unavailable for unverified ID3v2.3 date projections." : {
+    "Individual artist names rather than a joined credit." : {
 
     },
     "Inspector" : {
@@ -6813,9 +7176,6 @@
         }
       }
     },
-    "Kept disk changes instead of conflicting draft edits:" : {
-
-    },
     "Language" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:333, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:74, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:305.",
       "extractionState" : "stale",
@@ -6857,6 +7217,9 @@
           }
         }
       }
+    },
+    "Learn More" : {
+
     },
     "Leave As Is" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:920.",
@@ -6984,6 +7347,9 @@
         }
       }
     },
+    "Loading album details from iTunes" : {
+
+    },
     "Loading iTunes album..." : {
 
     },
@@ -7070,6 +7436,9 @@
         }
       }
     },
+    "Loading recording details from MusicBrainz" : {
+
+    },
     "Loading recording details..." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Keep the three-dot loading style used by this source string unless you intentionally normalize it. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:517.",
       "extractionState" : "stale",
@@ -7111,6 +7480,9 @@
           }
         }
       }
+    },
+    "Loading release details from MusicBrainz" : {
+
     },
     "Loading release notes…" : {
       "comment" : "User-facing UI text. Context: music release metadata context. Use the ellipsis for commands that open another dialog or picker. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:1247.",
@@ -7160,6 +7532,9 @@
 
     },
     "LRCLIB did not return lyrics candidates for this track." : {
+
+    },
+    "LRCLIB didn't find synced lyrics for these files. Try different search details or choose another result." : {
 
     },
     "LRCLIB ID %lld" : {
@@ -7293,6 +7668,15 @@
           }
         }
       }
+    },
+    "Lyrics Couldn’t Be Applied" : {
+
+    },
+    "Lyrics Saved with Warnings" : {
+
+    },
+    "Lyrics Search Couldn’t Be Completed" : {
+
     },
     "Manage watched folders in the sidebar" : {
       "comment" : "User-facing UI text. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -7461,6 +7845,9 @@
           }
         }
       }
+    },
+    "Marks a track as part of a compilation." : {
+
     },
     "Match case" : {
 
@@ -7867,7 +8254,38 @@
         }
       }
     },
+    "Metadata Cleared from Some Files" : {
+
+    },
+    "Metadata Cleared with Warnings" : {
+
+    },
     "Metadata Comparison" : {
+
+    },
+    "Metadata Couldn’t Be Cleared" : {
+
+    },
+    "Metadata Couldn’t Be Exported" : {
+
+    },
+    "Metadata Couldn’t Be Loaded" : {
+
+    },
+    "Metadata Couldn’t Be Read" : {
+
+    },
+    "Metadata couldn’t be read from “%@”.\nDetails: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Metadata couldn’t be read from “%1$@”.\nDetails: %2$@"
+          }
+        }
+      }
+    },
+    "Metadata couldn’t be read from %lld files." : {
 
     },
     "Metadata Details" : {
@@ -7994,6 +8412,12 @@
         }
       }
     },
+    "Metadata Field Guide" : {
+
+    },
+    "Metadata help references" : {
+
+    },
     "Metadata Inspectors" : {
 
     },
@@ -8040,6 +8464,19 @@
       }
     },
     "Metadata Tools" : {
+
+    },
+    "Metadata was cleared from %lld of %lld files." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Metadata was cleared from %1$lld of %2$lld files."
+          }
+        }
+      }
+    },
+    "Metadata was cleared from this file." : {
 
     },
     "Middle List Columns" : {
@@ -8170,10 +8607,7 @@
     "Modes" : {
 
     },
-    "Modifying files requires folder access for “%@”." : {
-
-    },
-    "More than one loaded file has the same identifier. Reload the files and try again." : {
+    "More file details are available in Settings → Save Logs." : {
 
     },
     "Moving Metadata" : {
@@ -8217,6 +8651,9 @@
           }
         }
       }
+    },
+    "MP3 and some WAV, AIFF and DSD files use ID3 tags. FLAC and supported Ogg files use Vorbis comments; WMA uses ASF. A WAV file can contain both ID3 and RIFF INFO. These are tag formats, not guarantees based on a filename." : {
+
     },
     "Multiple selected files would end up with the same filename." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:133.",
@@ -8849,6 +9286,9 @@
         }
       }
     },
+    "Musicians paired with instruments or roles." : {
+
+    },
     "Network activity only happens when optional online features are used." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:1121.",
       "localizations" : {
@@ -8977,9 +9417,6 @@
         }
       }
     },
-    "No Artwork Found" : {
-
-    },
     "No artwork in the current selection" : {
       "comment" : "User-facing UI text. Context: album artwork editing or lookup workflow. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:542.",
       "extractionState" : "stale",
@@ -9022,6 +9459,9 @@
         }
       }
     },
+    "No artwork matches this search. Try a different album or artist name." : {
+
+    },
     "No Audio Files Found" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/Views/ContentPane.swift:287.",
       "extractionState" : "stale",
@@ -9063,6 +9503,9 @@
           }
         }
       }
+    },
+    "No Audio Files to Show" : {
+
     },
     "No Authorized Folders" : {
 
@@ -9318,6 +9761,9 @@
         }
       }
     },
+    "No mapping in AudioMator" : {
+
+    },
     "No Match" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:504, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:187.",
       "extractionState" : "stale",
@@ -9359,6 +9805,9 @@
           }
         }
       }
+    },
+    "No Matching Artwork" : {
+
     },
     "No Metadata Fields" : {
 
@@ -9404,6 +9853,9 @@
           }
         }
       }
+    },
+    "No portable tag; tracker modules use their own headers." : {
+
     },
     "No public releases are available yet." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:1264.",
@@ -9579,7 +10031,7 @@
         }
       }
     },
-    "No synced lyrics found in these results." : {
+    "No Synced Lyrics Available" : {
 
     },
     "No tracks matched this search." : {
@@ -9749,19 +10201,13 @@
         }
       }
     },
-    "Non-numeric disc number text is not supported for this edit. Use the Metadata Editor to preserve text values." : {
-
-    },
-    "Non-numeric track number text is not supported for this edit. Use the Metadata Editor to preserve text values." : {
-
-    },
     "Not Now" : {
 
     },
     "Nothing to Preview" : {
 
     },
-    "Number" : {
+    "number" : {
 
     },
     "Numbering" : {
@@ -9805,9 +10251,6 @@
           }
         }
       }
-    },
-    "Numbering Updated" : {
-
     },
     "Official Only" : {
 
@@ -9938,6 +10381,9 @@
           }
         }
       }
+    },
+    "Only an explicitly selected reference URL is opened in your default browser. AudioMator does not send file paths or metadata. The browser handles the website request." : {
+
     },
     "Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:154.",
@@ -10071,6 +10517,9 @@
     "Opening a provider page sends its URL and standard browser requests to Apple or MusicBrainz, including their subdomains. Embedded pages use non-persistent browser storage. Their images, scripts, and other subresources may contact additional hosts; the page navigation allow-list does not filter subresources." : {
 
     },
+    "Opens the official reference in your browser" : {
+
+    },
     "Operation" : {
       "comment" : "Metadata Exchange field copy/cut tool.",
       "extractionState" : "manual",
@@ -10157,6 +10606,19 @@
         }
       }
     },
+    "Part of the response couldn't be read.\nDetails: %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Part of the response couldn't be read.\nDetails: %1$@: %2$@"
+          }
+        }
+      }
+    },
+    "Paste a MusicBrainz release or recording link. Other MusicBrainz link types aren't supported here." : {
+
+    },
     "People" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:123.",
       "extractionState" : "stale",
@@ -10198,6 +10660,9 @@
           }
         }
       }
+    },
+    "People and their instruments or performance roles." : {
+
     },
     "People Roles" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:125.",
@@ -10286,7 +10751,7 @@
     "Photo Library" : {
 
     },
-    "Planned native values" : {
+    "Planned mapping; editing is not available." : {
 
     },
     "Pre-release" : {
@@ -10343,6 +10808,9 @@
 
     },
     "Preparing MusicBrainz match preview…" : {
+
+    },
+    "Preparing the MusicBrainz match preview" : {
 
     },
     "Preview" : {
@@ -10429,6 +10897,9 @@
       }
     },
     "Previous" : {
+
+    },
+    "Previously loaded metadata is still shown where available." : {
 
     },
     "Primary catalog number from the release label." : {
@@ -10600,9 +11071,6 @@
     "Privacy…" : {
 
     },
-    "Private formatting provenance" : {
-
-    },
     "Producer" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:329, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:88.",
       "extractionState" : "stale",
@@ -10686,6 +11154,9 @@
           }
         }
       }
+    },
+    "Production credits paired with their roles." : {
+
     },
     "Protect Your Files While Saving" : {
 
@@ -10776,10 +11247,16 @@
         }
       }
     },
-    "Read-only native value:" : {
+    "Read-only credits supplied by the file’s system metadata. Edit the specific Composer or Lyricist field when that is what you mean." : {
+
+    },
+    "Read-only in AudioMator." : {
 
     },
     "Reading from disk…" : {
+
+    },
+    "Reading official field documentation. The built-in guide is available offline." : {
 
     },
     "Ready" : {
@@ -10865,7 +11342,10 @@
         }
       }
     },
-    "Refresh Preview" : {
+    "Recording details couldn’t be loaded. Try the lookup again." : {
+
+    },
+    "Registered storage location; the file must support the requested edit." : {
 
     },
     "Release" : {
@@ -11369,6 +11849,9 @@
         }
       }
     },
+    "Release Notes Couldn’t Be Loaded" : {
+
+    },
     "Release Notes…" : {
 
     },
@@ -11501,13 +11984,16 @@
     "Reload" : {
 
     },
-    "Reload Failed" : {
-
-    },
     "Reload from Disk" : {
 
     },
     "Reloading Files" : {
+
+    },
+    "Reloading the file" : {
+
+    },
+    "Reloading the saved metadata" : {
 
     },
     "Remixer" : {
@@ -11733,9 +12219,6 @@
         }
       }
     },
-    "Rename Failed" : {
-
-    },
     "Rename template" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:37.",
       "extractionState" : "stale",
@@ -11777,6 +12260,9 @@
           }
         }
       }
+    },
+    "Renaming was cancelled before it began. No files were renamed." : {
+
     },
     "Renumber" : {
 
@@ -12212,9 +12698,6 @@
     "Reset" : {
 
     },
-    "Resolution" : {
-
-    },
     "Restore Default Metadata Fields" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:298.",
       "extractionState" : "stale",
@@ -12257,16 +12740,13 @@
         }
       }
     },
+    "Restore each listed file to its original location before attempting another rename." : {
+
+    },
     "Restore Inspector Metadata Fields" : {
 
     },
     "Restore List Columns" : {
-
-    },
-    "Restore or Clean Up Numbers" : {
-
-    },
-    "Restore or Clean Up Numbers…" : {
 
     },
     "Restore Toolbar" : {
@@ -12448,7 +12928,6 @@
     },
     "Sample Rate" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:67, AudioMator/Features/Main/Views/InspectorPane.swift:831, AudioMator/Features/iPad/Views/IPadInspectorView.swift:155.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12576,16 +13055,10 @@
     "Save or discard the pending inspector edits before changing files from another tool." : {
 
     },
-    "Save or discard the pending inspector edits before cleaning up numbering." : {
-
-    },
-    "Save or discard the pending inspector edits before renaming files." : {
-
-    },
     "Save or discard the pending inspector edits before writing a metadata exchange plan." : {
 
     },
-    "Saved file-access folders could not be read. The original data was preserved for recovery and will not be overwritten." : {
+    "Save or discard your unsaved Inspector edits before renaming files." : {
 
     },
     "Saved Folder Access Needs Attention" : {
@@ -12633,14 +13106,9 @@
         }
       }
     },
-    "Saved to disk, but macOS could not confirm directory durability. Do not retry this save as though it failed." : {
-
-    },
-    "Saved watched folders could not be read. The original data was preserved for recovery and will not be overwritten." : {
-
-    },
     "Saved with Issues" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:55.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12728,7 +13196,7 @@
     "Search" : {
 
     },
-    "Search Failed" : {
+    "Search Couldn’t Be Completed" : {
 
     },
     "Search iTunes" : {
@@ -12868,13 +13336,25 @@
     "Search uses this file's title, artist, album, and duration when available." : {
 
     },
+    "Search Was Cancelled" : {
+
+    },
+    "Searching iTunes" : {
+
+    },
     "Searching iTunes Artwork" : {
+
+    },
+    "Searching iTunes for artwork" : {
 
     },
     "Searching iTunes..." : {
 
     },
     "Searching LRCLIB…" : {
+
+    },
+    "Searching MusicBrainz" : {
 
     },
     "Searching MusicBrainz…" : {
@@ -13539,7 +14019,29 @@
     "Show Welcome Screen on Launch" : {
 
     },
-    "Some selected formats cannot write" : {
+    "Some Files Couldn’t Be Imported" : {
+
+    },
+    "Some information is missing from the response.\nDetails: missing “%@” at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Some information is missing from the response.\nDetails: missing “%1$@” at %2$@."
+          }
+        }
+      }
+    },
+    "Some iTunes tracks are assigned to several files. Assign each track to only one file before applying metadata." : {
+
+    },
+    "Some MusicBrainz tracks are assigned to several files. Assign each track to only one file before applying metadata." : {
+
+    },
+    "Some recording details couldn't be loaded. Those fields will keep their existing values." : {
+
+    },
+    "Some selected file formats don’t support saving" : {
 
     },
     "Some selected formats do not support embedded artwork writing yet." : {
@@ -13583,6 +14085,15 @@
           }
         }
       }
+    },
+    "Some values in this filename preview can’t be applied. Close and reopen this tool, then check the template and preview." : {
+
+    },
+    "Some values in this import preview can’t be applied. Close and reopen this tool, then check the template and imported values." : {
+
+    },
+    "Song words stored as text." : {
+
     },
     "Sorting" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:127.",
@@ -13802,10 +14313,19 @@
     "Stops saving whenever the file revision changes. Your draft is kept. Use Reload from Disk in the file menu before editing again, then reopen Metadata Editor if it is open." : {
 
     },
+    "Stored as an additional text field; other players may ignore it." : {
+
+    },
+    "Stored Field and Availability" : {
+
+    },
     "Storefront" : {
 
     },
     "Suffix" : {
+
+    },
+    "Tag Format" : {
 
     },
     "Tag Inspector" : {
@@ -13979,6 +14499,9 @@
     "Template Needs More Structure" : {
 
     },
+    "Tempo in beats per minute." : {
+
+    },
     "Text to find" : {
 
     },
@@ -13989,9 +14512,6 @@
 
     },
     "Text Transform" : {
-
-    },
-    "That file is too large to import. Choose a text file no larger than %lld MB." : {
 
     },
     "That link didn't resolve to a supported MusicBrainz result." : {
@@ -14036,7 +14556,47 @@
         }
       }
     },
-    "The dependency cannot assign unknown advisory codes. Existing unknown values are preserved; choose a known state explicitly to replace one." : {
+    "The account text stored with an item." : {
+
+    },
+    "The amount of encoded audio data per second. This is a property of the audio, not an editable tag." : {
+
+    },
+    "The artwork search results from iTunes couldn’t be read. Try again later." : {
+
+    },
+    "The audio container or codec reported for the file. Renaming a file does not convert its audio." : {
+
+    },
+    "The clipboard doesn't contain an image. Copy an image, then paste again." : {
+
+    },
+    "The composition performed, such as a symphony." : {
+
+    },
+    "The credited audio or video director." : {
+
+    },
+    "The CSV header and template have different column counts (%lld and %lld). Make them match before importing." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The CSV header and template have different column counts (%1$lld and %2$lld). Make them match before importing."
+          }
+        }
+      }
+    },
+    "The CSV template includes the same field more than once. Keep only one column for each field." : {
+
+    },
+    "The current app version couldn’t be determined, so updates can’t be checked." : {
+
+    },
+    "The date in %@ can't be saved in this file's tag format. Enter a supported date value." : {
+
+    },
+    "The date in %@ isn't supported. Check it before importing." : {
 
     },
     "The destination number field requires a single integer from 0 through 2147483647." : {
@@ -14081,6 +14641,24 @@
         }
       }
     },
+    "The downloaded image couldn’t be converted to PNG. Choose another artwork result." : {
+
+    },
+    "The downloaded image couldn't be opened. Choose another artwork result." : {
+
+    },
+    "The earliest release date associated with the release." : {
+
+    },
+    "The encoder software or settings used." : {
+
+    },
+    "The episode number." : {
+
+    },
+    "The explanation draws on the official reference below. AudioMator’s storage and editing choices are described above." : {
+
+    },
     "The extracted metadata already matches the file's current tags." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:198.",
       "extractionState" : "stale",
@@ -14123,19 +14701,22 @@
         }
       }
     },
-    "The file is no longer loaded in AudioMator." : {
+    "The file couldn’t be checked after it moved. Before editing, choose Reload from Disk from the file’s context menu. Unsaved Inspector edits must be discarded to reload." : {
 
     },
-    "The file revision could not be verified after it moved. Reload the file before editing metadata." : {
+    "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before applying lyrics." : {
 
     },
-    "The file revision could not be verified after it moved. Reload the file before renumbering tracks." : {
+    "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata." : {
 
     },
-    "The file version could not be verified. Refresh the preview and try again." : {
+    "The file couldn’t be checked after it moved. Close this tool and choose Reload from Disk from the file’s context menu before changing track numbers." : {
 
     },
-    "The file version could not be verified. Reload the file and try again." : {
+    "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing." : {
+
+    },
+    "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date." : {
 
     },
     "The filename did not fully match the template." : {
@@ -14222,9 +14803,6 @@
         }
       }
     },
-    "The filename metadata plan contains an invalid field or value. Refresh the preview and try again." : {
-
-    },
     "The filenames already match." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:291.",
       "extractionState" : "stale",
@@ -14266,6 +14844,9 @@
           }
         }
       }
+    },
+    "The files selected for this artwork lookup are no longer available. Select the files again." : {
+
     },
     "The generated filename already matches the current file." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:129.",
@@ -14309,22 +14890,121 @@
         }
       }
     },
-    "The metadata exchange plan contains an invalid field or value. Refresh the preview and try again." : {
+    "The highest measured peak across the album." : {
 
     },
-    "The metadata operation was cancelled before it started." : {
+    "The identity of “%@” couldn’t be confirmed, so its name wasn’t restored. Check its current location before renaming it again." : {
 
     },
-    "The replacement pair applies to every selected group." : {
+    "The import file's AudioMator version label isn't valid. Check the label or export the file again from AudioMator." : {
 
     },
-    "The same metadata fields changed on disk and in your draft. Your draft was kept; choose a conflict strategy in Settings or reload before editing." : {
+    "The iTunes artwork search couldn't be completed. Try again later.\nDetails: HTTP %lld." : {
+
+    },
+    "The iTunes artwork search couldn’t be started. Check the search details and try again." : {
+
+    },
+    "The label or publisher credited for the release." : {
+
+    },
+    "The label’s catalogue reference for this release." : {
+
+    },
+    "The language of the lyrics or vocal work." : {
+
+    },
+    "The latest GitHub release doesn't include a usable version number. Check GitHub Releases manually." : {
+
+    },
+    "The license text couldn’t be loaded." : {
+
+    },
+    "The lookup results from iTunes couldn’t be read. Try again later." : {
+
+    },
+    "The main credit for the whole album." : {
+
+    },
+    "The market where this edition was released." : {
+
+    },
+    "The measured peak level for this track." : {
+
+    },
+    "The metadata from MusicBrainz couldn’t be read. Try again later.\nDetails: %@" : {
+
+    },
+    "The music’s key, such as C minor." : {
+
+    },
+    "The name of a section within a larger work." : {
+
+    },
+    "The names below are the storage locations used by AudioMator. They can differ from the names shown by other editors. Availability also depends on the tag version and the individual file." : {
+
+    },
+    "The number of audio channels, such as two for stereo. This is read-only here." : {
+
+    },
+    "The operation was cancelled before it began. No changes were saved." : {
+
+    },
+    "The original medium, such as CD or vinyl." : {
+
+    },
+    "The original performance’s artist credit." : {
+
+    },
+    "The original release’s album name." : {
+
+    },
+    "The person or organisation credited with encoding." : {
+
+    },
+    "The previous file list will stay visible until a scan completes successfully." : {
+
+    },
+    "The release notes couldn’t be retrieved from GitHub. Try again later.\nDetails: HTTP %lld." : {
+
+    },
+    "The release this track belongs to." : {
+
+    },
+    "The release’s retail barcode." : {
+
+    },
+    "The response couldn’t be read. Try again later." : {
+
+    },
+    "The response from GitHub couldn’t be read. Try again later." : {
+
+    },
+    "The response from LRCLIB couldn’t be read. Try again later." : {
+
+    },
+    "The response from MusicBrainz couldn’t be read. Try again later." : {
+
+    },
+    "The same file is included more than once in this preview. Close and reopen this tool before applying changes." : {
+
+    },
+    "The saved folder records couldn't be read. AudioMator has kept the original records without overwriting them." : {
+
+    },
+    "The season number." : {
 
     },
     "The selected artwork will be applied to all selected files." : {
 
     },
     "The selected artwork will replace the current file artwork." : {
+
+    },
+    "The selected files have no non-empty metadata fields to show in this editor." : {
+
+    },
+    "The source field is empty. This file will be skipped without changes." : {
 
     },
     "The source field is empty. This file will be skipped." : {
@@ -14369,6 +15049,36 @@
         }
       }
     },
+    "The store’s album identifier." : {
+
+    },
+    "The store’s artist identifier." : {
+
+    },
+    "The store’s composer identifier." : {
+
+    },
+    "The store’s content identifier; not a label catalogue number." : {
+
+    },
+    "The store’s media-kind code." : {
+
+    },
+    "The store’s numeric genre identifier." : {
+
+    },
+    "The store’s storefront identifier, separate from Release Country." : {
+
+    },
+    "The stored owner name." : {
+
+    },
+    "The television network." : {
+
+    },
+    "The television series name." : {
+
+    },
     "The template matched, but it did not extract any writable metadata fields." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:202, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:336.",
       "extractionState" : "stale",
@@ -14411,7 +15121,46 @@
         }
       }
     },
-    "The write plan contains more than one entry for the same file. Refresh the preview and try again." : {
+    "The track’s name." : {
+
+    },
+    "The tracker software named in a module header." : {
+
+    },
+    "The update check on GitHub couldn’t be completed. Try again later.\nDetails: HTTP %lld." : {
+
+    },
+    "The version information from GitHub couldn’t be read. Check GitHub Releases manually." : {
+
+    },
+    "The Year value in %@ isn't supported. Check it before importing." : {
+
+    },
+    "These credits cannot be edited as a simple text field." : {
+
+    },
+    "These date fields can't be edited separately in ID3v2.3 tags." : {
+
+    },
+    "These fields kept the values already on disk. Your edits to them weren't saved:" : {
+
+    },
+    "These ID3v2.3 tags don't allow these date fields to be edited separately. Their dates will stay as they are." : {
+
+    },
+    "These loaded files couldn’t be uniquely identified. Remove them from AudioMator and import them again." : {
+
+    },
+    "These results don't include synced lyrics. Try another search." : {
+
+    },
+    "These separate date fields couldn’t be verified in ID3v2.3 tags. Choose other fields to transfer." : {
+
+    },
+    "These separate date fields couldn’t be verified in ID3v2.3 tags. Leave them out of the filename template." : {
+
+    },
+    "These separate date fields couldn’t be verified in ID3v2.3 tags. Leave them out of this export." : {
 
     },
     "Third-Party Licenses" : {
@@ -14456,6 +15205,9 @@
         }
       }
     },
+    "This artwork couldn't be downloaded. Try again or choose another result." : {
+
+    },
     "This artwork will be applied to all selected files" : {
       "comment" : "User-facing UI text. Context: album artwork editing or lookup workflow. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:549.",
       "extractionState" : "stale",
@@ -14497,6 +15249,24 @@
           }
         }
       }
+    },
+    "This content advisory code can stay in its original file, but it can't be copied to another file. Choose a supported advisory option to set a new value." : {
+
+    },
+    "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option." : {
+
+    },
+    "This CSV has too many rows to import at once. Split it into smaller files." : {
+
+    },
+    "This CSV row has more columns than the template. Remove the extra columns or add the corresponding fields to the template." : {
+
+    },
+    "This destination field accepts one whole number from 0 to 2147483647. It can't accept a number/total pair." : {
+
+    },
+    "This disc’s position in a multi-disc release." : {
+
     },
     "This field already matches." : {
 
@@ -14543,7 +15313,41 @@
         }
       }
     },
-    "This format cannot write" : {
+    "This file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying metadata." : {
+
+    },
+    "This File Couldn’t Be Imported" : {
+
+    },
+    "This file exceeds the %lld MB import limit. Choose a smaller text file or split it into smaller files." : {
+
+    },
+    "This file format doesn’t support saving" : {
+
+    },
+    "This file format doesn't support saving embedded artwork in AudioMator." : {
+
+    },
+    "This file format doesn't support saving lyrics in AudioMator. No changes were saved." : {
+
+    },
+    "This file is no longer loaded in AudioMator. Import it again before applying changes." : {
+
+    },
+    "This file was exported with a newer metadata profile (%lld). This version of AudioMator supports up to %lld. Update AudioMator before importing it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This file was exported with a newer metadata profile (%1$lld). This version of AudioMator supports up to %2$lld. Update AudioMator before importing it."
+          }
+        }
+      }
+    },
+    "This file’s text encoding couldn’t be read. Save a copy as UTF-8, then import the copy. UTF-16, Windows-1252, and Mac Roman are also supported." : {
+
+    },
+    "This Folder Couldn’t Be Added" : {
 
     },
     "This format does not support embedded artwork writing yet." : {
@@ -14588,14 +15392,57 @@
         }
       }
     },
-    "This format does not support metadata writing yet." : {
+    "This image couldn’t be converted to PNG. Choose another image." : {
 
     },
-    "This iTunes track is assigned to more than one file." : {
+    "This image couldn’t be opened. Choose another image file." : {
+
+    },
+    "This image exceeds the artwork file size limit. Choose a smaller image." : {
+
+    },
+    "This image's dimensions exceed the artwork processing limit. Resize it or choose a smaller image." : {
+
+    },
+    "This item isn't a regular text file. Choose a text file to import." : {
+
+    },
+    "This iTunes lookup couldn’t be completed. Try again later.\nDetails: HTTP %lld." : {
+
+    },
+    "This iTunes lookup couldn’t be started. Check the search details or link and try again." : {
+
+    },
+    "This iTunes track is assigned to several files. Keep only one assignment before applying metadata." : {
+
+    },
+    "This link doesn't identify a supported album or song. Paste an Apple Music or iTunes album or song link." : {
+
+    },
+    "This LRCLIB search couldn’t be completed. Try again later.\nDetails: HTTP %lld." : {
+
+    },
+    "This LRCLIB search couldn’t be started. Check the search details and try again." : {
+
+    },
+    "This lyrics result is empty. Choose another result." : {
+
+    },
+    "This movement’s position within the work." : {
+
+    },
+    "This MusicBrainz link isn't valid. Check the link and paste it again." : {
+
+    },
+    "This MusicBrainz lookup couldn’t be completed. Try again later.\nDetails: HTTP %lld." : {
+
+    },
+    "This MusicBrainz lookup couldn’t be started. Check the search details or link and try again." : {
 
     },
     "This MusicBrainz track is assigned to more than one file." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:386.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14635,10 +15482,31 @@
         }
       }
     },
+    "This MusicBrainz track is assigned to several files. Keep only one assignment before applying metadata." : {
+
+    },
+    "This numbering change can’t be saved while Disc Number contains text such as “B2”. Enter a numeric disc number, or edit these fields in the Metadata Editor." : {
+
+    },
+    "This numbering change can’t be saved while Track Number contains text such as “A1”. Enter a numeric track number, or edit these fields in the Metadata Editor." : {
+
+    },
+    "This numbering value couldn’t be determined. Enter the value you want to save." : {
+
+    },
+    "This record gives more than one value for %@. Keep one value or use CSV import." : {
+
+    },
     "This replaces the Comment field on the selected files with MuseAmp ID data, then saves the files." : {
 
     },
     "This result has plain lyrics only. It will not be applied as synced lyrics." : {
+
+    },
+    "This row has %lld extra CSV columns. Remove them or add corresponding fields to the template." : {
+
+    },
+    "This row is missing %lld CSV columns. Add the missing columns to match the template." : {
 
     },
     "This template resolves to an empty filename for the file." : {
@@ -14682,6 +15550,9 @@
           }
         }
       }
+    },
+    "This track’s position within its disc." : {
+
     },
     "This value will be written to metadata." : {
 
@@ -14855,12 +15726,11 @@
         }
       }
     },
-    "Total" : {
+    "total" : {
 
     },
     "Total Discs" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: disc-number metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:45, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:318, AudioMator/Features/iPad/Views/IPadInspectorView.swift:588, AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:35.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14944,7 +15814,6 @@
     },
     "Total Tracks" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: track-level audio metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:41, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:314, AudioMator/Features/iPad/Views/IPadInspectorView.swift:586, AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:33.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -15028,6 +15897,7 @@
     },
     "Track" : {
       "comment" : "Short UI label. Context: track-level audio metadata context. Used around: AudioMator/App/AppNotifications.swift:6, AudioMator/Domain/UIState/InspectorMetadataField.swift:11, AudioMator/Domain/UIState/ToolbarButtonOption.swift:6, AudioMator/Domain/UIState/MiddleListColumn.swift:47.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -15066,9 +15936,6 @@
           }
         }
       }
-    },
-    "Track and disc numbers and totals stay independent. Cleanup changes only the groups and alias identities shown in this preview." : {
-
     },
     "Track artist credit, or the release artist when the track artist is blank." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:103.",
@@ -15114,7 +15981,6 @@
     },
     "Track Number" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: track-level audio metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:39, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:126, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:312, AudioMator/Domain/Rename/FileRenameTemplate.swift:40.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -15154,6 +16020,9 @@
         }
       }
     },
+    "Track numbering was cancelled before it began. No track numbers were changed." : {
+
+    },
     "Track title from the matched release track." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:101.",
       "extractionState" : "stale",
@@ -15192,16 +16061,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "匹配發行曲目的曲目標題。"
-          }
-        }
-      }
-    },
-    "Track: %@ / %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Track: %1$@ / %2$@"
           }
         }
       }
@@ -15416,15 +16275,6 @@
         }
       }
     },
-    "Unable to Load Metadata" : {
-
-    },
-    "Unable to Load Release Notes" : {
-
-    },
-    "Unable to Read Metadata" : {
-
-    },
     "Unassigned" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:295, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:986, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:361, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:195.",
       "extractionState" : "stale",
@@ -15556,9 +16406,6 @@
     "Unsaved inspector edits will be discarded. The files will be read again from disk." : {
 
     },
-    "Unsupported Format" : {
-
-    },
     "Update the selected metadata field for every file in the current selection." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:254, AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:969.",
       "localizations" : {
@@ -15600,7 +16447,16 @@
         }
       }
     },
+    "Updates Couldn’t Be Checked" : {
+
+    },
+    "Updates couldn’t be checked on GitHub. Try again later, or visit GitHub Releases to check manually.\nDetails: %@" : {
+
+    },
     "US, JP, GB" : {
+
+    },
+    "Use one supported field per CSV template column, such as {{title}}." : {
 
     },
     "Use Selected Artwork" : {
@@ -15610,6 +16466,9 @@
 
     },
     "Use the add button to watch a folder." : {
+
+    },
+    "uses a date format that can’t be saved here. Enter a supported date or clear the field." : {
 
     },
     "Utilities…" : {
@@ -15655,6 +16514,9 @@
           }
         }
       }
+    },
+    "Values Couldn’t Be Imported" : {
+
     },
     "Version %@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -15880,6 +16742,45 @@
     "When edited files change on disk" : {
 
     },
+    "When the item was purchased." : {
+
+    },
+    "When this edition was released." : {
+
+    },
+    "Where This Field Is Stored" : {
+
+    },
+    "Whether a MusicBrainz artist is a person, group or another type." : {
+
+    },
+    "Whether the edition is official, promotional, a bootleg or another status." : {
+
+    },
+    "Whether this is an album, single, EP or another release type." : {
+
+    },
+    "Who created this remix." : {
+
+    },
+    "Who handled the recording or production engineering." : {
+
+    },
+    "Who led the ensemble." : {
+
+    },
+    "Who oversaw the production." : {
+
+    },
+    "Who performs this track." : {
+
+    },
+    "Who wrote the music." : {
+
+    },
+    "Who wrote the words." : {
+
+    },
     "Why folder access is required" : {
 
     },
@@ -15923,9 +16824,6 @@
           }
         }
       }
-    },
-    "Write Failed" : {
-
     },
     "Write Metadata" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:69, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet+iOS.swift:25, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:30.",
@@ -16014,6 +16912,27 @@
       }
     },
     "You can skip this step. When a save needs access, AudioMator will ask for the exact containing folder." : {
+
+    },
+    "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save." : {
+
+    },
+    "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: %@" : {
+
+    },
+    "Your changes were saved, but the file couldn’t be reloaded. Choose Reload from Disk from its context menu to read the saved values.\nDetails: %@" : {
+
+    },
+    "Your changes were saved, but they couldn’t be reloaded in the Inspector. Choose Reload from Disk from the file’s context menu to read the saved values. Unsaved Inspector edits must be discarded to reload.\nDetails: %@" : {
+
+    },
+    "Your notes about the track." : {
+
+    },
+    "Your saved folder permissions couldn’t be loaded. The saved records have been kept and won’t be overwritten." : {
+
+    },
+    "Your watched folder list couldn’t be loaded. The saved list has been kept and won’t be overwritten." : {
 
     },
     "YYYY" : {

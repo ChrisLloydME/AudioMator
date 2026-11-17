@@ -66,23 +66,23 @@ nonisolated enum iTunesArtworkServiceError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .emptyQuery:
-            return "Query cannot be empty."
+            return String(localized: "Enter something to search for.")
         case .invalidCountry:
-            return "Country must be a two-letter storefront code."
+            return String(localized: "Enter a two-letter store region code, such as US or GB.")
         case .invalidLimit:
-            return "Limit must be between 1 and 200."
+            return String(localized: "Choose between 1 and 200 search results.")
         case .failedToBuildURL:
-            return "Failed to build the iTunes artwork request."
+            return String(localized: "The iTunes artwork search couldn’t be started. Check the search details and try again.")
         case .requestFailed(let statusCode):
-            return "The iTunes artwork request failed with status code \(statusCode)."
+            return String(localized: "The iTunes artwork search couldn't be completed. Try again later.\nDetails: HTTP \(statusCode).")
         case .invalidResponseBody:
-            return "The iTunes artwork response could not be decoded."
+            return String(localized: "The artwork search results from iTunes couldn’t be read. Try again later.")
         case .invalidArtworkData:
-            return "The selected artwork could not be downloaded."
+            return String(localized: "This artwork couldn't be downloaded. Try again or choose another result.")
         case .imageDecodingFailed:
-            return "The downloaded artwork image could not be opened."
+            return String(localized: "The downloaded image couldn't be opened. Choose another artwork result.")
         case .imageEncodingFailed:
-            return "The downloaded artwork image could not be converted to PNG."
+            return String(localized: "The downloaded image couldn’t be converted to PNG. Choose another artwork result.")
         }
     }
 }

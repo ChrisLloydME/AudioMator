@@ -24,7 +24,7 @@ enum MetadataWriteExecutionResult: Sendable {
 }
 
 func fileCountLabel(_ count: Int) -> String {
-    count == 1 ? "1 file" : "\(count) files"
+    count == 1 ? String(localized: "1 file") : String(localized: "\(count) files")
 }
 
 extension AudioViewModel {
@@ -38,14 +38,14 @@ extension AudioViewModel {
         guard let key = field.metadataFieldKey, !files.isEmpty else { return nil }
         if [MetadataFieldKey.year, .standaloneDate, .releaseDate, .originalReleaseDate].contains(key),
            files.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
-            return String(localized: "Independent date editing is read-only for selected ID3v2.3 tags. No date conversion will be performed.")
+            return String(localized: "These ID3v2.3 tags don't allow these date fields to be edited separately. Their dates will stay as they are.")
         }
         let unsupportedCount = files.filter { !Self.canWrite(key, to: $0) }.count
         guard unsupportedCount > 0 else { return nil }
         if unsupportedCount == files.count {
-            return String(localized: "This format cannot write") + " \(field.displayName)."
+            return String(localized: "This file format doesn’t support saving") + " \(field.displayName)."
         }
-        return String(localized: "Some selected formats cannot write") + " \(field.displayName)."
+        return String(localized: "Some selected file formats don’t support saving") + " \(field.displayName)."
     }
 
     nonisolated static func canWrite(_ key: MetadataFieldKey, to file: AudioFile) -> Bool {
@@ -63,7 +63,7 @@ extension AudioViewModel {
 extension AudioViewModel {
     func prepareMetadataMutationDirectoryAccess(
         for urls: [URL],
-        failureTitle: String = String(localized: "Folder Access Needed")
+        failureTitle: String = String(localized: "Allow Folder Access")
     ) -> Bool {
         guard let failure = ensureMetadataMutationDirectoryAccess(for: urls) else { return true }
 
@@ -169,12 +169,12 @@ extension AudioViewModel {
             var warnings = success.writeResult.warnings
             if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
                 warnings.append(
-                    "Saved to disk, but macOS could not confirm directory durability. Do not retry this save as though it failed. \(detail)"
+                    String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: \(detail)")
                 )
             }
             if let reloadErrorDescription = success.reloadErrorDescription {
                 warnings.append(
-                    "Saved to disk, but the inspector could not refresh: \(reloadErrorDescription)"
+                    String(localized: "Your changes were saved, but they couldn’t be reloaded in the Inspector. Choose Reload from Disk from the file’s context menu to read the saved values. Unsaved Inspector edits must be discarded to reload.\nDetails: \(reloadErrorDescription)")
                 )
             }
 
@@ -189,7 +189,7 @@ extension AudioViewModel {
             return .failure(reason)
 
         case .cancelled:
-            return .failure(String(localized: "The metadata operation was cancelled before it started."))
+            return .failure(String(localized: "The operation was cancelled before it began. No changes were saved."))
         }
     }
 

@@ -27,7 +27,7 @@ struct GitHubUpdateReleaseClient: UpdateReleaseProviding {
 
             let apiError = try? decoder.decode(GitHubUpdateAPIError.self, from: data)
             throw UpdateCheckError.requestFailed(
-                apiError?.message ?? "GitHub update check failed with status \(httpResponse.statusCode)."
+                apiError?.message ?? String(localized: "The update check on GitHub couldn’t be completed. Try again later.\nDetails: HTTP \(httpResponse.statusCode).")
             )
         }
 

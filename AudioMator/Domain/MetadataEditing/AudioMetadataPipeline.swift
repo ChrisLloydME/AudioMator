@@ -73,11 +73,11 @@ struct MetadataEditPayload: Sendable {
     nonisolated var numberPairValidationMessage: String? {
         if trackNumberTextChanged, !AudioTagNumberText.components(from: trackNumberText).number.isEmpty,
            Int(AudioTagNumberText.components(from: trackNumberText).number) == nil {
-            return String(localized: "Non-numeric track number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+            return String(localized: "This numbering change can’t be saved while Track Number contains text such as “A1”. Enter a numeric track number, or edit these fields in the Metadata Editor.")
         }
         if discNumberTextChanged, !AudioTagNumberText.components(from: discNumberText).number.isEmpty,
            Int(AudioTagNumberText.components(from: discNumberText).number) == nil {
-            return String(localized: "Non-numeric disc number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+            return String(localized: "This numbering change can’t be saved while Disc Number contains text such as “B2”. Enter a numeric disc number, or edit these fields in the Metadata Editor.")
         }
         return nil
     }
@@ -93,7 +93,7 @@ struct MetadataEditPayload: Sendable {
         ]
         for (field, value, label) in editedDates where changedFields.contains(field) {
             guard MetadataDateText.validates(value, for: field) else {
-                return label + " " + String(localized: "has an unsupported date shape. Enter a full value for that field or clear it explicitly; AudioMator will not truncate or guess.")
+                return label + " " + String(localized: "uses a date format that can’t be saved here. Enter a supported date or clear the field.")
             }
         }
         return nil

@@ -674,7 +674,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
 
     func importedValueValidationMessage(_ value: String) -> String? {
         if value.unicodeScalars.contains(where: { $0.value == 0 }) {
-            return "\(displayName) contains a null character, which cannot be written safely."
+            return String(localized: "\(displayName) contains a hidden character that can’t be saved. Remove it before importing.\nDetails: null character (U+0000).")
         }
 
         guard !value.isEmpty else { return nil }
@@ -690,29 +690,29 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
                       } == true
                   })
             else {
-                return "\(displayName) must be an integer from 0 through \(Int32.max), optionally followed by / and a total in the same range."
+                return String(localized: "For \(displayName), enter a whole number from 0 to 2147483647. You can add a total after a slash, such as 3/12; the total must be in the same range.")
             }
         case .trackTotal, .discTotal:
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             guard Int(trimmed).map({ (0...Int(Int32.max)).contains($0) }) == true else {
-                return "\(displayName) must be an integer from 0 through \(Int32.max)."
+                return String(localized: "For \(displayName), enter a whole number from 0 to 2147483647.")
             }
         case .contentAdvisory:
             guard ContentAdvisory.fromMetadataText(value) != nil ||
                 (Int(value).map { (0...255).contains($0) } == true) else {
-                return "Content Advisory must be a known advisory label or native integer code from 0 through 255."
+                return String(localized: "For Content Advisory, enter a supported advisory label or a whole-number code from 0 to 255.")
             }
         case .year:
             guard MetadataDateText.isPlausibleYear(value) else {
-                return "\(displayName) must be a supported stored-year text value."
+                return String(localized: "The Year value in \(displayName) isn't supported. Check it before importing.")
             }
         case .date:
             guard MetadataDateText.isPlausibleStandaloneDate(value) else {
-                return "\(displayName) must be a supported DATE shape for the destination tag version."
+                return String(localized: "The date in \(displayName) can't be saved in this file's tag format. Enter a supported date value.")
             }
         case .releaseDate, .originalReleaseDate:
             guard MetadataDateText.isPlausibleDate(value) else {
-                return "\(displayName) must be a supported date value."
+                return String(localized: "The date in \(displayName) isn't supported. Check it before importing.")
             }
         case .fileName, .baseName, .path, .relativePath, .index, .title, .artist,
                 .album, .albumArtist, .composer, .lyricist, .producer, .engineer,

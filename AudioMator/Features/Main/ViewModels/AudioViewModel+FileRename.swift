@@ -105,7 +105,7 @@ extension AudioViewModel {
                 unchanged: unchangedCount,
                 skippedIssues: skippedIssues,
                 warnings: issueWarnings,
-                failureMessage: String(localized: "Save or discard the pending inspector edits before renaming files."),
+                failureMessage: String(localized: "Save or discard your unsaved Inspector edits before renaming files."),
                 recoveryItems: []
             )
         }
@@ -139,7 +139,7 @@ extension AudioViewModel {
         } catch {
             execution = .failure(
                 FileRenameTransactionFailure(
-                    message: "File renaming was cancelled before it started.",
+                    message: String(localized: "Renaming was cancelled before it began. No files were renamed."),
                     recoveryItems: []
                 )
             )
@@ -209,15 +209,17 @@ extension AudioViewModel {
                 .joined(separator: "\n")
             presentMetadataWriteHUD(
                 style: .failure,
-                title: "Rename Failed",
+                title: String(localized: "Files Couldn’t Be Renamed"),
                 subtitle: subtitle
             )
             return
         }
 
-        let renamedLabel = fileCountLabel(result.renamed)
-        let unchangedLabel = result.unchanged == 0 ? nil : "\(result.unchanged) unchanged"
-        let skippedLabel = result.skippedIssues == 0 ? nil : "\(result.skippedIssues) skipped"
+        let renamedLabel = result.renamed == 1
+            ? String(localized: "1 file was renamed.")
+            : String(localized: "\(result.renamed) files were renamed.")
+        let unchangedLabel = result.unchanged == 0 ? nil : String(localized: "Files unchanged: \(result.unchanged).")
+        let skippedLabel = result.skippedIssues == 0 ? nil : String(localized: "Files skipped: \(result.skippedIssues).")
 
         if result.warnings.isEmpty {
             presentMetadataWriteHUD(
@@ -243,12 +245,12 @@ extension AudioViewModel {
         }
 
         if result.warnings.count > 2 {
-            lines.append("...and \(result.warnings.count - 2) more")
+            lines.append(String(localized: "Additional warnings: \(result.warnings.count - 2)."))
         }
 
         presentMetadataWriteHUD(
             style: .warning,
-            title: "Renamed with Issues",
+            title: String(localized: "Files Renamed with Warnings"),
             subtitle: lines.joined(separator: "\n")
         )
     }
@@ -328,7 +330,7 @@ private enum FileRenameSourceValidationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .changedSincePreview:
-            return L10n.string("The file changed after the preview was shown. Refresh the preview and try again.")
+            return L10n.string("The file has changed since this preview was created. Close and reopen this tool to review the new filename.")
         }
     }
 }
@@ -479,19 +481,17 @@ nonisolated private func makeRenameTransactionFailure(
         return FileRenameTransactionFailure(message: primaryMessage, recoveryItems: [])
     }
 
-    let recoveryCountLabel = recoveryItems.count == 1
-        ? "1 file"
-        : "\(recoveryItems.count) files"
-    var lines = [primaryMessage, "Recovery required for \(recoveryCountLabel):"]
+    let recoveryCountLabel = fileCountLabel(recoveryItems.count)
+    var lines = [primaryMessage, String(localized: "Check the locations of these files before continuing (\(recoveryCountLabel)):")]
     for item in recoveryItems {
         let locations = item.finalLocations.isEmpty
-            ? "location unknown"
+            ? String(localized: "Current location couldn't be determined")
             : item.finalLocations.map(\.path).joined(separator: ", ")
         lines.append("\(item.originalURL.lastPathComponent) is at \(locations)")
         lines.append(contentsOf: item.rollbackErrors)
     }
 
-    lines.append("Move each listed file back to its original path before retrying.")
+    lines.append(String(localized: "Restore each listed file to its original location before attempting another rename."))
 
     return FileRenameTransactionFailure(
         message: lines.joined(separator: "\n"),
@@ -523,16 +523,16 @@ nonisolated private func renameRollbackCandidateMatchesExpectedFile(
 }
 
 nonisolated private func rollbackIdentityFailureMessage(at url: URL) -> String {
-    "Rollback skipped \(url.lastPathComponent) because the file identity could not be verified."
+    String(localized: "The identity of “\(url.lastPathComponent)” couldn’t be confirmed, so its name wasn’t restored. Check its current location before renaming it again.")
 }
 
 nonisolated private func rollbackFailureMessage(from sourceURL: URL, to destinationURL: URL, error: Error) -> String {
-    "Rollback failed (\(sourceURL.lastPathComponent) → \(destinationURL.lastPathComponent)): "
+    String(localized: "“\(sourceURL.lastPathComponent)” couldn’t be restored to “\(destinationURL.lastPathComponent)”. Check its current location before renaming it again.\nDetails: ")
         + (error as NSError).localizedDescription
 }
 
 nonisolated private func renameFailureMessage(for sourceURL: URL, error: Error) -> String {
-    "\(sourceURL.lastPathComponent): \((error as NSError).localizedDescription)"
+    String(localized: "“\(sourceURL.lastPathComponent)” couldn’t be renamed.\nDetails: \((error as NSError).localizedDescription)")
 }
 
 private func fileRenameIssueWarnings(from rows: [FileRenamePreviewRow]) -> [String] {

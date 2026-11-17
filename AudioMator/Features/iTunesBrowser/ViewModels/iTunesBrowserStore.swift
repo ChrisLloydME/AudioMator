@@ -179,7 +179,7 @@ final class iTunesBrowserStore: ObservableObject {
             do {
                 let results = try await withAsyncTimeout(
                     operationTimeout,
-                    operationName: "iTunes search"
+                    operationName: String(localized: "Searching iTunes")
                 ) {
                     try await client.search(matching: query, limit: 25)
                 }
@@ -236,7 +236,7 @@ final class iTunesBrowserStore: ObservableObject {
         let detailClient = client
         let detail = try await withAsyncTimeout(
             operationTimeout,
-            operationName: "iTunes album detail"
+            operationName: String(localized: "Loading album details from iTunes")
         ) {
             try await detailClient.albumDetail(collectionID: collectionID, country: country)
         }
@@ -270,7 +270,7 @@ final class iTunesBrowserStore: ObservableObject {
 
         let preview = try await withAsyncTimeout(
             operationTimeout,
-            operationName: "iTunes album matching",
+            operationName: String(localized: "Finding matching iTunes tracks"),
             priority: .userInitiated
         ) {
             albumMatcher(selectionSummary, detailForMatching)

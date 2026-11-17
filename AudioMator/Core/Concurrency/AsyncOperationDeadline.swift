@@ -4,7 +4,7 @@ struct AsyncOperationTimedOutError: LocalizedError, Equatable, Sendable {
     let operationName: String
 
     var errorDescription: String? {
-        "\(operationName) timed out. Please try again."
+        String(localized: "\(operationName) took too long to complete.")
     }
 }
 

@@ -20,7 +20,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
         XCTAssertEqual(
             viewModel.artworkLookupSession?.errorMessage,
-            "iTunes artwork search timed out. Please try again."
+            "Searching iTunes for artwork took too long to complete."
         )
         XCTAssertNotNil(viewModel.artworkLookupSession)
         await gate.release()
@@ -59,7 +59,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         }
         XCTAssertEqual(
             viewModel.artworkLookupSession?.errorMessage,
-            "The artwork search was cancelled."
+            "Artwork search cancelled."
         )
         await gate.release()
     }
@@ -88,7 +88,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
         XCTAssertEqual(
             viewModel.artworkLookupSession?.errorMessage,
-            "iTunes artwork download timed out. Please try again."
+            "Downloading artwork from iTunes took too long to complete."
         )
         XCTAssertNotNil(viewModel.artworkLookupSession)
         await gate.release()

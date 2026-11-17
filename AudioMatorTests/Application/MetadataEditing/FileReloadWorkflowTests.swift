@@ -111,7 +111,8 @@ final class FileReloadWorkflowTests: XCTestCase {
 
         XCTAssertEqual(viewModel.files.first?.snapshotID, original.snapshotID)
         XCTAssertEqual(viewModel.edit?.title, "Original")
-        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Reload Failed")
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Files Couldn’t Be Reloaded")
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
         XCTAssertFalse(viewModel.isReloadingSelectedFiles)
     }
 
@@ -201,6 +202,50 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.inspectorEditSourceFilesByID[original.id]?.snapshotID, original.snapshotID)
     }
 
+    func testManualSuccessAndSelectionChangeResetAutomaticFailureDeduplication() async {
+        let original = AudioFileTestFactory.make(title: "Original")
+        let pipeline = FileReloadTestPipeline(files: [original])
+        let viewModel = selectedViewModel(original, pipeline: pipeline)
+        pipeline.setLoadFailure(true)
+        await viewModel.refreshSelectedFilesAfterActivation()
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures.first?.fileID, original.id)
+        pipeline.setLoadFailure(false)
+        await viewModel.reloadSelectedFilesFromDisk()
+        XCTAssertTrue(viewModel.lastAutomaticReloadFailures.isEmpty)
+        pipeline.setLoadFailure(true)
+        await viewModel.refreshSelectedFilesAfterActivation()
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures.first?.fileID, original.id)
+        viewModel.setSelectedAudioIDs([])
+        XCTAssertTrue(viewModel.lastAutomaticReloadFailures.isEmpty)
+    }
+
+    func testIdenticallyNamedFilesHaveDistinctRefreshFailureIdentities() {
+        let first = SelectedFileReloadFailure(fileID: UUID(), url: URL(fileURLWithPath: "/a/song.flac"), reason: "Denied")
+        let second = SelectedFileReloadFailure(fileID: UUID(), url: URL(fileURLWithPath: "/b/song.flac"), reason: "Denied")
+        XCTAssertNotEqual(first, second)
+    }
+
+    func testEditingAndReadbackDoNotRearmTheSameAutomaticFailure() async {
+        let original = AudioFileTestFactory.make(title: "Original")
+        let pipeline = FileReloadTestPipeline(files: [original])
+        let viewModel = selectedViewModel(original, pipeline: pipeline)
+        pipeline.setLoadFailure(true)
+        await viewModel.refreshSelectedFilesAfterActivation()
+        let failures = viewModel.lastAutomaticReloadFailures
+        XCTAssertFalse(failures.isEmpty)
+
+        viewModel.edit?.title = "Unsaved draft"
+        viewModel.cancelEditing()
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures, failures)
+        viewModel.replaceLoadedFile(original) // Same selection, like a successful write's readback.
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures, failures)
+        viewModel.updateEditForSelection()
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures, failures)
+
+        viewModel.setSelectedAudioIDs([])
+        XCTAssertTrue(viewModel.lastAutomaticReloadFailures.isEmpty)
+    }
+
     private func selectedViewModel(_ file: AudioFile, pipeline: FileReloadTestPipeline) -> AudioViewModel {
         // Restored watched folders would otherwise use the injected pipeline
         // concurrently and make these selected-file read counts nondeterministic.
@@ -237,6 +282,11 @@ private final class FileReloadTestPipeline: AudioMetadataPipeline, @unchecked Se
     private let beforeLoad: (@Sendable () async -> Void)?
     private let lock = NSLock()
     nonisolated(unsafe) private var recordedLoadCount = 0
+    nonisolated(unsafe) private var failLoads = false
+
+    func setLoadFailure(_ fail: Bool) {
+        lock.withLock { failLoads = fail }
+    }
 
     init(files: [AudioFile] = [], beforeLoad: (@Sendable () async -> Void)? = nil) {
         filesByURL = Dictionary(uniqueKeysWithValues: files.map { ($0.url, $0) })
@@ -248,6 +298,7 @@ private final class FileReloadTestPipeline: AudioMetadataPipeline, @unchecked Se
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         lock.withLock { recordedLoadCount += 1 }
         await beforeLoad?()
+        if lock.withLock({ failLoads }) { throw CocoaError(.fileReadUnknown) }
         guard let file = filesByURL[url] else { throw CocoaError(.fileReadUnknown) }
         return file
     }

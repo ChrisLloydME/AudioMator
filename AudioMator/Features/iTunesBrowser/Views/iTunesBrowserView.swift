@@ -198,7 +198,7 @@ struct iTunesBrowserView: View {
         } else if let errorMessage = store.errorMessage {
             VStack(spacing: 0) {
                 ContentUnavailableView(
-                    "Search Failed",
+                    String(localized: "Search Couldn’t Be Completed"),
                     systemImage: "exclamationmark.triangle",
                     description: Text(errorMessage)
                 )

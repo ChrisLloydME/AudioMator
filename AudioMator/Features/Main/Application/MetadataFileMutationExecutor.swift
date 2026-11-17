@@ -62,7 +62,7 @@ struct MetadataFileMutationExecutor: Sendable {
                         do {
                             let reloadedFile = try await withAsyncTimeout(
                                 reloadTimeout,
-                                operationName: "Metadata reload",
+                                operationName: String(localized: "Reloading the saved metadata"),
                                 priority: .userInitiated
                             ) {
                                 try await pipeline.loadAudioFile(at: url, id: id)

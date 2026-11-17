@@ -36,13 +36,13 @@ enum MetadataFieldTransferPlanner {
     ) -> MetadataExchangeImportPlan {
         guard source.isWritableMetadataField, destination.isWritableMetadataField else {
             return MetadataExchangeImportPlan(
-                validationMessage: String(localized: "Choose two writable metadata fields."),
+                validationMessage: String(localized: "Choose an editable source field and an editable destination field."),
                 rows: []
             )
         }
         guard source != destination else {
             return MetadataExchangeImportPlan(
-                validationMessage: String(localized: "Choose a different destination field."),
+                validationMessage: String(localized: "Choose a destination field different from the source field."),
                 rows: []
             )
         }
@@ -87,11 +87,11 @@ enum MetadataFieldTransferPlanner {
 
         if file.hasUnverifiedIndependentDateProjection,
            source.isIndependentDateField || destination.isIndependentDateField {
-            return row(status: .parseError, message: String(localized: "Independent date transfer is unavailable for unverified ID3v2.3 date projections."))
+            return row(status: .parseError, message: String(localized: "These separate date fields couldn’t be verified in ID3v2.3 tags. Choose other fields to transfer."))
         }
 
         guard !normalizedSourceValue.isEmpty else {
-            return row(status: .unchanged, message: String(localized: "The source field is empty. This file will be skipped."))
+            return row(status: .unchanged, message: String(localized: "The source field is empty. This file will be skipped without changes."))
         }
 
         if let message = destination.fieldTransferValidationMessage(sourceValue) {
@@ -123,7 +123,7 @@ enum MetadataFieldTransferPlanner {
             return row(
                 status: .sourceUnavailable,
                 changes: changes,
-                message: String(localized: "The file version could not be verified. Reload the file and try again.")
+                message: String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
             )
         }
 
@@ -148,7 +148,7 @@ extension MetadataExchangeField {
         // Number and total are independent fields here, unlike text/CSV pair imports.
         if self == .trackNumber || self == .discNumber {
             if MetadataExchangeField.trackTotal.importedValueValidationMessage(value) != nil {
-                return String(localized: "The destination number field requires a single integer from 0 through 2147483647.")
+                return String(localized: "This destination field accepts one whole number from 0 to 2147483647. It can't accept a number/total pair.")
             }
         }
         return importedValueValidationMessage(value)

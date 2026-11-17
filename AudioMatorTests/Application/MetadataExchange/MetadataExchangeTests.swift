@@ -34,7 +34,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertEqual(
             plan.validationMessage,
-            "Add literal separators between fields so each text line can be parsed unambiguously."
+            "Add text between adjacent fields so AudioMator can tell their values apart."
         )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canApply)
@@ -112,7 +112,7 @@ final class MetadataExchangeTests: XCTestCase {
             "{{title}}\(internalPadding),{{artist}}"
         )
 
-        XCTAssertEqual(result.validationMessage, "The column template is too large.")
+        XCTAssertEqual(result.validationMessage, "This column template is too long. Shorten it before continuing.")
         XCTAssertTrue(result.columns.isEmpty)
         XCTAssertEqual(result.delimiter, ",")
     }
@@ -162,7 +162,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
 
-        XCTAssertEqual(plan.validationMessage, "Unexpected quote in an unquoted CSV field.")
+        XCTAssertEqual(plan.validationMessage, "A CSV cell contains a quote in the wrong place. Enclose the whole cell in quotes and write quotes inside it as two double quotes.")
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canApply)
     }
@@ -516,9 +516,9 @@ final class MetadataExchangeTests: XCTestCase {
         let file = AudioFileTestFactory.make()
 
         let templates = [
-            ("{{title}} | {{titel}}", "{{titel}} is not a supported metadata field."),
-            ("{{title", "Close every template field with }}."),
-            ("{{title}}\n{{artist}}", "Use a single-line template. Use CSV for multiline metadata.")
+            ("{{title}} | {{titel}}", "“{{titel}}” isn't a supported field. Choose a field from the available list."),
+            ("{{title", "A field is missing its closing }}. Complete it, for example {{title}}."),
+            ("{{title}}\n{{artist}}", "Keep this template on one line. Use CSV for metadata that contains line breaks.")
         ]
         for (template, expectedMessage) in templates {
             let exportPlan = MetadataExchangePlanner.makeTextExportPlan(
@@ -546,7 +546,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertEqual(
             plan.validationMessage,
-            "One or more values contain line breaks. Use CSV export to preserve multiline metadata safely."
+            "Some values contain line breaks. Use CSV export to keep those values intact."
         )
         XCTAssertFalse(plan.canExport)
         XCTAssertEqual(plan.rows.first?.output, "Line One\r\nLine Two")
@@ -586,7 +586,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertEqual(
             plan.validationMessage,
-            "A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values."
+            "One exported record would exceed 256 KB. Use CSV export or shorten the values in that record."
         )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canExport)
@@ -776,7 +776,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertEqual(
             plan.validationMessage,
-            "A CSV field is larger than 1 MB. Shorten that metadata value before exporting."
+            "One CSV cell would exceed 1 MB. Shorten that field's value before exporting."
         )
         XCTAssertTrue(plan.rows.isEmpty)
         XCTAssertFalse(plan.canExport)
@@ -802,7 +802,7 @@ final class MetadataExchangeTests: XCTestCase {
         )
         XCTAssertEqual(
             invalidHeader.validationMessage,
-            "The CSV header has 1 column(s), but the template has 2."
+            "The CSV header and template have different column counts (1 and 2). Make them match before importing."
         )
         XCTAssertTrue(invalidHeader.rows.isEmpty)
     }

@@ -20,7 +20,7 @@ extension AudioViewModel {
         let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
             let entry = entries[index]
             guard let file = filesByID[entry.fileID] else {
-                return (entry.fileName, .failure("The file is no longer loaded in AudioMator."))
+                return (entry.fileName, .failure(String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")))
             }
 
             var edit = SingleFileEditModel(from: file)
@@ -97,7 +97,7 @@ extension AudioViewModel {
         let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
             let entry = entries[index]
             guard let file = filesByID[entry.fileID] else {
-                return (entry.fileName, .failure("The file is no longer loaded in AudioMator."))
+                return (entry.fileName, .failure(String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")))
             }
 
             var edit = SingleFileEditModel(from: file)

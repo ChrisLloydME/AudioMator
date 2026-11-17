@@ -298,13 +298,16 @@ struct TrackRenumberSheet: View {
                     resultMetric(title: "Succeeded", value: trackRenumberResult.succeeded, tint: .green)
                     resultMetric(title: "Skipped", value: trackRenumberResult.skippedUnsupported, tint: .orange)
                     resultMetric(title: "Failed", value: trackRenumberResult.failed, tint: .red)
+                    if !trackRenumberResult.cancelled.isEmpty {
+                        resultMetric(title: "Cancelled", value: trackRenumberResult.cancelled.count, tint: .secondary)
+                    }
                 }
 
                 if !trackRenumberResult.failures.isEmpty {
                     Divider()
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Failed Files", systemImage: "exclamationmark.triangle.fill")
+                        Label(String(localized: "Files That Couldn't Be Updated"), systemImage: "exclamationmark.triangle.fill")
                             .font(.headline)
                             .foregroundStyle(.secondary)
 
@@ -329,6 +332,17 @@ struct TrackRenumberSheet: View {
                         }
                         .audiomatorScrollEdgeEffect(.soft, for: .vertical)
                         .frame(maxHeight: 150)
+                    }
+                }
+
+                if !trackRenumberResult.cancelled.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Files Not Processed").font(.headline)
+                        ForEach(trackRenumberResult.cancelled) { item in
+                            Text(item.fileName).font(.body)
+                            Text(item.reason).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
 

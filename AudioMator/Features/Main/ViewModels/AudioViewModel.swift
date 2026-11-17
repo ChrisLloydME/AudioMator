@@ -10,8 +10,6 @@ import Combine
 import AppKit
 import TagLibAudioMetadata
 
-private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
-
 enum MetadataWriteHUDStyle: Equatable {
     case success
     case warning
@@ -23,6 +21,73 @@ struct MetadataWriteHUD: Identifiable, Equatable {
     let style: MetadataWriteHUDStyle
     let title: String
     let subtitle: String
+    let summary: String
+    let details: String
+
+    init(style: MetadataWriteHUDStyle, title: String, subtitle: String,
+         summary: String? = nil, details: String? = nil) {
+        self.style = style
+        self.title = title
+        self.subtitle = subtitle
+        let lines = subtitle.components(separatedBy: .newlines)
+        self.summary = summary ?? lines.first ?? ""
+        self.details = details ?? lines.dropFirst().joined(separator: "\n")
+    }
+
+    private var normalizedDetails: String {
+        details.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var previewGroups: [String] {
+        let groups = normalizedDetails.components(separatedBy: "\n\n")
+        var shown: [String] = []
+        for group in groups {
+            let candidate = (shown + [group]).joined(separator: "\n\n")
+            guard candidate.count <= 1000, candidate.components(separatedBy: .newlines).count <= 14 else { break }
+            shown.append(group)
+        }
+        return shown
+    }
+
+    var detailPreview: String {
+        if previewGroups.isEmpty {
+            let lines = normalizedDetails.components(separatedBy: .newlines).prefix(14)
+            return String(lines.joined(separator: "\n").prefix(1000))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return previewGroups.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var hasOmittedDetails: Bool {
+        detailPreview != normalizedDetails
+    }
+
+    var omissionNotice: String {
+        if previewGroups.isEmpty {
+            return String(localized: "Additional detail characters not shown: \(max(0, normalizedDetails.count - detailPreview.count)).")
+        }
+        let omitted = normalizedDetails.components(separatedBy: "\n\n").dropFirst(previewGroups.count)
+        let headings = omitted.prefix(3).map { group in
+            let heading = group.components(separatedBy: .newlines).first ?? ""
+            return String(heading.prefix(40)) + (heading.count > 40 ? "…" : "")
+        }
+        let remaining = omitted.count - headings.count
+        var notice = String(localized: "Additional detail groups not shown: \(omitted.count). \(headings.joined(separator: "; "))")
+        if remaining > 0 {
+            notice += " " + String(localized: "And \(remaining) more groups.")
+        }
+        return notice
+    }
+
+    var displayDuration: Duration {
+        switch style {
+        case .success: return .seconds(3)
+        case .warning: return .seconds(8)
+        case .failure: return .seconds(10)
+        }
+    }
 }
 
 struct MetadataSaveProgress: Equatable {
@@ -57,7 +122,11 @@ final class AudioViewModel: ObservableObject {
     private var visibleFilesByID: [AudioFile.ID: AudioFile] = [:]
     @Published private(set) var watchedFolders: [WatchedFolder] = []
     // Current selection in the middle list. Single-file and multi-file inspector editing both use this selection.
-    @Published private(set) var selectedAudioIDs: Set<UUID> = []
+    @Published private(set) var selectedAudioIDs: Set<UUID> = [] {
+        didSet {
+            if oldValue != selectedAudioIDs { lastAutomaticReloadFailures = [] }
+        }
+    }
     // Inspector edit models bound to the right-side inspector.
     @Published var editSourceFileID: UUID?
     @Published var edit: SingleFileEditModel? {
@@ -217,12 +286,12 @@ final class AudioViewModel: ObservableObject {
 
         if watchedFolderStore.loadState == .corrupt {
             bookmarkPersistenceWarnings.append(
-                String(localized: "Saved watched folders could not be read. The original data was preserved for recovery and will not be overwritten.")
+                String(localized: "Your watched folder list couldn’t be loaded. The saved list has been kept and won’t be overwritten.")
             )
         }
         if fileAccessGrantStore.loadState == .corrupt {
             bookmarkPersistenceWarnings.append(
-                String(localized: "Saved file-access folders could not be read. The original data was preserved for recovery and will not be overwritten.")
+                String(localized: "Your saved folder permissions couldn’t be loaded. The saved records have been kept and won’t be overwritten.")
             )
         }
 
@@ -358,12 +427,16 @@ final class AudioViewModel: ObservableObject {
     func presentMetadataWriteHUD(
         style: MetadataWriteHUDStyle,
         title: String,
-        subtitle: String
+        subtitle: String,
+        summary: String? = nil,
+        details: String? = nil
     ) {
         enqueueMetadataWriteHUD(
             style: style,
             title: title,
-            subtitle: subtitle
+            subtitle: subtitle,
+            summary: summary,
+            details: details
         )
     }
 
@@ -371,62 +444,72 @@ final class AudioViewModel: ObservableObject {
         presentMetadataWriteHUD(
             style: .success,
             title: "Saved to Disk",
-            subtitle: fileName
+            subtitle: fileName,
+            summary: fileName,
+            details: ""
         )
     }
 
     func presentMetadataWriteWarning(
         title: String,
-        subtitle: String,
+        fileName: String,
+        warnings: [String],
         operation: BatchMetadataOperationKind = .write
     ) {
-        let lines = subtitle.components(separatedBy: .newlines)
-        let fileName = lines.first ?? ""
-        let messages = Array(lines.dropFirst())
+        let details = warnings.joined(separator: "\n")
+        let subtitle = fileName + "\n" + details
         saveIssueLogStore.recordSingleIssue(
-            title: title,
-            subtitle: subtitle,
-            fileName: fileName,
-            messages: messages.isEmpty ? [subtitle] : messages,
-            severity: .warning,
-            operation: operation
+            title: title, subtitle: subtitle, fileName: fileName,
+            messages: warnings, severity: .warning, operation: operation
         )
-
-        presentMetadataWriteHUD(
-            style: .warning,
-            title: title,
-            subtitle: subtitle
-        )
+        presentMetadataWriteHUD(style: .warning, title: title, subtitle: subtitle,
+                                summary: fileName, details: details)
     }
 
-    func presentMetadataWriteFailure(for fileName: String, reason: String) {
+    func presentMetadataWriteFailure(
+        for fileName: String, reason: String,
+        title: String = String(localized: "Changes Couldn’t Be Saved"),
+        operation: BatchMetadataOperationKind = .write
+    ) {
+        if MetadataCancellation.isMessage(reason) {
+            presentMetadataWriteHUD(style: .warning, title: String(localized: "Operation Cancelled"),
+                                    subtitle: fileName + "\n" + reason, summary: fileName, details: reason)
+            return
+        }
         let subtitle = [fileName, reason]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
         saveIssueLogStore.recordSingleIssue(
-            title: "Save Failed",
+            title: title,
             subtitle: subtitle,
             fileName: fileName,
             messages: [reason],
-            severity: .failure
+            severity: .failure,
+            operation: operation
         )
 
         presentMetadataWriteHUD(
             style: .failure,
-            title: "Save Failed",
-            subtitle: subtitle
+            title: title,
+            subtitle: subtitle,
+            summary: fileName,
+            details: reason
         )
     }
 
     private func enqueueMetadataWriteHUD(
         style: MetadataWriteHUDStyle,
         title: String,
-        subtitle: String
+        subtitle: String,
+        summary: String? = nil,
+        details: String? = nil
     ) {
         let hud = MetadataWriteHUD(
             style: style,
             title: title,
-            subtitle: subtitle
+            subtitle: subtitle,
+            summary: summary,
+            details: details
         )
         pendingMetadataWriteHUDs.append(hud)
 
@@ -443,7 +526,7 @@ final class AudioViewModel: ObservableObject {
         metadataWriteHUD = hud
 
         metadataWriteHUDDismissTask = Task { [weak self, hudID = hud.id] in
-            try? await Task.sleep(for: metadataWriteSuccessHUDDuration)
+            try? await Task.sleep(for: hud.displayDuration)
             guard !Task.isCancelled else { return }
 
             await MainActor.run {
@@ -518,7 +601,7 @@ final class AudioViewModel: ObservableObject {
             presentMetadataWriteHUD(
                 style: .failure,
                 title: String(localized: "Folder Not Added"),
-                subtitle: String(localized: "AudioMator preserved unreadable saved-folder data instead of overwriting it.")
+                subtitle: String(localized: "The saved folder records couldn't be read. AudioMator has kept the original records without overwriting them.")
             )
             return duplicateSelection ?? .watchedLibrary
         }
@@ -541,9 +624,9 @@ final class AudioViewModel: ObservableObject {
     nonisolated static func watchedFolderAccessFailureMessage(for displayNames: [String]) -> String {
         guard let firstName = displayNames.first else { return "" }
         if displayNames.count == 1 {
-            return String(localized: "AudioMator couldn't save access to “\(firstName)”.")
+            return String(localized: "Access to “\(firstName)” couldn’t be saved for future use.")
         }
-        return String(localized: "AudioMator couldn't save access to \(displayNames.count) selected folders.")
+        return String(localized: "Access to \(displayNames.count) selected folders couldn’t be saved for future use.")
     }
 
     func removeWatchedFolder(id: UUID) {
@@ -796,6 +879,8 @@ final class AudioViewModel: ObservableObject {
         if rebuildVisible { rebuildVisibleFiles() }
     }
 
+    var lastAutomaticReloadFailures: [SelectedFileReloadFailure] = []
+
     var artworkImportTask: Task<Void, Never>?
 
     func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) async -> [String] {
@@ -839,11 +924,11 @@ final class AudioViewModel: ObservableObject {
                 let detail = (error as NSError).localizedDescription
                 if safetyState.0 != nil, safetyState.1 != nil {
                     warnings.append(
-                        "\(change.newURL.lastPathComponent): Renamed successfully and recovered its safety revision, but the full metadata refresh failed: \(detail)"
+                        String(localized: "“\(change.newURL.lastPathComponent)” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: \(detail)")
                     )
                 } else {
                     warnings.append(
-                        "\(change.newURL.lastPathComponent): Renamed successfully, but its safety revision could not be refreshed. Metadata editing is disabled until the file is reloaded: \(detail)"
+                        String(localized: "“\(change.newURL.lastPathComponent)” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: \(detail)")
                     )
                 }
             }
@@ -1283,13 +1368,15 @@ final class AudioViewModel: ObservableObject {
             return "\(fileName): \(reason)"
         }
         if failures.count > lines.count {
-            lines.append("...and \(failures.count - lines.count) more")
+            lines.append(String(localized: "Additional files couldn’t be imported: \(failures.count - lines.count)."))
         }
 
         presentMetadataWriteHUD(
             style: .warning,
-            title: failures.count == 1 ? "File Not Imported" : "Some Files Were Not Imported",
-            subtitle: lines.joined(separator: "\n")
+            title: failures.count == 1 ? String(localized: "This File Couldn’t Be Imported") : String(localized: "Some Files Couldn’t Be Imported"),
+            subtitle: lines.joined(separator: "\n"),
+            summary: String(localized: "Files that couldn’t be imported: \(failures.count)."),
+            details: lines.joined(separator: "\n\n")
         )
     }
 
@@ -1317,7 +1404,7 @@ final class AudioViewModel: ObservableObject {
         )
 
         guard panel.runModal() == .OK, let selectedURL = panel.url?.standardizedFileURL else {
-            return String(localized: "Modifying files requires folder access for “\(displayName)”.")
+            return String(localized: "Allow access to “\(displayName)” to change files inside it.")
         }
 
         guard Self.urlKey(for: selectedURL) == key else {
@@ -1329,7 +1416,7 @@ final class AudioViewModel: ObservableObject {
             return nil
         } catch {
             return String(
-                localized: "AudioMator couldn't save access to “\(displayName)”: \((error as NSError).localizedDescription)"
+                localized: "Access to “\(displayName)” couldn’t be saved for future use.\nDetails: \((error as NSError).localizedDescription)"
             )
         }
     }

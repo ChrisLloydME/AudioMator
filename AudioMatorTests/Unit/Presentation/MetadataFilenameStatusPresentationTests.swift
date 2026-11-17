@@ -140,7 +140,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
                 template: "{{title}}",
                 plan: duplicatePlan
             ),
-            "0 file(s) are ready. 2 file(s) will be skipped: 2 duplicate target."
+            "0 file(s) are ready. 2 file(s) will be skipped. Same New Filename: 2."
         )
     }
 
@@ -175,7 +175,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
                 template: noMatchPlan.template,
                 plan: noMatchPlan
             ),
-            "0 file(s) are ready. 1 file(s) need review: 1 no match."
+            "0 file(s) are ready. 1 file(s) need review. No Match Found: 1."
         )
     }
 

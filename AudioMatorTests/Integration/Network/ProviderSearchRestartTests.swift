@@ -109,7 +109,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         let didFinish = try await waitUntil { !store.isSearching }
 
         XCTAssertTrue(didFinish)
-        XCTAssertEqual(store.errorMessage, "iTunes search timed out. Please try again.")
+        XCTAssertEqual(store.errorMessage, "Searching iTunes took too long to complete.")
         await gate.finish()
     }
 
@@ -148,7 +148,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         let didFinish = try await waitUntil { !store.isSearching }
 
         XCTAssertTrue(didFinish)
-        XCTAssertEqual(store.errorMessage, "MusicBrainz search timed out. Please try again.")
+        XCTAssertEqual(store.errorMessage, "Searching MusicBrainz took too long to complete.")
         await gate.finish()
     }
 

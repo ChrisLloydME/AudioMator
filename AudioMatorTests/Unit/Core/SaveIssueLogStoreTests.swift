@@ -27,7 +27,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         store.record(summary: summary, date: date)
 
         XCTAssertEqual(store.entries.count, 1)
-        XCTAssertEqual(store.entries[0].title, "Saved with Issues")
+        XCTAssertEqual(store.entries[0].title, "Changes Saved with Warnings")
         XCTAssertEqual(store.entries[0].operation, .write)
         XCTAssertEqual(store.entries[0].severity, .warning)
         XCTAssertEqual(store.entries[0].issues[0].fileName, "one.flac")
@@ -47,7 +47,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         store.record(summary: summary)
 
         XCTAssertEqual(store.entries.count, 1)
-        XCTAssertEqual(store.entries[0].title, "Save Failed")
+        XCTAssertEqual(store.entries[0].title, "Changes Couldn’t Be Saved")
         XCTAssertEqual(store.entries[0].severity, .failure)
         XCTAssertEqual(store.entries[0].issues[0].messages, ["Permission denied."])
     }
@@ -66,7 +66,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         store.record(summary: summary)
 
         XCTAssertEqual(store.entries.count, 1)
-        XCTAssertEqual(store.entries[0].severity, .failure)
+        XCTAssertEqual(store.entries[0].severity, .warning)
         XCTAssertEqual(
             store.entries[0].issues.map(\.fileName),
             ["failed.flac", "warning.flac"]
@@ -88,7 +88,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
 
         XCTAssertEqual(store.entries.count, 1)
         XCTAssertEqual(store.entries[0].operation, .clear)
-        XCTAssertEqual(store.entries[0].title, "Clear Failed")
+        XCTAssertEqual(store.entries[0].title, "Metadata Couldn’t Be Cleared")
     }
 
     func testLogLimitKeepsNewestEntries() {
@@ -96,7 +96,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
 
         for index in 1...3 {
             store.recordSingleIssue(
-                title: "Save Failed",
+                title: "Changes Couldn’t Be Saved",
                 subtitle: "file-\(index).flac\nDenied.",
                 fileName: "file-\(index).flac",
                 messages: ["Denied."],
@@ -150,7 +150,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         )
 
         store.recordSingleIssue(
-            title: "Save Failed",
+            title: "Changes Couldn’t Be Saved",
             subtitle: "one.flac\nDenied.",
             fileName: "one.flac",
             messages: ["Denied."],

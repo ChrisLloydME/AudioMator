@@ -60,19 +60,19 @@ enum MetadataExchangePreviewStatus: Equatable {
         case .unchanged:
             return L10n.string("Unchanged")
         case .noMatch:
-            return L10n.string("No Match")
+            return L10n.string("No Match Found")
         case .ambiguousMatch:
-            return L10n.string("Ambiguous Match")
+            return L10n.string("More Than One Match")
         case .parseError:
-            return L10n.string("Parse Error")
+            return L10n.string("Record Needs Review")
         case .sourceUnavailable:
-            return L10n.string("File Unavailable")
+            return L10n.string("Couldn't Check File")
         case .missingExternalRecord:
-            return L10n.string("Missing Record")
+            return L10n.string("No Import Record")
         case .extraExternalRecord:
-            return L10n.string("Extra Record")
+            return L10n.string("Record Without a File")
         case .noWritableFields:
-            return L10n.string("No Writable Fields")
+            return L10n.string("No Editable Fields")
         }
     }
 
@@ -170,7 +170,7 @@ enum MetadataExchangePlanner {
     ) -> MetadataTextExportPlan {
         guard template.utf8.count <= maximumTemplateUTF8ByteCount else {
             return MetadataTextExportPlan(
-                validationMessage: L10n.string("The text template is too large."),
+                validationMessage: L10n.string("This text template is too long. Shorten it before continuing."),
                 rows: []
             )
         }
@@ -178,7 +178,7 @@ enum MetadataExchangePlanner {
         let document = MetadataExchangeTemplateDocument(rawValue: template)
         if document.isEmpty {
             return MetadataTextExportPlan(
-                validationMessage: L10n.string("Enter a template to preview exported text."),
+                validationMessage: L10n.string("Enter a template to see an export preview."),
                 rows: []
             )
         }
@@ -189,7 +189,7 @@ enum MetadataExchangePlanner {
 
         guard document.fields.contains(where: { $0 != .ignore }) else {
             return MetadataTextExportPlan(
-                validationMessage: L10n.string("Add at least one output field to the template."),
+                validationMessage: L10n.string("Add at least one metadata field to the export template."),
                 rows: []
             )
         }
@@ -197,11 +197,11 @@ enum MetadataExchangePlanner {
         let uniqueFiles = uniqueTargetFiles(targetFiles)
         if document.fields.contains(where: \.isIndependentDateField),
            uniqueFiles.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
-            return MetadataTextExportPlan(validationMessage: String(localized: "Independent date export is unavailable for unverified ID3v2.3 date projections."), rows: [])
+            return MetadataTextExportPlan(validationMessage: String(localized: "These separate date fields couldn’t be verified in ID3v2.3 tags. Leave them out of this export."), rows: [])
         }
         guard uniqueFiles.count <= MetadataExchangeResourceLimits.maximumRecordCount else {
             return MetadataTextExportPlan(
-                validationMessage: L10n.string("The export contains more than 100,000 files. Export a smaller selection."),
+                validationMessage: L10n.string("You can export up to 100,000 files at a time. Select fewer files."),
                 rows: []
             )
         }
@@ -225,13 +225,13 @@ enum MetadataExchangePlanner {
             let outputUTF8ByteCount = output.utf8.count
             guard outputUTF8ByteCount <= MetadataExchangeResourceLimits.maximumTextRecordUTF8ByteCount else {
                 return MetadataTextExportPlan(
-                    validationMessage: L10n.string("A rendered text record is larger than 256 KB. Use CSV export or shorten large metadata values."),
+                    validationMessage: L10n.string("One exported record would exceed 256 KB. Use CSV export or shorten the values in that record."),
                     rows: []
                 )
             }
             guard outputBudget.append(recordUTF8ByteCount: outputUTF8ByteCount) else {
                 return MetadataTextExportPlan(
-                    validationMessage: L10n.string("The export would be larger than 32 MB. Export a smaller selection."),
+                    validationMessage: L10n.string("This export would exceed 32 MB. Select fewer files."),
                     rows: []
                 )
             }
@@ -250,7 +250,7 @@ enum MetadataExchangePlanner {
 
         return MetadataTextExportPlan(
             validationMessage: containsMultilineRecord
-                ? L10n.string("One or more values contain line breaks. Use CSV export to preserve multiline metadata safely.")
+                ? L10n.string("Some values contain line breaks. Use CSV export to keep those values intact.")
                 : nil,
             rows: rows
         )
@@ -275,11 +275,11 @@ enum MetadataExchangePlanner {
         let uniqueFiles = uniqueTargetFiles(targetFiles)
         if result.columns.contains(where: \.isIndependentDateField),
            uniqueFiles.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
-            return MetadataCSVExportPlan(validationMessage: String(localized: "Independent date export is unavailable for unverified ID3v2.3 date projections."), columns: result.columns, rows: [], includeHeaderRow: includeHeaderRow, delimiter: result.delimiter)
+            return MetadataCSVExportPlan(validationMessage: String(localized: "These separate date fields couldn’t be verified in ID3v2.3 tags. Leave them out of this export."), columns: result.columns, rows: [], includeHeaderRow: includeHeaderRow, delimiter: result.delimiter)
         }
         guard uniqueFiles.count <= MetadataExchangeResourceLimits.maximumRecordCount else {
             return MetadataCSVExportPlan(
-                validationMessage: L10n.string("The export contains more than 100,000 files. Export a smaller selection."),
+                validationMessage: L10n.string("You can export up to 100,000 files at a time. Select fewer files."),
                 columns: result.columns,
                 rows: [],
                 includeHeaderRow: includeHeaderRow,
@@ -300,7 +300,7 @@ enum MetadataExchangePlanner {
             let serializedHeader = MetadataExchangeCSV.serialize([header], delimiter: result.delimiter)
             guard outputBudget.append(recordUTF8ByteCount: serializedHeader.utf8.count) else {
                 return MetadataCSVExportPlan(
-                    validationMessage: L10n.string("The export would be larger than 32 MB. Export a smaller selection."),
+                    validationMessage: L10n.string("This export would exceed 32 MB. Select fewer files."),
                     columns: result.columns,
                     rows: [],
                     includeHeaderRow: includeHeaderRow,
@@ -319,7 +319,7 @@ enum MetadataExchangePlanner {
             }
             guard !hasOversizedField else {
                 return MetadataCSVExportPlan(
-                    validationMessage: L10n.string("A CSV field is larger than 1 MB. Shorten that metadata value before exporting."),
+                    validationMessage: L10n.string("One CSV cell would exceed 1 MB. Shorten that field's value before exporting."),
                     columns: result.columns,
                     rows: [],
                     includeHeaderRow: includeHeaderRow,
@@ -330,7 +330,7 @@ enum MetadataExchangePlanner {
             let serializedRow = MetadataExchangeCSV.serialize([row], delimiter: result.delimiter)
             guard outputBudget.append(recordUTF8ByteCount: serializedRow.utf8.count) else {
                 return MetadataCSVExportPlan(
-                    validationMessage: L10n.string("The export would be larger than 32 MB. Export a smaller selection."),
+                    validationMessage: L10n.string("This export would exceed 32 MB. Select fewer files."),
                     columns: result.columns,
                     rows: [],
                     includeHeaderRow: includeHeaderRow,
@@ -357,14 +357,14 @@ enum MetadataExchangePlanner {
     ) -> MetadataExchangeImportPlan {
         guard template.utf8.count <= maximumTemplateUTF8ByteCount else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The text template is too large."),
+                validationMessage: L10n.string("This text template is too long. Shorten it before continuing."),
                 rows: []
             )
         }
 
         guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The import text is too large. Split it into files smaller than 32 MB."),
+                validationMessage: L10n.string("The import text exceeds 32 MB. Split it into files smaller than 32 MB."),
                 rows: []
             )
         }
@@ -399,21 +399,21 @@ enum MetadataExchangePlanner {
 
         guard !records.isEmpty else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("Add at least one text record to import."),
+                validationMessage: L10n.string("Add at least one record to import."),
                 rows: []
             )
         }
 
         guard records.count <= maximumImportRecordCount else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The import contains more than 100,000 records. Split it into smaller batches."),
+                validationMessage: L10n.string("You can import up to 100,000 records at a time. Split the records into smaller batches."),
                 rows: []
             )
         }
 
         guard !records.contains(where: { $0.utf8.count > maximumTextRecordUTF8ByteCount }) else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("A text record is larger than 256 KB. Use CSV import for multiline or very large values."),
+                validationMessage: L10n.string("One text record exceeds 256 KB. Use CSV import for very long values or values with line breaks."),
                 rows: []
             )
         }
@@ -446,7 +446,7 @@ enum MetadataExchangePlanner {
     ) -> MetadataExchangeImportPlan {
         guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The CSV import is too large. Split it into files smaller than 32 MB."),
+                validationMessage: L10n.string("This CSV exceeds 32 MB. Split it into files smaller than 32 MB."),
                 rows: []
             )
         }
@@ -457,7 +457,7 @@ enum MetadataExchangePlanner {
         }
         guard result.columns.contains(where: \.isWritableMetadataField) else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("Add at least one writable metadata field to the CSV column template."),
+                validationMessage: L10n.string("Add at least one editable metadata field to the CSV column template."),
                 rows: []
             )
         }
@@ -487,7 +487,7 @@ enum MetadataExchangePlanner {
         if firstRowIsHeader, let header = parsedCSV.first {
             guard header.count == result.columns.count else {
                 return MetadataExchangeImportPlan(
-                    validationMessage: "The CSV header has \(header.count) column(s), but the template has \(result.columns.count).",
+                    validationMessage: String(localized: "The CSV header and template have different column counts (\(header.count) and \(result.columns.count)). Make them match before importing."),
                     rows: []
                 )
             }
@@ -495,7 +495,7 @@ enum MetadataExchangePlanner {
                 let field = result.columns[index]
                 guard field == .ignore || headerCell(cell, matches: field) else {
                     return MetadataExchangeImportPlan(
-                        validationMessage: "The CSV header column \(index + 1) (\(cell.value)) does not match the template field \(field.displayName). Reorder the columns or update the template.",
+                        validationMessage: String(localized: "CSV column \(index + 1) is “\(cell.value)”, but the template expects \(field.displayName). Reorder the CSV columns or change the template to match."),
                         rows: []
                     )
                 }
@@ -512,14 +512,14 @@ enum MetadataExchangePlanner {
 
         guard dataRows.count <= maximumImportRecordCount else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The CSV contains more than 100,000 data rows. Split it into smaller batches."),
+                validationMessage: L10n.string("You can import up to 100,000 CSV data rows at a time. Split the rows into smaller files."),
                 rows: []
             )
         }
 
         guard clearBlankImportedValues || dataRows.contains(where: isUsableCSVDataRow) else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("Add at least one CSV data row with values to import."),
+                validationMessage: L10n.string("The CSV has no data rows with values. Add data before importing."),
                 rows: []
             )
         }
@@ -533,7 +533,7 @@ enum MetadataExchangePlanner {
                 return ParsedExternalRecord(
                     index: index,
                     displayText: displayText,
-                    captures: .failure("\(missingCount) missing CSV column(s).")
+                    captures: .failure(String(localized: "Missing CSV columns: \(missingCount). Add the missing columns to match the template."))
                 )
             }
             if cells.count > result.columns.count {
@@ -541,7 +541,7 @@ enum MetadataExchangePlanner {
                 return ParsedExternalRecord(
                     index: index,
                     displayText: displayText,
-                    captures: .failure("\(extraCount) extra CSV column(s).")
+                    captures: .failure(String(localized: "Extra CSV columns: \(extraCount). Remove them or add corresponding fields to the template."))
                 )
             }
 
@@ -563,34 +563,34 @@ enum MetadataExchangePlanner {
     static func parseCSVColumnTemplate(_ template: String) -> (columns: [MetadataExchangeField], delimiter: Character, validationMessage: String?) {
         let trimmed = template.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return ([], ",", L10n.string("Enter a comma-, semicolon-, pipe-, or tab-delimited column template."))
+            return ([], ",", L10n.string("Enter a column template using commas, semicolons, vertical bars, or tabs between fields."))
         }
 
         guard trimmed.utf8.count <= maximumTemplateUTF8ByteCount else {
-            return ([], ",", L10n.string("The column template is too large."))
+            return ([], ",", L10n.string("This column template is too long. Shorten it before continuing."))
         }
 
         let delimiter = MetadataExchangeCSV.detectDelimiter(in: trimmed)
         do {
             let rows = try MetadataExchangeCSV.parse(trimmed, delimiter: delimiter)
             guard rows.count == 1, let row = rows.first, !row.isEmpty else {
-                return ([], delimiter, L10n.string("Enter a single CSV template row."))
+                return ([], delimiter, L10n.string("Use one row for the CSV column template."))
             }
 
 
             guard row.count <= MetadataExchangeField.allCases.count + 64 else {
-                return ([], delimiter, L10n.string("The column template contains too many columns."))
+                return ([], delimiter, L10n.string("This template has too many columns. Remove some columns before continuing."))
             }
 
             var columns: [MetadataExchangeField] = []
             var seenFields = Set<MetadataExchangeField>()
             for cell in row {
                 guard let field = MetadataExchangeField.field(forExactToken: cell) else {
-                    return (columns, delimiter, "Each CSV template column must be one supported field token, such as {{title}}.")
+                    return (columns, delimiter, String(localized: "Use one supported field per CSV template column, such as {{title}}."))
                 }
 
                 if field != .ignore, seenFields.contains(field) {
-                    return (columns, delimiter, "Use each CSV field at most once so imported values cannot conflict.")
+                    return (columns, delimiter, String(localized: "The CSV template includes the same field more than once. Keep only one column for each field."))
                 }
 
                 seenFields.insert(field)
@@ -598,7 +598,7 @@ enum MetadataExchangePlanner {
             }
 
             guard columns.contains(where: { $0 != .ignore }) else {
-                return (columns, delimiter, L10n.string("Add at least one output field to the CSV template."))
+                return (columns, delimiter, L10n.string("Add at least one field to the CSV export template."))
             }
 
             return (columns, delimiter, nil)
@@ -629,7 +629,7 @@ enum MetadataExchangePlanner {
 
     private static func validateImportTextTemplate(_ document: MetadataExchangeTemplateDocument) -> String? {
         if document.isEmpty {
-            return L10n.string("Enter a text template to parse imported records.")
+            return L10n.string("Enter a template that matches the records you want to import.")
         }
 
         if let validationMessage = validateTemplateSyntax(document, requiresSingleLine: true) {
@@ -637,7 +637,7 @@ enum MetadataExchangePlanner {
         }
 
         guard document.hasWritableMetadataFields else {
-            return L10n.string("Add at least one writable metadata field to import.")
+            return L10n.string("Add at least one editable metadata field to the import template.")
         }
 
         for index in document.segments.indices.dropLast() {
@@ -646,7 +646,7 @@ enum MetadataExchangePlanner {
             else {
                 continue
             }
-            return L10n.string("Add literal separators between fields so each text line can be parsed unambiguously.")
+            return L10n.string("Add text between adjacent fields so AudioMator can tell their values apart.")
         }
 
         return nil
@@ -657,25 +657,25 @@ enum MetadataExchangePlanner {
         requiresSingleLine: Bool
     ) -> String? {
         if document.rawValue.utf8.count > maximumTemplateUTF8ByteCount {
-            return L10n.string("The text template is too large.")
+            return L10n.string("This text template is too long. Shorten it before continuing.")
         }
 
         if document.segments.count > 256 {
-            return L10n.string("The text template contains too many segments.")
+            return L10n.string("This text template has too many parts. Remove some fields or separators.")
         }
 
         if document.hasUnterminatedPlaceholder {
-            return L10n.string("Close every template field with }}.")
+            return L10n.string("A field is missing its closing }}. Complete it, for example {{title}}.")
         }
 
         if let unknownPlaceholderName = document.unknownPlaceholderNames.first {
             let name = unknownPlaceholderName.isEmpty ? "{{}}" : "{{\(unknownPlaceholderName)}}"
-            return "\(name) is not a supported metadata field."
+            return String(localized: "“\(name)” isn't a supported field. Choose a field from the available list.")
         }
 
         if requiresSingleLine,
            document.rawValue.unicodeScalars.contains(where: { $0.value == 0x0A || $0.value == 0x0D }) {
-            return L10n.string("Use a single-line template. Use CSV for multiline metadata.")
+            return L10n.string("Keep this template on one line. Use CSV for metadata that contains line breaks.")
         }
 
         return nil
@@ -766,7 +766,7 @@ enum MetadataExchangePlanner {
         let uniqueFiles = uniqueTargetFiles(targetFiles)
         guard uniqueFiles.count <= maximumImportRecordCount else {
             return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The selection contains more than 100,000 files. Import into a smaller selection."),
+                validationMessage: L10n.string("You can import into up to 100,000 files at a time. Select fewer files."),
                 rows: []
             )
         }
@@ -813,7 +813,7 @@ enum MetadataExchangePlanner {
                     externalRecord: record?.displayText ?? "",
                     status: .extraExternalRecord,
                     changes: [],
-                    issueMessage: L10n.string("This record has no selected file at the same position."),
+                    issueMessage: L10n.string("No selected file corresponds to this record's position. Select the matching file or remove the record."),
                     writeEntry: nil
                 )
             }
@@ -826,7 +826,7 @@ enum MetadataExchangePlanner {
                     externalRecord: "",
                     status: .missingExternalRecord,
                     changes: [],
-                    issueMessage: L10n.string("This selected file has no external record at the same position."),
+                    issueMessage: L10n.string("No import record corresponds to this file's position. Add the matching record or leave this file out of the selection."),
                     writeEntry: nil
                 )
             }
@@ -930,7 +930,7 @@ enum MetadataExchangePlanner {
                         externalRecord: record.displayText,
                         status: .noMatch,
                         changes: [],
-                        issueMessage: L10n.string("No selected file matches all locator values in this record."),
+                        issueMessage: L10n.string("No selected file matches this record's identifying values. Check its filename or path and your file selection."),
                         writeEntry: nil
                     )
                 )
@@ -943,7 +943,7 @@ enum MetadataExchangePlanner {
                         externalRecord: record.displayText,
                         status: .ambiguousMatch,
                         changes: [],
-                        issueMessage: L10n.string("Multiple selected files match this record. Add Path or Relative Path to disambiguate them."),
+                        issueMessage: L10n.string("This record matches more than one selected file. Add Path or Relative Path so each file can be identified."),
                         writeEntry: nil
                     )
                 )
@@ -957,7 +957,7 @@ enum MetadataExchangePlanner {
                             externalRecord: record.displayText,
                             status: .ambiguousMatch,
                             changes: [],
-                            issueMessage: L10n.string("Multiple external records identify this selected file. None of them will be written."),
+                            issueMessage: L10n.string("More than one import record points to this file. Keep one record for it. None of these records will be applied."),
                             writeEntry: nil
                         )
                     )
@@ -981,7 +981,7 @@ enum MetadataExchangePlanner {
                     externalRecord: "",
                     status: .missingExternalRecord,
                     changes: [],
-                    issueMessage: L10n.string("No external record matched this selected file."),
+                    issueMessage: L10n.string("No import record matches this selected file. Check the records or leave this file out of the selection."),
                     writeEntry: nil
                 )
             )
@@ -1192,7 +1192,7 @@ enum MetadataExchangePlanner {
         case .success(let captures):
             if file.hasUnverifiedIndependentDateProjection,
                captures.keys.contains(where: \.isIndependentDateField) {
-                return parseErrorRow(record: record, file: file, message: "Independent date editing is read-only for ID3v2.3.")
+                return parseErrorRow(record: record, file: file, message: String(localized: "These date fields can't be edited separately in ID3v2.3 tags."))
             }
             for (field, importedValue) in captures where field.isWritableMetadataField {
                 if importedValue == MetadataExchangeProfile.removalSentinel { continue }
@@ -1206,7 +1206,7 @@ enum MetadataExchangePlanner {
                ContentAdvisory.fromMetadataText(advisory) == nil,
                advisory != file.advisoryRawValue {
                 return parseErrorRow(record: record, file: file, message:
-                    "This advisory code can be preserved on its original file, but the dependency does not support assigning unknown codes to another file.")
+                    String(localized: "This content advisory code can stay in its original file, but it can't be copied to another file. Choose a supported advisory option to set a new value."))
             }
 
             let changes = MetadataExchangeField.allCases.compactMap { field -> MetadataExchangeFieldChange? in
@@ -1230,7 +1230,7 @@ enum MetadataExchangePlanner {
                     externalRecord: record.displayText,
                     status: .noWritableFields,
                     changes: [],
-                    issueMessage: L10n.string("This record did not contain writable metadata fields."),
+                    issueMessage: L10n.string("This record has no editable metadata fields to import."),
                     writeEntry: nil
                 )
             }
@@ -1259,7 +1259,7 @@ enum MetadataExchangePlanner {
             } else {
                 writeEntry = nil
                 status = .sourceUnavailable
-                issueMessage = L10n.string("The file version could not be verified. Reload the file and try again.")
+                issueMessage = L10n.string("The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
             }
             return MetadataExchangeImportPreviewRow(
                 id: UUID(),
@@ -1394,9 +1394,9 @@ private struct MetadataExchangeTextMatcher {
         case .failure(let message):
             return .failure(message)
         case .ambiguous:
-            return .failure(L10n.string("The record matches the template in more than one way. Add more specific separators or use CSV import."))
+            return .failure(L10n.string("This record fits the template in more than one way. Add clearer separators or use CSV import."))
         case .tooComplex:
-            return .failure(L10n.string("The record is too complex to match safely. Use CSV import or a simpler template."))
+            return .failure(L10n.string("This record couldn’t be matched within the processing limit. Simplify the template or use CSV import."))
         }
     }
 
@@ -1413,13 +1413,13 @@ private struct MetadataExchangeTextMatcher {
         if segmentIndex >= segments.count {
             return sourceIndex == source.endIndex
                 ? .success(captures)
-                : .failure(L10n.string("The record has trailing text that does not match the template."))
+                : .failure(L10n.string("This record has extra text at the end. Remove it or update the template to include it."))
         }
 
         switch segments[segmentIndex] {
         case .literal(let literal):
             guard source[sourceIndex...].hasPrefix(literal) else {
-                return .failure(L10n.string("The record did not match the template literals."))
+                return .failure(L10n.string("The fixed text in this record doesn't match the template. Check the text and separators."))
             }
             let nextSourceIndex = source.index(sourceIndex, offsetBy: literal.count)
             return matchSegments(
@@ -1443,7 +1443,7 @@ private struct MetadataExchangeTextMatcher {
             }
 
             guard case .literal(let nextLiteral) = segments[nextSegmentIndex] else {
-                return .failure(L10n.string("Adjacent fields need a literal separator."))
+                return .failure(L10n.string("Add text between these fields so their values can be read separately."))
             }
 
             guard let literalPositions = findLiteralPositions(
@@ -1489,7 +1489,7 @@ private struct MetadataExchangeTextMatcher {
             if let uniqueCapture {
                 return .success(uniqueCapture)
             }
-            return .failure(lastFailure ?? L10n.string("The record did not match the template."))
+            return .failure(lastFailure ?? L10n.string("This record doesn't match the template. Check the field order and separators."))
         }
     }
 
@@ -1507,7 +1507,7 @@ private struct MetadataExchangeTextMatcher {
             return .failure(validationMessage)
         }
         if let existingValue = captures[field], existingValue != value {
-            return .failure("The field \(field.displayName) was captured more than once with different values.")
+            return .failure(String(localized: "This record gives more than one value for \(field.displayName). Keep one value or use CSV import."))
         }
 
         var updatedCaptures = captures

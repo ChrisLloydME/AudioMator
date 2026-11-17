@@ -188,13 +188,13 @@ struct LRCLIBLyricsBrowserView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .cancelled:
             paneUnavailableContent(
-                "Search Cancelled",
+                String(localized: "Search Was Cancelled"),
                 systemImage: "xmark.circle",
                 description: Text("Start a new search when you are ready.")
             )
         case .failed(let message):
             paneUnavailableContent(
-                "Unable to Search LRCLIB",
+                String(localized: "Lyrics Search Couldn’t Be Completed"),
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
             )
@@ -209,7 +209,7 @@ struct LRCLIBLyricsBrowserView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         if !store.hasSyncedCandidate {
-                            Label("No synced lyrics found in these results.", systemImage: "info.circle")
+                            Label(String(localized: "These results don't include synced lyrics. Try another search."), systemImage: "info.circle")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.bottom, 4)

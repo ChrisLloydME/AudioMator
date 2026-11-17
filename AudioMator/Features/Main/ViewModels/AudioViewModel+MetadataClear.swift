@@ -26,32 +26,22 @@ extension AudioViewModel {
                     self.presentMetadataWriteHUD(
                         style: .success,
                         title: "Metadata Cleared",
-                        subtitle: file.url.lastPathComponent
+                        subtitle: file.url.lastPathComponent,
+                        summary: file.url.lastPathComponent,
+                        details: ""
                     )
                 } else {
                     self.presentMetadataWriteWarning(
-                        title: "Cleared with Issues",
-                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n"),
+                        title: String(localized: "Metadata Cleared with Warnings"),
+                        fileName: file.url.lastPathComponent,
+                        warnings: success.warnings,
                         operation: .clear
                     )
                 }
             case .failure(let reason):
-                self.saveIssueLogStore.recordSingleIssue(
-                    title: "Clear Failed",
-                    subtitle: [file.url.lastPathComponent, reason]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n"),
-                    fileName: file.url.lastPathComponent,
-                    messages: [reason],
-                    severity: .failure,
-                    operation: .clear
-                )
-                self.presentMetadataWriteHUD(
-                    style: .failure,
-                    title: "Clear Failed",
-                    subtitle: [file.url.lastPathComponent, reason]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n")
+                self.presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent, reason: reason,
+                    title: String(localized: "Metadata Couldn’t Be Cleared"), operation: .clear
                 )
             }
         }
@@ -134,11 +124,11 @@ extension AudioViewModel {
     ) async -> MetadataWriteExecutionResult {
         guard !file.requiresMetadataRefreshBeforeWriting else {
             return .failure(
-                "The file revision could not be verified after it moved. Reload the file before clearing metadata."
+                String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata.")
             )
         }
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            return .failure("This format does not support metadata writing yet.")
+            return .failure(String(localized: "AudioMator doesn't support saving metadata to this file format."))
         }
 
         return await executeMetadataFileMutation(

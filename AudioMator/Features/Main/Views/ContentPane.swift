@@ -305,9 +305,9 @@ struct ContentPane: View {
         case .quickImport:
             return L10n.string("No Files in Session")
         case .watchedLibrary:
-            return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : "No Audio Files Found"
+            return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : String(localized: "No Audio Files to Show")
         case .watchedFolder:
-            return L10n.string("No Audio Files Found")
+            return L10n.string("No Audio Files to Show")
         }
     }
 
@@ -367,7 +367,7 @@ struct ContentPane: View {
         if let failure = viewModel.ensureRenameDirectoryAccess(for: targets.map(\.url)) {
             viewModel.presentMetadataWriteHUD(
                 style: .warning,
-                title: "Folder Access Needed",
+                title: String(localized: "Allow Folder Access"),
                 subtitle: failure
             )
             return

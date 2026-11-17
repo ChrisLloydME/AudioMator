@@ -47,7 +47,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
-                        messages: [L10n.string("The file revision could not be verified after it moved. Reload the file before editing raw metadata.")]
+                        messages: [L10n.string("The file couldn’t be checked after it moved. Close the Metadata Editor and choose Reload from Disk from the file’s context menu, then reopen the editor.")]
                     )
                 )
                 continue
@@ -58,7 +58,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
-                        messages: [L10n.string("The metadata was not loaded for this file, so no changes were written.")]
+                        messages: [L10n.string("Metadata wasn’t loaded for this file. Close and reopen the Metadata Editor. No changes were saved.")]
                     )
                 )
                 continue
@@ -69,7 +69,7 @@ extension AudioViewModel {
                 summary.failureIssues.append(
                     BatchMetadataWriteIssue(
                         fileName: target.fileName,
-                        messages: ["This format does not support metadata writing yet."]
+                        messages: [String(localized: "AudioMator doesn't support saving metadata to this file format.")]
                     )
                 )
                 continue

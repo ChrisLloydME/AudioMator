@@ -75,7 +75,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         guard case .failure(let reason) = await save.value else {
             return XCTFail("Queued stale intent must observe the newer recovery decision")
         }
-        XCTAssertTrue(reason.contains("Reload the file"))
+        XCTAssertTrue(reason.contains("Reload from Disk"))
         let rawResult = await viewModel.applyRawMetadataPropertyMaps([original.id: ["TITLE": ["Stale raw edit"]]],
             to: [MetadataEditorTarget(file: original)])
         XCTAssertEqual(rawResult.failedTargetIDs, [original.id])
@@ -98,7 +98,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
         let moved = try! XCTUnwrap(viewModel.files.first)
         XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
-        XCTAssertTrue(warnings.first?.contains("editing is disabled") == true)
+        XCTAssertTrue(warnings.first?.contains("editing is paused") == true)
 
         var edit = SingleFileEditModel(from: moved)
         edit.title = "Must not write"
@@ -107,7 +107,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         guard case .failure(let reason) = result else {
             return XCTFail("Expected a refresh-required failure")
         }
-        XCTAssertTrue(reason.contains("Reload the file"))
+        XCTAssertTrue(reason.contains("Reload from Disk"))
         XCTAssertEqual(pipeline.writeCount, 0)
     }
 
@@ -152,7 +152,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertFalse(moved.requiresMetadataRefreshBeforeWriting)
         XCTAssertNotNil(moved.fileFingerprint)
         XCTAssertEqual(moved.metadataFileVersion, version)
-        XCTAssertTrue(warnings.first?.contains("recovered its safety revision") == true)
+        XCTAssertTrue(warnings.first?.contains("metadata couldn’t be reloaded") == true)
     }
 }
 

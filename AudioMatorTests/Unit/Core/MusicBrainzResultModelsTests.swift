@@ -44,11 +44,11 @@ final class MusicBrainzResultModelsTests: XCTestCase {
     func testClientErrorsPreserveUserVisibleDescriptions() {
         XCTAssertEqual(
             MusicBrainzClientError.requestFailed(statusCode: 503).errorDescription,
-            "MusicBrainz returned HTTP 503."
+            "This MusicBrainz lookup couldn’t be completed. Try again later.\nDetails: HTTP 503."
         )
         XCTAssertEqual(
             MusicBrainzClientError.decodingFailed("Missing key.").errorDescription,
-            "MusicBrainz returned data AudioMator couldn't read. Missing key."
+            "The metadata from MusicBrainz couldn’t be read. Try again later.\nDetails: Missing key."
         )
     }
 }

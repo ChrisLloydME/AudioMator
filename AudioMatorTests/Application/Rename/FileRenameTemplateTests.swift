@@ -62,14 +62,14 @@ final class FileRenameTemplateTests: XCTestCase {
         )
 
         let unknown = makeFileRenamePlan(template: "{{titel}}", targetFiles: [file])
-        XCTAssertEqual(unknown.validationMessage, "{{titel}} is not a supported metadata field.")
+        XCTAssertEqual(unknown.validationMessage, "“{{titel}}” isn't a supported field. Choose a field from the available list.")
         XCTAssertFalse(unknown.canApply)
 
         let oversizedTemplate = makeFileRenamePlan(
             template: String(repeating: "a", count: maximumFileRenameTemplateUTF8ByteCount + 1),
             targetFiles: [file]
         )
-        XCTAssertEqual(oversizedTemplate.validationMessage, "The filename template is too large.")
+        XCTAssertEqual(oversizedTemplate.validationMessage, "This filename template is too long. Shorten it before continuing.")
         XCTAssertTrue(oversizedTemplate.rows.isEmpty)
         XCTAssertFalse(oversizedTemplate.canApply)
 

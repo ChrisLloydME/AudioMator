@@ -23,8 +23,8 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         let single = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music"])
         let multiple = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music", "Archive"])
 
-        XCTAssertEqual(single, "AudioMator couldn't save access to “Music”.")
-        XCTAssertEqual(multiple, "AudioMator couldn't save access to 2 selected folders.")
+        XCTAssertEqual(single, "Access to “Music” couldn’t be saved for future use.")
+        XCTAssertEqual(multiple, "Access to 2 selected folders couldn’t be saved for future use.")
         XCTAssertFalse(single.contains("/Users/"))
         XCTAssertFalse(multiple.contains("Music"))
     }
@@ -179,11 +179,11 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
 
         XCTAssertTrue(status.isDegraded)
         XCTAssertTrue(status.message.contains("126 of 301"))
-        XCTAssertTrue(status.message.contains("173 omitted"))
-        XCTAssertTrue(status.message.contains("2 could not be opened"))
-        XCTAssertTrue(status.message.contains("1 scan error"))
-        XCTAssertTrue(status.message.contains("1 audio file could not be read"))
-        XCTAssertTrue(status.message.contains("Last known metadata is retained"))
-        XCTAssertTrue(status.message.contains("last known file list is retained"))
+        XCTAssertTrue(status.message.contains("173 folders exceed"))
+        XCTAssertTrue(status.message.contains("2 folders couldn't be opened"))
+        XCTAssertTrue(status.message.contains("1 folder scan couldn’t be completed"))
+        XCTAssertTrue(status.message.contains("1 audio file couldn’t be read"))
+        XCTAssertTrue(status.message.contains("Previously loaded metadata is still shown"))
+        XCTAssertTrue(status.message.contains("previous file list will stay visible"))
     }
 }

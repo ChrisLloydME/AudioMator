@@ -325,7 +325,7 @@ final class MetadataEditorStore: ObservableObject {
                 }
             } catch {
                 loadedTargets.append(target)
-                failures.append("\(target.fileName): \((error as NSError).localizedDescription)")
+                failures.append(String(localized: "Metadata couldn’t be read from “\(target.fileName)”.\nDetails: \((error as NSError).localizedDescription)"))
             }
         }
 
@@ -335,7 +335,7 @@ final class MetadataEditorStore: ObservableObject {
         } else if failures.count == 1 {
             errorMessage = failures[0]
         } else {
-            errorMessage = ([ "\(failures.count) files could not be read." ] + failures.prefix(3)).joined(separator: "\n")
+            errorMessage = ([ String(localized: "Metadata couldn’t be read from \(failures.count) files.") ] + failures.prefix(3) + (failures.count > 3 ? [String(localized: "Additional files that couldn’t be read: \(failures.count - 3).")] : [])).joined(separator: "\n")
         }
 
         return LoadedState(targets: loadedTargets, propertyMaps: propertyMaps, errorMessage: errorMessage)
@@ -434,7 +434,7 @@ struct MetadataEditorWindowView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let errorMessage = store.loadErrorMessage {
             ContentUnavailableView(
-                "Unable to Read Metadata",
+                String(localized: "Metadata Couldn’t Be Read"),
                 systemImage: "exclamationmark.triangle",
                 description: Text(errorMessage)
             )
@@ -444,7 +444,7 @@ struct MetadataEditorWindowView: View {
                 "No Metadata Fields",
                 systemImage: "tag",
                 description: Text(
-                    store.loadErrorMessage ?? "No non-empty TagLib metadata fields were found for the current selection."
+                    store.loadErrorMessage ?? String(localized: "The selected files have no non-empty metadata fields to show in this editor.")
                 )
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)

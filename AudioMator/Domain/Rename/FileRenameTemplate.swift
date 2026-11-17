@@ -58,15 +58,15 @@ enum FileRenamePreviewStatus: Equatable {
         case .unchanged:
             return L10n.string("Unchanged")
         case .emptyName:
-            return L10n.string("Empty Name")
+            return L10n.string("Filename Is Empty")
         case .nameTooLong:
-            return L10n.string("Name Too Long")
+            return L10n.string("Filename Too Long")
         case .sourceUnavailable:
-            return L10n.string("File Unavailable")
+            return L10n.string("Couldn't Check File")
         case .duplicateTarget:
-            return L10n.string("Duplicate Target")
+            return L10n.string("Same New Filename")
         case .existingFile:
-            return L10n.string("File Exists")
+            return L10n.string("Name Already in Use")
         }
     }
 
@@ -77,15 +77,15 @@ enum FileRenamePreviewStatus: Equatable {
         case .unchanged:
             return L10n.string("The generated filename already matches the current file.")
         case .emptyName:
-            return L10n.string("This template resolves to an empty filename for the file.")
+            return L10n.string("This template produces an empty filename. Add text or a field with a value.")
         case .nameTooLong:
-            return L10n.string("The generated filename is too long for the destination file system.")
+            return L10n.string("The new filename is too long for this location. Shorten the template or the values used in it.")
         case .sourceUnavailable:
-            return L10n.string("The file version could not be verified. Reload the file and try again.")
+            return L10n.string("The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
         case .duplicateTarget:
-            return L10n.string("Multiple selected files would end up with the same filename.")
+            return L10n.string("These files would have the same new filename. Add a field that makes each name different.")
         case .existingFile:
-            return L10n.string("A different file already exists at the target path.")
+            return L10n.string("Another file already uses this name in the destination folder. Choose a different name.")
         }
     }
 
@@ -151,7 +151,7 @@ func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenam
     guard template.utf8.count <= maximumFileRenameTemplateUTF8ByteCount else {
         return FileRenamePlan(
             template: template,
-            validationMessage: L10n.string("The filename template is too large."),
+            validationMessage: L10n.string("This filename template is too long. Shorten it before continuing."),
             rows: [],
             operations: []
         )
@@ -178,7 +178,7 @@ func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenam
     }
     if usesDate, targetFiles.contains(where: { $0.hasUnverifiedIndependentDateProjection }) {
         return FileRenamePlan(template: template,
-            validationMessage: String(localized: "Date-based filenames are unavailable for unverified ID3v2.3 date projections."),
+            validationMessage: String(localized: "These separate date fields couldn’t be verified in ID3v2.3 tags. Leave them out of the filename template."),
             rows: [], operations: [])
     }
 
@@ -434,16 +434,16 @@ let maximumFileRenameTemplateUTF8ByteCount = 16_384
 
 func fileRenameTemplateSyntaxValidationMessage(_ document: FileRenameTemplateDocument) -> String? {
     if document.hasUnterminatedPlaceholder {
-        return L10n.string("Close every template field with }}.")
+        return L10n.string("A field is missing its closing }}. Complete it, for example {{title}}.")
     }
 
     if let unknownPlaceholderName = document.unknownPlaceholderNames.first {
         let name = unknownPlaceholderName.isEmpty ? "{{}}" : "{{\(unknownPlaceholderName)}}"
-        return "\(name) is not a supported metadata field."
+        return String(localized: "“\(name)” isn't a supported field. Choose a field from the available list.")
     }
 
     if document.segments.count > 256 {
-        return L10n.string("The filename template contains too many segments.")
+        return L10n.string("This filename template has too many parts. Remove some fields or separators.")
     }
 
     return nil

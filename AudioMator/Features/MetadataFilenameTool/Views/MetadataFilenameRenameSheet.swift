@@ -93,12 +93,12 @@ enum MetadataExchangeExternalTextFileLoader {
         nonisolated var errorDescription: String? {
             switch self {
             case .notRegularFile:
-                return String(localized: "AudioMator can only import a regular text file.")
+                return String(localized: "This item isn't a regular text file. Choose a text file to import.")
             case .tooLarge(let maximumByteCount):
                 let megabytes = maximumByteCount / (1_024 * 1_024)
-                return String(localized: "That file is too large to import. Choose a text file no larger than \(megabytes) MB.")
+                return String(localized: "This file exceeds the \(megabytes) MB import limit. Choose a smaller text file or split it into smaller files.")
             case .unsupportedEncoding:
-                return String(localized: "AudioMator couldn't read that file as UTF-8, UTF-16, Windows-1252, or Mac Roman text.")
+                return String(localized: "This file’s text encoding couldn’t be read. Save a copy as UTF-8, then import the copy. UTF-16, Windows-1252, and Mac Roman are also supported.")
             }
         }
     }
@@ -518,7 +518,7 @@ struct MetadataFilenameWindowView: View {
             resetForNewPresentation()
         }
         .alert(
-            "Rename Failed",
+            String(localized: "Files Couldn’t Be Renamed"),
             isPresented: Binding(
                 get: { renameFailureMessage != nil },
                 set: { if !$0 { renameFailureMessage = nil } }
@@ -916,6 +916,7 @@ struct MetadataFilenameWindowView: View {
             isApplying = false
 
             guard store.presentationID == presentationID else { return }
+            if result.wasCancelled { return }
             if let failureMessage = result.failureMessage {
                 renameFailureMessage = failureMessage
             } else if plan.issueCount == 0 {
@@ -1104,7 +1105,7 @@ struct MetadataFilenameWindowView: View {
         } catch {
             viewModel.presentMetadataWriteHUD(
                 style: .failure,
-                title: "Export Failed",
+                title: String(localized: "Metadata Couldn’t Be Exported"),
                 subtitle: (error as NSError).localizedDescription
             )
         }

@@ -209,7 +209,7 @@ struct iTunesAlbumDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let message):
                 ContentUnavailableView(
-                    "Unable to Load Metadata",
+                    String(localized: "Metadata Couldn’t Be Loaded"),
                     systemImage: "exclamationmark.triangle",
                     description: Text(message)
                 )
@@ -422,7 +422,7 @@ struct iTunesAlbumDetailView: View {
                 do {
                     comparisonGroups = try await withAsyncTimeout(
                         .seconds(10),
-                        operationName: "iTunes metadata comparison",
+                        operationName: String(localized: "Comparing metadata with iTunes"),
                         priority: .userInitiated
                     ) {
                         iTunesMetadataComparisonBuilder.groups(

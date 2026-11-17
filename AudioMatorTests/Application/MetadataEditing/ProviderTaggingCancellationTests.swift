@@ -175,7 +175,7 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
         guard workflow != "renumber" else { return }
         let entry = try XCTUnwrap(viewModel.saveIssueLogStore.entries.first)
-        XCTAssertTrue(entry.summary.contains(queued ? "No files were saved" : "\(expectedWrites) of \(files.count)"), entry.summary)
+        XCTAssertTrue(entry.summary.contains(queued ? "No changes were saved to any files." : "\(expectedWrites) of \(files.count)"), entry.summary)
         XCTAssertEqual(entry.issues.map(\.fileName), Array(names.dropFirst(expectedWrites)))
         XCTAssertTrue(entry.issues[0].messages.joined().localizedCaseInsensitiveContains("cancel"))
     }

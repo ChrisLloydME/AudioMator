@@ -50,7 +50,7 @@ The Inspector edits the fields visible for the current selection. For a single f
 
 Saves write only the fields that changed from the draft's baseline. Before writing, AudioMator checks that the format supports each requested field. If any requested field is unsupported, the file is not written and the unsupported fields are reported.
 
-For multiple files, Inspector, MusicBrainz/iTunes plans, and filename/CSV metadata imports process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records non-success outcomes (Settings → Logs).
+For multiple files, Inspector, MusicBrainz/iTunes plans, and filename/CSV metadata imports process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records save warnings and failures, plus per-file outcomes for incomplete batches (Settings → Logs). A single operation cancelled before writing does not create a save issue entry; an incomplete batch retains the unprocessed files as warning records so each selected file is accounted for.
 
 ### Numbering compatibility
 
@@ -221,3 +221,9 @@ Inspector number-text edits require numeric components with the current metadata
 ## Number Pairs and External Changes
 
 Track and disc numbers can be blank while their totals remain set. Clearing an individual number preserves its total; clearing the complete pair clears both. After an external revision change, automatic conflict strategies require the package to verify unchanged audio. Formats or layouts without audio-content identity support require Reload from Disk before saving the draft. Review or discard the draft before reloading.
+
+## Operation Result HUD
+
+Success, warning, and failure results use a centered SF Symbol above the title. The larger card separates the filename or batch result from the detailed reasons below. Batch results use complete sentences, group file names with their reasons, and state when additional files have issues. Detail groups are kept together within the notification budget; omitted groups are identified with a total count and up to three shortened headings. An oversized single reason has an explicit omitted-character count; the HUD contains no log-navigation link. The HUD remains noninteractive and does not take keyboard focus. Success results stay visible for 3 seconds, warnings for 8 seconds, and failures for 10 seconds.
+
+An error does not automatically mean that nothing was saved. A partial result identifies the files that succeeded; a save followed by a readback or durability warning is still reported as saved. Detailed reasons from macOS and TagLib remain available in the result or save logs. Automatic refresh, explicit Reload from Disk, and conflict handling retain their existing behavior. Reload from Disk is in the file list’s context menu and asks before discarding unsaved Inspector edits. There is no Refresh Preview button.

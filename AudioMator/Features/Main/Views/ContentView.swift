@@ -522,27 +522,49 @@ private struct MetadataWriteHUDView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let hud: MetadataWriteHUD
-    private let cornerRadius: CGFloat = 26
+    private let cornerRadius: CGFloat = 24
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
 
-            VStack(spacing: 4) {
+            VStack(spacing: 7) {
                 Text(hud.title)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.primary)
-
-                Text(hud.subtitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !hud.summary.isEmpty {
+                    Text(hud.summary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(hud.style == .success ? 2 : 4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .truncationMode(.middle)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            if !hud.details.isEmpty {
+                Divider()
+                Text(hud.detailPreview)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if hud.hasOmittedDetails {
+                Text(hud.omissionNotice)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(5)
+                    .truncationMode(.tail)
             }
         }
-        .frame(width: 320)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 18)
+        .frame(width: 372)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 24)
         .background {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.regularMaterial)
@@ -551,6 +573,7 @@ private struct MetadataWriteHUDView: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(borderColor, lineWidth: 1)
         }
+        .accessibilityElement(children: .combine)
         .allowsHitTesting(false)
     }
 
@@ -580,6 +603,7 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
         private var panel: NSPanel?
         private var hostingController: NSHostingController<MetadataWriteHUDScreenRoot>?
         private var presentedHUDID: UUID?
+        private var presentationGeneration = UUID()
 
         @MainActor
         func update(hud: MetadataWriteHUD?) {
@@ -588,6 +612,7 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
                 return
             }
 
+            presentationGeneration = UUID()
             if panel == nil {
                 createPanel()
             }
@@ -644,8 +669,8 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
             for hostingController: NSHostingController<MetadataWriteHUDScreenRoot>
         ) {
             let fittingSize = hostingController.view.fittingSize
-            let width = max(fittingSize.width, 364)
-            let height = max(fittingSize.height, 150)
+            let width = max(fittingSize.width, 456)
+            let height = max(fittingSize.height, 180)
             let screenFrame = targetScreen()?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
             let lowerHalfCenterY = screenFrame.minY + screenFrame.height * 0.35
             let origin = NSPoint(
@@ -667,12 +692,16 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
             }
 
             presentedHUDID = nil
+            let generation = UUID()
+            presentationGeneration = generation
 
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.12
                 panel.animator().alphaValue = 0
             } completionHandler: {
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
+                    guard let self, self.presentationGeneration == generation,
+                          self.presentedHUDID == nil else { return }
                     panel.orderOut(nil)
                 }
             }
@@ -709,9 +738,9 @@ private struct MetadataWriteHUDIcon: View {
 
     var body: some View {
         Image(systemName: symbolName)
-            .font(.system(size: 54, weight: .semibold))
+            .font(.system(size: 60, weight: .semibold))
             .foregroundStyle(symbolColor)
-        .frame(width: 54, height: 54)
+        .frame(width: 64, height: 64)
     }
 
     private var symbolColor: Color {

@@ -46,12 +46,12 @@ enum AudioFileFingerprintValidationError: LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .recoveryRequired(let fileName):
-            return "\(fileName): " + String(localized: "The file revision could not be verified after it moved. Reload the file before editing metadata.")
-        case .unavailable(let fileName):
-            return "\(fileName): The file version could not be verified. Refresh the preview and try again."
-        case .changedSincePreview(let fileName):
-            return "\(fileName): The file changed after the preview was shown. Refresh the preview before applying tags."
+        case .recoveryRequired:
+            return String(localized: "The file couldn’t be checked after it moved. Close any open metadata tool, then choose Reload from Disk from the file’s context menu before continuing. If there are unsaved edits, you’ll be asked to discard them before reloading.")
+        case .unavailable:
+            return String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying changes.")
+        case .changedSincePreview:
+            return String(localized: "The file has changed since it was last checked. The current values must be reviewed before these changes can be applied.")
         }
     }
 }

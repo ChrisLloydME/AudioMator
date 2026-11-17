@@ -34,7 +34,7 @@ enum GitHubReleaseNotesClientError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
-            return "GitHub returned an invalid response."
+            return String(localized: "The response from GitHub couldn’t be read. Try again later.")
         case .requestFailed(let message):
             return message
         }
@@ -74,7 +74,7 @@ struct GitHubReleaseNotesClient {
         guard (200...299).contains(httpResponse.statusCode) else {
             let apiError = try? decoder.decode(GitHubAPIError.self, from: data)
             throw GitHubReleaseNotesClientError.requestFailed(
-                apiError?.message ?? "GitHub request failed with status \(httpResponse.statusCode)."
+                apiError?.message ?? String(localized: "The release notes couldn’t be retrieved from GitHub. Try again later.\nDetails: HTTP \(httpResponse.statusCode).")
             )
         }
 

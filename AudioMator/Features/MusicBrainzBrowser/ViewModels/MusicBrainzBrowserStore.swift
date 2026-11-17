@@ -302,7 +302,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
             do {
                 let results = try await withAsyncTimeout(
                     operationTimeout,
-                    operationName: "MusicBrainz search"
+                    operationName: String(localized: "Searching MusicBrainz")
                 ) {
                     try await client.search(matching: query, limit: 25)
                 }
@@ -352,7 +352,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
             let releaseID = result.id
             var detail = try await withAsyncTimeout(
                 detailTimeout,
-                operationName: "MusicBrainz release detail"
+                operationName: String(localized: "Loading release details from MusicBrainz")
             ) {
                 try await detailClient.releaseDetail(id: releaseID)
             }
@@ -445,7 +445,7 @@ final class MusicBrainzBrowserStore: ObservableObject {
         let detailClient = client
         return try await withAsyncTimeout(
             detailTimeout,
-            operationName: "MusicBrainz recording detail"
+            operationName: String(localized: "Loading recording details from MusicBrainz")
         ) {
             try await detailClient.recordingDetail(id: id, fallbackReleases: fallbackReleases)
         }

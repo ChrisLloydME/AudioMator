@@ -608,17 +608,17 @@ enum iTunesClientError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyQuery:
-            return "Query cannot be empty."
+            return String(localized: "Enter something to search for.")
         case .invalidCountry:
-            return "Country must be a two-letter storefront code."
+            return String(localized: "Enter a two-letter store region code, such as US or GB.")
         case .failedToBuildURL:
-            return "Failed to build the iTunes request."
+            return String(localized: "This iTunes lookup couldn’t be started. Check the search details or link and try again.")
         case .unsupportedLink:
-            return "That link did not contain a supported Apple Music or iTunes album/track ID."
+            return String(localized: "This link doesn't identify a supported album or song. Paste an Apple Music or iTunes album or song link.")
         case .requestFailed(let code):
-            return "The iTunes request failed with status code \(code)."
+            return String(localized: "This iTunes lookup couldn’t be completed. Try again later.\nDetails: HTTP \(code).")
         case .invalidResponseBody:
-            return "The iTunes response could not be decoded."
+            return String(localized: "The lookup results from iTunes couldn’t be read. Try again later.")
         }
     }
 }

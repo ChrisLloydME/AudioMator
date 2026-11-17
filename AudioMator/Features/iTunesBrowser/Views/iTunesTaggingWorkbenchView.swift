@@ -61,12 +61,12 @@ struct iTunesTaggingWorkbenchView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     if store.hasDuplicateTrackAssignments {
                         iTunesWarningLabel(
-                            text: "Some iTunes tracks are assigned to more than one file."
+                            text: String(localized: "Some iTunes tracks are assigned to several files. Assign each track to only one file before applying metadata.")
                         )
                     }
                     if plan.unresolvedIssueCount > 0 {
                         iTunesWarningLabel(
-                            text: "\(plan.unresolvedIssueCount) file(s) cannot be written until they are assigned to an iTunes track and remain loaded."
+                            text: String(localized: "\(plan.unresolvedIssueCount) files aren't ready for changes. Make sure each file is loaded in AudioMator and assigned to an iTunes track.")
                         )
                     }
                 }
@@ -495,7 +495,7 @@ private enum iTunesWorkbenchAppKitFactory {
                 selectedTrack.map(trackDetailLine),
                 assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" }
             ].compactMap { $0 },
-            warning: isDuplicate ? "This iTunes track is assigned to more than one file." : nil,
+            warning: isDuplicate ? String(localized: "This iTunes track is assigned to several files. Keep only one assignment before applying metadata.") : nil,
             optionTitles: tracks.map(trackOptionTitle),
             selectedOptionIndex: selectedOptionIndex,
             isEnabled: !isApplying
@@ -525,7 +525,7 @@ private enum iTunesWorkbenchAppKitFactory {
             detailLines: [
                 selectedTrackDetail,
                 assignment.initialReason.flatMap { $0.isEmpty ? nil : "Auto-match: \($0)" },
-                isDuplicate ? "This iTunes track is assigned to more than one file." : nil
+                isDuplicate ? String(localized: "This iTunes track is assigned to several files. Keep only one assignment before applying metadata.") : nil
             ].compactMap { $0 },
             textHeightCache: textHeightCache
         )
@@ -833,7 +833,7 @@ private struct iTunesAssignmentRow: View {
             }
 
             if isDuplicate {
-                Label("This iTunes track is assigned to more than one file.", systemImage: "exclamationmark.triangle.fill")
+                Label(String(localized: "This iTunes track is assigned to several files. Keep only one assignment before applying metadata."), systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(.orange)
             }

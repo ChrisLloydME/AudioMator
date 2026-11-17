@@ -67,8 +67,9 @@ final class UpdateCheckPresenter {
     private func presentFailure(_ error: Error) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Unable to Check for Updates"
-        alert.informativeText = "\(error.localizedDescription)\n\nAudioMator could not retrieve release information from GitHub. You can still check GitHub Releases manually."
+        alert.messageText = String(localized: "Updates Couldn’t Be Checked")
+        alert.informativeText = error.localizedDescription + "\n\n"
+            + String(localized: "You can also check GitHub Releases manually.")
         alert.addButton(withTitle: "Open GitHub Releases")
         alert.addButton(withTitle: "OK")
 

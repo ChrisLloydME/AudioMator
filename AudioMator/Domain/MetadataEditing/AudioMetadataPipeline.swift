@@ -72,12 +72,24 @@ struct MetadataEditPayload: Sendable {
     /// Preserve numeric text validation while allowing total-only pairs.
     nonisolated var numberPairValidationMessage: String? {
         if trackNumberTextChanged, !AudioTagNumberText.components(from: trackNumberText).number.isEmpty,
-           Int(AudioTagNumberText.components(from: trackNumberText).number) == nil {
-            return String(localized: "Non-numeric track number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+           !AudioTagNumberText.hasIntegerSyntax(AudioTagNumberText.components(from: trackNumberText).number) {
+            return String(localized: "This numbering change can’t be saved while Track Number contains text such as “A1”. Enter a numeric track number, or edit these fields in the Metadata Editor.")
         }
         if discNumberTextChanged, !AudioTagNumberText.components(from: discNumberText).number.isEmpty,
-           Int(AudioTagNumberText.components(from: discNumberText).number) == nil {
-            return String(localized: "Non-numeric disc number text is not supported for this edit. Use the Metadata Editor to preserve text values.")
+           !AudioTagNumberText.hasIntegerSyntax(AudioTagNumberText.components(from: discNumberText).number) {
+            return String(localized: "This numbering change can’t be saved while Disc Number contains text such as “B2”. Enter a numeric disc number, or edit these fields in the Metadata Editor.")
+        }
+        for (changed, text, label, numberLabel) in [
+            (trackNumberTextChanged, trackNumberText, "Total Tracks", "Track Number"),
+            (discNumberTextChanged, discNumberText, "Total Discs", "Disc Number")
+        ] where changed {
+            let pair = AudioTagNumberText.components(from: text)
+            if let total = pair.total, !AudioTagNumberText.isWritableComponent(total) {
+                return String(localized: "For \(label), enter a whole number from 0 to 2147483647, or clear the field.")
+            }
+            if !AudioTagNumberText.isWritableComponent(pair.number) {
+                return String(localized: "For \(numberLabel), enter a whole number from 0 to 2147483647, or clear the field.")
+            }
         }
         return nil
     }
@@ -93,7 +105,7 @@ struct MetadataEditPayload: Sendable {
         ]
         for (field, value, label) in editedDates where changedFields.contains(field) {
             guard MetadataDateText.validates(value, for: field) else {
-                return label + " " + String(localized: "has an unsupported date shape. Enter a full value for that field or clear it explicitly; AudioMator will not truncate or guess.")
+                return label + " " + String(localized: "uses a date format that can’t be saved here. Enter a supported date or clear the field.")
             }
         }
         return nil

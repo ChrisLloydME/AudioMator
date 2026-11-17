@@ -51,34 +51,36 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
 
     var message: String {
         guard isDegraded else {
-            return "Automatic refresh is monitoring all \(monitoredDirectoryCount) directories."
+            return "Automatic refresh is monitoring all \(monitoredDirectoryCount) folders."
         }
 
         var reasons: [String] = []
         if omittedByLimitCount > 0 {
-            reasons.append("\(omittedByLimitCount) omitted by the safety limit")
+            reasons.append(omittedByLimitCount == 1 ? String(localized: "1 folder exceeds the monitoring limit") : String(localized: "\(omittedByLimitCount) folders exceed the monitoring limit"))
         }
         if failedToOpenCount > 0 {
-            reasons.append("\(failedToOpenCount) could not be opened")
+            reasons.append(failedToOpenCount == 1 ? String(localized: "1 folder couldn’t be opened") : String(localized: "\(failedToOpenCount) folders couldn't be opened"))
         }
         if scanFailureCount > 0 {
-            let scanLabel = scanFailureCount == 1 ? "scan error" : "scan errors"
-            reasons.append("\(scanFailureCount) \(scanLabel)")
+            reasons.append(scanFailureCount == 1
+                ? String(localized: "1 folder scan couldn’t be completed")
+                : String(localized: "\(scanFailureCount) folder scans couldn't be completed"))
         }
         if metadataReadFailureCount > 0 {
-            let fileLabel = metadataReadFailureCount == 1 ? "audio file" : "audio files"
-            reasons.append("\(metadataReadFailureCount) \(fileLabel) could not be read")
+            reasons.append(metadataReadFailureCount == 1
+                ? String(localized: "1 audio file couldn’t be read")
+                : String(localized: "\(metadataReadFailureCount) audio files couldn't be read"))
         }
 
-        var message = "Automatic refresh is monitoring \(monitoredDirectoryCount) of \(totalDirectoryCount) directories (\(reasons.joined(separator: ", ")))."
+        var message = String(localized: "Automatic refresh is active for \(monitoredDirectoryCount) of \(totalDirectoryCount) folders. \(reasons.joined(separator: ", ")).")
         if omittedByLimitCount > 0 || failedToOpenCount > 0 {
-            message += " Some nested changes may not refresh immediately."
+            message += " " + String(localized: "Changes in unmonitored subfolders may not appear until a scan succeeds.")
         }
         if metadataReadFailureCount > 0 {
-            message += " Last known metadata is retained where available."
+            message += " " + String(localized: "Previously loaded metadata is still shown where available.")
         }
         if scanFailureCount > 0 {
-            message += " The last known file list is retained until scanning succeeds."
+            message += " " + String(localized: "The previous file list will stay visible until a scan completes successfully.")
         }
         return message
     }

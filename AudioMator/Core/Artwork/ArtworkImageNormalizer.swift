@@ -11,13 +11,13 @@ nonisolated enum ArtworkImageNormalizerError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .inputTooLarge:
-            return "The artwork file is too large to process safely."
+            return String(localized: "This image exceeds the artwork file size limit. Choose a smaller image.")
         case .invalidImage:
-            return "The selected artwork image could not be opened."
+            return String(localized: "This image couldn’t be opened. Choose another image file.")
         case .unsafeDimensions:
-            return "The artwork dimensions are too large to process safely."
+            return String(localized: "This image's dimensions exceed the artwork processing limit. Resize it or choose a smaller image.")
         case .encodingFailed:
-            return "The selected artwork image could not be converted to PNG."
+            return String(localized: "This image couldn’t be converted to PNG. Choose another image.")
         }
     }
 }

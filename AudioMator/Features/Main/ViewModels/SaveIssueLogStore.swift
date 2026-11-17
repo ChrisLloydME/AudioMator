@@ -89,7 +89,7 @@ final class SaveIssueLogStore: ObservableObject {
             title: summary.hudTitle,
             summary: summary.hudSubtitle,
             operation: summary.operation,
-            severity: summary.failureIssues.isEmpty ? .warning : .failure,
+            severity: summary.hudStyle == .failure ? .failure : .warning,
             issues: sourceIssues.map { issue in
                 SaveIssueLogEntry.Issue(fileName: issue.fileName, messages: issue.messages)
             }

@@ -792,15 +792,15 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 
         switch error {
         case .keyNotFound(let key, let context):
-            return "Missing key '\(key.stringValue)' at \(codingPathDescription(context.codingPath))."
+            return String(localized: "Some information is missing from the response.\nDetails: missing “\(key.stringValue)” at \(codingPathDescription(context.codingPath)).")
         case .typeMismatch(let type, let context):
-            return "Type mismatch for \(type) at \(codingPathDescription(context.codingPath))."
+            return String(localized: "A value in the response uses an unexpected format.\nDetails: expected \(String(describing: type)) at \(codingPathDescription(context.codingPath)).")
         case .valueNotFound(let type, let context):
-            return "Missing value for \(type) at \(codingPathDescription(context.codingPath))."
+            return String(localized: "A value is missing from the response.\nDetails: expected \(String(describing: type)) at \(codingPathDescription(context.codingPath)).")
         case .dataCorrupted(let context):
-            return "Corrupted data at \(codingPathDescription(context.codingPath)): \(context.debugDescription)"
+            return String(localized: "Part of the response couldn't be read.\nDetails: \(codingPathDescription(context.codingPath)): \(context.debugDescription)")
         @unknown default:
-            return "Unknown decoding error."
+            return String(localized: "The response couldn’t be read. Try again later.")
         }
     }
 }

@@ -135,7 +135,7 @@ final class QuickImportCancellationTests: XCTestCase {
 
         XCTAssertEqual(viewModel.files.map(\.url), [readableURL])
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .warning)
-        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "File Not Imported")
+        XCTAssertEqual(viewModel.metadataWriteHUD?.title, "This File Couldn’t Be Imported")
         XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("00-unreadable-import.mp3") == true)
         XCTAssertFalse(
             viewModel.metadataWriteHUD?.subtitle.contains("/tmp/") == true,

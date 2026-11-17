@@ -13,6 +13,20 @@ enum AudioTagNumberText {
         return (number, total)
     }
 
+    /// Recognizes integer syntax without parsing into a bounded machine integer.
+    nonisolated static func hasIntegerSyntax(_ text: String) -> Bool {
+        var value = text.trimmingCharacters(in: .whitespacesAndNewlines)[...]
+        if value.first == "+" || value.first == "-" { value = value.dropFirst() }
+        return !value.isEmpty && value.utf8.allSatisfy { (48...57).contains($0) }
+    }
+
+    /// Empty text removes a component; malformed text must never become zero.
+    nonisolated static func isWritableComponent(_ text: String) -> Bool {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty { return true }
+        return Int(value).map { (0...Int(Int32.max)).contains($0) } == true
+    }
+
     nonisolated static func parsedPair(from rawText: String) -> (number: Int, total: Int) {
         let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return (0, 0) }

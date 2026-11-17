@@ -1114,7 +1114,7 @@ private struct LicenseTextSheet: View {
                             .font(.system(.body, design: .monospaced))
                             .textSelection(.enabled)
                     } else {
-                        Text("License text is unavailable.")
+                        Text(String(localized: "The license text couldn’t be loaded."))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -1274,7 +1274,7 @@ private struct ReleaseNotesSheet: View {
 
         case .failed(let message):
             ContentUnavailableView(
-                "Unable to Load Release Notes",
+                String(localized: "Release Notes Couldn’t Be Loaded"),
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
             )

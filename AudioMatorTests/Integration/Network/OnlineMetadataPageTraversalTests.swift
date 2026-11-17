@@ -108,7 +108,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     destination: .recording(fixture.musicBrainz.recordingResult)
                 )
             ),
-            label: "MusicBrainz recording detail",
+            label: "Loading recording details from MusicBrainz",
             settleTime: 0.15
         )
         await render(

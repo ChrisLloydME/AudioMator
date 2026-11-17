@@ -141,3 +141,11 @@ The local marketing version/build is newer than the latest GitHub release tag. T
 - Dependency boundary issues: see [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 When reporting a bug, include the AudioMator version and build, macOS version, file format, the exact operation, and whether the file was on a local or network volume. Do not include sensitive file contents unless necessary.
+
+### Invalid Total Tracks or Total Discs
+
+A nonempty total must be a whole number from 0 through 2147483647. Invalid text and extra slashes stop the semantic save before any write; they are not interpreted as a request to clear the total. Empty input still explicitly removes that component. Existing text numbering does not prevent edits to unrelated fields.
+
+### Automatic refresh could not be completed
+
+The last loaded values remain visible when rereading a selected file fails. An automatic-refresh warning is shown once for the same file IDs, paths and failures. A completed manual or automatic refresh updates that state; successful rereading clears it. Changing the selection also clears it. Explicit Reload from Disk reports a complete failure as a failure, and a partial failure as a warning. These are read failures, not failed saves, and are not added to Save Logs.

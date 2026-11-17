@@ -15,6 +15,16 @@ extension AudioViewModel {
         }
     }
 
+    func presentArtworkPreparationFailure(for fileName: String, reason: String) {
+        presentMetadataWriteHUD(
+            style: .failure,
+            title: String(localized: "Artwork Couldn’t Be Updated"),
+            subtitle: fileName + "\n" + reason,
+            summary: fileName,
+            details: reason
+        )
+    }
+
     func pickArtwork(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
         MacDocumentPicker.pickImage { [weak self] url in
@@ -30,7 +40,7 @@ extension AudioViewModel {
                     return
                 } catch {
                     guard !Task.isCancelled else { return }
-                    self.presentMetadataWriteFailure(
+                    self.presentArtworkPreparationFailure(
                         for: file.url.lastPathComponent,
                         reason: (error as NSError).localizedDescription
                     )
@@ -47,7 +57,7 @@ extension AudioViewModel {
         guard validateArtworkEditingSupport(for: file) else { return }
 
         guard let data else {
-            presentMetadataWriteFailure(
+            presentArtworkPreparationFailure(
                 for: file.url.lastPathComponent,
                 reason: String(localized: "AudioMator couldn't load this photo. Choose another photo or import an image file.")
             )
@@ -64,7 +74,7 @@ extension AudioViewModel {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
-                presentMetadataWriteFailure(
+                presentArtworkPreparationFailure(
                     for: file.url.lastPathComponent,
                     reason: (error as NSError).localizedDescription
                 )
@@ -76,7 +86,7 @@ extension AudioViewModel {
         guard validateArtworkEditingSupport(for: file) else { return }
 
         guard let data = MacPasteboard.imageData else {
-            presentMetadataWriteFailure(
+            presentArtworkPreparationFailure(
                 for: file.url.lastPathComponent,
                 reason: String(localized: "The clipboard doesn't contain an image. Copy an image, then paste again.")
             )
@@ -93,7 +103,7 @@ extension AudioViewModel {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
-                presentMetadataWriteFailure(
+                presentArtworkPreparationFailure(
                     for: file.url.lastPathComponent,
                     reason: (error as NSError).localizedDescription
                 )
@@ -212,7 +222,7 @@ extension AudioViewModel {
 
     private func validateArtworkEditingSupport(for file: AudioFile) -> Bool {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
-            presentMetadataWriteFailure(
+            presentArtworkPreparationFailure(
                 for: file.url.lastPathComponent,
                 reason: String(localized: "This file format doesn't support saving embedded artwork in AudioMator.")
             )

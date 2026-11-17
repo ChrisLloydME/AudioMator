@@ -58,9 +58,10 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
             viewModel.artworkLookupSession?.isLoading == false
         }
         XCTAssertEqual(
-            viewModel.artworkLookupSession?.errorMessage,
+            viewModel.artworkLookupSession?.cancellationMessage,
             "Artwork search cancelled."
         )
+        XCTAssertNil(viewModel.artworkLookupSession?.errorMessage)
         await gate.release()
     }
 

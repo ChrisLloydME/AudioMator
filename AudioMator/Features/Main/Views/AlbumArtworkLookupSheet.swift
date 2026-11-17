@@ -77,12 +77,21 @@ struct AlbumArtworkLookupSheet: View {
                 }
             }
 
+            if let message = session.cancellationMessage, !session.results.isEmpty {
+                Text(message).foregroundStyle(.secondary)
+            }
             Group {
                 if session.isLoading {
                     ContentUnavailableView(
                         "Searching iTunes Artwork",
                         systemImage: "icloud.and.arrow.down",
                         description: Text("Results will appear here when the search completes.")
+                    )
+                } else if let message = session.cancellationMessage, session.results.isEmpty {
+                    ContentUnavailableView(
+                        String(localized: "Search Was Cancelled"),
+                        systemImage: "magnifyingglass",
+                        description: Text(message)
                     )
                 } else if let errorMessage = session.errorMessage {
                     ContentUnavailableView(

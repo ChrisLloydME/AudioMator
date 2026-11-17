@@ -28,6 +28,7 @@ struct ArtworkLookupSession: Identifiable {
     var selectedResultID: iTunesArtworkSearchResult.ID?
     var errorMessage: String?
     var emptyMessage: String?
+    var cancellationMessage: String?
 
     var isMultiSelection: Bool {
         fileIDs.count > 1
@@ -137,6 +138,7 @@ extension AudioViewModel {
 
         session.isApplying = true
         session.errorMessage = nil
+        session.cancellationMessage = nil
         artworkLookupSession = session
 
         let sessionID = session.id
@@ -185,7 +187,8 @@ extension AudioViewModel {
                 guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
                 currentSession.isApplying = false
-                currentSession.errorMessage = L10n.string("Artwork download cancelled.")
+                currentSession.errorMessage = nil
+                currentSession.cancellationMessage = String(localized: "Artwork download cancelled.")
                 artworkLookupSession = currentSession
                 artworkLookupTask = nil
             } catch {
@@ -244,7 +247,8 @@ extension AudioViewModel {
                 guard let self else { return }
                 guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
                 currentSession.isLoading = false
-                currentSession.errorMessage = L10n.string("Artwork search cancelled.")
+                currentSession.errorMessage = nil
+                currentSession.cancellationMessage = String(localized: "Artwork search cancelled.")
                 currentSession.emptyMessage = nil
                 artworkLookupSession = currentSession
                 artworkLookupTask = nil

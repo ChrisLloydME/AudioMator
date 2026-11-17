@@ -169,12 +169,12 @@ extension AudioViewModel {
             var warnings = success.writeResult.warnings
             if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
                 warnings.append(
-                    String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: \(detail)")
+                    MetadataCommitWarning.durability(detail)
                 )
             }
             if let reloadErrorDescription = success.reloadErrorDescription {
                 warnings.append(
-                    String(localized: "Your changes were saved, but they couldn’t be reloaded in the Inspector. Choose Reload from Disk from the file’s context menu to read the saved values. Unsaved Inspector edits must be discarded to reload.\nDetails: \(reloadErrorDescription)")
+                    MetadataCommitWarning.reload(reloadErrorDescription)
                 )
             }
 
@@ -189,7 +189,7 @@ extension AudioViewModel {
             return .failure(reason)
 
         case .cancelled:
-            return .failure(String(localized: "The operation was cancelled before it began. No changes were saved."))
+            return .failure(MetadataCancellation.message)
         }
     }
 
@@ -214,5 +214,16 @@ extension AudioViewModel {
             self.updateMetadataSaveProgress(subtitle: fileNames[index], completedUnitCount: completed)
         }
         return results
+    }
+}
+
+/// Shared post-commit warnings must never imply that a committed write failed.
+enum MetadataCommitWarning {
+    static func reload(_ detail: String) -> String {
+        String(localized: "Your changes were saved, but the file couldn’t be reloaded. Close the Metadata Editor if it is open, then choose Reload from Disk from the file’s context menu to read the saved values.\nDetails: \(detail)")
+    }
+
+    static func durability(_ detail: String) -> String {
+        String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: \(detail)")
     }
 }

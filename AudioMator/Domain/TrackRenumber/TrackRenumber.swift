@@ -43,6 +43,7 @@ struct TrackRenumberResult: Equatable {
     var failed: Int
     var failures: [TrackRenumberFailure]
     var warnings: [TrackRenumberWarning]
+    var cancelled: [TrackRenumberFailure] = []
 
     static let empty = TrackRenumberResult(
         totalTargets: 0,

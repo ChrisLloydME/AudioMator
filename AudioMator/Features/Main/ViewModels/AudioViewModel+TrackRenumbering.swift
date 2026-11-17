@@ -106,8 +106,7 @@ extension AudioViewModel {
             for (idx, target) in writeTargets.enumerated() {
                 if Task.isCancelled {
                     let unprocessed = writeTargets.dropFirst(idx)
-                    result.failed += unprocessed.count
-                    result.failures.append(contentsOf: unprocessed.map {
+                    result.cancelled.append(contentsOf: unprocessed.map {
                         TrackRenumberFailure(fileName: $0.url.lastPathComponent,
                             reason: String(localized: "Cancelled before this file was processed. This file wasn't changed."))
                     })
@@ -159,11 +158,11 @@ extension AudioViewModel {
 
                     var warningMessages = success.writeResult.warnings
                     if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
-                        warningMessages.append(String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.") + " " + detail)
+                        warningMessages.append(MetadataCommitWarning.durability(detail))
                     }
                     if let reloadErrorDescription = success.reloadErrorDescription {
                         warningMessages.append(
-                            String(localized: "Your changes were saved, but the file couldn’t be reloaded. Choose Reload from Disk from its context menu to read the saved values.\nDetails: \(reloadErrorDescription)")
+                            MetadataCommitWarning.reload(reloadErrorDescription)
                         )
                     }
                     if !warningMessages.isEmpty {
@@ -180,8 +179,7 @@ extension AudioViewModel {
                     result.failures.append(TrackRenumberFailure(fileName: target.url.lastPathComponent, reason: reason))
 
                 case .cancelled:
-                    result.failed += 1
-                    result.failures.append(
+                    result.cancelled.append(
                         TrackRenumberFailure(
                             fileName: target.url.lastPathComponent,
                             reason: String(localized: "Track numbering was cancelled before it began. No track numbers were changed.")

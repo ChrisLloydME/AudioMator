@@ -26,32 +26,22 @@ extension AudioViewModel {
                     self.presentMetadataWriteHUD(
                         style: .success,
                         title: "Metadata Cleared",
-                        subtitle: file.url.lastPathComponent
+                        subtitle: file.url.lastPathComponent,
+                        summary: file.url.lastPathComponent,
+                        details: ""
                     )
                 } else {
                     self.presentMetadataWriteWarning(
                         title: String(localized: "Metadata Cleared with Warnings"),
-                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n"),
+                        fileName: file.url.lastPathComponent,
+                        warnings: success.warnings,
                         operation: .clear
                     )
                 }
             case .failure(let reason):
-                self.saveIssueLogStore.recordSingleIssue(
-                    title: String(localized: "Metadata Couldn’t Be Cleared"),
-                    subtitle: [file.url.lastPathComponent, reason]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n"),
-                    fileName: file.url.lastPathComponent,
-                    messages: [reason],
-                    severity: .failure,
-                    operation: .clear
-                )
-                self.presentMetadataWriteHUD(
-                    style: .failure,
-                    title: String(localized: "Metadata Couldn’t Be Cleared"),
-                    subtitle: [file.url.lastPathComponent, reason]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: "\n")
+                self.presentMetadataWriteFailure(
+                    for: file.url.lastPathComponent, reason: reason,
+                    title: String(localized: "Metadata Couldn’t Be Cleared"), operation: .clear
                 )
             }
         }

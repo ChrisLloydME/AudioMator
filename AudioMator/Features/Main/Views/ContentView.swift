@@ -524,15 +524,6 @@ private struct MetadataWriteHUDView: View {
     let hud: MetadataWriteHUD
     private let cornerRadius: CGFloat = 24
 
-    private var summary: String {
-        hud.subtitle.components(separatedBy: .newlines).first ?? ""
-    }
-
-    private var details: String {
-        hud.subtitle.components(separatedBy: .newlines).dropFirst()
-            .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     var body: some View {
         VStack(spacing: 16) {
             MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
@@ -544,8 +535,8 @@ private struct MetadataWriteHUDView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if !summary.isEmpty {
-                    Text(summary)
+                if !hud.summary.isEmpty {
+                    Text(hud.summary)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(hud.style == .success ? 2 : 4)
@@ -555,14 +546,18 @@ private struct MetadataWriteHUDView: View {
                 }
             }
 
-            if !details.isEmpty {
+            if !hud.details.isEmpty {
                 Divider()
-                Text(details)
+                Text(hud.detailPreview)
                     .font(.system(size: 13))
                     .foregroundStyle(.primary)
-                    .lineLimit(9)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if hud.hasOmittedDetails {
+                Text(hud.omissionNotice)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(width: 372)
@@ -606,6 +601,7 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
         private var panel: NSPanel?
         private var hostingController: NSHostingController<MetadataWriteHUDScreenRoot>?
         private var presentedHUDID: UUID?
+        private var presentationGeneration = UUID()
 
         @MainActor
         func update(hud: MetadataWriteHUD?) {
@@ -614,6 +610,7 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
                 return
             }
 
+            presentationGeneration = UUID()
             if panel == nil {
                 createPanel()
             }
@@ -693,12 +690,16 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
             }
 
             presentedHUDID = nil
+            let generation = UUID()
+            presentationGeneration = generation
 
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.12
                 panel.animator().alphaValue = 0
             } completionHandler: {
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
+                    guard let self, self.presentationGeneration == generation,
+                          self.presentedHUDID == nil else { return }
                     panel.orderOut(nil)
                 }
             }

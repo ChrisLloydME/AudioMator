@@ -82,7 +82,8 @@ extension AudioViewModel {
                 } else {
                     self.presentMetadataWriteWarning(
                         title: String(localized: "Changes Saved with Warnings"),
-                        subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
+                        fileName: file.url.lastPathComponent,
+                        warnings: success.warnings
                     )
                 }
             case .failure(let reason):

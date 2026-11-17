@@ -45,15 +45,6 @@ enum BatchMetadataOperationKind: String, Codable, Equatable {
         }
     }
 
-    var pastTenseVerb: String {
-        switch self {
-        case .write:
-            return "saved"
-        case .clear:
-            return "cleared"
-        }
-    }
-
     var noFilesText: String {
         switch self {
         case .write:
@@ -68,6 +59,11 @@ struct BatchMetadataOperationSummary: Equatable {
     let totalTargets: Int
     let operation: BatchMetadataOperationKind
     var succeeded: Int = 0
+    var cancelledCount: Int {
+        failureIssues.filter { issue in
+            issue.messages.count == 1 && MetadataCancellation.isMessage(issue.messages[0])
+        }.count
+    }
     var warningIssues: [BatchMetadataWriteIssue] = []
     var failureIssues: [BatchMetadataWriteIssue] = []
     var skippedIssues: [BatchMetadataWriteIssue] = []
@@ -81,12 +77,13 @@ struct BatchMetadataOperationSummary: Equatable {
     mutating func recordCancelledFiles(_ fileNames: [String]) {
         failureIssues.append(contentsOf: fileNames.map {
             BatchMetadataWriteIssue(fileName: $0, messages: [
-                String(localized: "Cancelled before this file was processed. This file wasn't changed.")
+                MetadataCancellation.beforeFileMessage
             ])
         })
     }
 
     var hudStyle: MetadataWriteHUDStyle {
+        if cancelledCount > 0, failureIssues.count == cancelledCount { return .warning }
         if failureIssues.isEmpty && warningIssues.isEmpty && skippedIssues.isEmpty {
             return .success
         }
@@ -99,6 +96,12 @@ struct BatchMetadataOperationSummary: Equatable {
     }
 
     var hudTitle: String {
+        if succeeded == 0, failureIssues.isEmpty, !skippedIssues.isEmpty {
+            return String(localized: "No Files Changed")
+        }
+        if cancelledCount > 0, failureIssues.count == cancelledCount {
+            return String(localized: "Operation Cancelled")
+        }
         if failureIssues.isEmpty && warningIssues.isEmpty && skippedIssues.isEmpty {
             return operation.successTitle
         }
@@ -111,11 +114,21 @@ struct BatchMetadataOperationSummary: Equatable {
     }
 
     var hudSubtitle: String {
-        var result = [summaryLine]
-        if !failureIssues.isEmpty {
-            result.append(failureIssues.count == 1
-                ? String(localized: "1 file couldn’t be updated.")
-                : String(localized: "\(failureIssues.count) files couldn’t be updated."))
+        var result = succeeded > 0 || failureIssues.count == cancelledCount ? [summaryLine] : []
+        let failed = failureIssues.count - cancelledCount
+        if failed > 0 {
+            if operation == .clear {
+                result.append(failed == 1
+                    ? String(localized: "Metadata couldn’t be cleared from 1 file.")
+                    : String(localized: "Metadata couldn’t be cleared from \(failed) files."))
+            } else {
+                result.append(failed == 1
+                    ? String(localized: "Changes couldn’t be saved to 1 file.")
+                    : String(localized: "Changes couldn’t be saved to \(failed) files."))
+            }
+        }
+        if cancelledCount > 0 {
+            result.append(String(localized: "Files not processed because the operation was cancelled: \(cancelledCount)."))
         }
         var lines = [result.joined(separator: " ")]
         if !warningIssues.isEmpty {
@@ -136,7 +149,7 @@ struct BatchMetadataOperationSummary: Equatable {
         }
         if issues.count > 2 {
             lines.append("")
-            lines.append(String(localized: "More file details are available in Settings → Save Logs."))
+            lines.append(String(localized: "Additional files with issues: \(issues.count - 2)."))
         }
         return lines.joined(separator: "\n")
     }
@@ -156,3 +169,19 @@ struct BatchMetadataOperationSummary: Equatable {
 }
 
 typealias BatchMetadataWriteSummary = BatchMetadataOperationSummary
+
+/// Compatibility with the existing string-result pipeline. Only messages made by
+/// our own cancellation branches are classified here, never arbitrary substrings.
+enum MetadataCancellation {
+    static var message: String {
+        String(localized: "The operation was cancelled before it began. No changes were saved.")
+    }
+
+    static var beforeFileMessage: String {
+        String(localized: "Cancelled before this file was processed. This file wasn't changed.")
+    }
+
+    static func isMessage(_ message: String) -> Bool {
+        message == self.message || message == beforeFileMessage
+    }
+}

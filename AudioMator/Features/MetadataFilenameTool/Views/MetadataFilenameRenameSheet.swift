@@ -916,6 +916,7 @@ struct MetadataFilenameWindowView: View {
             isApplying = false
 
             guard store.presentationID == presentationID else { return }
+            if result.wasCancelled { return }
             if let failureMessage = result.failureMessage {
                 renameFailureMessage = failureMessage
             } else if plan.issueCount == 0 {

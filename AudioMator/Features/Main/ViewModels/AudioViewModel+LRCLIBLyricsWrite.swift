@@ -77,12 +77,15 @@ extension AudioViewModel {
                 presentMetadataWriteHUD(
                     style: .success,
                     title: "LRCLIB Lyrics Applied",
-                    subtitle: file.url.lastPathComponent
+                    subtitle: file.url.lastPathComponent,
+                    summary: file.url.lastPathComponent,
+                    details: ""
                 )
             } else {
                 presentMetadataWriteWarning(
                     title: String(localized: "Lyrics Saved with Warnings"),
-                    subtitle: ([file.url.lastPathComponent] + success.warnings).joined(separator: "\n")
+                    fileName: file.url.lastPathComponent,
+                    warnings: success.warnings
                 )
             }
 
@@ -94,21 +97,9 @@ extension AudioViewModel {
                 completedUnitCount: 1
             )
             endMetadataSaveProgress()
-            saveIssueLogStore.recordSingleIssue(
-                title: String(localized: "Lyrics Couldn’t Be Applied"),
-                subtitle: [file.url.lastPathComponent, reason]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n"),
-                fileName: file.url.lastPathComponent,
-                messages: [reason],
-                severity: .failure
-            )
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Lyrics Couldn’t Be Applied"),
-                subtitle: [file.url.lastPathComponent, reason]
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "\n")
+            presentMetadataWriteFailure(
+                for: file.url.lastPathComponent, reason: reason,
+                title: String(localized: "Lyrics Couldn’t Be Applied")
             )
             return false
         }
@@ -118,7 +109,7 @@ extension AudioViewModel {
         guard metadataSaveProgress == nil else { return [] }
         guard !matches.isEmpty else {
             presentMetadataWriteHUD(
-                style: .failure,
+                style: .warning,
                 title: String(localized: "No Synced Lyrics Available"),
                 subtitle: String(localized: "LRCLIB didn't find synced lyrics for these files. Try different search details or choose another result.")
             )

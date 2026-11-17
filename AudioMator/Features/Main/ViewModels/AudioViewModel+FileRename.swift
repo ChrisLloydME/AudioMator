@@ -8,6 +8,7 @@ struct FileRenameResult {
     let warnings: [String]
     let failureMessage: String?
     let recoveryItems: [FileRenameRecoveryItem]
+    var wasCancelled: Bool = false
 
     static let empty = FileRenameResult(
         totalTargets: 0,
@@ -50,6 +51,7 @@ struct FileRenameRecoveryItem: Equatable, Sendable {
 struct FileRenameTransactionFailure: Sendable {
     let message: String
     let recoveryItems: [FileRenameRecoveryItem]
+    var wasCancelled: Bool = false
 }
 
 enum FileRenameExecutionResult: Sendable {
@@ -136,13 +138,16 @@ extension AudioViewModel {
                     }.value
                 }
             }
+        } catch is CancellationError {
+            execution = .failure(FileRenameTransactionFailure(
+                message: String(localized: "Renaming was cancelled before it began. No files were renamed."),
+                recoveryItems: [], wasCancelled: true
+            ))
         } catch {
-            execution = .failure(
-                FileRenameTransactionFailure(
-                    message: String(localized: "Renaming was cancelled before it began. No files were renamed."),
-                    recoveryItems: []
-                )
-            )
+            execution = .failure(FileRenameTransactionFailure(
+                message: String(localized: "Files couldn’t be renamed.\nDetails: \(error.localizedDescription)"),
+                recoveryItems: []
+            ))
         }
 
         switch execution {
@@ -156,7 +161,8 @@ extension AudioViewModel {
                 skippedIssues: skippedIssues,
                 warnings: issueWarnings,
                 failureMessage: failure.message,
-                recoveryItems: failure.recoveryItems
+                recoveryItems: failure.recoveryItems,
+                wasCancelled: failure.wasCancelled
             )
             presentFileRenameSummary(result)
             return result
@@ -208,9 +214,11 @@ extension AudioViewModel {
                 .filter { !$0.isEmpty }
                 .joined(separator: "\n")
             presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Files Couldn’t Be Renamed"),
-                subtitle: subtitle
+                style: result.wasCancelled ? .warning : .failure,
+                title: result.wasCancelled ? String(localized: "Operation Cancelled") : String(localized: "Files Couldn’t Be Renamed"),
+                subtitle: subtitle,
+                summary: failureMessage.components(separatedBy: .newlines).first ?? failureMessage,
+                details: ([failureMessage.components(separatedBy: .newlines).dropFirst().joined(separator: "\n")] + result.warnings).filter { !$0.isEmpty }.joined(separator: "\n\n")
             )
             return
         }
@@ -482,12 +490,14 @@ nonisolated private func makeRenameTransactionFailure(
     }
 
     let recoveryCountLabel = fileCountLabel(recoveryItems.count)
-    var lines = [primaryMessage, String(localized: "Check the locations of these files before continuing (\(recoveryCountLabel)):")]
+    var lines = [primaryMessage, String(localized: "Check the file locations before continuing (\(recoveryCountLabel)):")]
     for item in recoveryItems {
-        let locations = item.finalLocations.isEmpty
-            ? String(localized: "Current location couldn't be determined")
-            : item.finalLocations.map(\.path).joined(separator: ", ")
-        lines.append("\(item.originalURL.lastPathComponent) is at \(locations)")
+        if item.finalLocations.isEmpty {
+            lines.append(String(localized: "“\(item.originalURL.lastPathComponent)”: current location couldn’t be determined."))
+        } else {
+            let locations = item.finalLocations.map(\.path).joined(separator: ", ")
+            lines.append(String(localized: "“\(item.originalURL.lastPathComponent)” — current location: \(locations)"))
+        }
         lines.append(contentsOf: item.rollbackErrors)
     }
 

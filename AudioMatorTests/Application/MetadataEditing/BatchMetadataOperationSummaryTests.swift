@@ -35,7 +35,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
             Tags saved.
             Reload failed.
 
-            More file details are available in Settings → Save Logs.
+            Additional files with issues: 1.
             """
         )
     }
@@ -52,7 +52,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         XCTAssertEqual(
             partial.hudSubtitle,
             """
-            Changes were saved to 1 of 3 files. 1 file couldn’t be updated.
+            Changes were saved to 1 of 3 files. Changes couldn’t be saved to 1 file.
 
             bad.flac
             Unsupported format.
@@ -69,7 +69,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         XCTAssertEqual(
             failed.hudSubtitle,
             """
-            No changes were saved to any files. 1 file couldn’t be updated.
+            Changes couldn’t be saved to 1 file.
 
             one.flac
             Denied.
@@ -107,7 +107,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         XCTAssertEqual(
             failed.hudSubtitle,
             """
-            Metadata wasn't cleared from any files. 1 file couldn’t be updated.
+            Metadata couldn’t be cleared from 1 file.
 
             one.flac
             Permission denied.

@@ -62,7 +62,7 @@ final class FileRenameTransactionTests: XCTestCase {
             try XCTUnwrap(recoveryItem.finalURL).lastPathComponent.hasPrefix(".audiomator-rename-")
         )
         XCTAssertNotNil(recoveryItem.rollbackError)
-        XCTAssertTrue(failure.message.contains("Check the locations"))
+        XCTAssertTrue(failure.message.contains("Check the file locations"))
 
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
         viewModel.mergeQuickImportFiles([
@@ -172,7 +172,7 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertEqual(failure.recoveryItems.count, 1)
         XCTAssertEqual(failure.recoveryItems.first?.originalURL, firstSourceURL)
         XCTAssertTrue(failure.recoveryItems.first?.finalLocations.isEmpty == true)
-        XCTAssertTrue(failure.message.contains("Check the locations"))
+        XCTAssertTrue(failure.message.contains("Check the file locations"))
     }
 
     func testChangedSourceIsRejectedBeforeAnyFileIsMoved() {
@@ -237,7 +237,7 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertTrue(failure.message.contains("source missing"))
         XCTAssertEqual(failure.recoveryItems.count, 1)
         XCTAssertTrue(failure.recoveryItems[0].finalLocations.isEmpty)
-        XCTAssertTrue(failure.message.contains("Current location couldn't be determined"))
+        XCTAssertTrue(failure.message.contains("current location couldn’t be determined."))
         XCTAssertEqual(fileSystem.moveCount, 0)
     }
 }

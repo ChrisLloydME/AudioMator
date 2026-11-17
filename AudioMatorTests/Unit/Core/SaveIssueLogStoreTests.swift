@@ -66,7 +66,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         store.record(summary: summary)
 
         XCTAssertEqual(store.entries.count, 1)
-        XCTAssertEqual(store.entries[0].severity, .failure)
+        XCTAssertEqual(store.entries[0].severity, .warning)
         XCTAssertEqual(
             store.entries[0].issues.map(\.fileName),
             ["failed.flac", "warning.flac"]

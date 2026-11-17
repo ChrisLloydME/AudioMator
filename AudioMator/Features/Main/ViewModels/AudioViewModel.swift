@@ -21,6 +21,47 @@ struct MetadataWriteHUD: Identifiable, Equatable {
     let style: MetadataWriteHUDStyle
     let title: String
     let subtitle: String
+    let summary: String
+    let details: String
+
+    init(style: MetadataWriteHUDStyle, title: String, subtitle: String,
+         summary: String? = nil, details: String? = nil) {
+        self.style = style
+        self.title = title
+        self.subtitle = subtitle
+        let lines = subtitle.components(separatedBy: .newlines)
+        self.summary = summary ?? lines.first ?? ""
+        self.details = details ?? lines.dropFirst().joined(separator: "\n")
+    }
+
+    private var previewGroups: [String] {
+        let groups = details.components(separatedBy: "\n\n")
+        var shown: [String] = []
+        for group in groups {
+            let candidate = (shown + [group]).joined(separator: "\n\n")
+            guard candidate.count <= 1000, candidate.components(separatedBy: .newlines).count <= 14 else { break }
+            shown.append(group)
+        }
+        return shown
+    }
+
+    var detailPreview: String {
+        if previewGroups.isEmpty { return String(details.prefix(1000)) }
+        return previewGroups.joined(separator: "\n\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var hasOmittedDetails: Bool {
+        detailPreview != details.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var omissionNotice: String {
+        if previewGroups.isEmpty {
+            return String(localized: "Additional detail characters not shown: \(max(0, details.count - detailPreview.count)).")
+        }
+        let omitted = details.components(separatedBy: "\n\n").dropFirst(previewGroups.count)
+        let headings = omitted.compactMap { $0.components(separatedBy: .newlines).first }.filter { !$0.isEmpty }
+        return String(localized: "Additional detail groups not shown: \(headings.count). \(headings.joined(separator: "; "))")
+    }
 
     var displayDuration: Duration {
         switch style {
@@ -364,12 +405,16 @@ final class AudioViewModel: ObservableObject {
     func presentMetadataWriteHUD(
         style: MetadataWriteHUDStyle,
         title: String,
-        subtitle: String
+        subtitle: String,
+        summary: String? = nil,
+        details: String? = nil
     ) {
         enqueueMetadataWriteHUD(
             style: style,
             title: title,
-            subtitle: subtitle
+            subtitle: subtitle,
+            summary: summary,
+            details: details
         )
     }
 
@@ -377,62 +422,72 @@ final class AudioViewModel: ObservableObject {
         presentMetadataWriteHUD(
             style: .success,
             title: "Saved to Disk",
-            subtitle: fileName
+            subtitle: fileName,
+            summary: fileName,
+            details: ""
         )
     }
 
     func presentMetadataWriteWarning(
         title: String,
-        subtitle: String,
+        fileName: String,
+        warnings: [String],
         operation: BatchMetadataOperationKind = .write
     ) {
-        let lines = subtitle.components(separatedBy: .newlines)
-        let fileName = lines.first ?? ""
-        let messages = Array(lines.dropFirst())
+        let details = warnings.joined(separator: "\n")
+        let subtitle = fileName + "\n" + details
         saveIssueLogStore.recordSingleIssue(
-            title: title,
-            subtitle: subtitle,
-            fileName: fileName,
-            messages: messages.isEmpty ? [subtitle] : messages,
-            severity: .warning,
-            operation: operation
+            title: title, subtitle: subtitle, fileName: fileName,
+            messages: warnings, severity: .warning, operation: operation
         )
-
-        presentMetadataWriteHUD(
-            style: .warning,
-            title: title,
-            subtitle: subtitle
-        )
+        presentMetadataWriteHUD(style: .warning, title: title, subtitle: subtitle,
+                                summary: fileName, details: details)
     }
 
-    func presentMetadataWriteFailure(for fileName: String, reason: String) {
+    func presentMetadataWriteFailure(
+        for fileName: String, reason: String,
+        title: String = String(localized: "Changes Couldn’t Be Saved"),
+        operation: BatchMetadataOperationKind = .write
+    ) {
+        if MetadataCancellation.isMessage(reason) {
+            presentMetadataWriteHUD(style: .warning, title: String(localized: "Operation Cancelled"),
+                                    subtitle: fileName + "\n" + reason, summary: fileName, details: reason)
+            return
+        }
         let subtitle = [fileName, reason]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
         saveIssueLogStore.recordSingleIssue(
-            title: String(localized: "Changes Couldn’t Be Saved"),
+            title: title,
             subtitle: subtitle,
             fileName: fileName,
             messages: [reason],
-            severity: .failure
+            severity: .failure,
+            operation: operation
         )
 
         presentMetadataWriteHUD(
             style: .failure,
-            title: String(localized: "Changes Couldn’t Be Saved"),
-            subtitle: subtitle
+            title: title,
+            subtitle: subtitle,
+            summary: fileName,
+            details: reason
         )
     }
 
     private func enqueueMetadataWriteHUD(
         style: MetadataWriteHUDStyle,
         title: String,
-        subtitle: String
+        subtitle: String,
+        summary: String? = nil,
+        details: String? = nil
     ) {
         let hud = MetadataWriteHUD(
             style: style,
             title: title,
-            subtitle: subtitle
+            subtitle: subtitle,
+            summary: summary,
+            details: details
         )
         pendingMetadataWriteHUDs.append(hud)
 
@@ -1295,7 +1350,9 @@ final class AudioViewModel: ObservableObject {
         presentMetadataWriteHUD(
             style: .warning,
             title: failures.count == 1 ? String(localized: "This File Couldn’t Be Imported") : String(localized: "Some Files Couldn’t Be Imported"),
-            subtitle: lines.joined(separator: "\n")
+            subtitle: lines.joined(separator: "\n"),
+            summary: String(localized: "Files that couldn’t be imported: \(failures.count)."),
+            details: lines.joined(separator: "\n\n")
         )
     }
 

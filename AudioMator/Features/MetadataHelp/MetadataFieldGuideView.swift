@@ -63,31 +63,6 @@ struct MetadataFieldGuideView: View {
                     Text(entry.purpose).font(.body)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Using This Field").font(.headline)
-                    if entry.key == nil {
-                        Text("This is read-only file information, not an editable metadata field.")
-                    } else if let field = InspectorMetadataField.configurableFields.first(where: { $0.metadataFieldKey == entry.key }) {
-                        if InspectorMetadataField.defaultVisibleFields.contains(field) {
-                            Text("Available in the Inspector. You can choose which fields appear in Settings.")
-                        } else {
-                            Text("Optional in the Inspector. Turn it on in Settings if you use it.")
-                        }
-                    } else if entry.key == .artwork {
-                        Text("Use the artwork controls to view or change cover images.")
-                    } else {
-                        Text("Look for this field in Metadata Editor. Its presence and editing support depend on the file format.")
-                    }
-                    Text("You can leave unused fields empty. A field’s presence here does not mean it can be edited in every format.")
-                        .foregroundStyle(.secondary)
-                    if let key = entry.key, [MetadataFieldKey.year, .standaloneDate, .releaseDate, .originalReleaseDate].contains(key) {
-                        Text("In AudioMator, Year, Date, Release Date and Original Release Date stay independent. For example, Year can be 2004 while Release Date is in 2017. Editing one does not fill or update the others.")
-                    }
-                    if let key = entry.key, [MetadataFieldKey.contentGroup, .grouping, .work].contains(key) {
-                        Text("AudioMator keeps Content Group, Grouping and Work separate. Other editors may give the same storage location a different label.")
-                    }
-                }
-
                 if entry.key != nil {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Where This Field Is Stored").font(.headline).accessibilityAddTraits(.isHeader)

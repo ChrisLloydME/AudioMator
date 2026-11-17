@@ -122,7 +122,11 @@ final class AudioViewModel: ObservableObject {
     private var visibleFilesByID: [AudioFile.ID: AudioFile] = [:]
     @Published private(set) var watchedFolders: [WatchedFolder] = []
     // Current selection in the middle list. Single-file and multi-file inspector editing both use this selection.
-    @Published private(set) var selectedAudioIDs: Set<UUID> = []
+    @Published private(set) var selectedAudioIDs: Set<UUID> = [] {
+        didSet {
+            if oldValue != selectedAudioIDs { lastAutomaticReloadFailures = [] }
+        }
+    }
     // Inspector edit models bound to the right-side inspector.
     @Published var editSourceFileID: UUID?
     @Published var edit: SingleFileEditModel? {
@@ -367,7 +371,6 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
-        lastAutomaticReloadFailures = []
         artworkImportTask?.cancel()
         completedInspectorEditsByID = [:]
         guard !selectedAudioIDs.isEmpty else {

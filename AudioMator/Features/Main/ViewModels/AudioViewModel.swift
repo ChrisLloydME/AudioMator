@@ -10,8 +10,6 @@ import Combine
 import AppKit
 import TagLibAudioMetadata
 
-private let metadataWriteSuccessHUDDuration: Duration = .seconds(2.3)
-
 enum MetadataWriteHUDStyle: Equatable {
     case success
     case warning
@@ -23,6 +21,14 @@ struct MetadataWriteHUD: Identifiable, Equatable {
     let style: MetadataWriteHUDStyle
     let title: String
     let subtitle: String
+
+    var displayDuration: Duration {
+        switch style {
+        case .success: return .seconds(3)
+        case .warning: return .seconds(8)
+        case .failure: return .seconds(10)
+        }
+    }
 }
 
 struct MetadataSaveProgress: Equatable {
@@ -443,7 +449,7 @@ final class AudioViewModel: ObservableObject {
         metadataWriteHUD = hud
 
         metadataWriteHUDDismissTask = Task { [weak self, hudID = hud.id] in
-            try? await Task.sleep(for: metadataWriteSuccessHUDDuration)
+            try? await Task.sleep(for: hud.displayDuration)
             guard !Task.isCancelled else { return }
 
             await MainActor.run {

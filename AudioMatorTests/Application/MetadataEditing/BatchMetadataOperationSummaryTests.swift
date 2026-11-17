@@ -8,7 +8,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
 
         XCTAssertEqual(summary.hudStyle, .success)
         XCTAssertEqual(summary.hudTitle, "Saved to Disk")
-        XCTAssertEqual(summary.hudSubtitle, "2 files")
+        XCTAssertEqual(summary.hudSubtitle, "Changes were saved to 2 of 2 files.")
     }
 
     func testWriteWarningsUseExistingSavedWithIssuesMessageAndDetails() {
@@ -21,15 +21,21 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         ]
 
         XCTAssertEqual(summary.hudStyle, .warning)
-        XCTAssertEqual(summary.hudTitle, "Saved with Issues")
+        XCTAssertEqual(summary.hudTitle, "Changes Saved with Warnings")
         XCTAssertEqual(
             summary.hudSubtitle,
             """
-            3 of 3 files saved
-            3 file(s) saved with issues
-            one.flac: Artwork could not be refreshed.
-            two.flac: Tags saved. Reload failed.
-            ...and 1 more
+            Changes were saved to 3 of 3 files.
+            3 files have warnings.
+
+            one.flac
+            Artwork could not be refreshed.
+
+            two.flac
+            Tags saved.
+            Reload failed.
+
+            More file details are available in Settings → Save Logs.
             """
         )
     }
@@ -42,13 +48,14 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         ]
 
         XCTAssertEqual(partial.hudStyle, .warning)
-        XCTAssertEqual(partial.hudTitle, "Partially Saved")
+        XCTAssertEqual(partial.hudTitle, "Changes Saved to Some Files")
         XCTAssertEqual(
             partial.hudSubtitle,
             """
-            1 of 3 files saved
-            1 file(s) failed
-            bad.flac: Unsupported format.
+            Changes were saved to 1 of 3 files. 1 file couldn’t be updated.
+
+            bad.flac
+            Unsupported format.
             """
         )
 
@@ -58,13 +65,14 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         ]
 
         XCTAssertEqual(failed.hudStyle, .failure)
-        XCTAssertEqual(failed.hudTitle, "Save Failed")
+        XCTAssertEqual(failed.hudTitle, "Changes Couldn’t Be Saved")
         XCTAssertEqual(
             failed.hudSubtitle,
             """
-            No files were saved
-            1 file(s) failed
-            one.flac: Denied.
+            No changes were saved to any files. 1 file couldn’t be updated.
+
+            one.flac
+            Denied.
             """
         )
     }
@@ -77,13 +85,15 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         ]
 
         XCTAssertEqual(summary.hudStyle, .warning)
-        XCTAssertEqual(summary.hudTitle, "Cleared with Issues")
+        XCTAssertEqual(summary.hudTitle, "Metadata Cleared with Warnings")
         XCTAssertEqual(
             summary.hudSubtitle,
             """
-            2 of 2 files cleared
-            1 file(s) cleared with issues
-            one.flac: Reload failed.
+            Metadata was cleared from 2 of 2 files.
+            1 file has warnings.
+
+            one.flac
+            Reload failed.
             """
         )
 
@@ -93,13 +103,14 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         ]
 
         XCTAssertEqual(failed.hudStyle, .failure)
-        XCTAssertEqual(failed.hudTitle, "Clear Failed")
+        XCTAssertEqual(failed.hudTitle, "Metadata Couldn’t Be Cleared")
         XCTAssertEqual(
             failed.hudSubtitle,
             """
-            No files were cleared
-            1 file(s) failed
-            one.flac: Permission denied.
+            Metadata wasn't cleared from any files. 1 file couldn’t be updated.
+
+            one.flac
+            Permission denied.
             """
         )
     }

@@ -522,27 +522,52 @@ private struct MetadataWriteHUDView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let hud: MetadataWriteHUD
-    private let cornerRadius: CGFloat = 26
+    private let cornerRadius: CGFloat = 24
+
+    private var summary: String {
+        hud.subtitle.components(separatedBy: .newlines).first ?? ""
+    }
+
+    private var details: String {
+        hud.subtitle.components(separatedBy: .newlines).dropFirst()
+            .joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             MetadataWriteHUDIcon(style: hud.style, colorScheme: colorScheme)
 
-            VStack(spacing: 4) {
+            VStack(spacing: 7) {
                 Text(hud.title)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.primary)
-
-                Text(hud.subtitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !summary.isEmpty {
+                    Text(summary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(hud.style == .success ? 2 : 4)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .truncationMode(.middle)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            if !details.isEmpty {
+                Divider()
+                Text(details)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                    .lineLimit(9)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(width: 320)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 18)
+        .frame(width: 372)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 24)
         .background {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.regularMaterial)
@@ -551,6 +576,7 @@ private struct MetadataWriteHUDView: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(borderColor, lineWidth: 1)
         }
+        .accessibilityElement(children: .combine)
         .allowsHitTesting(false)
     }
 
@@ -644,8 +670,8 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
             for hostingController: NSHostingController<MetadataWriteHUDScreenRoot>
         ) {
             let fittingSize = hostingController.view.fittingSize
-            let width = max(fittingSize.width, 364)
-            let height = max(fittingSize.height, 150)
+            let width = max(fittingSize.width, 456)
+            let height = max(fittingSize.height, 180)
             let screenFrame = targetScreen()?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
             let lowerHalfCenterY = screenFrame.minY + screenFrame.height * 0.35
             let origin = NSPoint(
@@ -709,9 +735,9 @@ private struct MetadataWriteHUDIcon: View {
 
     var body: some View {
         Image(systemName: symbolName)
-            .font(.system(size: 54, weight: .semibold))
+            .font(.system(size: 60, weight: .semibold))
             .foregroundStyle(symbolColor)
-        .frame(width: 54, height: 54)
+        .frame(width: 64, height: 64)
     }
 
     private var symbolColor: Color {

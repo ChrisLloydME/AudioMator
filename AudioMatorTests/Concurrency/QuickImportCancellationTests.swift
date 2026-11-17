@@ -198,7 +198,7 @@ final class QuickImportCancellationTests: XCTestCase {
 
         XCTAssertEqual(Set(viewModel.files.map(\.url)), Set([firstURL, secondURL]))
         XCTAssertTrue(
-            viewModel.directoryMonitoringStatuses[folder.id]?.message.contains("Last known metadata is retained") == true
+            viewModel.directoryMonitoringStatuses[folder.id]?.message.contains("Previously loaded metadata is still shown where available.") == true
         )
     }
 
@@ -239,7 +239,7 @@ final class QuickImportCancellationTests: XCTestCase {
 
         XCTAssertEqual(viewModel.files.map(\.url), [audioURL])
         XCTAssertTrue(
-            viewModel.directoryMonitoringStatuses[folder.id]?.message.contains("last known file list is retained") == true
+            viewModel.directoryMonitoringStatuses[folder.id]?.message.contains("The previous file list will stay visible until a scan completes successfully.") == true
         )
     }
 

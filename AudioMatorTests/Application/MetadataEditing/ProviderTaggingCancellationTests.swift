@@ -121,8 +121,10 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
                 let result = await viewModel.renumberTrackNumbers(orderedIDs: files.map(\.id), selectedIDs: [],
                     options: TrackRenumberOptions(startNumber: 7, padWithZeros: false))
                 XCTAssertEqual(result.succeeded, queued ? 0 : 1)
-                XCTAssertEqual(result.failed, queued ? 2 : 1)
-                XCTAssertTrue(result.failures.allSatisfy { $0.reason.localizedCaseInsensitiveContains("cancel") })
+                XCTAssertEqual(result.failed, 0)
+                XCTAssertEqual(result.cancelled.count, queued ? 2 : 1)
+                XCTAssertTrue(result.failures.isEmpty)
+                XCTAssertTrue(result.cancelled.allSatisfy { $0.reason.localizedCaseInsensitiveContains("cancel") })
             case "musicbrainz":
                 await viewModel.applyMusicBrainzTaggingPlan(files.map {
                     MusicBrainzTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,

@@ -75,7 +75,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertEqual(result.failed, 0)
         XCTAssertEqual(pipeline.trackNumberTextValues, ["7"])
         XCTAssertTrue(result.warnings.flatMap(\.messages).contains {
-            $0.contains("Do not retry") && $0.contains("Injected directory sync failure")
+            $0.contains("Don't repeat this save") && $0.contains("Injected directory sync failure")
         })
     }
 

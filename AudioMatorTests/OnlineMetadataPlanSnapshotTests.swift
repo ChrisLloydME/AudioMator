@@ -17,7 +17,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
             encoding: .utf8
         )
 
-        XCTAssertTrue(source.contains("operationName: \"MusicBrainz match preview\""))
+        XCTAssertTrue(source.contains("operationName: String(localized: \"Preparing the MusicBrainz match preview\")"))
         XCTAssertTrue(source.contains("MusicBrainzMetadataComparisonBuilder.presentation("))
         XCTAssertFalse(source.contains("resolvedSelectionPreview"))
         XCTAssertFalse(source.contains("preview.matchedAssignments.map { assignment in"))

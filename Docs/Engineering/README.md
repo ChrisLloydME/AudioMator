@@ -4,6 +4,10 @@ This folder contains dated engineering evidence: package adoption and release ac
 
 The current-state documentation lives in `Docs/Product`, `Docs/Architecture`, `Docs/Development`, `Docs/Reference`, and `Docs/Security`. When a current claim needs evidence, link to the relevant record here and re-verify the claim against source before copying it into current guidance.
 
+## Metadata field help
+
+- [Metadata Field Guide verification](METADATA_FIELD_GUIDE_2026-11-17.md) — Official-source explanations and offline Help window; Debug gate accepted with 599 app tests.
+
 ## Current Release Evidence
 
 | Document | Date / baseline | Status |

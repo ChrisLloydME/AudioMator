@@ -237,10 +237,12 @@ The Inspector restoration baseline had 586 app-hosted tests. `InspectorFieldConf
 
 The earlier internal numbering recovery baseline had 593 app-hosted tests. The package-result adapter contract also requires preservation of both returned warnings and durable/durability-uncertain commit status; discarding the status must not turn a committed write into a retryable failure or a falsely durable result. Earlier 586-test Inspector restoration evidence remains a dated baseline.
 
-Published 0.8.1 uses the normal-project Debug-only lane: `bash scripts/validate-release.sh --tests-only`. See [adoption evidence](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The current inventory includes 596 app-hosted tests, including the subsequent phantom Inspector edit regressions.
+Published 0.8.1 uses the normal-project Debug-only lane: `bash scripts/validate-release.sh --tests-only`. See [adoption evidence](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). That adoption inventory included 596 app-hosted tests, including the subsequent phantom Inspector edit regressions.
 
 The published 0.8.1 Debug-only gate passed all 13 policy, 62 core and 596 serial app tests with exact named inventories, zero failures/skips/expected failures. Evidence: `.deriveddata-codex/Validation/20261117-134510-57258/`. No Release build or artifact check was run.
 
 ## Metadata Field Guide
 
 `MetadataFieldGuideTests` checks complete unique coverage of all package enum cases, six distinct read-only display entries, primary-source link identity and privacy-disclosure agreement, plus search by user label/native key and independent date/recording identities. These three tests are required gate identities. It does not automate opening the Help menu, resizing the window, keyboard navigation or VoiceOver; those remain maintainer checks.
+
+The field-guide final Debug-only gate passed 13 policies, 62 core and 599 app tests, with no failures/skips/expected failures. See [verification](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md). Release and interactive UI acceptance were excluded.

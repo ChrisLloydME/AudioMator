@@ -9,7 +9,7 @@ Use the documentation set under `Docs/` as the detailed reference:
 - [Documentation index](Docs/README.md)
 - [Architecture](Docs/Architecture/OVERVIEW.md)
 - [Metadata pipeline](Docs/Architecture/METADATA_PIPELINE.md)
-- [Metadata mapping refactor contract](Docs/Architecture/METADATA_MAPPING_SPEC.md) — shared contract `AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.0; see [current release evidence](Docs/Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md).
+- [Metadata mapping refactor contract](Docs/Architecture/METADATA_MAPPING_SPEC.md) — shared contract `AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.1; see [current Debug evidence](Docs/Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md).
 - [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md)
 - [Build](Docs/Development/BUILD.md)
 - [Testing](Docs/Development/TESTING.md)
@@ -114,7 +114,7 @@ xcodebuild \
 
 ## Dependency Notes
 
-- `TagLibAudioMetadata` is pinned to published exact version `0.8.0`, revision `e91d822bf584c354f9d9b68803391731a9e7c9a8`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.0) is resolved through the normal Xcode project and committed `Package.resolved`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
+- `TagLibAudioMetadata` is pinned to published exact version `0.8.1`, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.1) is resolved through the normal Xcode project and committed `Package.resolved`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
 - The ignored `.tmp/MappingIntegration.xcworkspace` is generated only for an explicitly requested local candidate via `scripts/validate-release.sh --local-package`; it is not part of normal resolution.
 - App deployment target: macOS 15.0.
 - Do not vendor package or TagLib source.

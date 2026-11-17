@@ -2,7 +2,7 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
-AudioMator pins published `TagLibAudioMetadata` **0.7.3**, resolved through the normal Xcode project and committed remote lock. No local override is needed for normal builds. [Published dependency acceptance](../Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) records the release-gate evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
+AudioMator pins published `TagLibAudioMetadata` **0.8.1**, resolved through the normal Xcode project and committed remote lock. No local override is needed for normal builds. [Published dependency acceptance](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) records Debug-only adoption evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
 
 ## Boundary Summary
 
@@ -115,9 +115,9 @@ Track and disc data is represented by:
 | `releaseDate` | `.releaseDate` |
 | `originalReleaseDate` | `.originalReleaseDate` |
 
-Published package 0.7.3 exposes the legacy typed `.date` YEAR alias; the unreleased API candidate removes it. This adapter uses only `.year` for YEAR and `.standaloneDate` for DATE. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
+Published package 0.8.1 has removed the legacy typed `.date` YEAR alias. This adapter uses only `.year` for YEAR and `.standaloneDate` for DATE. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
 
-**Independent-date behavior.** No companion date writes are synthesized. Published 0.7.3 preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
+**Independent-date behavior.** No companion date writes are synthesized. Published 0.8.1 preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
 
 ### Content advisory
 
@@ -279,4 +279,4 @@ Changed number-text pairs are validated centrally before semantic writes. Missin
 
 The `codex/package-api-performance-integration` branch prepares the adapter and its tests for the package's unreleased API cleanup. Typed YEAR uses only `.year`; independent DATE uses `.standaloneDate`. The application no longer references the old typed `.date` YEAR alias or obsolete verification-policy/format-check helpers. Application `AudioFile.date`, CSV Date, and `BasicMetadata.date` retain their independent DATE meaning.
 
-The committed dependency remains published 0.7.3. Candidate validation uses the explicitly requested local package override; no local path is committed to project resolution. This work does not publish or adopt a new package release, and no application performance improvement is claimed from a package microbenchmark.
+The committed dependency is published 0.8.1, resolved normally without a local override. Earlier local-candidate performance evidence is historical; no application performance improvement is claimed from a package microbenchmark.

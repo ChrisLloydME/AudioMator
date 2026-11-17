@@ -79,6 +79,18 @@ struct MetadataEditPayload: Sendable {
            Int(AudioTagNumberText.components(from: discNumberText).number) == nil {
             return String(localized: "This numbering change can’t be saved while Disc Number contains text such as “B2”. Enter a numeric disc number, or edit these fields in the Metadata Editor.")
         }
+        for (changed, text, label, numberLabel) in [
+            (trackNumberTextChanged, trackNumberText, "Total Tracks", "Track Number"),
+            (discNumberTextChanged, discNumberText, "Total Discs", "Disc Number")
+        ] where changed {
+            let pair = AudioTagNumberText.components(from: text)
+            if let total = pair.total, !AudioTagNumberText.isWritableComponent(total) {
+                return String(localized: "For \(label), enter a whole number from 0 to 2147483647, or clear the field.")
+            }
+            if !AudioTagNumberText.isWritableComponent(pair.number) {
+                return String(localized: "For \(numberLabel), enter a whole number from 0 to 2147483647, or clear the field.")
+            }
+        }
         return nil
     }
 

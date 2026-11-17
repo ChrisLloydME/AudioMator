@@ -248,3 +248,5 @@ The published 0.8.1 Debug-only gate passed all 13 policy, 62 core and 596 serial
 The field-guide final Debug-only gate passed 13 policies, 62 core and 599 app tests, with no failures/skips/expected failures. See [verification](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md). Release and interactive UI acceptance were excluded.
 
 Metadata Editor naming regressions cover shared labels/purposes, custom and qualified field identities, DATE labels across tag families, friendly Date versus raw DATE resolution, and preservation of existing DATE/YEAR/ALBUM ARTIST draft keys. All three new regressions are required gate identities.
+
+The Metadata Editor naming follow-up passed the full Debug-only gate: 13 policies, 62 core and 602 app-hosted tests, no failures/skips/expected failures. Evidence: `.deriveddata-codex/Validation/20261117-145354-72366/`. See the [field-guide verification follow-up](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md#metadata-editor-naming-follow-up).

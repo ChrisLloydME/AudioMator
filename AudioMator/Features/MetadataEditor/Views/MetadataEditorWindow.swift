@@ -335,7 +335,7 @@ final class MetadataEditorStore: ObservableObject {
         } else if failures.count == 1 {
             errorMessage = failures[0]
         } else {
-            errorMessage = ([ String(localized: "Metadata couldn’t be read from \(failures.count) files.") ] + failures.prefix(3) + (failures.count > 3 ? [String(localized: "Additional files that couldn’t be read: \(failures.count - 3). ")] : [])).joined(separator: "\n")
+            errorMessage = ([ String(localized: "Metadata couldn’t be read from \(failures.count) files.") ] + failures.prefix(3) + (failures.count > 3 ? [String(localized: "Additional files that couldn’t be read: \(failures.count - 3).")] : [])).joined(separator: "\n")
         }
 
         return LoadedState(targets: loadedTargets, propertyMaps: propertyMaps, errorMessage: errorMessage)

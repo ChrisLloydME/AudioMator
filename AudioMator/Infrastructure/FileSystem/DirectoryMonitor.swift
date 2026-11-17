@@ -51,7 +51,7 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
 
     var message: String {
         guard isDegraded else {
-            return "Automatic refresh is monitoring all \(monitoredDirectoryCount) directories."
+            return "Automatic refresh is monitoring all \(monitoredDirectoryCount) folders."
         }
 
         var reasons: [String] = []

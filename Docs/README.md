@@ -20,6 +20,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 | Review the current dependency acceptance | [Published 0.7.3 Release Readiness](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) |
 | Prepare a release | [Release Engineering](Development/RELEASE.md) |
 | Contribute code | [Contributing](../CONTRIBUTING.md), [Documentation Maintenance](Development/DOCUMENTATION.md) |
+| Write a commit message | [Commit Messages](Development/COMMIT_MESSAGES.md) |
 | Work as an AI coding agent | [AGENTS.md](../AGENTS.md) |
 
 ## Documentation Map
@@ -50,6 +51,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Metadata Test Strategy](Development/METADATA_TEST_STRATEGY.md) — independent field manifests, real persistence coverage, explicit gaps and release gates.
 - [Testing](Development/TESTING.md) — targets, suites, fixtures, coverage gaps, manual verification boundaries.
 - [Debugging](Development/DEBUGGING.md) — build logs, bridge smoke tool, performance probes, diagnostics.
+- [Commit Messages](Development/COMMIT_MESSAGES.md) — typed subject, scope, merge and revert conventions, body rules, and the advisory checker.
 - [Release Engineering](Development/RELEASE.md) — versioning, current release process, what is and is not automated.
 - [Documentation Maintenance](Development/DOCUMENTATION.md) — ownership, update matrix, style, and verification rules.
 

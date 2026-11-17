@@ -13,6 +13,7 @@ Use the documentation set under `Docs/` as the detailed reference:
 - [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md)
 - [Build](Docs/Development/BUILD.md)
 - [Testing](Docs/Development/TESTING.md)
+- [Commit messages](Docs/Development/COMMIT_MESSAGES.md)
 - [Security and data integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md)
 
 ## Source of Truth
@@ -128,7 +129,20 @@ xcodebuild \
 - Do not commit build output, derived data, `.tmp`, test results, app bundles, archives, or personal IDE state.
 - If a generated file is tracked, remove it with `git rm --cached` and keep the local copy ignored.
 - Update the matching documentation for any behavior, build, test, privacy, dependency, or release change. See [Documentation Maintenance](Docs/Development/DOCUMENTATION.md).
-- Prefer meaningful incremental commits with imperative messages.
+- Prefer meaningful incremental commits and follow the [commit message contract](Docs/Development/COMMIT_MESSAGES.md).
+
+## Commit Messages
+
+Every commit follows the [commit message contract](Docs/Development/COMMIT_MESSAGES.md). These rules must hold even if that page is not open:
+
+- Subject: `type(scope): imperative summary`, using `feat`, `fix`, `docs`, `test`, `perf`, `build`, `ci`, `chore`, `refactor`, `style`, `revert`, or `merge`.
+- Start the summary with a lowercase verb, keep the whole subject to 72 characters or fewer, and do not end it with a period.
+- Use the optional lowercase kebab-case scope only when the change is confined to an established area; do not invent scopes.
+- Merge commits use `merge: integrate <branch> (PR #N)` or `merge: integrate <source> into <target>`; do not keep GitHub's `Merge pull request #N from …` subject.
+- Reverts use `revert: <imperative summary>` and explain the reason in the body.
+- Keep one logical change per commit. Add a body only when it explains why, a boundary, or a non-obvious verification step.
+- Reword local commits before publishing; do not rewrite commits already on `origin/main` without the maintainer's explicit approval.
+- Check before publishing: `python3 scripts/check-commit-messages.py --range origin/main..HEAD`.
 
 ## Documentation Updates
 

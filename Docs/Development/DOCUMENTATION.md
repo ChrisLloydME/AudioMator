@@ -40,6 +40,7 @@ When a historical record's claim is needed for current work, re-verify it and mo
 | Architecture boundary or decision | `Docs/Architecture/OVERVIEW.md`, `DEPENDENCY_RULES.md`, and a new ADR |
 | Repository layout | `Docs/Reference/PROJECT_STRUCTURE.md`, `README.md` |
 | Contribution or review process | `CONTRIBUTING.md`, `AGENTS.md`, this file |
+| Commit message convention | `Docs/Development/COMMIT_MESSAGES.md`, `AGENTS.md`, `CONTRIBUTING.md` |
 
 If behavior changes and the documentation is not updated in the same change, the change is incomplete.
 
@@ -94,6 +95,7 @@ See [the ADR index](../Architecture/Decisions/README.md).
 - verify implementation details before changing code or docs,
 - treat existing docs and tests as unverified evidence until checked,
 - update the documents listed in the matrix above,
+- follow the [commit message contract](COMMIT_MESSAGES.md) and run the advisory checker before publishing,
 - not modify the external `TagLibAudioMetadata` checkout,
 - not claim verification they did not perform.
 

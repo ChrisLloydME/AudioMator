@@ -169,15 +169,24 @@ Reviewers check:
 
 ## Commit Messages
 
-Use a short imperative subject with a conventional prefix where it fits, for example:
+Every commit follows the [commit message contract](Docs/Development/COMMIT_MESSAGES.md). The short form is a typed, imperative subject:
 
 ```text
 fix: preserve unedited track pairs on disc-only saves
 docs: document metadata write and reload contracts
 test: cover stale revision after rename
+merge: integrate metadataMappingRework (PR #45)
 ```
 
-Keep commits coherent. Avoid mixing unrelated refactors and behavior changes.
+Start the summary lowercase, keep the subject to 72 characters or fewer, omit the trailing period, and use a merge subject only for branch integrations. Keep each commit to one logical change; do not mix unrelated refactors with behavior changes. Use the body for the reason, a boundary, or a verification step that the subject cannot carry.
+
+Check your branch before opening a pull request:
+
+```bash
+python3 scripts/check-commit-messages.py --range origin/main..HEAD
+```
+
+If a commit already on `origin/main` has the wrong message, do not rewrite it without the maintainer's approval; the contract explains the backup and force-push procedure.
 
 ## Dependency Updates
 

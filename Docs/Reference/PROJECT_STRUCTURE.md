@@ -149,6 +149,7 @@ Fixtures/
 | `validate-release.sh` | Unified release gate: policy tests, core tests, full serial app tests, unsigned Release build, artifact validation, and recorded evidence |
 | `check-core-evidence.py` | Requires every source-declared core test identity to pass in the core log |
 | `check-test-evidence.py` | Requires exact source-to-`xcresult` test identity equality, critical regressions, and no skips/failures |
+| `check-commit-messages.py` | Advisory commit-subject checker for the commit-message contract |
 | `tests/test_test_evidence.py` | Policy tests for the evidence gates |
 | `validate-macos-artifact.sh` | Checks bundle minimum OS and every Mach-O platform/minimum |
 | `build-taglib-bridge-smoke.sh` | Builds the bridge smoke executable from package/bridge sources |

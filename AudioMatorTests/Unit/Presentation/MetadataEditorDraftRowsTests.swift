@@ -48,7 +48,8 @@ final class MetadataEditorDraftRowsTests: XCTestCase {
         let suggestions = MetadataFieldSuggestion.allSupported
         let total = try XCTUnwrap(suggestions.first { $0.canonicalKey == "TRACKTOTAL" })
         XCTAssertEqual(total.displayName, "Total Tracks")
-        XCTAssertTrue(total.detailText.hasPrefix("TRACKTOTAL · "))
+        XCTAssertEqual(total.detailText, total.purpose)
+        XCTAssertFalse(total.detailText.contains(total.canonicalKey))
         XCTAssertTrue(total.detailText.contains("How many tracks"))
         XCTAssertEqual(MetadataFieldSuggestion.resolvedKey(for: "Date"), "STANDALONEDATE")
         XCTAssertEqual(MetadataFieldSuggestion.resolvedKey(for: "DATE"), "DATE")

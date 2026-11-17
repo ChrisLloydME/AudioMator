@@ -125,7 +125,7 @@ enum MetadataFilenameStatusPresentation {
         let summary = issueSummary(
             titles: issueRows.map(\.status.title)
         )
-        return "\(issueRows.count) file(s) will be skipped: \(summary)."
+        return "\(issueRows.count) file(s) will be skipped. \(summary)."
     }
 
     private static func filenameMetadataIssueSummary(for plan: FilenameMetadataPlan) -> String {
@@ -135,7 +135,7 @@ enum MetadataFilenameStatusPresentation {
         let summary = issueSummary(
             titles: issueRows.map(\.status.title)
         )
-        return "\(issueRows.count) file(s) need review: \(summary)."
+        return "\(issueRows.count) file(s) need review. \(summary)."
     }
 
     private static func issueSummary(titles: [String]) -> String {
@@ -146,7 +146,7 @@ enum MetadataFilenameStatusPresentation {
 
         return countsByTitle
             .sorted { $0.key < $1.key }
-            .map { "\($0.value) \($0.key.lowercased())" }
+            .map { "\($0.key): \($0.value)" }
             .joined(separator: ", ")
     }
 }

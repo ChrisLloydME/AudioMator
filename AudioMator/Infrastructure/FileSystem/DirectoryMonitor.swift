@@ -56,10 +56,10 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
 
         var reasons: [String] = []
         if omittedByLimitCount > 0 {
-            reasons.append(String(localized: "\(omittedByLimitCount) folders exceed the monitoring limit"))
+            reasons.append(omittedByLimitCount == 1 ? String(localized: "1 folder exceeds the monitoring limit") : String(localized: "\(omittedByLimitCount) folders exceed the monitoring limit"))
         }
         if failedToOpenCount > 0 {
-            reasons.append(String(localized: "\(failedToOpenCount) folders couldn't be opened"))
+            reasons.append(failedToOpenCount == 1 ? String(localized: "1 folder couldn’t be opened") : String(localized: "\(failedToOpenCount) folders couldn't be opened"))
         }
         if scanFailureCount > 0 {
             reasons.append(scanFailureCount == 1
@@ -72,9 +72,9 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
                 : String(localized: "\(metadataReadFailureCount) audio files couldn't be read"))
         }
 
-        var message = String(localized: "Automatic refresh is active for \(monitoredDirectoryCount) of \(totalDirectoryCount) folders.\nDetails: \(reasons.joined(separator: ", ")).")
+        var message = String(localized: "Automatic refresh is active for \(monitoredDirectoryCount) of \(totalDirectoryCount) folders. \(reasons.joined(separator: ", ")).")
         if omittedByLimitCount > 0 || failedToOpenCount > 0 {
-            message += " " + String(localized: "Changes in some subfolders may take longer to appear.")
+            message += " " + String(localized: "Changes in unmonitored subfolders may not appear until a scan succeeds.")
         }
         if metadataReadFailureCount > 0 {
             message += " " + String(localized: "Previously loaded metadata is still shown where available.")

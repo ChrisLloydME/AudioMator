@@ -704,15 +704,15 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
             }
         case .year:
             guard MetadataDateText.isPlausibleYear(value) else {
-                return String(localized: "The Year value in \(displayName) isn't supported. Check it before importing.")
+                return String(localized: "Enter a supported Year value before importing.")
             }
         case .date:
             guard MetadataDateText.isPlausibleStandaloneDate(value) else {
-                return String(localized: "The date in \(displayName) can't be saved in this file's tag format. Enter a supported date value.")
+                return String(localized: "Enter a supported Date value before importing.")
             }
         case .releaseDate, .originalReleaseDate:
             guard MetadataDateText.isPlausibleDate(value) else {
-                return String(localized: "The date in \(displayName) isn't supported. Check it before importing.")
+                return String(localized: "Enter a supported value for \(displayName) before importing.")
             }
         case .fileName, .baseName, .path, .relativePath, .index, .title, .artist,
                 .album, .albumArtist, .composer, .lyricist, .producer, .engineer,

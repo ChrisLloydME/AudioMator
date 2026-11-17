@@ -1078,7 +1078,7 @@ private struct PlanChangeRow: View {
             case .loading:
                 return "Loading recording details..."
             case .failed(let message):
-                return message.isEmpty ? String(localized: "Recording details couldn’t be loaded. Try the lookup again.") : String(localized: "Recording details couldn’t be loaded. Try the lookup again.")
+                return message.isEmpty ? String(localized: "Recording details couldn’t be loaded. Try the lookup again.") : message
             case .idle:
                 return "Loading recording details..."
             case .loaded:

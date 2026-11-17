@@ -64,7 +64,7 @@ enum MetadataExchangePreviewStatus: Equatable {
         case .ambiguousMatch:
             return L10n.string("More Than One Match")
         case .parseError:
-            return L10n.string("Couldn't Read Record")
+            return L10n.string("Record Needs Review")
         case .sourceUnavailable:
             return L10n.string("Couldn't Check File")
         case .missingExternalRecord:
@@ -533,7 +533,7 @@ enum MetadataExchangePlanner {
                 return ParsedExternalRecord(
                     index: index,
                     displayText: displayText,
-                    captures: .failure(String(localized: "This row is missing \(missingCount) CSV columns. Add the missing columns to match the template."))
+                    captures: .failure(String(localized: "Missing CSV columns: \(missingCount). Add the missing columns to match the template."))
                 )
             }
             if cells.count > result.columns.count {
@@ -541,7 +541,7 @@ enum MetadataExchangePlanner {
                 return ParsedExternalRecord(
                     index: index,
                     displayText: displayText,
-                    captures: .failure(String(localized: "This row has \(extraCount) extra CSV columns. Remove them or add corresponding fields to the template."))
+                    captures: .failure(String(localized: "Extra CSV columns: \(extraCount). Remove them or add corresponding fields to the template."))
                 )
             }
 

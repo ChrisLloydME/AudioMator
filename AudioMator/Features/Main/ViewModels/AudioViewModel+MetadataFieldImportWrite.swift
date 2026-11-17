@@ -14,7 +14,7 @@ extension AudioViewModel {
             presentMetadataWriteHUD(
                 style: .failure,
                 title: String(localized: "Values Couldn’t Be Imported"),
-                subtitle: "Imported \(values.count) values for \(targetFiles.count) selected files."
+                subtitle: String(localized: "Received \(values.count) values for \(targetFiles.count) selected files. Provide one value per file, or select the matching number of files.")
             )
             return
         }

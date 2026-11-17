@@ -238,7 +238,9 @@ extension AudioViewModel {
             forFileExtension: file.url.pathExtension
         )
         if !unsupportedFields.isEmpty {
-            let labels = unsupportedFields.map(\.rawValue).sorted().joined(separator: ", ")
+            let labels = ListFormatter.localizedString(byJoining: unsupportedFields.map {
+                MetadataFieldRegistry.schema(for: $0)?.displayName ?? String(localized: "Metadata field")
+            }.sorted())
             return .failure(
                 String(localized: "Changes to \(labels) can’t be saved in this file format. No changes were saved.")
             )

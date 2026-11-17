@@ -68,7 +68,8 @@ final class UpdateCheckPresenter {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = String(localized: "Updates Couldn’t Be Checked")
-        alert.informativeText = String(localized: "Updates couldn’t be checked on GitHub. Try again later, or visit GitHub Releases to check manually.\nDetails: \(error.localizedDescription)")
+        alert.informativeText = error.localizedDescription + "\n\n"
+            + String(localized: "You can also check GitHub Releases manually.")
         alert.addButton(withTitle: "Open GitHub Releases")
         alert.addButton(withTitle: "OK")
 

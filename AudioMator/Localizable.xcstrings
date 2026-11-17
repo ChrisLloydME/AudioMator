@@ -46,8 +46,15 @@
         }
       }
     },
-    "“%@” couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying changes." : {
-
+    "“%@” — current location: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” — current location: %2$@"
+          }
+        }
+      }
     },
     "“%@” couldn’t be reloaded.\nDetails: %@" : {
       "localizations" : {
@@ -79,9 +86,6 @@
         }
       }
     },
-    "“%@” has changed since it was last checked. The current values must be reviewed before these changes can be applied." : {
-
-    },
     "“%@” isn't a supported field. Choose a field from the available list." : {
 
     },
@@ -104,6 +108,9 @@
           }
         }
       }
+    },
+    "“%@”: current location couldn’t be determined." : {
+
     },
     "%@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Short UI token; keep compact and verify it still fits in tight controls. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -492,9 +499,6 @@
     "%lld files aren't ready for changes. Make sure each file is loaded in AudioMator and assigned to an iTunes track." : {
 
     },
-    "%lld files couldn’t be updated." : {
-
-    },
     "%lld files have warnings." : {
 
     },
@@ -624,9 +628,6 @@
     "1 file" : {
 
     },
-    "1 file couldn’t be updated." : {
-
-    },
     "1 file has warnings." : {
 
     },
@@ -634,6 +635,12 @@
 
     },
     "1 file was skipped." : {
+
+    },
+    "1 folder couldn’t be opened" : {
+
+    },
+    "1 folder exceeds the monitoring limit" : {
 
     },
     "1 folder scan couldn’t be completed" : {
@@ -1455,7 +1462,26 @@
         }
       }
     },
+    "Additional detail characters not shown: %lld." : {
+
+    },
+    "Additional detail groups not shown: %lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Additional detail groups not shown: %1$lld. %2$@"
+          }
+        }
+      }
+    },
     "Additional files couldn’t be imported: %lld." : {
+
+    },
+    "Additional files that couldn’t be read: %lld. " : {
+
+    },
+    "Additional files with issues: %lld." : {
 
     },
     "Additional title information." : {
@@ -1829,7 +1855,13 @@
         }
       }
     },
+    "Artwork download cancelled." : {
+
+    },
     "Artwork Lookup Couldn’t Be Completed" : {
+
+    },
+    "Artwork search cancelled." : {
 
     },
     "Artwork will be removed from all selected files" : {
@@ -2234,12 +2266,15 @@
         }
       }
     },
-    "Automatic refresh is active for %lld of %lld folders.\nDetails: %@." : {
+    "Automatic Refresh Couldn’t Be Completed" : {
+
+    },
+    "Automatic refresh is active for %lld of %lld folders. %@." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Automatic refresh is active for %1$lld of %2$lld folders.\nDetails: %3$@."
+            "value" : "Automatic refresh is active for %1$lld of %2$lld folders. %3$@."
           }
         }
       }
@@ -2744,7 +2779,13 @@
     "Changes Couldn’t Be Saved" : {
 
     },
-    "Changes in some subfolders may take longer to appear." : {
+    "Changes couldn’t be saved to %lld files." : {
+
+    },
+    "Changes couldn’t be saved to 1 file." : {
+
+    },
+    "Changes in unmonitored subfolders may not appear until a scan succeeds." : {
 
     },
     "Changes Saved to Some Files" : {
@@ -2813,7 +2854,7 @@
     "Check for Updates…" : {
 
     },
-    "Check the locations of these files before continuing (%@):" : {
+    "Check the file locations before continuing (%@):" : {
 
     },
     "Choose a destination field different from the source field." : {
@@ -4314,9 +4355,6 @@
         }
       }
     },
-    "Current location couldn't be determined" : {
-
-    },
     "Current Name" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:1581.",
       "localizations" : {
@@ -5594,6 +5632,15 @@
         }
       }
     },
+    "Enter a supported Date value before importing." : {
+
+    },
+    "Enter a supported value for %@ before importing." : {
+
+    },
+    "Enter a supported Year value before importing." : {
+
+    },
     "Enter a template or drag metadata chips into the field." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:283.",
       "extractionState" : "stale",
@@ -5774,6 +5821,9 @@
           }
         }
       }
+    },
+    "Extra CSV columns: %lld. Remove them or add corresponding fields to the template." : {
+
     },
     "Field" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3, AudioMator/Domain/UIState/MiddleListColumn.swift:246, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:76.",
@@ -6163,13 +6213,28 @@
     "Files Couldn’t Be Renamed" : {
 
     },
+    "Files couldn’t be renamed.\nDetails: %@" : {
+
+    },
     "Files here are cleared when AudioMator closes." : {
+
+    },
+    "Files Not Processed" : {
+
+    },
+    "Files not processed because the operation was cancelled: %lld." : {
 
     },
     "Files Renamed with Warnings" : {
 
     },
     "Files skipped: %lld." : {
+
+    },
+    "Files that couldn’t be imported: %lld." : {
+
+    },
+    "Files that couldn’t be reloaded: %lld." : {
 
     },
     "Files That Couldn't Be Updated" : {
@@ -6302,6 +6367,9 @@
 
     },
     "Folders" : {
+
+    },
+    "For %@, enter a whole number from 0 to 2147483647, or clear the field." : {
 
     },
     "For %@, enter a whole number from 0 to 2147483647." : {
@@ -8266,6 +8334,12 @@
     "Metadata Couldn’t Be Cleared" : {
 
     },
+    "Metadata couldn’t be cleared from %lld files." : {
+
+    },
+    "Metadata couldn’t be cleared from 1 file." : {
+
+    },
     "Metadata Couldn’t Be Exported" : {
 
     },
@@ -8412,6 +8486,9 @@
         }
       }
     },
+    "Metadata field" : {
+
+    },
     "Metadata Field Guide" : {
 
     },
@@ -8520,6 +8597,9 @@
         }
       }
     },
+    "Missing CSV columns: %lld. Add the missing columns to match the template." : {
+
+    },
     "Missing Locally" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:1270, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:677.",
       "extractionState" : "stale",
@@ -8605,9 +8685,6 @@
       }
     },
     "Modes" : {
-
-    },
-    "More file details are available in Settings → Save Logs." : {
 
     },
     "Moving Metadata" : {
@@ -9594,6 +9671,9 @@
         }
       }
     },
+    "No Files Changed" : {
+
+    },
     "No Files in Session" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/Views/ContentPane.swift:285, AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:202.",
       "extractionState" : "stale",
@@ -10562,6 +10642,9 @@
         }
       }
     },
+    "Operation Cancelled" : {
+
+    },
     "Original Release Date" : {
 
     },
@@ -11297,6 +11380,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "就緒"
+          }
+        }
+      }
+    },
+    "Received %lld values for %lld selected files. Provide one value per file, or select the matching number of files." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Received %1$lld values for %2$lld selected files. Provide one value per file, or select the matching number of files."
           }
         }
       }
@@ -14593,12 +14686,6 @@
     "The current app version couldn’t be determined, so updates can’t be checked." : {
 
     },
-    "The date in %@ can't be saved in this file's tag format. Enter a supported date value." : {
-
-    },
-    "The date in %@ isn't supported. Check it before importing." : {
-
-    },
     "The destination number field requires a single integer from 0 through 2147483647." : {
       "comment" : "Metadata Exchange field copy/cut tool.",
       "extractionState" : "manual",
@@ -14713,7 +14800,13 @@
     "The file couldn’t be checked after it moved. Close this tool and choose Reload from Disk from the file’s context menu before changing track numbers." : {
 
     },
+    "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying changes." : {
+
+    },
     "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing." : {
+
+    },
+    "The file has changed since it was last checked. The current values must be reviewed before these changes can be applied." : {
 
     },
     "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date." : {
@@ -15133,9 +15226,6 @@
     "The version information from GitHub couldn’t be read. Check GitHub Releases manually." : {
 
     },
-    "The Year value in %@ isn't supported. Check it before importing." : {
-
-    },
     "These credits cannot be edited as a simple text field." : {
 
     },
@@ -15501,12 +15591,6 @@
 
     },
     "This result has plain lyrics only. It will not be applied as synced lyrics." : {
-
-    },
-    "This row has %lld extra CSV columns. Remove them or add corresponding fields to the template." : {
-
-    },
-    "This row is missing %lld CSV columns. Add the missing columns to match the template." : {
 
     },
     "This template resolves to an empty filename for the file." : {
@@ -16450,9 +16534,6 @@
     "Updates Couldn’t Be Checked" : {
 
     },
-    "Updates couldn’t be checked on GitHub. Try again later, or visit GitHub Releases to check manually.\nDetails: %@" : {
-
-    },
     "US, JP, GB" : {
 
     },
@@ -16911,19 +16992,16 @@
         }
       }
     },
-    "You can skip this step. When a save needs access, AudioMator will ask for the exact containing folder." : {
+    "You can also check GitHub Releases manually." : {
 
     },
-    "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save." : {
+    "You can skip this step. When a save needs access, AudioMator will ask for the exact containing folder." : {
 
     },
     "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: %@" : {
 
     },
-    "Your changes were saved, but the file couldn’t be reloaded. Choose Reload from Disk from its context menu to read the saved values.\nDetails: %@" : {
-
-    },
-    "Your changes were saved, but they couldn’t be reloaded in the Inspector. Choose Reload from Disk from the file’s context menu to read the saved values. Unsaved Inspector edits must be discarded to reload.\nDetails: %@" : {
+    "Your changes were saved, but the file couldn’t be reloaded. Close the Metadata Editor if it is open, then choose Reload from Disk from the file’s context menu to read the saved values.\nDetails: %@" : {
 
     },
     "Your notes about the track." : {

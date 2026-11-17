@@ -170,3 +170,7 @@ If you stay inside local editing features, AudioMator stays offline. If you use 
 E-mail: AudioMator@lloydME.com
 
 See [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) for security limitations and vulnerability reporting.
+
+## Metadata help references
+
+The built-in [Metadata Field Guide](Product/METADATA_FIELD_GUIDE.md) is bundled and works offline. Selecting a reference explicitly opens an HTTPS page in the default browser on ID3.org, Xiph.Org, Apple Developer, TagLib, MusicBrainz/Picard or AcoustID. AudioMator sends no file path or track metadata with these fixed URLs. Browser privacy settings and the selected website govern that visit. No background help download or embedded web page is added. Explanations are original paraphrases with attribution links; no external documentation is bundled verbatim.

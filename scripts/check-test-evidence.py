@@ -10,6 +10,10 @@ from pathlib import Path
 import re
 
 CRITICAL = {
+    'MetadataFieldGuideTests/testEveryPackageFieldHasOneExplanationAndAnOfficialSource()',
+    'MetadataFieldGuideTests/testReferenceLinksMatchThePrivacyDisclosure()',
+    'MetadataFieldGuideTests/testSearchFindsDisplayNamesNativeKeysAndIndependentDates()',
+
     'AutomaticNumberRecoveryTests/testHistoricalNumberLayoutsRemainCleanAcrossInspectorLifecycle()',
     'AutomaticNumberRecoveryTests/testRecoveredBatchReloadAndRealDraftHaveDistinctDirtyState()',
     'AutomaticNumberRecoveryTests/testSingleAndBatchNumberMigrationFinishWithCleanInspector()',

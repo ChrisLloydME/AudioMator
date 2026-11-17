@@ -53,15 +53,15 @@ Do not treat launching the GUI as build validation. Repository policy reserves i
 
 ## Metadata Saves
 
-### "The file changed since it was read"
+### The file changed after it was checked
 
-The file's size, modification time, inode, or opaque package version changed since the draft baseline. Reload the file and reapply the intended edit. Do not retry with a disabled version check; the code has no supported path for that.
+The file changed since the draft baseline. Automatic refresh keeps unsaved drafts and their original baseline; non-conflicting changes can be merged when saving. If the same fields changed both on disk and in the draft, choose a conflict strategy in Settings. Under Require manual reload, use Reload from Disk in the file list’s context menu, confirm discarding unsaved Inspector edits, and reapply the intended edit. Do not disable version checks.
 
-### "The file version could not be verified"
+### The file could not be checked for changes
 
 The file is missing, unreadable, replaced, or on a volume that cannot provide the needed attributes. Restore access and reload. If a rename left the snapshot refresh-required, reload before editing.
 
-### "This format cannot write the requested metadata fields"
+### Changes cannot be saved in this file format
 
 The format's TagLib capability does not include one or more requested fields. Remove or deselect unsupported fields, or use a different container. AudioMator does not write a partial payload when a requested field is unsupported.
 
@@ -83,9 +83,9 @@ Some containers normalize number text, dates, artwork roles, or key casing. Conf
 
 Another file already uses the target name, or two rows target the same name. Resolve the conflict in the preview. Existing files are never silently overwritten.
 
-### "The file changed after the preview was shown"
+### The file changed while a preview was open
 
-The preview captured a fingerprint. The file changed before the transaction started. Refresh the preview and reapply.
+The preview captured a fingerprint, but the file changed before the transaction started. Previews follow the currently loaded data automatically. Close and reopen the tool to review its current values; there is no Refresh Preview button. If the file cannot be checked or remains blocked after a move, use Reload from Disk in the file list’s context menu. This rereads the file; it does not override a failed write.
 
 ### A rename failed and left a temporary or destination file
 

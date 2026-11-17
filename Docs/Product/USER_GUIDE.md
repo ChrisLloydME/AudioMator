@@ -221,3 +221,9 @@ Inspector number-text edits require numeric components with the current metadata
 ## Number Pairs and External Changes
 
 Track and disc numbers can be blank while their totals remain set. Clearing an individual number preserves its total; clearing the complete pair clears both. After an external revision change, automatic conflict strategies require the package to verify unchanged audio. Formats or layouts without audio-content identity support require Reload from Disk before saving the draft. Review or discard the draft before reloading.
+
+## Operation Result HUD
+
+Success, warning, and failure results use a centered SF Symbol above the title. The larger card separates the filename or batch result from the detailed reasons below. Batch results use complete sentences, group file names with their reasons, and point to Settings → Logs when more file details are available. The HUD remains noninteractive and does not take keyboard focus. Success results stay visible for 3 seconds, warnings for 8 seconds, and failures for 10 seconds.
+
+An error does not automatically mean that nothing was saved. A partial result identifies the files that succeeded; a save followed by a readback or durability warning is still reported as saved. Detailed reasons from macOS and TagLib remain available in the result or save logs. Automatic refresh, explicit Reload from Disk, and conflict handling retain their existing behavior. Reload from Disk is in the file list’s context menu and asks before discarding unsaved Inspector edits. There is no Refresh Preview button.

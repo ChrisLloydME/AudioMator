@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 extension ContentAdvisory {
     nonisolated var displayName: String {
@@ -45,26 +46,26 @@ extension ExplicitInspectorSelection {
 extension MultiFileEditableTextField {
     var displayName: String {
         switch self {
-        case .title: L10n.string("Title")
-        case .artist: L10n.string("Artist")
-        case .album: L10n.string("Album")
-        case .composer: L10n.string("Composer")
-        case .genre: L10n.string("Genre")
-        case .year: L10n.string("Year")
-        case .date: L10n.string("Date")
-        case .originalReleaseDate: L10n.string("Original Release Date")
-        case .contentGroup: L10n.string("Content Group")
-        case .grouping: L10n.string("Grouping")
-        case .work: L10n.string("Work")
-        case .trackNumber: L10n.string("Track Number")
-        case .trackTotal: L10n.string("Total Tracks")
-        case .discNumber: L10n.string("Disc Number")
-        case .discTotal: L10n.string("Total Discs")
-        case .comment: L10n.string("Comment")
-        case .albumArtist: L10n.string("Album Artist")
-        case .releaseDate: L10n.string("Release Date")
-        case .publisher: L10n.string("Publisher")
-        case .copyright: L10n.string("Copyright")
+        case .title: MetadataFieldGuide.displayName(for: .title)
+        case .artist: MetadataFieldGuide.displayName(for: .artist)
+        case .album: MetadataFieldGuide.displayName(for: .album)
+        case .composer: MetadataFieldGuide.displayName(for: .composer)
+        case .genre: MetadataFieldGuide.displayName(for: .genre)
+        case .year: MetadataFieldGuide.displayName(for: .year)
+        case .date: MetadataFieldGuide.displayName(for: .standaloneDate)
+        case .originalReleaseDate: MetadataFieldGuide.displayName(for: .originalReleaseDate)
+        case .contentGroup: MetadataFieldGuide.displayName(for: .contentGroup)
+        case .grouping: MetadataFieldGuide.displayName(for: .grouping)
+        case .work: MetadataFieldGuide.displayName(for: .work)
+        case .trackNumber: MetadataFieldGuide.displayName(for: .track)
+        case .trackTotal: MetadataFieldGuide.displayName(for: .trackTotal)
+        case .discNumber: MetadataFieldGuide.displayName(for: .disc)
+        case .discTotal: MetadataFieldGuide.displayName(for: .discTotal)
+        case .comment: MetadataFieldGuide.displayName(for: .comment)
+        case .albumArtist: MetadataFieldGuide.displayName(for: .albumArtist)
+        case .releaseDate: MetadataFieldGuide.displayName(for: .releaseDate)
+        case .publisher: MetadataFieldGuide.displayName(for: .publisher)
+        case .copyright: MetadataFieldGuide.displayName(for: .copyright)
         }
     }
 }

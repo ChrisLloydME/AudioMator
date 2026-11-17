@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 enum MiddleListColumn: String, CaseIterable, Identifiable {
     case filename
@@ -27,48 +28,27 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .filename:
-            return L10n.string("Filename")
-        case .title:
-            return L10n.string("Title")
-        case .artist:
-            return L10n.string("Artist")
-        case .album:
-            return L10n.string("Album")
-        case .albumArtist:
-            return L10n.string("Album Artist")
-        case .composer:
-            return L10n.string("Composer")
-        case .genre:
-            return L10n.string("Genre")
-        case .year:
-            return L10n.string("Year")
-        case .track:
-            return L10n.string("Track")
-        case .disc:
-            return L10n.string("Disc")
-        case .comment:
-            return L10n.string("Comment")
-        case .releaseDate:
-            return L10n.string("Release Date")
-        case .publisher:
-            return L10n.string("Publisher")
-        case .copyright:
-            return L10n.string("Copyright")
-        case .credits:
-            return L10n.string("Credits")
-        case .explicit:
-            return L10n.string("Explicit")
-        case .duration:
-            return L10n.string("Duration")
-        case .bitrate:
-            return L10n.string("Bitrate")
-        case .sampleRate:
-            return L10n.string("Sample Rate")
-        case .channels:
-            return L10n.string("Channels")
-        case .format:
-            return L10n.string("Format")
+        case .filename: return L10n.string("Filename")
+        case .title: return MetadataFieldGuide.displayName(for: .title)
+        case .artist: return MetadataFieldGuide.displayName(for: .artist)
+        case .album: return MetadataFieldGuide.displayName(for: .album)
+        case .albumArtist: return MetadataFieldGuide.displayName(for: .albumArtist)
+        case .composer: return MetadataFieldGuide.displayName(for: .composer)
+        case .genre: return MetadataFieldGuide.displayName(for: .genre)
+        case .year: return MetadataFieldGuide.displayName(for: .year)
+        case .track: return MetadataFieldGuide.displayName(for: .track)
+        case .disc: return MetadataFieldGuide.displayName(for: .disc)
+        case .comment: return MetadataFieldGuide.displayName(for: .comment)
+        case .releaseDate: return MetadataFieldGuide.displayName(for: .releaseDate)
+        case .publisher: return MetadataFieldGuide.displayName(for: .publisher)
+        case .copyright: return MetadataFieldGuide.displayName(for: .copyright)
+        case .explicit: return MetadataFieldGuide.displayName(for: .explicitContent)
+        case .credits: return MetadataFieldGuide.displayName(forReadOnlyField: "credits")
+        case .duration: return MetadataFieldGuide.displayName(forReadOnlyField: "duration")
+        case .bitrate: return MetadataFieldGuide.displayName(forReadOnlyField: "bitrate")
+        case .sampleRate: return MetadataFieldGuide.displayName(forReadOnlyField: "sampleRate")
+        case .channels: return MetadataFieldGuide.displayName(forReadOnlyField: "channels")
+        case .format: return MetadataFieldGuide.displayName(forReadOnlyField: "format")
         }
     }
 

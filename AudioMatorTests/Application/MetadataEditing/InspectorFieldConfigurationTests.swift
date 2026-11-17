@@ -10,6 +10,26 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         try body(defaults)
     }
 
+    func testInspectorAndSettingsLabelsMatchTheSharedFieldNames() throws {
+        for field in InspectorMetadataField.configurableFields {
+            if let key = field.metadataFieldKey {
+                XCTAssertEqual(field.displayName, MetadataFieldGuide.displayName(for: key), field.rawValue)
+            } else {
+                XCTAssertEqual(field.displayName, MetadataFieldGuide.displayName(forReadOnlyField: "credits"))
+            }
+        }
+        XCTAssertEqual(InspectorMetadataField.totalTracks.displayName, MultiFileEditableTextField.trackTotal.displayName)
+        XCTAssertEqual(InspectorMetadataField.totalDiscs.displayName, MultiFileEditableTextField.discTotal.displayName)
+        XCTAssertEqual(InspectorMetadataField.date.displayName, MultiFileEditableTextField.date.displayName)
+        XCTAssertEqual(InspectorMetadataField.year.displayName, MultiFileEditableTextField.year.displayName)
+        XCTAssertEqual(MiddleListColumn.track.displayName, InspectorMetadataField.trackNumber.displayName)
+        XCTAssertEqual(MiddleListColumn.disc.displayName, InspectorMetadataField.discNumber.displayName)
+        XCTAssertEqual(MiddleListColumn.explicit.displayName, InspectorMetadataField.explicit.displayName)
+        for id in ["duration", "bitrate", "sampleRate", "channels", "format"] {
+            XCTAssertNotEqual(MetadataFieldGuide.displayName(forReadOnlyField: id), id)
+        }
+    }
+
     func testFreshInspectorUsesCuratedDefaultsAndOptionalDatesStayIndependent() {
         withPreferences { defaults in
             let state = SharedState(userDefaults: defaults)

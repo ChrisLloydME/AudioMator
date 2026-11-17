@@ -11,7 +11,7 @@ Counts and paths below were verified by source inspection on 2026-11-12. They ch
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 602 | 79 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 603 | 79 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 80 `XCTestCase` classes across both targets; no custom base class.
@@ -250,3 +250,5 @@ The field-guide final Debug-only gate passed 13 policies, 62 core and 599 app te
 Metadata Editor naming regressions cover shared labels/purposes, custom and qualified field identities, DATE labels across tag families, friendly Date versus raw DATE resolution, and preservation of existing DATE/YEAR/ALBUM ARTIST draft keys. All three new regressions are required gate identities.
 
 The Metadata Editor naming follow-up passed the full Debug-only gate: 13 policies, 62 core and 602 app-hosted tests, no failures/skips/expected failures. Evidence: `.deriveddata-codex/Validation/20261117-145354-72366/`. See the [field-guide verification follow-up](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md#metadata-editor-naming-follow-up).
+
+`InspectorFieldConfigurationTests.testInspectorAndSettingsLabelsMatchTheSharedFieldNames` checks shared names for every configurable Inspector field, batch totals/dates, Interface list number/advisory labels and technical display titles. This naming-only follow-up uses focused serial Debug tests for Inspector configuration, field guide and Metadata Editor rows; it does not claim a new full-suite run.

@@ -39,6 +39,10 @@ nonisolated enum MetadataFieldGuide {
         }
     }
 
+    static func displayName(forReadOnlyField id: String) -> String {
+        entries.first { $0.key == nil && $0.id == id }?.title ?? id
+    }
+
     static func displayName(for key: MetadataFieldKey) -> String {
         switch key {
         case .trackTotal: return L10n.string("Total Tracks")

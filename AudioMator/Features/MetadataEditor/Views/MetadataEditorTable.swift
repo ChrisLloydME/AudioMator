@@ -118,8 +118,8 @@ extension MetadataEditorTable {
             switch identifier {
             case fieldColumnIdentifier:
                 cellView.configure(
-                    text: rowModel.key,
-                    font: NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
+                    text: rowModel.displayName.isEmpty ? MetadataFieldGuide.displayName(forRawKey: rowModel.key) : rowModel.displayName,
+                    font: NSFont.systemFont(ofSize: 13, weight: .medium),
                     textColor: .labelColor,
                     wraps: false
                 )

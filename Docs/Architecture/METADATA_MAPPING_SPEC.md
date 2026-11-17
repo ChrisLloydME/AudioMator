@@ -4,6 +4,10 @@ Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepte
 
 AudioMator and TagLibAudioMetadata maintain one shared contract, not independently editable policies. Any normative change must update both copies, increment the contract version, and state migration and test implications. The package owns native mapping/verification; AudioMator owns edit intent and presentation. Neither repository may silently override the other layer's semantics.
 
+## Reading entry point: one cross-layer table
+
+For the current UI name → AudioMator property → package enum case → semantic/engine key → per-format native location, use the **[complete cross-layer mapping table](../Reference/METADATA_FIELD_MAPPING_TABLE.md#complete-cross-layer-table)**. It accounts for all 100 package cases in published 0.8.1, including MP4-exclusive and Matroska registrations, plus app-only display values. It distinguishes default/optional Inspector rows, raw-editor suggestions, registered locations and withheld writes. This specification explains the policy; the reference table makes the current identities directly comparable in one place. Neither document makes the package registry a UI catalog.
+
 ## 1. Sources, scope, and precedence
 
 This document defines the package's metadata interoperability profile. The explicit per-format matrix and divergence decisions are normative. The [TagLib PropertyMap mapping](https://taglib.org/api/p_propertymapping.html), reviewed on 2026-11-09, supplies supplementary engine vocabulary and native mapping context. External application defaults and user-configurable mappings do not override this contract. Cross-tool testing is an interoperability oracle, not a second automatic mapping policy.
@@ -164,6 +168,8 @@ Custom fields use explicit namespaced intent: TXXX descriptions for ID3, F(descr
 Unknown native content is preserved without projecting it into a newly invented standard field. Binary frames, private structures, synchronized lyrics, chapters, ratings and unsupported collections require a tested structured codec or read-only treatment. Erase-all stays best effort with explicit verification scope; it is not a promise to erase every native structure.
 
 ## 8. Field catalog
+
+> The matrix below retains the design-stage case names and target decisions used when drafting contract 2.2 from package 0.6.0. It is not the current public enum inventory: its `date` row is now package `.year`, and `(new)` does not mean pending in 0.8.1. For today's complete API/UI/native comparison and explicit write restrictions, use the [cross-layer table](../Reference/METADATA_FIELD_MAPPING_TABLE.md#complete-cross-layer-table). In particular the v2.3 date locations listed here do not authorize typed date writes.
 
 The catalog below enumerates every `MetadataFieldKey` in 0.6.0 plus five explicitly planned additions: standaloneDate, contentGroup, artists, replayGainTrackPeak and replayGainAlbumPeak. The existing date case is a legacy migration handle for the YEAR slot and must receive an explicit new year identity; it must not be silently reinterpreted as standalone DATE. These are target mappings, deliberately differing from the current generated field-schema documentation. Existing Swift case names are migration handles, not immutable semantic labels. The columns are complete preferred target locations for ID3v2.3, ID3v2.4, MP4, Vorbis Comment, APEv2, ASF and RIFF INFO. `—` means no typed target in this revision, never automatic custom fallback. `PAIR(K)` addresses one component in the native combined field; YEAR and DATE use independent versioned native fields from section 4; there is no combined year/date codec. `EXT(K)` is an explicitly registered text extension. In the Xiph/APE columns a bare name is a text key. Artwork names denote structured collections, not text.
 

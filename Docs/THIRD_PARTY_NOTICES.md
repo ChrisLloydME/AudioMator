@@ -144,3 +144,7 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 Release validation must confirm those five files are present in the built app's `Contents/Resources` directory. The in-app Acknowledgements sheet loads them by resource name and fails closed with a visible fallback if a text is missing.
 
 At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.8.1 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation.
+
+## Metadata help references
+
+The built-in [Metadata Field Guide](Product/METADATA_FIELD_GUIDE.md) is bundled and works offline. Selecting a reference explicitly opens an HTTPS page in the default browser on ID3.org, Xiph.Org, Apple Developer, TagLib, MusicBrainz/Picard or AcoustID. AudioMator sends no file path or track metadata with these fixed URLs. Browser privacy settings and the selected website govern that visit. No background help download or embedded web page is added. Explanations are original paraphrases with attribution links; no external documentation is bundled verbatim.

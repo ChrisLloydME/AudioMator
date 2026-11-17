@@ -21,7 +21,9 @@ final class NetworkServiceDisclosureTests: XCTestCase {
         // Independent inventory, reviewed against request builders and page policy.
         let productionHosts: Set<String> = [
             "itunes.apple.com", "is5-ssl.mzstatic.com", "a5.mzstatic.com",
-            "musicbrainz.org", "lrclib.net", "api.github.com", "apple.com"
+            "musicbrainz.org", "lrclib.net", "api.github.com", "apple.com",
+            "id3.org", "www.xiph.org", "picard-docs.musicbrainz.org",
+            "developer.apple.com", "acoustid.org", "taglib.org"
         ]
 
         XCTAssertEqual(disclosedHosts, productionHosts)

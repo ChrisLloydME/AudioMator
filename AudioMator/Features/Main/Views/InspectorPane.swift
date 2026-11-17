@@ -861,15 +861,15 @@ struct InspectorPane: View {
     private func technicalSection(_ file: AudioFile) -> some View {
         GroupBox {
             VStack(spacing: 6) {
-                metadataRow(label: "Duration", value: formatDuration(file.duration))
+                metadataRow(label: MetadataFieldGuide.displayName(forReadOnlyField: "duration"), value: formatDuration(file.duration))
                 Divider()
-                metadataRow(label: "Bitrate", value: "\(file.bitrate) kbps")
+                metadataRow(label: MetadataFieldGuide.displayName(forReadOnlyField: "bitrate"), value: "\(file.bitrate) kbps")
                 Divider()
-                metadataRow(label: "Sample Rate", value: formatSampleRate(file.sampleRate))
+                metadataRow(label: MetadataFieldGuide.displayName(forReadOnlyField: "sampleRate"), value: formatSampleRate(file.sampleRate))
                 Divider()
-                metadataRow(label: "Channels", value: "\(file.channels)")
+                metadataRow(label: MetadataFieldGuide.displayName(forReadOnlyField: "channels"), value: "\(file.channels)")
                 Divider()
-                metadataRow(label: "Format", value: file.format)
+                metadataRow(label: MetadataFieldGuide.displayName(forReadOnlyField: "format"), value: file.format)
             }
             .padding(.vertical, 3)
         } label: {

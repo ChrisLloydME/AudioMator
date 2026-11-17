@@ -8,6 +8,7 @@ enum NetworkServiceDisclosure {
             case lrclib
             case releaseNotes
             case softwareUpdates
+            case metadataHelpReferences
             case providerWebPages
         }
 
@@ -109,6 +110,13 @@ enum NetworkServiceDisclosure {
             domains: LRCLIB.domains,
             sentDataSummary: LRCLIB.sentDataSummary,
             purpose: "Searching for synced lyrics, reviewing matches, and applying selected lyrics locally."
+        ),
+        Entry(
+            id: .metadataHelpReferences,
+            title: String(localized: "Metadata help references"),
+            domains: ["id3.org", "www.xiph.org", "picard-docs.musicbrainz.org", "musicbrainz.org", "developer.apple.com", "acoustid.org", "taglib.org"],
+            sentDataSummary: String(localized: "Only an explicitly selected reference URL is opened in your default browser. AudioMator does not send file paths or metadata. The browser handles the website request."),
+            purpose: String(localized: "Reading official field documentation. The built-in guide is available offline.")
         ),
         Entry(
             id: .providerWebPages,

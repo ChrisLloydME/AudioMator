@@ -226,6 +226,7 @@ The late reload result is discarded if its generation is stale. See [State and M
 `RawMetadataValueMap` is `[String: [String]]` keyed by uppercase property key.
 
 - Loading uses `rawMetadataResult` and preserves value order.
+- Metadata Editor presents shared AudioMator field names and purposes; raw keys remain the row IDs and write identities. Selected suggestion keys are kept separately from their visible labels. Uppercase raw aliases are not canonicalised as a side effect of editing. See [field guide](../Product/METADATA_FIELD_GUIDE.md#shared-field-names-in-metadata-editor).
 - Saving computes an exact delta from the original map:
   - set keys whose values changed,
   - remove keys absent from the draft,

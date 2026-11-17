@@ -72,6 +72,7 @@ struct AudioMatorApp: App {
         }
         .commands {
             AppInfoCommands()
+            MetadataFieldGuideCommands()
             SidebarCommands()
             ToolbarEditCommands(viewModel: viewModel, sharedState: sharedState)
             ViewLayoutCommands()
@@ -85,6 +86,12 @@ struct AudioMatorApp: App {
             }
         }
         .defaultSize(width: 900, height: 600)
+
+        Window("Metadata Field Guide", id: MetadataFieldGuideView.windowID) {
+            MetadataFieldGuideView()
+        }
+        .defaultSize(width: max(1_040, MetadataFieldGuideView.preferredSidebarWidth + 660), height: 700)
+        .restorationBehavior(.disabled)
 
         Settings {
             SettingsView(

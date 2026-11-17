@@ -47,7 +47,7 @@ enum AudioFileFingerprintValidationError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .recoveryRequired:
-            return String(localized: "The file couldn’t be checked after it moved. Before editing, choose Reload from Disk from the file’s context menu. Unsaved Inspector edits must be discarded to reload.")
+            return String(localized: "The file couldn’t be checked after it moved. Close any open metadata tool, then choose Reload from Disk from the file’s context menu before continuing. If there are unsaved edits, you’ll be asked to discard them before reloading.")
         case .unavailable:
             return String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying changes.")
         case .changedSincePreview:

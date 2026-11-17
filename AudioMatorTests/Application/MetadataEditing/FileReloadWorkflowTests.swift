@@ -225,6 +225,27 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertNotEqual(first, second)
     }
 
+    func testEditingAndReadbackDoNotRearmTheSameAutomaticFailure() async {
+        let original = AudioFileTestFactory.make(title: "Original")
+        let pipeline = FileReloadTestPipeline(files: [original])
+        let viewModel = selectedViewModel(original, pipeline: pipeline)
+        pipeline.setLoadFailure(true)
+        await viewModel.refreshSelectedFilesAfterActivation()
+        let failures = viewModel.lastAutomaticReloadFailures
+        XCTAssertFalse(failures.isEmpty)
+
+        viewModel.edit?.title = "Unsaved draft"
+        viewModel.cancelEditing()
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures, failures)
+        viewModel.replaceLoadedFile(original) // Same selection, like a successful write's readback.
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures, failures)
+        viewModel.updateEditForSelection()
+        XCTAssertEqual(viewModel.lastAutomaticReloadFailures, failures)
+
+        viewModel.setSelectedAudioIDs([])
+        XCTAssertTrue(viewModel.lastAutomaticReloadFailures.isEmpty)
+    }
+
     private func selectedViewModel(_ file: AudioFile, pipeline: FileReloadTestPipeline) -> AudioViewModel {
         // Restored watched folders would otherwise use the injected pipeline
         // concurrently and make these selected-file read counts nondeterministic.

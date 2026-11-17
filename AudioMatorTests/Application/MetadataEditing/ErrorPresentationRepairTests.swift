@@ -85,6 +85,8 @@ final class ErrorPresentationRepairTests: XCTestCase {
                 else { edit.setTrackNumberFieldText(value) }
                 let reason = MetadataEditPayload(edit, comparedTo: file).numberPairValidationMessage
                 XCTAssertTrue(reason?.contains(disc ? "Disc Number" : "Track Number") == true, value)
+                XCTAssertTrue(reason?.contains("0 to 2147483647") == true, value)
+                XCTAssertFalse(reason?.contains("contains text") == true, value)
             }
         }
     }
@@ -140,6 +142,39 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertEqual(vm.metadataWriteHUD?.summary, "one\ntwo.flac")
         XCTAssertEqual(vm.metadataWriteHUD?.details, "Reload failed.")
         XCTAssertEqual(vm.saveIssueLogStore.entries.first?.issues.first?.fileName, "one\ntwo.flac")
+    }
+
+    func testSingleDetailGroupStillHonorsLineBudget() {
+        let detail = (1...30).map { "Line \($0)" }.joined(separator: "\n")
+        let hud = MetadataWriteHUD(style: .failure, title: "Failed", subtitle: "",
+                                   summary: "File", details: detail)
+        XCTAssertEqual(hud.detailPreview.components(separatedBy: .newlines).count, 14)
+        XCTAssertTrue(hud.detailPreview.hasSuffix("Line 14"))
+        XCTAssertFalse(hud.detailPreview.contains("Line 15"))
+        XCTAssertTrue(hud.hasOmittedDetails)
+        XCTAssertFalse(hud.omissionNotice.isEmpty)
+    }
+
+    func testOmittedHeadingListIsBoundedForLargeReloadFailures() {
+        let first = "Shown file\n" + String(repeating: "x", count: 900)
+        let rest = (1...500).map {
+            "file-\($0)-" + String(repeating: "y", count: 200) + "\nReason"
+        }
+        let hud = MetadataWriteHUD(style: .failure, title: "Reload Failed", subtitle: "",
+                                   summary: "500 files", details: ([first] + rest).joined(separator: "\n\n"))
+        XCTAssertEqual(hud.detailPreview, first)
+        XCTAssertTrue(hud.hasOmittedDetails)
+        XCTAssertTrue(hud.omissionNotice.contains("500"))
+        XCTAssertTrue(hud.omissionNotice.contains("And 497 more groups."))
+        XCTAssertFalse(hud.omissionNotice.contains("file-4-"))
+        XCTAssertLessThanOrEqual(hud.omissionNotice.count, 250)
+    }
+
+    func testRecoveryInstructionDoesNotAssumeInspectorEdits() {
+        let message = AudioFileFingerprintValidationError.recoveryRequired(fileName: "song.flac").errorDescription ?? ""
+        XCTAssertFalse(message.contains("Inspector"))
+        XCTAssertTrue(message.contains("Close any open metadata tool"))
+        XCTAssertTrue(message.contains("If there are unsaved edits"))
     }
 
 }

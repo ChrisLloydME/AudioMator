@@ -40,3 +40,15 @@ Updated existing expectations and added ErrorPresentationRepairTests for number-
 | N6–N9 | Added field-specific range errors and negative/overflow coverage, removed redundant filename prefixes from fingerprint errors, separated rename cancellation from unexpected errors, removed duplicate all-failed summary clauses, clarified count punctuation, removed tooltip double spacing, and made the shared readback warning mention closing Metadata Editor when applicable. |
 
 Follow-up verification remains syntax-only plus source and whitespace inspection. The new tests were not run and no build-for-testing result is claimed for these follow-up edits. Files marked untracked remain deliverable working-tree files; no commit or staging of unrelated work was authorized or performed.
+
+## Third follow-up (H1–H8)
+
+- **H1, fixed:** the oversized-single-group fallback now applies both the 14-line and 1,000-character limits. Notices include at most three headings of 40 characters each, followed by the remaining group count; the view also bounds notice lines. Added short-line and 500-omitted-group regression cases. Full original details remain in the model. No log link or interactive HUD was added.
+- **H2, fixed:** only a real selected-ID change clears the dedup state through the selection property's observer. Rebuilding/cancelling Inspector drafts and publishing same-selection write readback no longer rearm the warning. Completed refreshes continue to update dedup state. Added a same-selection edit/cancel/readback regression.
+- **H3, fixed:** integer syntax is recognized separately from machine-integer parsing, so enormous decimal values reach field-specific range validation rather than the nonnumeric-text message. Range tests now assert the wording as well as the field name.
+- **H4, fixed:** shared recovery instructions refer to closing an open metadata tool and make the unsaved-edit confirmation conditional; no Inspector workflow is assumed.
+- **H5, retained and documented:** a single cancelled-before-write operation is not a failed save and does not enter Save Logs. Batch records retain unprocessed files to account for every requested target. This is an intentional difference in logging scope, not an inconsistent severity.
+- **H6–H7, compatibility retained:** exact owned cancellation messages, legacy subtitle fallback, and unused filename associated values have no confirmed faulty current caller. A typed-result/API migration is deferred rather than mixed into these repairs.
+- **H8, fixed:** removed the omitted-file message's trailing space and use “folders” consistently in directory status.
+
+Verification for this follow-up: Swift frontend syntax parse and diff-whitespace check only. Regression tests were added but not executed. No build, app-hosted run, localization resource change, app launch, or temporary-folder authorization is claimed.

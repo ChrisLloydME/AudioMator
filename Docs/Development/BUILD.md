@@ -15,8 +15,8 @@ Current checkout verified by source inspection on 2026-11-12:
 | --- | --- |
 | Toolchain | Xcode 27.2 (27B52), Apple Swift 6.4.2 |
 | App deployment target | macOS 15.0 |
-| Package pin | Exact published `0.8.0`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.0), revision `e91d822bf584c354f9d9b68803391731a9e7c9a8` |
-| Recorded release gate | [Published 0.8.0 release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) |
+| Package pin | Exact published `0.8.1`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.1), revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0` |
+| Recorded Debug adoption | [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) |
 
 The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested. The dependency itself requires Swift tools 6.4; the separate Foundation-only SwiftPM harness in this repository declares Swift tools 6.0 and does not compile the dependency.
 
@@ -34,7 +34,7 @@ Select the `AudioMator` scheme and a macOS destination. Xcode resolves the remot
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The committed package requirement is **exact version `0.8.0`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
+The committed package requirement is **exact version `0.8.1`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
 
 ## Scheme and Configurations
 
@@ -186,7 +186,7 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Recorded Verification
 
-Current published 0.8.0 adoption results are recorded in [release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency.
+Current published 0.8.1 adoption results are recorded in [Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency.
 
 ## Related Documents
 

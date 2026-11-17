@@ -1,13 +1,13 @@
 # Dependency Limitations
 
 
-> Development candidate: the internal numbering branch requires the package's automatic edited-group retirement amendment. The normal published 0.8.0 pin does not implement that amendment; only an explicitly requested local candidate has been validated. See [internal numbering recovery](../Engineering/INTERNAL_NUMBERING_RECOVERY_2026-11-16.md). Publish/adopt the repaired dependency before an application release.
+> Published 0.8.1 supplies automatic edited-group numbering recovery and retirement. AudioMator uses the normal remote dependency; no local override or end-user storage-policy dialog is required. See [published adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md).
 
-AudioMator pins published **TagLibAudioMetadata 0.8.0**, revision `e91d822bf584c354f9d9b68803391731a9e7c9a8`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. [Current adoption evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) records validation against that tag; the older local workspace is only an explicit candidate tool.
+AudioMator pins published **TagLibAudioMetadata 0.8.1**, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. [Current adoption evidence](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) records validation against that tag; the older local workspace is only an explicit candidate tool.
 
 ## Published Repair Boundary
 
-Version 0.8.0 retains the native-owner and sparse-state repairs that were tested using the local candidate. The absent-Year/present-Date MP4 Comment/Lyrics reproduction remains a mandatory, ordinary regression test and passes in the published-tag gate. No application companion-date or raw-write workaround is installed. Field-selection intent, Inspector/Editor state and expected-version safety remain app responsibilities; native codec behavior remains package-owned.
+Version 0.8.1 retains the native-owner and sparse-state repairs that were tested using the local candidate. The absent-Year/present-Date MP4 Comment/Lyrics reproduction remains a mandatory, ordinary regression test and passes in the published-tag gate. No application companion-date or raw-write workaround is installed. Field-selection intent, Inspector/Editor state and expected-version safety remain app responsibilities; native codec behavior remains package-owned.
 
 The [0.7.2 failing adoption](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md), [local state-coverage acceptance](../Engineering/METADATA_STATE_COVERAGE_2026-11-11.md), [0.7.0 ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) and [0.6.0 integration](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) are historical evidence. Their superseded failures are not current capability claims. Current regressions must pass the published-tag gate; a package release note alone is insufficient acceptance.
 
@@ -79,4 +79,4 @@ The [2026-11-10 audit](../Engineering/MAPPING_CONFORMANCE_2026-11-10.md) reprodu
 - [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md)
 - [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md)
 - [Testing](../Development/TESTING.md)
-- [Published 0.8.0 release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md)
+- [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md)

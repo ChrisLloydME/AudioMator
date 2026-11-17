@@ -1,6 +1,12 @@
 import Foundation
 import TagLibAudioMetadata
 
+struct SelectedFileReloadFailure: Equatable {
+    let fileID: UUID
+    let url: URL
+    let reason: String
+}
+
 extension AudioViewModel {
     /// Explicit reload requires the UI to resolve an existing dirty draft first.
     func reloadSelectedFilesFromDisk() async {
@@ -33,6 +39,7 @@ extension AudioViewModel {
 
         let pipeline = metadataPipeline
         var failures: [String] = []
+        var failureIdentities: [SelectedFileReloadFailure] = []
         for (index, target) in targets.enumerated() {
             guard !Task.isCancelled else { break }
             if forceReload {
@@ -68,15 +75,22 @@ extension AudioViewModel {
             } catch is CancellationError {
                 break
             } catch {
+                failureIdentities.append(.init(fileID: target.id, url: target.url, reason: error.localizedDescription))
                 failures.append(String(localized: "“\(target.url.lastPathComponent)” couldn’t be reloaded.\nDetails: \((error as NSError).localizedDescription)"))
             }
         }
 
-        if forceReload, !failures.isEmpty {
+        guard !Task.isCancelled, Set(targets.map(\.id)) == selectedAudioIDs else { return }
+        let shouldReport = forceReload || failureIdentities != lastAutomaticReloadFailures
+        lastAutomaticReloadFailures = failureIdentities
+        if shouldReport, !failures.isEmpty {
             presentMetadataWriteHUD(
-                style: .warning,
-                title: String(localized: "Files Couldn’t Be Reloaded"),
-                subtitle: failures.joined(separator: "\n")
+                style: forceReload && failures.count == targets.count ? .failure : .warning,
+                title: forceReload ? String(localized: "Files Couldn’t Be Reloaded")
+                    : String(localized: "Automatic Refresh Couldn’t Be Completed"),
+                subtitle: failures.joined(separator: "\n"),
+                summary: String(localized: "Files that couldn’t be reloaded: \(failures.count)."),
+                details: failures.joined(separator: "\n\n")
             )
         }
     }

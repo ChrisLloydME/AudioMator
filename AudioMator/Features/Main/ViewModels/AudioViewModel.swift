@@ -349,6 +349,7 @@ final class AudioViewModel: ObservableObject {
 
     /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
     func updateEditForSelection() {
+        lastAutomaticReloadFailures = []
         artworkImportTask?.cancel()
         completedInspectorEditsByID = [:]
         guard !selectedAudioIDs.isEmpty else {
@@ -856,6 +857,8 @@ final class AudioViewModel: ObservableObject {
 
         if rebuildVisible { rebuildVisibleFiles() }
     }
+
+    var lastAutomaticReloadFailures: [SelectedFileReloadFailure] = []
 
     var artworkImportTask: Task<Void, Never>?
 

@@ -583,16 +583,6 @@ private final class ReloadGatedMutationPipeline: AudioMetadataPipeline, @uncheck
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }
 
 private final class ReloadFailingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
@@ -620,16 +610,6 @@ private final class ReloadFailingMutationPipeline: AudioMetadataPipeline, @unche
     }
 
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: ["Injected write warning"])
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: ["Injected write warning"])
     }
 
@@ -700,17 +680,6 @@ private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked 
 
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         recordMutation(.erase)
-        return AudioMetadataWriteResult(warnings: [])
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        recordMutation(.trackRenumber)
         return AudioMetadataWriteResult(warnings: [])
     }
 

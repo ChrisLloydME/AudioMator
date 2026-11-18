@@ -399,15 +399,6 @@ private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }
 
 private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
@@ -446,15 +437,6 @@ private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPi
         AudioMetadataWriteResult(warnings: [])
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 }
@@ -506,15 +488,6 @@ private final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadata
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }
 
 private actor WatchedFolderReadControl {
@@ -562,15 +535,6 @@ private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipe
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }
 
 private final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
@@ -601,15 +565,6 @@ private final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipe
         AudioMetadataWriteResult(warnings: [])
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
 }

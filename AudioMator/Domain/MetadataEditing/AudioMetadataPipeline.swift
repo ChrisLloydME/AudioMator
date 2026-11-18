@@ -184,13 +184,6 @@ protocol AudioMetadataPipeline: Sendable {
         at url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult
 }
 
 extension AudioMetadataPipeline {
@@ -235,21 +228,4 @@ extension AudioMetadataPipeline {
             expectedVersion: expectedVersion
         )
     }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool
-    ) throws -> AudioMetadataWriteResult {
-        try writeTrackNumberText(
-            trackNumberText,
-            discNumberText: discNumberText,
-            to: url,
-            verifyAfterWrite: verifyAfterWrite,
-            expectedVersion: nil
-        )
-    }
-
-
 }

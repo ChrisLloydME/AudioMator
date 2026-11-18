@@ -255,9 +255,6 @@ private final class CountingWatchedFolderPipeline: AudioMetadataPipeline, @unche
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         throw CocoaError(.featureUnsupported)
     }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        throw CocoaError(.featureUnsupported)
-    }
 }
 
 private final class GatedWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
@@ -345,9 +342,6 @@ private final class GatedWatchedFolderPipeline: AudioMetadataPipeline, @unchecke
         throw CocoaError(.featureUnsupported)
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        throw CocoaError(.featureUnsupported)
-    }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         throw CocoaError(.featureUnsupported)
     }
 }

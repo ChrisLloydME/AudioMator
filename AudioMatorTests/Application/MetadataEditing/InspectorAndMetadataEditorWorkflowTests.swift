@@ -1442,16 +1442,6 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
         lock.withLock { recordedEraseCount }
     }
 
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-
     func waitForMetadataWriteCount(
         _ expectedCount: Int,
         file: StaticString = #filePath,
@@ -1519,16 +1509,6 @@ private final class ProviderApplyGatedPipeline: AudioMetadataPipeline, @unchecke
 
     nonisolated func eraseAllMetadata(
         at url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])

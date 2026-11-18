@@ -721,9 +721,6 @@ private struct FixtureConflictPipeline: AudioMetadataPipeline {
         return try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent)
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion) }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        try base.writeTrackNumberText(trackNumberText, discNumberText: discNumberText, to: url, verifyAfterWrite: verifyAfterWrite, expectedVersion: expectedVersion)
-    }
 }
 
 private final class ConflictSnapshotReadCounter: @unchecked Sendable {

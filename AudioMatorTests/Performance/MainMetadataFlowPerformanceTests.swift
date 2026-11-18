@@ -235,7 +235,6 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap { throw CocoaError(.featureUnsupported) }
     nonisolated func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { throw CocoaError(.featureUnsupported) }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { throw CocoaError(.featureUnsupported) }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { throw CocoaError(.featureUnsupported) }
 }
 
 private actor SyntheticReloadGate {

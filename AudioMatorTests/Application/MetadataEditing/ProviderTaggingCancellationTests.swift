@@ -217,11 +217,6 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion)
     }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        let result = try base.writeTrackNumberText(trackNumberText, discNumberText: discNumberText, to: url, verifyAfterWrite: verifyAfterWrite, expectedVersion: expectedVersion)
-        lock.withLock { writes += 1 }
-        return result
-    }
 }
 
 nonisolated final class ProviderSemanticWriteTests: XCTestCase {

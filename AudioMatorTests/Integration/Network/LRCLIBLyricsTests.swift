@@ -561,14 +561,4 @@ private final class RecordingRawMetadataPipeline: AudioMetadataPipeline, @unchec
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }

@@ -178,14 +178,4 @@ private final class RecordingPrecisePipeline: AudioMetadataPipeline, @unchecked 
     ) throws -> AudioMetadataWriteResult {
         throw CocoaError(.featureUnsupported)
     }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        throw CocoaError(.featureUnsupported)
-    }
 }

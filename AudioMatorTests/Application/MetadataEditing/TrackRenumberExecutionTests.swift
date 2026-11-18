@@ -226,18 +226,5 @@ private final class RenumberRecordingMetadataPipeline: AudioMetadataPipeline, @u
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        lock.withLock {
-            recordedVerifyAfterWriteValues.append(verifyAfterWrite)
-            recordedTrackNumberTexts.append(trackNumberText)
-        }
-        return AudioMetadataWriteResult(warnings: ["Synthetic verification warning"], commitStatus: commitStatus)
-    }
 }
 #endif

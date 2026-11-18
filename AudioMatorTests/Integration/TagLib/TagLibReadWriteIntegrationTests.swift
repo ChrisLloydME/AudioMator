@@ -63,15 +63,6 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.flac"
     ]
 
-    private static let expectedNumberTextAfterTrackTextWrite = [
-        "testAudioFile.mp3": ("07/12", "2/3", false),
-        "testAudioFile.m4a": ("7/12", "2/3", false),
-        "testAudioFile.flac": ("07", "2", false),
-        "testAudioFile.aac": ("07/12", "2/3", false),
-        "testAudioFile.ogg": ("07", "2", false),
-        "testAudioFile.wav": ("07/12", "2/3", false)
-    ]
-
     func testTotalOnlyTrackAndDiscPairsRoundTripAcrossFixtures() async throws {
         for fixtureName in Self.audioFixtureNames {
             let url = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
@@ -601,7 +592,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
-    func testTrackAndDiscTextWritesRoundTripNumericValuesAcrossWritableAudioFixtures() throws {
+    func testTrackAndDiscNumberIntentWritesRoundTripNumericValuesAcrossWritableAudioFixtures() async throws {
         let pipeline = TagLibAudioMetadataPipeline()
         var executedFixtureCount = 0
 
@@ -615,17 +606,24 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             let workingURL = try makeWritableCopy(of: fixtureURL)
             defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
-            let result = try pipeline.writeTrackNumberText(
-                "07/12",
-                discNumberText: "2/3",
-                to: workingURL,
-                verifyAfterWrite: true
+            let file = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+            var edit = SingleFileEditModel(from: file)
+            // The same pair-text intent the removed legacy route accepted. The
+            // retained semantic write submits only its typed component intents.
+            edit.setTrackNumberFieldText("07/12")
+            edit.setDiscNumberFieldText("2/3")
+            XCTAssertEqual(edit.trackNumberText, "07/12", fixtureName)
+            XCTAssertEqual(edit.discNumberText, "2/3", fixtureName)
+
+            let payload = MetadataEditPayload(edit, comparedTo: file)
+            XCTAssertNil(payload.numberPairValidationMessage, fixtureName)
+            XCTAssertEqual(
+                payload.requestedFields,
+                Set([.track, .trackTotal, .disc, .discTotal]),
+                "\(fixtureName) should request exactly the typed number components"
             )
 
-            XCTAssertFalse(
-                result.warnings.contains { $0.contains("differs after save") },
-                "\(fixtureName) should not report numeric write mismatches: \(result.warnings.joined(separator: "\n"))"
-            )
+            _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: file.metadataFileVersion)
 
             let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertEqual(readBack.track, 7, fixtureName)
@@ -633,9 +631,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(readBack.disc, 2, fixtureName)
             XCTAssertEqual(readBack.discTotal, 3, fixtureName)
 
-            let expected = try XCTUnwrap(Self.expectedNumberTextAfterTrackTextWrite[fixtureName])
-            XCTAssertEqual(readBack.trackNumberText, expected.0, fixtureName)
-            XCTAssertEqual(readBack.discNumberText, expected.1, fixtureName)
+            // Containers may expose combined (TRCK/TPOS, trkn/disk) or separate
+            // (Xiph) number text. The parsed text must still carry the typed
+            // numbers rather than dropping them during serialization.
+            let trackComponents = AudioTagNumberText.components(from: readBack.trackNumberText)
+            XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: trackComponents.number), 7, fixtureName)
+            let discComponents = AudioTagNumberText.components(from: readBack.discNumberText)
+            XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: discComponents.number), 2, fixtureName)
+
             XCTAssertEqual(
                 AudioTagNumberPair(
                     rawText: readBack.trackNumberText,
@@ -655,43 +658,13 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 "\(fixtureName) should preserve the user-facing disc total even when container text is normalized."
             )
 
-            let didNormalizeFormatting = result.warnings.contains {
-                $0.contains("formatting was normalized by the container")
-            }
-            XCTAssertEqual(didNormalizeFormatting, expected.2, fixtureName)
+            // Reloading through the app projection keeps the complete pair text
+            // visible even when the container stores the total separately.
+            let reloaded = try await pipeline.loadAudioFile(at: workingURL, id: file.id)
+            XCTAssertEqual(reloaded.trackNumberText, "7/12", fixtureName)
+            XCTAssertEqual(reloaded.discNumberText, "2/3", fixtureName)
         }
         XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
-    }
-
-    func testTrackNumberOnlyWriteDoesNotWarnWhenExistingTotalIsPreserved() throws {
-        let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.mp3")
-        let workingURL = try makeWritableCopy(of: fixtureURL)
-        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
-
-        let pipeline = TagLibAudioMetadataPipeline()
-
-        _ = try pipeline.writeTrackNumberText(
-            "01/12",
-            discNumberText: nil,
-            to: workingURL,
-            verifyAfterWrite: true
-        )
-
-        let result = try pipeline.writeTrackNumberText(
-            "07",
-            discNumberText: nil,
-            to: workingURL,
-            verifyAfterWrite: true
-        )
-
-        XCTAssertFalse(
-            result.warnings.contains { $0.contains("Track number") },
-            result.warnings.joined(separator: "\n")
-        )
-
-        let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
-        XCTAssertEqual(readBack.track, 7)
-        XCTAssertEqual(readBack.trackTotal, 12)
     }
 
     func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() async throws {

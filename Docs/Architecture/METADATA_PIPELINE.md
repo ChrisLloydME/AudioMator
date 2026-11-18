@@ -12,7 +12,7 @@ AudioMator does not parse or write container formats itself. It delegates all co
 - format-capability preflight,
 - conflict policy and file-identity validation,
 - mutation scheduling, cancellation, reload, and presentation,
-- raw PropertyMap editing and dump formatting.
+- raw metadata value-map editing and dump formatting.
 
 The contract is declared in `AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift`.
 
@@ -28,9 +28,6 @@ protocol AudioMetadataPipeline: Sendable {
     func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL,
                                expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult
     func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult
-    func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?,
-                              to url: URL, verifyAfterWrite: Bool,
-                              expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult
 }
 ```
 
@@ -47,13 +44,12 @@ The app calls the following public package entry points. Their behavior is owned
 | Semantic write | `TagLibMetadataManager.applyMetadataPatch(_:to:expectedVersion:)` |
 | Raw write | `TagLibMetadataManager.applyRawMetadataPatch(_:to:expectedVersion:)` |
 | Erase | `TagLibMetadataManager.eraseAllMetadataWithVerification(from:expectedVersion:)` |
-| Number text | `TagLibMetadataManager.writeTrackNumberText(...)` |
 | Raw inspection | `rawMetadataResult(from:)`, `bestEffortRawMetadataText(from:)`, `readMetadataResult(from:)` |
 | Capability discovery | `readableExtensions`, `writableExtensions`, `formatCapabilities` |
 
 Shared semantic types imported into Domain: `MetadataFieldKey`, `MetadataFileVersion`, `MetadataSnapshot`, and `RawMetadataPatch`. This is the controlled dependency recorded in [ADR 0003](Decisions/0003-metadata-contract-and-taglib-adapter.md).
 
-The Infrastructure adapter additionally uses `MetadataPatch`, `MetadataPatchValue`, `MetadataFieldRegistry`, `RawMetadataDump`, `StructuredArtwork`, `ExplicitAdvisory`, `MetadataNumberTextPatch`, and `TagLibManagerError`. Those concrete types must not move into Domain.
+The Infrastructure adapter additionally uses `MetadataPatch`, `MetadataPatchValue`, `MetadataFieldRegistry`, `RawMetadataDump`, `StructuredArtwork`, `ExplicitAdvisory`, and `TagLibManagerError`. Those concrete types must not move into Domain.
 
 ## Loading
 
@@ -102,7 +98,7 @@ Track and disc data is represented by:
 - display text `trackNumberText`, `discNumberText`,
 - derived field text used by the inspector.
 
-`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. Track and disc are component intents: a number edit submits only the changed number component, a total edit submits only the changed total, and a cleared component is an explicit removal. The untouched sibling is never rewritten or removed. Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`; whole-pair clearing removes both components. MP4 uses native `trkn`/`disk`; ID3 uses combined `TRCK`/`TPOS` text; Xiph/APE use separate keys. The package may normalize displayed text padding (for example MP4 `07` to `7`); a numeric readback match with changed padding is reported as normalization, not failure. `MetadataNumberResolutionPolicy`/`numberingInventory` expose native, recoveredLegacy, ambiguous and invalid states; the application consumes canonical/unambiguous recovered values internally without a migration UI. Ordinary numbering edits retire only the edited group’s private provenance in the package’s single transaction; unresolved missing siblings require normal field values. `MetadataEditPayload.numberPairValidationMessage` rejects non-numeric semantic number text. MP3 disc-only updates and AAC total clearing use the corrected package contract. The legacy `writeTrackNumberText` API remains available but is no longer the renumbering path, and the low-level raw editor remains the explicit exception.
+`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. Track and disc are component intents: a number edit submits only the changed number component, a total edit submits only the changed total, and a cleared component is an explicit removal. The untouched sibling is never rewritten or removed. Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`; whole-pair clearing removes both components. MP4 uses native `trkn`/`disk`; ID3 uses combined `TRCK`/`TPOS` text; Xiph/APE use separate keys. The package may normalize displayed text padding (for example MP4 `07` to `7`); verification compares the numeric values, so a text-representation difference is not by itself a failed write. The app does not add an app-side number-text warning-normalization layer. `MetadataNumberResolutionPolicy`/`numberingInventory` expose native, recoveredLegacy, ambiguous and invalid states; the application consumes canonical/unambiguous recovered values internally without a migration UI. Ordinary numbering edits retire only the edited group’s private provenance in the package’s single transaction; unresolved missing siblings require normal field values. `MetadataEditPayload.numberPairValidationMessage` rejects non-numeric semantic number text. MP3 disc-only updates and AAC total clearing use the corrected package contract. The low-level raw editor remains the explicit exception.
 
 ### Year and release date
 
@@ -209,7 +205,7 @@ AudioMator interprets the returned `warnings` and commit status:
 - `TagLibManagerError.fileChanged` is surfaced as a revision conflict,
 - any other error becomes a failure message.
 
-Number-text warnings receive app-side normalization: if the numeric number/total readback matches the expected text, the warning becomes "formatting was normalized by the container" or is dropped when the container added a total the user did not request.
+The typed semantic write path is the only numbering write route: number and total components are patched through `applyMetadataPatch` and the package owns encoding, verification and warning text. Package warnings are surfaced as returned; the app does not rewrite or filter number-text warnings.
 
 ## Reload
 
@@ -265,7 +261,7 @@ Changed number-text pairs are validated centrally before semantic writes. Missin
 ## Known Gaps and Unverified Areas
 
 - The package's internal representation and verification logic were not audited in this repository; the app documents the interface it consumes.
-- Positive coverage that the container-normalization warning is emitted is limited. Existing integration tests assert absence for current fixtures.
+- App-side container-normalization warning rendering no longer exists: the legacy `writeTrackNumberText` route and its normalization helpers were removed in the 2026-11-18 cleanup. Typed semantic writes surface package warnings directly, and positive coverage for a package-emitted normalization warning remains limited.
 - Multi-artwork write behavior is not claimed; only single-cover replacement is exercised.
 - Network-volume and file-provider durability characteristics are not measured.
 

@@ -4,6 +4,15 @@ This folder contains dated engineering evidence: package adoption and release ac
 
 The current-state documentation lives in `Docs/Product`, `Docs/Architecture`, `Docs/Development`, `Docs/Reference`, and `Docs/Security`. When a current claim needs evidence, link to the relevant record here and re-verify the claim against source before copying it into current guidance.
 
+## Accumulated-code cleanup campaign (2026-11-18)
+
+The 2026-11-18 whole-application accumulated-code cleanup campaign has two dated records:
+
+- [Accumulated-code cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) — complete file audit (314 tracked files), candidate/decision ledger keyed by the audit IDs, retained-compatibility register, investigate register and remaining material duplication for branch `codex/audiomator-legacy-cleanup-20261117` (baseline `f36c2a2e`, code-complete revision `28fe62a6`).
+- [Accumulated-code cleanup automated acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) — dated gate record: 13 policy, 62 core and 629/629 app-hosted tests, zero failures/skips/expected failures, Release build and artifact validation, warning/skip inventory, unexecuted checks and the Lead’s final acceptance placeholder.
+
+The [cleanup plan](AUDIOMATOR_LEGACY_CLEANUP_PLAN_2026-11-17.md) and [agent handoff prompt](AUDIOMATOR_LEGACY_CLEANUP_AGENT_PROMPT_2026-11-17.md) are preserved handoff documents from 2026-11-17. They are historical records of the campaign instructions, not current behavior contracts.
+
 ## Metadata field help
 
 - [Metadata Field Guide verification](METADATA_FIELD_GUIDE_2026-11-17.md) — Official-source explanations and offline Help window; Debug gate accepted with 599 app tests.
@@ -12,7 +21,8 @@ The current-state documentation lives in `Docs/Product`, `Docs/Architecture`, `D
 
 | Document | Date / baseline | Status |
 | --- | --- | --- |
-| [Published TagLibAudioMetadata 0.8.1 Debug adoption](TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) | 2026-11-17, exact published 0.8.1 | Normal-project Debug accepted: 13 policy, 62 core, 596 app tests. Release/Archive excluded by request. |
+| [Accumulated-code cleanup automated acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) | 2026-11-18, branch `codex/audiomator-legacy-cleanup-20261117`, code-complete revision `28fe62a6` | Automated gate accepted (13 policy, 62 core, 629/629 app-hosted, zero failures/skips/expected failures, unsigned Release build, artifact validation, `EXIT:0`) against the unchanged published 0.8.1 pin. Interactive UI acceptance, signing and distribution remain out of scope; the final docs-revision gate and final acceptance statement are owned by the Lead. |
+| [Published TagLibAudioMetadata 0.8.1 Debug adoption](TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) | 2026-11-17, exact published 0.8.1 | Normal-project Debug accepted: 13 policy, 62 core, 596 app tests. Release/Archive excluded by request. Superseded as the current app-test inventory by the 2026-11-18 cleanup acceptance; the dependency pin is unchanged. |
 | [Published TagLibAudioMetadata 0.8.0 release readiness](TAGLIB_080_RELEASE_READINESS_2026-11-16.md) | 2026-11-16, exact published 0.8.0 | Historical automated acceptance: 13 policy, 62 core and 580 serial app tests; unsigned Release and Archive checks pass. Manual distribution boundary remains. |
 | [Published TagLibAudioMetadata 0.7.3 release readiness](TAGLIB_073_RELEASE_READINESS_2026-11-12.md) | 2026-11-12, published 0.7.3, revision `7ca1b75326388a5902815f70145b600299944ae0` | Historical 0.7.3 acceptance, superseded for the current dependency. Normal-project gate passed: 13 policy tests, 62 core tests, 579 serial app tests, unsigned Release build, artifact checks, and unsigned Archive; interactive UI acceptance and manual distribution remain maintainer work. |
 

@@ -19,7 +19,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 | Work on filename/text/CSV workflows | [Metadata Exchange](Architecture/METADATA_EXCHANGE.md), [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) |
 | Work on online providers | [Online Metadata](Architecture/ONLINE_METADATA.md) |
 | Review privacy or data-integrity risk | [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) |
-| Review the current dependency acceptance | [Published 0.7.3 Release Readiness](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) |
+| Review the current dependency acceptance | [Published TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md), [2026-11-18 cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) |
 | Prepare a release | [Release Engineering](Development/RELEASE.md) |
 | Contribute code | [Contributing](../CONTRIBUTING.md), [Documentation Maintenance](Development/DOCUMENTATION.md) |
 | Write a commit message | [Commit Messages](Development/COMMIT_MESSAGES.md) |
@@ -73,8 +73,9 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 
 ### Engineering Evidence
 
-- [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, and release evidence. These are evidence, not current contracts.
-- [Current published 0.7.3 acceptance](Engineering/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) — normal-project release gate, unsigned Release build, archive checks, and the manual distribution boundary.
+- [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, cleanup records and release evidence. These are evidence, not current contracts.
+- [Current TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) — exact published-package Debug adoption evidence.
+- [2026-11-18 accumulated-code cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) and [cleanup ledger](Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) — automated gate evidence and whole-application cleanup audit for the cleanup branch.
 - [History](Engineering/HISTORY/README.md) — superseded progress logs, audits, and task prompts retained for traceability.
 
 ## Documentation Conventions

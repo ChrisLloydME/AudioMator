@@ -46,7 +46,7 @@ For the authoritative current version, build number, bundle identifiers, entitle
 
 ## Swift Package (Core Logic Tests)
 
-`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of 31 Foundation-only production files for fast tests.
+`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of 30 Foundation-only production files for fast tests.
 
 ```bash
 swift test

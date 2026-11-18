@@ -70,7 +70,7 @@ Business rules and value models that do not own UI or concrete I/O.
 | Folder | Responsibility |
 | --- | --- |
 | `AudioFiles/` | `AudioFile`, fingerprints, edit models, metadata model core, container field identities |
-| `FileSources/` | Source modes, bookmark records, mutation directory plan, collection core |
+| `FileSources/` | Source modes, bookmark records, mutation directory plan |
 | `MetadataEditing/` | Pipeline contract, conflict policy/baseline, text pipeline, mutation coordinator |
 | `MetadataExchange/` | Converter modes/fields, exchange profile, template syntax, CSV, import/export planning, field transfer |
 | `MuseAmp/` | Deterministic MuseAmp ID generation |
@@ -85,14 +85,14 @@ Feature-owned views, view models, and presentation models.
 
 | Folder | Responsibility |
 | --- | --- |
-| `Main/` | Main window, sidebar, middle list, inspector, track renumber sheet, number normalization sheet, `AudioViewModel` and write extensions, batch executor, save issue log |
-| `MetadataEditor/` | Raw PropertyMap editor window, table, field entry, text utilities |
+| `Main/` | Main window, sidebar, middle list, inspector, track renumber sheet, `AudioViewModel` and write extensions, batch executor, save issue log |
+| `MetadataEditor/` | Raw metadata value-map editor window, table, field entry, text utilities |
 | `MetadataFilenameTool/` | Filename & Metadata window, converter modes, previews, templates, field transfer |
 | `OnlineMetadataBrowser/` | Shared online metadata window shell, source picker, embedded web view, virtualized list |
 | `MusicBrainzBrowser/` | MusicBrainz search/detail/tagging views and stores |
 | `iTunesBrowser/` | iTunes search/detail/tagging views and stores |
 | `LRCLIBLyricsBrowser/` | LRCLIB lyrics views and store |
-| `MetadataInspector/` | Raw metadata dump sheet |
+| `MetadataHelp/` | Offline field guide window, Help command and field explanations |
 | `Settings/` | Settings tabs, privacy/acknowledgements/license sheets, release notes rendering |
 | `Welcome/` | Welcome splash and progress |
 
@@ -122,7 +122,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Verified inventory on 2026-11-12: 579 test functions and 76 `XCTestCase` classes.
+App-hosted XCTest bundle organized by failure semantics. Verified inventory on 2026-11-18: 629 test functions and 80 `XCTestCase` classes in 83 Swift files, plus 23 fixtures and three test-support files.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}

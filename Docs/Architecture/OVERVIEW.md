@@ -105,7 +105,7 @@ Feature views receive dependencies explicitly. There is no service locator and n
 | `AudioViewModel` | Main-actor owner of loaded files, watched folders, selection, inspector drafts, progress/HUDs, file-access scopes, and batch orchestration. | `Features/Main/ViewModels/AudioViewModel*.swift` |
 | `SharedState` | Sidebar selection, sort order, manual list order, and persisted presentation preferences. | `Features/Main/State/SharedState.swift` |
 | `SingleFileEditModel` / `MultiFileEditModel` | Draft values independent of disk snapshots; computes changed fields and mixed state. | `Domain/AudioFiles/SingleFileEditModel.swift` |
-| `AudioMetadataPipeline` | Domain contract for loading, versioning, semantic writes, raw patches, erase, and number-text writes. | `Domain/MetadataEditing/AudioMetadataPipeline.swift` |
+| `AudioMetadataPipeline` | Domain contract for loading, versioning, semantic writes, raw patches and erase. | `Domain/MetadataEditing/AudioMetadataPipeline.swift` |
 | `TagLibAudioMetadataPipeline` | Adapter that translates app intent to package patches and interprets package errors/results. | `Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift` |
 | `AudioFile` loader | Builds the immutable snapshot from a TagLib snapshot plus AVFoundation fallback and verifies a coherent revision. | `Infrastructure/TagLib/AudioFile+TagLibLoading.swift` |
 | `FileMutationCoordinator` | Actor that serializes mutations by normalized file path and supports atomic multi-path reservations. | `Domain/MetadataEditing/FileMutationCoordinator.swift` |

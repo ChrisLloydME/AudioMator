@@ -57,6 +57,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Commit Messages](Development/COMMIT_MESSAGES.md) — typed subject, scope, merge and revert conventions, body rules, and the advisory checker.
 - [Release Engineering](Development/RELEASE.md) — versioning, current release process, what is and is not automated.
 - [Documentation Maintenance](Development/DOCUMENTATION.md) — document ownership, update matrix, agent requirements, labels, and verification.
+- **Active remediation campaign** · [Implementation specification and handoff](Development/REMEDIATION_IMPLEMENTATION.md) · [Independent acceptance](Development/REMEDIATION_ACCEPTANCE.md). Temporary proposed work linked to the dated independent audit.
 
 ### Reference
 
@@ -77,6 +78,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, cleanup evidence, and release evidence. These are evidence, not current contracts.
 - [Published TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) — exact published-package Debug adoption evidence.
 - [Accumulated-code cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) and [cleanup ledger](Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) — automated gate evidence and whole-application cleanup audit.
+- [Independent engineering audit](Engineering/AUDIOMATOR_INDEPENDENT_AUDIT_2026-11-18.md) and [supporting evidence](Engineering/AUDIOMATOR_INDEPENDENT_AUDIT_EVIDENCE_2026-11-18.md) — findings and controlled reproductions for the recorded 2026-11-18 baseline.
 - [History](Engineering/HISTORY/README.md) — superseded release, mapping, performance, audit, and maintenance records retained for traceability.
 
 ## Documentation Conventions

@@ -20,6 +20,7 @@ This document defines the ownership, scope, and maintenance rules for AudioMator
 | Legal and notices | `Docs/THIRD_PARTY_NOTICES.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md` | Authoritative for disclosures | Update with dependency, license, or network changes |
 | Dated evidence | `Docs/Engineering/*.md` | Dated record of a measurement, acceptance, or repair | Add new records; do not rewrite results |
 | Superseded archive | `Docs/Engineering/HISTORY/` | Traceability only; never current guidance | Preserve; do not add current guidance |
+| Active campaign specifications | Indexed, explicitly temporary pages in `Docs/Development/` | Proposed work and acceptance criteria | Remove after acceptance and retain dated results as engineering evidence |
 
 ## Canonical Documents and Ownership
 
@@ -50,6 +51,7 @@ Every current-state document has one owner role and one scope. Do not create a s
 | [Debugging](../Development/DEBUGGING.md) | Build logs, diagnostics, performance probes, maintainer-only tools | Diagnostic tooling or log locations change |
 | [Release Engineering](../Development/RELEASE.md) | Versioning, signing, notarization, distribution, dependency updates | Release process or artifact handling changes |
 | [Commit Messages](../Development/COMMIT_MESSAGES.md) | Commit subject/body conventions, merge and revert rules, advisory checker | Commit convention or checker changes |
+| [Audit remediation specification](REMEDIATION_IMPLEMENTATION.md) and [independent acceptance](REMEDIATION_ACCEPTANCE.md) | Temporary implementation handoff and independent review for the 2026-11-18 audit | Remove both after acceptance and replace index links with a dated evidence record |
 | [Documentation Maintenance](DOCUMENTATION.md) | This document: document map, ownership, update matrix, requirements, verification | A document is added, moved, removed, or the process changes |
 | [Project Structure](../Reference/PROJECT_STRUCTURE.md) | Repository layout, module inventory, test/script inventory | Files, folders, targets, or scripts are added, moved, or removed |
 | [Configuration](../Reference/CONFIGURATION.md) | Build settings, bundle identifiers, entitlements, preference keys, persisted data, CI | Configuration or persistence changes |

@@ -45,7 +45,7 @@ and runs on the `xcode-27` runner label. This is a CI-specific path, not the nor
 
 ### `scripts/codex-build.sh` reports an AppIcon tool crash
 
-The script recognizes a known environment-specific failure when the build log contains both `The file "AppIcon.icon" couldn't be opened.` and `Exception while running actool`. When those markers are present, the script reports a known false positive and exits 0. It does not check for other errors in that case, so always inspect `.deriveddata-codex/xcodebuild.log` for real failures.
+The script prints extra diagnostic advice when the build log contains `The file "AppIcon.icon" couldn't be opened.`, `Exception while running actool` and `CompileAssetCatalogVariant`. The run still fails: the helper exits with the Xcode status and does not print `CODEX_BUILD_COMPLETED`, so it is not valid build evidence. Inspect `.deriveddata-codex/xcodebuild.log` for other errors, then validate the icon asset with Xcode on the desktop or retry on a host whose asset tooling works.
 
 ### The build succeeds but the app cannot be launched for testing
 

@@ -69,12 +69,16 @@ bash scripts/codex-build.sh --force
 
 Behavior:
 
-- Creates `.deriveddata-codex`.
-- Runs `scripts/prune-app-bundles.sh`, which removes root-level `.deriveddata*` directories other than `.deriveddata-codex` and app bundles other than `.deriveddata-codex/Build/Products/Debug/AudioMator.app`.
-- Without `--force`, skips `xcodebuild` when no build-relevant files changed. The build-relevance allowlist is `AudioMator.xcodeproj/*`, `AudioMator/*.xcconfig`, `Config/*`, `scripts/codex-build.sh`, and source/resource files under `AudioMator/` or `AudioMatorTests/` with recognized extensions.
-- Runs a Debug generic macOS build with code signing disabled.
-- Logs to `.deriveddata-codex/xcodebuild.log`.
-- If the log contains the specific `actool`/`AppIcon.icon` crash markers, the script treats the result as a known environment false positive and exits 0. It does not prove there are no other errors, so always inspect the log.
+- Fails closed. Without `--force`, it runs two checked Git discovery commands: tracked changes against HEAD with rename detection disabled, and nonignored untracked paths. Names are NUL-delimited, so paths containing newlines or trailing spaces are evaluated correctly. A failed HEAD lookup, failed tracked-change read or failed untracked-path read exits nonzero with instructions to use `--force`; discovery failure is never reported as a skip.
+- Treats every nonignored path under `AudioMator/`, `AudioMatorTests/`, `AudioMator.xcodeproj/` and `Config/` as build-relevant, plus this helper. That covers the synchronized source roots, project settings, package-resolution lockfile, resources such as `Localizable.xcstrings`, audio and artwork fixtures, and bundled licenses. Documentation-only, SwiftPM-only and policy-script changes can skip this Xcode wrapper and must run their own gates.
+- A successful discovery with no build-relevant paths prints `CODEX_BUILD_SKIPPED` and exits 0 without invoking Xcode. The skip creates no build directories and deletes nothing. **A skip is not compilation evidence.**
+- `--force` intentionally skips Git discovery and always builds. Automation that needs build evidence uses the direct Xcode command or `--force`.
+- Creates `.deriveddata-codex` and runs a Debug generic macOS build with code signing disabled.
+- Logs to `.deriveddata-codex/xcodebuild.log` and records the `xcodebuild` and `tee` (log capture) statuses independently.
+- On a compile failure, keeps the Xcode exit status (for example 65) and prints no completed marker. The recognized `actool`/`AppIcon.icon` crash markers add diagnostic advice but no longer convert the run to success.
+- A failed log capture returns nonzero even when compilation completed, because an uncaptured log is not valid evidence.
+- Only when both `xcodebuild` and log capture succeed does it print `CODEX_BUILD_COMPLETED` and exit 0.
+- Does not prune. It never removes alternate derived-data directories or app bundles. `scripts/prune-app-bundles.sh` remains available as an explicit, destructive maintainer cleanup and is not invoked by this helper.
 - Accepts only `--force`; any other argument prints usage and exits 2. The old undocumented `--full` alias was removed (commit `dcae77f3`).
 
 The script does **not** run tests, archive, sign, notarize, or package.
@@ -182,7 +186,7 @@ The GitHub Actions workflow sets `DEVELOPER_DIR=/Applications/Xcode.app/Contents
 
 ### AppIcon tool crash
 
-`scripts/codex-build.sh` recognizes a specific `actool`/`ibtoold` crash while compiling `AudioMator/AppIcon.icon` and treats it as an environment false positive. Inspect `.deriveddata-codex/xcodebuild.log` for other errors.
+`scripts/codex-build.sh` recognizes a specific `actool`/`ibtoold` crash while compiling `AudioMator/AppIcon.icon` and prints additional diagnostic advice. It does not treat the crash as success: the helper keeps the Xcode exit status and does not print `CODEX_BUILD_COMPLETED`, so the run is not build evidence. Inspect `.deriveddata-codex/xcodebuild.log` for other errors, and validate the `.icon` asset with Xcode on the desktop or retry on a host whose asset tooling works.
 
 ### Missing package or fixture failures
 

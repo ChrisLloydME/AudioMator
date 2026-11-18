@@ -156,7 +156,7 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
-1. runs the 13 policy tests with `python3 -m unittest discover -s scripts/tests`,
+1. runs the policy tests with `python3 -m unittest discover -s scripts/tests` (currently 29: 13 evidence-gate tests and 16 build-helper shell policy tests),
 2. runs all 62 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
 3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor),
 4. builds an unsigned Release app and runs the artifact validator,

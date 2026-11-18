@@ -141,14 +141,15 @@ SensitiveLoggingPolicyTests.swift
 
 | Script | Purpose |
 | --- | --- |
-| `codex-build.sh` | Incremental or forced Debug generic macOS build; prunes extra derived data/app bundles |
-| `prune-app-bundles.sh` | Removes non-canonical `.deriveddata*` directories and app bundles |
+| `codex-build.sh` | Fail-closed Debug generic macOS build: checked Git discovery, explicit skip or `CODEX_BUILD_COMPLETED` marker, no implicit pruning |
+| `prune-app-bundles.sh` | Explicit maintainer cleanup that removes non-canonical `.deriveddata*` directories and app bundles (not run by the build helper) |
 | `validate-release.sh` | Unified release gate: policy tests, core tests, full serial app tests, unsigned Release build, artifact validation, and recorded evidence |
 | `check-core-evidence.py` | Requires every source-declared core test identity to pass in the core log |
 | `check-test-evidence.py` | Requires exact source-to-`xcresult` test identity equality, critical regressions, and no skips/failures |
 | `check-commit-messages.py` | Advisory commit-subject checker for the commit-message contract |
 | `check-doc-links.py` | Checks relative links and heading anchors in tracked Markdown documentation |
 | `tests/test_test_evidence.py` | Policy tests for the evidence gates |
+| `tests/test_codex_build_policy.py` | Shell policy tests for the build helper: disposable trees, Git/Xcode/`tee` stubs, call counts, exit statuses, markers and artifact preservation |
 | `validate-macos-artifact.sh` | Checks bundle minimum OS and every Mach-O platform/minimum |
 | `build-taglib-bridge-smoke.sh` | Builds the bridge smoke executable from package/bridge sources (maintainer-run; agents must not run it) |
 | `taglib_bridge_smoke.mm` | Smoke tool source |

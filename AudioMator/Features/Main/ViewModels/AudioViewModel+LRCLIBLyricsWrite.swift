@@ -120,7 +120,7 @@ extension AudioViewModel {
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetURLs = matches.compactMap { filesByID[$0.fileID]?.url }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return [] }
-        var summary = BatchMetadataWriteSummary(totalTargets: matches.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: matches.count)
         var appliedFileIDs = Set<AudioFile.ID>()
 
         beginMetadataSaveProgress(
@@ -239,7 +239,7 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
         return appliedFileIDs
     }
 }

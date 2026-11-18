@@ -20,7 +20,7 @@ extension AudioViewModel {
         }
         guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
-        var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count)
 
         for (file, value) in zip(targetFiles, values) {
             var edit = SingleFileEditModel(from: file)
@@ -60,6 +60,6 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
     }
 }

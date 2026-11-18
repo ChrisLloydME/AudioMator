@@ -168,8 +168,6 @@ struct BatchMetadataOperationSummary: Equatable {
 
 }
 
-typealias BatchMetadataWriteSummary = BatchMetadataOperationSummary
-
 /// Compatibility with the existing string-result pipeline. Only messages made by
 /// our own cancellation branches are classified here, never arbitrary substrings.
 enum MetadataCancellation {

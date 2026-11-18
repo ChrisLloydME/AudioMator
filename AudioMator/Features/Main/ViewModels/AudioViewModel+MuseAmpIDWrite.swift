@@ -26,7 +26,7 @@ extension AudioViewModel {
         )
 
         Task(priority: .userInitiated) {
-            var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
+            var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count)
 
             for (index, pair) in zip(targetFiles, assignments).enumerated() {
                 let file = pair.0
@@ -80,7 +80,7 @@ extension AudioViewModel {
                 self.updateEditForSelection()
             }
 
-            self.presentBatchMetadataWriteSummary(summary)
+            self.presentBatchMetadataOperationSummary(summary)
         }
     }
 }

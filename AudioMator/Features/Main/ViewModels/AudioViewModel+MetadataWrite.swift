@@ -128,7 +128,7 @@ extension AudioViewModel {
         )
 
         Task(priority: .userInitiated) {
-            var summary = BatchMetadataWriteSummary(totalTargets: targetFiles.count)
+            var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count)
 
             var completedCount = 0
             var resultsByIndex: [Int: MetadataWriteExecutionResult] = [:]
@@ -205,7 +205,7 @@ extension AudioViewModel {
                 self.updateEditForSelection()
             }
 
-            self.presentBatchMetadataWriteSummary(summary)
+            self.presentBatchMetadataOperationSummary(summary)
         }
     }
 
@@ -284,7 +284,7 @@ extension AudioViewModel {
         }
     }
 
-    func presentBatchMetadataWriteSummary(_ summary: BatchMetadataWriteSummary) {
+    func presentBatchMetadataOperationSummary(_ summary: BatchMetadataOperationSummary) {
         guard summary.totalTargets > 0 else { return }
 
         saveIssueLogStore.record(summary: summary)

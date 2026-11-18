@@ -79,12 +79,16 @@ struct ToolbarEditCommands: Commands {
             .disabled(viewModel.selectedAudioIDs.isEmpty)
 
             Button {
-                viewModel.saveSingleEdits()
+                Self.performSaveEdits(using: viewModel)
             } label: {
                 Label("Save Edits", systemImage: ToolbarButtonOption.saveEdits.systemImage)
             }
-            .disabled(viewModel.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
         }
+    }
+
+    static func performSaveEdits(using viewModel: AudioViewModel) {
+        viewModel.saveInspectorEdits()
     }
 
     static func performAddWatchedFolders(

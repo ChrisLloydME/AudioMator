@@ -10,6 +10,29 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
     private var pipeline: TagLibAudioMetadataPipeline { TagLibAudioMetadataPipeline() }
 
     @MainActor
+    func testMenuSaveEditsWritesOnlySelectedFilesAndClearsBatchDraft() async throws {
+        let first = try await fixture("m4a")
+        let second = try await fixture("flac")
+        let unselected = try await fixture("m4a")
+        let unselectedBytes = try Data(contentsOf: unselected.url)
+        let vm = viewModel([first, second, unselected])
+        vm.setSelectedAudioIDs([first.id, second.id])
+        vm.multiEdit?.setText("Saved from menu", for: .title)
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+
+        ToolbarEditCommands.performSaveEdits(using: vm)
+        try await saveFinished(vm)
+
+        for file in [first, second] {
+            let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
+            XCTAssertEqual(saved.title, "Saved from menu")
+            XCTAssertEqual(saved.comment, file.comment)
+        }
+        XCTAssertEqual(try Data(contentsOf: unselected.url), unselectedBytes)
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+    }
+
+    @MainActor
     func testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves() async throws {
         let name = "InspectorVisibilitySave.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

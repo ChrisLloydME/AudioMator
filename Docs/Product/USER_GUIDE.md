@@ -46,7 +46,7 @@ The Inspector edits the fields visible for the current selection. For a single f
 
 1. Select one or more files.
 2. Edit fields in the Inspector.
-3. Choose **Save** to write pending changes, or **Cancel** to discard them.
+3. Choose **Save** in the toolbar or **Save Edits** from the menu to write pending changes, or **Cancel** to discard them. Both save commands apply to the current selection.
 
 Saves write only the fields that changed from the draft's baseline. Before writing, AudioMator checks that the format supports each requested field. If any requested field is unsupported, the file is not written and the unsupported fields are reported.
 

@@ -130,16 +130,17 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
         } detail: {
             contentPane
-                .inspector(isPresented: $isInspectorVisible) {
-                    InspectorPane(
-                        viewModel: viewModel,
-                        state: state,
-                        isInspectorVisible: $isInspectorVisible
-                    )
-                    .inspectorColumnWidth(min: 340, ideal: 380, max: 480)
-                }
         }
         .navigationSplitViewStyle(.balanced)
+        // Use SwiftUI's full-height Inspector with its own toolbar section.
+        .inspector(isPresented: $isInspectorVisible) {
+            InspectorPane(
+                viewModel: viewModel,
+                state: state,
+                onHideInspector: toggleInspector
+            )
+            .inspectorColumnWidth(min: 340, ideal: 380, max: 480)
+        }
     }
 
     private var contentPane: some View {
@@ -154,10 +155,8 @@ struct ContentView: View {
             onOpenMetadataEditor: openMetadataEditor,
             onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
             onOpenTrackRenumber: openTrackRenumberSheet,
-            onCancelEdits: viewModel.cancelEditing,
-            onSaveEdits: viewModel.saveInspectorEdits,
             isInspectorVisible: isInspectorVisible,
-            onToggleInspector: toggleInspector
+            onShowInspector: toggleInspector
         )
     }
 

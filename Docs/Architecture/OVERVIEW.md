@@ -90,7 +90,7 @@ Feature views receive dependencies explicitly. There is no service locator and n
 
 ## UI Composition
 
-- The main window is a `NavigationSplitView` with a sidebar, a middle content pane, and an `.inspector` column. The inspector can be toggled; its width is constrained to 340–480 points.
+- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. The `.inspector` is attached outside the split view to request SwiftUI's full-height trailing column. Its width is constrained to 340–480 points. The Inspector declares its own Cancel, Save, and Hide Inspector toolbar items. The middle pane declares the file and metadata tools and provides Show Inspector when the column is closed.
 - The middle list uses an AppKit-backed table (`MiddleListTable`) bridged into SwiftUI for native selection and column behavior. Selection is mirrored back to `AudioViewModel`; rejected draft-discard changes restore the previous native selection.
 - Sidebar sources are Current Session and Watched Folders. Switching source changes the visible file collection and prunes selection.
 - The Inspector binds to `SingleFileEditModel` or `MultiFileEditModel`. It does not own file state.

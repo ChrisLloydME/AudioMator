@@ -12,10 +12,8 @@ struct ContentPane: View {
     let onOpenMetadataEditor: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
     let onOpenTrackRenumber: () -> Void
-    let onCancelEdits: () -> Void
-    let onSaveEdits: () -> Void
     let isInspectorVisible: Bool
-    let onToggleInspector: () -> Void
+    let onShowInspector: () -> Void
 
     @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
 
@@ -85,8 +83,14 @@ struct ContentPane: View {
                     }
                 }
 
-                ToolbarItemGroup(placement: .primaryAction) {
-                    trailingToolbarButtons
+                if !isInspectorVisible {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: onShowInspector) {
+                            Label("Show Inspector", systemImage: "sidebar.right")
+                                .labelStyle(.iconOnly)
+                        }
+                        .help("Show Inspector")
+                    }
                 }
             }
             .confirmationDialog(
@@ -126,24 +130,6 @@ struct ContentPane: View {
                 guard !viewModel.selectedAudioIDs.isEmpty else { return }
                 openMetadataEditorWindow()
             }
-    }
-
-    @ViewBuilder
-    private var trailingToolbarButtons: some View {
-        if visibleToolbarButtons.contains(.cancelEdits) {
-            Button("Cancel", action: onCancelEdits)
-                .disabled(viewModel.selectedAudioIDs.isEmpty)
-        }
-
-        if visibleToolbarButtons.contains(.saveEdits) {
-            Button("Save", action: onSaveEdits)
-                .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
-        }
-
-        Button(action: onToggleInspector) {
-            Image(systemName: "sidebar.right")
-        }
-        .help(isInspectorVisible ? "Hide Inspector" : "Show Inspector")
     }
 
     @ViewBuilder

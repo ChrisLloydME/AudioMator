@@ -169,4 +169,33 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(edit.discTotal, 5)
         XCTAssertEqual(edit.discNumberText, "03")
     }
+
+    /// Pins the intentional difference between the loader's snapshot text rule
+    /// (`AudioFile.normalizedNumberText`) and the Core pair's canonical text
+    /// (`AudioTagNumberPair.canonicalRawText`). Both canonicalize pair text but
+    /// with different rules; these exact current values must survive any future
+    /// consolidation attempt (DOM-22 investigation).
+    func testSnapshotNumberTextDiffersFromCanonicalPairText() {
+        // Total-only layout: the snapshot helper drops the empty number text,
+        // while the pair canonicalizes it to "/12".
+        XCTAssertEqual(AudioFile.normalizedNumberText(rawText: "", number: 0, total: 12), "")
+        XCTAssertEqual(AudioTagNumberPair(rawText: "", number: 0, total: 12).canonicalRawText, "/12")
+
+        // A stored total-only text that already carries the slash survives the
+        // loader rule and agrees with the pair's canonical text.
+        XCTAssertEqual(AudioFile.normalizedNumberText(rawText: "/12", number: 0, total: 12), "/12")
+        XCTAssertEqual(AudioTagNumberPair(rawText: "/12", number: 0, total: 12).canonicalRawText, "/12")
+
+        // Number text without a slash plus a positive total: the snapshot helper
+        // appends "/total", while the pair preserves the stored raw text.
+        XCTAssertEqual(AudioFile.normalizedNumberText(rawText: "07", number: 7, total: 12), "07/12")
+        XCTAssertEqual(AudioTagNumberPair(rawText: "07", number: 7, total: 12).canonicalRawText, "07")
+
+        // Both rules agree when the stored raw text is empty and a number exists,
+        // and when no total exists to append.
+        XCTAssertEqual(AudioFile.normalizedNumberText(rawText: "", number: 7, total: 12), "7/12")
+        XCTAssertEqual(AudioTagNumberPair(rawText: "", number: 7, total: 12).canonicalRawText, "7/12")
+        XCTAssertEqual(AudioFile.normalizedNumberText(rawText: "07", number: 7, total: 0), "07")
+        XCTAssertEqual(AudioTagNumberPair(rawText: "07", number: 7, total: 0).canonicalRawText, "07")
+    }
 }

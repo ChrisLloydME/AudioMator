@@ -114,7 +114,7 @@ extension AudioViewModel {
                 self.updateEditForSelection()
             }
 
-            self.presentBatchMetadataClearSummary(summary)
+            self.presentBatchMetadataOperationSummary(summary)
         }
     }
 
@@ -142,17 +142,5 @@ extension AudioViewModel {
                 expectedVersion: file.metadataFileVersion
             )
         }
-    }
-
-    func presentBatchMetadataClearSummary(_ summary: BatchMetadataOperationSummary) {
-        guard summary.totalTargets > 0 else { return }
-
-        saveIssueLogStore.record(summary: summary)
-
-        presentMetadataWriteHUD(
-            style: summary.hudStyle,
-            title: summary.hudTitle,
-            subtitle: summary.hudSubtitle
-        )
     }
 }

@@ -84,7 +84,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
             BatchMetadataWriteIssue(fileName: "bad.flac", messages: ["Permission denied."])
         ]
 
-        viewModel.presentBatchMetadataClearSummary(summary)
+        viewModel.presentBatchMetadataOperationSummary(summary)
 
         XCTAssertEqual(store.entries.count, 1)
         XCTAssertEqual(store.entries[0].operation, .clear)

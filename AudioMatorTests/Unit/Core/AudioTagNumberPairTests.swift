@@ -27,15 +27,15 @@ final class AudioTagNumberPairTests: XCTestCase {
     }
 
     func testSharedNumberTextParserPreservesLegacyPairSemantics() {
-        let parsedPair = AudioTagNumberText.parsedPair(from: " 03 / 12 ")
-        let clampedPair = AudioTagNumberText.parsedPair(from: "-1/9")
+        let components = AudioTagNumberText.components(from: " 03 / 12 ")
+        let clampedComponents = AudioTagNumberText.components(from: "-1/9")
 
-        XCTAssertEqual(AudioTagNumberText.components(from: " 03 / 12 ").number, "03")
-        XCTAssertEqual(AudioTagNumberText.components(from: " 03 / 12 ").total, "12")
-        XCTAssertEqual(parsedPair.number, 3)
-        XCTAssertEqual(parsedPair.total, 12)
-        XCTAssertEqual(clampedPair.number, 0)
-        XCTAssertEqual(clampedPair.total, 9)
+        XCTAssertEqual(components.number, "03")
+        XCTAssertEqual(components.total, "12")
+        XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: components.number), 3)
+        XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: components.total ?? ""), 12)
+        XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: clampedComponents.number), 0)
+        XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: clampedComponents.total ?? ""), 9)
         XCTAssertEqual(AudioTagNumberText.positiveIndex(from: " 003 / 12 "), 3)
         XCTAssertNil(AudioTagNumberText.positiveIndex(from: "000"))
     }

@@ -15,9 +15,6 @@ enum AppWindowTitle {
     nonisolated static var onlineMetadata: String { L10n.string("Online Metadata") }
     nonisolated static var filenameMetadata: String { L10n.string("Filename & Metadata") }
     nonisolated static var metadataEditor: String { L10n.string("Metadata Editor") }
-    nonisolated static var rawMetadata: String { L10n.string("Raw Metadata") }
-    nonisolated static var renumberTracks: String { L10n.string("Renumber Tracks") }
-    nonisolated static var settings: String { L10n.string("Settings") }
 }
 
 extension String {

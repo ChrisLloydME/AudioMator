@@ -151,9 +151,8 @@ final class AudioMatorCoreLogicTests: XCTestCase {
 
         XCTAssertEqual(components.number, "003")
         XCTAssertEqual(components.total, "012")
-        let parsedPair = AudioTagNumberText.parsedPair(from: " 003 / 012 ")
-        XCTAssertEqual(parsedPair.number, 3)
-        XCTAssertEqual(parsedPair.total, 12)
+        XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: components.number), 3)
+        XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: components.total ?? ""), 12)
         XCTAssertEqual(AudioTagNumberText.positiveIndex(from: "003/012"), 3)
         XCTAssertNil(AudioTagNumberText.positiveIndex(from: "000/012"))
     }
@@ -443,10 +442,10 @@ final class AudioMatorCoreLogicTests: XCTestCase {
             let numberText = String(repeating: "0", count: max(0, padding - String(number).count)) + String(number)
             let totalText = String(repeating: "0", count: max(0, padding - String(total).count)) + String(total)
             let rawText = " \(numberText) / \(totalText) "
-            let parsed = AudioTagNumberText.parsedPair(from: rawText)
+            let parsedComponents = AudioTagNumberText.components(from: rawText)
 
-            XCTAssertEqual(parsed.number, number)
-            XCTAssertEqual(parsed.total, total)
+            XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: parsedComponents.number), number)
+            XCTAssertEqual(AudioTagNumberText.clampedInteger(fromComponent: parsedComponents.total ?? ""), total)
             XCTAssertTrue(
                 AudioTagNumberText.writeExpectationMatches(
                     expectedText: rawText,

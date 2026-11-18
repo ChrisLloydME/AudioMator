@@ -59,27 +59,11 @@ extension View {
     }
 }
 
-extension NSImage {
-    var audiomatorPNGData: Data? {
-        guard
-            let tiffData = tiffRepresentation,
-            let bitmapRepresentation = NSBitmapImageRep(data: tiffData)
-        else {
-            return nil
-        }
-
-        return bitmapRepresentation.representation(using: .png, properties: [:])
-    }
-}
-
 extension NSColor {
     static var audiomatorWindowBackground: NSColor { .windowBackgroundColor }
     static var audiomatorControlBackground: NSColor { .controlBackgroundColor }
-    static var audiomatorTextBackground: NSColor { .textBackgroundColor }
     static var audiomatorSeparator: NSColor { .separatorColor }
     static var audiomatorLabel: NSColor { .labelColor }
-    static var audiomatorSecondaryLabel: NSColor { .secondaryLabelColor }
-    static var audiomatorTertiaryLabel: NSColor { .tertiaryLabelColor }
 }
 
 extension View {
@@ -238,10 +222,6 @@ enum MacPasteboard {
 
     static var imageData: Data? {
         NSPasteboard.general.data(forType: .png) ?? NSPasteboard.general.data(forType: .tiff)
-    }
-
-    static var image: NSImage? {
-        NSPasteboard.general.readObjects(forClasses: [NSImage.self])?.first as? NSImage
     }
 }
 

@@ -38,8 +38,6 @@ enum AudioFileTestFactory {
         artworkData: Data? = nil,
         fileFingerprint: AudioFileFingerprint? = nil,
         metadataFileVersion: MetadataFileVersion? = nil,
-        metadataConflictBaseline: MetadataConflictBaseline? = nil,
-        requiresMetadataRefreshBeforeWriting: Bool = false,
         includeDefaultFileFingerprint: Bool = true
     ) -> AudioFile {
         AudioFile(
@@ -91,9 +89,7 @@ enum AudioFileTestFactory {
             date: date,
             originalReleaseDate: originalReleaseDate,
             fileFingerprint: fileFingerprint ?? (includeDefaultFileFingerprint ? fingerprint(for: url) : nil),
-            metadataFileVersion: metadataFileVersion,
-            metadataConflictBaseline: metadataConflictBaseline,
-            requiresMetadataRefreshBeforeWriting: requiresMetadataRefreshBeforeWriting
+            metadataFileVersion: metadataFileVersion
         )
     }
 }

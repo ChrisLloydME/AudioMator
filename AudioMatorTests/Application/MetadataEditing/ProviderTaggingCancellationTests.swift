@@ -189,7 +189,6 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     private var writes = 0
     private let reloadStarted = CancellationTestGate()
     private let reloadRelease = CancellationTestGate()
-    nonisolated var hasCommitted: Bool { lock.withLock { writes > 0 } }
     nonisolated var writeCount: Int { lock.withLock { writes } }
     nonisolated func releaseReload() async { await reloadRelease.open() }
     nonisolated func waitUntilReload() async throws {

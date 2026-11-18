@@ -43,43 +43,6 @@ extension ExplicitInspectorSelection {
     }
 }
 
-extension MultiFileEditableTextField {
-    var displayName: String {
-        switch self {
-        case .title: MetadataFieldGuide.displayName(for: .title)
-        case .artist: MetadataFieldGuide.displayName(for: .artist)
-        case .album: MetadataFieldGuide.displayName(for: .album)
-        case .composer: MetadataFieldGuide.displayName(for: .composer)
-        case .genre: MetadataFieldGuide.displayName(for: .genre)
-        case .year: MetadataFieldGuide.displayName(for: .year)
-        case .date: MetadataFieldGuide.displayName(for: .standaloneDate)
-        case .originalReleaseDate: MetadataFieldGuide.displayName(for: .originalReleaseDate)
-        case .contentGroup: MetadataFieldGuide.displayName(for: .contentGroup)
-        case .grouping: MetadataFieldGuide.displayName(for: .grouping)
-        case .work: MetadataFieldGuide.displayName(for: .work)
-        case .trackNumber: MetadataFieldGuide.displayName(for: .track)
-        case .trackTotal: MetadataFieldGuide.displayName(for: .trackTotal)
-        case .discNumber: MetadataFieldGuide.displayName(for: .disc)
-        case .discTotal: MetadataFieldGuide.displayName(for: .discTotal)
-        case .comment: MetadataFieldGuide.displayName(for: .comment)
-        case .albumArtist: MetadataFieldGuide.displayName(for: .albumArtist)
-        case .releaseDate: MetadataFieldGuide.displayName(for: .releaseDate)
-        case .publisher: MetadataFieldGuide.displayName(for: .publisher)
-        case .copyright: MetadataFieldGuide.displayName(for: .copyright)
-        }
-    }
-}
-
-extension MultiFileExplicitEditState {
-    var displayName: String {
-        switch self {
-        case .keepExisting: L10n.string("Keep Existing")
-        case .set(.none): L10n.string("Unset")
-        case .set(.some(let advisory)): advisory.displayName
-        }
-    }
-}
-
 extension MultiFileEditModel {
     func placeholder(for field: MultiFileEditableTextField) -> String? {
         guard mixedTextFields.contains(field), !modifiedTextFields.contains(field) else { return nil }

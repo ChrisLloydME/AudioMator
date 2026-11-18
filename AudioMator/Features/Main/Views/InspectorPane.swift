@@ -69,20 +69,6 @@ struct InspectorPane: View {
         )
     }
 
-    private func boolBinding(
-        for file: AudioFile,
-        keyPath: WritableKeyPath<SingleFileEditModel, Bool>
-    ) -> Binding<Bool> {
-        Binding<Bool>(
-            get: {
-                currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
-            },
-            set: { newValue in
-                updateEdit(for: file) { $0[keyPath: keyPath] = newValue }
-            }
-        )
-    }
-
     private func explicitSelectionBinding(for file: AudioFile) -> Binding<ExplicitInspectorSelection> {
         Binding<ExplicitInspectorSelection>(
             get: {

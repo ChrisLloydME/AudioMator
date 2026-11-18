@@ -48,8 +48,6 @@ struct SaveIssueLogEntry: Codable, Equatable, Identifiable {
 
 @MainActor
 final class SaveIssueLogStore: ObservableObject {
-    static let defaultLimit = 200
-
     @Published private(set) var entries: [SaveIssueLogEntry] = []
 
     private let fileURL: URL

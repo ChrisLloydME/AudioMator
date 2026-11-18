@@ -61,7 +61,7 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertTrue(
             try XCTUnwrap(recoveryItem.finalURL).lastPathComponent.hasPrefix(".audiomator-rename-")
         )
-        XCTAssertNotNil(recoveryItem.rollbackError)
+        XCTAssertFalse(recoveryItem.rollbackErrors.isEmpty)
         XCTAssertTrue(failure.message.contains("Check the file locations"))
 
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
@@ -127,7 +127,7 @@ final class FileRenameTransactionTests: XCTestCase {
         XCTAssertEqual(failure.recoveryItems.count, 1)
         XCTAssertEqual(recoveryItem.originalURL, firstSourceURL)
         XCTAssertEqual(recoveryItem.finalURL, firstDestinationURL)
-        XCTAssertNotNil(recoveryItem.rollbackError)
+        XCTAssertFalse(recoveryItem.rollbackErrors.isEmpty)
         XCTAssertTrue(failure.message.contains(firstDestinationURL.path))
     }
 

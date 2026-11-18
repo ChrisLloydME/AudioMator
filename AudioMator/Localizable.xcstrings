@@ -974,6 +974,9 @@
     "Additional files couldn’t be imported: %lld." : {
 
     },
+    "Additional files that couldn’t be read: %lld." : {
+
+    },
     "Additional files with issues: %lld." : {
 
     },
@@ -1110,6 +1113,9 @@
 
     },
     "An older MusicIP matching identifier; preserve existing values." : {
+
+    },
+    "And %lld more groups." : {
 
     },
     "Any" : {
@@ -3117,6 +3123,7 @@
     },
     "Copy Path" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/MiddleListTable.swift:483, AudioMator/Features/iPad/Views/IPadFileBrowserView.swift:166, AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:74.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4570,6 +4577,7 @@
     },
     "Filename" : {
       "comment" : "Short UI label. Context: filename and metadata conversion workflow. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/App/AudioMatorApp.swift:23, AudioMator/Domain/UIState/ToolbarButtonOption.swift:27, AudioMator/Domain/UIState/MiddleListColumn.swift:31.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4652,6 +4660,7 @@
     },
     "Filename stem: %@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Context: filename and metadata conversion workflow. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6264,6 +6273,7 @@
     },
     "Metadata" : {
       "comment" : "Short UI label. Context: audio metadata/tag editing workflow. Used around: AudioMator/App/AppNotifications.swift:5, AudioMator/App/AudioMatorApp.swift:18, AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11161,6 +11171,7 @@
     },
     "Status" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:487, AudioMator/Domain/Rename/FileRenameTemplate.swift:102, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:159, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:266.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11550,6 +11561,9 @@
 
     },
     "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata." : {
+
+    },
+    "The file couldn’t be checked after it moved. Close any open metadata tool, then choose Reload from Disk from the file’s context menu before continuing. If there are unsaved edits, you’ll be asked to discard them before reloading." : {
 
     },
     "The file couldn’t be checked after it moved. Close this tool and choose Reload from Disk from the file’s context menu before changing track numbers." : {

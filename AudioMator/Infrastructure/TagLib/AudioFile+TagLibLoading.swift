@@ -151,9 +151,6 @@ extension AudioFile {
         self.advisoryRawValue = tag.explicitAdvisoryRawValue
         self.containerValues = Self.containerValues(from: tag, atoms: snapshot.structured.mp4Atoms)
 
-        self.trackNumberInventory = numberingInventory?.track
-        self.discNumberInventory = numberingInventory?.disc
-
         let asset = AVURLAsset(url: url)
 
         // MARK: – Editable tags remain TagLib-authoritative; credits are display-only AVFoundation data.

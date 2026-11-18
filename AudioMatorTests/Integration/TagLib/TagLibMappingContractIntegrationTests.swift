@@ -102,7 +102,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
 
         let pipeline = TagLibAudioMetadataPipeline()
-        let inventory = try pipeline.numberingInventory(at: url)
+        let inventory = try TagLibMetadataManager.numberingInventory(at: url)
         XCTAssertEqual(inventory.track.number.state, .native)
         XCTAssertEqual(inventory.track.number.nativeValue, 3)
         XCTAssertEqual(inventory.track.total.state, .recoveredLegacy)
@@ -205,7 +205,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             to: url
         )
         let pipeline = TagLibAudioMetadataPipeline()
-        let inventory = try pipeline.numberingInventory(at: url)
+        let inventory = try TagLibMetadataManager.numberingInventory(at: url)
         // If the package coalesces these aliases, the ambiguity assertion is
         // reported as a coverage gap rather than silently accepted.
         guard inventory.track.total.state == .ambiguous else {

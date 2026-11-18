@@ -224,10 +224,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         }
     }
 
-    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory {
-        try TagLibMetadataManager.numberingInventory(at: url)
-    }
-
 
 }
 

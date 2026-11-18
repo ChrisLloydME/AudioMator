@@ -192,8 +192,6 @@ protocol AudioMetadataPipeline: Sendable {
         verifyAfterWrite: Bool,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
-    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory
-
 }
 
 extension AudioMetadataPipeline {
@@ -267,10 +265,6 @@ extension AudioMetadataPipeline {
             verifyAfterWrite: verifyAfterWrite,
             expectedVersion: nil
         )
-    }
-
-    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory {
-        throw CocoaError(.featureUnsupported)
     }
 
 

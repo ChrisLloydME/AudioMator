@@ -10,13 +10,13 @@ FORCE_BUILD=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --force|--full)
+    --force)
       FORCE_BUILD=1
       shift
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: bash scripts/codex-build.sh [--force|--full]" >&2
+      echo "Usage: bash scripts/codex-build.sh [--force]" >&2
       exit 2
       ;;
   esac

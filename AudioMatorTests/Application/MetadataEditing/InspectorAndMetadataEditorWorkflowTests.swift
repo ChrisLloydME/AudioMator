@@ -245,7 +245,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.edit)
         XCTAssertNotNil(viewModel.multiEdit)
 
-        viewModel.removeFromList(first)
+        viewModel.removeQuickImportFile(id: first.id)
 
         XCTAssertEqual(viewModel.selectedAudioIDs, [second.id])
         XCTAssertEqual(viewModel.editSourceFileID, second.id)

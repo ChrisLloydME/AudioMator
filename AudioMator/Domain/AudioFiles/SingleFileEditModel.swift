@@ -139,7 +139,6 @@ struct SingleFileEditModel {
     var clearsUnknownAdvisory: Bool
     var artworkEditAction: ArtworkEditAction
 
-    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
 
     init(
         title: String = "",

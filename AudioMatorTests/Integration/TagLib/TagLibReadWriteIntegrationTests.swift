@@ -1070,7 +1070,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let reloaded = try await AudioFile(url: workingURL)
         XCTAssertEqual(reloaded.contentAdvisory, .notExplicit)
-        XCTAssertFalse(reloaded.isExplicit)
+        XCTAssertEqual(reloaded.contentAdvisory?.isExplicit ?? false, false)
     }
 
     func testInspectorStyleUnsetAdvisoryClearsAnExistingAdvisory() async throws {
@@ -1099,7 +1099,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let reloaded = try await AudioFile(url: workingURL)
         XCTAssertNil(reloaded.contentAdvisory)
-        XCTAssertFalse(reloaded.isExplicit)
+        XCTAssertEqual(reloaded.contentAdvisory?.isExplicit ?? false, false)
     }
 
     func testAudioFileReadsiTunesExplicitAdvisoryValue() async throws {
@@ -1115,11 +1115,11 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let file = try await AudioFile(url: workingURL)
         XCTAssertEqual(file.contentAdvisory, .explicit)
-        XCTAssertTrue(file.isExplicit)
+        XCTAssertEqual(file.contentAdvisory?.isExplicit ?? false, true)
 
         let model = SingleFileEditModel(from: file)
         XCTAssertEqual(model.contentAdvisory, .explicit)
-        XCTAssertTrue(model.isExplicit)
+        XCTAssertEqual(model.contentAdvisory?.isExplicit ?? false, true)
 
         XCTAssertEqual(try pipeline.rawMetadataValueMap(for: workingURL)["ITUNESADVISORY"], ["1"])
     }
@@ -1145,7 +1145,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let file = try await AudioFile(url: workingURL)
         XCTAssertNil(file.contentAdvisory)
-        XCTAssertFalse(file.isExplicit)
+        XCTAssertEqual(file.contentAdvisory?.isExplicit ?? false, false)
     }
 
     func testInspectorStyleMetadataWriteClearsEditableTextFields() throws {

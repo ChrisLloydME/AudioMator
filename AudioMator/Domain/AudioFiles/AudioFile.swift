@@ -53,7 +53,6 @@ struct AudioFile: Identifiable, Sendable {
     let catalogNumber: String
     let releaseCountry: String
     let contentAdvisory: ContentAdvisory?
-    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
 
     // MARK: – Independent dates and container-exclusive semantics
     //

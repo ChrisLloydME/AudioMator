@@ -59,7 +59,6 @@ struct MetadataEditPayload: Sendable {
     var copyright: String
     var unsupportedAdvisoryImport: String?
     var contentAdvisory: ContentAdvisory?
-    nonisolated var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
     /// Typed MP4-exclusive and role-aware field intents. Values are already
     /// shape-validated by the semantic editor.
     var containerFields: [MetadataFieldKey: MetadataPatchValue]

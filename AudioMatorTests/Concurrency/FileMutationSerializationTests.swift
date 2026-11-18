@@ -137,7 +137,7 @@ final class FileMutationSerializationTests: XCTestCase {
         guard case .success(let success) = firstResult else {
             return XCTFail("Expected the write and reload transaction to succeed.")
         }
-        XCTAssertTrue(success.didReloadFile)
+        XCTAssertNotNil(success.reloadedFile)
         XCTAssertEqual(success.reloadedFile?.id, fileID)
         let didEnterAfterReloadFinished = await secondMutationEntered.isSignaled
         XCTAssertTrue(didEnterAfterReloadFinished)
@@ -163,7 +163,7 @@ final class FileMutationSerializationTests: XCTestCase {
             return XCTFail("A reload failure must not erase the successful write result.")
         }
         XCTAssertEqual(success.writeResult.warnings, ["Injected write warning"])
-        XCTAssertFalse(success.didReloadFile)
+        XCTAssertNil(success.reloadedFile)
         XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
     }
 
@@ -192,7 +192,7 @@ final class FileMutationSerializationTests: XCTestCase {
         guard case .success(let success) = result else {
             return XCTFail("A post-commit reload timeout must not turn a successful write into a failure.")
         }
-        XCTAssertFalse(success.didReloadFile)
+        XCTAssertNil(success.reloadedFile)
         XCTAssertTrue(success.reloadErrorDescription?.contains("took too long") == true)
 
         let followUpEntered = AsyncTestLatch()

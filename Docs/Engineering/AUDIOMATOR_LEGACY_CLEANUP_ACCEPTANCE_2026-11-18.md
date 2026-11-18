@@ -11,11 +11,11 @@ Related records: [cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md
 | Repository | AudioMator (this repository only) |
 | Branch | `codex/audiomator-legacy-cleanup-20261117` |
 | Baseline | `origin/main` `f36c2a2e` (2026-11-17), verified by `git merge-base origin/main HEAD` |
-| Tested source revision | `28fe62a6914eab51e1be5e38b499cd91a975eaeb` (`28fe62a6`), recorded in `source.txt` |
+| Tested source revision | `19e1ac23740c7d681555dbea9a36b16bfece1b04` (`19e1ac23`), recorded in `source.txt` |
 | Tracked worktree at test time | clean (`git diff` empty; the SHA-256 in `source.txt` is the hash of an empty diff). The two handoff documents remain untracked by design. |
-| Branch commits at that revision | 27 commits relative to `origin/main`. The handoff brief stated 28; the repository value is 27. This documentation commit follows the tested revision. |
+| Branch commits at that revision | 29 commits relative to `origin/main` (27 at the earlier code-complete revision `28fe62a6`; the handoff brief stated 28, the repository value at that point was 27). The final record-update commit is documentation-only and follows the tested revision. |
 | Dependency source | Published `Package.resolved` (normal project resolution; no local-package override) |
-| Evidence directory | `.deriveddata-codex/Validation/20261118-104501-44211/` (git-ignored) |
+| Evidence directory | `.deriveddata-codex/Validation/20261118-110503-50660/` (git-ignored); earlier code-complete run: `.deriveddata-codex/Validation/20261118-104501-44211/` |
 | Gate result | `EXIT:0`; all phases passed |
 
 The final gate command was:
@@ -41,7 +41,7 @@ It ran, in order, the policy tests, the SwiftPM core tests, the complete serial 
 
 ## 3. Removed debris by area and commits
 
-The campaign changed 117 tracked files: 108 modified, 8 deleted, 1 added; +3,046 / −8,544 lines overall (including the localization-catalog prune). Eight tracked files were deleted and one shared persistence file was added. The candidate-level detail, including every retained or deferred candidate, is in the [cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md).
+The campaign changed 130 tracked files at the tested revision (including four added engineering records); eight tracked production/resource files were deleted, one shared persistence source file was added, and current documentation was updated. The net source change is +4,446 / −8,572 lines, dominated by the localization-catalog prune (`git diff --shortstat origin/main..19e1ac23`). The candidate-level detail, including every retained or deferred candidate, is in the [cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md).
 
 | Area | Representative removals | Commits |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ The campaign changed 117 tracked files: 108 modified, 8 deleted, 1 added; +3,046
 | Providers and browser features | Dead store members, dead query/model helpers, unused view initializers, duplicate field-order helper and dead AppKit helpers removed; comparison/query boundaries and routes retained. | `e993270e` |
 | Features/Main | Unreachable views (`InspectorPopup`, `MergedMetadataSectionView`, `MiddleListHeaderContextMenuInstaller`), orphaned import-writer route, dead file-action/result/state helpers, duplicate batch-summary presenter, unreachable search-seed branch. | `0be0b842`, `2eb51315`, `2af7fb70`, `e6828955`, `c44b6d3e`, `a9e83a2c` |
 | Metadata Editor, Filename tool, Settings, Inspector | Unreachable `MetadataInspectorSheet`, superseded SwiftUI preview clusters, dead editor fallbacks/storage, unused About helper and dead status guards. | `2deff969` |
-| Localization | 91 unreferenced or superseded catalog keys pruned (952→861); locale slots and translations retained. | `28fe62a6` |
+| Localization | 91 unreferenced or superseded catalog keys pruned (952→861); source extraction then identified three live `String(localized:)` keys missing from the catalog, which were added with five extraction-state markers (952→864), and the two only-test-migration-affected live `L10n.string` keys were kept. Locale slots and translations retained. | `28fe62a6`, `866cf937` |
 | Tests/build/scripts | Test-only compatibility scaffolding migrated or removed with its production surface; unused fake member and factory parameters; documented `--full` alias; redundant SwiftPM excludes. | `7662fc26`, `ae07d55f`, `97016668`, `fde7ecb7`, `f1ff0892`, `e6828955`, `2af7fb70`, `dcae77f3`, `bd149370` |
 
 The eight deleted tracked files were `AppIconPreview.imageset/AppIconPreview.png`, `AppIconPreview.imageset/Contents.json`, `Domain/FileSources/FileCollectionCore.swift`, `Features/Main/ViewModels/AudioViewModel+MetadataFieldImportWrite.swift`, `Features/Main/Views/InspectorPopup.swift`, `Features/Main/Views/MergedMetadataSectionView.swift`, `Features/Main/Views/MiddleListHeaderContextMenuInstaller.swift` and `Features/MetadataInspector/Views/MetadataInspectorSheet.swift`. The added file is `Infrastructure/FileSystem/BookmarkCollectionPersistence.swift`.
@@ -103,15 +103,26 @@ No test was skipped, marked as an expected failure or deleted merely to pass the
 | --- | --- | --- | --- |
 | Policy | `python3 -m unittest discover -s scripts/tests` | 13 tests passed, `OK` | `policy.log` |
 | Core | `swift test --filter AudioMatorCoreLogicTests` | 62 expected / 62 executed, 0 missing, 0 unexpected, accepted | `core.log`, `core-gate.json` |
-| App-hosted | `xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'platform=macOS' -derivedDataPath .deriveddata-codex -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 -resultBundlePath … CODE_SIGNING_ALLOWED=NO test` | 629/629 passed; 0 failed, 0 skipped, 0 expected failures; `Executed 629 tests, with 0 failures (0 unexpected) in 169.455 (169.754) seconds`; `** TEST SUCCEEDED **` | `app.log`, `test-summary.json`, `test-tree.json`, `test-gate.json`, `AppTests.xcresult` |
+| App-hosted | `xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Debug -destination 'platform=macOS' -derivedDataPath .deriveddata-codex -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 -resultBundlePath … CODE_SIGNING_ALLOWED=NO test` | 629/629 passed; 0 failed, 0 skipped, 0 expected failures; `Executed 629 tests, with 0 failures (0 unexpected) in 168.494 (168.780) seconds`; `** TEST SUCCEEDED **` | `app.log`, `test-summary.json`, `test-tree.json`, `test-gate.json`, `AppTests.xcresult` |
 | Release build | `xcodebuild -project AudioMator.xcodeproj -scheme AudioMator -configuration Release -destination 'generic/platform=macOS' -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build` | `** BUILD SUCCEEDED **` | `release.log` |
 | Artifact validation | `bash scripts/validate-macos-artifact.sh .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0` | Validated bundle minimum 15.0 and 2 Mach-O files (`AudioMator` minOS 15.0; packaged TagLib framework minOS 13.0) | `artifact.log` |
-| Source identity | recorded by the gate | HEAD `28fe62a6914eab51e1be5e38b499cd91a975eaeb`; published `Package.resolved`; clean tracked diff | `source.txt` |
-| Gate runner exit | `bash scripts/validate-release.sh` | `EXIT:0` | `.tmp/cleanup/final-gate-1.log` (local run log) |
+| Source identity | recorded by the gate | HEAD `19e1ac23740c7d681555dbea9a36b16bfece1b04`; published `Package.resolved`; clean tracked diff (`e3b0c44…` is the empty-diff hash) | `source.txt` |
+| Gate runner exit | `bash scripts/validate-release.sh` | `EXIT:0` (code-complete run `28fe62a6`; final docs-revision run `19e1ac23` also `EXIT:0`) | `.tmp/cleanup/final-gate-1.log`, `.tmp/cleanup/final-gate-2.log` (local run logs) |
 
 The gate prints “Debug test gate passed (published Package.resolved); interactive UI acceptance remains manual” only for `--tests-only`; the canonical run used above also ran Release and artifact phases and printed “Build/test gate passed (published Package.resolved); interactive UI acceptance remains manual.” The evidence directory contains no failure/skip records: `test-summary.json` reports `failedTests: 0`, `skippedTests: 0`, `expectedFailures: 0`, and the gate accepted the exact 629-name inventory with no missing or unexpected identities. The policy phase log ends with `Ran 13 tests … OK`; the core gate JSON and test gate JSON both report `accepted: true` with empty `missing`/`unexpected` arrays.
 
 Baseline comparison: `.deriveddata-codex/Validation/20261118-094024-15062/` records the pre-cleanup Debug-only gate at `f36c2a2e`: 13 policy, 62 core and 622 app-hosted tests, `EXIT:0`, Release/artifact skipped by request. The campaign therefore increased app coverage from 622 to 629 and kept core coverage at 62.
+
+### 7.1 Bounded sensitivity checks for the changed central routes
+
+Two bounded checks confirmed that the retained real tests detect regressions in the changed behaviors. Each temporarily mutated exactly one source file, ran the relevant actual test classes, then restored the file and verified its SHA-256 matched the pre-mutation hash (both restored: `HASH_RESTORED_OK`):
+
+| Risk changed by the campaign | Temporary mutation | Required named failure observed | Restore |
+| --- | --- | --- | --- |
+| Consolidated semantic patch planning now rejects unsupported advisory imports on the conflict path (fixed defect in §5) | Disabled the `unsupportedAdvisoryImport` rejection in `metadataPatchForWrite(from:)` | `MetadataConflictStrategyTests.testConflictWriteRejectsUnsupportedAdvisoryImportWithoutTouchingTheFile()` and `MappingAcceptanceRepairTests.testUnknownAdvisoryImportIsNotConvertedToUnset()` failed at the intended assertion; runner exit 65 | Original file hash restored |
+| Bookmark persistence moved behind the shared helper (behavior-preserving merge) | Stopped `BookmarkCollectionPersistence.save` from retaining previously unresolved records | `DirectoryMonitoringPlanTests.testWatchedFolderSavePreservesUnresolvedRecordsForRecovery()` failed at the persisted-record assertion; runner exit 65 | Original file hash restored |
+
+The remaining campaign changes removed dead or test-only internal surfaces and were covered by the full gate above; no production write, validation or state route was otherwise changed, so no further mutation checks were invented.
 
 ## 8. Test inventory at the tested revision
 
@@ -137,8 +148,8 @@ Recounted from source with the release-gate inventory rule (files under `AudioMa
 
 - Skips: 0. Expected failures: 0. Failures: 0. No `XCTSkip`, `XCTExpectFailure`, warning suppression, test gating or reduced inventory was added by the campaign.
 - The `test-summary.json` runtime-warning list contains exactly one runtime warning: the pre-existing SwiftUI warning in `OnlineMetadataWorkbenchPerformanceTests` (`Accessing State<Bool>` value before installation on a View). The same warning was recorded in the prior 0.8.1 Debug adoption evidence, so it is not introduced by this campaign.
-- The Debug test build log contains 431 warning-line occurrences. Its 214 warning-location lines are all under `AudioMatorTests/` and are the known test-target isolation warning debt (XCTestCase `init()`/`init(selector:)`/`init(invocation:)` actor-isolation overrides and related `@MainActor` override notes, `TST-17` in the ledger); the remaining lines are compiler note/continuation lines plus the informational AppIntents extraction note. No app-source compiler warning is present in the final Debug build log.
-- The Release build log contains eight app-source warning lines across two warning sites (four repeated diagnostic lines per site): `ActorIsolatedCall` at `AudioViewModel+FileRename.swift:474` and `ImplicitStrongCapture` at `ContentView.swift:636`. The same two warning classes at the same code sites, with line numbers shifted by the deletions, are present in the baseline Debug build log; no new app-source warning class is claimed and the campaign added no suppression. The Release log also contains the pre-existing informational AppIntents extraction note (`no AppIntents.framework dependency found`).
+- The full Debug test-build log of the code-complete gate run contains 431 warning-line occurrences. Its 214 warning-location lines are all under `AudioMatorTests/` and are the known test-target isolation warning debt (XCTestCase `init()`/`init(selector:)`/`init(invocation:)` actor-isolation overrides and related `@MainActor` override notes, `TST-17` in the ledger); the remaining lines are compiler note/continuation lines plus the informational AppIntents extraction note. No app-source compiler warning is present in that Debug build log. The final docs-revision run re-used the incremental Debug build and emitted only three warning lines, none from a source file; it is not a like-for-like count.
+- Both Release build logs (code-complete and docs-revision runs) contain eight app-source warning lines across two warning sites (four repeated diagnostic lines per site): `ActorIsolatedCall` at `AudioViewModel+FileRename.swift:474` and `ImplicitStrongCapture` at `ContentView.swift:636`; the final run also contains the pre-existing informational AppIntents extraction note (`no AppIntents.framework dependency found`). The same two warning classes at the same code sites, with line numbers shifted by the deletions, are present in the baseline Debug build log; no new app-source warning class is claimed and the campaign added no suppression.
 - The warning counts are not like-for-like between baseline and final runs because Xcode re-emits compiler diagnostics only for recompiled files in incremental builds. The record claims only what the logs show: zero skipped/expected-failure/failed tests, one pre-existing runtime warning, known isolation warnings, and no new app-source warning class evidenced.
 
 ## 10. Unexecuted and out-of-scope checks
@@ -160,11 +171,11 @@ Deferred but decided cleanup candidates (not investigations): the ledger §6 lis
 
 ## 12. Acceptance statement
 
-The automated gate for the code-complete revision `28fe62a6` passed and its evidence is recorded above. This record is not yet the campaign’s final acceptance statement, because the documentation revision produced after the code-complete revision must run the same gate before the campaign can be finalized.
+The automated gate first passed for the code-complete revision `28fe62a6` and then, after the documentation and catalog revisions, passed again for the final source revision `19e1ac23`; both evidence directories are recorded above. The statement below is the campaign’s final automated acceptance statement for this branch.
 
-> **Placeholder — to be completed by the Lead after the final docs-revision gate.** automated cleanup acceptance passed for `<final-docs-revision>` on `<date>`, with evidence `<validation-directory>`: 13 policy tests, 62 core tests, 629/629 serial app-hosted tests passed, 0 failures/skips/expected failures, Release build passed, artifact validation passed, and gate exit status 0. The retained-behavior and user-data protections in [the cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) §4 remain in force. Manual UI acceptance, signing, notarization and distribution remain out of scope.
+> **automated cleanup acceptance passed for `19e1ac23740c7d681555dbea9a36b16bfece1b04` (`19e1ac23`) on 2026-11-18**, with evidence `.deriveddata-codex/Validation/20261118-110503-50660`: 13 policy tests, 62 core tests, 629/629 serial app-hosted tests passed, 0 failures/skips/expected failures, Release build passed, artifact validation passed, and gate exit status 0. The retained-behavior and user-data protections in [the cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) §4 remain in force. Manual UI acceptance, signing, notarization and distribution remain out of scope.
 
-A further final release-gate run on the committed docs revision follows. If that run fails, this record must instead state “not accepted/blocked” with the exact failing phase, and the placeholder above must not be finalized as a pass. The Lead owns that final gate and final statement.
+The final release-gate run was executed on the committed docs revision `19e1ac23` through the normal Xcode project and published package resolution, not `--local-package`. A subsequent commit updates only this acceptance record with the final gate evidence; it does not change source, catalogs, tests, build files or current-guidance documentation, so the tested revision remains the source evidence for that docs-only delta.
 
 ## 13. References
 

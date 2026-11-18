@@ -71,6 +71,62 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertEqual(restoredGrants.first?.url.standardizedFileURL, folderURL.standardizedFileURL)
     }
 
+    func testStaleGrantBookmarkIsRefreshedAndPersisted() throws {
+        let suiteName = "FileAccessGrantStoreStaleBookmarkTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorFileAccessGrant-Stale-\(UUID().uuidString)", isDirectory: true)
+        let originalURL = rootURL.appendingPathComponent("Original", isDirectory: true)
+        try FileManager.default.createDirectory(at: originalURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        // Moving the folder makes its bookmark stale. Loading must resolve the
+        // new location and rewrite the stored bookmark, not just refresh the
+        // in-memory value.
+        let staleBookmarkData = try originalURL.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let record = FileAccessGrantRecord(
+            id: UUID(),
+            displayName: "Original",
+            bookmarkData: staleBookmarkData
+        )
+        defaults.set(try JSONEncoder().encode([record]), forKey: "fileAccessGrantRecords")
+        let movedURL = rootURL.appendingPathComponent("Moved", isDirectory: true)
+        try FileManager.default.moveItem(at: originalURL, to: movedURL)
+
+        // Confirm the scenario really produced a stale bookmark before relying on it.
+        let staleResolution = try resolveBookmark(staleBookmarkData)
+        XCTAssertTrue(staleResolution.isStale)
+        XCTAssertEqual(staleResolution.url.standardizedFileURL, movedURL.standardizedFileURL)
+
+        let store = FileAccessGrantStore(userDefaults: defaults)
+        let restoredGrants = store.loadGrants()
+
+        XCTAssertEqual(store.loadState, .loaded)
+        XCTAssertEqual(restoredGrants.map(\.id), [record.id])
+        XCTAssertEqual(restoredGrants.first?.url.standardizedFileURL, movedURL.standardizedFileURL)
+        XCTAssertEqual(restoredGrants.first?.displayName, "Original")
+
+        let persistedData = try XCTUnwrap(defaults.data(forKey: "fileAccessGrantRecords"))
+        let persistedRecords = try JSONDecoder().decode([FileAccessGrantRecord].self, from: persistedData)
+        let persistedRecord = try XCTUnwrap(persistedRecords.first)
+        XCTAssertEqual(persistedRecord.id, record.id)
+        XCTAssertNotEqual(persistedRecord.bookmarkData, staleBookmarkData)
+        let refreshedBookmark = try resolveBookmark(persistedRecord.bookmarkData)
+        XCTAssertFalse(refreshedBookmark.isStale)
+        XCTAssertEqual(refreshedBookmark.url.standardizedFileURL, movedURL.standardizedFileURL)
+
+        // The persisted bookmark is current, so reloading must not rewrite it again.
+        let reloadedStore = FileAccessGrantStore(userDefaults: defaults)
+        XCTAssertEqual(reloadedStore.loadGrants().map(\.id), [record.id])
+        XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords"), persistedData)
+    }
+
     func testSavingRemainingGrantsRemovesDeletedGrant() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -191,6 +247,28 @@ final class FileAccessGrantStoreTests: XCTestCase {
             FileAccessGrantStore(userDefaults: defaults).loadGrants().map(\.id),
             [grant.id]
         )
+    }
+
+    private func resolveBookmark(_ bookmarkData: Data) throws -> (url: URL, isStale: Bool) {
+        var isStale = false
+        do {
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope, .withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            return (url, isStale)
+        } catch {
+            var fallbackIsStale = false
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &fallbackIsStale
+            )
+            return (url, fallbackIsStale)
+        }
     }
 
     private func makeViewModel(defaults: UserDefaults) -> AudioViewModel {

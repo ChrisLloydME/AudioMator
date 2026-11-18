@@ -9,16 +9,19 @@ This document describes how to build AudioMator from this repository and what th
 - Network access the first time the `TagLibAudioMetadata` package is resolved.
 - No sibling checkout of `TagLibAudioMetadata` is required.
 
-Current checkout verified by source inspection on 2026-11-12:
+Environment and project values verified by source inspection on 2026-11-18 (no build was run for this audit):
 
 | Item | Value |
 | --- | --- |
 | Toolchain | Xcode 27.2 (27B52), Apple Swift 6.4.2 |
 | App deployment target | macOS 15.0 |
 | Package pin | Exact published `0.8.1`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.1), revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0` |
+| Package resolution file | `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` |
+| Marketing version / build | `2.7` / `26112` in both app configurations |
+| Bundle identifiers | Debug `com.TheLloydME.AudioMator.Beta`; Release `com.LloydME.AudioMator` |
 | Recorded Debug adoption | [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) |
 
-The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested. The dependency itself requires Swift tools 6.4; the separate Foundation-only SwiftPM harness in this repository declares Swift tools 6.0 and does not compile the dependency.
+The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested. The external package's own manifest is authoritative for its toolchain requirements; the separate Foundation-only SwiftPM harness in this repository declares Swift tools 6.0 and does not compile the dependency.
 
 ## Repository Setup
 
@@ -42,7 +45,7 @@ There is one shared scheme, `AudioMator`. It builds the app and includes the app
 
 Both configurations target macOS 15.0, use Swift 5 language mode with complete strict concurrency and MainActor default isolation, and enable App Sandbox and Hardened Runtime. Debug and Release use different bundle identifiers, so they have separate sandbox containers, bookmarks, and preferences.
 
-For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release.
+For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-18.
 
 ## Swift Package (Core Logic Tests)
 
@@ -68,10 +71,11 @@ Behavior:
 
 - Creates `.deriveddata-codex`.
 - Runs `scripts/prune-app-bundles.sh`, which removes root-level `.deriveddata*` directories other than `.deriveddata-codex` and app bundles other than `.deriveddata-codex/Build/Products/Debug/AudioMator.app`.
-- Without `--force`, skips `xcodebuild` when no build-relevant files changed.
+- Without `--force`, skips `xcodebuild` when no build-relevant files changed. The build-relevance allowlist is `AudioMator.xcodeproj/*`, `AudioMator/*.xcconfig`, `Config/*`, `scripts/codex-build.sh`, and source/resource files under `AudioMator/` or `AudioMatorTests/` with recognized extensions.
 - Runs a Debug generic macOS build with code signing disabled.
 - Logs to `.deriveddata-codex/xcodebuild.log`.
 - If the log contains the specific `actool`/`AppIcon.icon` crash markers, the script treats the result as a known environment false positive and exits 0. It does not prove there are no other errors, so always inspect the log.
+- Accepts only `--force`; any other argument prints usage and exits 2. The old undocumented `--full` alias was removed (commit `dcae77f3`).
 
 The script does **not** run tests, archive, sign, notarize, or package.
 
@@ -129,7 +133,7 @@ bash scripts/validate-release.sh
 
 This is the normal release gate. It runs the policy tests, the 62 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
 
-The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate).
+The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate). The test-only form is `bash scripts/validate-release.sh --tests-only`, which skips the Release build and artifact phases.
 
 ### Artifact compatibility check
 
@@ -146,7 +150,7 @@ The script checks:
 - every Mach-O has an `LC_BUILD_VERSION` minimum, and
 - every minimum is at most the expected macOS version.
 
-It does not verify signing, notarization, entitlements, architectures, bundle ID, or marketing/build versions.
+It does not verify signing, notarization, entitlements, architectures, bundle ID, marketing/build versions, or bundled license texts.
 
 ## Build Settings That Affect Development
 
@@ -186,7 +190,7 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Recorded Verification
 
-Current published 0.8.1 adoption results are recorded in [Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency.
+Current published 0.8.1 adoption results are recorded in [Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency. The most recent full repository gate with the published 0.8.1 pin is the 2026-11-18 cleanup acceptance; see [Testing](TESTING.md#release-gate-evidence) for the enforced phases and evidence location.
 
 ## Related Documents
 

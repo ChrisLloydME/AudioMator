@@ -1,6 +1,6 @@
 # Architecture Overview
 
-AudioMator is a single macOS application target assembled from layered source folders under `AudioMator/`. The application is deliberately small at the center: a SwiftUI app shell owns lifecycle, a main-actor view model owns file state and selection, and all container-specific metadata I/O is delegated to the `TagLibAudioMetadata` package through an adapter protocol.
+AudioMator is a single macOS application target assembled from layered source folders under `AudioMator/`. The application is deliberately small at the center: a SwiftUI app shell owns lifecycle, a main-actor view model owns file state and selection, and all container-specific metadata I/O is delegated to the external `TagLibAudioMetadata` package (pinned 0.8.1, mapping contract `AM-TLAM-MAPPING-2.2`) through an adapter protocol.
 
 This document describes the current structure. Detailed behavior lives in the linked architecture documents.
 
@@ -14,6 +14,7 @@ flowchart LR
     App -->|HTTPS GET| IT[itunes.apple.com and Apple artwork hosts]
     App -->|HTTPS GET| LR[lrclib.net]
     App -->|HTTPS GET| GH[api.github.com]
+    App -->|embedded HTTPS pages| Pages[MusicBrainz / Apple web pages]
     App -->|SwiftPM dependency| Pkg[TagLibAudioMetadata]
     Pkg --> TagLib[TagLib]
     App -->|opens page externally| Browser[Default browser: GitHub Releases]
@@ -33,6 +34,7 @@ flowchart TB
         Editor[Metadata Editor]
         Tool[Metadata Filename Tool]
         Online[Online Metadata shell + provider browsers]
+        Help[Metadata Field Guide]
         Settings[Settings / Welcome / Inspector sheets]
     end
     subgraph Domain
@@ -58,45 +60,47 @@ flowchart TB
     Infrastructure --> Domain
     Infrastructure --> Core
     Domain -. shared semantic types .-> Pkg[TagLibAudioMetadata]
+    Core -. format capability / field keys .-> Pkg
 ```
 
-The allowed dependency direction and its one documented exception are in [Dependency Rules](DEPENDENCY_RULES.md).
+The allowed dependency direction and its documented exceptions are in [Dependency Rules](DEPENDENCY_RULES.md).
 
 ## Composition Root
 
 `AudioMator/App/AudioMatorApp.swift` is the only composition root:
 
 1. Creates one `TagLibAudioMetadataPipeline` and one `SaveIssueLogStore`.
-2. Injects the pipeline and log store into `AudioViewModel`.
-3. Creates `SharedState`, `MusicBrainzBrowserStore`, `LRCLIBLyricsBrowserStore`, `MetadataFilenameToolStore`, and a second `MetadataEditorStore` bound to the same pipeline.
-4. Declares five scenes:
-   - the main `WindowGroup` (`ContentView`),
+2. Injects the pipeline, log store, bookmark stores, and isolated preferences into `AudioViewModel`.
+3. Creates `SharedState`, `MusicBrainzBrowserStore`, `LRCLIBLyricsBrowserStore`, `MetadataFilenameToolStore`, and a `MetadataEditorStore` bound to the same pipeline.
+4. Declares six scenes:
+   - the main `WindowGroup` (`ContentView`), minimum 900×600,
+   - the Metadata Field Guide `Window` (`MetadataFieldGuideView`; window restoration disabled),
    - `Settings` (`SettingsView`),
    - the Online Metadata window (`OnlineMetadataBrowserView`),
    - the Filename & Metadata window (`MetadataFilenameWindowView`),
    - the Metadata Editor window (`MetadataEditorWindowView`).
-5. Registers app-info, sidebar, toolbar-edit, and view-layout commands.
+5. Registers app-info, field-guide, sidebar, toolbar-edit, and view-layout commands, plus a Help-menu "Show Welcome Screen" action.
 
-Feature views receive dependencies explicitly. There is no service locator and no feature-level singleton for metadata I/O.
+The `AudioMatorTestHost` path substitutes temporary preferences and a temporary issue-log file so the serial XCTest host does not restore developer bookmarks. Feature views receive dependencies explicitly; there is no service locator and no feature-level singleton for metadata I/O.
 
 ## Application Lifecycle
 
 - `AudioMatorApp` is the `@main` SwiftUI app and installs `AppDelegate` through `NSApplicationDelegateAdaptor`.
 - On first launch, `AppDelegate` checks `hasLaunchedBefore`; if unset, it sizes the first window to 900×600, centers it, and stores the flag. Later launches keep the system-restored window state.
 - The app terminates when the last window closes (`applicationShouldTerminateAfterLastWindowClosed`).
-- The welcome sheet is presented based on `hasCompletedWelcomeSplash` and `completedWelcomeSplashVersion`; it can also be reopened from the Help menu.
-- Commands and cross-window actions communicate through `NotificationCenter` names in `AppNotifications.swift` or through injected bindings. The main window observes notifications for metadata dump, track renumber, online metadata, select-all, sidebar changes, inspector toggling, and the welcome screen.
-- `ContentView` runs selected-file reconciliation when the app becomes active.
+- The welcome sheet is presented when `WelcomeSplashProgress.shouldPresent` reports incomplete or outdated onboarding (`hasCompletedWelcomeSplash` / `completedWelcomeSplashVersion`, current version 3). It can be reopened from Settings or the Help menu.
+- Commands and cross-window actions communicate through `NotificationCenter` names in `AppNotifications.swift` or through injected bindings. The main window handles metadata dump, track renumber, online metadata, filename/metadata tool, metadata editor, clear-list confirmation, select-all, sidebar change, inspector toggle, and welcome-screen requests.
+- `ContentView` reconciles the selected files when `NSApplication.didBecomeActiveNotification` fires.
 
 ## UI Composition
 
-- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. The `.inspector` is attached outside the split view to request SwiftUI's full-height trailing column. Its width is constrained to 340–480 points. The Inspector declares its own Cancel, Save, and Hide Inspector toolbar items. The middle pane declares the file and metadata tools and provides Show Inspector when the column is closed.
+- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. SwiftUI's full-height `.inspector` modifier is applied to the split view, and the column width is constrained to 340–480 points. The Inspector hosts its own Cancel, Save, and Hide Inspector toolbar items; the middle pane provides Show Inspector when the column is closed.
 - The middle list uses an AppKit-backed table (`MiddleListTable`) bridged into SwiftUI for native selection and column behavior. Selection is mirrored back to `AudioViewModel`; rejected draft-discard changes restore the previous native selection.
-- Sidebar sources are Current Session and Watched Folders. Switching source changes the visible file collection and prunes selection.
+- Sidebar sources are Quick Import (current session) and Watched Folders (the watched library and individual folders). Switching source changes the visible file collection and prunes selection.
 - The Inspector binds to `SingleFileEditModel` or `MultiFileEditModel`. It does not own file state.
-- Metadata Editor, Filename & Metadata, and Online Metadata are separate `Window` scenes with their own stores. They receive the shared `AudioViewModel` and pipeline by injection.
+- Metadata Editor, Filename & Metadata, and Online Metadata are separate `Window` scenes with their own stores. They receive the shared `AudioViewModel` and pipeline by injection. The Metadata Field Guide is a separate read-only `Window` scene.
 - Settings is a separate `Settings` scene with six tabs: General, Interface, Folders, Conflicts, Logs, About.
-- Progress and transient results are shown through a main-window overlay/HUD queue; failures also feed the local save issue log.
+- Progress and transient results are shown through a main-window overlay/HUD queue; non-success summaries also feed the local save issue log.
 
 ## Major Components
 
@@ -111,7 +115,7 @@ Feature views receive dependencies explicitly. There is no service locator and n
 | `FileMutationCoordinator` | Actor that serializes mutations by normalized file path and supports atomic multi-path reservations. | `Domain/MetadataEditing/FileMutationCoordinator.swift` |
 | `MetadataFileMutationExecutor` | One file's write lifecycle: fingerprint validation, commit, bounded reload, structured outcome. | `Features/Main/Application/MetadataFileMutationExecutor.swift` |
 | `MetadataConflictResolver` | Rebase/merge/priority behavior when a revision changes between draft and save. | `Infrastructure/TagLib/MetadataConflictResolver.swift` |
-| `MetadataBatchExecutor` | Bounded concurrency (maximum four) for independent Inspector batch saves. | `Features/Main/Application/MetadataBatchExecutor.swift` |
+| `MetadataBatchExecutor` | Bounded concurrency (maximum four) for independent per-file mutations. | `Features/Main/Application/MetadataBatchExecutor.swift` |
 | `MetadataExchangePlanner` / `FileRenamePlan` | Pure planning for import/export and rename previews. | `Domain/MetadataExchange`, `Domain/Rename` |
 | Provider stores | Main-actor search state, cancellation, timeouts, plan construction, and apply entry points. | `Features/MusicBrainzBrowser`, `Features/iTunesBrowser`, `Features/LRCLIBLyricsBrowser` |
 | Provider clients | URL construction, decoding, mapping, throttling, caching, error translation. | `Infrastructure/MusicBrainz`, `Infrastructure/iTunes`, `Infrastructure/LRCLIB` |
@@ -128,10 +132,10 @@ sequenceDiagram
     participant Pkg as TagLibAudioMetadata
     participant AV as AVFoundation
 
-    User->>VM: importQuickFiles(urls)
+    User->>VM: importQuickFiles(from:)
     VM->>VM: dedupe, assign stable IDs, start security scope
     VM->>Loader: concurrent load (bounded task group)
-    Loader->>Pkg: readSnapshot(url)
+    Loader->>Pkg: readSnapshot + numberingInventory
     Pkg-->>Loader: basic tags, raw, structured, fileVersion
     Loader->>AV: optional credits/technical fallback
     Loader->>Loader: fingerprint + version coherence check
@@ -139,7 +143,7 @@ sequenceDiagram
     VM->>VM: merge in batches, rebuild visible list
 ```
 
-Quick Import loads with `min(max(activeProcessorCount × 2, 6), 12)` concurrent tasks and publishes partial batches (24 / 48 items, 200 ms flush interval). A failed source read remains a failure; a single transient read retry is allowed during import to accommodate file-provider materialization.
+Quick Import loads with `min(max(activeProcessorCount × 2, 6), min(12, count))` concurrent tasks and publishes partial batches: flush at 48 pending items immediately, or at 24 items after a 200 ms minimum interval. A failed source read remains a failure; one transient read retry is allowed during import to accommodate file-provider materialization.
 
 ### Selection and Drafts
 
@@ -163,7 +167,7 @@ sequenceDiagram
     Exec->>Coord: reserve normalized path
     Coord-->>Exec: granted
     Exec->>Resolver: validate identity + resolve conflicts
-    Resolver->>Pkg: writeMetadata / writeRawMetadataPatch
+    Resolver->>Pkg: applyMetadataPatch / applyRawMetadataPatch
     Pkg-->>Resolver: warnings / durability status
     Resolver-->>Exec: result
     Exec->>Pkg: reload snapshot (bounded)
@@ -188,7 +192,7 @@ Metadata reload after rename recovers the fingerprint and metadata revision inde
 
 ### Online Metadata
 
-Provider stores own their search tasks and cancellation. Applying results constructs a write plan with the source snapshot's expected fingerprint; the same `AudioViewModel` write path performs the mutation. LRCLIB lyrics are applied as a raw `LYRICS` patch rather than a full PropertyMap rewrite.
+Provider stores own their search tasks and cancellation. Applying results constructs a write plan with the source snapshot's expected fingerprint; the same `AudioViewModel` write path performs the mutation. LRCLIB lyrics are applied as a raw `LYRICS` patch rather than a full property-map rewrite.
 
 ## State Ownership
 
@@ -197,10 +201,10 @@ Provider stores own their search tasks and cancellation. Applying results constr
 | Loaded files and watched-folder lists | `AudioViewModel` | Session |
 | Selection | `AudioViewModel` | Session |
 | Inspector/Metadata Editor drafts | `AudioViewModel`, `MetadataEditorStore` | Session |
-| Sidebar choice, sort, column/toolbar visibility | `SharedState` | Session, with `UserDefaults` persistence for presentation preferences |
+| Sidebar choice, sort, column/toolbar/inspector-field visibility | `SharedState` | Session, with `UserDefaults` persistence |
 | Watched folders and file-access grants | `WatchedFolderStore`, `FileAccessGrantStore` | Persisted bookmarks in `UserDefaults` |
-| Conflict policy | `UserDefaults` key `metadata.conflictPolicy` | Persisted |
-| Save issue log | `SaveIssueLogStore` | JSON file in Application Support |
+| Conflict policy | `MetadataConflictPolicy.load` from `metadata.conflictPolicy` | Persisted |
+| Save issue log | `SaveIssueLogStore` | `Application Support/AudioMator/SaveIssueLog.json`, capped at 200 entries |
 | Provider search state | Provider stores | Feature/window lifetime |
 
 No view owns authoritative file state. Views bind to observable owners and send explicit intents.
@@ -210,9 +214,9 @@ No view owns authoritative file state. Views bind to observable owners and send 
 - The UI and all view models are main-actor isolated. The project sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 - File loading, TagLib snapshots, and writes run in detached tasks or task groups so the main actor is not blocked by I/O.
 - `FileMutationCoordinator` is an actor providing path-level exclusive access.
-- Different files may be written concurrently (maximum four in Inspector batch saves); the same normalized path is always serialized.
+- Different files may be written concurrently (maximum four by `MetadataBatchExecutor`); the same normalized path is always serialized.
 - `withAsyncTimeout` bounds reloads, provider operations, and other awaits that could hang. Timeouts do not cancel an already-started synchronous TagLib write.
-- Generation tokens and snapshot IDs prevent a late result from replacing a newer file model.
+- Refresh generations and snapshot IDs prevent a late result from replacing a newer file model.
 
 ## Error Propagation and Recovery
 
@@ -220,7 +224,7 @@ Errors are converted to structured outcomes close to the operation:
 
 - `MetadataFileMutationResult`: success (with optional reload warning), failure, cancelled.
 - `AudioMetadataCommitStatus`: durable, or durability uncertain after commit.
-- `FileRenameExecutionResult`: success or failure with recovery items.
+- `FileRenameExecutionResult`: completed operations or failure with recovery items.
 - Provider errors: typed client errors mapped to user-facing messages.
 - Batch results: per-file success, warning, or failure; never a group transaction.
 
@@ -239,7 +243,7 @@ The code is extended by conforming to existing protocols and injecting at the co
 - `MusicBrainzBrowserClient`, `iTunesBrowserClient`, `LRCLIBLyricsSearching`, `iTunesArtworkServicing` — provider clients and test doubles.
 - `FileRenameFileSystem` — rename filesystem seam.
 - `UpdateReleaseProviding` — update source.
-- `DirectoryMonitor` and bookmark stores — filesystem integration.
+- `DirectoryMonitor` and the bookmark stores — filesystem integration.
 
 There is no plugin system, scripting surface, or public framework API. All types are internal to the app target.
 
@@ -257,6 +261,7 @@ There is no plugin system, scripting surface, or public framework API. All types
 
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [Metadata Pipeline](METADATA_PIPELINE.md)
+- [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Metadata Exchange](METADATA_EXCHANGE.md)
 - [Rename and Renumbering](RENAME_AND_RENUMBERING.md)

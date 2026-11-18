@@ -2,7 +2,7 @@
 
 This guide describes the workflows implemented in AudioMator for macOS. Button placement can change; behavior described here is tied to the current source.
 
-AudioMator edits metadata in place. It does not create a project file, and it does not keep a backup copy of the original audio file. Work on copies, or make a backup, when testing unfamiliar formats or tools.
+AudioMator edits metadata in place. It does not create a project file, and it does not keep a backup copy of the original audio file or an undo history. Work on copies, or make a backup, when testing unfamiliar formats or tools.
 
 ## Getting Files Into the App
 
@@ -10,7 +10,7 @@ AudioMator has two sources, shown in the sidebar.
 
 ### Current Session (Quick Import)
 
-1. Choose **Add Files** (or press Command-O).
+1. Choose **Add Files…** (or press Command-O). The command is in the Edit menu and available as a toolbar button.
 2. Select one or more audio files.
 3. Files are loaded into the session list. The session is not persisted; files disappear from the app when you remove them or quit.
 
@@ -18,11 +18,11 @@ Quick Import reads files concurrently in the background and adds them to the lis
 
 ### Watched Folders
 
-1. Use **Add Folder…** (in the sidebar or Settings → Folders).
+1. Choose **Add Folder…** in the sidebar, **Add Watched Folder…** from the Edit menu, or the add button in Settings → Folders.
 2. Choose one or more folders.
 3. AudioMator stores security-scoped bookmarks so the folders are restored on later launches.
 
-Watched folders scan recursively, skipping hidden files and package descendants. Directory changes trigger a debounced rescan (350 ms). On app activation, the selected files are checked for external changes as well. If a folder contains too many directories or some cannot be monitored, the sidebar reports degraded automatic refresh; a manual reload or activation can still refresh files.
+Watched folders scan recursively, skipping hidden files and package descendants. Directory changes trigger a debounced rescan (350 ms). On app activation, the selected files are checked for external changes as well. If a folder contains too many directories (the monitoring limit is 128 per folder) or some cannot be monitored, the sidebar and Settings → Folders report degraded automatic refresh; a manual reload or activation can still refresh files.
 
 Removing a watched folder from AudioMator does not delete it from disk.
 
@@ -30,54 +30,54 @@ Removing a watched folder from AudioMator does not delete it from disk.
 
 The middle list supports single and multiple selection. Selection drives:
 
-- which Inspector or Metadata Editor targets are active,
+- which Inspector, Metadata Editor, conversion, and online tools are active,
 - which files Save applies to,
 - which files the conversion and online tools operate on.
 
 Changing selection or sidebar source can discard an unsaved Inspector draft. If the draft has changes, AudioMator asks before discarding; the warning can be suppressed in Settings → General.
 
-Files appear in the middle list with configurable columns. Sorting is available by column, and the list also supports a manual order used by track renumbering. Visible columns, toolbar buttons, and Inspector fields are configured in Settings → Interface.
+Files appear in the middle list with configurable columns. Sorting is available by column, and the list also supports a manual order used by track renumbering. Visible columns, toolbar buttons, and Inspector fields are configured in Settings → Interface; each section has a restore action.
 
 ## Editing Common Metadata (Inspector)
 
-The right Inspector is a curated common-field editor. Settings → Interface → Inspector Metadata Fields controls its rows for both single and multiple selection. Container-specific fields are not automatically appended; use Metadata Editor for additional PropertyMap fields and Tag Inspector for native inspection. New installations use the common-field defaults; Date, Original Release Date, Content Group, Grouping and Work are optional. Existing saved field choices are preserved. Hiding a row changes presentation only: it neither deletes file metadata nor discards an existing draft. Save still applies all pending changes, including a draft entered before its row was hidden.
+The right Inspector is a curated common-field editor. Settings → Interface → Inspector Metadata Fields controls its rows for both single and multiple selection. Container-specific fields are not automatically appended; use Metadata Editor for additional PropertyMap fields and Tag Inspector for native inspection. New installations show Title, Artist, Album, Composer, Genre, Year, Track Number, Total Tracks, Disc Number, Total Discs, Comment, Album Artist, Release Date, Publisher, Copyright, Explicit and Credits; Date, Original Release Date, Content Group, Grouping and Work are optional. Existing saved field choices are preserved. Hiding a row changes presentation only: it neither deletes file metadata nor discards an existing draft. Save still applies all pending changes, including a draft entered before its row was hidden.
 
 The Inspector edits the fields visible for the current selection. For a single file it is a direct draft of that file. For multiple files it shows shared values and marks mixed values; edited fields are applied to every selected file.
 
 1. Select one or more files.
 2. Edit fields in the Inspector.
-3. Choose **Save** in the Inspector toolbar or **Save Edits** from the menu to write pending changes, or **Cancel** in the Inspector toolbar to discard them. Both save commands apply to the current selection.
+3. Choose **Save** in the Inspector toolbar or **Save Edits** from the Edit menu to write pending changes, or **Cancel** in the Inspector toolbar (**Cancel Edits** in the Edit menu) to discard them. Both save commands apply to the current selection.
 
-On macOS 26 and later, the Inspector toolbar controls align to the right edge of the pane. Use **Hide Inspector** to close the pane. When it is closed, **Show Inspector** appears at the right of the middle pane's toolbar.
+On macOS 26 and later, the Inspector toolbar controls align to the right edge of the pane. Use **Hide Inspector** to close the pane. When it is closed, **Show Inspector** appears at the right of the middle pane's toolbar; the View menu also offers **Toggle Inspector**.
 
 Saves write only the fields that changed from the draft's baseline. Before writing, AudioMator checks that the format supports each requested field. If any requested field is unsupported, the file is not written and the unsupported fields are reported.
 
-For multiple files, Inspector, MusicBrainz/iTunes plans, and filename/CSV metadata imports process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records save warnings and failures, plus per-file outcomes for incomplete batches (Settings → Logs). A single operation cancelled before writing does not create a save issue entry; an incomplete batch retains the unprocessed files as warning records so each selected file is accounted for.
+For multiple files, Inspector, MusicBrainz/iTunes plans, filename/CSV imports and related batch work process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records save warnings and failures, plus per-file outcomes for incomplete batches (Settings → Logs). A single operation cancelled before writing does not create a save issue entry; an incomplete batch retains the unprocessed files as warning records so each selected file is accounted for.
 
 ### Numbering compatibility
 
-Older numbering values are handled internally and can appear in the normal Track Number, Total Tracks, Disc Number and Total Discs fields. Opening/importing files does not rewrite them. Saving a number change uses the intended field values and preserves the other pair; there is no separate Restore/Cleanup operation. If a number or total cannot be determined safely, enter its intended value in that ordinary field and save again. Unrelated edits preserve existing numbering data.
+Older numbering values are handled internally and can appear in the normal Track Number, Total Tracks, Disc Number and Total Discs fields. Opening or importing files does not rewrite them. Saving a number change uses the intended field values and preserves the other pair; there is no separate Restore/Cleanup operation. If a number or total cannot be determined safely, enter its intended value in that ordinary field and save again. Unrelated edits preserve existing numbering data. Numeric components are required for semantic edits; text such as `A1` is preserved during unrelated edits but must be changed in Metadata Editor.
 
 ### Artwork
 
-Artwork can be replaced from a local image or clipboard data, or cleared. The original embedded bytes are retained for unchanged files. Replacement bytes and MIME type are sent to the metadata pipeline as one artwork patch. Artwork write support is format-dependent and is preflighted like other fields.
+Artwork can be replaced from a local image, the photo library, or clipboard data, or cleared. The original embedded bytes are retained for unchanged files. Replacement bytes and MIME type are sent to the metadata pipeline as one artwork patch. Artwork write support is format-dependent and is preflighted like other fields. Single-file controls offer **Choose Artwork…** (Finder or Photo Library), **Fetch Online…**, and **Clear Artwork**; the context menu adds **Import from Clipboard**. Multi-selection controls offer the same actions with **Clear All**, and **Keep Current Artwork** in the context menu.
 
 ## Editing Raw Metadata (Metadata Editor)
 
 The Metadata Editor exposes the TagLib PropertyMap projection as ordered value lists. One line represents one value; duplicates, empty values, whitespace, and literal semicolons are preserved.
 
-- Open it from the toolbar or the **Metadata Tools** menu.
-- Add, edit, or delete fields for the selected files.
-- Text utilities can trim, replace, change case, and add prefixes/suffixes across selected fields.
-- **Apply** writes only changed keys as a raw patch, preserving unrelated external keys and value arrays.
+- Open it from the toolbar or from **Metadata Editor…** in the Edit menu.
+- Add, edit, or delete fields for the selected files with **Add Field…**, **Edit Selected…** and **Delete Field**.
+- **Utilities…** can trim, replace, change case, and add prefixes/suffixes across selected fields.
+- **Done** writes only changed keys as a raw patch, preserving unrelated external keys and value arrays. **Cancel** or closing the window discards the draft.
 
 Container-native structures that TagLib does not project into PropertyMap do not appear here. Use Tag Inspector to inspect them.
 
-The editor's draft is independent of the Inspector draft. Closing the editor discards its changes.
+The editor's draft is independent of the Inspector draft.
 
 ## Inspecting Raw Tags (Tag Inspector)
 
-Tag Inspector is read-only. It shows:
+Tag Inspector is read-only. It opens as a Metadata Details sheet and shows:
 
 - a TagLib properties section,
 - ID3v2 frames when available,
@@ -94,12 +94,12 @@ Settings → Conflicts controls what happens when a file changes on disk while a
 
 | Strategy | Behavior |
 | --- | --- |
-| Merge non-conflicting changes (default) | Merge edits to untouched fields; keep the draft and stop when the same field changed on both sides. Exact single-field convergence is accepted. |
+| Merge non-conflicting changes (Recommended; default) | Merge edits to untouched fields; keep the draft and stop when the same field changed on both sides. Exact single-field convergence is accepted. |
 | Prefer my changes | Apply the draft to conflicting fields. |
 | Prefer disk changes | Keep the disk value for conflicting fields and report the discarded draft fields. |
 | Require manual reload | Stop if the revision changed and require a reload. |
 
-Preview-based tools, online write plans, track renumbering, lyrics application, and Clear All Metadata keep stricter revision requirements and are not affected by this setting.
+Track number/total tracks, disc number/total discs, and artwork are handled as groups. Preview-based tools, online write plans, track renumbering, lyrics application, and Erase All Tags keep stricter revision requirements and are not affected by this setting.
 
 ### Reload from Disk
 
@@ -120,11 +120,11 @@ AudioMator distinguishes:
 - cancellation before the mutation started,
 - manual recovery required after an incomplete rename rollback.
 
-A "saved but could not refresh" result means the disk write succeeded. Do not retry it as though it failed; reload instead.
+A "saved but could not refresh" result means the disk write succeeded. Do not retry it as though it failed; reload instead. A post-commit durability failure is also reported as saved with a warning.
 
 ## Filename, Text, CSV, and Field Conversion
 
-Open **Filename & Metadata** from the toolbar. The tool has seven modes:
+Open **Filename & Metadata** from the toolbar or the Edit menu. The tool has seven modes:
 
 1. **Metadata to Filename** — build a new base name from a template, keeping the extension.
 2. **Filename to Metadata** — parse a filename stem with a match template and write the captured values.
@@ -134,21 +134,21 @@ Open **Filename & Metadata** from the toolbar. The tool has seven modes:
 6. **CSV to Metadata** — import CSV columns into selected files.
 7. **Copy or Cut Metadata Fields** — copy or move one field into another for each selected file.
 
-Templates use `{{field}}` placeholders. Filename templates support fields such as `{{title}}`, `{{artist}}`, `{{album}}`, `{{albumArtist}}`, `{{trackNumber}}`, `{{discNumber}}`, `{{year}}`, `{{date}}`, `{{releaseDate}}`, `{{originalReleaseDate}}`, `{{comment}}`, `{{publisher}}`, `{{copyright}}`, and `{{credits}}`.
+Templates use `{{field}}` placeholders. Filename and text templates support `{{title}}`, `{{artist}}`, `{{album}}`, `{{albumArtist}}`, `{{composer}}`, `{{genre}}`, `{{trackNumber}}`, `{{discNumber}}`, `{{year}}`, `{{date}}`, `{{releaseDate}}`, `{{originalReleaseDate}}`, `{{comment}}`, `{{publisher}}`, `{{copyright}}` and `{{credits}}`; unmatched parts can use `{{_ignore}}`.
 
 ### Preview before writing
 
-Every mode builds a preview plan before applying changes. The preview identifies unmatched, ambiguous, invalid, unchanged, and writable rows. Files changed since the preview are rejected inside the file mutation reservation.
+Every mode builds a preview plan before applying changes. The preview identifies unmatched, ambiguous, invalid, unchanged, and writable rows. Files changed since the preview are rejected inside the file mutation reservation. There is no Refresh Preview button.
 
 ### Text and CSV rules
 
-- Text and CSV exports start with `# AudioMator-Metadata-Profile: 2`, which marks the exchange profile and lets reimports preserve independent Year, Date, Release Date and Original Release Date values. Files without the marker are read with the legacy v1 meanings.
-- In a v2 export, an unquoted `<remove>` cell removes that field; a quoted `"<remove>"` is literal text. In v2 text exports, a literal token is escaped with a backslash. Legacy or unmarked imports treat `<remove>` as literal text.
+- Text and CSV exports start with `# AudioMator-Metadata-Profile: 2`, which marks the exchange profile and lets reimports preserve independent Year, Date, Release Date and Original Release Date values. Files without the marker are read with the legacy v1 meanings; unknown newer profile versions are rejected.
+- In a v2 export, an unquoted `<remove>` cell removes that field; a quoted `"<remove>"` is literal text. Text exports escape a literal leading `<remove>` and any leading backslash run so both values round-trip. Legacy or unmarked imports treat `<remove>` as literal text.
 - Plain-text templates otherwise have no general escaping syntax. Use CSV when a value can contain a line break or the template's literal separators.
-- CSV templates support comma, semicolon, pipe, and tab delimiters, quoted fields, doubled quotes, embedded line breaks, optional headers, and reversible spreadsheet-formula protection.
+- CSV templates support comma, semicolon, pipe, and tab delimiters, quoted fields, doubled quotes, embedded line breaks, optional headers, and reversible spreadsheet-formula protection. Export is UTF-8 with CRLF rows.
 - Imports can match by selection order or by unambiguous locators: File Name, Base Name, Path, Relative Path, or Index.
-- Blank imported values are ignored unless **clear empty values** is enabled.
-- AudioMator can read UTF-8, UTF-16, Windows-1252, and Mac Roman text. Export is UTF-8; CSV rows use CRLF.
+- Blank imported values are ignored unless **Clear blank imported values** is enabled.
+- AudioMator can read UTF-8, UTF-16, Windows-1252, and Mac Roman text.
 - Limits: 100,000 files/records, 32 MB of source or generated text, 256 KB per plain-text record, and 1 MB per CSV field.
 
 Writes are verified per file and are not an all-or-nothing batch transaction.
@@ -160,7 +160,7 @@ Choose a source field, a destination field, and **Copy** or **Cut**. Each file u
 ## Renumbering Tracks
 
 1. Arrange files in the intended order in the middle list (or select a subset).
-2. Choose **Renumber Tracks**.
+2. Choose **Renumber Tracks…**.
 3. Choose ascending or descending direction, a start number (0–9,999), and zero-padding.
 4. Review the preview and apply.
 
@@ -168,7 +168,7 @@ Renumbering rewrites track number text with verification enabled, then reloads e
 
 ## Online Metadata, Artwork, and Lyrics
 
-Open **Online Metadata** from the toolbar. Choose a source:
+Open **Online Metadata** from the toolbar or the Edit menu. Choose a source:
 
 - **MusicBrainz** — recordings, releases, relationships, credits, identifiers.
 - **iTunes** — Apple catalog metadata, UPC/link/store-ID lookup, artwork.
@@ -176,13 +176,13 @@ Open **Online Metadata** from the toolbar. Choose a source:
 
 Network requests start only after an explicit search or lookup action. Review results and the write plan before applying. Provider results are written through the same metadata pipeline and revision guards as manual edits.
 
-MusicBrainz requests are rate-limited to roughly one request per 1.1 seconds and identify the app in the `User-Agent`. Provider outages, rate limits, malformed responses, and cancellations are surfaced in the UI; partial provider failures are possible.
+MusicBrainz requests are rate-limited to one request per 1.1 seconds and identify the app in the `User-Agent`; HTTP 503 responses are retried up to two times. Provider outages, rate limits, malformed responses, and cancellations are surfaced in the UI; partial provider failures are possible.
 
 See [Online Metadata](../Architecture/ONLINE_METADATA.md) and [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md) for data sent to each service.
 
 ## MuseAmp Compatibility IDs
 
-With Settings → General → **MuseAmp Compatibility** enabled, the track list context menu can generate MuseAmp album/track IDs. The operation writes a JSON payload into each selected file's Comment field:
+With Settings → General → **MuseAmp Compatibility** enabled, the track list context menu shows **Create MuseAmp IDs…**. The operation writes a JSON payload into each selected file's Comment field:
 
 ```json
 {"albumID":"…","trackID":"…","v":1}
@@ -194,22 +194,22 @@ This replaces the existing Comment value on those files. IDs are deterministic f
 
 Settings contains six tabs:
 
-- **General** — welcome screen, unsaved-draft warning, MuseAmp compatibility.
-- **Interface** — visible toolbar buttons, list columns, and Inspector fields.
-- **Folders** — watched folders and file-access authorizations.
+- **General** — welcome screen on launch, warn before discarding Inspector edits, MuseAmp compatibility.
+- **Interface** — visible toolbar buttons, list columns, and Inspector metadata fields, each with a restore action.
+- **Folders** — file-access authorizations and watched folders.
 - **Conflicts** — Inspector/Metadata Editor conflict strategy.
-- **Logs** — locally persisted save issue history.
-- **About** — version, links, release notes, and manual update check.
+- **Logs** — locally persisted save issue history, with copy and clear actions.
+- **About** — version, build, contact link, release notes, acknowledgements, privacy, and the manual update check.
 
 ## Checking for Updates
 
-**Check for Updates…** asks the GitHub Releases API for the latest release. The release tag must look like `V2.7B2697`. AudioMator compares version segments and then the build number. It only reports whether a newer release exists and offers to open the GitHub Releases page; it does not download or install an update.
+**Check for Updates…** (App menu or Settings → About) asks the GitHub Releases API for the latest release. The release tag must look like `V2.7B26112`. AudioMator compares version segments and then the build number. It only reports whether a newer release exists and offers to open the GitHub Releases page; it does not download or install an update. Rate-limited or malformed responses are reported explicitly.
 
 ## Where AudioMator Stores Data
 
 - Watched-folder and file-access bookmarks: app preferences (`UserDefaults`).
 - Interface preferences and conflict policy: app preferences.
-- Save issue log: `Application Support/AudioMator/SaveIssueLog.json` inside the app sandbox container.
+- Save issue log: `Application Support/AudioMator/SaveIssueLog.json` inside the app sandbox container; the log keeps at most 200 entries.
 - User-selected audio files: unchanged location; metadata is written in place.
 
 AudioMator does not store copies of audio files.
@@ -226,6 +226,6 @@ Track and disc numbers can be blank while their totals remain set. Clearing an i
 
 ## Operation Result HUD
 
-Success, warning, and failure results use a centered SF Symbol above the title. The larger card separates the filename or batch result from the detailed reasons below. Batch results use complete sentences, group file names with their reasons, and state when additional files have issues. Detail groups are kept together within the notification budget; omitted groups are identified with a total count and up to three shortened headings. An oversized single reason has an explicit omitted-character count; the HUD contains no log-navigation link. The HUD remains noninteractive and does not take keyboard focus. Success results stay visible for 3 seconds, warnings for 8 seconds, and failures for 10 seconds.
+Success, warning, and failure results use a centered SF Symbol above the title, followed by a summary and any detailed reasons. Batch results use complete sentences, group file names with their reasons, and state when additional files have issues. Detail groups are kept together within the notification budget; omitted groups are identified with a total count and up to three shortened headings, and an oversized single reason has an explicit omitted-character count. The HUD contains no log-navigation link, remains noninteractive, and does not take keyboard focus. Success results stay visible for 3 seconds, warnings for 8 seconds, and failures for 10 seconds.
 
-An error does not automatically mean that nothing was saved. A partial result identifies the files that succeeded; a save followed by a readback or durability warning is still reported as saved. Detailed reasons from macOS and TagLib remain available in the result or save logs. Automatic refresh, explicit Reload from Disk, and conflict handling retain their existing behavior. Reload from Disk is in the file list’s context menu and asks before discarding unsaved Inspector edits. There is no Refresh Preview button.
+An error does not automatically mean that nothing was saved. A partial result identifies the files that succeeded; a save followed by a readback or durability warning is still reported as saved. Detailed reasons from macOS and TagLib remain available in the result or save logs. Automatic refresh, explicit Reload from Disk, and conflict handling retain their existing behavior. Reload from Disk is in the file list's context menu and asks before discarding unsaved Inspector edits.

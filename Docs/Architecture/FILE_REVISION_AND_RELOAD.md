@@ -57,12 +57,12 @@ Stored in `UserDefaults` under `metadata.conflictPolicy`. Missing or unknown val
 | `Prefer disk changes` | Merge silently | Keep the disk group and report discarded draft fields |
 | `Require manual reload` | Stop if the revision changed | Keep the draft and require reload |
 
-Fields are compared as conservative groups:
+Fields are compared as conservative native-storage groups:
 
 - track number + total tracks,
 - disc number + total discs,
-- year + release date,
 - performer + musician credits,
+- YEAR, DATE, RELEASE DATE and ORIGINAL RELEASE DATE are each an independent group (no date identity is an alias of another),
 - the complete artwork set.
 
 Raw editor saves compare edited property keys and the native structures mapped to them. Unknown custom keys use a conservative comparison of all native ID3/MP4/ASF structures.

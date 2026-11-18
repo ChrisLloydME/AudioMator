@@ -89,7 +89,7 @@ bash scripts/validate-release.sh
 
 It runs the policy tests, all Foundation-only core tests, the complete serial app-hosted suite, an unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
 
-Agents must verify their own changes through code inspection, compilation, and the smallest relevant automated tests. Interactive UI acceptance remains the maintainer's responsibility. Do not launch the app manually, use GUI automation, or take screenshots as proof of completion.
+Agents must verify their own changes through code inspection, compilation, and the smallest relevant automated tests. Documentation consistency is part of that verification: update the affected canonical documents in the same changeset and run the documentation link check. Interactive UI acceptance remains the maintainer's responsibility. Do not launch the app manually, use GUI automation, or take screenshots as proof of completion.
 
 ## Code Conventions
 
@@ -136,16 +136,19 @@ Network features must be explicit and user initiated. When adding or changing on
 - Add the copyright notice and full license text for every new bundled dependency.
 - Do not remove the TagLib or `TagLibAudioMetadata` notices while distributing their code.
 - Update [Third-Party Notices](Docs/THIRD_PARTY_NOTICES.md) and [Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) in the same change.
-- Run `AudioMatorTests/LicenseDisclosureTests` after changing a bundled license or resource name.
+- Run the `LicenseDisclosureTests` suite (`AudioMatorTests/Unit/Core/LicenseDisclosureTests.swift`) after changing a bundled license or resource name.
 
 ## Documentation
 
-A behavior change is incomplete until its documentation is updated. Use the [documentation update matrix](Docs/Development/DOCUMENTATION.md#update-matrix).
+A behavior change is incomplete until its documentation is updated in the same changeset. Use the [documentation update matrix](Docs/Development/DOCUMENTATION.md#update-matrix).
 
+- Identify the affected canonical documents before changing code; extend an existing document instead of adding an overlapping one.
 - Keep current-state docs in `Docs/Product`, `Docs/Architecture`, `Docs/Development`, `Docs/Reference`, and `Docs/Security`.
-- Do not add current guidance under `Docs/Engineering/HISTORY`.
-- Do not duplicate an existing explanation; link to it.
-- Label proposals and unverified behavior.
+- Verify each documentation claim against the implementation; do not copy stale claims.
+- Remove descriptions invalidated by architectural, API, feature, or behavioral changes, along with references to abandoned plans and obsolete workflows.
+- Label known limitations, proposals, and unverified behavior explicitly.
+- Do not add current guidance under `Docs/Engineering` or `Docs/Engineering/HISTORY`; those are dated records.
+- Run `python3 scripts/check-doc-links.py` and confirm the documentation is internally consistent before opening a pull request.
 
 ## Pull Request Expectations
 
@@ -154,7 +157,7 @@ A pull request should include:
 - a clear description of the problem and the change,
 - affected layers and user-visible behavior,
 - tests added or updated, and commands run,
-- documentation updated,
+- documentation updated in the same changeset, with `python3 scripts/check-doc-links.py` passing,
 - screenshots only for user-facing UI changes, if the contributor chooses,
 - known limitations or follow-up work.
 
@@ -165,7 +168,7 @@ Reviewers check:
 - error and cancellation handling,
 - data-integrity behavior,
 - test relevance,
-- documentation accuracy.
+- documentation accuracy and consistency: affected canonical documents updated, links passing, implemented behavior separated from limitations, proposals, and unverified claims.
 
 ## Commit Messages
 

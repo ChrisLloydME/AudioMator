@@ -26,7 +26,7 @@ The project resolves `TagLibAudioMetadata` from GitHub. Check network access and
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-Then verify that the resolved version matches `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (currently exact 0.7.3, revision `7ca1b75326388a5902815f70145b600299944ae0`).
+Then verify that the resolved version matches `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` (currently exact 0.8.1, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`).
 
 ### `xcodebuild` cannot write caches
 
@@ -45,7 +45,7 @@ and runs on the `xcode-27` runner label. This is a CI-specific path, not the nor
 
 ### `scripts/codex-build.sh` reports an AppIcon tool crash
 
-The script recognizes a known environment-specific failure where `actool` or `ibtoold` crashes while compiling `AudioMator/AppIcon.icon`. When the log contains those markers, the script reports a known false positive and exits 0. It does not check for other errors in that case, so always inspect `.deriveddata-codex/xcodebuild.log` for real failures.
+The script recognizes a known environment-specific failure when the build log contains both `The file "AppIcon.icon" couldn't be opened.` and `Exception while running actool`. When those markers are present, the script reports a known false positive and exits 0. It does not check for other errors in that case, so always inspect `.deriveddata-codex/xcodebuild.log` for real failures.
 
 ### The build succeeds but the app cannot be launched for testing
 
@@ -55,7 +55,7 @@ Do not treat launching the GUI as build validation. Repository policy reserves i
 
 ### The file changed after it was checked
 
-The file changed since the draft baseline. Automatic refresh keeps unsaved drafts and their original baseline; non-conflicting changes can be merged when saving. If the same fields changed both on disk and in the draft, choose a conflict strategy in Settings. Under Require manual reload, use Reload from Disk in the file list’s context menu, confirm discarding unsaved Inspector edits, and reapply the intended edit. Do not disable version checks.
+The file changed since the draft baseline. Automatic refresh keeps unsaved drafts and their original baseline; non-conflicting changes can be merged when saving. If the same fields changed both on disk and in the draft, choose a conflict strategy in Settings → Conflicts. Under Require manual reload, use Reload from Disk in the file list's context menu, confirm discarding unsaved Inspector edits, and reapply the intended edit. Do not disable version checks.
 
 ### The file could not be checked for changes
 
@@ -71,11 +71,15 @@ This is reported as a warning, not a failure. The bytes were committed; the app 
 
 ### A batch save stopped partway
 
-Batch operations commit per file. Review the per-file result and the save issue log. Retrying submits only pending fields for files that still need changes.
+Batch operations commit per file. Review the per-file result and the save issue log in Settings → Logs. Retrying submits only pending fields for files that still need changes.
 
 ### Written metadata looks different after saving
 
 Some containers normalize number text, dates, artwork roles, or key casing. Confirm the stored representation in Tag Inspector. If numeric values round-trip and the difference is documented normalization, the write was successful.
+
+### Erase All Tags left structures behind
+
+Erase-all is best effort. Some containers keep native structures or non-ProjectMap data that the dependency cannot remove. This is a known limitation, not a failed save.
 
 ## Rename and Conversion
 
@@ -85,7 +89,7 @@ Another file already uses the target name, or two rows target the same name. Res
 
 ### The file changed while a preview was open
 
-The preview captured a fingerprint, but the file changed before the transaction started. Previews follow the currently loaded data automatically. Close and reopen the tool to review its current values; there is no Refresh Preview button. If the file cannot be checked or remains blocked after a move, use Reload from Disk in the file list’s context menu. This rereads the file; it does not override a failed write.
+The preview captured a fingerprint, but the file changed before the transaction started. Previews follow the currently loaded data automatically. Close and reopen the tool to review its current values; there is no Refresh Preview button. If the file cannot be checked or remains blocked after a move, use Reload from Disk in the file list's context menu. This rereads the file; it does not override a failed write.
 
 ### A rename failed and left a temporary or destination file
 
@@ -99,11 +103,11 @@ Common causes: ambiguous locator matches, duplicate records for one file, missin
 
 ### A watched folder is missing or cannot be restored
 
-macOS may invalidate a bookmark after a folder is moved, renamed, or its permissions change. Re-add the folder. If the saved bookmark data is corrupt, AudioMator preserves the original data and warns instead of overwriting it.
+macOS may invalidate a bookmark after a folder is moved, renamed, or its permissions change. Re-add the folder. If the saved bookmark data is corrupt, AudioMator preserves the original data in a corrupt-backup preference key, refuses to overwrite it, and reports the problem.
 
 ### Automatic refresh is degraded
 
-Check the sidebar status. AudioMator caps directory monitors at 128 per folder and reports directories that could not be opened or scanned. Refresh manually or return to the app to trigger selected-file reconciliation.
+Check the sidebar status and Settings → Folders. AudioMator caps directory monitors at 128 per folder and reports directories that could not be opened or scanned. Refresh manually or return to the app to trigger selected-file reconciliation.
 
 ### Files changed on disk but the app did not notice
 
@@ -113,7 +117,7 @@ AudioMator does not continuously monitor every open file. Directory events can m
 
 ### A lookup times out or is rate-limited
 
-MusicBrainz requests are spaced at roughly one per 1.1 seconds; the client retries HTTP 503 up to two times. GitHub update checks report rate limiting explicitly. Wait and retry. There is no offline cache for new queries beyond the in-memory response cache.
+MusicBrainz requests are spaced at one per 1.1 seconds; the client retries HTTP 503 up to two times. GitHub update checks report rate limiting explicitly. Wait and retry. There is no offline cache for new queries beyond the in-memory response cache.
 
 ### No result for a correct-looking query
 
@@ -127,7 +131,7 @@ Artwork write support depends on the container and is checked before writing. Th
 
 ### "Release version is not recognized"
 
-The update checker requires tags of the form `V<version>B<build>`, for example `V2.7B2697`. Both markers are uppercase; the version core must be dot-separated integers and the build must be numeric.
+The update checker requires tags of the form `V<version>B<build>`, for example `V2.7B26112`. Both markers are uppercase; the version core must be dot-separated integers and the build must be numeric.
 
 ### The update check says the app is ahead of the latest release
 
@@ -137,7 +141,8 @@ The local marketing version/build is newer than the latest GitHub release tag. T
 
 - Save issues: Settings → Logs.
 - Build logs: `.deriveddata-codex/xcodebuild.log`.
-- Raw tags: Tag Inspector and the metadata dump sheet.
+- Raw tags: Tag Inspector (Metadata Details sheet).
+- Field meanings and storage: Help → Metadata Field Guide.
 - Dependency boundary issues: see [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 When reporting a bug, include the AudioMator version and build, macOS version, file format, the exact operation, and whether the file was on a local or network volume. Do not include sensitive file contents unless necessary.
@@ -148,4 +153,4 @@ A nonempty total must be a whole number from 0 through 2147483647. Invalid text 
 
 ### Automatic refresh could not be completed
 
-The last loaded values remain visible when rereading a selected file fails. An automatic-refresh warning is shown once for the same file IDs, paths and failures. A completed manual or automatic refresh updates that state; successful rereading clears it. Changing the selection also clears it. Explicit Reload from Disk reports a complete failure as a failure, and a partial failure as a warning. These are read failures, not failed saves, and are not added to Save Logs.
+The last loaded values remain visible when rereading a selected file fails. An automatic-refresh warning is not repeated for the same file, path and reason failures. A completed refresh with no failures updates that state, and changing the selection suppresses a stale warning. Explicit Reload from Disk always reports its result: a complete failure as a failure, and a partial failure as a warning. These are read failures, not failed saves, and are not added to Save Logs.

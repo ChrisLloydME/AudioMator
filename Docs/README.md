@@ -1,25 +1,25 @@
 # AudioMator Documentation
 
-This directory is the authoritative documentation set for AudioMator. It is written and reviewed against the current source, Xcode project, Swift package manifest, scripts, and tests — not against earlier documentation.
+This directory is the authoritative documentation set for AudioMator. It is written and verified against the current source code, Xcode project, Swift package manifest, scripts, and tests — not against earlier documentation. The implementation is the source of truth; documentation that disagrees with it is a defect in the documentation.
 
 ## Start Here
 
 | You want to… | Read |
 | --- | --- |
-| Understand what AudioMator does and what it does not do | [Product Overview](Product/OVERVIEW.md) |
+| Understand what AudioMator does and does not do | [Product Overview](Product/OVERVIEW.md) |
 | Use the app | [User Guide](Product/USER_GUIDE.md), [FAQ](Product/FAQ.md), [Troubleshooting](Product/TROUBLESHOOTING.md) |
+| Understand a metadata field | [Metadata Field Guide](Product/METADATA_FIELD_GUIDE.md) |
 | Build and run the project | [Build](Development/BUILD.md) |
 | Run tests and judge coverage | [Testing](Development/TESTING.md), [Metadata test strategy](Development/METADATA_TEST_STRATEGY.md) |
 | Understand the architecture | [Architecture Overview](Architecture/OVERVIEW.md) |
 | Work on metadata reading/writing | [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) |
-| Read the in-app field help | [Metadata Field Guide](Product/METADATA_FIELD_GUIDE.md) |
-| Look up UI, app, package and native fields together | [Complete mapping table](Reference/METADATA_FIELD_MAPPING_TABLE.md) (published package 0.8.1) |
-| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by package 0.8.1) |
-| Work on conflicts, reloads, or file revisions | [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) |
+| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.1) |
+| Look up UI, app, package, and native fields together | [Complete mapping table](Reference/METADATA_FIELD_MAPPING_TABLE.md) |
+| Work on conflicts, reloads, or file revisions | [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md), [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) |
 | Work on filename/text/CSV workflows | [Metadata Exchange](Architecture/METADATA_EXCHANGE.md), [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) |
 | Work on online providers | [Online Metadata](Architecture/ONLINE_METADATA.md) |
-| Review privacy or data-integrity risk | [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md) |
-| Review the current dependency acceptance | [Published TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md), [2026-11-18 cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) |
+| Review privacy or data-integrity risk | [Security and Data Integrity](Security/SECURITY_AND_DATA_INTEGRITY.md), [Acknowledgements and Privacy](ACKNOWLEDGEMENTS_AND_PRIVACY.md) |
+| Review dependency acceptance evidence | [Engineering Notes](Engineering/README.md) — dated evidence, not current behavior |
 | Prepare a release | [Release Engineering](Development/RELEASE.md) |
 | Contribute code | [Contributing](../CONTRIBUTING.md), [Documentation Maintenance](Development/DOCUMENTATION.md) |
 | Write a commit message | [Commit Messages](Development/COMMIT_MESSAGES.md) |
@@ -29,20 +29,20 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 
 ### Product
 
-- [Product Overview](Product/OVERVIEW.md) — purpose, scope, features, platforms, distribution, dependencies, limitations.
-- [User Guide](Product/USER_GUIDE.md) — current workflows and settings.
+- [Product Overview](Product/OVERVIEW.md) — purpose, scope, features, platform, distribution, dependencies, limitations.
+- [User Guide](Product/USER_GUIDE.md) — current workflows, menus, settings, and editing behavior.
 - [FAQ](Product/FAQ.md) — common product and behavior questions.
-- [Troubleshooting](Product/TROUBLESHOOTING.md) — user-visible failure modes and diagnostic steps.
+- [Troubleshooting](Product/TROUBLESHOOTING.md) — user-visible failure modes and recovery steps.
+- [Metadata Field Guide](Product/METADATA_FIELD_GUIDE.md) — the in-app field help content and field semantics.
 
 ### Architecture
 
 - [Architecture Overview](Architecture/OVERVIEW.md) — layers, composition, runtime flows, concurrency, error propagation, extension points.
 - [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) — state categories, file identity, mutation lifecycle, recovery semantics.
 - [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) — loading, editing, write preflight, conflict resolution, persistence, artwork, format behavior.
-- [Complete Metadata Field Mapping Table](Reference/METADATA_FIELD_MAPPING_TABLE.md) — UI labels, AudioMator properties, package identities and native mappings in one table.
-- [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — shared native-field interoperability contract, per-format target matrix, legacy totals/private-field migration, and conformance gates.
+- [Metadata Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) — shared native-field interoperability contract, per-format target matrix, legacy migration, and conformance gates.
 - [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md) — revision guards, conflict policies, reload paths, detection limits.
-- [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, field-transfer planning, exchange profile versioning, and write behavior.
+- [Metadata Exchange](Architecture/METADATA_EXCHANGE.md) — filename, text, CSV, and field-transfer planning and write behavior.
 - [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) — rename templates, two-phase transactions, track renumbering.
 - [Online Metadata](Architecture/ONLINE_METADATA.md) — MusicBrainz, iTunes, LRCLIB, release notes, update checks, network constraints.
 - [Dependency Rules](Architecture/DEPENDENCY_RULES.md) — allowed dependency direction and enforced boundaries.
@@ -51,19 +51,20 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 ### Development
 
 - [Build](Development/BUILD.md) — toolchain, configurations, commands, common build failures, release validation.
+- [Testing](Development/TESTING.md) — targets, suites, fixtures, CI, coverage gaps, manual verification boundaries.
 - [Metadata Test Strategy](Development/METADATA_TEST_STRATEGY.md) — independent field manifests, real persistence coverage, explicit gaps and release gates.
-- [Testing](Development/TESTING.md) — targets, suites, fixtures, coverage gaps, manual verification boundaries.
-- [Debugging](Development/DEBUGGING.md) — build logs, bridge smoke tool, performance probes, diagnostics.
+- [Debugging](Development/DEBUGGING.md) — build logs, diagnostics, performance probes, maintainer-only helpers.
 - [Commit Messages](Development/COMMIT_MESSAGES.md) — typed subject, scope, merge and revert conventions, body rules, and the advisory checker.
 - [Release Engineering](Development/RELEASE.md) — versioning, current release process, what is and is not automated.
-- [Documentation Maintenance](Development/DOCUMENTATION.md) — ownership, update matrix, style, and verification rules.
+- [Documentation Maintenance](Development/DOCUMENTATION.md) — document ownership, update matrix, agent requirements, labels, and verification.
 
 ### Reference
 
 - [Project Structure](Reference/PROJECT_STRUCTURE.md) — repository layout, module inventory, test and script inventory.
 - [Configuration](Reference/CONFIGURATION.md) — build settings, bundle identifiers, entitlements, preference keys, persisted data, CI.
 - [Terminology](Reference/TERMINOLOGY.md) — project-specific terms used across the docs and source.
-- [Dependency Limitations](Reference/DEPENDENCY_LIMITATIONS.md) — current TagLibAudioMetadata behavior and historical observations that constrain AudioMator.
+- [Dependency Limitations](Reference/DEPENDENCY_LIMITATIONS.md) — verified `TagLibAudioMetadata` behavior and constraints that shape AudioMator.
+- [Metadata Field Mapping Table](Reference/METADATA_FIELD_MAPPING_TABLE.md) — UI labels, AudioMator properties, package identities, and native mappings in one cross-reference.
 
 ### Security and Legal
 
@@ -73,24 +74,30 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 
 ### Engineering Evidence
 
-- [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, cleanup records and release evidence. These are evidence, not current contracts.
-- [Current TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) — exact published-package Debug adoption evidence.
-- [2026-11-18 accumulated-code cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) and [cleanup ledger](Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) — automated gate evidence and whole-application cleanup audit for the cleanup branch.
-- [History](Engineering/HISTORY/README.md) — superseded progress logs, audits, and task prompts retained for traceability.
+- [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, cleanup evidence, and release evidence. These are evidence, not current contracts.
+- [Published TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) — exact published-package Debug adoption evidence.
+- [Accumulated-code cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) and [cleanup ledger](Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) — automated gate evidence and whole-application cleanup audit.
+- [History](Engineering/HISTORY/README.md) — superseded release, mapping, performance, audit, and maintenance records retained for traceability.
 
 ## Documentation Conventions
 
-Every document states current behavior unless it is explicitly marked otherwise.
+Every document states current behavior unless it is explicitly labeled otherwise.
 
 - **Current-state documents** describe what the code does today and are updated with the code. They live in `Docs/Product`, `Docs/Architecture`, `Docs/Development`, `Docs/Reference`, and `Docs/Security`.
 - **Engineering records** preserve dated measurements, investigations, and release evidence. They may describe superseded behavior and are never the authority for current behavior.
-- **Proposals and known gaps** are labeled as such. They are not features.
-- Behavior that could not be verified is described as unverified or omitted.
+- **Historical records** under `Docs/Engineering/HISTORY/` are retained for traceability only. Do not use them as current guidance.
+- **Known limitations, proposals, and unverified behavior** are labeled as such. See [Labels for Uncertainty](Development/DOCUMENTATION.md#labels-for-uncertainty).
 
-When a document and the implementation disagree, investigate first, then change the document. Do not change functional code merely to match stale documentation.
+When a document and the implementation disagree, investigate first, then correct the document. Do not change functional code merely to match stale documentation.
 
 ## Maintaining This Documentation
 
-See [Documentation Maintenance](Development/DOCUMENTATION.md) for the update matrix. In short: a change to user-visible behavior, build configuration, dependencies, privacy, testing, or release process must update the corresponding document in the same pull request.
+Documentation is part of every change. See [Documentation Maintenance](Development/DOCUMENTATION.md) for the canonical document map, ownership, update matrix, and requirements. In short:
 
-Historical documents remain under `Engineering/HISTORY/` and are not linked as current guidance.
+- identify the documents affected by a change and update them in the same changeset;
+- verify claims against the implementation rather than copying existing text;
+- remove descriptions invalidated by architecture, API, feature, or behavior changes;
+- prefer extending an existing canonical document over adding an overlapping one;
+- run `python3 scripts/check-doc-links.py` before completing the change.
+
+Do not add current guidance under `Docs/Engineering` or `Docs/Engineering/HISTORY/`; those folders hold dated evidence.

@@ -9,7 +9,7 @@ This document records the configuration that affects builds, runtime behavior, p
 - App target: `AudioMator`
 - Test target: `AudioMatorTests` (app-hosted)
 
-Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system synchronized groups. New files under those roots are included automatically.
+Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system synchronized groups (`PBXFileSystemSynchronizedRootGroup`). New files under those roots are included automatically. `Config/` stays outside the synchronized root.
 
 ## App Target Settings
 
@@ -17,15 +17,16 @@ Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system sy
 | --- | --- | --- |
 | `PRODUCT_BUNDLE_IDENTIFIER` | `com.TheLloydME.AudioMator.Beta` | `com.LloydME.AudioMator` |
 | `MARKETING_VERSION` | `2.7` | `2.7` |
-| `CURRENT_PROJECT_VERSION` | `2697` | `2697` |
+| `CURRENT_PROJECT_VERSION` | `26112` | `26112` |
 | `MACOSX_DEPLOYMENT_TARGET` | `15.0` | `15.0` |
-| `SDKROOT` | `macosx` | `macosx` |
-| `SUPPORTED_PLATFORMS` | `macosx` | `macosx` |
+| `SDKROOT` / `SUPPORTED_PLATFORMS` | `macosx` | `macosx` |
 | `SWIFT_VERSION` | `5.0` | `5.0` |
 | `SWIFT_STRICT_CONCURRENCY` | `complete` | `complete` |
 | `SWIFT_DEFAULT_ACTOR_ISOLATION` | `MainActor` | `MainActor` |
 | `SWIFT_APPROACHABLE_CONCURRENCY` | `YES` | `YES` |
 | `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY` | `YES` | `YES` |
+| `SWIFT_EMIT_LOC_STRINGS` | `YES` | `YES` |
+| `STRING_CATALOG_GENERATE_SYMBOLS` | `YES` | `YES` |
 | `ENABLE_APP_SANDBOX` | `YES` | `YES` |
 | `ENABLE_HARDENED_RUNTIME` | `YES` | `YES` |
 | `ENABLE_INCOMING_NETWORK_CONNECTIONS` | `NO` | `NO` |
@@ -38,19 +39,23 @@ Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system sy
 | `INFOPLIST_FILE` | `Config/Info.plist` | same |
 | `ASSETCATALOG_COMPILER_APPICON_NAME` | `AppIcon` | `AppIcon` |
 
-Other differences are standard Xcode Debug/Release defaults: Debug uses `dwarf`, `-Onone`, `ENABLE_TESTABILITY=YES`, `ONLY_ACTIVE_ARCH=YES`, and the `DEBUG` compilation condition; Release uses `dwarf-with-dsym`, whole-module optimization, and `ENABLE_NS_ASSERTIONS=NO`.
+Other notable app-target settings: `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor`, `DEAD_CODE_STRIPPING = YES`, `ENABLE_PREVIEWS = YES`, `REGISTER_APP_GROUPS = YES`, `EXCLUDED_SOURCE_FILE_NAMES = Info.plist`, and all `ENABLE_RESOURCE_ACCESS_*` settings are `NO`.
+
+Debug and Release otherwise use standard Xcode defaults: Debug uses `dwarf`, `-Onone`, `ENABLE_TESTABILITY=YES`, `ONLY_ACTIVE_ARCH=YES`, and the `DEBUG` compilation condition; Release uses `dwarf-with-dsym`, whole-module Swift compilation, and `ENABLE_NS_ASSERTIONS=NO`.
 
 Debug and Release use different bundle identifiers, so they do not share sandbox containers, preferences, or bookmarks.
 
 ## Test Target
 
 - Bundle identifier: `com.TheLloydME.AudioMatorTests`
+- Generated Info.plist (`GENERATE_INFOPLIST_FILE = YES`)
 - Marketing version `1.0`, build `1`
 - Deployment target `15.0`
 - Swift language mode `5.0`, strict concurrency `complete`
-- `TEST_HOST` points at the built `AudioMator.app`
+- `TEST_HOST` points at the built `AudioMator.app`; `BUNDLE_LOADER = $(TEST_HOST)`
+- No test-target entitlements
 
-The scheme marks the testable non-parallel.
+The scheme marks the testable non-parallel (`parallelizable = "NO"`) and runs it in Debug with `AUDIOMATOR_TEST_HOST=1`.
 
 ## Info.plist
 
@@ -94,11 +99,11 @@ The missing `bookmarks.app-scope` entitlement is a documented risk for cross-lau
 - Package name: `AudioMatorCoreLogic`
 - Tools version: 6.0
 - Platform: macOS 15
-- Library target: `AudioMatorCoreLogic` (selected source files)
+- Library target: `AudioMatorCoreLogic`, compiling a selected 30-file Foundation-only subset of `AudioMator/`
 - Test target: `AudioMatorCoreLogicTests` at `Tests/AudioMatorCoreLogicTests`
 - No external package dependencies
 
-This package is a test harness, not the app dependency graph.
+This package is a test harness, not the app dependency graph. The exclusions and source list in `Package.swift` must stay Foundation-only.
 
 ## External Package
 
@@ -124,7 +129,7 @@ Normal-project builds resolve this remote pin. The ignored `.tmp/MappingIntegrat
 `AudioMator.xcscheme`:
 
 - Build action includes the app for running, testing, profiling, archiving, and analyzing.
-- Test action uses Debug and includes `AudioMatorTests`, non-parallel.
+- Test action uses Debug, includes `AudioMatorTests`, and sets `parallelizable = "NO"`.
 - Launch action uses Debug.
 - Profile action uses Release.
 - Analyze action uses Debug.
@@ -145,16 +150,19 @@ env:
 
 - Triggers: pull requests and pushes to `main`.
 - Runner label: `xcode-27`.
+- Both jobs first run `xcodebuild -version` and `swift --version` as a toolchain check.
 - `swift-test` timeout: 15 minutes; runs `swift test`.
 - `xcode-test` timeout: 45 minutes; runs `bash scripts/validate-release.sh`.
 - The release gate disables signing, records evidence under `.deriveddata-codex/Validation/`, and uploads that directory with `actions/upload-artifact` on success or failure.
 - The workflow has read-only repository permissions and no release job.
 
-The runner and toolchain path are external provisioning details. The repository expects stable `/Applications/Xcode.app`, not the older `Xcode_27.0.app` path used by earlier documentation.
+The runner and toolchain path are external provisioning details. The repository expects stable `/Applications/Xcode.app`, not an older versioned Xcode directory.
 
 ## Local Persistence
 
 ### UserDefaults keys
+
+All app preferences use `UserDefaults.standard` except when running as the test host, which uses an isolated suite (`AudioMatorTestHost.preferences`).
 
 | Key | Content |
 | --- | --- |
@@ -162,13 +170,13 @@ The runner and toolchain path are external provisioning details. The repository 
 | `watchedFolderRecords.corruptBackup` | Quarantined corrupt bookmark payload |
 | `fileAccessGrantRecords` | JSON `[FileAccessGrantRecord]` with bookmark data |
 | `fileAccessGrantRecords.corruptBackup` | Quarantined corrupt grant payload |
-| `metadata.conflictPolicy` | `MetadataConflictPolicy` raw value |
+| `metadata.conflictPolicy` | `MetadataConflictPolicy` raw value; default `mergeNonConflicting` |
 | `middleList.visibleColumns` | Ordered visible column raw values |
 | `middleList.sort.column` | Sort column raw value |
 | `middleList.sort.ascending` | Sort direction |
 | `toolbar.visibleButtons` | Visible toolbar button raw values |
-| `inspector.metadata.visibleFields` | Visible inspector field raw values |
-| `settings.selectedTab` | Last selected settings tab |
+| `inspector.metadata.visibleFields` | Visible Inspector field raw values |
+| `settings.selectedTab` | Last selected settings tab; legacy `toolbar`, `columns` and `inspector` values map to Interface |
 | `museAmpSupportEnabled` | MuseAmp compatibility toggle |
 | `hasCompletedWelcomeSplash` | Welcome completion flag |
 | `completedWelcomeSplashVersion` | Last completed welcome version (currently 3) |
@@ -179,7 +187,7 @@ The runner and toolchain path are external provisioning details. The repository 
 
 | Path | Content | Limit |
 | --- | --- | --- |
-| `Application Support/AudioMator/SaveIssueLog.json` | Save issue entries (file names + messages) | 200 entries |
+| `Application Support/AudioMator/SaveIssueLog.json` | Save issue entries (file names + messages, ISO-8601 dates) | 200 entries |
 
 Audio files themselves are not copied into app storage.
 
@@ -187,7 +195,7 @@ Audio files themselves are not copied into app storage.
 
 - All app requests use `URLSession.shared`; there is no custom session configuration, proxy, cookie, cache, or certificate pinning.
 - MusicBrainz, iTunes, and LRCLIB requests use a 15-second timeout.
-- GitHub requests set no explicit timeout.
+- GitHub release/update requests set no explicit timeout.
 - No API keys, tokens, or Keychain usage.
 - No ATS exceptions.
 - No privacy manifest (`PrivacyInfo.xcprivacy`).

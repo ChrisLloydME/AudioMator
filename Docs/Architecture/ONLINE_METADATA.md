@@ -162,13 +162,13 @@ No explicit timeout is set, so the Foundation default applies. Drafts are filter
 
 `https://api.github.com/repos/ChrisLloydME/AudioMator/releases/latest`
 
-The client decodes `name`, `tag_name`, and `html_url`, then:
+`GitHubUpdateReleaseClient` decodes only `tag_name` (it ignores release name, body, and `html_url`), then:
 
 - requires a tag of the form `V<version>B<build>` (uppercase markers),
 - compares dot-separated integer version segments, then the integer build,
 - returns update available, up to date, or ahead of latest.
 
-There is no caching, time-based throttle, ETag handling, automatic launch check, or download. `UpdateCheckPresenter` prevents overlapping checks and always opens the static releases page (`https://github.com/ChrisLloydME/AudioMator/releases`) rather than the decoded `html_url`. The decoded URL is currently unused.
+There is no caching, time-based throttle, ETag handling, automatic launch check, or download. `UpdateCheckPresenter` prevents overlapping checks and always opens the static releases page (`https://github.com/ChrisLloydME/AudioMator/releases`).
 
 ## Web Content
 
@@ -236,4 +236,4 @@ MusicBrainz and iTunes apply stop before the next file when cancelled. A started
 
 ## Bounded plan persistence
 
-MusicBrainz and iTunes apply captured write plans through the same four-file bound used by Inspector. File values and fingerprints are captured before work begins; per-file mutation reservations, version checks, commit and reload remain intact. Completion order does not change issue ordering. Cancelling prevents queued writes from starting while reporting every in-flight commit's actual outcome. See [write-concurrency evidence](../Engineering/WRITE_CONCURRENCY_2026-11-12.md).
+MusicBrainz and iTunes apply captured write plans through the same four-file bound used by Inspector. File values and fingerprints are captured before work begins; per-file mutation reservations, version checks, commit and reload remain intact. Completion order does not change issue ordering. Cancelling prevents queued writes from starting while reporting every in-flight commit's actual outcome. See [write-concurrency evidence](../Engineering/HISTORY/WRITE_CONCURRENCY_2026-11-12.md).

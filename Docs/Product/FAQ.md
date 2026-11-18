@@ -16,11 +16,11 @@ Yes. Metadata writes and renames operate on the selected files. AudioMator does 
 
 ### Is there undo?
 
-No document-level undo is implemented. Inspector **Cancel** discards an unsaved draft; Metadata Editor closing discards its draft. Once a write commits, the previous bytes are not retained by the app.
+No document-level undo is implemented. Inspector **Cancel** discards an unsaved draft, **Cancel Edits** does the same from the Edit menu, and Metadata Editor **Cancel** or closing discards its draft. Once a write commits, the previous bytes are not retained by the app.
 
 ### Does AudioMator support video files?
 
-No. The format list comes from TagLib audio format support. Video containers are outside the documented scope.
+AudioMator edits audio-file metadata for the formats TagLibAudioMetadata reports as readable. Video containers and video metadata are outside the documented scope.
 
 ### Can AudioMator convert between formats (for example FLAC to MP3)?
 
@@ -30,7 +30,7 @@ No. AudioMator edits metadata in existing files; it does not transcode audio.
 
 ### Which formats are supported?
 
-The readable, writable, and artwork-writable extension lists are discovered from `TagLibAudioMetadata` at runtime. A readable format is not necessarily writable, and writable fields differ by container. See [Supported Formats](OVERVIEW.md#supported-formats).
+The readable, writable, and artwork-writable extension lists are discovered from `TagLibAudioMetadata` at runtime. A readable format is not necessarily writable, and writable fields differ by container. See [Supported Formats](OVERVIEW.md#supported-formats) and the coverage gaps in [Testing](../Development/TESTING.md).
 
 ### Why did my track number change from `02/09` to something else?
 
@@ -38,7 +38,7 @@ Containers store number and total differently. AudioMator submits numeric values
 
 ### Why is a field reported as unsupported?
 
-Before writing, AudioMator asks the dependency which fields a format can write. If any requested field is unsupported, the file is not written. This is a format-capability limitation, not a UI bug.
+Before writing, AudioMator asks the dependency which fields a format can write. If any requested semantic field is unsupported, the file is not written. This is a format-capability limitation, not a UI bug.
 
 ### Why can't I edit container-specific frames or atoms?
 
@@ -50,11 +50,15 @@ They are separate edit intents. Some formats can store both independently; MP4 h
 
 ### Why does an exported CSV or text file start with an AudioMator comment?
 
-Text and CSV exports begin with `# AudioMator-Metadata-Profile: 2`, which identifies the exchange profile. Version 2 carries Year, Date, Release Date and Original Release Date as independent columns. Files without the marker are read with the legacy v1 meanings. An unquoted `<remove>` in a v2 cell means "remove this field"; a quoted `"<remove>"` is literal text. See [Metadata Exchange](../Architecture/METADATA_EXCHANGE.md#exchange-profile-versioning).
+Text and CSV exports begin with `# AudioMator-Metadata-Profile: 2`, which identifies the exchange profile. Version 2 carries Year, Date, Release Date and Original Release Date as independent columns. Files without the marker are read with the legacy v1 meanings, and unknown newer profile versions are rejected. An unquoted `<remove>` in a v2 cell means "remove this field"; a quoted `"<remove>"` is literal text. See [Metadata Exchange](../Architecture/METADATA_EXCHANGE.md#exchange-profile-versioning).
 
-### Why does Erase All Metadata not remove everything?
+### Why does Erase All Tags not remove everything?
 
-Erase-all is best effort because supported tag surfaces differ by container. Some formats retain structures the package cannot remove or that are not represented in PropertyMap.
+Erase-all is best effort because supported tag surfaces differ by container. Some formats retain structures the package cannot remove or that are not represented in PropertyMap. The command is **Erase All Tags…** in the file list context menu.
+
+### What is the Metadata Field Guide?
+
+It is a bundled offline Help window (Help → **Metadata Field Guide**) that explains every package metadata field plus Credits and the technical display values, and shows registered storage locations without reading or changing files. See [Metadata Field Guide](METADATA_FIELD_GUIDE.md).
 
 ## Saving and Conflicts
 
@@ -72,7 +76,7 @@ The save issue log (Settings → Logs) records non-success outcomes.
 
 ### Does "Merge non-conflicting changes" overwrite external edits?
 
-It merges changes to fields you did not edit. If the same field changed both in your draft and on disk, it preserves your draft and stops with a conflict report. The priority strategies make a different choice. See [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md).
+It merges changes to fields you did not edit. If the same field changed both in your draft and on disk, it preserves your draft and stops with a conflict report; an exact single-field convergence is accepted. The priority strategies make a different choice. See [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md).
 
 ### Why did a permission change cause a conflict if the tags did not change?
 
@@ -80,7 +84,7 @@ The revision guards use filesystem metadata (including status change time) and a
 
 ### A batch save partially succeeded. What now?
 
-Retry the failed files. Files that already committed retain their new baseline and retrying does not reapply the completed fields. Review the issue summary and Settings → Logs.
+Retry the failed files. Files that already committed retain their new baseline and retrying does not reapply the completed fields. Review the result HUD and Settings → Logs.
 
 ## Files and Folders
 
@@ -94,7 +98,7 @@ No. It removes AudioMator's bookmark and list entry.
 
 ### Why is automatic refresh degraded?
 
-AudioMator monitors at most 128 directories per watched folder, and macOS may refuse to monitor some directories. The sidebar reports omitted or failed directories. A manual **Reload from Disk** or returning to the app still checks selected files.
+AudioMator monitors at most 128 directories per watched folder, and macOS may refuse to monitor some directories. The sidebar and Settings → Folders report omitted or failed directories and scans. A manual **Reload from Disk** or returning to the app still checks selected files.
 
 ### Can I edit files on a network volume or file provider?
 
@@ -118,14 +122,14 @@ No. The manual update check only reports a newer release and can open the GitHub
 
 ### What does MuseAmp compatibility do?
 
-When enabled, the track list context menu can generate MuseAmp album/track IDs and write them as a JSON Comment value. This replaces the existing Comment on the selected files. AudioMator is not affiliated with MuseAmp.
+When enabled, the track list context menu shows **Create MuseAmp IDs…**, which generates MuseAmp album/track IDs and writes them as a JSON Comment value. This replaces the existing Comment on the selected files. AudioMator is not affiliated with MuseAmp.
 
 ## Development
 
 ### Which Xcode version is required?
 
-The repository targets stable Xcode 27 (see [Build](../Development/BUILD.md)). Source inspection on 2026-11-12 used Xcode 27.2; beta toolchains are not supported by repository policy.
+The repository targets stable Xcode 27 using `/Applications/Xcode.app`; beta toolchains are not supported by repository policy. See [Build](../Development/BUILD.md) and [Configuration](../Reference/CONFIGURATION.md).
 
 ### Why does `swift test` not cover UI or TagLib behavior?
 
-The SwiftPM target intentionally compiles a selected set of Foundation-only production files as a fast sensor. TagLib, AppKit, SwiftUI, network clients, and app-hosted behavior are tested through the Xcode test target. See [Testing](../Development/TESTING.md).
+The SwiftPM target intentionally compiles a selected set of Foundation-only production files as a fast sensor. TagLib, AppKit, SwiftUI, network clients, and app-hosted behavior are tested through the Xcode test target; there is no UI automation. See [Testing](../Development/TESTING.md).

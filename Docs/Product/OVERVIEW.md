@@ -2,22 +2,23 @@
 
 AudioMator is a native macOS application for inspecting, editing, organizing, and enriching audio-file metadata. It is local-first: ordinary editing operates on files the user selects or authorizes, and network access is limited to explicitly started online features.
 
-This document describes the product as implemented in the current source. See [Configuration](../Reference/CONFIGURATION.md) for exact build settings and [Architecture Overview](../Architecture/OVERVIEW.md) for how the system is assembled.
+This document describes the product as implemented in the current source. See [Configuration](../Reference/CONFIGURATION.md) for exact build settings, [Architecture Overview](../Architecture/OVERVIEW.md) for how the system is assembled, and [User Guide](USER_GUIDE.md) for workflows.
 
 ## Purpose and Scope
 
 AudioMator is built for local music-library maintenance:
 
-- Inspect the tags and technical properties of audio files.
-- Edit common metadata fields in a simple inspector, singly or across a selection.
-- Edit the raw TagLib PropertyMap representation for advanced work.
+- Inspect tags and technical properties of audio files.
+- Edit common metadata fields in a curated Inspector, singly or across a selection.
+- Edit the raw TagLib PropertyMap representation for advanced work and unsupported text values.
 - Convert between metadata and filenames, plain text, or CSV.
 - Renumber tracks by the visible list order.
 - Replace or clear embedded artwork.
 - Look up metadata, artwork, and synced lyrics from opt-in online services.
 - Keep folders watched across launches and refresh their contents.
+- Look up field meanings offline in a bundled Metadata Field Guide.
 
-AudioMator is **not** a media player, a cloud library, a tag-format conversion tool, or an automatic bulk renamer that runs without a preview. It does not host or upload the user's audio library. It also does not install application updates automatically.
+AudioMator is **not** a media player, a cloud library, a tag-format conversion tool, or an automatic bulk renamer that runs without a preview. It does not transcode audio, host or upload the user's library, keep an undo history or backup copy, or install application updates automatically.
 
 ## Feature Summary
 
@@ -25,84 +26,72 @@ The following features are implemented in the repository. Format-specific capabi
 
 | Feature | What it does | Primary implementation |
 | --- | --- | --- |
-| Quick Import | Loads selected files into a session-only list. | `AudioViewModel.importQuickFiles`, `AudioViewModel+Import.swift` |
+| Quick Import | Loads selected files into a session-only Current Session list. | `AudioViewModel.importQuickFiles`, `AudioViewModel+Import.swift` |
 | Watched folders | Persists security-scoped folder access and refreshes contents on directory events and app activation. | `WatchedFolderStore`, `DirectoryMonitor`, `AudioViewModel` |
-| Three-pane main window | Sidebar sources, sortable/editable middle list, and inspector. | `Features/Main` |
-| Inspector editing | Edits common fields and artwork for one or many selected files. | `InspectorPane`, `SingleFileEditModel`, `MultiFileEditModel` |
+| Three-pane main window | Sidebar sources, sortable/editable middle list, and Inspector. | `Features/Main` |
+| Inspector editing | Edits curated common fields and artwork for one or many selected files. | `InspectorPane`, `SingleFileEditModel`, `MultiFileEditModel` |
 | Metadata Editor | Edits the TagLib PropertyMap projection as ordered value lists. | `Features/MetadataEditor` |
 | Tag Inspector | Read-only raw tag/property dump, including compatibility notes. | `MetadataDumpSheet`, `rawMetadataDumpText` |
-| Filename & Metadata tool | Seven conversion modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut. | `Features/MetadataFilenameTool`, `Domain/Rename`, `Domain/MetadataExchange` |
-| Track renumbering | Rewrites track numbers by list or selection order, optionally zero-padded. | `Domain/TrackRenumber`, `AudioViewModel+TrackRenumbering.swift` |
+| Filename & Metadata tool | Seven modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut. | `Features/MetadataFilenameTool`, `Domain/Rename`, `Domain/MetadataExchange` |
+| Track renumbering | Rewrites track numbers by list or selection order, with direction, start number and zero-padding. | `Domain/TrackRenumber`, `AudioViewModel+TrackRenumbering.swift` |
 | Conflict policies | Chooses how dirty Inspector/Metadata Editor drafts interact with on-disk changes. | `MetadataConflictPolicy`, `MetadataConflictResolver` |
 | Save issue log | Persists non-success batch save summaries locally. | `SaveIssueLogStore` |
 | Online metadata | MusicBrainz, iTunes Search API, and LRCLIB lookup and write-back. | `Features/*Browser`, `Infrastructure/*` |
-| MuseAmp compatibility IDs | Optional generation and writing of MuseAmp album/track IDs as JSON comments. | `Domain/MuseAmp`, `AudioViewModel+MuseAmpIDWrite.swift` |
+| MuseAmp compatibility IDs | Optional generation and writing of MuseAmp album/track IDs as JSON Comment values. | `Domain/MuseAmp`, `AudioViewModel+MuseAmpIDWrite.swift` |
+| Metadata Field Guide | Offline Help window explaining fields, storage locations and references. | `Features/MetadataHelp` |
 | Manual update check | Compares the GitHub Releases tag with the running version and opens the releases page. | `Infrastructure/Updates` |
+| Operation result HUD | Noninteractive success/warning/failure card for saves and batch results. | `MetadataWriteHUD`, `BatchMetadataOperationSummary`, `ContentView` |
 | Localization | String catalogs for localizable UI text; the bundle declares English localization. | `Localizable.xcstrings`, `InfoPlist.xcstrings` |
 
 ## Metadata Model
 
-AudioMator treats track and disc numbering as structured values rather than a single string. The inspector and conversion tools expose four independent fields:
+AudioMator treats track and disc numbering as structured values rather than a single string. The Inspector and conversion tools expose four independent fields: Track Number, Total Tracks, Disc Number and Total Discs.
 
-- `Track Number`
-- `Total Tracks`
-- `Disc Number`
-- `Total Discs`
+Number and total are submitted to the metadata pipeline separately, together with optional user-facing number text (for example `02/09`). Containers may normalize the text representation while preserving the numeric values; the write verification path distinguishes that normalization from a real mismatch. Loading never rewrites a file.
 
-Number and total are submitted to the metadata pipeline separately, together with optional user-facing number text (for example `02/09`). Containers may normalize the text representation while preserving the numeric values; the write verification path distinguishes that normalization from a real mismatch.
-
-Year and release date are separate edit intents. The app submits them as separate patch fields and leaves container-level storage decisions to `TagLibAudioMetadata`. MP4 has a single standard date slot, so an independent Year edit can be rejected rather than silently overwriting Release Date.
+Year, Date, Release Date and Original Release Date are separate edit intents. The app submits them as separate patch fields and leaves container-level storage decisions to `TagLibAudioMetadata`. MP4 has a single standard date slot, so an independent Year edit can be rejected rather than silently overwriting Release Date. There is no automatic date completion, synchronization or copying.
 
 Artwork is handled as an explicit three-state change: unchanged, replaced with bytes plus MIME type, or removed.
 
-Content advisory is represented as unset, not explicit, clean, or explicit.
+Content advisory is represented as unset, not explicit, clean, or explicit. Unknown native advisory codes are preserved rather than relabeled.
 
 ## Supported Formats
 
-AudioMator does **not** hard-code the master format list. At runtime it asks `TagLibAudioMetadata` for:
+AudioMator does **not** hard-code the master format list. At runtime `AudioFormatSupport` asks `TagLibAudioMetadata` for readable extensions, metadata-writable extensions, artwork-writable extensions, and writable-field capabilities per format. The app preflights each requested semantic field against the target format before writing.
 
-- readable extensions,
-- metadata-writable extensions,
-- artwork-writable extensions, and
-- writable-field capabilities per format.
+Readable, writable, artwork-writable and per-field support are separate capabilities: a readable extension is not automatically writable, and a writable container may not accept every field. The runtime-discovered lists are authoritative and are not restated here.
 
-`AudioFormatSupport` converts that into the app's capability snapshot. The app then preflights each requested field against the target format before writing.
-
-At the current dependency pin (`TagLibAudioMetadata` 0.7.3), the readable extensions reported by the package are expected to include:
-
-`mp3`, `mp2`, `m4a`, `m4b`, `m4p`, `mp4`, `aac`, `ogg`, `opus`, `mpc`, `wma`, `asf`, `spx`, `flac`, `ape`, `wv`, `tta`, `wav`, `aiff`, `aif`, `dsf`, `dff`, `oga`.
-
-This list is a point-in-time statement about the dependency, not an app-owned contract. The runtime-discovered list is authoritative. Read/write, artwork, and per-field support vary by container and tag implementation; a readable extension is not automatically writable.
+Committed audio test fixtures cover MP3, M4A/AAC, FLAC, Ogg Vorbis and WAV; artwork write tests cover MP3, M4A and FLAC. AIFF/Opus fixtures and broad codec coverage are known gaps; see [Testing](../Development/TESTING.md).
 
 ## System Requirements
 
 - **Runtime platform:** macOS 15.0 or later. The app target's `MACOSX_DEPLOYMENT_TARGET` is `15.0`.
-- **Development toolchain:** stable Xcode 27. Source inspection on 2026-11-12 used Xcode 27.2 (27B52) and Apple Swift 6.4.2; the recorded 0.7.3 release gate used the stable `/Applications/Xcode.app` toolchain.
+- **Development toolchain:** stable Xcode 27 using `/Applications/Xcode.app`. Repository policy does not support beta toolchains.
 - **Dependency resolution:** network access to GitHub the first time Swift Package Manager resolves `TagLibAudioMetadata`.
 
-The repository has no verified CI or test evidence for older macOS versions or for prerelease Xcode toolchains. Do not claim support that has not been built and tested.
+The repository has no verified support claim for older macOS versions or prerelease Xcode toolchains. See [Build](../Development/BUILD.md).
 
 ## Installation and Distribution
 
 Two paths are represented in the repository:
 
 1. **Build from source.** Open `AudioMator.xcodeproj`, select the `AudioMator` scheme, and build. See [Build](../Development/BUILD.md).
-2. **Published releases.** The in-app update checker and documentation point to <https://github.com/ChrisLloydME/AudioMator/releases>. The repository contains no release workflow, signing configuration, notarization automation, or installer packaging. A release artifact's signing/notarization status must be verified outside this repository before distribution.
+2. **Published releases.** The in-app update checker and documentation point to <https://github.com/ChrisLloydME/AudioMator/releases>. The repository contains no release workflow, signing configuration, notarization automation, or installer packaging. A release artifact's signing/notarization status must be verified outside this repository before distribution. See [Release Engineering](../Development/RELEASE.md).
 
 ## Dependencies and Responsibilities
 
 | Dependency | Responsibility | AudioMator's side |
 | --- | --- | --- |
-| [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.7.3 (exact pin) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
+| [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.8.1 (exact pin, revision `b8ed5475`) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
 | TagLib 2.3.1 (through the package) | Low-level audio metadata parsing and writing. | Bundled as a dynamic framework; not called directly by app code. |
 | utf8-cpp (utfcpp) | UTF-8 conversion inside TagLib. | Bundled with the TagLib framework; not called directly. |
-| Apple frameworks (SwiftUI, AppKit, AVFoundation, CoreMedia, UniformTypeIdentifiers, Foundation) | UI, file panels, technical fallback metadata, thumbnails, content types. | Uses them directly in the appropriate layers. |
+| Apple frameworks (SwiftUI, AppKit, AVFoundation, CoreMedia, PhotosUI, UniformTypeIdentifiers, Foundation) | UI, file panels, technical fallback metadata, thumbnails, photo import, content types. | Uses them directly in the appropriate layers. |
 | MusicBrainz | Opt-in metadata lookup. | Builds queries, decodes results, maps to local fields. |
 | Apple iTunes Search API and artwork CDN | Opt-in catalog metadata and artwork lookup. | Builds requests, ranks/compares results, downloads selected artwork. |
 | LRCLIB | Opt-in synced-lyrics lookup. | Builds queries, ranks candidates, writes selected lyrics as a raw patch. |
 | GitHub Releases API | Release notes and manual update checks. | Reads release metadata; opens the releases page for manual download. |
 
-The exact boundary and known dependency limitations are documented in [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md), [Dependency Rules](../Architecture/DEPENDENCY_RULES.md), and [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). License texts and service obligations are recorded in [Third-Party Notices](../THIRD_PARTY_NOTICES.md); the app bundle includes the full texts and Settings → About → Acknowledgements opens them.
+The mapping contract is `AM-TLAM-MAPPING-2.2`. The exact boundary and known dependency limitations are documented in [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md), [Dependency Rules](../Architecture/DEPENDENCY_RULES.md), and [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). License texts and service obligations are recorded in [Third-Party Notices](../THIRD_PARTY_NOTICES.md); the app bundle includes the full texts and Settings → About → Acknowledgements opens them.
 
 ## Important Limitations
 
@@ -110,22 +99,22 @@ The exact boundary and known dependency limitations are documented in [Metadata 
 - **The raw editor is a PropertyMap view.** Container-native structures that TagLib does not project into PropertyMap are not editable there. Tag Inspector may still display them.
 - **Batch operations are per-file, not atomic as a group.** Partial success is possible and is reported per file.
 - **Revision checks are conservative.** Permission or timestamp-only changes can invalidate a revision even when tags did not change. Conversely, the app does not continuously monitor every open file.
-- **Erase-all is best effort.** Supported tag surfaces differ by container.
+- **Erase All Tags is best effort.** Supported tag surfaces differ by container.
 - **Network features require explicit user action.** They are not background synchronization.
-- **No automated UI test suite exists.** Build checks and focused view-model tests are the automated boundary; interactive acceptance remains manual.
-- **No release automation exists in this repository.** See [Release Engineering](../Development/RELEASE.md).
+- **No UI automation exists.** App-hosted XCTest suites and the SwiftPM fast suite are the automated boundary; interactive acceptance remains manual.
+- **No release automation exists in this repository.**
 
 ## Current Version and License
 
-The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `2.7`, build `2697`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
+The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `2.7`, build `26112`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
 
 The project is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE) and the [Third-Party Notices](../THIRD_PARTY_NOTICES.md). The app bundle includes the AGPL-3.0 text plus the TagLib LGPL-2.1/MPL-1.1, TagLibAudioMetadata MIT, and utf8-cpp Boost texts.
 
 ## Documentation Navigation
 
-- Users: [User Guide](USER_GUIDE.md), [FAQ](FAQ.md), [Troubleshooting](TROUBLESHOOTING.md).
+- Users: [User Guide](USER_GUIDE.md), [FAQ](FAQ.md), [Troubleshooting](TROUBLESHOOTING.md), [Metadata Field Guide](METADATA_FIELD_GUIDE.md).
 - Contributors: [Build](../Development/BUILD.md), [Testing](../Development/TESTING.md), [Contributing](../../CONTRIBUTING.md).
-- Architects: [Architecture Overview](../Architecture/OVERVIEW.md).
+- Architects: [Architecture Overview](../Architecture/OVERVIEW.md), [Complete mapping table](../Reference/METADATA_FIELD_MAPPING_TABLE.md).
 - Release maintainers: [Release Engineering](../Development/RELEASE.md).
 - Security reviewers: [Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md).
 - AI coding agents: [AGENTS.md](../../AGENTS.md).

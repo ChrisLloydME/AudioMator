@@ -2,7 +2,7 @@
 
 This file summarizes third-party software, services, and project influences used by AudioMator. It is not a substitute for the upstream license texts.
 
-The app bundle includes the full license texts listed below at the top level of `AudioMator.app/Contents/Resources`. The in-app **Acknowledgements** sheet (Settings → About) lists the same components and opens the bundled texts. The About panel also identifies TagLib and displays its upstream copyright.
+The app bundle includes the full license texts listed below at the top level of `AudioMator.app/Contents/Resources`; this was verified in the current Debug build product on 2026-11-18. The in-app **Acknowledgements** sheet (Settings → About → Acknowledgements…) lists the same components and opens the bundled texts. The About panel also identifies TagLib and displays its upstream copyright.
 
 ## AudioMator
 
@@ -18,7 +18,7 @@ The app bundle includes the full license texts listed below at the top level of 
 - **Website**: https://taglib.org/
 - **Source**: https://github.com/taglib/taglib/tree/v2.3.1 (tag `v2.3.1`, commit `54ae7d8ac45755e286a5c574280f48d5bef93aef`)
 - **Copyright**: Copyright (C) 2002–2008 Scott Wheeler and TagLib contributors.
-- **Usage in this repository**: AudioMator uses TagLib through the `TagLibAudioMetadata` Swift package for audio metadata reading, metadata writing, format capability discovery, raw property-map inspection, and artwork operations. The build bundles TagLib in `AudioMator.app/Contents/Frameworks/TagLibAudioMetadataTagLib.framework`.
+- **Usage in this repository**: AudioMator uses TagLib through the `TagLibAudioMetadata` Swift package for audio metadata reading, metadata writing, format capability discovery, raw property-map inspection, and artwork operations. The build bundles TagLib as `AudioMator.app/Contents/Frameworks/TagLibAudioMetadataTagLib.framework` (verified in the current Debug build product).
 - **App bundle resources**: `TagLib-LGPL-2.1.txt` and `TagLib-MPL-1.1.txt`.
 
 ### Licensing
@@ -126,11 +126,11 @@ No MuseAmp source code is copied into AudioMator. The acknowledgement and licens
 
 - **Service**: GitHub Releases
 - **Repository**: https://github.com/ChrisLloydME/AudioMator/releases
-- **Usage in this repository**: source of truth for AudioMator release metadata, release notes, and the lightweight macOS manual update check.
+- **Usage in this repository**: source of truth for AudioMator release metadata, release notes, and the lightweight macOS manual update check. The app requests `api.github.com` only; it opens `github.com` release pages in the default browser.
 
 ### Service Notice
 
-GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.7B2697`.
+GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.7B26112` for the current project values.
 
 ## Bundled License Resources
 
@@ -141,9 +141,9 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 | TagLibAudioMetadata | `TagLibAudioMetadata-MIT.txt` | MIT |
 | utf8-cpp (utfcpp) | `utfcpp-Boost-1.0.txt` | Boost Software License 1.0 |
 
-Release validation must confirm those five files are present in the built app's `Contents/Resources` directory. The in-app Acknowledgements sheet loads them by resource name and fails closed with a visible fallback if a text is missing.
+Before distribution, a maintainer must confirm those five files are present in the Release app's `Contents/Resources` directory. No committed script checks resources; `scripts/validate-macos-artifact.sh` checks only minimum OS and Mach-O platform. The in-app Acknowledgements sheet loads the texts by resource name and shows a visible fallback if a text is missing.
 
-At this revision, the TagLib LGPL-2.1/MPL-1.1 and package MIT texts remain unchanged from the 0.7.0 baseline; the 0.8.1 package retains the same TagLib 2.3.1 revision 2 binary URL/checksum. The bundled MIT text is checked against the published package license. Normal-project dependency resolution uses the committed `Package.resolved`; the historical ignored `.tmp/MappingIntegration.xcworkspace` is not used for current validation.
+The 2026-11-18 cleanup acceptance records the TagLib binary as the unchanged checksum-pinned 2.3.1 revision 2 asset for published 0.8.1. The bundled license texts are not byte-compared by any automated check; compare them with the published package when the dependency changes. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only by the explicit local-candidate gate, not for current validation.
 
 ## Metadata help references
 

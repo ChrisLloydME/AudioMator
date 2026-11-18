@@ -2,7 +2,7 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
-AudioMator pins published `TagLibAudioMetadata` **0.8.1**, resolved through the normal Xcode project and committed remote lock. No local override is needed for normal builds. [Published dependency acceptance](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) records Debug-only adoption evidence. The shared contract remains **`AM-TLAM-MAPPING-2.2`**, with explicit version-specific read-only gates for unverified ID3v2.3 date layouts.
+AudioMator pins published `TagLibAudioMetadata` **0.8.1** (revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`) through the normal Xcode project and committed `Package.resolved`; there is no local override in normal builds. The shared contract is **`AM-TLAM-MAPPING-2.2`** (see [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)); adoption evidence is recorded in [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) and current restrictions in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 ## Boundary Summary
 
@@ -14,24 +14,7 @@ AudioMator does not parse or write container formats itself. It delegates all co
 - mutation scheduling, cancellation, reload, and presentation,
 - raw metadata value-map editing and dump formatting.
 
-The contract is declared in `AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift`.
-
-```swift
-protocol AudioMetadataPipeline: Sendable {
-    func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile
-    func conflictSnapshot(for url: URL) throws -> MetadataSnapshot
-    func metadataFileVersion(at url: URL) throws -> MetadataFileVersion
-    func rawMetadataDumpText(for url: URL) -> String?
-    func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap
-    func writeMetadata(_ edit: MetadataEditPayload, to url: URL,
-                       expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult
-    func writeRawMetadataPatch(_ patch: RawMetadataPatch, to url: URL,
-                               expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult
-    func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult
-}
-```
-
-The concrete adapter is `Infrastructure/TagLib/TagLibAudioMetadataPipeline.swift`. Only the composition root constructs it in production.
+The contract is declared in `AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift`. It covers loading, conflict-snapshot reading, the opaque file version, raw dump/value-map reads, semantic writes, exact raw patches, and erase-all. Writes have a version-only form and a version+audio-content-identity form; the adapter also reports whether it needs transactional directory access. `TagLibAudioMetadataPipeline` implements all of it and is constructed only by the composition root. The protocol's default extension methods throw `featureUnsupported`/`MetadataAudioContentError.unavailable` for capabilities a fake does not provide, and `writeRawMetadataValueMap` computes an exact key-level delta over `writeRawMetadataPatch`.
 
 ## Package Interfaces Used
 
@@ -39,15 +22,15 @@ The app calls the following public package entry points. Their behavior is owned
 
 | App call site | Package API |
 | --- | --- |
-| `loadAudioFile` | `TagLibMetadataManager.readSnapshot(from:)`, then the app's `AudioFile` loader |
-| Conflict baseline/read | `TagLibMetadataManager.readSnapshot`, `fileVersion` |
-| Semantic write | `TagLibMetadataManager.applyMetadataPatch(_:to:expectedVersion:)` |
-| Raw write | `TagLibMetadataManager.applyRawMetadataPatch(_:to:expectedVersion:)` |
+| `loadAudioFile` | `TagLibMetadataManager.readSnapshot(from:includingAudioContent:)`, `numberingInventory(at:)`, then the app's `AudioFile` loader |
+| Conflict baseline/read | `TagLibMetadataManager.readSnapshot(from:includingAudioContent:)`, `fileVersion(at:)` |
+| Semantic write | `TagLibMetadataManager.applyMetadataPatch(_:to:expectedVersion:)` and its audio-content overload |
+| Raw write | `TagLibMetadataManager.applyRawMetadataPatch(_:to:expectedVersion:)` and its audio-content overload |
 | Erase | `TagLibMetadataManager.eraseAllMetadataWithVerification(from:expectedVersion:)` |
-| Raw inspection | `rawMetadataResult(from:)`, `bestEffortRawMetadataText(from:)`, `readMetadataResult(from:)` |
-| Capability discovery | `readableExtensions`, `writableExtensions`, `formatCapabilities` |
+| Raw inspection | `rawMetadataResult(from:)`, `bestEffortRawMetadataText(from:)` |
+| Capability discovery | `readableExtensions`, `writableExtensions`, `formatCapabilities`, `MetadataFieldRegistry` schemas |
 
-Shared semantic types imported into Domain: `MetadataFieldKey`, `MetadataFileVersion`, `MetadataSnapshot`, and `RawMetadataPatch`. This is the controlled dependency recorded in [ADR 0003](Decisions/0003-metadata-contract-and-taglib-adapter.md).
+Shared semantic types imported across the boundary include `MetadataFieldKey`, `MetadataFileVersion`, `MetadataSnapshot`, `MetadataAudioContentIdentity`, `MetadataAudioContentError`, `RawMetadataPatch`, and the numbering inventory types. This is the controlled dependency recorded in [ADR 0003](Decisions/0003-metadata-contract-and-taglib-adapter.md).
 
 The Infrastructure adapter additionally uses `MetadataPatch`, `MetadataPatchValue`, `MetadataFieldRegistry`, `RawMetadataDump`, `StructuredArtwork`, `ExplicitAdvisory`, and `TagLibManagerError`. Those concrete types must not move into Domain.
 
@@ -56,34 +39,35 @@ The Infrastructure adapter additionally uses `MetadataPatch`, `MetadataPatchValu
 ```mermaid
 flowchart TD
     A[AudioFile(url,id)] --> B[capture fingerprint]
-    B --> C[TagLib readSnapshot]
-    C --> D[copy basic tags + raw/structured baseline + fileVersion]
-    D --> E{AVFoundation credits needed?}
-    E -->|yes| F[load metadata items, read TEXT]
-    E -->|no| G[credits = empty]
-    F --> H[technical fallback if TagLib values missing]
-    G --> H
-    H --> I[duration, bitrate, sample rate, channels, format]
-    I --> J[artwork bytes from snapshot]
-    J --> K{fingerprint and fileVersion still equal?}
-    K -->|yes| L[return AudioFile]
-    K -->|no| M[throw TagLibManagerError.fileChanged]
+    B --> C[TagLib readSnapshot incl. audio content]
+    C --> D[numberingInventory; verify same fileVersion]
+    D --> E[copy basic tags + raw/structured baseline + fileVersion]
+    E --> F{AVFoundation credits needed?}
+    F -->|yes| G[load metadata items, read TEXT]
+    F -->|no| H[credits = empty]
+    G --> I[technical fallback if TagLib values missing]
+    H --> I
+    I --> J[duration, bitrate, sample rate, channels, format]
+    J --> K[artwork bytes from snapshot]
+    K --> L{fingerprint and fileVersion still equal?}
+    L -->|yes| return AudioFile
+    L -->|no| M[throw TagLibManagerError.fileChanged]
 ```
 
 Key rules:
 
 - The TagLib snapshot is the **editable-tag authority**. AVFoundation supplies display-only credits and technical fallbacks.
-- Credits (`TEXT`) are read through AVFoundation only for formats where the snapshot does not establish presence/absence: MP3/MP2/WAV/AIFF/AIF/TTA when an ID3 `TEXT` frame exists, and formats whose ID3 frames are not exposed. MP4 and Ogg-family containers skip the credits read.
+- Credits (`TEXT`) are read through AVFoundation only when the snapshot does not establish presence/absence: MP3/MP2/WAV/AIFF/AIF/TTA when an ID3 `TEXT` frame exists, and other formats whose ID3 frames are not exposed. MP4 and Ogg-family containers skip the credits read; unknown extensions fall back to the AVFoundation read.
 - Technical values fall back to AVFoundation only when the TagLib value is non-positive or missing.
 - Artwork bytes come from the snapshot's editable projection.
 - The loader captures a fingerprint before the read and revalidates the fingerprint and the package file version after all awaits. A mismatch throws `fileChanged`; the adapter retries a **read** once, never a write.
-- The snapshot also stores a `MetadataConflictBaseline` containing the raw value map, structured ID3/MP4/ASF/artwork/comment/lyrics projections, and optional package audio-content identity.
+- The snapshot also stores a `MetadataConflictBaseline` containing the raw value map, structured ID3/MP4/ASF/artwork/comment/lyrics projections, and optional package audio-content identity. `TagLibNumberingProjection` converts the package number inventory into displayed number/total/text.
 
 ### Missing, unsupported, and malformed metadata
 
 - Missing tags become empty strings, zero numbers, or `nil` artwork/advisory.
 - Malformed or unreadable sources throw; import reports a per-file failure and keeps successfully loaded siblings.
-- Container-native structures that TagLib does not project into PropertyMap are not surfaced in the raw editor; Tag Inspector may still show them.
+- Container-native structures that TagLib does not project into PropertyMap are not surfaced in the raw editor; the raw metadata dump and field guide can still show them.
 - Legacy ID3v1 values are preserved in the raw dump and explained with compatibility notes; the modern TagLib property value is treated as authoritative.
 
 ## Representation
@@ -98,7 +82,9 @@ Track and disc data is represented by:
 - display text `trackNumberText`, `discNumberText`,
 - derived field text used by the inspector.
 
-`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. Track and disc are component intents: a number edit submits only the changed number component, a total edit submits only the changed total, and a cleared component is an explicit removal. The untouched sibling is never rewritten or removed. Individual track/disc components preserve a positive total when the number is cleared, serialized as `/total`; whole-pair clearing removes both components. MP4 uses native `trkn`/`disk`; ID3 uses combined `TRCK`/`TPOS` text; Xiph/APE use separate keys. The package may normalize displayed text padding (for example MP4 `07` to `7`); verification compares the numeric values, so a text-representation difference is not by itself a failed write. The app does not add an app-side number-text warning-normalization layer. `MetadataNumberResolutionPolicy`/`numberingInventory` expose native, recoveredLegacy, ambiguous and invalid states; the application consumes canonical/unambiguous recovered values internally without a migration UI. Ordinary numbering edits retire only the edited group’s private provenance in the package’s single transaction; unresolved missing siblings require normal field values. `MetadataEditPayload.numberPairValidationMessage` rejects non-numeric semantic number text. MP3 disc-only updates and AAC total clearing use the corrected package contract. The low-level raw editor remains the explicit exception.
+`AudioTagNumberText` and `AudioTagNumberPair` implement parsing and write-expectation checks. Track and disc are component intents: a number edit submits only the changed number component, a total edit submits only the changed total, and a cleared component is an explicit removal. The untouched sibling is never rewritten or removed. Individual track/disc components preserve a positive total when the number is cleared (the package serializes the pair); whole-pair clearing removes both components. MP4 uses native `trkn`/`disk`; ID3 uses combined `TRCK`/`TPOS` text; Xiph/APE use separate keys. The package may normalize displayed text padding (for example MP4 `07` to `7`); verification compares numeric values, so a text-representation difference is not by itself a failed write. The app does not add an app-side number-text warning-normalization layer.
+
+The package's `numberingInventory` states (`native`, `recoveredLegacy`, `ambiguous`) are projected by `TagLibNumberingProjection`: a canonical value wins, an unambiguous recovered value is displayable, an ambiguous candidate is never guessed (the projected component becomes zero rather than an arbitrary first candidate), and unresolved/malformed text is preserved for correction rather than parsed to zero. Reading never migrates or rewrites a file. `MetadataEditPayload.numberPairValidationMessage` rejects non-numeric edited number text and out-of-range totals. The low-level raw editor remains the explicit exception.
 
 ### Year and release date
 
@@ -106,24 +92,24 @@ Track and disc data is represented by:
 
 | App semantic identity | Package typed field |
 | --- | --- |
-| `year` | `.year` (complete stored YEAR text; never `.date`) |
+| `year` | `.year` (complete stored YEAR text; the legacy `.date` YEAR-slot alias is never submitted) |
 | `date` | `.standaloneDate` |
 | `releaseDate` | `.releaseDate` |
 | `originalReleaseDate` | `.originalReleaseDate` |
 
-Published package 0.8.1 has removed the legacy typed `.date` YEAR alias. This adapter uses only `.year` for YEAR and `.standaloneDate` for DATE. No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
+No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
 
-**Independent-date behavior.** No companion date writes are synthesized. Published 0.8.1 preserves native Xiph/APE YEAR and DATE independently and verifies untouched ID3/MP4 date owners rather than an ambiguous engine DATE projection. Existing ID3v2.3 dates remain explicitly read-only until an independent codec is verified. Canonical date export, transfer and date-based renaming reject unverified v2.3 projections; they do not infer native values from the legacy combined display.
+**Independent-date behavior.** No companion date writes are synthesized. Conflict comparison for the four date identities uses exact native frames/atoms through `TagLibDateNativeProjection` rather than the legacy PropertyMap `DATE` projection, which can alias YEAR and DATE. Existing ID3v2.3 separate date fields are treated as unverified for export, file transfer and filename extraction: those routes reject separate date fields for ID3v2.3 tags instead of inferring native values. `MetadataEditPayload.dateValidationMessage` validates only the explicitly edited date field against its own shape.
 
 ### Content advisory
 
-`ContentAdvisory` has three values (`notExplicit`, `explicit`, `clean`) and the draft may be unset. The adapter maps unset to `.unspecified` only when the advisory changed. Raw non-advisory values are preserved by the package.
+`ContentAdvisory` has three values (`notExplicit`, `explicit`, `clean`) and the draft may be unset. The adapter maps unset to `.unspecified` only when the advisory changed; unchanged advisory is never submitted. Raw non-advisory values are preserved by the package.
 
 ### Artwork
 
-`ArtworkEditAction` is `unchanged`, `replace(PendingArtwork)`, or `remove`. Replacement carries bytes and a MIME type. The adapter converts this into a `MetadataArtworkPatch` with one `StructuredArtwork` entry, or `.removeAll`.
+`ArtworkEditAction` is `unchanged`, `replace(PendingArtwork)`, or `remove`. Replacement carries bytes and a MIME type; the adapter converts it into a `MetadataArtworkPatch` with one `StructuredArtwork` entry, or `.removeAll`.
 
-Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. Existing byte and pixel caps remain enforced. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
+Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. `ArtworkImageNormalizer` bounds input at 50 MiB, 4096 px output dimension, and 4096×4096 source pixels. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
 
 ## Write Preflight
 
@@ -132,7 +118,7 @@ Before any semantic write, `persistMetadataEdit`:
 1. refuses if the snapshot is marked refresh-required,
 2. checks `isTagWriteSupportedExtension` against the runtime writable extensions,
 3. builds `MetadataEditPayload` compared to the baseline snapshot,
-4. expands the requested fields with advisory and number-text companions,
+4. expands the requested fields with advisory and number-component companions,
 5. looks up `AudioFormatSupport.writableMetadataFields(for:)`,
 6. refuses the write if any requested field is unsupported, naming the fields.
 
@@ -140,16 +126,17 @@ Before any semantic write, `persistMetadataEdit`:
 
 ## Payload Construction
 
-`MetadataEditPayload` carries all editable values, the changed-field set, advisory/number-text change flags, and artwork intent.
+`MetadataEditPayload` carries all editable values, the changed-field set, advisory and number-text change flags, typed container-exclusive field intents, and artwork intent.
 
 `MetadataPipelineSupport.metadataPatch(from:)` then:
 
 - includes only fields in `changedFields`,
 - trims text; empty text becomes `.remove`,
-- builds separate track/disc number text, falling back to `"number/total"` only when no explicit text was supplied,
+- submits only changed number components as `.integer`, or `.remove` when cleared; it never sends combined number text and never touches an unchanged sibling,
+- encodes requested non-empty fields whose registry accepts only integers as `.integer`; an empty edit remains `.remove`,
+- passes typed `containerFields` through unchanged,
 - includes advisory only when it changed,
-- includes artwork only when changed,
-- includes number text only when the corresponding text flag changed.
+- includes artwork only when changed.
 
 An unchanged revision with an empty patch performs no write but rechecks the file version.
 
@@ -174,15 +161,15 @@ The dedicated Inspector/provider/exchange models retain Album, Artist and Catalo
    - for `preferUserChanges`, keep the draft values,
    - write against the fresh snapshot's version and the original audio identity.
 
-Field groups are conservative:
+Field groups follow actual native storage:
 
 - track + track total,
 - disc + disc total,
-- year + release date,
 - performer + musician credits,
-- all artwork as one group.
+- YEAR, DATE, RELEASE DATE and ORIGINAL RELEASE DATE are each an independent group,
+- artwork is compared as a whole.
 
-A group is considered converged only when the exact single property value matches; the basic tag projection alone is not trusted.
+A group is considered converged only when the exact single property value matches; the basic tag projection alone is not trusted, and date identities and container-exclusive fields never auto-converge.
 
 Raw writes use the same policy but operate on exact key-level deltas. Only the edited semantic groups (or the edited custom key) are replaced; unrelated keys, arrays, and external additions are preserved.
 
@@ -203,6 +190,7 @@ AudioMator interprets the returned `warnings` and commit status:
 - normal warnings are surfaced in the HUD and save issue log,
 - `TagLibManagerError.committedButDurabilityUncertain` is converted to `AudioMetadataCommitStatus.durabilityUncertain` and reported as committed,
 - `TagLibManagerError.fileChanged` is surfaced as a revision conflict,
+- package numbering ambiguity (`MetadataPatchValidationError.ambiguousNumberRecovery`) becomes a field-specific "enter the value you want to save" failure,
 - any other error becomes a failure message.
 
 The typed semantic write path is the only numbering write route: number and total components are patched through `applyMetadataPatch` and the package owns encoding, verification and warning text. Package warnings are surfaced as returned; the app does not rewrite or filter number-text warnings.
@@ -215,18 +203,15 @@ After a successful write, `MetadataFileMutationExecutor` reloads the file throug
 - Failure/timeout: carries the write result plus `reloadErrorDescription`; the app reports "saved but could not refresh".
 - Cancellation: only observed before the write starts; a started commit always yields the real result.
 
-The late reload result is discarded if its generation is stale. See [State and Mutation Model](STATE_AND_MUTATION_MODEL.md).
+The late reload result is discarded if its refresh generation is stale. See [State and Mutation Model](STATE_AND_MUTATION_MODEL.md).
 
 ## Raw Metadata Editing
 
 `RawMetadataValueMap` is `[String: [String]]` keyed by uppercase property key.
 
-- Loading uses `rawMetadataResult` and preserves value order.
+- Loading uses `rawMetadataValueMap`, which preserves value order.
 - Metadata Editor presents shared AudioMator field names and purposes; raw keys remain the row IDs and write identities. Selected suggestion keys are kept separately from their visible labels. Uppercase raw aliases are not canonicalised as a side effect of editing. See [field guide](../Product/METADATA_FIELD_GUIDE.md#shared-field-names-in-metadata-editor).
-- Saving computes an exact delta from the original map:
-  - set keys whose values changed,
-  - remove keys absent from the draft,
-  - leave all other keys untouched.
+- Saving computes an exact delta from the original map: `writeRawMetadataValueMap` sets keys whose values changed, removes keys absent from the draft, and leaves all other keys untouched.
 - The raw editor deliberately bypasses semantic field preflight because it is a low-level tool; it still uses the shared reservation, expected version, and conflict policy when a baseline is available.
 - If no conflict baseline exists, the older strict path uses the expected version without rebasing.
 
@@ -239,7 +224,7 @@ Erase is exposed only as a destructive batch operation with an unchanged-revisio
 The app does not maintain a per-format write table. It consumes the package's capability snapshot and must be tested per format for behavior that matters. Known cross-format differences documented by AudioMator include:
 
 - ID3, MP4 and Xiph layouts can hold the four date identities independently; ID3v2.3 TDAT and TDRL remain package limitations documented in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
-- MP4 has one standard date slot.
+- MP4 YEAR uses the `©day` atom; independent DATE/RELEASE DATE/ORIGINAL RELEASE DATE use freeform extensions.
 - MP4 track/disc use `trkn`/`disk`; containers may normalize combined text.
 - Multi-artwork roles are not uniformly writable; AudioMator writes a single selected cover.
 - Some number-only or total-clearing operations can fail safely without changing the file; see [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
@@ -256,24 +241,19 @@ The app does not maintain a per-format write table. It consumes the package's ca
 
 ## Number Text Validation
 
-Changed number-text pairs are validated centrally before semantic writes. Missing-number totals and non-numeric number text have separate explanations. The pinned package accepts unsigned decimal number text; existing non-numeric raw values remain untouched during unrelated edits. See [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+Changed number text is validated centrally before semantic writes through `MetadataEditPayload.numberPairValidationMessage`: non-numeric edited Track/Disc Number text is rejected with an explanation, and edited totals must be a whole number from 0 to 2147483647 or cleared. A total without a number is a valid component intent. Existing non-numeric raw values remain untouched during unrelated edits. See [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 ## Known Gaps and Unverified Areas
 
 - The package's internal representation and verification logic were not audited in this repository; the app documents the interface it consumes.
-- App-side container-normalization warning rendering no longer exists: the legacy `writeTrackNumberText` route and its normalization helpers were removed in the 2026-11-18 cleanup. Typed semantic writes surface package warnings directly, and positive coverage for a package-emitted normalization warning remains limited.
+- Positive coverage for a package-emitted text-normalization warning remains limited; the app no longer renders a normalization warning itself.
 - Multi-artwork write behavior is not claimed; only single-cover replacement is exercised.
 - Network-volume and file-provider durability characteristics are not measured.
 
 ## Related Documents
 
 - [Architecture Overview](OVERVIEW.md)
+- [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)
 - [State and Mutation Model](STATE_AND_MUTATION_MODEL.md)
 - [File Revision and Reload](FILE_REVISION_AND_RELOAD.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
-
-## Unreleased package API integration
-
-The `codex/package-api-performance-integration` branch prepares the adapter and its tests for the package's unreleased API cleanup. Typed YEAR uses only `.year`; independent DATE uses `.standaloneDate`. The application no longer references the old typed `.date` YEAR alias or obsolete verification-policy/format-check helpers. Application `AudioFile.date`, CSV Date, and `BasicMetadata.date` retain their independent DATE meaning.
-
-The committed dependency is published 0.8.1, resolved normally without a local override. Earlier local-candidate performance evidence is historical; no application performance improvement is claimed from a package microbenchmark.

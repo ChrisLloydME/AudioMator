@@ -120,7 +120,7 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 
 The Inspector keeps captured per-file source baselines. Multi-file modified-field/action sets record intent but do not by themselves establish unsaved changes: the effective draft, excluding intent already completed for a target, must differ from that target's baseline. Batch Save uses the same comparison to avoid enqueuing no-op writes. Mixed-value blank input remains an explicit clear; reverting a common field value becomes clean.
 
-Unchanged Track/Disc component setters preserve stored pair text. Dirty comparison uses the displayed components and numeric values, retaining visible zero-padding intent while ignoring invisible pair-separator normalization on undo. Removing already absent artwork or an empty/absent container value is clean; Boolean false and integer zero remain present. Genuine dirty drafts retain their original conflict baseline across reloads. See [repair evidence](../Engineering/INSPECTOR_DIRTY_STATE_2026-11-10.md).
+Unchanged Track/Disc component setters preserve stored pair text. Dirty comparison uses the displayed components and numeric values, retaining visible zero-padding intent while ignoring invisible pair-separator normalization on undo. Removing already absent artwork or an empty/absent container value is clean; Boolean false and integer zero remain present. Genuine dirty drafts retain their original conflict baseline across reloads. See [repair evidence](../Engineering/HISTORY/INSPECTOR_DIRTY_STATE_2026-11-10.md).
 
 ## Related Documents
 

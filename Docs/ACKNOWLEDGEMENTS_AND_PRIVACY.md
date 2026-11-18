@@ -2,11 +2,11 @@
 
 AudioMator is a local-first metadata editor. It reads and writes the audio files you choose on your Mac and uses the network only when you explicitly start an online feature.
 
-This disclosure describes the current implementation. The in-app Privacy sheet is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
+This disclosure describes the current implementation, verified by source inspection on 2026-11-18. The in-app Privacy sheet (Settings → About → Privacy…) is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
 
 ## Third-Party Foundations
 
-The in-app Acknowledgements sheet lists the same components and opens the full license texts. The app bundle also contains the license files at the top level of `AudioMator.app/Contents/Resources`. The About panel identifies TagLib and displays its upstream copyright.
+The in-app Acknowledgements sheet (Settings → About → Acknowledgements…) lists the same components and opens the full license texts. The current build product also contains the five license files at the top level of `AudioMator.app/Contents/Resources`. The About panel identifies TagLib and displays its upstream copyright.
 
 ### AudioMator
 
@@ -88,7 +88,7 @@ AudioMator's current artwork implementation is written in Swift in this reposito
 - Releases: <https://github.com/ChrisLloydME/AudioMator/releases>
 - Role: published release metadata, release notes, and manual update checks.
 
-AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.7B2697`.
+AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.7B26112` for the current project values.
 
 ## Local-First Behavior
 
@@ -110,7 +110,7 @@ AudioMator expects release tags in the form `V<version>B<build>`, for example `V
 
 ## Network Activity
 
-Network requests occur only for features you explicitly invoke. All requests are HTTP GETs; no audio file bytes are uploaded.
+Network requests occur only for features you explicitly invoke. All requests are HTTP GETs with no request body, authentication header, or credential; no audio file bytes are uploaded.
 
 ### MusicBrainz
 

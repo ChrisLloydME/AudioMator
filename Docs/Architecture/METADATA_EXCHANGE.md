@@ -152,7 +152,7 @@ Writes are **not** a group transaction. A summary may contain successes and fail
 
 ## Known Gaps
 
-- The full planner depends on app-only `AudioFile` models and is compiled only in the app-hosted test target. The SwiftPM fast target covers the syntax, CSV, locator index, and budget cores.
+- The full planner depends on app-only `AudioFile` models and is covered only by the app-hosted test target. The SwiftPM fast target covers the syntax, CSV, locator index, and budget cores.
 - Plain text has no general escaping and is not a lossless format for arbitrary values; the v2 removal-token escape is the exception described above.
 - Export/import handles metadata represented in the app's field schema; unknown raw PropertyMap keys are outside these modes.
 - Positive tests for some container-specific number edge cases depend on temporary fixture copies and the external package.

@@ -91,14 +91,14 @@ These are real AudioMator subjects before and after the contract was applied in 
 
 ## Checking
 
-`scripts/check-commit-messages.py` is an advisory checker for this contract. It validates the subject format, type, scope shape, lowercase imperative start, length, trailing punctuation, merge form, and duplicate subjects. It reports violations but does not rewrite history or fail a build by itself.
+`scripts/check-commit-messages.py` is an advisory checker for this contract. It validates the `type(scope): summary` shape against the known type list, the lowercase scope regex, the lowercase first character of the summary, the 72-character limit, trailing periods, the merge subject form, and duplicate subjects. It reports errors and warnings but does not rewrite history, and it is not wired into CI or the release gate.
 
 ```bash
 python3 scripts/check-commit-messages.py --range origin/main..HEAD
 python3 scripts/check-commit-messages.py --all
 ```
 
-The range form checks the commits a branch adds; `--all` checks `main`. Older commits may still fail; that is expected for history written before this contract.
+The range form checks the commits a branch adds; `--all` checks the local `main` branch. Exit codes are 0 for no errors, 1 for violations, and 2 when git cannot read the requested range. Older commits and some merge commits may still fail; that is expected for history written before or outside this contract. Fix findings before publishing rather than rewriting published history.
 
 ## Related Documents
 

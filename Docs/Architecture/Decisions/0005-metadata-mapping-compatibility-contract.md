@@ -1,6 +1,6 @@
 # ADR 0005: Adopt a versioned native metadata interoperability mapping contract
 
-- Status: Accepted (implemented by published TagLibAudioMetadata 0.7.3)
+- Status: Accepted (implemented by published TagLibAudioMetadata 0.8.1)
 - Date: 2026-11-09
 
 ## Context
@@ -29,4 +29,4 @@ The refactor must introduce precision-aware dates and edit intents, revise the p
 
 ## Verification
 
-The shared specification enumerates all 79 current package enum cases plus five planned additions, across seven native family/version columns, and the application integration routes. Dedicated tables additionally cover all 26 MP4-exclusive entries and both MKV-exclusive entries (including overlap with the core matrix). ITUNESADVISORY is absent/unset, 0=not Explicit, 1=Explicit, 2=Clean; present zero must never collapse to absence. It defines conformance tests, migration cases and release gates. Published package 0.7.3 and the recorded application gate implement the contract; [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) states the remaining current capability restrictions.
+The shared specification enumerates the 79 package enum cases present at the 0.6.0 baseline plus five field identities the contract introduced (84 target rows), across seven native family/version columns, and the application integration routes; the published 0.8.1 registration count is package-release evidence and is not restated here as a current enum inventory. Dedicated tables additionally cover all 26 MP4-exclusive entries and both MKV-exclusive entries (including overlap with the core matrix). ITUNESADVISORY is absent/unset, 0=not Explicit, 1=Explicit, 2=Clean; present zero must never collapse to absence. It defines conformance tests, migration cases and release gates. Published package 0.8.1 and the recorded application gate implement the contract; [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) states the remaining current capability restrictions.

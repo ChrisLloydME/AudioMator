@@ -6,15 +6,14 @@ AudioMator is a native, sandboxed macOS audio metadata editor. It uses `AudioMat
 
 Use the documentation set under `Docs/` as the detailed reference:
 
-- [Documentation index](Docs/README.md)
-- [Architecture](Docs/Architecture/OVERVIEW.md)
-- [Metadata pipeline](Docs/Architecture/METADATA_PIPELINE.md)
-- [Metadata mapping refactor contract](Docs/Architecture/METADATA_MAPPING_SPEC.md) — shared contract `AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.1; see [current Debug evidence](Docs/Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md).
-- [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md)
-- [Build](Docs/Development/BUILD.md)
-- [Testing](Docs/Development/TESTING.md)
-- [Commit messages](Docs/Development/COMMIT_MESSAGES.md)
-- [Security and data integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md)
+- [Documentation index](Docs/README.md) — start here.
+- [Product overview](Docs/Product/OVERVIEW.md) and [User guide](Docs/Product/USER_GUIDE.md) — scope and current workflows.
+- [Architecture](Docs/Architecture/OVERVIEW.md), [Metadata pipeline](Docs/Architecture/METADATA_PIPELINE.md), [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md).
+- [Metadata mapping specification](Docs/Architecture/METADATA_MAPPING_SPEC.md) — shared contract `AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.1.
+- [Build](Docs/Development/BUILD.md), [Testing](Docs/Development/TESTING.md), [Commit messages](Docs/Development/COMMIT_MESSAGES.md), [Documentation maintenance](Docs/Development/DOCUMENTATION.md).
+- [Security and data integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md).
+
+Dated evidence lives under `Docs/Engineering/` and superseded records under `Docs/Engineering/HISTORY/`. Those records are not current contracts; never copy a claim out of them without re-verifying it against the implementation.
 
 ## Source of Truth
 
@@ -30,7 +29,7 @@ Existing documentation, comments, tests, and commit messages may be stale. Verif
 - `AudioMatorTests/` — app-hosted XCTest bundle and fixtures.
 - `Tests/AudioMatorCoreLogicTests/` — SwiftPM Foundation-only fast tests.
 - `Config/` — `Info.plist` and entitlements; keep outside the synchronized `AudioMator/` source root.
-- `Docs/` — engineering documentation.
+- `Docs/` — current documentation under `Product`, `Architecture`, `Development`, `Reference`, and `Security`; dated evidence under `Engineering` and `Engineering/HISTORY`.
 - `scripts/` — build, validation, bridge smoke helpers.
 
 ## Architecture Rules
@@ -144,6 +143,17 @@ Every commit follows the [commit message contract](Docs/Development/COMMIT_MESSA
 - Reword local commits before publishing; do not rewrite commits already on `origin/main` without the maintainer's explicit approval.
 - Check before publishing: `python3 scripts/check-commit-messages.py --range origin/main..HEAD`.
 
-## Documentation Updates
+## Documentation Maintenance
 
-A behavior change is incomplete without documentation. Use the [update matrix](Docs/Development/DOCUMENTATION.md#update-matrix). Do not add current guidance under `Docs/Engineering/HISTORY`; those files are dated records and are not authoritative for current behavior.
+Documentation is part of every change, not a follow-up task. A behavior, build, test, privacy, dependency, or release change is incomplete until the affected documentation is updated in the same changeset. This applies to implementation, refactoring, bug fixing, and feature development.
+
+Read [Documentation Maintenance](Docs/Development/DOCUMENTATION.md) for the document map, ownership, update matrix, labels, and verification steps. These requirements must hold even if that page is not open:
+
+- **Identify affected documents before implementing.** Use the update matrix; check the canonical document and any page that links to it.
+- **Update documentation in the same changeset.** Never leave a known contradiction between code and current-state documentation.
+- **Verify claims against the implementation.** Treat existing docs, comments, tests, and commit messages as unverified evidence. When documentation contradicts behavior, investigate the code, then correct the document. Never change functional code merely to satisfy old documentation.
+- **Remove or rewrite invalidated descriptions.** Architectural changes, API changes, feature changes, and behavioral changes invalidate old text; delete superseded descriptions instead of layering new ones on top. Remove references to abandoned plans and obsolete workflows.
+- **Distinguish implemented behavior from proposals, assumptions, and unverified behavior.** Label gaps and limitations explicitly; do not present intentions as features.
+- **Prefer maintaining existing canonical documents.** Link to the canonical page instead of copying it. Create a new document only when no existing document owns the topic, and register it in `Docs/README.md` with a clear scope.
+- **Respect the evidence/authority split.** Current guidance lives in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, and `Docs/{Product,Architecture,Development,Reference,Security}`. `Docs/Engineering/` is dated evidence. `Docs/Engineering/HISTORY/` is a superseded archive: never add current guidance there, never rewrite dated results, and never present its claims as current.
+- **Include documentation consistency in final verification.** Before reporting completion, check links, cross-references, terminology, file paths, command examples, and consistency with the documents in the update matrix. Run `python3 scripts/check-doc-links.py` when documentation or its linked files changed. State which documentation you updated; do not claim a documentation review you did not perform.

@@ -4,20 +4,21 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were verified by source inspection on 2026-11-18 (after the accumulated-code cleanup campaign). They change; re-count before quoting them in a release. The acceptance evidence for that campaign is the [2026-11-18 cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md).
+Counts and paths below were verified by source inspection on 2026-11-18 (checkout `554385cc`, after the accumulated-code cleanup campaign and the Inspector menu-save fix). They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests; the working tree now declares 630 because one Inspector menu-save test (`testMenuSaveEditsWritesOnlySelectedFilesAndClearsBatchDraft`) was added after that gate.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 629 | 80 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 630 | 80 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 84 `XCTestCase` classes across both targets (80 app-hosted, 4 core); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
+- Source-policy tests read repository files through `#filePath`; moving the test or its target file breaks them.
 
 ## Commands
 
@@ -88,13 +89,13 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Application/WatchedFolders` | 4 | 23 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
 | `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 10 | 102 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
+| `Integration/TagLib` | 10 | 103 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
 | `Performance` | 4 | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
 | `Unit/Core` | 18 | 87 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 11 | 54 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 3 | 0 | shared test factories and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **83** | **629** | |
+| **Total** | **83** | **630** | |
 
 Notable coverage:
 
@@ -102,7 +103,6 @@ Notable coverage:
 - Real TagLib writes use temporary copies of the six committed audio fixtures.
 - Conflict-strategy tests drive the real adapter on a temporary FLAC copy, including rejection of changed revisions and replacements when original inode identity is absent.
 - Provider cancellation and semantic-write tests use real FLAC copies to verify committed outcomes, exact preservation, and total-only persistence through MusicBrainz, iTunes, and CSV execution.
-- Progressive import is checked while a final load remains gated, including an early failed input; quick-import start/return waits have deadlines.
 - Provider URLProtocol tests cover stale-ID fallback and MusicBrainz results beyond the detail-verification cap.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget.
@@ -114,7 +114,7 @@ Committed fixtures live in `AudioMatorTests/Fixtures` and are copied to temporar
 
 - Audio: `testAudioFile.mp3`, `.m4a`, `.flac`, `.aac`, `.ogg`, `.wav`.
 - Artwork: `testCover.jpg`.
-- Metadata exchange: ten `aurora-*.flac` files (byte-identical copies of the FLAC fixture) plus pipe/tab/comma/semicolon text fixtures and an expected-output file.
+- Metadata exchange: ten `aurora-*.flac` files (byte-identical copies of the FLAC fixture, verified by SHA-256) plus pipe/tab/comma/semicolon text fixtures and an expected-output file.
 
 There are no committed AIFF or Opus fixtures. Artwork write/clear coverage is limited to MP3, M4A, and FLAC.
 
@@ -148,6 +148,7 @@ Only one workflow exists: `.github/workflows/core-logic.yml` (`Validation`).
 - `swift-test`: 15-minute timeout, runs `swift test`.
 - `xcode-test`: 45-minute timeout, runs `bash scripts/validate-release.sh`.
 - The gate disables signing, records evidence under `.deriveddata-codex/Validation/`, and uploads that directory with `actions/upload-artifact` even when the gate fails.
+- Workflow permissions are read-only.
 
 The `xcode-27` runner provision is external to the repository and was not verified. There is no test sharding, live-service test, or signing secret.
 
@@ -156,14 +157,16 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the 13 policy tests with `python3 -m unittest discover -s scripts/tests`,
-2. runs all 62 core tests and checks complete named execution,
-3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality, critical regressions, and zero failures/skips/expected failures,
+2. runs all 62 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 
-The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
+`bash scripts/validate-release.sh --tests-only` runs steps 1-3 and skips the Release build and artifact checks; it is not full release acceptance. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
 
-The current accumulated-code cleanup gate (2026-11-18, code-complete revision `28fe62a6`, published package resolution) passed 13 policy tests, 62 core tests and 629 serial app-hosted tests with zero failures, skips or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for the exact commands, evidence paths and warning/skip inventory.
+The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths. The current working tree declares 630 app-hosted tests; that count has not been re-run through the full gate as part of this documentation audit.
+
+The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary.
 
 ## Known Coverage Gaps
 
@@ -173,10 +176,10 @@ The current accumulated-code cleanup gate (2026-11-18, code-complete revision `2
 4. **No UI automation.** Full SwiftUI/AppKit interaction, file panels, drag-and-drop, accessibility, and visual behavior are manual.
 5. **Watched-folder OS integration is simulated.** Tests use temporary directories and isolated `UserDefaults` suites; real sandbox bookmark grants, file providers, and volume notifications are not exercised.
 6. **Full `AudioViewModel` watched-folder scanning and long-running batch UI** are only partially covered by synthesized orchestration tests.
-7. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup; typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
+7. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup (ledger candidate INF-04, commit `97016668`); typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
 8. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
 9. **Source-policy tests depend on repository layout.** Tests read files via `#filePath`; moving those files breaks the tests.
-10. **Historical test documents are stale.** Dated counts (38, 404, 438, 472, 528, 534, 540, or 574 tests) do not describe the current suite. They are archived or retained as engineering evidence.
+10. **Dated test documents are stale by design.** Counts in this file drift; counts in `Docs/Engineering/` records describe the revision they name.
 
 ## Manual Verification Boundary
 
@@ -204,13 +207,21 @@ These are proposals, not current coverage:
 
 ## Historical Verification
 
-Earlier package adoptions and application repairs are documented as engineering evidence. They do not establish current behavior:
+These dated records are evidence for the revision they name, not current inventories:
 
-- [Published 0.7.2 adoption](../Engineering/TAGLIB_072_ADOPTION_2026-11-11.md) — failed on the absent-Year/present-Date MP4 Comment/Lyrics case; retained as a mandatory regression on 0.7.3.
-- [0.7.1 joint acceptance](../Engineering/MAPPING_071_JOINT_ACCEPTANCE.md) — local-candidate acceptance, superseded by published dependencies.
-- [0.7.0 implementation ledger](../Engineering/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) and [acceptance](../Engineering/AUDIOMATOR_MAPPING_070_ACCEPTANCE_2026-11-10.md) — superseded 0.7.0 evidence.
-- [0.6.0 integration](../Engineering/TAGLIB_060_INTEGRATION_2026-10-25.md) — historical migration record; its FLAC semantic-comment blocker is fixed in later releases.
-- [Post-repair review](../Engineering/POST_REPAIR_REVIEW_2026-10-17.md) — historical 472-test verification and finding matrix.
+- [0.6.0 integration](../Engineering/HISTORY/TAGLIB_060_INTEGRATION_2026-10-25.md) — historical migration record; its FLAC semantic-comment blocker is fixed in later releases.
+- [0.7.0 implementation ledger](../Engineering/HISTORY/AUDIOMATOR_MAPPING_070_IMPLEMENTATION.md) and [acceptance](../Engineering/HISTORY/AUDIOMATOR_MAPPING_070_ACCEPTANCE_2026-11-10.md) — superseded 0.7.0 evidence.
+- [0.7.1 joint acceptance](../Engineering/HISTORY/MAPPING_071_JOINT_ACCEPTANCE.md) — local-candidate acceptance, superseded by published dependencies.
+- [0.7.2 adoption](../Engineering/HISTORY/TAGLIB_072_ADOPTION_2026-11-11.md) — failed on the absent-Year/present-Date MP4 Comment/Lyrics case; retained as a mandatory regression.
+- [0.7.3 readiness](../Engineering/HISTORY/TAGLIB_073_RELEASE_READINESS_2026-11-12.md) — 13 policy tests, 62 core tests, 579 serial app tests.
+- [0.8.0 readiness](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) — 13 policy tests, 62 core tests, 580 serial app tests, plus an unsigned Archive.
+- [Inspector field visibility](../Engineering/INSPECTOR_FIELD_VISIBILITY_2026-11-16.md) — 586 app-hosted tests at that baseline.
+- [Internal numbering recovery](../Engineering/INTERNAL_NUMBERING_RECOVERY_2026-11-16.md) — 593 app-hosted tests at the local-candidate gate, followed by a 596-test joint run.
+- [Metadata Field Guide](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md) — 599 app-hosted tests at the first Debug-only gate, then 602 at the naming follow-up.
+- [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) — 13 policy tests, 62 core tests, 596 serial app tests on the normal project, tests-only lane.
+- [2026-11-18 cleanup acceptance](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) — 13 policy tests, 62 core tests, 629 app tests (code-complete revision `28fe62a6`, tested source `19e1ac23`), full Release/artifact gate.
+
+Earlier local-candidate and write-concurrency evidence ([state coverage](../Engineering/HISTORY/METADATA_STATE_COVERAGE_2026-11-11.md), [write concurrency](../Engineering/HISTORY/WRITE_CONCURRENCY_2026-11-12.md), [package review repair](../Engineering/HISTORY/TAGLIB_REVIEW_REPAIR_2026-11-14.md), [API performance candidate](../Engineering/HISTORY/TAGLIB_API_PERFORMANCE_CANDIDATE_2026-11-12.md)) remains archived and is not published-tag acceptance.
 
 ## Related Documents
 
@@ -220,41 +231,3 @@ Earlier package adoptions and application repairs are documented as engineering 
 - [Release Engineering](RELEASE.md)
 - [2026-11-18 cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md)
 - [2026-11-18 cleanup ledger](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md)
-
-## Unreleased API/performance candidate
-
-The adapter migration is exercised against `codex/api-mapping-performance` with `scripts/validate-release.sh --local-package /absolute/path/to/TagLibAudioMetadata`. Its native mapping contract remains 2.2. That candidate has now been adopted through the exact published 0.8.0 pin; local workspaces remain ignored. See [current adoption evidence](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md). The full serial app-hosted suite and unsigned Release build are required before claiming candidate integration acceptance; see [the candidate evidence record](../Engineering/TAGLIB_API_PERFORMANCE_CANDIDATE_2026-11-12.md). No interactive UI acceptance is implied.
-
-The write-concurrency follow-up expands `MetadataIOPerformanceTests.testBoundedConcurrentGuardedWritesAcrossFormats` to ordinary/heavy metadata and 1/2/4/8 workers, retaining real write/reload and array checks. `ProviderTaggingCancellationTests` now verifies a four-file in-flight window and queued cancellation across all seven targets for provider/filename/CSV paths, preserving exact raw-map and ordered-summary assertions. See [write-concurrency evidence](../Engineering/WRITE_CONCURRENCY_2026-11-12.md).
-
-`testCapturedPlanResultsStayOrderedThroughReversedCompletions` holds the initial four slots and releases results out of order, requiring captured-index outcomes and the exact concurrency bound. The 2026-11-12 app suite contained 580 tests; the 579-test release records are historical. The current suite contains 629 source-declared app-hosted tests (see [the cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md)).
-
-The complete local-candidate gate after bounded plan scheduling passed 62 core and 580 app-hosted tests, 13 policy tests, unsigned Release build and artifact validation. Evidence: `.deriveddata-codex/Validation/20261112-140557-25955/`; see the write-concurrency record for source identities and measured limits.
-
-The local-candidate gate after package advisory-review repairs also passed 62 core and 580 app-hosted tests, policy checks, unsigned Release build and artifact validation. See [2026-11-14 acceptance](../Engineering/TAGLIB_REVIEW_REPAIR_2026-11-14.md) for exact package/source identities and scope.
-
-## Inspector field visibility contract
-
-The Inspector restoration baseline had 586 app-hosted tests. `InspectorFieldConfigurationTests` freezes curated defaults, independent optional dates, exact preference persistence, existing preference recovery, single/multi draft retention and the sole preference-controlled Inspector route. `MetadataSaveJourneyTests.testHiddenInspectorFieldsAndDraftsSurviveRealSingleAndBatchSaves` saves real files after hiding draft fields and verifies title intent plus unchanged album/date/store/comment values. The route, persistence and real-save tests are critical release-gate identities; deleting them blocks acceptance. See [restoration evidence](../Engineering/INSPECTOR_FIELD_VISIBILITY_2026-11-16.md). These tests do not claim automated visual UI acceptance.
-
-## Internal automatic numbering
-
-`AutomaticNumberRecoveryTests` verifies read-only recovery of both historical private namespaces, no guessed ambiguity, canonical authority, normal mixed-field migration/clear without resurrection, ordinary field validation and stale-revision rejection. Mapping acceptance tests require storage-policy controls and their published application state to remain absent. Captured package-plan tests remain direct package integration tests, not application UI workflows. Debug-only local candidate validation uses `bash scripts/validate-release.sh --tests-only --local-package /absolute/path/to/TagLibAudioMetadata`; this runs all policies/core/app tests and named evidence gates but explicitly skips Release and artifact checks. It is not full release acceptance.
-
-The earlier internal numbering recovery baseline had 593 app-hosted tests. The package-result adapter contract also requires preservation of both returned warnings and durable/durability-uncertain commit status; discarding the status must not turn a committed write into a retryable failure or a falsely durable result. Earlier 586-test Inspector restoration evidence remains a dated baseline.
-
-Published 0.8.1 uses the normal-project Debug-only lane: `bash scripts/validate-release.sh --tests-only`. See [adoption evidence](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). That adoption inventory included 596 app-hosted tests, including the subsequent phantom Inspector edit regressions.
-
-The published 0.8.1 Debug-only gate passed all 13 policy, 62 core and 596 serial app tests with exact named inventories, zero failures/skips/expected failures. Evidence: `.deriveddata-codex/Validation/20261117-134510-57258/`. No Release build or artifact check was run.
-
-## Metadata Field Guide
-
-`MetadataFieldGuideTests` checks complete unique coverage of all package enum cases, six distinct read-only display entries, primary-source link identity and privacy-disclosure agreement, plus search by user label/native key and independent date/recording identities. These three tests are required gate identities. It does not automate opening the Help menu, resizing the window, keyboard navigation or VoiceOver; those remain maintainer checks.
-
-The field-guide final Debug-only gate passed 13 policies, 62 core and 599 app tests, with no failures/skips/expected failures. See [verification](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md). Release and interactive UI acceptance were excluded.
-
-Metadata Editor naming regressions cover shared labels/purposes, custom and qualified field identities, DATE labels across tag families, friendly Date versus raw DATE resolution, and preservation of existing DATE/YEAR/ALBUM ARTIST draft keys. All three new regressions are required gate identities.
-
-The Metadata Editor naming follow-up passed the full Debug-only gate: 13 policies, 62 core and 602 app-hosted tests, no failures/skips/expected failures. Evidence: `.deriveddata-codex/Validation/20261117-145354-72366/`. See the [field-guide verification follow-up](../Engineering/METADATA_FIELD_GUIDE_2026-11-17.md#metadata-editor-naming-follow-up).
-
-`InspectorFieldConfigurationTests.testInspectorAndSettingsLabelsMatchTheSharedFieldNames` checks shared names for every configurable Inspector field, batch totals/dates, Interface list number/advisory labels and technical display titles. This naming-only follow-up uses focused serial Debug tests for Inspector configuration, field guide and Metadata Editor rows; it does not claim a new full-suite run.

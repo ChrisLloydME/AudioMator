@@ -124,8 +124,8 @@ Renumbering is serial and uses the same `MetadataFileMutationExecutor` and path 
 - Track totals are preflighted and preserved; renumbering never clears a total.
 - The operation writes a typed number component, not a formatting-only text patch and not a full semantic replacement. Disc numbers and their totals are preserved.
 - Ambiguous or invalid legacy number candidates make the package reject the write; renumbering reports the failure and does not pick a candidate.
-- Renumbering never performs private-atom cleanup. Explicit number cleanup is a separate preview/Apply action.
-- Containers may normalize padding. Verification checks that the numeric value round-trips; a text-only difference is reported as normalization.
+- Renumbering never performs private-atom cleanup; typed component patches leave legacy aliases and unrelated keys untouched.
+- Containers may normalize padding. Verification compares numeric component values; a text-only difference is not by itself a failed write. Package warnings are surfaced as returned.
 - Unsupported formats are skipped rather than force-written.
 
 ## Tests

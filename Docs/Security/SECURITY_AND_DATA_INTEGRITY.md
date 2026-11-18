@@ -1,6 +1,6 @@
 # Security and Data Integrity
 
-This document describes the security-relevant behavior that exists in AudioMator, separates protections from recommended improvements, and states what has not been verified. It does not claim that AudioMator is secure against any particular threat.
+This document describes the security-relevant behavior that exists in AudioMator, separates protections from recommended improvements, and states what has not been verified. It does not claim that AudioMator is secure against any particular threat. Values were verified by source inspection on 2026-11-18; malformed-file robustness, signed-build bookmark behavior, and WebKit runtime behavior were not tested.
 
 ## Scope and Trust Model
 
@@ -12,7 +12,7 @@ AudioMator is a sandboxed macOS app that edits files the user selects. Its main 
 4. **Embedded web content** — Apple/MusicBrainz pages loaded in WebKit.
 5. **Local persisted state** — preferences, bookmarks, and the save issue log.
 
-There is no server component, account system, telemetry, or remote code execution.
+There is no server component, account system, or telemetry. External web pages can load their own scripts inside WebKit; that content is bounded by the embedded-page policy described below.
 
 ## Sandbox and Entitlements
 
@@ -56,9 +56,9 @@ The app persists `.withSecurityScope` bookmark data but does **not** include `co
 | Data | Location | Notes |
 | --- | --- | --- |
 | Audio files | User-selected locations | Modified in place; no app backup |
-| Bookmarks | `UserDefaults` | Security-scoped data; separate per bundle ID |
+| Bookmarks | `UserDefaults` (`watchedFolderRecords`, `fileAccessGrantRecords`, plus `.corruptBackup` keys) | Security-scoped data; separate per bundle ID |
 | Preferences | `UserDefaults` | Includes conflict policy and UI state |
-| Save issue log | `Application Support/AudioMator/SaveIssueLog.json` | 200 entries; file names + messages |
+| Save issue log | `<Application Support>/AudioMator/SaveIssueLog.json` inside the sandbox container | 200 entries; file names + messages; `.corrupt` quarantine copies |
 | Raw metadata dump | In memory / pasteboard | Includes full path and tag values; not logged |
 
 There is no database, cache of audio content, Keychain item, or credential.
@@ -67,8 +67,8 @@ The raw metadata dump intentionally contains the full file path and tag values. 
 
 ## Logging and Telemetry
 
-- App source contains no `print`, `debugPrint`, `NSLog`, `os_log`, or `Logger` calls. `SensitiveLoggingPolicyTests` enforces the first three and the removed metadata logger markers.
-- The policy test does not cover `os_log` or `Logger`, and it scans only `AudioMator/`, not the external package.
+- App source contains no `print`, `debugPrint`, `NSLog`, `os_log`, or `Logger` calls. `SensitiveLoggingPolicyTests` scans every Swift file under `AudioMator/` and its detector self-test confirms it recognizes all five APIs and fails closed if the regex breaks.
+- The policy test covers app source only; it does not scan the external package or audit runtime log output.
 - There is no telemetry, analytics, crash-reporting SDK, or remote logging.
 - The save issue log stores file names and warning/error strings. It is local and user-visible. The app does not intentionally store full paths there, but backend error strings are not formally guaranteed to be value-free.
 
@@ -190,14 +190,15 @@ Include:
 
 ## Verification Status
 
-Verified by source inspection:
+Verified by source inspection on 2026-11-18:
 
-- entitlements, sandbox/hardened-runtime settings,
-- no upload code, no telemetry, no credential storage,
-- no diagnostic logging in app source,
-- bookmark corruption handling,
-- capped directory monitoring,
-- request hosts and parameters,
+- entitlements and sandbox/hardened-runtime settings in `Config/` and `project.pbxproj`,
+- no upload code, no `httpMethod`/body/auth headers, no telemetry, no Keychain usage,
+- no diagnostic logging in app source; `SensitiveLoggingPolicyTests` detector covers `print`, `debugPrint`, `NSLog`, `os_log`, and `Logger`,
+- bookmark corruption quarantine and persistence keys,
+- capped directory monitoring (128 per watched folder),
+- request hosts, query parameters, embedded-page allowlist, and non-persistent WebKit storage,
+- five bundled license texts in the current Debug build product,
 - absence of signing/notarization/release automation.
 
 Not verified:
@@ -207,7 +208,8 @@ Not verified:
 - robustness against malformed files,
 - external package security,
 - signed/notarized distribution,
-- CI runner provisioning.
+- CI runner provisioning,
+- whether the Release bundle contains the five license texts (the current artifact script does not inspect resources).
 
 ## Save Issue-Log Recovery
 

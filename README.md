@@ -20,14 +20,15 @@ AudioMator is a local-first audio metadata editor for macOS. It inspects, edits,
 
 - **Inspector editing** for common fields, for one file or a multi-file selection.
 - **Metadata Editor** for the raw TagLib PropertyMap projection, preserving ordered value lists, duplicates, whitespace, and literal semicolons.
-- **Tag Inspector** for read-only raw tags, ID3v2 frames, legacy sections, and compatibility notes.
+- **Tag Inspector** for the read-only raw tag/property dump, including compatibility notes.
 - **Filename & Metadata** conversion across seven modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut.
 - **Track renumbering** by list or selection order, with direction, start number, and zero-padding.
-- **Artwork replacement** from local images or clipboard data, plus optional iTunes artwork lookup.
+- **Artwork replacement** from a local image, the photo library, or clipboard data, plus optional iTunes artwork lookup.
+- **Metadata Field Guide** — an offline in-app help window explaining each editable field, with optional links to official references.
 - **Online metadata** from MusicBrainz, the Apple iTunes Search API, and LRCLIB synced lyrics, always user initiated.
 - **Watched folders** with security-scoped bookmarks, debounced rescans, and bounded directory monitoring.
 - **Conflict strategies** for Inspector and Metadata Editor drafts when files change on disk.
-- **Local save issue log** for non-success batch outcomes.
+- **Operation result reporting** with per-item outcomes, cancellation handling, and a local save issue log.
 - **MuseAmp compatibility IDs** as an optional integration.
 
 ## Screenshot
@@ -120,7 +121,7 @@ Network requests happen only when you explicitly start:
 - LRCLIB lyrics lookup (`lrclib.net`),
 - release notes or update checks (`api.github.com`).
 
-Requests can include metadata-, filename-, or parent-folder-derived search terms. Embedded MusicBrainz/Apple pages can load additional web content. See [Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) and [Online Metadata](Docs/Architecture/ONLINE_METADATA.md) for the exact data sent.
+Requests can include metadata-, filename-, or parent-folder-derived search terms. Embedded MusicBrainz/Apple pages can load additional web content. Opening a reference link from the Metadata Field Guide opens it in your default browser; AudioMator does not fetch the page itself. See [Acknowledgements and Privacy](Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md) and [Online Metadata](Docs/Architecture/ONLINE_METADATA.md) for the exact data sent.
 
 ## Documentation
 
@@ -135,8 +136,9 @@ The authoritative documentation set starts at [`Docs/README.md`](Docs/README.md)
 - [Build](Docs/Development/BUILD.md)
 - [Testing](Docs/Development/TESTING.md)
 - [Release Engineering](Docs/Development/RELEASE.md)
+- [Documentation Maintenance](Docs/Development/DOCUMENTATION.md)
 - [Security and Data Integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md)
-- [Published 0.8.1 Release Readiness](Docs/Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md)
+- [Engineering Evidence](Docs/Engineering/README.md) — dated acceptance and dependency records, not current behavior
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Agent Guide](AGENTS.md)

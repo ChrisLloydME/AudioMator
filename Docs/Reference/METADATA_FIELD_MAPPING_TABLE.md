@@ -1,6 +1,6 @@
 # UI, application, package and native metadata mapping
 
-This is the single end-to-end lookup table for AudioMator's current metadata identities. Baseline: published **TagLibAudioMetadata 0.8.1**, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`; contract `AM-TLAM-MAPPING-2.2`. Reviewed on 2026-11-17. This is a documentation view of the existing implementation, not a new mapping policy or an expansion of Inspector fields.
+This is the single end-to-end lookup table for AudioMator's current metadata identities. Baseline: published **TagLibAudioMetadata 0.8.1**, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`; contract `AM-TLAM-MAPPING-2.2`. Reviewed against the current application source on 2026-11-18 and the package registry baseline above. This is a documentation view of the existing implementation, not a new mapping policy or an expansion of Inspector fields. Field meanings as shown in the app are described in the [Metadata Field Guide](../Product/METADATA_FIELD_GUIDE.md).
 
 ## How to read the table
 
@@ -142,7 +142,7 @@ All **100 package cases** are listed once, including the custom-field template. 
 
 ## Important distinctions
 
-Year, Date, Release Date and Original Release Date are four independent identities. There is no Year extraction, date completion, cross-field synchronization or default copying. `©day` belongs to Year in this profile; Date and Release Date use distinct MP4 freeforms. Keeping these storage identities does not require exposing Date in the common-field Inspector. The table records today's optional Date row without approving or implementing a future presentation change.
+Year, Date, Release Date and Original Release Date are four independent identities. There is no Year extraction, date completion, cross-field synchronization or default copying. `©day` belongs to Year in this profile; Date and Release Date use distinct MP4 freeforms. Keeping these storage identities does not require exposing Date in the common-field Inspector; Date is an optional Inspector row in the current settings, not a required one.
 
 Track Number, Total Tracks, Disc Number and Total Discs are four semantic components. The two members of each pair can share a physical location. `trackNumberText` and `discNumberText` carry formatting/edit intent, not additional public metadata fields. Historical private `AUDIOMATOR_*_TEXT` / `TAGLIBAUDIOMETADATA_*_TEXT` fields are recovery inputs only, never new UI fields or preferred write targets. Normal edited-pair recovery/retirement is internal and atomic; loading never cleans a file. See [numbering policy](../Architecture/METADATA_MAPPING_SPEC.md#61-total-tracks-and-total-discs-storage).
 
@@ -154,7 +154,7 @@ MP4-exclusive fields are included in the same table, not hidden in another list.
 
 The Purpose column paraphrases the linked primary documentation; it is not a claim that each standard uses AudioMator's exact naming. Date/Year separation, Content Group versus Grouping, unsupported writes and advisory presentation include AudioMator-specific policy. The application guide explicitly distinguishes those choices. Apple documents metadata identifiers but does not specify every opaque iTunes value encoding; no new encoding or writable codec is inferred here. TagLib is a mapping reference rather than an authority for undocumented binary semantics. Sound Check and encoder-padding data should be preserved, not manually invented. ReplayGain values describe playback analysis; this guide does not calculate them or change the audio.
 
-Sources reviewed on 2026-11-17. Only explanatory paraphrases and links are bundled; no remote page is fetched when opening Help.
+Sources reviewed on 2026-11-17 and re-checked against the application model on 2026-11-18. Only explanatory paraphrases and links are bundled; no remote page is fetched when opening Help.
 
 ## Sources and maintenance
 
@@ -164,4 +164,4 @@ The application sources are [InspectorMetadataField](../../AudioMator/Features/M
 
 When the package pin, UI catalog or application model changes, update this table against those exact sources. Keep all package cases accounted for, distinguish registration from write support, and review engine-key aliases separately from native ownership. A documentation edit must not change a runtime mapping or add a UI control.
 
-Documentation verification: all 100 published `MetadataFieldKey` cases are present exactly once; 106 total data rows include the six app-only displays. All 499 native catalog registrations are accounted for in their family columns. Inspector classification matches 17 defaults (including Credits) and five optional fields. The original 15-column identity table passed width/link checks; the Purpose column was subsequently added with official references. No production code or runtime mapping changed; no build or application test was needed for this documentation-only update.
+Documentation verification against the application source: the table has 106 data rows — 100 package `MetadataFieldKey` cases plus the six app-only displays (Credits and five technical values); the guide defines exactly 100 package-key entries; Inspector classification matches 17 defaults (including Credits) and five optional fields, and the table's "Inspector: default/optional" labels follow those sets. The 499 native catalog registration count and per-family cells are the package-registry baseline recorded earlier; they were not re-derived here because the package source is external and outside this documentation pass. No production code or runtime mapping changed; no build or application test was needed for this documentation-only update.

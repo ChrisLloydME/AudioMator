@@ -19,6 +19,10 @@ Domain
   ├─ Foundation
   ├─ Core pure support
   └─ TagLibAudioMetadata semantic types (documented exception)
+
+Core format-support helpers
+  ├─ Foundation and focused system frameworks
+  └─ TagLibAudioMetadata capability and field-key types (narrow, documented exception)
 ```
 
 | Layer | May depend on | Must not depend on |
@@ -27,7 +31,7 @@ Domain
 | `Features` | Domain, Core, Infrastructure protocols/types, SwiftUI/AppKit | Direct TagLib manager calls, container format code, owning file transactions |
 | `Domain` | Foundation, pure `Core`, package semantic types | SwiftUI, AppKit, Combine, URLSession, concrete TagLib managers, file transactions |
 | `Infrastructure` | Domain, Core, system frameworks, package APIs | Feature views or view models |
-| `Core` | Foundation and focused system frameworks | Feature, Domain, or Infrastructure types (pure Core files must stay Foundation-only) |
+| `Core` | Foundation and focused system frameworks; package capability/field-key types only in the format-support and date-validation helpers | Feature, Domain, or Infrastructure types (pure Core files must stay Foundation-only) |
 
 ## The Metadata Contract Exception
 
@@ -40,6 +44,8 @@ Domain reuses stable semantic types from `TagLibAudioMetadata`:
 - `RawMetadataPatch` — exact raw delta.
 
 This keeps one contract for field capabilities, revisions, and raw edits across the boundary. It is a controlled package-contract dependency, not a claim that Domain is package-independent.
+
+`Core/Audio/AudioFormatSupport.swift` builds the app's capability snapshot from `TagLibMetadataManager` extensions/capabilities and `MetadataFieldKey`; `Core/Audio/MetadataDateTextFieldSupport.swift` keys date validation by `MetadataFieldKey`. Both are excluded from the SwiftPM fast target; the Foundation-only `AudioFormatSupportCore` and `MetadataDateTextCore` remain its compilable surface.
 
 Still forbidden in Domain:
 
@@ -70,7 +76,7 @@ The concrete adapter and all loading/commit code stay in `Infrastructure/TagLib`
 
 `Package.swift` defines `AudioMatorCoreLogic` as a **selected-source test harness**, not a production module consumed by the app.
 
-- It compiles an explicit list of 30 Foundation-only production files.
+- It compiles an explicit list of 30 Foundation-only production files (verified against `Package.swift`).
 - It excludes all UI, AppKit, SwiftUI, Combine, TagLib, networking, file system, update, and app-client code.
 - The app target remains authoritative.
 
@@ -80,7 +86,7 @@ A file added to the fast target must not import AppKit, SwiftUI, Combine, TagLib
 
 - A new cross-layer import must state the caller, the coupling it replaces, and the independent test benefit.
 - A new protocol must have a real second implementation or a test seam; do not add abstraction for a single feature without evidence.
-- `AudioFile` may hold a native artwork snapshot defined by `Core/Platform` to avoid repeated decoding, but TagLib/AVFoundation/AppKit construction stays in Infrastructure.
+- `AudioFile` stores artwork as `Data` on the sendable snapshot. ImageIO normalization runs on a concurrent executor and `NSImage` decoding stays in MainActor presentation code; TagLib/AVFoundation/AppKit construction stays in Infrastructure.
 - App-hosted tests cover adapters, real `AudioFile` loading, TagLib writes, the file system, and main-actor orchestration.
 - SwiftPM tests cover deterministic, dependency-light policy.
 

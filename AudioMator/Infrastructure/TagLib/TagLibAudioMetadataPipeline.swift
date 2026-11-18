@@ -78,29 +78,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         return bridgeText.map(MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes)
     }
 
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
-        let dump = try TagLibMetadataManager.rawMetadataResult(from: url)
-        var propertyMap: [String: String] = [:]
-
-        for entry in dump.properties {
-            let key = MetadataPipelineSupport.normalizedPropertyMapKey(entry.key)
-            let values = entry.values.isEmpty ? [entry.value] : entry.values
-            let valueSource = values
-                .map(MetadataPipelineSupport.normalizedFieldComponent)
-                .filter { !$0.isEmpty }
-                .joined(separator: "; ")
-            let value = MetadataPipelineSupport.normalizedFieldComponent(valueSource)
-
-            guard !key.isEmpty, !value.isEmpty else { continue }
-            propertyMap[key] = MetadataPipelineSupport.mergedPropertyMapValue(
-                existing: propertyMap[key],
-                incoming: value
-            )
-        }
-
-        return MetadataPipelineSupport.propertyMapWithSeparatedNumberTotals(propertyMap)
-    }
-
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
         let dump = try TagLibMetadataManager.rawMetadataResult(from: url)
         return dump.properties.reduce(into: RawMetadataValueMap()) { result, entry in
@@ -123,10 +100,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 expectedVersion: expectedVersion
             )
         }
-    }
-
-    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
-        try writeRawMetadataValueMap(propertyMap.mapValues { [$0] }, to: url, expectedVersion: nil)
     }
 
     nonisolated func writeRawMetadataPatch(
@@ -606,76 +579,6 @@ private enum MetadataPipelineSupport {
 
     nonisolated static func normalizedFieldComponent(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    nonisolated static func normalizedPropertyMapKey(_ key: String) -> String {
-        MetadataFieldRegistry.normalizePropertyMapKey(key)
-    }
-
-    nonisolated static func mergedPropertyMapValue(existing: String?, incoming: String) -> String {
-        guard let existing = existing, !existing.isEmpty else { return incoming }
-
-        var parts: [String] = []
-        var seen = Set<String>()
-
-        for value in (existing + "; " + incoming).components(separatedBy: "; ") {
-            let trimmed = normalizedFieldComponent(value)
-            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
-            parts.append(trimmed)
-        }
-
-        return parts.joined(separator: "; ")
-    }
-
-    nonisolated static func propertyMapWithSeparatedNumberTotals(_ propertyMap: [String: String]) -> [String: String] {
-        var separated = propertyMap
-        separateNumberTotal(
-            numberKeys: ["TRACKNUMBER", "TRACK"],
-            preferredNumberKey: "TRACKNUMBER",
-            totalKeys: ["TRACKTOTAL", "TOTALTRACKS"],
-            preferredTotalKey: "TRACKTOTAL",
-            in: &separated
-        )
-        separateNumberTotal(
-            numberKeys: ["DISCNUMBER", "DISC"],
-            preferredNumberKey: "DISCNUMBER",
-            totalKeys: ["DISCTOTAL", "TOTALDISCS"],
-            preferredTotalKey: "DISCTOTAL",
-            in: &separated
-        )
-        return separated
-    }
-
-    nonisolated private static func separateNumberTotal(
-        numberKeys: [String],
-        preferredNumberKey: String,
-        totalKeys: [String],
-        preferredTotalKey: String,
-        in propertyMap: inout [String: String]
-    ) {
-        guard
-            let existingNumberKey = numberKeys.first(where: { key in
-                propertyMap[key]?.contains("/") == true
-            }),
-            let value = propertyMap[existingNumberKey]
-        else {
-            return
-        }
-
-        let parts = value.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
-        guard parts.count == 2 else { return }
-
-        let number = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-        let total = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !number.isEmpty else { return }
-
-        propertyMap.removeValue(forKey: existingNumberKey)
-        propertyMap[preferredNumberKey] = number
-
-        if !total.isEmpty && !totalKeys.contains(where: { propertyMap[$0]?.isEmpty == false }) {
-            propertyMap[preferredTotalKey] = total
-        }
     }
 
 }

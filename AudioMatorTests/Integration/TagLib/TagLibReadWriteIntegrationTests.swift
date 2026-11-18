@@ -522,9 +522,17 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
                 )
             }
 
-            XCTAssertNoThrow(
-                try pipeline.rawMetadataPropertyMap(for: fixtureURL),
-                "\(fixtureName) should expose a normalized raw property map, even when it is empty."
+            var expectedValueMap: RawMetadataValueMap = [:]
+            for property in rawDump.properties {
+                let key = property.key.uppercased()
+                guard !key.isEmpty else { continue }
+                let values = property.values.isEmpty ? [property.value] : property.values
+                expectedValueMap[key, default: []].append(contentsOf: values)
+            }
+            XCTAssertEqual(
+                try pipeline.rawMetadataValueMap(for: fixtureURL),
+                expectedValueMap,
+                "\(fixtureName) should expose every raw property as exact ordered value arrays."
             )
         }
     }
@@ -764,7 +772,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(erased.disc, 0, fixtureName)
             XCTAssertEqual(erased.discTotal, 0, fixtureName)
 
-            let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+            let rawMap = try pipeline.rawMetadataValueMap(for: workingURL)
             for key in [
                 "TITLE", "ARTIST", "ALBUM", "ALBUMARTIST", "COMPOSER", "GENRE", "COMMENT",
                 "RELEASEDATE", "LABEL", "PUBLISHER", "ISRC", "BARCODE", "UPC", "EAN",
@@ -853,19 +861,34 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
         let pipeline = TagLibAudioMetadataPipeline()
-        var propertyMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        propertyMap["TITLE"] = "Raw Delete Regression"
-        propertyMap["ITUNSMPB"] = "00000000 00000840 00000210 00000000003F5AB0 00000000 0003A5E0 00000000 00000000 00000000 00000000 00000000 00000000"
+        let opaqueSMPBValue = "00000000 00000840 00000210 00000000003F5AB0 00000000 0003A5E0 00000000 00000000 00000000 00000000 00000000 00000000"
+        var valueMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        valueMap["TITLE"] = ["Raw Delete Regression"]
+        valueMap["ITUNSMPB"] = [opaqueSMPBValue]
 
-        let writeWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        let writeWarnings = try pipeline.writeRawMetadataValueMap(
+            valueMap,
+            to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL)
+        ).warnings
         XCTAssertFalse(writeWarnings.contains { $0.contains("ITUNSMPB") }, writeWarnings.joined(separator: "\n"))
-        XCTAssertEqual(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNSMPB"], propertyMap["ITUNSMPB"])
+        XCTAssertEqual(
+            try pipeline.rawMetadataValueMap(for: workingURL)["ITUNSMPB"],
+            [opaqueSMPBValue],
+            "Opaque MP4 freeform values must round-trip as one exact array element."
+        )
 
-        propertyMap.removeValue(forKey: "ITUNSMPB")
+        valueMap.removeValue(forKey: "ITUNSMPB")
 
-        let removalWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        let removalWarnings = try pipeline.writeRawMetadataValueMap(
+            valueMap,
+            to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL)
+        ).warnings
         XCTAssertFalse(removalWarnings.contains { $0.contains("ITUNSMPB") }, removalWarnings.joined(separator: "\n"))
-        XCTAssertNil(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNSMPB"])
+        let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertNil(readBack["ITUNSMPB"], "Deleting the freeform key from the exact value map must remove it from the file.")
+        XCTAssertEqual(readBack["TITLE"], ["Raw Delete Regression"], "Removing one freeform key must keep the unrelated edited value.")
     }
 
     func testLosslessRawValueMapPreservesArraysDuplicatesWhitespaceAndLiteralSemicolons() throws {
@@ -942,24 +965,45 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
         let pipeline = TagLibAudioMetadataPipeline()
-        var propertyMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        propertyMap["TRACKNUMBER"] = "7"
-        propertyMap["TRACKTOTAL"] = "12"
+        var valueMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        valueMap["TRACKNUMBER"] = ["7"]
+        valueMap["TRACKTOTAL"] = ["12"]
 
-        let writeWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        let writeWarnings = try pipeline.writeRawMetadataValueMap(
+            valueMap,
+            to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL)
+        ).warnings
         XCTAssertFalse(writeWarnings.contains { $0.contains("TRACKTOTAL") || $0.contains("TOTALTRACKS") }, writeWarnings.joined(separator: "\n"))
-        var readBack = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(readBack["TRACKNUMBER"], "7")
-        XCTAssertEqual(readBack["TRACKTOTAL"], "12")
 
-        propertyMap.removeValue(forKey: "TRACKTOTAL")
+        let writtenMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        // MP4's trkn pair is one native atom. TagLib projects it either as one
+        // combined TRACKNUMBER value or as separate TRACKNUMBER/TRACKTOTAL
+        // PropertyMap entries. The removed scalar property map hid that container
+        // dialect by splitting combined text; the exact value map must expose the
+        // reported arrays unchanged, never a lossy "; " join.
+        if writtenMap["TRACKNUMBER"] == ["7/12"] {
+            XCTAssertNil(writtenMap["TRACKTOTAL"], "A combined exact TRACKNUMBER value must not also carry a separate total.")
+        } else {
+            XCTAssertEqual(writtenMap["TRACKNUMBER"], ["7"], "Unexpected exact TRACKNUMBER shape.")
+            XCTAssertEqual(writtenMap["TRACKTOTAL"], ["12"], "Unexpected exact TRACKTOTAL shape.")
+        }
 
-        let removalWarnings = try pipeline.writeRawMetadataPropertyMap(propertyMap, to: workingURL).warnings
+        valueMap.removeValue(forKey: "TRACKTOTAL")
+
+        let removalWarnings = try pipeline.writeRawMetadataValueMap(
+            valueMap,
+            to: workingURL,
+            expectedVersion: pipeline.metadataFileVersion(at: workingURL)
+        ).warnings
         XCTAssertFalse(removalWarnings.contains { $0.contains("TRACKTOTAL") || $0.contains("TOTALTRACKS") }, removalWarnings.joined(separator: "\n"))
-        readBack = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(readBack["TRACKNUMBER"], "7")
+        let readBack = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertEqual(readBack["TRACKNUMBER"], ["7"], "Removing the total must keep the track number as an exact value array.")
         XCTAssertNil(readBack["TRACKTOTAL"])
         XCTAssertNil(readBack["TOTALTRACKS"])
+        let reloaded = try TagLibMetadataManager.readMetadataResult(from: workingURL)
+        XCTAssertEqual(reloaded.track, 7)
+        XCTAssertEqual(reloaded.trackTotal, 0)
     }
 
     func testInspectorStyleMetadataWriteClearsTrackTotalWithoutDroppingTrackNumber() throws {
@@ -1014,10 +1058,10 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .clean)
-        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(rawMap["TITLE"], edit.title)
-        XCTAssertEqual(rawMap["ARTIST"], edit.artist)
-        XCTAssertEqual(rawMap["ALBUM"], edit.album)
+        let rawMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertEqual(rawMap["TITLE"], [edit.title])
+        XCTAssertEqual(rawMap["ARTIST"], [edit.artist])
+        XCTAssertEqual(rawMap["ALBUM"], [edit.album])
     }
 
     func testInspectorStyleExplicitAdvisoryWritesiTunesExplicitValue() throws {
@@ -1077,7 +1121,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .unspecified)
-        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        let rawMap = try pipeline.rawMetadataValueMap(for: workingURL)
         XCTAssertNil(rawMap["ITUNESADVISORY"], "Clearing the advisory must remove the stored value")
 
         let reloaded = try await AudioFile(url: workingURL)
@@ -1091,11 +1135,9 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
         let pipeline = TagLibAudioMetadataPipeline()
-        _ = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
-            ["ITUNESADVISORY": "1"],
-            to: workingURL,
-            mode: .merge,
-            verifyAfterWrite: false
+        _ = try TagLibMetadataManager.applyRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["ITUNESADVISORY": ["1"]]),
+            to: workingURL
         )
 
         let file = try await AudioFile(url: workingURL)
@@ -1106,7 +1148,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(model.contentAdvisory, .explicit)
         XCTAssertTrue(model.isExplicit)
 
-        XCTAssertEqual(try pipeline.rawMetadataPropertyMap(for: workingURL)["ITUNESADVISORY"], "1")
+        XCTAssertEqual(try pipeline.rawMetadataValueMap(for: workingURL)["ITUNESADVISORY"], ["1"])
     }
 
     func testAudioFileIgnoresNonAdvisoryRawValuesWhenReadingContentAdvisory() async throws {
@@ -1115,19 +1157,17 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
 
         let pipeline = TagLibAudioMetadataPipeline()
-        _ = try TagLibMetadataManager.writeRawMetadataPropertyMapWithVerification(
-            [
-                "COMPILATION": "1",
-                "DISCNUMBER": "1",
-                "TRACKNUMBER": "4"
-            ],
-            to: workingURL,
-            mode: .merge,
-            verifyAfterWrite: false
+        _ = try TagLibMetadataManager.applyRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: [
+                "COMPILATION": ["1"],
+                "DISCNUMBER": ["1"],
+                "TRACKNUMBER": ["4"]
+            ]),
+            to: workingURL
         )
 
-        let rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(rawMap["COMPILATION"], "1")
+        let rawMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertEqual(rawMap["COMPILATION"], ["1"])
         XCTAssertNil(rawMap["ITUNESADVISORY"])
 
         let file = try await AudioFile(url: workingURL)
@@ -1169,10 +1209,10 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(written.copyright, "Copyright To Clear")
         XCTAssertEqual(written.isrc, "USRC17607839")
         XCTAssertEqual(written.barcode, "123456789012")
-        var rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
-        XCTAssertEqual(rawMap["TITLE"], "Title To Clear")
-        XCTAssertEqual(rawMap["ARTIST"], "Artist To Clear")
-        XCTAssertEqual(rawMap["ALBUM"], "Album To Clear")
+        var rawMap = try pipeline.rawMetadataValueMap(for: workingURL)
+        XCTAssertEqual(rawMap["TITLE"], ["Title To Clear"])
+        XCTAssertEqual(rawMap["ARTIST"], ["Artist To Clear"])
+        XCTAssertEqual(rawMap["ALBUM"], ["Album To Clear"])
 
         edit.title = ""
         edit.artist = ""
@@ -1190,7 +1230,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil).warnings
         XCTAssertFalse(warnings.contains { $0.contains("expected to be removed") }, warnings.joined(separator: "\n"))
 
-        rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)
+        rawMap = try pipeline.rawMetadataValueMap(for: workingURL)
         for key in [
             "TITLE", "ARTIST", "ARTISTS", "ALBUM", "COMPOSER", "GENRE", "COMMENT",
             "ALBUMARTIST", "ALBUM ARTIST", "RELEASEDATE", "DATE", "LABEL", "PUBLISHER",

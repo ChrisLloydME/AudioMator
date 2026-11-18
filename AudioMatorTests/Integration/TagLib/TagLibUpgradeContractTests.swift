@@ -52,8 +52,18 @@ nonisolated final class TagLibUpgradeContractTests: XCTestCase {
         _ = try pipeline.writeRawMetadataPatch(RawMetadataPatch(valuesToSet: [
             "TRACKNUMBER": ["07/12"], "CUSTOM-KEEP": ["A", "B"]
         ]), to: url, expectedVersion: nil)
-        XCTAssertEqual(try pipeline.rawMetadataPropertyMap(for: url), try concrete.rawMetadataPropertyMap(for: url))
-        var values = try pipeline.rawMetadataValueMap(for: url)
+
+        // The raw read requirement dispatches through the existential witness, so
+        // the exact ordered value arrays must be identical for
+        // `any AudioMetadataPipeline` and the concrete adapter. The removed scalar
+        // property-map projection neither belongs to this contract nor is required
+        // to prove it.
+        let existentialValues = try pipeline.rawMetadataValueMap(for: url)
+        XCTAssertEqual(existentialValues, try concrete.rawMetadataValueMap(for: url))
+        XCTAssertEqual(existentialValues["TRACKNUMBER"], ["07/12"])
+        XCTAssertEqual(existentialValues["CUSTOM-KEEP"], ["A", "B"])
+
+        var values = existentialValues
         values["TITLE"] = ["Via existential"]
         _ = try pipeline.writeRawMetadataValueMap(values, to: url, expectedVersion: pipeline.metadataFileVersion(at: url))
         XCTAssertEqual(try pipeline.rawMetadataValueMap(for: url), values)

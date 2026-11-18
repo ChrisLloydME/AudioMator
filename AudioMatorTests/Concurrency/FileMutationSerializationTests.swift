@@ -111,7 +111,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: fileID,
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.writeRawMetadataPropertyMap(["TITLE": "First"], to: url)
+                try pipeline.writeRawMetadataValueMap(["TITLE": ["First"]], to: url, expectedVersion: nil)
             }
         }
         await pipeline.reloadStarted.wait()
@@ -312,7 +312,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: file.id,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.writeRawMetadataPropertyMap([:], to: url)
+            try pipeline.writeRawMetadataValueMap([:], to: url, expectedVersion: nil)
         }
         let didQueueAliasMutation = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 1

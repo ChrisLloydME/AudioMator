@@ -158,7 +158,6 @@ protocol AudioMetadataPipeline: Sendable {
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion
     nonisolated func rawMetadataDumpText(for url: URL) -> String?
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String]
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
         to url: URL,
@@ -220,21 +219,6 @@ extension AudioMetadataPipeline {
 
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
         throw CocoaError(.featureUnsupported)
-    }
-
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
-        try rawMetadataValueMap(for: url).mapValues { $0.joined(separator: "; ") }
-    }
-
-    nonisolated func writeRawMetadataPropertyMap(
-        _ propertyMap: [String: String],
-        to url: URL
-    ) throws -> AudioMetadataWriteResult {
-        try writeRawMetadataValueMap(
-            propertyMap.mapValues { [$0] },
-            to: url,
-            expectedVersion: nil
-        )
     }
 
     nonisolated func writeRawMetadataValueMap(

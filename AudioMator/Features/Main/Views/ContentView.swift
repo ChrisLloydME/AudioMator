@@ -169,8 +169,7 @@ struct ContentView: View {
     }
 
     private func openOnlineMetadataBrowser() {
-        let seed = currentMusicBrainzMatchSeed() ?? currentMusicBrainzSearchSeed()
-        onlineMetadataBrowserStore.apply(seed: seed)
+        onlineMetadataBrowserStore.apply(seed: currentMusicBrainzMatchSeed())
         seedLRCLIBLyricsBrowser()
         openWindow(id: OnlineMetadataBrowserView.windowID)
 
@@ -363,62 +362,6 @@ struct ContentView: View {
         }
     }
 
-    private func currentMusicBrainzSearchSeed() -> MusicBrainzSearchSeed? {
-        let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
-        let fileInputs = musicBrainzFileInputs(from: selectedFiles)
-        guard let selectedInput = fileInputs.first else { return nil }
-
-        if selectedFiles.count == 1,
-           let selectedFile = selectedFiles.first,
-           viewModel.editSourceFileID == selectedFile.id,
-           let edit = viewModel.edit {
-            return MusicBrainzSearchSeed(
-                mode: .track,
-                title: preferredMusicBrainzSeedValue(edit.title, fallback: selectedInput.title),
-                artist: preferredMusicBrainzSeedValue(edit.artist, fallback: selectedInput.artist),
-                albumArtist: preferredMusicBrainzSeedValue(edit.albumArtist, fallback: selectedInput.albumArtist),
-                album: preferredMusicBrainzSeedValue(edit.album, fallback: selectedInput.album),
-                trackNumber: preferredMusicBrainzSeedValue(edit.trackNumberText, fallback: selectedInput.trackNumber),
-                trackTotal: 0,
-                durationMilliseconds: nil,
-                releaseDate: "",
-                isrc: "",
-                barcode: "",
-                musicBrainzAlbumID: "",
-                musicBrainzTrackID: "",
-                fileInputs: fileInputs,
-                link: "",
-                sourceDescription: "From the current inspector fields, with filename and path fallback for blanks."
-            )
-        }
-
-        let sourceDescription: String
-        if selectedFiles.count == 1 {
-            sourceDescription = "From the selected file metadata, filename, and path."
-        } else {
-            sourceDescription = "From the first of \(selectedFiles.count) selected files, with filename and path fallback."
-        }
-
-        return MusicBrainzSearchSeed(
-            mode: .track,
-            title: selectedInput.title,
-            artist: selectedInput.artist,
-            albumArtist: selectedInput.albumArtist,
-            album: selectedInput.album,
-            trackNumber: selectedInput.trackNumber,
-            trackTotal: 0,
-            durationMilliseconds: nil,
-            releaseDate: "",
-            isrc: "",
-            barcode: "",
-            musicBrainzAlbumID: "",
-            musicBrainzTrackID: "",
-            fileInputs: fileInputs,
-            link: "",
-            sourceDescription: sourceDescription
-        )
-    }
-
     private func currentMusicBrainzMatchSeed() -> MusicBrainzSearchSeed? {
         let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
         let fileInputs = musicBrainzFileInputs(from: selectedFiles)
@@ -453,15 +396,6 @@ struct ContentView: View {
     private func seedLRCLIBLyricsBrowser() {
         let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
         lrclibLyricsBrowserStore.seed(from: selectedFiles)
-    }
-
-    private func preferredMusicBrainzSeedValue(_ primary: String, fallback: String) -> String {
-        let trimmedPrimary = primary.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedPrimary.isEmpty {
-            return trimmedPrimary
-        }
-
-        return fallback.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func toggleInspector() {

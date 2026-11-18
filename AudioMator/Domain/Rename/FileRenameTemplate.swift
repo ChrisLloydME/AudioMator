@@ -41,7 +41,8 @@ extension FileRenameMetadataField {
     }
 }
 
-enum FileRenamePreviewStatus: Equatable {
+/// Raw values map one-to-one to `FileRenameCoreStatus`; keep them aligned.
+enum FileRenamePreviewStatus: String, Equatable {
     case ready
     case unchanged
     case emptyName
@@ -389,43 +390,16 @@ private struct FileRenamePlanBuilder {
 
 private extension FileRenameCoreStatus {
     init(status: FileRenamePreviewStatus) {
-        switch status {
-        case .ready:
-            self = .ready
-        case .unchanged:
-            self = .unchanged
-        case .emptyName:
-            self = .emptyName
-        case .nameTooLong:
-            self = .nameTooLong
-        case .sourceUnavailable:
-            self = .sourceUnavailable
-        case .duplicateTarget:
-            self = .duplicateTarget
-        case .existingFile:
-            self = .existingFile
-        }
+        // Both status types keep their raw values in lockstep. If a future case
+        // ever lacked a core counterpart, fail closed to an issue status so no
+        // rename is planned for it rather than guessing a ready/unchanged state.
+        self = Self(rawValue: status.rawValue) ?? .sourceUnavailable
     }
 }
 
 private extension FileRenamePreviewStatus {
     init?(coreStatus: FileRenameCoreStatus) {
-        switch coreStatus {
-        case .ready:
-            self = .ready
-        case .unchanged:
-            self = .unchanged
-        case .emptyName:
-            self = .emptyName
-        case .nameTooLong:
-            self = .nameTooLong
-        case .sourceUnavailable:
-            self = .sourceUnavailable
-        case .duplicateTarget:
-            self = .duplicateTarget
-        case .existingFile:
-            self = .existingFile
-        }
+        self.init(rawValue: coreStatus.rawValue)
     }
 }
 

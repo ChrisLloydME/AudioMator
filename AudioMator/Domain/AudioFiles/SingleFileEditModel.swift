@@ -344,19 +344,19 @@ struct SingleFileEditModel {
     }
 
     var trackNumberFieldText: String {
-        AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal).displayedNumberText
+        NumberPairDisplayText.number(rawText: trackNumberText, number: track, total: trackTotal)
     }
 
     var trackTotalFieldText: String {
-        AudioTagNumberPair(rawText: trackNumberText, number: track, total: trackTotal).displayedTotalText
+        NumberPairDisplayText.total(rawText: trackNumberText, number: track, total: trackTotal)
     }
 
     var discNumberFieldText: String {
-        AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal).displayedNumberText
+        NumberPairDisplayText.number(rawText: discNumberText, number: disc, total: discTotal)
     }
 
     var discTotalFieldText: String {
-        AudioTagNumberPair(rawText: discNumberText, number: disc, total: discTotal).displayedTotalText
+        NumberPairDisplayText.total(rawText: discNumberText, number: disc, total: discTotal)
     }
 
     mutating func setTrackNumberFieldText(_ text: String) {
@@ -426,6 +426,21 @@ struct SingleFileEditModel {
         disc = pair.number
         discTotal = pair.total
         discNumberText = pair.canonicalRawText
+    }
+}
+
+/// Single owner for the track/disc pair display text.
+///
+/// The single-file draft and the multi-file value projection must render the
+/// same text for the same stored pair; both routes call this projection so
+/// inspector previews and dirty-state comparisons cannot drift apart.
+private enum NumberPairDisplayText {
+    static func number(rawText: String, number: Int, total: Int) -> String {
+        AudioTagNumberPair(rawText: rawText, number: number, total: total).displayedNumberText
+    }
+
+    static func total(rawText: String, number: Int, total: Int) -> String {
+        AudioTagNumberPair(rawText: rawText, number: number, total: total).displayedTotalText
     }
 }
 
@@ -521,13 +536,13 @@ enum MultiFileEditableTextField: CaseIterable, Hashable {
         case .work:
             return file.work
         case .trackNumber:
-            return AudioTagNumberPair(rawText: file.trackNumberText, number: file.track, total: file.trackTotal).displayedNumberText
+            return NumberPairDisplayText.number(rawText: file.trackNumberText, number: file.track, total: file.trackTotal)
         case .trackTotal:
-            return AudioTagNumberPair(rawText: file.trackNumberText, number: file.track, total: file.trackTotal).displayedTotalText
+            return NumberPairDisplayText.total(rawText: file.trackNumberText, number: file.track, total: file.trackTotal)
         case .discNumber:
-            return AudioTagNumberPair(rawText: file.discNumberText, number: file.disc, total: file.discTotal).displayedNumberText
+            return NumberPairDisplayText.number(rawText: file.discNumberText, number: file.disc, total: file.discTotal)
         case .discTotal:
-            return AudioTagNumberPair(rawText: file.discNumberText, number: file.disc, total: file.discTotal).displayedTotalText
+            return NumberPairDisplayText.total(rawText: file.discNumberText, number: file.disc, total: file.discTotal)
         case .comment:
             return file.comment
         case .albumArtist:

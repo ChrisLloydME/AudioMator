@@ -15,14 +15,10 @@ enum FileMutationDirectoryAccessPlan {
         return directoriesByPath.values
             .filter { directoryURL in
                 !activeDirectoryURLs.contains { activeDirectoryURL in
-                    isSameOrDescendant(directoryURL, of: activeDirectoryURL)
+                    FileSystemPathSemantics.isSameOrDescendant(directoryURL, of: activeDirectoryURL)
                 }
             }
             .sorted { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
-    }
-
-    nonisolated static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
-        FileSystemPathSemantics.isSameOrDescendant(url, of: ancestorURL)
     }
 
     nonisolated private static func normalizedPath(for url: URL) -> String {

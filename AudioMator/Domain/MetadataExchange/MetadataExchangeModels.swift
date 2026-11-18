@@ -332,10 +332,6 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         }
     }
 
-    var writeOrderIndex: Int {
-        Self.allCases.firstIndex(of: self) ?? Int.max
-    }
-
     var propertyMapKey: String? {
         switch self {
         case .title:
@@ -425,15 +421,7 @@ enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
         .musicBrainzTrackID, .musicBrainzReleaseGroupID, .contentAdvisory
     ]
 
-    static let importPalette: [Self] = [
-        .fileName, .baseName, .path, .relativePath, .index,
-        .title, .artist, .album, .albumArtist, .composer, .lyricist, .producer,
-        .engineer, .remixer, .genre, .year, .date, .originalReleaseDate, .trackNumber, .trackTotal, .discNumber,
-        .discTotal, .comment, .releaseDate, .publisher, .copyright, .isrc, .barcode,
-        .language, .mediaType, .releaseType, .catalogNumber, .releaseCountry,
-        .itunesAlbumID, .itunesArtistID, .itunesCatalogID, .musicBrainzAlbumID,
-        .musicBrainzTrackID, .musicBrainzReleaseGroupID, .contentAdvisory, .ignore
-    ]
+    static let importPalette: [Self] = exportPalette + [.ignore]
 
     static func field(forPlaceholderName placeholderName: String) -> Self? {
         switch placeholderName {

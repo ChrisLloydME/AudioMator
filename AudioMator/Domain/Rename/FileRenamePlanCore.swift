@@ -1,6 +1,7 @@
 import Foundation
 
-enum FileRenameCoreStatus: Equatable {
+/// Raw values map one-to-one to `FileRenamePreviewStatus`; keep them aligned.
+enum FileRenameCoreStatus: String, Equatable {
     case ready
     case unchanged
     case emptyName

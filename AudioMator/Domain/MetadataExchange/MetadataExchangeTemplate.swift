@@ -33,14 +33,6 @@ struct MetadataExchangeTemplateDocument: Equatable {
     var hasWritableMetadataFields: Bool {
         fields.contains(where: \.isWritableMetadataField)
     }
-
-    var usesFileNameMatching: Bool {
-        fields.contains(.fileName)
-    }
-
-    var usesBaseNameMatching: Bool {
-        fields.contains(.baseName)
-    }
 }
 
 struct MetadataExchangeTemplateParseResult: Equatable {

@@ -16,7 +16,7 @@ enum ArtworkImportTarget {
 struct InspectorPane: View {
     @ObservedObject var viewModel: AudioViewModel
     @ObservedObject var state: SharedState
-    @Binding var isInspectorVisible: Bool
+    let onHideInspector: () -> Void
 
     @State private var inspectorQuickLabel: String = ""
     @State private var inspectorQuickText: String = ""
@@ -220,6 +220,29 @@ struct InspectorPane: View {
                     "Select a File",
                     systemImage: "music.quarternote.3"
                 )
+            }
+        }
+        .toolbar {
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.flexible, placement: .primaryAction)
+            }
+
+            ToolbarItemGroup(placement: .primaryAction) {
+                if state.visibleToolbarButtons.contains(.cancelEdits) {
+                    Button("Cancel", action: viewModel.cancelEditing)
+                        .disabled(viewModel.selectedAudioIDs.isEmpty)
+                }
+
+                if state.visibleToolbarButtons.contains(.saveEdits) {
+                    Button("Save", action: viewModel.saveInspectorEdits)
+                        .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+                }
+
+                Button(action: onHideInspector) {
+                    Label("Hide Inspector", systemImage: "sidebar.right")
+                        .labelStyle(.iconOnly)
+                }
+                .help("Hide Inspector")
             }
         }
         .sheet(isPresented: $isInspectorQuickPresented) {            VStack(alignment: .leading, spacing: 18) {

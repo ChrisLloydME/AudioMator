@@ -10,19 +10,6 @@ import TagLibAudioMetadata
 nonisolated enum TagLibDateNativeProjection {
     static func values(
         for field: MetadataFieldKey,
-        snapshot: MetadataSnapshot,
-        fileExtension: String
-    ) -> [String] {
-        values(
-            for: field,
-            structured: snapshot.structured,
-            basicYear: snapshot.basic.year,
-            fileExtension: fileExtension
-        )
-    }
-
-    static func values(
-        for field: MetadataFieldKey,
         structured: StructuredMetadata,
         basicYear: String,
         fileExtension: String
@@ -50,14 +37,7 @@ nonisolated enum TagLibDateNativeProjection {
         }
     }
 
-    static func yearValues(
-        _ snapshot: MetadataSnapshot,
-        fileExtension ext: String
-    ) -> [String] {
-        yearValues(snapshot.structured, basicYear: snapshot.basic.year, fileExtension: ext)
-    }
-
-    static func yearValues(
+    private static func yearValues(
         _ structured: StructuredMetadata,
         basicYear: String,
         fileExtension ext: String
@@ -79,14 +59,7 @@ nonisolated enum TagLibDateNativeProjection {
         }
     }
 
-    static func standaloneDateValues(
-        _ snapshot: MetadataSnapshot,
-        fileExtension ext: String
-    ) -> [String] {
-        standaloneDateValues(snapshot.structured, fileExtension: ext)
-    }
-
-    static func standaloneDateValues(
+    private static func standaloneDateValues(
         _ structured: StructuredMetadata,
         fileExtension ext: String
     ) -> [String] {
@@ -105,14 +78,7 @@ nonisolated enum TagLibDateNativeProjection {
         }
     }
 
-    static func releaseDateValues(
-        _ snapshot: MetadataSnapshot,
-        fileExtension ext: String
-    ) -> [String] {
-        releaseDateValues(snapshot.structured, fileExtension: ext)
-    }
-
-    static func releaseDateValues(
+    private static func releaseDateValues(
         _ structured: StructuredMetadata,
         fileExtension ext: String
     ) -> [String] {
@@ -126,14 +92,7 @@ nonisolated enum TagLibDateNativeProjection {
         }
     }
 
-    static func originalReleaseDateValues(
-        _ snapshot: MetadataSnapshot,
-        fileExtension ext: String
-    ) -> [String] {
-        originalReleaseDateValues(snapshot.structured, fileExtension: ext)
-    }
-
-    static func originalReleaseDateValues(
+    private static func originalReleaseDateValues(
         _ structured: StructuredMetadata,
         fileExtension ext: String
     ) -> [String] {

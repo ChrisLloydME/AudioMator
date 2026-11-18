@@ -35,6 +35,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                         store: musicBrainzStore,
                         lrclibStore: LRCLIBLyricsBrowserStore(),
                         viewModel: viewModel,
+                        iTunesStore: iTunesBrowserStore(),
                         initialSource: .musicBrainz
                     )
                 ),

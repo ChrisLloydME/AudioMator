@@ -111,7 +111,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: fileID,
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.writeRawMetadataPropertyMap(["TITLE": "First"], to: url)
+                try pipeline.writeRawMetadataValueMap(["TITLE": ["First"]], to: url, expectedVersion: nil)
             }
         }
         await pipeline.reloadStarted.wait()
@@ -137,7 +137,7 @@ final class FileMutationSerializationTests: XCTestCase {
         guard case .success(let success) = firstResult else {
             return XCTFail("Expected the write and reload transaction to succeed.")
         }
-        XCTAssertTrue(success.didReloadFile)
+        XCTAssertNotNil(success.reloadedFile)
         XCTAssertEqual(success.reloadedFile?.id, fileID)
         let didEnterAfterReloadFinished = await secondMutationEntered.isSignaled
         XCTAssertTrue(didEnterAfterReloadFinished)
@@ -156,14 +156,14 @@ final class FileMutationSerializationTests: XCTestCase {
             id: UUID(),
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.eraseAllMetadata(at: url)
+            try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
         }
 
         guard case .success(let success) = result else {
             return XCTFail("A reload failure must not erase the successful write result.")
         }
         XCTAssertEqual(success.writeResult.warnings, ["Injected write warning"])
-        XCTAssertFalse(success.didReloadFile)
+        XCTAssertNil(success.reloadedFile)
         XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
     }
 
@@ -183,7 +183,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: UUID(),
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             }
         }
         await pipeline.reloadStarted.wait()
@@ -192,7 +192,7 @@ final class FileMutationSerializationTests: XCTestCase {
         guard case .success(let success) = result else {
             return XCTFail("A post-commit reload timeout must not turn a successful write into a failure.")
         }
-        XCTAssertFalse(success.didReloadFile)
+        XCTAssertNil(success.reloadedFile)
         XCTAssertTrue(success.reloadErrorDescription?.contains("took too long") == true)
 
         let followUpEntered = AsyncTestLatch()
@@ -225,7 +225,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: UUID(),
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             }
         }
         let didStart = try await waitUntil { pipeline.totalMutationCount == 1 }
@@ -253,7 +253,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: UUID(),
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             }
         }
         let didStartCommit = try await waitUntil { pipeline.totalMutationCount == 1 }
@@ -302,7 +302,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: file.id,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.writeMetadata(payload, to: url)
+            try pipeline.writeMetadata(payload, to: url, expectedVersion: nil)
         }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
@@ -312,7 +312,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: file.id,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.writeRawMetadataPropertyMap([:], to: url)
+            try pipeline.writeRawMetadataValueMap([:], to: url, expectedVersion: nil)
         }
         let didQueueAliasMutation = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 1
@@ -349,7 +349,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: fileID,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.writeMetadata(payload, to: url)
+            try pipeline.writeMetadata(payload, to: url, expectedVersion: nil)
         }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
@@ -359,7 +359,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: fileID,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.eraseAllMetadata(at: url)
+            try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
         }
         async let renumberResult = viewModel.renumberTrackNumbers(
             orderedIDs: [fileID],
@@ -583,16 +583,6 @@ private final class ReloadGatedMutationPipeline: AudioMetadataPipeline, @uncheck
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])
     }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }
 
 private final class ReloadFailingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
@@ -620,16 +610,6 @@ private final class ReloadFailingMutationPipeline: AudioMetadataPipeline, @unche
     }
 
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: ["Injected write warning"])
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: ["Injected write warning"])
     }
 
@@ -700,17 +680,6 @@ private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked 
 
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         recordMutation(.erase)
-        return AudioMetadataWriteResult(warnings: [])
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        recordMutation(.trackRenumber)
         return AudioMetadataWriteResult(warnings: [])
     }
 

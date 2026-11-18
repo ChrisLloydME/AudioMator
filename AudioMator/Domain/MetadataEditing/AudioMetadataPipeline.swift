@@ -59,7 +59,6 @@ struct MetadataEditPayload: Sendable {
     var copyright: String
     var unsupportedAdvisoryImport: String?
     var contentAdvisory: ContentAdvisory?
-    nonisolated var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
     /// Typed MP4-exclusive and role-aware field intents. Values are already
     /// shape-validated by the semantic editor.
     var containerFields: [MetadataFieldKey: MetadataPatchValue]
@@ -158,7 +157,6 @@ protocol AudioMetadataPipeline: Sendable {
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion
     nonisolated func rawMetadataDumpText(for url: URL) -> String?
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String]
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
         to url: URL,
@@ -185,15 +183,6 @@ protocol AudioMetadataPipeline: Sendable {
         at url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult
-    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory
-
 }
 
 extension AudioMetadataPipeline {
@@ -224,28 +213,6 @@ extension AudioMetadataPipeline {
         throw CocoaError(.featureUnsupported)
     }
 
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
-        try rawMetadataValueMap(for: url).mapValues { $0.joined(separator: "; ") }
-    }
-
-    nonisolated func writeMetadata(
-        _ edit: MetadataEditPayload,
-        to url: URL
-    ) throws -> AudioMetadataWriteResult {
-        try writeMetadata(edit, to: url, expectedVersion: nil)
-    }
-
-    nonisolated func writeRawMetadataPropertyMap(
-        _ propertyMap: [String: String],
-        to url: URL
-    ) throws -> AudioMetadataWriteResult {
-        try writeRawMetadataValueMap(
-            propertyMap.mapValues { [$0] },
-            to: url,
-            expectedVersion: nil
-        )
-    }
-
     nonisolated func writeRawMetadataValueMap(
         _ valueMap: RawMetadataValueMap,
         to url: URL,
@@ -260,29 +227,4 @@ extension AudioMetadataPipeline {
             expectedVersion: expectedVersion
         )
     }
-
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
-        try eraseAllMetadata(at: url, expectedVersion: nil)
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool
-    ) throws -> AudioMetadataWriteResult {
-        try writeTrackNumberText(
-            trackNumberText,
-            discNumberText: discNumberText,
-            to: url,
-            verifyAfterWrite: verifyAfterWrite,
-            expectedVersion: nil
-        )
-    }
-
-    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory {
-        throw CocoaError(.featureUnsupported)
-    }
-
-
 }

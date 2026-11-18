@@ -185,7 +185,6 @@ final class AudioViewModel: ObservableObject {
     private var securityScopedQuickImportFileURLs: [String: URL] = [:]
     private var securityScopedQuickImportDirectoryURLs: [String: URL] = [:]
     private var securityScopedFileAccessGrantURLs: [UUID: URL] = [:]
-    private var securityScopedSupplementalMutationDirectoryURLs: [String: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
     // Incremented when a committed mutation changes a file that belongs to a
     // watched folder. A rescan that started before the mutation must not
@@ -205,59 +204,6 @@ final class AudioViewModel: ObservableObject {
             fileAccessGrantStore: FileAccessGrantStore(),
             metadataPipeline: TagLibAudioMetadataPipeline(),
             saveIssueLogStore: SaveIssueLogStore()
-        )
-    }
-
-    convenience init(metadataPipeline: any AudioMetadataPipeline) {
-        self.init(
-            watchedFolderStore: WatchedFolderStore(),
-            fileAccessGrantStore: FileAccessGrantStore(),
-            metadataPipeline: metadataPipeline,
-            saveIssueLogStore: SaveIssueLogStore()
-        )
-    }
-
-    convenience init(
-        metadataPipeline: any AudioMetadataPipeline,
-        artworkLookupService: any iTunesArtworkServicing,
-        artworkLookupOperationTimeout: Duration = .seconds(30)
-    ) {
-        self.init(
-            watchedFolderStore: WatchedFolderStore(),
-            fileAccessGrantStore: FileAccessGrantStore(),
-            metadataPipeline: metadataPipeline,
-            saveIssueLogStore: SaveIssueLogStore(),
-            artworkLookupService: artworkLookupService,
-            artworkLookupOperationTimeout: artworkLookupOperationTimeout
-        )
-    }
-
-    convenience init(
-        metadataPipeline: any AudioMetadataPipeline,
-        saveIssueLogStore: SaveIssueLogStore
-    ) {
-        self.init(
-            watchedFolderStore: WatchedFolderStore(),
-            fileAccessGrantStore: FileAccessGrantStore(),
-            metadataPipeline: metadataPipeline,
-            saveIssueLogStore: saveIssueLogStore
-        )
-    }
-
-    convenience init(
-        watchedFolderStore: WatchedFolderStore,
-        metadataPipeline: any AudioMetadataPipeline,
-        saveIssueLogStore: SaveIssueLogStore,
-        artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
-        artworkLookupOperationTimeout: Duration = .seconds(30)
-    ) {
-        self.init(
-            watchedFolderStore: watchedFolderStore,
-            fileAccessGrantStore: FileAccessGrantStore(),
-            metadataPipeline: metadataPipeline,
-            saveIssueLogStore: saveIssueLogStore,
-            artworkLookupService: artworkLookupService,
-            artworkLookupOperationTimeout: artworkLookupOperationTimeout
         )
     }
 
@@ -319,7 +265,6 @@ final class AudioViewModel: ObservableObject {
         securityScopedQuickImportFileURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
         securityScopedQuickImportDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
         securityScopedFileAccessGrantURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
-        securityScopedSupplementalMutationDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
     }
 
     var currentFileSourceMode: FileSourceMode {
@@ -987,10 +932,6 @@ final class AudioViewModel: ObservableObject {
         return nil
     }
 
-    func ensureRenameDirectoryAccess(for urls: [URL]) -> String? {
-        ensureMutationDirectoryAccess(for: urls)
-    }
-
     func ensureMetadataMutationDirectoryAccess(for urls: [URL]) -> String? {
         guard metadataPipeline.requiresTransactionalDirectoryAccess else { return nil }
         return ensureMutationDirectoryAccess(for: urls)
@@ -1381,8 +1322,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     private var activeMutationDirectoryURLs: [URL] {
-        Array(securityScopedSupplementalMutationDirectoryURLs.values)
-            + Array(securityScopedQuickImportDirectoryURLs.values)
+        Array(securityScopedQuickImportDirectoryURLs.values)
             + Array(securityScopedFolderURLs.values)
             + Array(securityScopedFileAccessGrantURLs.values)
     }

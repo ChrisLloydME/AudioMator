@@ -53,7 +53,6 @@ struct AudioFile: Identifiable, Sendable {
     let catalogNumber: String
     let releaseCountry: String
     let contentAdvisory: ContentAdvisory?
-    var isExplicit: Bool { contentAdvisory?.isExplicit ?? false }
 
     // MARK: – Independent dates and container-exclusive semantics
     //
@@ -68,11 +67,6 @@ struct AudioFile: Identifiable, Sendable {
     /// Typed MP4-exclusive values. Presence in the dictionary is significant:
     /// `.boolean(false)` and `.integer(0)` are present values, not absence.
     let containerValues: [MetadataFieldKey: ContainerFieldValue]
-    /// Native/legacy number inventory captured from the same read. Unresolved
-    /// components are preserved instead of being displayed as zero.
-    let trackNumberInventory: MetadataNumberGroupInventory?
-    let discNumberInventory: MetadataNumberGroupInventory?
-
     // MARK: – Technical
     let duration: Double
     let bitrate: Int
@@ -129,8 +123,6 @@ struct AudioFile: Identifiable, Sendable {
         hasher.combine(grouping)
         hasher.combine(work)
         hasher.combine(containerValues)
-        hasher.combine(trackNumberInventory)
-        hasher.combine(discNumberInventory)
         hasher.combine(duration)
         hasher.combine(bitrate)
         hasher.combine(sampleRate)
@@ -194,8 +186,6 @@ struct AudioFile: Identifiable, Sendable {
         grouping: String = "",
         work: String = "",
         containerValues: [MetadataFieldKey: ContainerFieldValue] = [:],
-        trackNumberInventory: MetadataNumberGroupInventory? = nil,
-        discNumberInventory: MetadataNumberGroupInventory? = nil,
         fileFingerprint: AudioFileFingerprint? = nil,
         metadataFileVersion: MetadataFileVersion? = nil,
         metadataConflictBaseline: MetadataConflictBaseline? = nil,
@@ -247,8 +237,6 @@ struct AudioFile: Identifiable, Sendable {
         self.grouping = grouping
         self.work = work
         self.containerValues = containerValues
-        self.trackNumberInventory = trackNumberInventory
-        self.discNumberInventory = discNumberInventory
         self.duration = duration
         self.bitrate = bitrate
         self.sampleRate = sampleRate
@@ -320,8 +308,6 @@ struct AudioFile: Identifiable, Sendable {
             grouping: grouping,
             work: work,
             containerValues: containerValues,
-            trackNumberInventory: trackNumberInventory,
-            discNumberInventory: discNumberInventory,
             fileFingerprint: fileFingerprint,
             metadataFileVersion: metadataFileVersion,
             metadataConflictBaseline: metadataConflictBaseline,

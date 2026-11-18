@@ -6,23 +6,16 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 
     nonisolated init() {}
 
-    nonisolated static func metadataPatchForWrite(from edit: MetadataEditPayload) -> MetadataPatch {
-        MetadataPipelineSupport.metadataPatch(from: edit)
-    }
-
-    /// Preserve semantic intent exactly. Package alias defects are not repaired
-    /// by synthesizing writes to unedited date fields.
-    nonisolated static func metadataPatchForWrite(
-        from edit: MetadataEditPayload,
-        at url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> MetadataPatch {
+    /// Single validation and encoding policy for every semantic write entry
+    /// point: unsupported advisory imports are rejected before a patch can be
+    /// planned or committed. Preserve semantic intent exactly; package alias
+    /// defects are not repaired by synthesizing writes to unedited date fields.
+    nonisolated static func metadataPatchForWrite(from edit: MetadataEditPayload) throws -> MetadataPatch {
         if edit.unsupportedAdvisoryImport != nil {
             throw CocoaError(.featureUnsupported, userInfo: [NSLocalizedDescriptionKey:
                 String(localized: "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option.")])
         }
-        let patch = MetadataPipelineSupport.metadataPatch(from: edit)
-        return patch
+        return MetadataPipelineSupport.metadataPatch(from: edit)
     }
 
     nonisolated static func interpretingWrite(
@@ -85,29 +78,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         return bridgeText.map(MetadataPipelineSupport.rawMetadataDumpTextWithCompatibilityNotes)
     }
 
-    nonisolated func rawMetadataPropertyMap(for url: URL) throws -> [String: String] {
-        let dump = try TagLibMetadataManager.rawMetadataResult(from: url)
-        var propertyMap: [String: String] = [:]
-
-        for entry in dump.properties {
-            let key = MetadataPipelineSupport.normalizedPropertyMapKey(entry.key)
-            let values = entry.values.isEmpty ? [entry.value] : entry.values
-            let valueSource = values
-                .map(MetadataPipelineSupport.normalizedFieldComponent)
-                .filter { !$0.isEmpty }
-                .joined(separator: "; ")
-            let value = MetadataPipelineSupport.normalizedFieldComponent(valueSource)
-
-            guard !key.isEmpty, !value.isEmpty else { continue }
-            propertyMap[key] = MetadataPipelineSupport.mergedPropertyMapValue(
-                existing: propertyMap[key],
-                incoming: value
-            )
-        }
-
-        return MetadataPipelineSupport.propertyMapWithSeparatedNumberTotals(propertyMap)
-    }
-
     nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
         let dump = try TagLibMetadataManager.rawMetadataResult(from: url)
         return dump.properties.reduce(into: RawMetadataValueMap()) { result, entry in
@@ -118,10 +88,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         }
     }
 
-    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
-        try writeMetadata(edit, to: url, expectedVersion: nil)
-    }
-
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
         to url: URL,
@@ -129,15 +95,11 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         try Self.interpretingWrite {
             try TagLibMetadataManager.applyMetadataPatch(
-                try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
+                try Self.metadataPatchForWrite(from: edit),
                 to: url,
                 expectedVersion: expectedVersion
             )
         }
-    }
-
-    nonisolated func writeRawMetadataPropertyMap(_ propertyMap: [String: String], to url: URL) throws -> AudioMetadataWriteResult {
-        try writeRawMetadataValueMap(propertyMap.mapValues { [$0] }, to: url, expectedVersion: nil)
     }
 
     nonisolated func writeRawMetadataPatch(
@@ -162,7 +124,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         try Self.interpretingWrite {
             try TagLibMetadataManager.applyMetadataPatch(
-                try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
+                try Self.metadataPatchForWrite(from: edit),
                 to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
             )
@@ -183,10 +145,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         }
     }
 
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
-        try eraseAllMetadata(at: url, expectedVersion: nil)
-    }
-
     nonisolated func eraseAllMetadata(
         at url: URL,
         expectedVersion: MetadataFileVersion?
@@ -198,52 +156,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             )
         }
     }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool
-    ) throws -> AudioMetadataWriteResult {
-        try writeTrackNumberText(
-            trackNumberText,
-            discNumberText: discNumberText,
-            to: url,
-            verifyAfterWrite: verifyAfterWrite,
-            expectedVersion: nil
-        )
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        try Self.interpretingWrite {
-            let writeResult = try TagLibMetadataManager.writeTrackNumberText(
-                trackNumberText,
-                discNumberText: discNumberText,
-                to: url,
-                verifyAfterWrite: verifyAfterWrite,
-                expectedVersion: expectedVersion
-            )
-            let warnings = MetadataPipelineSupport.numberTextWriteWarnings(
-                writeResult.warnings,
-                expectedTrackNumberText: trackNumberText,
-                expectedDiscNumberText: discNumberText,
-                for: url
-            )
-            return TagLibMetadataManager.MetadataWriteResult(warnings: warnings, commitStatus: writeResult.commitStatus)
-        }
-    }
-
-    nonisolated func numberingInventory(at url: URL) throws -> MetadataNumberingInventory {
-        try TagLibMetadataManager.numberingInventory(at: url)
-    }
-
-
 }
 
 private enum MetadataPipelineSupport {
@@ -445,70 +357,6 @@ private enum MetadataPipelineSupport {
         return [rawText, noteText].joined(separator: "\n\n")
     }
 
-    nonisolated static func numberTextWriteWarnings(
-        _ warnings: [String],
-        expectedTrackNumberText: String,
-        expectedDiscNumberText: String?,
-        for url: URL
-    ) -> [String] {
-        guard !warnings.isEmpty else { return warnings }
-        guard let readBack = try? TagLibMetadataManager.readMetadataResult(from: url) else {
-            return warnings
-        }
-
-        return warnings.compactMap { warning in
-            if warning.hasPrefix("Track number text differs after save") {
-                return normalizedNumberTextWarning(
-                    warning,
-                    label: "Track number",
-                    expectedText: expectedTrackNumberText,
-                    actualText: readBack.trackNumberText,
-                    actualNumber: readBack.track,
-                    actualTotal: readBack.trackTotal
-                )
-            }
-
-            if warning.hasPrefix("Disc number text differs after save") {
-                return normalizedNumberTextWarning(
-                    warning,
-                    label: "Disc number",
-                    expectedText: expectedDiscNumberText ?? "",
-                    actualText: readBack.discNumberText,
-                    actualNumber: readBack.disc,
-                    actualTotal: readBack.discTotal
-                )
-            }
-
-            return warning
-        }
-    }
-
-    nonisolated private static func normalizedNumberTextWarning(
-        _ warning: String,
-        label: String,
-        expectedText: String,
-        actualText: String,
-        actualNumber: Int,
-        actualTotal: Int
-    ) -> String? {
-        let normalizedExpected = normalizedFieldComponent(expectedText)
-        guard !normalizedExpected.isEmpty else { return warning }
-
-        guard AudioTagNumberText.writeExpectationMatches(
-            expectedText: normalizedExpected,
-            actualNumber: actualNumber,
-            actualTotal: actualTotal
-        ) else {
-            return warning
-        }
-
-        if AudioTagNumberText.components(from: normalizedExpected).total == nil, actualTotal > 0 {
-            return nil
-        }
-
-        return "\(label) formatting was normalized by the container (\(normalizedExpected) -> \(actualText))."
-    }
-
     nonisolated private static func legacyTagCompatibilityNotes(for rawText: String) -> [String] {
         let sections = metadataDumpSections(from: rawText)
         let properties = sections["TagLib Properties"] ?? [:]
@@ -625,76 +473,6 @@ private enum MetadataPipelineSupport {
 
     nonisolated static func normalizedFieldComponent(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    nonisolated static func normalizedPropertyMapKey(_ key: String) -> String {
-        MetadataFieldRegistry.normalizePropertyMapKey(key)
-    }
-
-    nonisolated static func mergedPropertyMapValue(existing: String?, incoming: String) -> String {
-        guard let existing = existing, !existing.isEmpty else { return incoming }
-
-        var parts: [String] = []
-        var seen = Set<String>()
-
-        for value in (existing + "; " + incoming).components(separatedBy: "; ") {
-            let trimmed = normalizedFieldComponent(value)
-            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
-            parts.append(trimmed)
-        }
-
-        return parts.joined(separator: "; ")
-    }
-
-    nonisolated static func propertyMapWithSeparatedNumberTotals(_ propertyMap: [String: String]) -> [String: String] {
-        var separated = propertyMap
-        separateNumberTotal(
-            numberKeys: ["TRACKNUMBER", "TRACK"],
-            preferredNumberKey: "TRACKNUMBER",
-            totalKeys: ["TRACKTOTAL", "TOTALTRACKS"],
-            preferredTotalKey: "TRACKTOTAL",
-            in: &separated
-        )
-        separateNumberTotal(
-            numberKeys: ["DISCNUMBER", "DISC"],
-            preferredNumberKey: "DISCNUMBER",
-            totalKeys: ["DISCTOTAL", "TOTALDISCS"],
-            preferredTotalKey: "DISCTOTAL",
-            in: &separated
-        )
-        return separated
-    }
-
-    nonisolated private static func separateNumberTotal(
-        numberKeys: [String],
-        preferredNumberKey: String,
-        totalKeys: [String],
-        preferredTotalKey: String,
-        in propertyMap: inout [String: String]
-    ) {
-        guard
-            let existingNumberKey = numberKeys.first(where: { key in
-                propertyMap[key]?.contains("/") == true
-            }),
-            let value = propertyMap[existingNumberKey]
-        else {
-            return
-        }
-
-        let parts = value.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
-        guard parts.count == 2 else { return }
-
-        let number = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-        let total = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !number.isEmpty else { return }
-
-        propertyMap.removeValue(forKey: existingNumberKey)
-        propertyMap[preferredNumberKey] = number
-
-        if !total.isEmpty && !totalKeys.contains(where: { propertyMap[$0]?.isEmpty == false }) {
-            propertyMap[preferredTotalKey] = total
-        }
     }
 
 }

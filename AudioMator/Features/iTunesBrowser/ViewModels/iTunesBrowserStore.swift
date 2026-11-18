@@ -66,7 +66,6 @@ final class iTunesBrowserStore: ObservableObject {
     }
 
     var hasSearchText: Bool { !currentQuery.isEmpty }
-    var hasFileSelection: Bool { !(fileSelectionSummary?.files.isEmpty ?? true) }
     var fileSelectionSummary: iTunesFileSelectionSummary? { currentQuery.fileSelectionSummary }
     var seededFileInputs: [iTunesFileSearchInput] { fileInputs }
 

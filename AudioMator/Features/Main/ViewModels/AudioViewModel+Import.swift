@@ -49,10 +49,6 @@ extension AudioViewModel {
         }
     }
 
-    func canImportArtwork(for file: AudioFile) -> Bool {
-        validateArtworkEditingSupport(for: file)
-    }
-
     func importArtworkFromPhotoLibrary(_ data: Data?, for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
 
@@ -140,10 +136,6 @@ extension AudioViewModel {
                 }
             }
         }
-    }
-
-    func canImportArtwork(for files: [AudioFile]) -> Bool {
-        validateArtworkEditingSupport(for: files)
     }
 
     func importArtworkFromPhotoLibrary(_ data: Data?, for files: [AudioFile]) {

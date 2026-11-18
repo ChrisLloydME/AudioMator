@@ -5,7 +5,7 @@ extension AudioViewModel {
     func applyFilenameMetadataPlan(
         _ entries: [FilenameMetadataWriteEntry],
         skippedIssues: [BatchMetadataWriteIssue] = []
-    ) async -> BatchMetadataWriteSummary? {
+    ) async -> BatchMetadataOperationSummary? {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return nil }
 
         guard !hasUnsavedInspectorChanges else {
@@ -24,7 +24,7 @@ extension AudioViewModel {
             return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
         }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        var summary = BatchMetadataWriteSummary(totalTargets: entries.count + skippedIssues.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
         beginMetadataSaveProgress(
             title: String(localized: "Writing Filename Metadata"),
@@ -103,7 +103,7 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
         return summary
     }
 
@@ -112,7 +112,7 @@ extension AudioViewModel {
         _ entries: [MetadataExchangeWriteEntry],
         skippedIssues: [BatchMetadataWriteIssue] = [],
         progressTitle: String = String(localized: "Importing Metadata")
-    ) async -> BatchMetadataWriteSummary? {
+    ) async -> BatchMetadataOperationSummary? {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return nil }
 
         guard !hasUnsavedInspectorChanges else {
@@ -131,7 +131,7 @@ extension AudioViewModel {
             return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
         }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        var summary = BatchMetadataWriteSummary(totalTargets: entries.count + skippedIssues.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
         beginMetadataSaveProgress(
             title: progressTitle,
@@ -219,7 +219,7 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
         return summary
     }
 

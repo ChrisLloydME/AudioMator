@@ -109,56 +109,35 @@ struct FileRenameTemplateParseResult: Equatable {
     let hasUnterminatedPlaceholder: Bool
 }
 
+/// Maps the shared Foundation-only `{{placeholder}}` tokenizer onto rename fields.
+///
+/// The rename field mapping stays separate from the metadata-exchange mapping:
+/// both consume `MetadataExchangeTemplateSyntaxParser`, but each resolves its own
+/// field type and preserves the shared literal/unknown-placeholder semantics.
 enum FileRenameTemplateParser {
     static func parse(_ rawValue: String) -> FileRenameTemplateParseResult {
-        guard !rawValue.isEmpty else {
-            return FileRenameTemplateParseResult(
-                segments: [],
-                unknownPlaceholderNames: [],
-                hasUnterminatedPlaceholder: false
-            )
-        }
-
+        let syntax = MetadataExchangeTemplateSyntaxParser.parse(rawValue)
         var segments: [FileRenameTemplateSegment] = []
         var unknownPlaceholderNames: [String] = []
-        var hasUnterminatedPlaceholder = false
-        var searchStart = rawValue.startIndex
-        var literalStart = rawValue.startIndex
 
-        while searchStart < rawValue.endIndex,
-              let openingRange = rawValue[searchStart...].range(of: "{{") {
-            if openingRange.lowerBound > literalStart {
-                appendLiteral(String(rawValue[literalStart..<openingRange.lowerBound]), to: &segments)
+        for syntaxSegment in syntax.segments {
+            switch syntaxSegment {
+            case .literal(let literal):
+                appendLiteral(literal, to: &segments)
+            case .placeholder(let placeholderName):
+                if let field = FileRenameMetadataField.field(forPlaceholderName: placeholderName) {
+                    segments.append(.field(field))
+                } else {
+                    unknownPlaceholderNames.append(placeholderName)
+                    appendLiteral("{{\(placeholderName)}}", to: &segments)
+                }
             }
-
-            guard let closingRange = rawValue[openingRange.upperBound...].range(of: "}}") else {
-                literalStart = openingRange.lowerBound
-                searchStart = rawValue.endIndex
-                hasUnterminatedPlaceholder = true
-                break
-            }
-
-            let placeholderName = String(rawValue[openingRange.upperBound..<closingRange.lowerBound])
-            if let field = FileRenameMetadataField.field(forPlaceholderName: placeholderName) {
-                segments.append(.field(field))
-            } else {
-                unknownPlaceholderNames.append(placeholderName)
-                let unmatchedPlaceholder = String(rawValue[openingRange.lowerBound..<closingRange.upperBound])
-                appendLiteral(unmatchedPlaceholder, to: &segments)
-            }
-
-            searchStart = closingRange.upperBound
-            literalStart = searchStart
-        }
-
-        if literalStart < rawValue.endIndex {
-            appendLiteral(String(rawValue[literalStart...]), to: &segments)
         }
 
         return FileRenameTemplateParseResult(
             segments: segments,
             unknownPlaceholderNames: unknownPlaceholderNames,
-            hasUnterminatedPlaceholder: hasUnterminatedPlaceholder
+            hasUnterminatedPlaceholder: syntax.hasUnterminatedPlaceholder
         )
     }
 
@@ -173,45 +152,21 @@ enum FileRenameTemplateParser {
     }
 }
 
-struct FileRenameCompatibilityOptions {
-    let directorySeparatorReplacement: Character
-    let colonReplacement: Character
-    let invalidScalarReplacement: Character
-    let controlCharacterReplacement: Character
-
-    static let currentDefaults = FileRenameCompatibilityOptions(
-        directorySeparatorReplacement: "-",
-        colonReplacement: "-",
-        invalidScalarReplacement: "-",
-        controlCharacterReplacement: " "
-    )
-}
-
 struct FileRenameSanitizer {
-    let options: FileRenameCompatibilityOptions
-
-    init(options: FileRenameCompatibilityOptions = .currentDefaults) {
-        self.options = options
-    }
-
+    /// Fixed, user-visible replacement policy: path-unsafe scalars become `-`,
+    /// other control characters become a space, surrounding whitespace is
+    /// trimmed, and an empty result is rejected. See `RENAME_AND_RENUMBERING.md`.
     func sanitizeBaseName(_ baseName: String) -> String? {
-        let invalidScalars = CharacterSet(charactersIn: "/:\u{0000}")
+        let pathUnsafeScalars = CharacterSet(charactersIn: "/:\u{0000}")
         let controlCharacters = CharacterSet.controlCharacters
 
         let sanitized = String(baseName.unicodeScalars.map { scalar -> Character in
-            if invalidScalars.contains(scalar) {
-                switch scalar {
-                case "/":
-                    return options.directorySeparatorReplacement
-                case ":":
-                    return options.colonReplacement
-                default:
-                    return options.invalidScalarReplacement
-                }
+            if pathUnsafeScalars.contains(scalar) {
+                return "-"
             }
 
             if controlCharacters.contains(scalar) {
-                return options.controlCharacterReplacement
+                return " "
             }
 
             return Character(scalar)

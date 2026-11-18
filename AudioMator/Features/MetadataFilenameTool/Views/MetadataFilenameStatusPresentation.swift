@@ -120,7 +120,6 @@ enum MetadataFilenameStatusPresentation {
 
     private static func renameIssueSummary(for plan: FileRenamePlan) -> String {
         let issueRows = plan.rows.filter { $0.status.isError }
-        guard !issueRows.isEmpty else { return L10n.string("No conflicts.") }
 
         let summary = issueSummary(
             titles: issueRows.map(\.status.title)
@@ -130,7 +129,6 @@ enum MetadataFilenameStatusPresentation {
 
     private static func filenameMetadataIssueSummary(for plan: FilenameMetadataPlan) -> String {
         let issueRows = plan.rows.filter { $0.status.isError }
-        guard !issueRows.isEmpty else { return L10n.string("No filename matching issues.") }
 
         let summary = issueSummary(
             titles: issueRows.map(\.status.title)

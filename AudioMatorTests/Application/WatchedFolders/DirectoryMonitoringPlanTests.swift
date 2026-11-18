@@ -104,6 +104,66 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertEqual(Set(persistedRecords.map(\.id)), Set([unresolvedID, validFolder.id]))
     }
 
+    func testStaleWatchedFolderBookmarkIsRefreshedAndPersisted() throws {
+        let suiteName = "AudioMator.WatchedFolderStaleBookmarkTests.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMator-WatchedFolder-Stale-\(UUID().uuidString)", isDirectory: true)
+        let originalURL = rootURL.appendingPathComponent("Original", isDirectory: true)
+        try FileManager.default.createDirectory(at: originalURL, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        // Moving the folder makes its bookmark stale. Loading must resolve the
+        // new location and rewrite the stored bookmark, not just refresh the
+        // in-memory value.
+        let staleBookmarkData = try originalURL.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        let record = WatchedFolderRecord(
+            id: UUID(),
+            displayName: "Original",
+            bookmarkData: staleBookmarkData
+        )
+        userDefaults.set(try JSONEncoder().encode([record]), forKey: "watchedFolderRecords")
+        let movedURL = rootURL.appendingPathComponent("Moved", isDirectory: true)
+        try FileManager.default.moveItem(at: originalURL, to: movedURL)
+
+        // Confirm the scenario really produced a stale bookmark before relying on it.
+        let staleResolution = try resolveBookmark(staleBookmarkData)
+        XCTAssertTrue(staleResolution.isStale)
+        XCTAssertEqual(staleResolution.url.standardizedFileURL, movedURL.standardizedFileURL)
+
+        let store = WatchedFolderStore(userDefaults: userDefaults)
+        let restoredFolders = store.loadFolders()
+
+        XCTAssertEqual(store.loadState, .loaded)
+        XCTAssertEqual(restoredFolders.map(\.id), [record.id])
+        XCTAssertEqual(restoredFolders.first?.url.standardizedFileURL, movedURL.standardizedFileURL)
+        XCTAssertEqual(restoredFolders.first?.displayName, "Original")
+
+        let persistedData = try XCTUnwrap(userDefaults.data(forKey: "watchedFolderRecords"))
+        let persistedRecords = try JSONDecoder().decode([WatchedFolderRecord].self, from: persistedData)
+        let persistedRecord = try XCTUnwrap(persistedRecords.first)
+        XCTAssertEqual(persistedRecord.id, record.id)
+        XCTAssertNotEqual(persistedRecord.bookmarkData, staleBookmarkData)
+        let refreshedBookmark = try resolveBookmark(persistedRecord.bookmarkData)
+        XCTAssertFalse(refreshedBookmark.isStale)
+        XCTAssertEqual(refreshedBookmark.url.standardizedFileURL, movedURL.standardizedFileURL)
+
+        // The persisted bookmark is current, so reloading must not rewrite it again.
+        let reloadedStore = WatchedFolderStore(userDefaults: userDefaults)
+        XCTAssertEqual(reloadedStore.loadFolders().map(\.id), [record.id])
+        XCTAssertEqual(userDefaults.data(forKey: "watchedFolderRecords"), persistedData)
+    }
+
     @MainActor
     func testViewModelRemovesMultipleWatchedFoldersTogether() throws {
         let suiteName = "AudioMator.WatchedFolderMultipleRemovalTests.\(UUID().uuidString)"
@@ -185,5 +245,27 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertTrue(status.message.contains("1 audio file couldn’t be read"))
         XCTAssertTrue(status.message.contains("Previously loaded metadata is still shown"))
         XCTAssertTrue(status.message.contains("previous file list will stay visible"))
+    }
+
+    private func resolveBookmark(_ bookmarkData: Data) throws -> (url: URL, isStale: Bool) {
+        var isStale = false
+        do {
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope, .withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            return (url, isStale)
+        } catch {
+            var fallbackIsStale = false
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withoutUI],
+                relativeTo: nil,
+                bookmarkDataIsStale: &fallbackIsStale
+            )
+            return (url, fallbackIsStale)
+        }
     }
 }

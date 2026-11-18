@@ -268,10 +268,6 @@ nonisolated struct MusicBrainzReleaseFilters: Equatable, Hashable, Sendable {
         return parts
     }
 
-    nonisolated var summaryText: String {
-        summaryParts.joined(separator: " • ")
-    }
-
     nonisolated func matches(date: String, country: String, status: String, candidateMediaFormats: [String]) -> Bool {
         if !releaseYear.isEmpty {
             let candidateYear = Self.normalizedYear(date)

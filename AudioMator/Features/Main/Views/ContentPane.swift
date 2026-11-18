@@ -364,7 +364,7 @@ struct ContentPane: View {
         let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
 
         guard !targets.isEmpty else { return }
-        if let failure = viewModel.ensureRenameDirectoryAccess(for: targets.map(\.url)) {
+        if let failure = viewModel.ensureMutationDirectoryAccess(for: targets.map(\.url)) {
             viewModel.presentMetadataWriteHUD(
                 style: .warning,
                 title: String(localized: "Allow Folder Access"),

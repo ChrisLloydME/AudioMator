@@ -102,7 +102,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
 
         let pipeline = TagLibAudioMetadataPipeline()
-        let inventory = try pipeline.numberingInventory(at: url)
+        let inventory = try TagLibMetadataManager.numberingInventory(at: url)
         XCTAssertEqual(inventory.track.number.state, .native)
         XCTAssertEqual(inventory.track.number.nativeValue, 3)
         XCTAssertEqual(inventory.track.total.state, .recoveredLegacy)
@@ -205,7 +205,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             to: url
         )
         let pipeline = TagLibAudioMetadataPipeline()
-        let inventory = try pipeline.numberingInventory(at: url)
+        let inventory = try TagLibMetadataManager.numberingInventory(at: url)
         // If the package coalesces these aliases, the ambiguity assertion is
         // reported as a coverage gap rather than silently accepted.
         guard inventory.track.total.state == .ambiguous else {
@@ -222,7 +222,15 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         XCTAssertThrowsError(
             try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion),
             "An ambiguous recovered total must block a component edit"
-        )
+        ) { error in
+            let nsError = error as NSError
+            XCTAssertEqual(nsError.domain, "AudioMator.Numbering")
+            XCTAssertEqual(nsError.code, 1)
+            XCTAssertTrue(
+                nsError.localizedDescription.contains("Total Tracks"),
+                "The ambiguous total must be named for the user: \(nsError.localizedDescription)"
+            )
+        }
         XCTAssertEqual(try Data(contentsOf: url), before)
 
         // An unrelated edit preserves both candidates.

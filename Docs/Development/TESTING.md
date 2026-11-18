@@ -4,17 +4,17 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were verified by source inspection on 2026-11-12. They change; re-count before quoting them in a release.
+Counts and paths below were verified by source inspection on 2026-11-18 (after the accumulated-code cleanup campaign). They change; re-count before quoting them in a release. The acceptance evidence for that campaign is the [2026-11-18 cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md).
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 603 | 79 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 629 | 80 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 80 `XCTestCase` classes across both targets; no custom base class.
+- There are 84 `XCTestCase` classes across both targets (80 app-hosted, 4 core); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
@@ -62,10 +62,10 @@ Performance tests are part of the same scheme and run in CI. See [Performance te
 
 ## SwiftPM Fast Target
 
-`Package.swift` compiles exactly 31 Foundation-only production files:
+`Package.swift` compiles exactly 30 Foundation-only production files:
 
 - Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, fuzzy similarity, independent date text.
-- Domain: metadata model core, fingerprint, file collection, mutation directory plan, conflict policy, text edit pipeline, mutation coordinator, CSV and template syntax, MuseAmp IDs, rename plan/template/sanitizer, filename extraction, track renumber.
+- Domain: metadata model core, fingerprint, mutation directory plan, conflict policy, text edit pipeline, mutation coordinator, CSV and template syntax, MuseAmp IDs, rename plan/template/sanitizer, filename extraction, track renumber.
 - Infrastructure pure cores: iTunes artwork/provider, LRCLIB models/ranker/request builder, MusicBrainz provider core/Lucene builder/request scheduling, online selection core.
 
 It intentionally excludes:
@@ -82,17 +82,19 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 13 | 143 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataEditing` | 15 | 170 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
 | `Application/MetadataExchange` | 4 | 66 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 4 | 23 | template parsing, transaction rollback, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 4 | 21 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Application/Rename` | 4 | 24 | template parsing, transaction rollback, filename extraction, refresh safety |
+| `Application/WatchedFolders` | 4 | 23 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
 | `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 9 | 93 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
+| `Integration/TagLib` | 10 | 102 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
 | `Performance` | 4 | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
-| `Unit/Core` | 18 | 82 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 10 | 49 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
-| Root | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
+| `Unit/Core` | 18 | 87 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
+| `Unit/Presentation` | 11 | 54 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
+| `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
+| `TestSupport` | 3 | 0 | shared test factories and the ID3v2.3 fixture builder (no test functions) |
+| **Total** | **83** | **629** | |
 
 Notable coverage:
 
@@ -159,7 +161,9 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 
-The published 0.8.0 gate passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
+The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
+
+The current accumulated-code cleanup gate (2026-11-18, code-complete revision `28fe62a6`, published package resolution) passed 13 policy tests, 62 core tests and 629 serial app-hosted tests with zero failures, skips or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for the exact commands, evidence paths and warning/skip inventory.
 
 ## Known Coverage Gaps
 
@@ -169,7 +173,7 @@ The published 0.8.0 gate passed 13 policy tests, 62 core tests and 580 serial ap
 4. **No UI automation.** Full SwiftUI/AppKit interaction, file panels, drag-and-drop, accessibility, and visual behavior are manual.
 5. **Watched-folder OS integration is simulated.** Tests use temporary directories and isolated `UserDefaults` suites; real sandbox bookmark grants, file providers, and volume notifications are not exercised.
 6. **Full `AudioViewModel` watched-folder scanning and long-running batch UI** are only partially covered by synthesized orchestration tests.
-7. **Positive container-normalization warning coverage is missing.** Current fixtures assert the warning is absent; no test forces the normalized-warning branch.
+7. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup; typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
 8. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
 9. **Source-policy tests depend on repository layout.** Tests read files via `#filePath`; moving those files breaks the tests.
 10. **Historical test documents are stale.** Dated counts (38, 404, 438, 472, 528, 534, 540, or 574 tests) do not describe the current suite. They are archived or retained as engineering evidence.
@@ -192,7 +196,7 @@ Do not run destructive smoke tests against a real music library.
 These are proposals, not current coverage:
 
 1. Add redistributable AIFF and Opus fixtures to the integration matrix.
-2. Add a fixture that forces the container-normalization warning and assert it is emitted.
+2. Add a fixture that forces a package container-normalization warning on a typed write and assert the resulting presentation (the old app-side normalization branch no longer exists).
 3. Replace source-text policy tests with behavioral tests where practical, or assert paths through a small manifest.
 4. Add a live-network opt-in test target that is skipped by default; never run it in CI.
 5. Add a UI test host with stable accessibility identifiers for selection, save, and window flows.
@@ -214,6 +218,8 @@ Earlier package adoptions and application repairs are documented as engineering 
 - [Metadata test strategy](METADATA_TEST_STRATEGY.md)
 - [Debugging](DEBUGGING.md)
 - [Release Engineering](RELEASE.md)
+- [2026-11-18 cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md)
+- [2026-11-18 cleanup ledger](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md)
 
 ## Unreleased API/performance candidate
 
@@ -221,7 +227,7 @@ The adapter migration is exercised against `codex/api-mapping-performance` with 
 
 The write-concurrency follow-up expands `MetadataIOPerformanceTests.testBoundedConcurrentGuardedWritesAcrossFormats` to ordinary/heavy metadata and 1/2/4/8 workers, retaining real write/reload and array checks. `ProviderTaggingCancellationTests` now verifies a four-file in-flight window and queued cancellation across all seven targets for provider/filename/CSV paths, preserving exact raw-map and ordered-summary assertions. See [write-concurrency evidence](../Engineering/WRITE_CONCURRENCY_2026-11-12.md).
 
-`testCapturedPlanResultsStayOrderedThroughReversedCompletions` holds the initial four slots and releases results out of order, requiring captured-index outcomes and the exact concurrency bound. The current app suite contains 580 tests; the 579-test release records are historical.
+`testCapturedPlanResultsStayOrderedThroughReversedCompletions` holds the initial four slots and releases results out of order, requiring captured-index outcomes and the exact concurrency bound. The 2026-11-12 app suite contained 580 tests; the 579-test release records are historical. The current suite contains 629 source-declared app-hosted tests (see [the cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md)).
 
 The complete local-candidate gate after bounded plan scheduling passed 62 core and 580 app-hosted tests, 13 policy tests, unsigned Release build and artifact validation. Evidence: `.deriveddata-codex/Validation/20261112-140557-25955/`; see the write-concurrency record for source identities and measured limits.
 

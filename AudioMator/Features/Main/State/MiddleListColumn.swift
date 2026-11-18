@@ -196,10 +196,6 @@ enum MiddleListColumn: String, CaseIterable, Identifiable {
         return .orderedSame
     }
 
-    private func compareBool(_ lhs: Bool, _ rhs: Bool) -> ComparisonResult {
-        compareInt(lhs ? 1 : 0, rhs ? 1 : 0)
-    }
-
     private func compareTrackIndex(
         number lhsNumber: Int,
         total lhsTotal: Int,

@@ -22,14 +22,14 @@ final class StoreIdentifierWriteTests: XCTestCase {
         return url
     }
 
-    func testDedicatedIDsUseRegistryIntegerShapeAndPreserveUntouchedTextIdentifiers() {
+    func testDedicatedIDsUseRegistryIntegerShapeAndPreserveUntouchedTextIdentifiers() throws {
         let original = AudioFileTestFactory.make()
         var edit = SingleFileEditModel(from: original)
         edit.itunesAlbumID = "1234567890"
         edit.itunesArtistID = "123456"
         edit.itunesCatalogID = "987654"
         edit.musicBrainzAlbumID = "00000000-0000-0000-0000-000000000001"
-        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: original))
+        let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: original))
         XCTAssertEqual(patch.fields[.itunesAlbumID], .integer(1234567890))
         XCTAssertEqual(patch.fields[.itunesArtistID], .integer(123456))
         XCTAssertEqual(patch.fields[.itunesCatalogID], .integer(987654))

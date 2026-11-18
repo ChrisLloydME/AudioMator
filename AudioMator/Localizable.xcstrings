@@ -4,48 +4,6 @@
     "" : {
 
     },
-    "· space  ⇥ tab  ↩ newline  ⍽ nbsp" : {
-      "comment" : "User-facing UI text. Preserve the visible whitespace symbols used to explain hidden characters. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· space  ⇥ tab  ↩ newline  ⍽ nbsp"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· space  ⇥ tab  ↩ newline  ⍽ nbsp"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· 空格  ⇥ 制表符  ↩ 换行  ⍽ 不换行空格"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· 空格  ⇥ 制表符  ↩ 換行  ⍽ 不換行空格"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· 空格  ⇥ 制表符  ↩ 換行  ⍽ 不換行空格"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "· 空格  ⇥ 制表符  ↩ 換行  ⍽ 不換行空格"
-          }
-        }
-      }
-    },
     "“%@” — current location: %@" : {
       "localizations" : {
         "en" : {
@@ -154,302 +112,8 @@
         }
       }
     },
-    "%@ %@ result%@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 3 %@ placeholders and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@ result%@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@ result%@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@ 个结果%@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@ 個結果%@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@ 個結果%@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@ 個結果%@"
-          }
-        }
-      }
-    },
-    "%@ × %@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 2 %@ placeholders and their order unless grammar requires reordering supported by the format. Keep the multiplication sign between dimensions. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ × %@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ × %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ × %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ × %@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ × %@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ × %@"
-          }
-        }
-      }
-    },
-    "%@ change%@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 2 %@ placeholders and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ change%@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ change%@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 项更改%@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 項更改%@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 項更改%@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 項更改%@"
-          }
-        }
-      }
-    },
-    "%@ chars · %@ lines" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 2 %@ placeholders and their order unless grammar requires reordering supported by the format. Preserve the visible whitespace symbols used to explain hidden characters. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ chars · %@ lines"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ chars · %@ lines"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 个字符 · %@ 行"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 個字符 · %@ 行"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 個字符 · %@ 行"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ 個字符 · %@ 行"
-          }
-        }
-      }
-    },
     "%@ contains a hidden character that can’t be saved. Remove it before importing.\nDetails: null character (U+0000)." : {
 
-    },
-    "%@ files selected" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ files selected"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ files selected"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已选择 %@ 个文件"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已選擇 %@ 個檔案"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已選擇 %@ 個檔案"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已選擇 %@ 個檔案"
-          }
-        }
-      }
-    },
-    "%@ of %@ recording details loaded" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 2 %@ placeholders and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ of %@ recording details loaded"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ of %@ recording details loaded"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已加载 %@/%@ 个录音详情"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已加載 %@/%@ 個錄音詳情"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已加載 %@/%@ 個錄音詳情"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已加載 %@/%@ 個錄音詳情"
-          }
-        }
-      }
-    },
-    "%@ Selected" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Selected"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ Selected"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已选择 %@ 项"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已選擇 %@ 項"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已選擇 %@ 項"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已選擇 %@ 項"
-          }
-        }
-      }
     },
     "%@ took too long to complete." : {
 
@@ -667,48 +331,6 @@
     "A description supplied for a store item." : {
 
     },
-    "A different file already exists at the target path." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:135.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A different file already exists at the target path."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A different file already exists at the target path."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目标路径已有另一个文件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標路径已有另一個檔案。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標路径已有另一個檔案。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標路径已有另一個檔案。"
-          }
-        }
-      }
-    },
     "A field you name yourself. Use it only when no existing field describes the information." : {
 
     },
@@ -750,48 +372,6 @@
     },
     "A style used for browsing music." : {
 
-    },
-    "A total without a number cannot be saved safely. Choose different fields; no changes were made." : {
-      "comment" : "Metadata Exchange field transfer safety guard for total-only number pairs.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A total without a number cannot be saved safely. Choose different fields; no changes were made."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A total without a number cannot be saved safely. Choose different fields; no changes were made."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法安全保存只有总数而没有编号的值。请选择其他字段；未作任何更改。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法安全儲存只有總數而沒有編號的值。請選擇其他欄位；未作任何變更。"
-          }
-        }
-      }
     },
     "A value in the response uses an unexpected format.\nDetails: expected %@ at %@." : {
       "localizations" : {
@@ -1029,48 +609,6 @@
         }
       }
     },
-    "Add audio files for one-off metadata edits." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:204.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add audio files for one-off metadata edits."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add audio files for one-off metadata edits."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加音频文件以进行一次性元数据编辑。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加音频檔案以進行一次性元資料編輯。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加音频檔案以進行一次性元資料編輯。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加音频檔案以進行一次性元資料編輯。"
-          }
-        }
-      }
-    },
     "Add Field…" : {
 
     },
@@ -1295,48 +833,6 @@
         }
       }
     },
-    "Add literal separators between metadata fields so AudioMator can parse the filename unambiguously." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:337.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add literal separators between metadata fields so AudioMator can parse the filename unambiguously."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add literal separators between metadata fields so AudioMator can parse the filename unambiguously."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在元数据字段之间添加固定分隔符，使 AudioMator 能明确解析文件名。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在元資料字段之間添加固定分隔符，使 AudioMator 能明確解析檔案名。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在元資料字段之間添加固定分隔符，使 AudioMator 能明確解析檔案名。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在元資料字段之間添加固定分隔符，使 AudioMator 能明確解析檔案名。"
-          }
-        }
-      }
-    },
     "Add Metadata Field" : {
       "comment" : "Short UI label. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:955.",
       "extractionState" : "stale",
@@ -1478,7 +974,7 @@
     "Additional files couldn’t be imported: %lld." : {
 
     },
-    "Additional files that couldn’t be read: %lld. " : {
+    "Additional files that couldn’t be read: %lld." : {
 
     },
     "Additional files with issues: %lld." : {
@@ -1617,6 +1113,9 @@
 
     },
     "An older MusicIP matching identifier; preserve existing values." : {
+
+    },
+    "And %lld more groups." : {
 
     },
     "Any" : {
@@ -1767,48 +1266,6 @@
     },
     "Artwork can't be saved to every selected file. Select only files with supported formats before continuing." : {
 
-    },
-    "Artwork changes stay pending until you tap Save." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/iPad/Views/IPadInspectorView.swift:566.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Artwork changes stay pending until you tap Save."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Artwork changes stay pending until you tap Save."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "封面更改会保持待保存状态，直到你点击“保存”。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "封面更改會保持待儲存狀態，直到你按一下「儲存」。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "封面更改會保持待儲存狀態，直到你按一下「儲存」。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "封面更改會保持待儲存狀態，直到你按一下「儲存」。"
-          }
-        }
-      }
     },
     "Artwork Couldn’t Be Updated" : {
 
@@ -1991,48 +1448,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AudioMator"
-          }
-        }
-      }
-    },
-    "AudioMator builds on the following third-party projects and ideas." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:995.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMator builds on the following third-party projects and ideas."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMator builds on the following third-party projects and ideas."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMator 基于以下第三方项目和思路构建。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMator 基於以下第三方項目和思路構建。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMator 基於以下第三方項目和思路構建。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMator 基於以下第三方項目和思路構建。"
           }
         }
       }
@@ -2602,174 +2017,6 @@
     "Change File…" : {
 
     },
-    "Changes apply immediately in the main window toolbar." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:633.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply immediately in the main window toolbar."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply immediately in the main window toolbar."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改会立即应用到主窗口工具栏。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即應用到主窗口工具欄。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即應用到主窗口工具欄。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即應用到主窗口工具欄。"
-          }
-        }
-      }
-    },
-    "Changes apply immediately. At least one column must remain visible." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:587.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply immediately. At least one column must remain visible."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply immediately. At least one column must remain visible."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改会立即应用。至少必须保留一列可见。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即應用。至少必须保留一列可见。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即應用。至少必须保留一列可见。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即應用。至少必须保留一列可见。"
-          }
-        }
-      }
-    },
-    "Changes apply immediately. At least one metadata field must remain visible." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:681.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply immediately. At least one metadata field must remain visible."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply immediately. At least one metadata field must remain visible."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改会立即应用。至少必须保留一个元数据字段可见。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即套用。至少必須保留一個元資料字段可見。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即套用。至少必須保留一個元資料字段可見。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會立即套用。至少必須保留一個元資料字段可見。"
-          }
-        }
-      }
-    },
-    "Changes apply to every selected file. Fields left untouched keep their current values." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iPad/Views/IPadInspectorView.swift:171.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply to every selected file. Fields left untouched keep their current values."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Changes apply to every selected file. Fields left untouched keep their current values."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改会应用到每个所选文件。未触碰的字段保留当前值。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會應用到每個所選檔案。未觸碰的字段保留当前值。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會應用到每個所選檔案。未觸碰的字段保留当前值。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改會應用到每個所選檔案。未觸碰的字段保留当前值。"
-          }
-        }
-      }
-    },
     "Changes Couldn’t Be Applied" : {
 
     },
@@ -2860,48 +2107,6 @@
     "Choose a destination field different from the source field." : {
 
     },
-    "Choose a different destination field." : {
-      "comment" : "Metadata Exchange field copy/cut tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose a different destination field."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose a different destination field."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请选择与来源不同的目标字段。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇與來源不同的目標欄位。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇與來源不同的目標欄位。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇與來源不同的目標欄位。"
-          }
-        }
-      }
-    },
     "Choose a Field" : {
 
     },
@@ -2952,48 +2157,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選擇封面…"
-          }
-        }
-      }
-    },
-    "Choose at least one field to write." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:249, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:580.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose at least one field to write."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose at least one field to write."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请至少选择一个要写入的字段。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請至少選擇一個要寫入的字段。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請至少選擇一個要寫入的字段。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請至少選擇一個要寫入的字段。"
           }
         }
       }
@@ -3250,90 +2413,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選擇一個封面結果。"
-          }
-        }
-      }
-    },
-    "Choose one or more tracks to edit their metadata." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/iPad/Views/IPadInspectorView.swift:41.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose one or more tracks to edit their metadata."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose one or more tracks to edit their metadata."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择一个或多个音轨以编辑其元数据。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇一個或多個曲目以編輯其元資料。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇一個或多個曲目以編輯其元資料。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇一個或多個曲目以編輯其元資料。"
-          }
-        }
-      }
-    },
-    "Choose two writable metadata fields." : {
-      "comment" : "Metadata Exchange field copy/cut tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose two writable metadata fields."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose two writable metadata fields."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请选择两个可写入的元数据字段。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇兩個可寫入的中繼資料欄位。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇兩個可寫入的中繼資料欄位。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇兩個可寫入的中繼資料欄位。"
           }
         }
       }
@@ -3678,48 +2757,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "清空此會話列表"
-          }
-        }
-      }
-    },
-    "Cleared with Issues" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:126.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cleared with Issues"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cleared with Issues"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除完成但有问题"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除完成但有问題"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除完成但有问題"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除完成但有问題"
           }
         }
       }
@@ -4086,6 +3123,7 @@
     },
     "Copy Path" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/MiddleListTable.swift:483, AudioMator/Features/iPad/Views/IPadFileBrowserView.swift:166, AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:74.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4121,47 +3159,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "複製路径"
-          }
-        }
-      }
-    },
-    "Copy raw metadata" : {
-      "comment" : "Short UI label. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:40.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy raw metadata"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy raw metadata"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "复制原始元数据"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "複製原始元資料"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "複製原始元資料"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "複製原始元資料"
           }
         }
       }
@@ -4351,47 +3348,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前列表"
-          }
-        }
-      }
-    },
-    "Current Name" : {
-      "comment" : "Short UI label. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:1581.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current Name"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current Name"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前名称"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前名稱"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前名稱"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前名稱"
           }
         }
       }
@@ -5039,48 +3995,6 @@
     "Downloading artwork from iTunes" : {
 
     },
-    "Duplicate Target" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:118.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duplicate Target"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Duplicate Target"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目标重复"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標重複"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標重複"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標重複"
-          }
-        }
-      }
-    },
     "Duration" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:63, AudioMator/Infrastructure/LRCLIB/LRCLIBCandidateRanker.swift:37, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:576, AudioMator/Features/Main/ViewModels/AudioViewModel.swift:14.",
       "localizations" : {
@@ -5118,132 +4032,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "時長"
-          }
-        }
-      }
-    },
-    "E" : {
-      "comment" : "Short UI label. Short UI token; keep compact and verify it still fits in tight controls. Used around: AudioMator/App/AppNotifications.swift:8, AudioMator/App/AudioMatorApp.swift:24, AudioMator/Domain/UIState/SharedState.swift:4.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "E"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "E"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "E"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "E"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "E"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "E"
-          }
-        }
-      }
-    },
-    "Each MusicBrainz track can only be assigned once before writing." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:584.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Each MusicBrainz track can only be assigned once before writing."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Each MusicBrainz track can only be assigned once before writing."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "写入前每个 MusicBrainz 音轨只能分配一次。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "寫入前每個 MusicBrainz 曲目只能分配一次。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "寫入前每個 MusicBrainz 曲目只能分配一次。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "寫入前每個 MusicBrainz 曲目只能分配一次。"
-          }
-        }
-      }
-    },
-    "Edit %@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit %@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑 %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯 %@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯 %@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯 %@"
           }
         }
       }
@@ -5291,48 +4079,6 @@
     },
     "Edit Selected…" : {
 
-    },
-    "Edit the original text on the left. Preview hidden characters on the right." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit the original text on the left. Preview hidden characters on the right."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit the original text on the left. Preview hidden characters on the right."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左侧编辑原始文本，在右侧预览隐藏字符。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左侧編輯原始文本，在右侧預覽隱藏字符。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左侧編輯原始文本，在右侧預覽隱藏字符。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左侧編輯原始文本，在右侧預覽隱藏字符。"
-          }
-        }
-      }
     },
     "Edit the selected metadata fields in a separate window" : {
       "comment" : "User-facing UI text. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Main/Views/ContentPane.swift:270.",
@@ -5460,48 +4206,6 @@
     },
     "Embedded provider pages" : {
 
-    },
-    "Empty Name" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:116.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Empty Name"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Empty Name"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名称为空"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名稱為空"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名稱為空"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名稱為空"
-          }
-        }
-      }
     },
     "Enable MuseAmp Compatibility" : {
 
@@ -5689,48 +4393,6 @@
     "Enter something to search for." : {
 
     },
-    "Enter the property-map field name and the value to write." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:964.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter the property-map field name and the value to write."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter the property-map field name and the value to write."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "输入属性映射字段名称和要写入的值。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "輸入屬性映射字段名稱和要寫入的值。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "輸入屬性映射字段名稱和要寫入的值。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "輸入屬性映射字段名稱和要寫入的值。"
-          }
-        }
-      }
-    },
     "Erase" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:950, AudioMator/Features/Main/Views/MiddleListTable.swift:18, AudioMator/Features/Main/Views/ContentPane.swift:22, AudioMator/Features/iPad/Views/IPadFileBrowserView.swift:16.",
       "localizations" : {
@@ -5866,48 +4528,6 @@
         }
       }
     },
-    "Fields 1-2 and 5-6 appear on the left side of the two metadata rows. Fields 3-4 and 7-8 appear on the right side." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:294.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fields 1-2 and 5-6 appear on the left side of the two metadata rows. Fields 3-4 and 7-8 appear on the right side."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fields 1-2 and 5-6 appear on the left side of the two metadata rows. Fields 3-4 and 7-8 appear on the right side."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "字段 1-2 和 5-6 显示在两行元数据的左侧；字段 3-4 和 7-8 显示在右侧。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "字段 1-2 和 5-6 顯示在两行元資料的左侧；字段 3-4 和 7-8 顯示在右侧。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "字段 1-2 和 5-6 顯示在两行元資料的左侧；字段 3-4 和 7-8 顯示在右侧。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "字段 1-2 和 5-6 顯示在两行元資料的左侧；字段 3-4 和 7-8 顯示在右侧。"
-          }
-        }
-      }
-    },
     "File" : {
       "comment" : "Short UI label. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/App/AudioMatorApp.swift:23, AudioMator/Domain/UIState/SharedState.swift:20, AudioMator/Domain/UIState/ToolbarButtonOption.swift:4.",
       "localizations" : {
@@ -5952,53 +4572,12 @@
     "File Access" : {
 
     },
-    "File Exists" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:120.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "File Exists"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "File Exists"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文件已存在"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案已存在"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案已存在"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案已存在"
-          }
-        }
-      }
-    },
     "File List" : {
 
     },
     "Filename" : {
       "comment" : "Short UI label. Context: filename and metadata conversion workflow. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/App/AudioMatorApp.swift:23, AudioMator/Domain/UIState/ToolbarButtonOption.swift:27, AudioMator/Domain/UIState/MiddleListColumn.swift:31.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6079,50 +4658,9 @@
         }
       }
     },
-    "Filename & Metadata…" : {
-      "comment" : "Screen, sheet, section, or navigation title. Context: filename and metadata conversion workflow. Use the ellipsis for commands that open another dialog or picker. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metadata Exchange…"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metadata Exchange…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元数据交换…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料交換…"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料交換…"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料交換…"
-          }
-        }
-      }
-    },
     "Filename stem: %@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Context: filename and metadata conversion workflow. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6719,47 +5257,6 @@
     "If a folder is moved or renamed, macOS may require you to authorize it again." : {
 
     },
-    "If that's unexpected, make sure the file is an MP3 and TagLib can read it." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:88.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If that's unexpected, make sure the file is an MP3 and TagLib can read it."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If that's unexpected, make sure the file is an MP3 and TagLib can read it."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "如果这不符合预期，请确认文件是 MP3 且 TagLib 可以读取。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "如果这不符合預期，請確認檔案是 MP3 且 TagLib 可以讀取。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "如果这不符合預期，請確認檔案是 MP3 且 TagLib 可以讀取。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "如果这不符合預期，請確認檔案是 MP3 且 TagLib 可以讀取。"
-          }
-        }
-      }
-    },
     "If you authorize a folder now, AudioMator remembers that permission for later saves inside it. Authorizing does not save or change any file." : {
 
     },
@@ -6857,48 +5354,6 @@
     },
     "Individual artist names rather than a joined credit." : {
 
-    },
-    "Inspector" : {
-      "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/App/AppNotifications.swift:10, AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3, AudioMator/Domain/UIState/ToolbarButtonOption.swift:5.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inspector"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inspector"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "检查器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檢閱器"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檢閱器"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檢閱器"
-          }
-        }
-      }
     },
     "Inspector Metadata Fields" : {
       "comment" : "Screen, sheet, section, or navigation title. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:660.",
@@ -7161,48 +5616,6 @@
         }
       }
     },
-    "Keep Existing" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/iPad/Views/IPadInspectorView.swift:210.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep Existing"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep Existing"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持现有"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持現有"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持現有"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持現有"
-          }
-        }
-      }
-    },
     "Keeps the same width as numbers grow." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Main/Views/TrackRenumberSheet.swift:261.",
       "localizations" : {
@@ -7288,132 +5701,6 @@
     },
     "Learn More" : {
 
-    },
-    "Leave As Is" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:920.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leave As Is"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leave As Is"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持不变"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持不變"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持不變"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保持不變"
-          }
-        }
-      }
-    },
-    "Left List Metadata Fields" : {
-      "comment" : "Screen, sheet, section, or navigation title. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:292.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Left List Metadata Fields"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Left List Metadata Fields"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左侧列表元数据字段"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左侧列表元資料字段"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左侧列表元資料字段"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左侧列表元資料字段"
-          }
-        }
-      }
-    },
-    "License text is unavailable." : {
-      "comment" : "Fallback shown when a bundled license text cannot be loaded.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "License text is unavailable."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "License text is unavailable."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "许可证文本不可用。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "授權條款文字無法使用。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "授權條款文字無法使用。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "授權條款文字無法使用。"
-          }
-        }
-      }
     },
     "Loading album details from iTunes" : {
 
@@ -7746,48 +6033,6 @@
     "Lyrics Search Couldn’t Be Completed" : {
 
     },
-    "Manage watched folders in the sidebar" : {
-      "comment" : "User-facing UI text. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Manage watched folders in the sidebar"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Manage watched folders in the sidebar"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在边栏管理监视文件夹"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在邊欄管理監看檔案夾"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在邊欄管理監看檔案夾"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在邊欄管理監看檔案夾"
-          }
-        }
-      }
-    },
     "Manual Order" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/Main/Views/MiddleListTable.swift:499, AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:224.",
       "extractionState" : "stale",
@@ -7826,90 +6071,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "手动順序"
-          }
-        }
-      }
-    },
-    "Mark Clean" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:922.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark Clean"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark Clean"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "标记为洁净"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "標记為洁净"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "標记為洁净"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "標记為洁净"
-          }
-        }
-      }
-    },
-    "Mark Explicit" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:921.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark Explicit"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mark Explicit"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "标记为露骨"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "標记為露骨"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "標记為露骨"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "標记為露骨"
           }
         }
       }
@@ -7964,48 +6125,6 @@
     },
     "Match whole value" : {
 
-    },
-    "Matched %@/%@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 2 %@ placeholders and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Matched %@/%@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Matched %@/%@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已匹配 %@/%@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已匹配 %@/%@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已匹配 %@/%@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已匹配 %@/%@"
-          }
-        }
-      }
     },
     "Matched %lld/%lld" : {
       "localizations" : {
@@ -8104,48 +6223,6 @@
         }
       }
     },
-    "MB %@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Short UI token; keep compact and verify it still fits in tight controls. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MB %@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MB %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MB %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MB %@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MB %@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MB %@"
-          }
-        }
-      }
-    },
     "MB %lld" : {
 
     },
@@ -8196,6 +6273,7 @@
     },
     "Metadata" : {
       "comment" : "Short UI label. Context: audio metadata/tag editing workflow. Used around: AudioMator/App/AppNotifications.swift:5, AudioMator/App/AudioMatorApp.swift:18, AudioMator/Domain/UIState/SharedState.swift:12, AudioMator/Domain/UIState/InspectorMetadataField.swift:3.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8231,51 +6309,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "元資料"
-          }
-        }
-      }
-    },
-    "Metadata (Multiple Files)" : {
-
-    },
-    "Metadata Browser" : {
-      "comment" : "Screen, sheet, section, or navigation title. Context: audio metadata/tag editing workflow. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metadata Browser"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metadata Browser"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元数据浏览器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料瀏覽器"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料瀏覽器"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料瀏覽器"
           }
         }
       }
@@ -8440,48 +6473,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "元資料編輯器"
-          }
-        }
-      }
-    },
-    "Metadata Editor…" : {
-      "comment" : "Screen, sheet, section, or navigation title. Context: audio metadata/tag editing workflow. Use the ellipsis for commands that open another dialog or picker. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metadata Editor…"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Metadata Editor…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元数据编辑器…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料編輯器…"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料編輯器…"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元資料編輯器…"
           }
         }
       }
@@ -8732,48 +6723,6 @@
     "MP3 and some WAV, AIFF and DSD files use ID3 tags. FLAC and supported Ogg files use Vorbis comments; WMA uses ASF. A WAV file can contain both ID3 and RIFF INFO. These are tag formats, not guarantees based on a filename." : {
 
     },
-    "Multiple selected files would end up with the same filename." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:133.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Multiple selected files would end up with the same filename."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Multiple selected files would end up with the same filename."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多个所选文件会生成相同文件名。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多個所選檔案會生成相同檔案名。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多個所選檔案會生成相同檔案名。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多個所選檔案會生成相同檔案名。"
-          }
-        }
-      }
-    },
     "Multiple Values" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:507, AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow+iOS.swift:204, AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:32.",
       "extractionState" : "stale",
@@ -8812,48 +6761,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "多個值"
-          }
-        }
-      }
-    },
-    "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: iTunes/Apple catalog metadata or artwork lookup workflow. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+ArtworkLookup.swift:71.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Multiple-file online artwork lookup requires a shared iTunes Album ID or Album value."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多文件在线封面查找需要共享的 iTunes 专辑 ID 或专辑值。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多檔案在線封面查找需要共享的 iTunes 專輯 ID 或專輯值。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多檔案在線封面查找需要共享的 iTunes 專輯 ID 或專輯值。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "多檔案在線封面查找需要共享的 iTunes 專輯 ID 或專輯值。"
           }
         }
       }
@@ -9023,90 +6930,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "MusicBrainz 藝人 ID"
-          }
-        }
-      }
-    },
-    "MusicBrainz Browser" : {
-      "comment" : "Screen, sheet, section, or navigation title. Context: MusicBrainz lookup, matching, or tag-writing workflow. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz Browser"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz Browser"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 浏览器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 瀏覽器"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 瀏覽器"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 瀏覽器"
-          }
-        }
-      }
-    },
-    "MusicBrainz recording details are still loading." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:588, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:79.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz recording details are still loading."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz recording details are still loading."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 录音详情仍在加载。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 錄音詳情仍在加載。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 錄音詳情仍在加載。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "MusicBrainz 錄音詳情仍在加載。"
           }
         }
       }
@@ -9539,137 +7362,11 @@
     "No artwork matches this search. Try a different album or artist name." : {
 
     },
-    "No Audio Files Found" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/Views/ContentPane.swift:287.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Audio Files Found"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Audio Files Found"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未找到音频文件"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未找到音频檔案"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未找到音频檔案"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未找到音频檔案"
-          }
-        }
-      }
-    },
     "No Audio Files to Show" : {
 
     },
     "No Authorized Folders" : {
 
-    },
-    "No conflicts." : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:299.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No conflicts."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No conflicts."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无冲突。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無衝突。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無衝突。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無衝突。"
-          }
-        }
-      }
-    },
-    "No filename matching issues." : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:344.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No filename matching issues."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No filename matching issues."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有文件名匹配问题。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有檔案名匹配问題。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有檔案名匹配问題。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有檔案名匹配问題。"
-          }
-        }
-      }
     },
     "No Files Changed" : {
 
@@ -9757,182 +7454,14 @@
         }
       }
     },
-    "No files were cleared" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:165.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No files were cleared"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No files were cleared"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有清除任何文件"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有清除任何檔案"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有清除任何檔案"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有清除任何檔案"
-          }
-        }
-      }
-    },
-    "No files were saved" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:94.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No files were saved"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No files were saved"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有保存任何文件"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有保存任何檔案"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有保存任何檔案"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有保存任何檔案"
-          }
-        }
-      }
-    },
     "No mapping in AudioMator" : {
 
-    },
-    "No Match" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:504, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:187.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Match"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Match"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无匹配"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無匹配"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無匹配"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無匹配"
-          }
-        }
-      }
     },
     "No Matching Artwork" : {
 
     },
     "No Metadata Fields" : {
 
-    },
-    "No non-empty TagLib metadata fields were found for the current selection." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:470.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No non-empty TagLib metadata fields were found for the current selection."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No non-empty TagLib metadata fields were found for the current selection."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前选择中未找到非空的 TagLib 元数据字段。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前選擇中未找到非空的 TagLib 元資料字段。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前選擇中未找到非空的 TagLib 元資料字段。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前選擇中未找到非空的 TagLib 元資料字段。"
-          }
-        }
-      }
     },
     "No portable tag; tracker modules use their own headers." : {
 
@@ -9974,47 +7503,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚無公開發行版本。"
-          }
-        }
-      }
-    },
-    "No raw metadata was returned." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:86.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No raw metadata was returned."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No raw metadata was returned."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有返回原始元数据。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有返回原始元資料。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有返回原始元資料。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有返回原始元資料。"
           }
         }
       }
@@ -10068,48 +7556,6 @@
     },
     "No save issues logged" : {
 
-    },
-    "No selected fields would change any loaded files." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/iTunesBrowser/ViewModels/iTunesTaggingWorkbenchStore.swift:251, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:592.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No selected fields would change any loaded files."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No selected fields would change any loaded files."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所选字段不会更改任何已载入文件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所選字段不會更改任何已載入檔案。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所選字段不會更改任何已載入檔案。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所選字段不會更改任何已載入檔案。"
-          }
-        }
-      }
     },
     "No Synced Lyrics Available" : {
 
@@ -10235,48 +7681,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚無監看檔案夾"
-          }
-        }
-      }
-    },
-    "No Writable Fields" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:514, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:189.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Writable Fields"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Writable Fields"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有可写字段"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有可寫字段"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有可寫字段"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "没有可寫字段"
           }
         }
       }
@@ -10509,48 +7913,6 @@
     },
     "Open Folder" : {
 
-    },
-    "Open MusicBrainz Browser" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Context: MusicBrainz lookup, matching, or tag-writing workflow. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open MusicBrainz Browser"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open MusicBrainz Browser"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开 MusicBrainz 浏览器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打開 MusicBrainz 瀏覽器"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打開 MusicBrainz 瀏覽器"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打開 MusicBrainz 瀏覽器"
-          }
-        }
-      }
     },
     "Open Online Metadata" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Main/Views/ContentPane.swift:248.",
@@ -10937,48 +8299,6 @@
         }
       }
     },
-    "Preview updates as you type." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preview updates as you type."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preview updates as you type."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "预览会随输入更新。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "預覽會随輸入更新。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "預覽會随輸入更新。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "預覽會随輸入更新。"
-          }
-        }
-      }
-    },
     "Previous" : {
 
     },
@@ -11289,47 +8609,6 @@
     "Quit" : {
 
     },
-    "Raw Metadata" : {
-      "comment" : "Screen, sheet, section, or navigation title. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataInspector/Views/MetadataInspectorSheet.swift:54, AudioMator/Core/Localization/L10n.swift:18.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Raw Metadata"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Raw Metadata"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原始元数据"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原始元資料"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原始元資料"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "原始元資料"
-          }
-        }
-      }
-    },
     "Read-only credits supplied by the file’s system metadata. Edit the specific Composer or Lyricist field when that is what you mean." : {
 
     },
@@ -11380,16 +8659,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "就緒"
-          }
-        }
-      }
-    },
-    "Received %lld values for %lld selected files. Provide one value per file, or select the matching number of files." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Received %1$lld values for %2$lld selected files. Provide one value per file, or select the matching number of files."
           }
         }
       }
@@ -12566,90 +9835,6 @@
         }
       }
     },
-    "Replace the destination with each file’s source value and clear the source in the same save. Files with an empty source are skipped." : {
-      "comment" : "Metadata Exchange field copy/cut tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Replace the destination with each file’s source value and clear the source in the same save. Files with an empty source are skipped."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Replace the destination with each file’s source value and clear the source in the same save. Files with an empty source are skipped."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用每个文件的来源值替换目标字段，并在同一次保存中清空来源字段。来源为空的文件会被跳过。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以每個檔案的來源值取代目標欄位，並在同一次儲存中清空來源欄位。來源為空的檔案會被略過。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以每個檔案的來源值取代目標欄位，並在同一次儲存中清空來源欄位。來源為空的檔案會被略過。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以每個檔案的來源值取代目標欄位，並在同一次儲存中清空來源欄位。來源為空的檔案會被略過。"
-          }
-        }
-      }
-    },
-    "Replace the destination with each file’s source value, keeping the source. Files with an empty source are skipped." : {
-      "comment" : "Metadata Exchange field copy/cut tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Replace the destination with each file’s source value, keeping the source. Files with an empty source are skipped."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Replace the destination with each file’s source value, keeping the source. Files with an empty source are skipped."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用每个文件的来源值替换目标字段，并保留来源字段。来源为空的文件会被跳过。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以每個檔案的來源值取代目標欄位，並保留來源欄位。來源為空的檔案會被略過。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以每個檔案的來源值取代目標欄位，並保留來源欄位。來源為空的檔案會被略過。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以每個檔案的來源值取代目標欄位，並保留來源欄位。來源為空的檔案會被略過。"
-          }
-        }
-      }
-    },
     "Replace underscores with spaces in extracted values" : {
 
     },
@@ -12790,48 +9975,6 @@
     },
     "Reset" : {
 
-    },
-    "Restore Default Metadata Fields" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:298.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restore Default Metadata Fields"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Restore Default Metadata Fields"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "恢复默认元数据字段"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還原預設元資料字段"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還原預設元資料字段"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "還原預設元資料字段"
-          }
-        }
-      }
     },
     "Restore each listed file to its original location before attempting another rename." : {
 
@@ -13199,90 +10342,6 @@
         }
       }
     },
-    "Saved with Issues" : {
-      "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+MetadataWrite.swift:55.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saved with Issues"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Saved with Issues"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存完成但有问题"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存完成但有问題"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存完成但有问題"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存完成但有问題"
-          }
-        }
-      }
-    },
-    "Score %@" : {
-      "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Score %@"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Score %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "评分 %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "评分 %@"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "评分 %@"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "评分 %@"
-          }
-        }
-      }
-    },
     "Score %lld" : {
 
     },
@@ -13497,48 +10556,6 @@
         }
       }
     },
-    "Select Current Session in the sidebar to add files" : {
-      "comment" : "User-facing UI text. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select Current Session in the sidebar to add files"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select Current Session in the sidebar to add files"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在边栏选择“当前会话”以添加文件"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在邊欄選擇“当前會話”以添加檔案"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在邊欄選擇“当前會話”以添加檔案"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在邊欄選擇“当前會話”以添加檔案"
-          }
-        }
-      }
-    },
     "Select Files" : {
       "comment" : "Metadata Exchange field copy/cut tool.",
       "extractionState" : "manual",
@@ -13664,48 +10681,6 @@
         }
       }
     },
-    "Select files in the current session first." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet+iOS.swift:184.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select files in the current session first."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select files in the current session first."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请先在当前会话中选择文件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請先在当前會話中選擇檔案。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請先在当前會話中選擇檔案。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請先在当前會話中選擇檔案。"
-          }
-        }
-      }
-    },
     "Select one or more audio files in AudioMator, then open LRCLIB from Online Metadata." : {
 
     },
@@ -13767,48 +10742,6 @@
     },
     "Selected files are checked when AudioMator becomes active. Clean Inspector fields refresh automatically; unsaved drafts are preserved. Watched folders continue to rescan after folder changes. This setting controls saving, not continuous monitoring of every open file." : {
 
-    },
-    "Selected files currently contain different values. Saving replaces them with one shared value." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:967.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Selected files currently contain different values. Saving replaces them with one shared value."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Selected files currently contain different values. Saving replaces them with one shared value."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所选文件当前包含不同值。保存会用一个共享值替换它们。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所選檔案当前包含不同值。保存會用一個共享值替換它们。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所選檔案当前包含不同值。保存會用一個共享值替換它们。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "所選檔案当前包含不同值。保存會用一個共享值替換它们。"
-          }
-        }
-      }
     },
     "Selection" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/UIState/SharedState.swift:19, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:876, AudioMator/Domain/FileSources/FileSourceModels.swift:9, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:128.",
@@ -13933,48 +10866,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服務與靈感來源"
-          }
-        }
-      }
-    },
-    "Settings" : {
-      "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/App/AudioMatorApp.swift:71, AudioMator/Features/Main/Views/ContentView.swift:39, AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:15, AudioMator/Features/Settings/Views/SettingsView.swift:5.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定"
           }
         }
       }
@@ -14137,48 +11028,6 @@
     "Some selected file formats don’t support saving" : {
 
     },
-    "Some selected formats do not support embedded artwork writing yet." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+ArtworkLookup.swift:55.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Some selected formats do not support embedded artwork writing yet."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Some selected formats do not support embedded artwork writing yet."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分所选格式暂不支持写入内嵌封面。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分所選格式暫不支持寫入內嵌封面。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分所選格式暫不支持寫入內嵌封面。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分所選格式暫不支持寫入內嵌封面。"
-          }
-        }
-      }
-    },
     "Some values in this filename preview can’t be applied. Close and reopen this tool, then check the template and preview." : {
 
     },
@@ -14226,48 +11075,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "排序"
-          }
-        }
-      }
-    },
-    "Source" : {
-      "comment" : "Short UI label. Used around: AudioMator/Domain/UIState/SharedState.swift:149, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:1183, AudioMator/Domain/FileSources/FileSourceModels.swift:4, AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift:90.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Source"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Source"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来源"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "來源"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "來源"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "來源"
           }
         }
       }
@@ -14364,6 +11171,7 @@
     },
     "Status" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:487, AudioMator/Domain/Rename/FileRenameTemplate.swift:102, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:159, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:266.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14686,48 +11494,6 @@
     "The current app version couldn’t be determined, so updates can’t be checked." : {
 
     },
-    "The destination number field requires a single integer from 0 through 2147483647." : {
-      "comment" : "Metadata Exchange field copy/cut tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The destination number field requires a single integer from 0 through 2147483647."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The destination number field requires a single integer from 0 through 2147483647."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目标编号字段只能接受 0 至 2147483647 之间的单个整数。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標編號欄位只能接受 0 至 2147483647 之間的單一整數。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標編號欄位只能接受 0 至 2147483647 之間的單一整數。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目標編號欄位只能接受 0 至 2147483647 之間的單一整數。"
-          }
-        }
-      }
-    },
     "The downloaded image couldn’t be converted to PNG. Choose another artwork result." : {
 
     },
@@ -14797,6 +11563,9 @@
     "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata." : {
 
     },
+    "The file couldn’t be checked after it moved. Close any open metadata tool, then choose Reload from Disk from the file’s context menu before continuing. If there are unsaved edits, you’ll be asked to discard them before reloading." : {
+
+    },
     "The file couldn’t be checked after it moved. Close this tool and choose Reload from Disk from the file’s context menu before changing track numbers." : {
 
     },
@@ -14811,48 +11580,6 @@
     },
     "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date." : {
 
-    },
-    "The filename did not fully match the template." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:200.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The filename did not fully match the template."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The filename did not fully match the template."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "文件名未完全匹配模板。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案名未完全匹配模板。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案名未完全匹配模板。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "檔案名未完全匹配模板。"
-          }
-        }
-      }
     },
     "The filename matched and extracted metadata can be written." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:196.",
@@ -15100,48 +11827,6 @@
     "The source field is empty. This file will be skipped without changes." : {
 
     },
-    "The source field is empty. This file will be skipped." : {
-      "comment" : "Metadata Exchange field copy/cut tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The source field is empty. This file will be skipped."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The source field is empty. This file will be skipped."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来源字段为空，将跳过此文件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "來源欄位為空，將略過此檔案。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "來源欄位為空，將略過此檔案。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "來源欄位為空，將略過此檔案。"
-          }
-        }
-      }
-    },
     "The store’s album identifier." : {
 
     },
@@ -15171,48 +11856,6 @@
     },
     "The television series name." : {
 
-    },
-    "The template matched, but it did not extract any writable metadata fields." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:202, AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:336.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The template matched, but it did not extract any writable metadata fields."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The template matched, but it did not extract any writable metadata fields."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模板已匹配，但没有提取出任何可写元数据字段。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模板已匹配，但没有提取出任何可寫元資料字段。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模板已匹配，但没有提取出任何可寫元資料字段。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模板已匹配，但没有提取出任何可寫元資料字段。"
-          }
-        }
-      }
     },
     "The track’s name." : {
 
@@ -15358,9 +12001,6 @@
     "This disc’s position in a multi-disc release." : {
 
     },
-    "This field already matches." : {
-
-    },
     "This file can be renamed." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:127.",
       "extractionState" : "stale",
@@ -15440,48 +12080,6 @@
     "This Folder Couldn’t Be Added" : {
 
     },
-    "This format does not support embedded artwork writing yet." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/Main/ViewModels/AudioViewModel+Import.swift:180, AudioMator/Features/Main/ViewModels/AudioViewModel+ArtworkLookup.swift:44.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This format does not support embedded artwork writing yet."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This format does not support embedded artwork writing yet."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此格式暂不支持写入内嵌封面。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此格式暫不支持寫入內嵌封面。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此格式暫不支持寫入內嵌封面。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此格式暫不支持寫入內嵌封面。"
-          }
-        }
-      }
-    },
     "This image couldn’t be converted to PNG. Choose another image." : {
 
     },
@@ -15530,48 +12128,6 @@
     "This MusicBrainz lookup couldn’t be started. Check the search details or link and try again." : {
 
     },
-    "This MusicBrainz track is assigned to more than one file." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: MusicBrainz lookup, matching, or tag-writing workflow. Used around: AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:386.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This MusicBrainz track is assigned to more than one file."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This MusicBrainz track is assigned to more than one file."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此 MusicBrainz 音轨被分配给了多个文件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此 MusicBrainz 曲目被分配給了多個檔案。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此 MusicBrainz 曲目被分配給了多個檔案。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此 MusicBrainz 曲目被分配給了多個檔案。"
-          }
-        }
-      }
-    },
     "This MusicBrainz track is assigned to several files. Keep only one assignment before applying metadata." : {
 
     },
@@ -15593,52 +12149,7 @@
     "This result has plain lyrics only. It will not be applied as synced lyrics." : {
 
     },
-    "This template resolves to an empty filename for the file." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FileRenameTemplate.swift:131.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This template resolves to an empty filename for the file."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This template resolves to an empty filename for the file."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此模板会为该文件生成空文件名。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此模板會為該檔案生成空檔案名。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此模板會為該檔案生成空檔案名。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此模板會為該檔案生成空檔案名。"
-          }
-        }
-      }
-    },
     "This track’s position within its disc." : {
-
-    },
-    "This value will be written to metadata." : {
 
     },
     "Title" : {
@@ -15679,48 +12190,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "標題"
-          }
-        }
-      }
-    },
-    "To continue, AudioMator needs to discard your unsaved inspector edits." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Context: disc-number metadata context. Used around: AudioMator/Features/Main/Views/ContentView.swift:152.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To continue, AudioMator needs to discard your unsaved inspector edits."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To continue, AudioMator needs to discard your unsaved inspector edits."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若要继续，AudioMator 需要放弃未保存的检查器编辑。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若要继續，AudioMator 需要放弃未保存的檢閱器編輯。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若要继續，AudioMator 需要放弃未保存的檢閱器編輯。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若要继續，AudioMator 需要放弃未保存的檢閱器編輯。"
           }
         }
       }
@@ -16149,48 +12618,6 @@
         }
       }
     },
-    "Type or paste text" : {
-      "comment" : "Short UI label. Usage may be indirect through localized keys or generated SwiftUI extraction.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type or paste text"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Type or paste text"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "输入或粘贴文本"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "輸入或粘貼文本"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "輸入或粘貼文本"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "輸入或粘貼文本"
-          }
-        }
-      }
-    },
     "Type separators, then insert fields where you want them." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:46.",
       "extractionState" : "stale",
@@ -16595,9 +13022,6 @@
           }
         }
       }
-    },
-    "Values Couldn’t Be Imported" : {
-
     },
     "Version %@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",

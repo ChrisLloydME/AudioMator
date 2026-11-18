@@ -107,7 +107,6 @@ The in-app disclosure registry includes API lookups, artwork downloads, embedded
 - Directory monitoring holds one `O_EVTONLY` descriptor per monitored directory, capped at 128 per watched folder, with the root always monitored.
 - Removed folders stop monitors and release security scopes.
 - The monitoring status reports omitted/failed/scanned-error counts.
-- `securityScopedSupplementalMutationDirectoryURLs` is declared and cleaned up but never populated; it is effectively dead state.
 - File access prompts validate that the chosen folder matches the requested directory exactly.
 
 ## Malformed and Untrusted Audio Files

@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 enum FileSourceMode {
     case quickImport

@@ -9,20 +9,6 @@ struct FileRenameResult {
     let failureMessage: String?
     let recoveryItems: [FileRenameRecoveryItem]
     var wasCancelled: Bool = false
-
-    static let empty = FileRenameResult(
-        totalTargets: 0,
-        renamed: 0,
-        unchanged: 0,
-        skippedIssues: 0,
-        warnings: [],
-        failureMessage: nil,
-        recoveryItems: []
-    )
-
-    var didSucceed: Bool {
-        failureMessage == nil
-    }
 }
 
 private struct PreparedFileRenameOperation: Sendable {
@@ -41,10 +27,6 @@ struct FileRenameRecoveryItem: Equatable, Sendable {
 
     var finalURL: URL? {
         finalLocations.count == 1 ? finalLocations[0] : nil
-    }
-
-    var rollbackError: String? {
-        rollbackErrors.isEmpty ? nil : rollbackErrors.joined(separator: "\n")
     }
 }
 
@@ -113,7 +95,7 @@ extension AudioViewModel {
         }
 
         let scopedURLs = operations.map(\.sourceURL)
-        if let accessFailure = ensureRenameDirectoryAccess(for: scopedURLs) {
+        if let accessFailure = ensureMutationDirectoryAccess(for: scopedURLs) {
             let result = FileRenameResult(
                 totalTargets: totalTargets,
                 renamed: 0,

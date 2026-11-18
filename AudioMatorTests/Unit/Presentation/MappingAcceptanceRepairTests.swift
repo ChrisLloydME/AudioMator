@@ -19,9 +19,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         XCTAssertEqual(edit.contentAdvisory, .explicit)
         XCTAssertEqual(edit.unsupportedAdvisoryImport, "4")
         let payload = MetadataEditPayload(edit)
-        XCTAssertThrowsError(try TagLibAudioMetadataPipeline.metadataPatchForWrite(
-            from: payload, at: URL(fileURLWithPath: "/tmp/unused.m4a"), expectedVersion: nil
-        ))
+        XCTAssertThrowsError(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload))
     }
 
     func testUnknownAdvisoryRoundTripsOnOriginalFileAndRejectsUnsupportedAssignment() async throws {

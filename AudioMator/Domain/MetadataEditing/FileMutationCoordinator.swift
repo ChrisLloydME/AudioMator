@@ -32,7 +32,7 @@ actor FileMutationCoordinator {
         return try await operation()
     }
 
-    nonisolated static func normalizedFileKey(for url: URL) -> String {
+    nonisolated private static func normalizedFileKey(for url: URL) -> String {
         FileSystemPathSemantics.key(for: url)
     }
 

@@ -20,7 +20,6 @@ final class MusicBrainzResultModelsTests: XCTestCase {
         XCTAssertEqual(result.status, release.status)
         XCTAssertEqual(result.score, 0)
         XCTAssertTrue(result.mediaFormats.isEmpty)
-        XCTAssertTrue(try XCTUnwrap(result.musicBrainzURL).absoluteString.hasSuffix("/release/release-id"))
     }
 
     func testSearchResultsCountsBothResultKinds() {

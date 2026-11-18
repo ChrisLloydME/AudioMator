@@ -106,17 +106,9 @@ final class DirectoryMonitor {
         self.fileDescriptor = descriptor
     }
 
-    // Keep the non-isolated fallback for toolchains that predate stable
-    // isolated deinitializers.
-    #if compiler(>=6.2)
     isolated deinit {
         stop()
     }
-    #else
-    deinit {
-        stop()
-    }
-    #endif
 
     func start() {
         guard source == nil, fileDescriptor >= 0 else { return }

@@ -145,16 +145,8 @@ final class MusicBrainzBrowserStore: ObservableObject {
         !currentQuery.isEmpty
     }
 
-    var visibleResultMode: MusicBrainzSearchMode {
-        lastSubmittedQuery?.mode ?? mode
-    }
-
     var fileSelectionSummary: MusicBrainzFileSelectionSummary? {
         currentQuery.fileSelectionSummary
-    }
-
-    var hasFileSelection: Bool {
-        !(fileSelectionSummary?.files.isEmpty ?? true)
     }
 
     var isMultiFileSelection: Bool {

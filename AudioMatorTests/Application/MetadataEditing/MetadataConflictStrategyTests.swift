@@ -25,6 +25,54 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    func testConflictWriteRejectsUnsupportedAdvisoryImportWithoutTouchingTheFile() async throws {
+        let file = try await loadedFixture()
+        let baseline = try XCTUnwrap(file.metadataConflictBaseline)
+        let fingerprint = try XCTUnwrap(file.fileFingerprint)
+        let version = try XCTUnwrap(file.metadataFileVersion)
+
+        var draft = SingleFileEditModel(from: file)
+        draft.title = "Unsupported advisory must not be written"
+        draft.unsupportedAdvisoryImport = "4"
+        let payload = MetadataEditPayload(draft, comparedTo: file)
+        XCTAssertEqual(
+            payload.unsupportedAdvisoryImport, "4",
+            "The advisory intent must survive payload construction"
+        )
+        XCTAssertEqual(
+            payload.changedFields, [.title],
+            "The draft must also carry a real field change, not only the advisory import"
+        )
+
+        let bytesBefore = try Data(contentsOf: file.url)
+        XCTAssertThrowsError(
+            try MetadataConflictResolver.writeMetadata(
+                payload,
+                original: baseline,
+                originalFingerprint: fingerprint,
+                originalVersion: version,
+                policy: .mergeNonConflicting,
+                pipeline: TagLibAudioMetadataPipeline(),
+                url: file.url
+            ),
+            "The conflict path must reject an unsupported advisory import instead of succeeding without a write"
+        ) { error in
+            guard let cocoaError = error as? CocoaError else {
+                return XCTFail("Expected CocoaError, got \(type(of: error))")
+            }
+            XCTAssertEqual(cocoaError.code, .featureUnsupported)
+            let nsError = error as NSError
+            XCTAssertEqual(nsError.domain, NSCocoaErrorDomain)
+            XCTAssertEqual(nsError.code, CocoaError.Code.featureUnsupported.rawValue)
+            XCTAssertEqual(
+                nsError.localizedDescription,
+                "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option."
+            )
+        }
+        XCTAssertEqual(try Data(contentsOf: file.url), bytesBefore, "Rejection must happen before any write")
+        XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: file.url), version)
+    }
+
     func testUnchangedRawRevisionWritesExactDeltaWithoutConflictSnapshot() async throws {
         let file = try await loadedFixture(extra: ["REMOVE-ME": ["old"], "KEEP-ME": ["one", "two"]])
         let reads = ConflictSnapshotReadCounter()
@@ -721,9 +769,6 @@ private struct FixtureConflictPipeline: AudioMetadataPipeline {
         return try base.writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent)
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult { try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion) }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        try base.writeTrackNumberText(trackNumberText, discNumberText: discNumberText, to: url, verifyAfterWrite: verifyAfterWrite, expectedVersion: expectedVersion)
-    }
 }
 
 private final class ConflictSnapshotReadCounter: @unchecked Sendable {

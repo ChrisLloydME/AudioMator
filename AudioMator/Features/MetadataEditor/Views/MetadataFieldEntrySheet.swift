@@ -12,7 +12,7 @@ struct MetadataFieldEditorContext: Identifiable {
     let key: String?
     let initialValue: String
     let isMixed: Bool
-    var displayName: String? = nil
+    var displayName: String = ""
 
     var id: String {
         switch mode {
@@ -103,7 +103,7 @@ struct MetadataFieldEntrySheet: View {
                     Text("Field")
                         .font(.headline)
 
-                    Text(context.displayName ?? MetadataFieldGuide.displayName(forRawKey: context.key ?? ""))
+                    Text(context.displayName)
                         .font(.system(size: 13, weight: .medium))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)

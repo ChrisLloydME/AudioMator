@@ -44,7 +44,7 @@ final class MappingPackageConformanceTests: XCTestCase {
         payload.changedFields = [.year]
         payload.trackNumberTextChanged = false
         payload.discNumberTextChanged = false
-        XCTAssertEqual(TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields, [.year: .text("2005")])
+        XCTAssertEqual(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields, [.year: .text("2005")])
         _ = try TagLibAudioMetadataPipeline().writeMetadata(payload, to: url, expectedVersion: nil)
         let after = try TagLibMetadataManager.readSnapshot(from: url).basic
         XCTAssertEqual(after.year, "2005")
@@ -85,7 +85,7 @@ final class MappingPackageConformanceTests: XCTestCase {
         var edit = SingleFileEditModel(from: file)
         edit.comment = "Comment only"
         let payload = MetadataEditPayload(edit, comparedTo: file)
-        XCTAssertEqual(TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields, [.comment: .text("Comment only")])
+        XCTAssertEqual(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields, [.comment: .text("Comment only")])
         let bytes = try Data(contentsOf: url)
         do {
             _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)

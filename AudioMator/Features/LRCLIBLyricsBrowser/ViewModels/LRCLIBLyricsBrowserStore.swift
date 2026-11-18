@@ -53,10 +53,6 @@ final class LRCLIBLyricsBrowserStore: ObservableObject {
         return fileInputs[currentIndex]
     }
 
-    var currentQuery: LRCLIBSearchQuery? {
-        currentFile?.query
-    }
-
     var searchState: LRCLIBLyricsSearchState {
         guard let currentFile else { return .idle }
         return statesByFileID[currentFile.id]?.searchState ?? .idle

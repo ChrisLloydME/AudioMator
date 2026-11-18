@@ -64,7 +64,6 @@ final class MusicBrainzSearchQueryTests: XCTestCase {
 
         XCTAssertEqual(query.title, "Title")
         XCTAssertEqual(query.artist, "Artist")
-        XCTAssertEqual(query.normalizedTrackNumber, 7)
         XCTAssertEqual(query.trackTotal, 0)
         XCTAssertNil(query.durationMilliseconds)
         XCTAssertEqual(query.normalizedReleaseYear, "2024")

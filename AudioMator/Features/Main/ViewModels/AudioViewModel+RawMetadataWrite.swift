@@ -31,7 +31,7 @@ extension AudioViewModel {
             )
         }
 
-        var summary = BatchMetadataWriteSummary(totalTargets: targets.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: targets.count)
         var succeededTargetIDs = Set<AudioFile.ID>()
         var failedTargetIDs = Set<AudioFile.ID>()
 
@@ -135,7 +135,7 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
         return RawMetadataApplyResult(
             succeededTargetIDs: succeededTargetIDs,
             failedTargetIDs: failedTargetIDs

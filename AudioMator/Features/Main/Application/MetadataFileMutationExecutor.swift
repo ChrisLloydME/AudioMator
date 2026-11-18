@@ -5,9 +5,6 @@ struct MetadataFileMutationSuccess: Sendable {
     let reloadedFile: AudioFile?
     let reloadErrorDescription: String?
 
-    var didReloadFile: Bool {
-        reloadedFile != nil
-    }
 }
 
 enum MetadataFileMutationResult: Sendable {

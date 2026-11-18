@@ -57,7 +57,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
     ] }
 
     @MainActor
-    func testEveryDedicatedStringHasIndependentPatchAndRemovalContract() {
+    func testEveryDedicatedStringHasIndependentPatchAndRemovalContract() throws {
         // Reflection catches new string controls without a corresponding case.
         let actual = Set(Mirror(reflecting: SingleFileEditModel()).children.compactMap {
             $0.value is String ? $0.label : nil
@@ -70,7 +70,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
             var edit = SingleFileEditModel(from: file)
             edit[keyPath: item.path] = item.first
             let payload = MetadataEditPayload(edit, comparedTo: file)
-            XCTAssertEqual(TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
+            XCTAssertEqual(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
                            [item.key: item.patch(item.first)], "set \(item.key)")
             // Use a new baseline so removals must be explicit, never omissions.
             var empty = edit
@@ -79,7 +79,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
             removal.changedFields = [item.key]
             removal.trackNumberTextChanged = false
             removal.discNumberTextChanged = false
-            XCTAssertEqual(TagLibAudioMetadataPipeline.metadataPatchForWrite(from: removal).fields,
+            XCTAssertEqual(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: removal).fields,
                            [item.key: .remove], "remove \(item.key)")
         }
     }
@@ -306,13 +306,13 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
     }
 
     @MainActor
-    func testAllEditableContainerFieldsHaveIndependentTypedCases() {
+    func testAllEditableContainerFieldsHaveIndependentTypedCases() throws {
         XCTAssertEqual(Set(containerCases.keys), Set(ContainerMetadataFieldCatalog.editableKeys))
         for (key, value) in containerCases {
             let file = AudioFileTestFactory.make()
             var edit = SingleFileEditModel(from: file)
             edit.containerValues[key] = value
-            let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: file))
+            let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: file))
             XCTAssertEqual(patch.fields, [key: value.patchValue], "\(key)")
         }
     }

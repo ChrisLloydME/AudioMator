@@ -189,7 +189,6 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     private var writes = 0
     private let reloadStarted = CancellationTestGate()
     private let reloadRelease = CancellationTestGate()
-    nonisolated var hasCommitted: Bool { lock.withLock { writes > 0 } }
     nonisolated var writeCount: Int { lock.withLock { writes } }
     nonisolated func releaseReload() async { await reloadRelease.open() }
     nonisolated func waitUntilReload() async throws {
@@ -217,11 +216,6 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     }
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion)
-    }
-    nonisolated func writeTrackNumberText(_ trackNumberText: String, discNumberText: String?, to url: URL, verifyAfterWrite: Bool, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        let result = try base.writeTrackNumberText(trackNumberText, discNumberText: discNumberText, to: url, verifyAfterWrite: verifyAfterWrite, expectedVersion: expectedVersion)
-        lock.withLock { writes += 1 }
-        return result
     }
 }
 
@@ -294,7 +288,7 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
         let url = directory.appendingPathComponent("semantic.flac")
         try FileManager.default.copyItem(at: source, to: url)
         let base = TagLibAudioMetadataPipeline()
-        _ = try base.eraseAllMetadata(at: url)
+        _ = try base.eraseAllMetadata(at: url, expectedVersion: nil)
         _ = try base.writeRawMetadataPatch(RawMetadataPatch(valuesToSet: [
             "TITLE": ["Original"], "ARTIST": ["Keep A", "Keep B"], "CUSTOM-KEEP": ["untouched"]
         ].merging(extra) { _, value in value }), to: url, expectedVersion: nil)

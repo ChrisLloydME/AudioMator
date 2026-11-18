@@ -133,4 +133,51 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertNil(plan.rows.first?.writeEntry)
         XCTAssertFalse(plan.canApply)
     }
+
+    /// Pins the deliberate projection difference between the two rename
+    /// directions for a file whose numeric pair is populated but whose stored
+    /// number text is empty. Filename→metadata change detection compares the
+    /// stored raw text (conservatively treating the extracted number as a
+    /// change), while metadata→filename rendering falls back to the numeric
+    /// pair. This is an intentional conservative raw-text comparison, not
+    /// display parity; do not "fix" one side to mirror the other without a
+    /// product decision.
+    func testFilenameComparisonUsesStoredRawNumberTextWhileRenameRenderingUsesNumericPair() throws {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/07 - Song.mp3"),
+            title: "Song",
+            track: 7,
+            trackTotal: 12,
+            trackNumberText: "",
+            discNumberText: ""
+        )
+
+        let extractionPlan = makeFilenameMetadataPlan(
+            template: "{{trackNumber}} - {{title}}",
+            targetFiles: [file],
+            replaceUnderscoresWithSpaces: false
+        )
+        XCTAssertNil(extractionPlan.validationMessage)
+        XCTAssertEqual(extractionPlan.rows.first?.status, .ready)
+        let numberChange = try XCTUnwrap(
+            extractionPlan.rows.first?.changes.first { $0.field == .trackNumberText }
+        )
+        XCTAssertEqual(numberChange.currentValue, "", "Change detection compares the stored raw text, not the pair")
+        XCTAssertEqual(numberChange.extractedValue, "07")
+        XCTAssertEqual(numberChange.status, .different)
+        XCTAssertTrue(numberChange.willWrite)
+        XCTAssertEqual(extractionPlan.rows.first?.writeEntry?.values[.trackNumberText], "07")
+
+        let renamePlan = makeFileRenamePlan(
+            template: "{{trackNumber}} - {{title}}",
+            targetFiles: [file]
+        )
+        XCTAssertNil(renamePlan.validationMessage)
+        XCTAssertEqual(renamePlan.rows.first?.status, .ready)
+        XCTAssertEqual(
+            renamePlan.rows.first?.previewName, "7-12 - Song.mp3",
+            "Rendering falls back to the numeric pair when the stored number text is empty"
+        )
+        XCTAssertEqual(renamePlan.operations.count, 1)
+    }
 }

@@ -245,7 +245,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.edit)
         XCTAssertNotNil(viewModel.multiEdit)
 
-        viewModel.removeFromList(first)
+        viewModel.removeQuickImportFile(id: first.id)
 
         XCTAssertEqual(viewModel.selectedAudioIDs, [second.id])
         XCTAssertEqual(viewModel.editSourceFileID, second.id)
@@ -714,53 +714,6 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNotEqual(expectedAssignments[0].trackID, expectedAssignments[1].trackID)
         XCTAssertEqual(viewModel.files.map(\.comment), expectedAssignments.map(\.commentText))
         XCTAssertEqual(viewModel.edit?.comment, expectedAssignments[0].commentText)
-    }
-
-    func testImportMetadataFieldValuesWritesChosenFieldInTargetOrderAndRefreshesLoadedFiles() async throws {
-        let firstID = UUID()
-        let secondID = UUID()
-        let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
-        let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
-        let first = AudioFileTestFactory.make(
-            id: firstID,
-            url: firstURL,
-            title: "Old First",
-            album: "Keep Album",
-            includeDefaultFileFingerprint: false
-        )
-        let second = AudioFileTestFactory.make(
-            id: secondID,
-            url: secondURL,
-            title: "Old Second",
-            album: "Keep Album",
-            includeDefaultFileFingerprint: false
-        )
-        let firstReloaded = AudioFileTestFactory.make(id: firstID, url: firstURL, title: "Imported First", album: "Keep Album")
-        let secondReloaded = AudioFileTestFactory.make(id: secondID, url: secondURL, title: "Imported Second", album: "Keep Album")
-        let pipeline = RecordingMetadataPipeline(
-            reloadedFilesByURL: [
-                firstURL: firstReloaded,
-                secondURL: secondReloaded
-            ]
-        )
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        viewModel.mergeQuickImportFiles([first, second])
-        viewModel.setSelectedAudioIDs([firstID])
-        viewModel.updateEditForSelection()
-
-        await viewModel.importMetadataFieldValues(
-            ["Imported First", "Imported Second"],
-            to: .title,
-            for: [first, second]
-        )
-
-        let writesByURL = Dictionary(uniqueKeysWithValues: pipeline.metadataWrites.map { ($0.url, $0.payload) })
-        XCTAssertEqual(writesByURL[firstURL]?.title, "Imported First")
-        XCTAssertEqual(writesByURL[firstURL]?.album, "Keep Album")
-        XCTAssertEqual(writesByURL[secondURL]?.title, "Imported Second")
-        XCTAssertEqual(writesByURL[secondURL]?.album, "Keep Album")
-        XCTAssertEqual(viewModel.files.map(\.title), ["Imported First", "Imported Second"])
-        XCTAssertEqual(viewModel.edit?.title, "Imported First")
     }
 
     func testApplyFilenameMetadataPlanWritesExtractedFieldsAndRefreshesSelection() async throws {
@@ -1489,16 +1442,6 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
         lock.withLock { recordedEraseCount }
     }
 
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-
     func waitForMetadataWriteCount(
         _ expectedCount: Int,
         file: StaticString = #filePath,
@@ -1566,16 +1509,6 @@ private final class ProviderApplyGatedPipeline: AudioMetadataPipeline, @unchecke
 
     nonisolated func eraseAllMetadata(
         at url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-
-    nonisolated func writeTrackNumberText(
-        _ trackNumberText: String,
-        discNumberText: String?,
-        to url: URL,
-        verifyAfterWrite: Bool,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
         AudioMetadataWriteResult(warnings: [])

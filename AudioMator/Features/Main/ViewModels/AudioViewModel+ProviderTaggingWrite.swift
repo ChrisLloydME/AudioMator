@@ -8,7 +8,7 @@ extension AudioViewModel {
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetURLs = entries.compactMap { filesByID[$0.fileID]?.url }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return }
-        var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
             title: "Applying MusicBrainz Tags",
@@ -75,7 +75,7 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
     }
 
     func applyiTunesTaggingPlan(_ entries: [iTunesTaggingWriteEntry]) async {
@@ -85,7 +85,7 @@ extension AudioViewModel {
         let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
         let targetURLs = entries.compactMap { filesByID[$0.fileID]?.url }
         guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return }
-        var summary = BatchMetadataWriteSummary(totalTargets: entries.count)
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
             title: "Applying iTunes Tags",
@@ -152,6 +152,6 @@ extension AudioViewModel {
             updateEditForSelection()
         }
 
-        presentBatchMetadataWriteSummary(summary)
+        presentBatchMetadataOperationSummary(summary)
     }
 }

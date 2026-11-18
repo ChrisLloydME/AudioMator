@@ -1,3 +1,4 @@
+import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
@@ -18,10 +19,10 @@ final class InspectorFieldConfigurationTests: XCTestCase {
                 XCTAssertEqual(field.displayName, MetadataFieldGuide.displayName(forReadOnlyField: "credits"))
             }
         }
-        XCTAssertEqual(InspectorMetadataField.totalTracks.displayName, MultiFileEditableTextField.trackTotal.displayName)
-        XCTAssertEqual(InspectorMetadataField.totalDiscs.displayName, MultiFileEditableTextField.discTotal.displayName)
-        XCTAssertEqual(InspectorMetadataField.date.displayName, MultiFileEditableTextField.date.displayName)
-        XCTAssertEqual(InspectorMetadataField.year.displayName, MultiFileEditableTextField.year.displayName)
+        XCTAssertEqual(InspectorMetadataField.totalTracks.displayName, MetadataFieldGuide.displayName(for: .trackTotal))
+        XCTAssertEqual(InspectorMetadataField.totalDiscs.displayName, MetadataFieldGuide.displayName(for: .discTotal))
+        XCTAssertEqual(InspectorMetadataField.date.displayName, MetadataFieldGuide.displayName(for: .standaloneDate))
+        XCTAssertEqual(InspectorMetadataField.year.displayName, MetadataFieldGuide.displayName(for: .year))
         XCTAssertEqual(MiddleListColumn.track.displayName, InspectorMetadataField.trackNumber.displayName)
         XCTAssertEqual(MiddleListColumn.disc.displayName, InspectorMetadataField.discNumber.displayName)
         XCTAssertEqual(MiddleListColumn.explicit.displayName, InspectorMetadataField.explicit.displayName)

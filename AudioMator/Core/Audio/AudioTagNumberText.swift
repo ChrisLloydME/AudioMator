@@ -27,17 +27,6 @@ enum AudioTagNumberText {
         return Int(value).map { (0...Int(Int32.max)).contains($0) } == true
     }
 
-    nonisolated static func parsedPair(from rawText: String) -> (number: Int, total: Int) {
-        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return (0, 0) }
-
-        let components = components(from: trimmed)
-        return (
-            clampedInteger(fromComponent: components.number),
-            components.total.map(clampedInteger(fromComponent:)) ?? 0
-        )
-    }
-
     nonisolated static func clampedInteger(fromComponent rawText: String) -> Int {
         max(0, Int(rawText.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0)
     }

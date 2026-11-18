@@ -857,17 +857,6 @@ private struct AboutSettingsTab: View {
             ReleaseNotesSheet()
         }
     }
-
-    private var copyrightText: String {
-        let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        if !copyright.isEmpty {
-            return copyright
-        }
-
-        return "Copyright © 2025-2026 Christopher Lloyd"
-    }
 }
 
 

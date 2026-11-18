@@ -424,7 +424,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
         let fileInput: MusicBrainzFileSearchInput
         let initialTrackID: String?
         let initialReason: String?
-        let initialScore: Double?
         var selectedTrackID: String?
 
         var id: String { fileInput.id }
@@ -512,7 +511,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
                 fileInput: file,
                 initialTrackID: autoAssignment?.track.id,
                 initialReason: autoAssignment?.reason,
-                initialScore: autoAssignment?.score,
                 selectedTrackID: autoAssignment?.track.id
             )
         }
@@ -605,11 +603,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
     var recordingPreloadTotalCount: Int {
         recordingPreloadTargetIDs.count
-    }
-
-    var recordingPreloadProgress: Double {
-        guard recordingPreloadTotalCount > 0 else { return 1 }
-        return Double(recordingPreloadCompletedCount) / Double(recordingPreloadTotalCount)
     }
 
     var hasDuplicateTrackAssignments: Bool {
@@ -754,11 +747,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
     func track(for assignment: AssignmentDraft) -> MusicBrainzReleaseMatchTrack? {
         guard let selectedTrackID = assignment.selectedTrackID else { return nil }
         return tracksByID[selectedTrackID]
-    }
-
-    func isDuplicateAssignment(_ assignment: AssignmentDraft) -> Bool {
-        guard let selectedTrackID = assignment.selectedTrackID else { return false }
-        return duplicateTrackIDs.contains(selectedTrackID)
     }
 
     func recordingState(for recordingID: String) -> RecordingLookupState {
@@ -938,7 +926,7 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
                 willWrite: willWrite
             )
         }
-        .sorted { Self.fieldIndex(for: $0.field) < Self.fieldIndex(for: $1.field) }
+        .sorted { $0.field.writeOrderIndex < $1.field.writeOrderIndex }
 
         return MusicBrainzTaggingPlanRow(
             fileInput: assignment.fileInput,
@@ -1109,10 +1097,6 @@ final class MusicBrainzTaggingWorkbenchStore: ObservableObject, Identifiable {
 
         let uniqueValues = (Array(NSOrderedSet(array: normalizedValues)) as? [String]) ?? normalizedValues
         return uniqueValues.joined(separator: ", ")
-    }
-
-    private static func fieldIndex(for field: MusicBrainzTagWriteField) -> Int {
-        MusicBrainzTagWriteField.allCases.firstIndex(of: field) ?? Int.max
     }
 
     private static func changeStatus(localValue: String, remoteValue: String) -> MusicBrainzTaggingFieldChange.Status {

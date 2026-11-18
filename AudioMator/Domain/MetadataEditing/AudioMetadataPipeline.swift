@@ -228,13 +228,6 @@ extension AudioMetadataPipeline {
         try rawMetadataValueMap(for: url).mapValues { $0.joined(separator: "; ") }
     }
 
-    nonisolated func writeMetadata(
-        _ edit: MetadataEditPayload,
-        to url: URL
-    ) throws -> AudioMetadataWriteResult {
-        try writeMetadata(edit, to: url, expectedVersion: nil)
-    }
-
     nonisolated func writeRawMetadataPropertyMap(
         _ propertyMap: [String: String],
         to url: URL
@@ -259,10 +252,6 @@ extension AudioMetadataPipeline {
             to: url,
             expectedVersion: expectedVersion
         )
-    }
-
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
-        try eraseAllMetadata(at: url, expectedVersion: nil)
     }
 
     nonisolated func writeTrackNumberText(

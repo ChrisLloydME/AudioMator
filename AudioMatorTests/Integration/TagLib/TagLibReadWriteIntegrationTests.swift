@@ -721,7 +721,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             edit.setDiscNumberFieldText("2")
             edit.setDiscTotalFieldText("3")
 
-            _ = try pipeline.writeMetadata(MetadataEditPayload(edit, comparedTo: baseline), to: workingURL)
+            _ = try pipeline.writeMetadata(MetadataEditPayload(edit, comparedTo: baseline), to: workingURL, expectedVersion: nil)
             let written = try TagLibMetadataManager.readMetadataResult(from: workingURL)
             XCTAssertEqual(written.title, "Title To Erase", fixtureName)
             XCTAssertEqual(written.artist, "Artist To Erase", fixtureName)
@@ -741,7 +741,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             XCTAssertEqual(written.disc, 2, fixtureName)
             XCTAssertEqual(written.discTotal, 3, fixtureName)
 
-            let eraseWarnings = try pipeline.eraseAllMetadata(at: workingURL).warnings
+            let eraseWarnings = try pipeline.eraseAllMetadata(at: workingURL, expectedVersion: nil).warnings
             XCTAssertFalse(
                 eraseWarnings.contains { $0.contains("Title To Erase") || $0.contains("Track") },
                 "\(fixtureName) should not report common-field erase mismatches: \(eraseWarnings.joined(separator: "\n"))"
@@ -972,14 +972,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.setTrackNumberFieldText("7")
         edit.setTrackTotalFieldText("12")
 
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
         var readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
         XCTAssertEqual(readBack.track, 7)
         XCTAssertEqual(readBack.trackTotal, 12)
 
         edit.setTrackTotalFieldText("")
 
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
         readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
         XCTAssertEqual(readBack.track, 7)
         XCTAssertEqual(readBack.trackTotal, 0)
@@ -1001,7 +1001,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.comment = "Advisory should not erase sibling metadata"
         edit.contentAdvisory = .clean
 
-        let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL).warnings
+        let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil).warnings
         XCTAssertFalse(warnings.contains { $0.contains("Could not write iTunes advisory") }, warnings.joined(separator: "\n"))
 
         let readBack = try TagLibMetadataManager.readMetadataResult(from: workingURL)
@@ -1030,7 +1030,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.title = "Explicit Advisory Value"
         edit.contentAdvisory = .explicit
 
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .explicit)
@@ -1046,7 +1046,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.title = "Not Explicit Advisory Value"
         edit.contentAdvisory = .notExplicit
 
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .notExplicit)
@@ -1066,14 +1066,14 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.title = "Advisory Clear Value"
         edit.contentAdvisory = .explicit
 
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
         XCTAssertEqual(
             try TagLibMetadataManager.readSnapshot(from: workingURL).basic.explicitAdvisory,
             .explicit
         )
 
         edit.contentAdvisory = nil
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: workingURL)
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .unspecified)
@@ -1155,7 +1155,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.isrc = "USRC17607839"
         edit.barcode = "123456789012"
 
-        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL)
+        _ = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil)
         let written = try TagLibMetadataManager.readMetadataResult(from: workingURL)
         XCTAssertEqual(written.title, "Title To Clear")
         XCTAssertEqual(written.artist, "Artist To Clear")
@@ -1187,7 +1187,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit.isrc = ""
         edit.barcode = ""
 
-        let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL).warnings
+        let warnings = try pipeline.writeMetadata(MetadataEditPayload(edit), to: workingURL, expectedVersion: nil).warnings
         XCTAssertFalse(warnings.contains { $0.contains("expected to be removed") }, warnings.joined(separator: "\n"))
 
         rawMap = try pipeline.rawMetadataPropertyMap(for: workingURL)

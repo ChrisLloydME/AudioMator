@@ -156,7 +156,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: UUID(),
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.eraseAllMetadata(at: url)
+            try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
         }
 
         guard case .success(let success) = result else {
@@ -183,7 +183,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: UUID(),
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             }
         }
         await pipeline.reloadStarted.wait()
@@ -225,7 +225,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: UUID(),
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             }
         }
         let didStart = try await waitUntil { pipeline.totalMutationCount == 1 }
@@ -253,7 +253,7 @@ final class FileMutationSerializationTests: XCTestCase {
                 id: UUID(),
                 expectedFileFingerprint: nil
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             }
         }
         let didStartCommit = try await waitUntil { pipeline.totalMutationCount == 1 }
@@ -302,7 +302,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: file.id,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.writeMetadata(payload, to: url)
+            try pipeline.writeMetadata(payload, to: url, expectedVersion: nil)
         }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
@@ -349,7 +349,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: fileID,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.writeMetadata(payload, to: url)
+            try pipeline.writeMetadata(payload, to: url, expectedVersion: nil)
         }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
@@ -359,7 +359,7 @@ final class FileMutationSerializationTests: XCTestCase {
             id: fileID,
             expectedFileFingerprint: nil
         ) { pipeline, url in
-            try pipeline.eraseAllMetadata(at: url)
+            try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
         }
         async let renumberResult = viewModel.renumberTrackNumbers(
             orderedIDs: [fileID],

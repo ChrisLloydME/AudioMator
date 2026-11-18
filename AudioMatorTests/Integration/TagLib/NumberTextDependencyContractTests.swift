@@ -16,7 +16,7 @@ nonisolated final class NumberTextDependencyContractTests: XCTestCase {
         for (number, disc) in [("A1/12", false), ("A1", false), ("B2", true)] {
             let url = root.appendingPathComponent("\(number.replacingOccurrences(of: "/", with: "-"))-\(disc).flac")
             try FileManager.default.copyItem(at: source, to: url)
-            _ = try pipeline.eraseAllMetadata(at: url)
+            _ = try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
             let numberKey = disc ? "DISCNUMBER" : "TRACKNUMBER"
             _ = try pipeline.writeRawMetadataPatch(RawMetadataPatch(valuesToSet: [
                 numberKey: [number], "ARTIST": ["Keep A", "Keep B"], "CUSTOM-KEEP": ["untouched"]

@@ -111,10 +111,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         }
     }
 
-    nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL) throws -> AudioMetadataWriteResult {
-        try writeMetadata(edit, to: url, expectedVersion: nil)
-    }
-
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
         to url: URL,
@@ -174,10 +170,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
             )
         }
-    }
-
-    nonisolated func eraseAllMetadata(at url: URL) throws -> AudioMetadataWriteResult {
-        try eraseAllMetadata(at: url, expectedVersion: nil)
     }
 
     nonisolated func eraseAllMetadata(

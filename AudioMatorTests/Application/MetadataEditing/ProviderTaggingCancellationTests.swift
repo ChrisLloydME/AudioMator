@@ -294,7 +294,7 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
         let url = directory.appendingPathComponent("semantic.flac")
         try FileManager.default.copyItem(at: source, to: url)
         let base = TagLibAudioMetadataPipeline()
-        _ = try base.eraseAllMetadata(at: url)
+        _ = try base.eraseAllMetadata(at: url, expectedVersion: nil)
         _ = try base.writeRawMetadataPatch(RawMetadataPatch(valuesToSet: [
             "TITLE": ["Original"], "ARTIST": ["Keep A", "Keep B"], "CUSTOM-KEEP": ["untouched"]
         ].merging(extra) { _, value in value }), to: url, expectedVersion: nil)

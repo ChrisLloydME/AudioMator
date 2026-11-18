@@ -52,16 +52,6 @@ struct MetadataCSVExportPreviewList: View {
             }
         }
     }
-
-    private func csvCell(_ value: String, isHeader: Bool) -> some View {
-        Text(value)
-            .font(isHeader ? .system(size: 11, weight: .semibold) : .system(size: 12, design: .monospaced))
-            .foregroundStyle(value == "Empty" ? Color.secondary : Color.primary)
-            .lineLimit(2)
-            .frame(width: 150, alignment: .leading)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-    }
 }
 
 struct MetadataExchangeImportPreviewList: View {
@@ -478,125 +468,6 @@ private enum MetadataExchangeAppKitRowFactory {
     }
 }
 
-private struct MetadataExchangeImportRowView: View {
-    let row: MetadataExchangeImportPreviewRow
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.fileName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-
-                    Text(row.externalRecord.isEmpty ? "No external record" : row.externalRecord)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .textSelection(.enabled)
-                }
-
-                Spacer(minLength: 12)
-
-                Label(row.status.title, systemImage: row.status.symbolName)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(row.status.tint)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(row.status.tint.opacity(0.12)))
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-
-            if let issueMessage = row.issueMessage {
-                Text(issueMessage)
-                    .font(.system(size: 11))
-                    .foregroundStyle(row.status.isIssue ? row.status.tint : .secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 10)
-            }
-
-            if !row.changes.isEmpty {
-                Divider()
-                    .padding(.leading, 18)
-
-                MetadataExchangeImportHeader()
-
-                ForEach(Array(row.changes.enumerated()), id: \.element.id) { index, change in
-                    MetadataExchangeImportChangeRow(change: change)
-
-                    if index < row.changes.count - 1 {
-                        Divider()
-                            .padding(.leading, 18)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct MetadataExchangeImportHeader: View {
-    var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Text("Field")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 118, alignment: .leading)
-
-            Text("Current")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.tertiary)
-                .frame(width: 18)
-
-            Text("Imported")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 9)
-    }
-}
-
-private struct MetadataExchangeImportChangeRow: View {
-    let change: MetadataExchangeFieldChange
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Text(change.field.displayName)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .frame(width: 118, alignment: .leading)
-
-            metadataValue(change.currentValue)
-
-            Image(systemName: change.willWrite ? "pencil.circle.fill" : "equal.circle.fill")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(change.willWrite ? Color.green : Color.secondary)
-                .frame(width: 18)
-                .padding(.top, 1)
-
-            metadataValue(change.displayImportedValue, highlight: change.willWrite)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-    }
-
-    private func metadataValue(_ value: String, highlight: Bool = false) -> some View {
-        Text(value.isEmpty ? "Empty" : value)
-            .font(.system(size: 12))
-            .foregroundStyle(value.isEmpty ? Color.secondary : (highlight ? Color.green : Color.primary))
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
 private extension MetadataExchangePreviewStatus {
     var nsTint: NSColor {
         switch self {
@@ -619,17 +490,6 @@ private extension MetadataExchangePreviewStatus {
             return "exclamationmark.triangle.fill"
         case .extraExternalRecord, .noWritableFields:
             return "minus.circle.fill"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .ready:
-            return .green
-        case .unchanged, .extraExternalRecord, .noWritableFields:
-            return .secondary
-        case .noMatch, .ambiguousMatch, .parseError, .sourceUnavailable, .missingExternalRecord:
-            return .orange
         }
     }
 }

@@ -5,7 +5,6 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
     let canonicalKey: String
     let displayName: String
     let purpose: String
-    let category: MetadataFieldCategory
     let aliases: [String]
     let searchKeys: [String]
 
@@ -46,7 +45,6 @@ struct MetadataFieldSuggestion: Identifiable, Hashable {
         self.canonicalKey = canonicalKey
         self.displayName = MetadataFieldGuide.displayName(for: schema.key)
         self.purpose = MetadataFieldGuide.entries.first { $0.key == schema.key }?.purpose ?? ""
-        self.category = schema.category
         self.aliases = aliases
         self.searchKeys = searchKeys
     }

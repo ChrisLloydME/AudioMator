@@ -444,7 +444,7 @@ struct MetadataEditorWindowView: View {
                 "No Metadata Fields",
                 systemImage: "tag",
                 description: Text(
-                    store.loadErrorMessage ?? String(localized: "The selected files have no non-empty metadata fields to show in this editor.")
+                    String(localized: "The selected files have no non-empty metadata fields to show in this editor.")
                 )
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)

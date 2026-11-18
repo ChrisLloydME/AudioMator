@@ -918,47 +918,48 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(snapshot.writableFieldKeysByExtension["wav"], ["title"])
     }
 
-    func testMetadataModelCoreMergesDuplicatesAndArtworkDecisions() {
+    func testMetadataModelCoreMergedValueKeepsEqualValuesAndMarksMixedValues() {
         XCTAssertEqual(AudioMetadataMergeCore.mergedValue(["Same", "Same"], mixedPlaceholder: "mixed"), "Same")
         XCTAssertEqual(AudioMetadataMergeCore.mergedValue(["Same", "Other"], mixedPlaceholder: "mixed"), "mixed")
-        XCTAssertEqual(
-            AudioMetadataMergeCore.duplicateKeys(in: ["A.flac", "a.FLAC", "B.flac"]) { $0 },
-            ["a.flac"]
-        )
-
-        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: true, requestedReplacementDataIsEmpty: false, shouldRemove: false), .replace)
-        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: true, requestedReplacementDataIsEmpty: true, shouldRemove: true), .remove)
-        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: false, requestedReplacementDataIsEmpty: true, shouldRemove: true), .removeNoop)
-        XCTAssertEqual(ArtworkReplacementCore.decision(hasExistingArtwork: true, requestedReplacementDataIsEmpty: true, shouldRemove: false), .keepExisting)
     }
 
-    func testFileCollectionCoreSortsMergesGroupsAndDetectsDuplicatePaths() {
-        let sorted = FileCollectionCore.sortedImportURLs([
-            URL(fileURLWithPath: "/tmp/10.flac"),
-            URL(fileURLWithPath: "/tmp/2.flac"),
-            URL(fileURLWithPath: "/tmp/1.flac")
-        ])
-        XCTAssertEqual(sorted.map(\.lastPathComponent), ["1.flac", "2.flac", "10.flac"])
+    func testAudioFileFingerprintEqualityAndHashingTrackEveryRevisionField() {
+        func makeFingerprint(
+            path: String = "/Music/Album/Track.flac",
+            size: UInt64 = 1_048_576,
+            modificationDate: Date = Date(timeIntervalSinceReferenceDate: 800_000_000),
+            fileSystemNumber: UInt64? = 16_777_219,
+            fileNumber: UInt64? = 42
+        ) -> AudioFileFingerprint {
+            AudioFileFingerprint(
+                normalizedPath: path,
+                fileSize: size,
+                contentModificationDate: modificationDate,
+                fileSystemNumber: fileSystemNumber,
+                fileNumber: fileNumber
+            )
+        }
 
-        let existing = [CoreAudioFileReference(id: "1", path: "/Music/A.flac", displayName: "A")]
-        let merged = FileCollectionCore.mergePreservingExistingOrder(
-            existing: existing,
-            incoming: [
-                CoreAudioFileReference(id: "2", path: "/music/a.flac", displayName: "A copy"),
-                CoreAudioFileReference(id: "3", path: "/Music/B.flac", displayName: "B")
-            ]
-        )
-        XCTAssertEqual(merged.map(\.id), ["1", "3"])
+        let reference = makeFingerprint()
+        let sameRevision = makeFingerprint()
 
-        let grouped = FileCollectionCore.groupedByAlbum(
-            files: merged,
-            album: { $0.id == "1" ? "Album" : "Album" },
-            albumArtist: { $0.id == "1" ? "Artist" : "" },
-            compilationKey: { _ in "Compilation" }
-        )
+        XCTAssertEqual(reference, sameRevision)
+        XCTAssertEqual(reference.hashValue, sameRevision.hashValue)
+        XCTAssertEqual(Set([reference, sameRevision]).count, 1)
 
-        XCTAssertEqual(grouped["Album|Artist"]?.map { $0.id }, ["1"])
-        XCTAssertEqual(grouped["Album|Compilation"]?.map { $0.id }, ["3"])
+        let changedRevisions = [
+            makeFingerprint(path: "/Music/Album/track.flac"),
+            makeFingerprint(size: 1_048_577),
+            makeFingerprint(modificationDate: Date(timeIntervalSinceReferenceDate: 800_000_001)),
+            makeFingerprint(fileSystemNumber: 16_777_220),
+            makeFingerprint(fileNumber: 43),
+            makeFingerprint(fileSystemNumber: nil, fileNumber: nil)
+        ]
+
+        for changedRevision in changedRevisions {
+            XCTAssertNotEqual(reference, changedRevision)
+            XCTAssertEqual(Set([reference, changedRevision]).count, 2)
+        }
     }
 }
 

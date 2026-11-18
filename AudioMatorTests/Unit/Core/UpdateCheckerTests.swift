@@ -120,9 +120,8 @@ final class UpdateCheckerTests: XCTestCase {
         let client = GitHubUpdateReleaseClient(session: makeMockSession())
         let release = try await client.fetchLatestRelease()
 
+        XCTAssertEqual(release.version, try XCTUnwrap(ReleaseVersion(releaseTag: "V2.4B26001")))
         XCTAssertEqual(release.tagName, "V2.4B26001")
-        XCTAssertEqual(release.displayName, "AudioMator 2.4")
-        XCTAssertEqual(release.releaseURL.absoluteString, "https://github.com/ChrisLloydME/AudioMator/releases/tag/V2.4B26001")
     }
 
     func testGitHubClientMapsRateLimitAndMissingVersionResponses() async throws {
@@ -165,12 +164,70 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    func testGitHubClientMapsTooManyRequestsAsRateLimited() async throws {
+        do {
+            _ = try await fetchLatestRelease(statusCode: 429, body: "")
+            XCTFail("Expected rate limit error")
+        } catch let error as UpdateCheckError {
+            XCTAssertEqual(error, .rateLimited)
+        }
+    }
+
+    func testGitHubClientSurfacesAPIErrorMessageForServiceFailure() async throws {
+        do {
+            _ = try await fetchLatestRelease(
+                statusCode: 500,
+                body: #"{"message":"GitHub service unavailable"}"#
+            )
+            XCTFail("Expected request failure")
+        } catch let error as UpdateCheckError {
+            XCTAssertEqual(error, .requestFailed("GitHub service unavailable"))
+        }
+    }
+
+    func testGitHubClientRejectsMalformedJSON() async throws {
+        do {
+            _ = try await fetchLatestRelease(statusCode: 200, body: "not-json")
+            XCTFail("Expected malformed release response error")
+        } catch let error as UpdateCheckError {
+            XCTAssertEqual(error, .malformedReleaseResponse)
+        }
+    }
+
+    func testGitHubClientRejectsResponseWithoutTagName() async throws {
+        do {
+            _ = try await fetchLatestRelease(
+                statusCode: 200,
+                body: #"{"name":"AudioMator 2.4","html_url":"https://github.com/ChrisLloydME/AudioMator/releases/tag/V2.4B26001"}"#
+            )
+            XCTFail("Expected missing release version error")
+        } catch let error as UpdateCheckError {
+            XCTAssertEqual(error, .missingReleaseVersion)
+        }
+    }
+
+    private func fetchLatestRelease(
+        statusCode: Int,
+        body: String
+    ) async throws -> UpdateReleaseMetadata {
+        UpdateMockURLProtocol.requestHandler = { request in
+            (
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: statusCode,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                body.data(using: .utf8)!
+            )
+        }
+        return try await GitHubUpdateReleaseClient(session: makeMockSession()).fetchLatestRelease()
+    }
+
     private func makeRelease(tagName: String) throws -> UpdateReleaseMetadata {
         UpdateReleaseMetadata(
             version: try XCTUnwrap(ReleaseVersion(releaseTag: tagName)),
-            tagName: tagName,
-            displayName: tagName,
-            releaseURL: try XCTUnwrap(URL(string: "https://github.com/ChrisLloydME/AudioMator/releases/tag/\(tagName)"))
+            tagName: tagName
         )
     }
 

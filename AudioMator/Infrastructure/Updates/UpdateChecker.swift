@@ -3,8 +3,6 @@ import Foundation
 struct UpdateReleaseMetadata: Equatable, Sendable {
     let version: ReleaseVersion
     let tagName: String
-    let displayName: String
-    let releaseURL: URL
 }
 
 enum UpdateCheckResult: Equatable, Sendable {

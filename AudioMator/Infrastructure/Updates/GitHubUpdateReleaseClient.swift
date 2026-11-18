@@ -41,16 +41,7 @@ struct GitHubUpdateReleaseClient: UpdateReleaseProviding {
                 throw UpdateCheckError.missingReleaseVersion
             }
 
-            guard let releaseURL = release.htmlURL else {
-                throw UpdateCheckError.malformedReleaseResponse
-            }
-
-            return UpdateReleaseMetadata(
-                version: version,
-                tagName: tagName,
-                displayName: release.displayTitle,
-                releaseURL: releaseURL
-            )
+            return UpdateReleaseMetadata(version: version, tagName: tagName)
         } catch let error as UpdateCheckError {
             throw error
         } catch {
@@ -60,19 +51,10 @@ struct GitHubUpdateReleaseClient: UpdateReleaseProviding {
 }
 
 private struct GitHubLatestReleaseResponse: Decodable {
-    let name: String?
     let tagName: String?
-    let htmlURL: URL?
 
     enum CodingKeys: String, CodingKey {
-        case name
         case tagName = "tag_name"
-        case htmlURL = "html_url"
-    }
-
-    var displayTitle: String {
-        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmedName.isEmpty ? tagName ?? "GitHub Release" : trimmedName
     }
 }
 

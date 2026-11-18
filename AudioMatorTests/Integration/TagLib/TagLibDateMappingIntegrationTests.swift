@@ -54,7 +54,7 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
             edit.year = "2005"
             let payload = MetadataEditPayload(edit, comparedTo: file)
             XCTAssertEqual(payload.changedFields, [.year], fixtureName)
-            let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+            let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
             XCTAssertEqual(patch.fields, [.year: .text("2005")], fixtureName)
             _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
 
@@ -115,7 +115,7 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
         // A no-op payload must not mutate the file.
         let bytes = try Data(contentsOf: url)
         let payload = MetadataEditPayload(SingleFileEditModel(from: file), comparedTo: file)
-        XCTAssertTrue(TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).isEmpty)
+        XCTAssertTrue(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).isEmpty)
         let result = try MetadataConflictResolver.writeMetadata(
             payload,
             original: try XCTUnwrap(file.metadataConflictBaseline),

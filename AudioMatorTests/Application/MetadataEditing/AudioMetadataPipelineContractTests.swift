@@ -30,12 +30,12 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertEqual(durable.warnings, ["Container normalized padding"])
     }
 
-    func testArtworkIntentMapsToTheDependencyPatch() {
+    func testArtworkIntentMapsToTheDependencyPatch() throws {
         var edit = SingleFileEditModel()
         let artworkData = Data([0x89, 0x50, 0x4E, 0x47])
         edit.artworkEditAction = .replace(PendingArtwork(data: artworkData, mimeType: "image/png"))
 
-        let replacePatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(
+        let replacePatch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(
             from: MetadataEditPayload(edit)
         )
         guard case .replace(let artwork) = replacePatch.artwork else {
@@ -46,7 +46,7 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertEqual(artwork.first?.data, artworkData)
 
         edit.artworkEditAction = .remove
-        let removePatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(
+        let removePatch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(
             from: MetadataEditPayload(edit)
         )
         XCTAssertEqual(removePatch.artwork, .removeAll)

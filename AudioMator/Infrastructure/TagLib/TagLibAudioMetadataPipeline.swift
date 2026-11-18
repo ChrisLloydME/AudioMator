@@ -6,23 +6,16 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
 
     nonisolated init() {}
 
-    nonisolated static func metadataPatchForWrite(from edit: MetadataEditPayload) -> MetadataPatch {
-        MetadataPipelineSupport.metadataPatch(from: edit)
-    }
-
-    /// Preserve semantic intent exactly. Package alias defects are not repaired
-    /// by synthesizing writes to unedited date fields.
-    nonisolated static func metadataPatchForWrite(
-        from edit: MetadataEditPayload,
-        at url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> MetadataPatch {
+    /// Single validation and encoding policy for every semantic write entry
+    /// point: unsupported advisory imports are rejected before a patch can be
+    /// planned or committed. Preserve semantic intent exactly; package alias
+    /// defects are not repaired by synthesizing writes to unedited date fields.
+    nonisolated static func metadataPatchForWrite(from edit: MetadataEditPayload) throws -> MetadataPatch {
         if edit.unsupportedAdvisoryImport != nil {
             throw CocoaError(.featureUnsupported, userInfo: [NSLocalizedDescriptionKey:
                 String(localized: "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option.")])
         }
-        let patch = MetadataPipelineSupport.metadataPatch(from: edit)
-        return patch
+        return MetadataPipelineSupport.metadataPatch(from: edit)
     }
 
     nonisolated static func interpretingWrite(
@@ -129,7 +122,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         try Self.interpretingWrite {
             try TagLibMetadataManager.applyMetadataPatch(
-                try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
+                try Self.metadataPatchForWrite(from: edit),
                 to: url,
                 expectedVersion: expectedVersion
             )
@@ -162,7 +155,7 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
     ) throws -> AudioMetadataWriteResult {
         try Self.interpretingWrite {
             try TagLibMetadataManager.applyMetadataPatch(
-                try Self.metadataPatchForWrite(from: edit, at: url, expectedVersion: expectedVersion),
+                try Self.metadataPatchForWrite(from: edit),
                 to: url,
                 expectedVersion: expectedVersion, expectedAudioContent: expectedAudioContent
             )

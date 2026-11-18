@@ -250,7 +250,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack.comment, "External change")
     }
 
-    func testMetadataPatchConstructionContainsOnlyChangedIntent() {
+    func testMetadataPatchConstructionContainsOnlyChangedIntent() throws {
         let file = AudioFileTestFactory.make(
             title: "Old Title",
             artist: "A; B",
@@ -262,7 +262,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var edit = SingleFileEditModel(from: file)
         edit.title = "New Title"
         let payload = MetadataEditPayload(edit, comparedTo: file)
-        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+        let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
 
         XCTAssertEqual(patch.fields, [.title: .text("New Title")])
         XCTAssertNil(patch.explicitAdvisory)
@@ -270,11 +270,11 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(patch.artwork, .unchanged)
     }
 
-    func testDiscOnlyInspectorPatchLeavesTrackPairUnspecified() {
+    func testDiscOnlyInspectorPatchLeavesTrackPairUnspecified() throws {
         let file = AudioFileTestFactory.make(trackNumberText: "07/12", discNumberText: "1/3")
         var edit = SingleFileEditModel(from: file)
         edit.setDiscNumberFieldText("2")
-        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: file))
+        let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: file))
         XCTAssertNil(patch.fields[.track])
         XCTAssertNil(patch.fields[.trackTotal])
         XCTAssertEqual(patch.fields[.disc], .integer(2))
@@ -303,7 +303,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var edit = SingleFileEditModel(from: baseline)
         edit.title = "Intent Delta Title"
         let payload = MetadataEditPayload(edit, comparedTo: baseline)
-        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+        let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
 
         XCTAssertEqual(patch.fields, [.title: .text("Intent Delta Title")])
         XCTAssertNil(patch.explicitAdvisory)
@@ -368,7 +368,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         var edit = SingleFileEditModel(from: baseline)
         edit.year = "2021"
         var payload = MetadataEditPayload(edit, comparedTo: baseline)
-        var patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+        var patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
         XCTAssertEqual(patch.fields, [.year: .text("2021")])
 
         _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)
@@ -380,7 +380,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         edit = SingleFileEditModel(from: baseline)
         edit.releaseDate = ""
         payload = MetadataEditPayload(edit, comparedTo: baseline)
-        patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
+        patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
         XCTAssertEqual(patch.fields, [.releaseDate: .remove])
 
         _ = try pipeline.writeMetadata(payload, to: workingURL, expectedVersion: baseline.metadataFileVersion)

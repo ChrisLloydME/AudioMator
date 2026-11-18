@@ -21,7 +21,7 @@ final class IndependentDateIntentTests: XCTestCase {
         )
     }
 
-    func testSingleEditPayloadTracksUnchangedSetAndRemoveIndependently() {
+    func testSingleEditPayloadTracksUnchangedSetAndRemoveIndependently() throws {
         let file = makeFile(
             year: "2004",
             date: "2008-03-04",
@@ -36,7 +36,7 @@ final class IndependentDateIntentTests: XCTestCase {
         var payload = MetadataEditPayload(edit, comparedTo: file)
         XCTAssertEqual(payload.changedFields, [.standaloneDate])
         XCTAssertEqual(
-            TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
+            try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
             [.standaloneDate: .text("2008-03-05")]
         )
         XCTAssertEqual(payload.year, "2004")
@@ -48,7 +48,7 @@ final class IndependentDateIntentTests: XCTestCase {
         payload = MetadataEditPayload(edit, comparedTo: file)
         XCTAssertEqual(payload.changedFields, [.standaloneDate])
         XCTAssertEqual(
-            TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
+            try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
             [.standaloneDate: .remove]
         )
 
@@ -57,7 +57,7 @@ final class IndependentDateIntentTests: XCTestCase {
         payload = MetadataEditPayload(edit, comparedTo: file)
         XCTAssertEqual(payload.changedFields, [.year])
         XCTAssertEqual(
-            TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
+            try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
             [.year: .text("2005")]
         )
 

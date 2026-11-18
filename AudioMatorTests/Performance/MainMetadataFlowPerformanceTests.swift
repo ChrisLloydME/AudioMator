@@ -221,7 +221,7 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
         }
     }
     nonisolated func writeMetadata(_ edit: MetadataEditPayload, to url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
-        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
+        let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
         return try lock.withLock {
             guard filesByURL[url] != nil else { throw CocoaError(.fileNoSuchFile) }
             writes += 1

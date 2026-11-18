@@ -93,7 +93,7 @@ enum MetadataConflictResolver {
         let currentVersion = try pipeline.metadataFileVersion(at: url)
         try validateFallbackVersion(currentVersion, originalVersion: originalVersion, originalFingerprint: originalFingerprint)
         if currentVersion == originalVersion {
-            if TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit).isEmpty {
+            if try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit).isEmpty {
                 return try noWriteResult(pipeline: pipeline, url: url, version: originalVersion)
             }
             return try pipeline.writeMetadata(edit, to: url, expectedVersion: originalVersion)
@@ -102,7 +102,7 @@ enum MetadataConflictResolver {
         guard policy != .requireReload else { throw TagLibManagerError.fileChanged }
         let audioIdentity = try verifiedAudioIdentity(original: original, snapshot: snapshot)
         let current = MetadataConflictBaseline(snapshot)
-        let patch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
+        let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: edit)
         let fields = edit.requestedFields
 
         var resolved = edit
@@ -135,7 +135,7 @@ enum MetadataConflictResolver {
             }
         }
         guard conflicts.isEmpty else { throw MetadataConflictError(fields: conflicts) }
-        let resolvedPatch = TagLibAudioMetadataPipeline.metadataPatchForWrite(from: resolved)
+        let resolvedPatch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: resolved)
         let result: AudioMetadataWriteResult
         if resolvedPatch.fields.isEmpty, resolvedPatch.explicitAdvisory == nil,
            resolvedPatch.artwork == .unchanged {

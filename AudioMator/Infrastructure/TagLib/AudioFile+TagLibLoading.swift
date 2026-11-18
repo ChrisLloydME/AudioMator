@@ -231,12 +231,7 @@ extension AudioFile {
 
         // MARK: – Artwork via the same authoritative editable metadata source
 
-        let artworkData = tag.artworkData
-        if let artworkData {
-            self.artworkData = artworkData
-        } else {
-            self.artworkData = nil
-        }
+        self.artworkData = tag.artworkData
 
         // AVFoundation reads above can suspend. Never publish metadata from one
         // revision paired with the fingerprint of a later revision.

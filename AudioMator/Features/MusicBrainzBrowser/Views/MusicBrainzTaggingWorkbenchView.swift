@@ -751,13 +751,6 @@ private enum MusicBrainzWorkbenchAppKitFactory {
         return imageView
     }
 
-    private static func iconText(_ text: String, symbolName: String, color: NSColor) -> NSView {
-        horizontalStack(spacing: 5, alignment: .centerY, views: [
-            symbol(symbolName, color: color, width: 12),
-            label(text, font: .systemFont(ofSize: 11), color: color)
-        ])
-    }
-
     private static func writeBadge() -> NSView {
         let badge = padded(
             label("Write", font: .systemFont(ofSize: 10, weight: .semibold), color: .controlAccentColor),

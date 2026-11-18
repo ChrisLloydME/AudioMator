@@ -9,17 +9,6 @@ struct iTunesBrowserView: View {
     @State private var navigationPath: [iTunesBrowserDestination] = []
 
     init(
-        viewModel: AudioViewModel,
-        onBackToSources: @escaping () -> Void
-    ) {
-        self.init(
-            store: iTunesBrowserStore(),
-            viewModel: viewModel,
-            onBackToSources: onBackToSources
-        )
-    }
-
-    init(
         store: iTunesBrowserStore,
         viewModel: AudioViewModel,
         onBackToSources: @escaping () -> Void

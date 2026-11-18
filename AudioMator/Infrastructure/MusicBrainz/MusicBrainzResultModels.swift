@@ -22,10 +22,6 @@ nonisolated struct MusicBrainzReleaseSearchResult: Identifiable, Equatable, Hash
     var mediaFormatSummary: String {
         mediaFormats.joined(separator: " • ")
     }
-
-    var musicBrainzURL: URL? {
-        NetworkServiceDisclosure.MusicBrainz.webURL(path: "/release/\(id)")
-    }
 }
 
 extension MusicBrainzReleaseSearchResult {
@@ -67,10 +63,6 @@ nonisolated struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable
         let date: String
         let country: String
         let status: String
-
-        var musicBrainzURL: URL? {
-            NetworkServiceDisclosure.MusicBrainz.webURL(path: "/release/\(id)")
-        }
     }
 
     let id: String
@@ -81,10 +73,6 @@ nonisolated struct MusicBrainzRecordingResult: Identifiable, Equatable, Hashable
     let firstReleaseDate: String
     let durationMilliseconds: Int?
     let releases: [Release]
-
-    var musicBrainzURL: URL? {
-        NetworkServiceDisclosure.MusicBrainz.webURL(path: "/recording/\(id)")
-    }
 
     var primaryRelease: Release? {
         releases.first

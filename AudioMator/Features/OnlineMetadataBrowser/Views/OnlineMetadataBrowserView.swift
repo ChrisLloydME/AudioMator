@@ -30,21 +30,6 @@ struct OnlineMetadataBrowserView: View {
         store: MusicBrainzBrowserStore,
         lrclibStore: LRCLIBLyricsBrowserStore,
         viewModel: AudioViewModel,
-        initialSource: MetadataBrowserSource
-    ) {
-        self.init(
-            store: store,
-            lrclibStore: lrclibStore,
-            viewModel: viewModel,
-            iTunesStore: iTunesBrowserStore(),
-            initialSource: initialSource
-        )
-    }
-
-    init(
-        store: MusicBrainzBrowserStore,
-        lrclibStore: LRCLIBLyricsBrowserStore,
-        viewModel: AudioViewModel,
         iTunesStore: iTunesBrowserStore,
         initialSource: MetadataBrowserSource?
     ) {

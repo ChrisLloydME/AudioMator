@@ -384,16 +384,6 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         assignments[index].selectedTrackID = validatedTrackID
     }
 
-    func track(for assignment: AssignmentDraft) -> iTunesTrackResult? {
-        guard let id = assignment.selectedTrackID else { return nil }
-        return tracksByID[id]
-    }
-
-    func isDuplicateAssignment(_ assignment: AssignmentDraft) -> Bool {
-        guard let id = assignment.selectedTrackID else { return false }
-        return duplicateTrackIDs.contains(id)
-    }
-
     private func invalidateAllPlanRows() {
         cachedPlan = nil
         cachedPlanRowsByAssignmentID.removeAll(keepingCapacity: true)

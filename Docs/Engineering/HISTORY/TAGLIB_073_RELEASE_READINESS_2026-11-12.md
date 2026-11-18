@@ -62,6 +62,6 @@ The archive is an unsigned validation artifact, not a signed/notarized distribut
 
 ## Distribution boundary
 
-No interactive app launch, UI automation, live-provider network, distribution signing, notarization, installer packaging or publication is performed by the automated gate. Maintainer UI acceptance and the manual distribution steps in [Release Engineering](../Development/RELEASE.md) remain necessary before distributing the app.
+No interactive app launch, UI automation, live-provider network, distribution signing, notarization, installer packaging or publication is performed by the automated gate. Maintainer UI acceptance and the manual distribution steps in [Release Engineering](../../Development/RELEASE.md) remain necessary before distributing the app.
 
 Hosted CI, runtime testing on macOS 15 and interactive UI acceptance were not executed. Source changes are limited to the dependency pin/lock, current version disclosure, literal upgrade contract and matching documentation; no application metadata workaround was added.

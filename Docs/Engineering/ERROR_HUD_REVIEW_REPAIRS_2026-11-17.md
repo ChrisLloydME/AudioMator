@@ -1,5 +1,7 @@
 # Error and HUD review repairs — 2026-11-17
 
+> Dated evidence — current presentation behavior is documented in the [User Guide § Operation Result HUD](../Product/USER_GUIDE.md#operation-result-hud) and [Debugging](../Development/DEBUGGING.md). This record is implementation evidence only: no branch or commit baseline was recorded, verification was syntax-only, its added app-hosted tests were not executed, and no build, test-pass or UI acceptance is claimed.
+
 Status: implementation and syntax-only verification. No localization resources changed. No app launch, app-hosted run, full validation, or temporary-folder authorization was attempted for this repair.
 
 ## Review disposition

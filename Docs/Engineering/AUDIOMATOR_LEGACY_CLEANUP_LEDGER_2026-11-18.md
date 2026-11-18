@@ -1,15 +1,15 @@
 # AudioMator legacy cleanup ledger
 
-Date: 2026-11-18. Status: dated engineering record, not a current behavior contract. Branch: `codex/audiomator-legacy-cleanup-20261117`. Baseline: `origin/main` at `f36c2a2e` (2026-11-17). Code-complete revision at the final automated gate: `28fe62a6`. This record is the consolidated whole-application audit and candidate/migration ledger for the accumulated-code cleanup campaign described in [the cleanup plan](AUDIOMATOR_LEGACY_CLEANUP_PLAN_2026-11-17.md). It is evidence for what was audited, decided, removed, retained or deferred; current guidance for the surviving implementation lives in the current-state documentation set.
+Date: 2026-11-18. Status: dated engineering record, not a current behavior contract. Branch: `codex/audiomator-legacy-cleanup-20261117`. Baseline: `origin/main` at `f36c2a2e` (2026-11-17). Code-complete revision at the final automated gate: `28fe62a6`. This record is the consolidated whole-application audit and candidate/migration ledger for the accumulated-code cleanup campaign. It is evidence for what was audited, decided, removed, retained or deferred; current guidance for the surviving implementation lives in the current-state documentation set.
 
-Related records: [automated acceptance record](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md), [cleanup plan](AUDIOMATOR_LEGACY_CLEANUP_PLAN_2026-11-17.md), [agent handoff prompt](AUDIOMATOR_LEGACY_CLEANUP_AGENT_PROMPT_2026-11-17.md), and [Engineering Notes index](README.md). The plan and prompt are preserved handoff documents from 2026-11-17 and are not current behavior contracts.
+Related records: [automated acceptance record](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) and [Engineering evidence index](README.md). The campaign plan and agent handoff prompt have been removed from the repository after completion; this record preserves the results.
 
 ## 1. Campaign identity, scope and method
 
 | Item | Value |
 | --- | --- |
 | Repository | AudioMator (this repository only) |
-| Baseline | `origin/main` `f36c2a2e` (2026-11-17); worktree clean except the two untracked handoff documents |
+| Baseline | `origin/main` `f36c2a2e` (2026-11-17); worktree clean except the two then-untracked handoff documents (both removed from the repository after completion) |
 | Branch | `codex/audiomator-legacy-cleanup-20261117` |
 | Code-complete revision | `28fe62a6` (2026-11-18) |
 | Branch commits | 27 commits relative to `origin/main` at the code-complete revision. The handoff brief stated 28; `git rev-list --count origin/main..HEAD` reports 27. This record uses the repository value; the documentation commit will add a further commit after this record. |
@@ -489,7 +489,7 @@ One row per tracked file in the agreed scope (314 rows: 186 `AudioMator/`, 106 `
 
 ## 3. Candidate and decision ledger
 
-Every candidate ID from the seven audits is listed with its decision, campaign outcome and replacement owner. Decision vocabulary follows the cleanup plan §2: `delete` (unreachable or old internal API), `merge` (duplicate responsibility), `simplify` (over-layered but live), `retain` (active behavior, protection or persisted user data), `investigate` (insufficient evidence), plus `migrate`/`document` for test and documentation migrations. `Implemented` rows name the commit; `Deferred` rows are not implemented in this campaign and carry the reason; open investigations are in §5. Retained rows are summarized in §4.
+Every candidate ID from the seven audits is listed with its decision, campaign outcome and replacement owner. Decision vocabulary used by the campaign: `delete` (unreachable or old internal API), `merge` (duplicate responsibility), `simplify` (over-layered but live), `retain` (active behavior, protection or persisted user data), `investigate` (insufficient evidence), plus `migrate`/`document` for test and documentation migrations. `Implemented` rows name the commit; `Deferred` rows are not implemented in this campaign and carry the reason; open investigations are in §5. Retained rows are summarized in §4.
 
 ### 3.1 App composition, Core, resources, configuration and scripts
 
@@ -927,8 +927,7 @@ Campaign boundary: the automated gate proves the code-complete revision compiles
 
 ## 8. References
 
-- Handoff plan: [AudioMator accumulated-code cleanup implementation plan](AUDIOMATOR_LEGACY_CLEANUP_PLAN_2026-11-17.md) (2026-11-17; preserved handoff document, not current guidance).
-- Handoff prompt: [AudioMator legacy cleanup agent handoff prompt](AUDIOMATOR_LEGACY_CLEANUP_AGENT_PROMPT_2026-11-17.md) (2026-11-17; preserved handoff document).
+- Campaign instructions: the 2026-11-17 cleanup plan and agent handoff prompt were removed from the repository after completion; this record preserves the dated results.
 - Acceptance: [AudioMator legacy cleanup automated acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md).
 - Audit evidence: `.tmp/cleanup/audit-app-core.md`, `audit-domain.md`, `audit-infrastructure.md`, `audit-providers.md`, `audit-features-main.md`, `audit-features-editor.md`, `audit-tests-build.md` (read-only, 2026-11-18; `.tmp/` is git-ignored).
 - Gate evidence: `.deriveddata-codex/Validation/20261118-104501-44211/` (`source.txt`, `policy.log`, `core.log`, `core-gate.json`, `app.log`, `test-summary.json`, `test-tree.json`, `test-gate.json`, `AppTests.xcresult`, `release.log`, `artifact.log`); baseline Debug evidence `.deriveddata-codex/Validation/20261118-094024-15062/`. Both paths are git-ignored outputs.

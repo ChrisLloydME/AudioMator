@@ -2,7 +2,7 @@
 
 Date: 2026-11-18. Status: dated engineering record. This record documents the automated acceptance evidence for the accumulated-code cleanup campaign on branch `codex/audiomator-legacy-cleanup-20261117`, and explicitly separates what the automated gate proves from what remains unexecuted or unresolved. It is not a current behavior contract; current guidance is in `Docs/Product`, `Docs/Architecture`, `Docs/Development`, `Docs/Reference` and `Docs/Security`.
 
-Related records: [cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md), [cleanup plan](AUDIOMATOR_LEGACY_CLEANUP_PLAN_2026-11-17.md), [agent handoff prompt](AUDIOMATOR_LEGACY_CLEANUP_AGENT_PROMPT_2026-11-17.md), and [Engineering Notes index](README.md).
+Related records: [cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) and [Engineering evidence index](README.md). The campaign plan and agent handoff prompt have been removed from the repository after completion; this record preserves the results.
 
 ## 1. Identity and status
 
@@ -12,7 +12,7 @@ Related records: [cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md
 | Branch | `codex/audiomator-legacy-cleanup-20261117` |
 | Baseline | `origin/main` `f36c2a2e` (2026-11-17), verified by `git merge-base origin/main HEAD` |
 | Tested source revision | `19e1ac23740c7d681555dbea9a36b16bfece1b04` (`19e1ac23`), recorded in `source.txt` |
-| Tracked worktree at test time | clean (`git diff` empty; the SHA-256 in `source.txt` is the hash of an empty diff). The two handoff documents remain untracked by design. |
+| Tracked worktree at test time | clean (`git diff` empty; the SHA-256 in `source.txt` is the hash of an empty diff). The two handoff documents remained untracked by design at test time; both were removed from the repository after completion. |
 | Branch commits at that revision | 29 commits relative to `origin/main` (27 at the earlier code-complete revision `28fe62a6`; the handoff brief stated 28, the repository value at that point was 27). The final record-update commit is documentation-only and follows the tested revision. |
 | Dependency source | Published `Package.resolved` (normal project resolution; no local-package override) |
 | Evidence directory | `.deriveddata-codex/Validation/20261118-110503-50660/` (git-ignored); earlier code-complete run: `.deriveddata-codex/Validation/20261118-104501-44211/` |
@@ -180,7 +180,7 @@ The final release-gate run was executed on the committed docs revision `19e1ac23
 ## 13. References
 
 - [Cleanup ledger](AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md): file audit, candidate/decision ledger, retained register, investigate register and remaining duplication.
-- [Cleanup plan](AUDIOMATOR_LEGACY_CLEANUP_PLAN_2026-11-17.md) and [agent handoff prompt](AUDIOMATOR_LEGACY_CLEANUP_AGENT_PROMPT_2026-11-17.md): preserved 2026-11-17 handoff documents, not current behavior contracts.
-- [Engineering Notes index](README.md).
+- Campaign instructions: the 2026-11-17 cleanup plan and agent handoff prompt were removed from the repository after completion; this record preserves the dated results.
+- [Engineering evidence index](README.md).
 - [Testing](../Development/TESTING.md), [Build](../Development/BUILD.md), [Metadata Pipeline](../Architecture/METADATA_PIPELINE.md), [Dependency Rules](../Architecture/DEPENDENCY_RULES.md), [Project Structure](../Reference/PROJECT_STRUCTURE.md), [Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md).
 

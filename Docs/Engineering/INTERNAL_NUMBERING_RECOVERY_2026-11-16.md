@@ -1,5 +1,7 @@
 # Internal numbering recovery — 2026-11-16
 
+> Dated evidence — current behavior is documented in the [Metadata Pipeline § Number fields](../Architecture/METADATA_PIPELINE.md#number-fields), [User Guide § Numbering compatibility](../Product/USER_GUIDE.md#numbering-compatibility) and [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). This record's local-candidate publication constraint was superseded by the [published 0.8.1 Debug adoption](TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md); its gate counts are historical.
+
 Application branch: `codex/internal-numbering-recovery`, based on `db2016b8`. The maintainer withdrew the 2.7 release and authorized a separate package branch (`codex/automatic-numbering-recovery`) and local override verification. No publication is performed.
 
 ## Adjudication and product contract

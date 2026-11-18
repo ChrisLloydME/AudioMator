@@ -243,7 +243,7 @@ Pinned package: TagLibAudioMetadata **0.5.3**, revision `03473c9ae199026b806a5f7
 2. **AAC total clearing through number-text patches:** seed a number and total, request number without total/clear a total. Observed verification retains the old total and rejects safely. Expected: explicit total-clearing intent round-trips or is rejected before mutation with a documented unsupported contract. Package owner should add track/disc clearing tests and byte-preservation assertions on failure.
 3. **Standalone totals/multi-artwork:** existing dependency-limitations documentation records observations; comprehensive support was not established in this review. Do not infer internal causes or bypass verification. Package owner should define accepted typed representations and normalization, then add independent-number and multi-role artwork round trips.
 
-Minimal AudioMator reproductions and current safe-failure expectations are in `TagLibReadWriteIntegrationTests.testFieldTransferNumberCombinationsRoundTripOrFailWithoutChangingFile`, `testFieldTransferCutNumberWithoutTotalRoundTripsOrPreservesFileOnFailure`, and [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). No package work was attempted.
+Minimal AudioMator reproductions and current safe-failure expectations are in `TagLibReadWriteIntegrationTests.testFieldTransferNumberCombinationsRoundTripOrFailWithoutChangingFile`, `testFieldTransferCutNumberWithoutTotalRoundTripsOrPreservesFileOnFailure`, and [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md). No package work was attempted.
 
 ### Product/design decisions
 

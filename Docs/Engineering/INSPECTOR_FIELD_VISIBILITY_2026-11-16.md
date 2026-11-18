@@ -1,5 +1,7 @@
 # Inspector common-field visibility restoration — 2026-11-16
 
+> Dated evidence — current behavior is documented in [User Guide § Editing Common Metadata (Inspector)](../Product/USER_GUIDE.md#editing-common-metadata-inspector) and the [State and Mutation Model](../Architecture/STATE_AND_MUTATION_MODEL.md). The 586-test app-hosted inventory below is historical; later gates (the [2026-11-18 cleanup acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) records 629) supersede the count. Release checks completed before a skip instruction; no interactive UI acceptance is claimed.
+
 ## Product contract and implementation
 
 The right Inspector is a curated common-metadata editor. Settings → Interface → Inspector Metadata Fields controls all single/multi-selection metadata rows. The former unconditional MP4 Container Fields sections and their bindings/support-only helper are removed. Advanced PropertyMap edits remain in Metadata Editor; Tag Inspector remains the native inspection surface.

@@ -1,5 +1,7 @@
 # Metadata Field Guide verification — 2026-11-17
 
+> Dated evidence — current behavior is documented in the [user guide](../Product/METADATA_FIELD_GUIDE.md) and the [cross-layer mapping table](../Reference/METADATA_FIELD_MAPPING_TABLE.md). The 599/602-test app-hosted inventories below are historical; the latest automated gate is the [2026-11-18 cleanup acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md). Several follow-ups claim only focused-test or build verification, and no interactive visual/accessibility acceptance is claimed.
+
 Branch: `codex/review-inspector-date-field`. Tested implementation: `593bf2c`. The final gate began before this commit was recorded; production/test/script contents were identical to the committed implementation, with only documentation changed during the run. Subsequent changes record evidence only. Published package remains exact 0.8.1; no package source or metadata write path changed.
 
 ## Delivered

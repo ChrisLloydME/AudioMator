@@ -8,7 +8,7 @@ Added independent manifests for 33 dedicated string controls, 35 writable exchan
 
 CSV planning now has real adapter and disk-reload coverage for every writable exchange field. Representative real iTunes/MusicBrainz two-file provider batches and Inspector single/multi-file saves verify both persistence and refreshed app models. Native MP4 Store ID atoms and unrelated raw-array preservation have independent literal expectations. Existing revision-conflict, date, total, advisory, cancellation, unsupported-capability and failure-atomicity suites remain active. Successful mock-provider workflow samples now use decimal Store IDs.
 
-The unified local/CI release script runs core, serial app-hosted, Release and artifact phases and keeps evidence under `.deriveddata-codex/Validation`. CI uploads that evidence on failure. Failed tests stop release acceptance. Coverage and remaining gaps are specified in [the test strategy](../Development/METADATA_TEST_STRATEGY.md); this record does not establish universal format conformance.
+The unified local/CI release script runs core, serial app-hosted, Release and artifact phases and keeps evidence under `.deriveddata-codex/Validation`. CI uploads that evidence on failure. Failed tests stop release acceptance. Coverage and remaining gaps are specified in [the test strategy](../../Development/METADATA_TEST_STRATEGY.md); this record does not establish universal format conformance.
 
 ## Sensitivity experiment
 

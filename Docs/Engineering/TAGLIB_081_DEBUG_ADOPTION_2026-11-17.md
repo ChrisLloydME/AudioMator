@@ -1,5 +1,7 @@
 # Published TagLibAudioMetadata 0.8.1 Debug adoption — 2026-11-17
 
+> Dated evidence — current behavior is documented in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md) and the [Metadata Mapping Specification](../Architecture/METADATA_MAPPING_SPEC.md). This remains the Debug-adoption evidence for the unchanged published 0.8.1 pin; the 596-test app-hosted inventory below is historical and the later [2026-11-18 cleanup acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) records the current 629-test gate. Release, Archive and interactive UI were excluded.
+
 Branch: `codex/adopt-taglib-081`, based on main `a0230a00`.
 
 The normal Xcode project pins exact published `0.8.1`, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`. Xcode generated the remote lock; no local workspace override is used. The package checkout is not modified. This adopts automatic edited-group numbering recovery and retirement after the earlier [local candidate](INTERNAL_NUMBERING_RECOVERY_2026-11-16.md).

@@ -54,4 +54,4 @@ The app's production source did not change after this acceptance. Subsequent pac
 
 ## Limits
 
-No interactive AudioMator launch, UI automation, live provider network, signing, notarization or publication was performed. Tests drive real stores/view models and disk writes, not mouse/keyboard interactions. Fixture and operating-system coverage remains finite; see [Testing](../Development/TESTING.md#known-coverage-gaps). Local candidate success must not be described as published 0.7.2 success. The maintainer publishes the repaired package before the next normal remote dependency adoption.
+No interactive AudioMator launch, UI automation, live provider network, signing, notarization or publication was performed. Tests drive real stores/view models and disk writes, not mouse/keyboard interactions. Fixture and operating-system coverage remains finite; see [Testing](../../Development/TESTING.md#known-coverage-gaps). Local candidate success must not be described as published 0.7.2 success. The maintainer publishes the repaired package before the next normal remote dependency adoption.

@@ -69,11 +69,13 @@ Use a durable, versioned rename journal and an exclusive-move filesystem service
   comparison key and the directory-entry location key (parent resolved, basename
   folded with the parent volume's case semantics). Rename reservations also include
   the deterministic staging URLs.
-- Process-termination recovery is the exercised contract. Power-loss durability is
-  limited to the barriers the host filesystem actually supports and is reported
-  honestly. Hidden staging files created by app versions before this decision have
-  no manifest and remain manual recovery; a matching name prefix is never
-  authority.
+- Process-termination recovery is exercised by real killed-process probes for the
+  documented crash gates (prepared/staged, partially finalized, committed-marker and
+  restore-boundary gates); the remediation acceptance record names the covered gates.
+  Power-loss durability is limited to the barriers the host filesystem actually
+  supports and is reported honestly. Hidden staging files created by app versions
+  before this decision have no manifest and remain manual recovery; a matching
+  name prefix is never authority.
 
 ## Alternatives
 

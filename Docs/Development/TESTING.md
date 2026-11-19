@@ -226,14 +226,21 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
   -derivedDataPath .deriveddata-codex \
   -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 \
   CODE_SIGNING_ALLOWED=NO test
-# 2. Release: app + app-hosted test target compile in Release
+# 2. Release: app + app-hosted test target compile in Release.
+#    Release disables Enable Testability for the app target, so the app-hosted test target cannot
+#    link against it without a verification-only command-line override. This does not change any
+#    project build setting; it exists only to make the Release diagnostic lane compilable.
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
   -configuration Release -destination 'generic/platform=macOS' \
-  -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build-for-testing
+  -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+  build-for-testing
 ```
 
 A plain Release `build` is not sufficient for this check because it does not compile the test
-target. Incremental builds are not valid evidence: the candidate must be a clean checkout with no
+target. The Release lane must pass `ENABLE_TESTABILITY=YES` on the `xcodebuild` command line: the Release
+configuration disables Enable Testability for the app target, so the app-hosted test target cannot be
+built against it otherwise. This is a verification-only override and no project build setting changes.
+Both the Debug and the Release diagnostic lanes must finish clean. Incremental builds are not valid evidence: the candidate must be a clean checkout with no
 prior products, and the logs must be shown to contain full app and test-target compilation. The
 dated campaign evidence records the exact source revision, Xcode version, commands, log paths and
 per-category counts.

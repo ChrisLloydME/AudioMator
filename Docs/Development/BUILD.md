@@ -159,11 +159,14 @@ xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
   CODE_SIGNING_ALLOWED=NO test
 xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
   -configuration Release -destination 'generic/platform=macOS' \
-  -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build-for-testing
+  -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES \
+  build-for-testing
 ```
 
 The Release `build-for-testing` phase is required so the app-hosted test target compiles under
-Release; a plain Release `build` compiles only the app. The settings the check must preserve are
+Release; a plain Release `build` compiles only the app. Release disables Enable Testability for the
+app target, so this lane must pass `ENABLE_TESTABILITY=YES` on the command line (verification-only
+override, no project setting change). Both the Debug and the Release lanes must be clean. The settings the check must preserve are
 Swift 5 language mode, `SWIFT_STRICT_CONCURRENCY = complete`, `SWIFT_DEFAULT_ACTOR_ISOLATION =
 MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` for both targets and configurations. Dated
 evidence (source revision, Xcode version, commands, log paths, per-category counts and remaining

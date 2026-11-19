@@ -360,7 +360,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let pipeline = RecordingMetadataPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
 
-        let result = await viewModel.persistMetadataEdit(edit, to: file)
+        let result = await viewModel.persistReviewedEditForTest(edit, to: file)
 
         guard case .failure(let reason) = result else {
             return XCTFail("Expected an unsupported-field failure")

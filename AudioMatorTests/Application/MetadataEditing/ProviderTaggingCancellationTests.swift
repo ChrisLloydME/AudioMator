@@ -320,7 +320,7 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
         expectedMap["TITLE"] = ["Changed title"]
         var edit = SingleFileEditModel(from: file)
         edit.title = "Changed title"
-        let result = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file)
+        let result = await viewModel.persistReviewedEditForTest(edit, to: file, comparedTo: file)
         guard case .success = result else { return XCTFail("An unchanged total-only pair must not reject a title edit: \(result)") }
         XCTAssertEqual(pipeline.writeCount, 1)
         XCTAssertEqual(try base.rawMetadataValueMap(for: file.url), expectedMap)

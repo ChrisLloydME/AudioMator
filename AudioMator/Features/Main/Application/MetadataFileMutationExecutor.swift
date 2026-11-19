@@ -20,18 +20,14 @@ enum MetadataFileMutationResult: Sendable {
 /// the synchronous writer runs. `reviewedDraft` is the conflict-aware Inspector /
 /// Raw Editor route: the permit gates admission but identity and revision policy
 /// are validated inside `MetadataConflictResolver`, which owns rebasing.
-/// `legacy` is the temporary migration path for not-yet-migrated callers.
 nonisolated enum MetadataFileMutationAdmission: Sendable {
     case reviewed(ReviewedMetadataTarget, permit: MetadataCommitPermit)
     case reviewedDraft(ReviewedMetadataTarget, permit: MetadataCommitPermit)
-    case legacy(expectedFileFingerprint: AudioFileFingerprint?)
 
-    var permit: MetadataCommitPermit? {
+    var permit: MetadataCommitPermit {
         switch self {
         case .reviewed(_, let permit), .reviewedDraft(_, let permit):
             return permit
-        case .legacy:
-            return nil
         }
     }
 }
@@ -106,8 +102,6 @@ struct MetadataFileMutationExecutor: Sendable {
                                 case .revoked(.ineligible(let reason)):
                                     return .failure(reason)
                                 }
-                            case .legacy(let expectedFileFingerprint):
-                                try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
                             }
 
                             let writeResult = try write(pipeline, url)
@@ -143,42 +137,17 @@ struct MetadataFileMutationExecutor: Sendable {
                         }
                     }.value
                 } onCancel: {
-                    permit?.revoke(reason: .cancelled)
+                    permit.revoke(reason: .cancelled)
                 }
             }
         } catch is CancellationError {
-            permit?.revoke(reason: .cancelled)
+            permit.revoke(reason: .cancelled)
             return .cancelled
         } catch {
             return .failure((error as NSError).localizedDescription)
         }
     }
 
-    /// Legacy forwarding for callers that still supply only a fingerprint. This
-    /// path carries no permit and is removed after the final family migration.
-    func execute(
-        at url: URL,
-        id: AudioFile.ID,
-        expectedFileFingerprint: AudioFileFingerprint?,
-        validateBeforeWrite: @escaping @Sendable () async throws -> Void = {},
-        write: @escaping @Sendable (any AudioMetadataPipeline, URL) throws -> AudioMetadataWriteResult
-    ) async -> MetadataFileMutationResult {
-        await execute(
-            at: url,
-            id: id,
-            admission: .legacy(expectedFileFingerprint: expectedFileFingerprint),
-            validateBeforeWrite: validateBeforeWrite,
-            write: write
-        )
-    }
-}
-
-nonisolated func validateExpectedFileFingerprint(
-    _ expectedFileFingerprint: AudioFileFingerprint?,
-    at url: URL
-) throws {
-    guard let expectedFileFingerprint else { return }
-    try validateExpectedFileFingerprint(expectedFileFingerprint, at: url)
 }
 
 /// Strict variant: the captured fingerprint is always verified inside the

@@ -182,7 +182,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         var edit = SingleFileEditModel(from: file)
         edit.setTrackNumberFieldText("")
         edit.setTrackTotalFieldText("13")
-        guard case .success = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file) else {
+        guard case .success = await viewModel.persistReviewedEditForTest(edit, to: file, comparedTo: file) else {
             return XCTFail("0.6.0 must persist a total-only number pair")
         }
         let result = try TagLibMetadataManager.readMetadataResult(from: file.url)
@@ -297,7 +297,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         let viewModel = selectedViewModel(file)
         var draft = SingleFileEditModel(from: file)
         draft.title = "My title"
-        let result = await viewModel.persistMetadataEdit(
+        let result = await viewModel.persistReviewedEditForTest(
             draft, to: file, comparedTo: file,
             expectedFileFingerprint: file.fileFingerprint, expectedMetadataVersion: file.metadataFileVersion
         )
@@ -322,7 +322,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         viewModel.edit?.title = "My title"
         try externalChange(["TITLE": ["Disk title"]], at: file.url)
         let bytes = try Data(contentsOf: file.url)
-        let result = await viewModel.persistMetadataEdit(
+        let result = await viewModel.persistReviewedEditForTest(
             try XCTUnwrap(viewModel.edit), to: file, comparedTo: file,
             expectedFileFingerprint: file.fileFingerprint, expectedMetadataVersion: file.metadataFileVersion
         )
@@ -343,7 +343,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
             var draft = SingleFileEditModel(from: file)
             draft.title = "My title"
             draft.album = "My album"
-            let result = await viewModel.persistMetadataEdit(
+            let result = await viewModel.persistReviewedEditForTest(
                 draft, to: file, comparedTo: file,
                 expectedFileFingerprint: file.fileFingerprint, expectedMetadataVersion: file.metadataFileVersion
             )

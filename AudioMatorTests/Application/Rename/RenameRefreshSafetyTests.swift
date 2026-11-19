@@ -89,7 +89,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         var edit = SingleFileEditModel(from: original)
         edit.title = "Stale draft"
         let capturedEdit = edit
-        let save = Task { await viewModel.persistMetadataEdit(capturedEdit, to: original) }
+        let save = Task { await viewModel.persistReviewedEditForTest(capturedEdit, to: original) }
         let deadline = ContinuousClock.now.advanced(by: .seconds(3))
         while await viewModel.fileMutationCoordinator.queuedMutationCount == 0, ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))
@@ -146,7 +146,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
         var edit = SingleFileEditModel(from: moved)
         edit.title = "Must not write"
-        guard case .failure = await viewModel.persistMetadataEdit(edit, to: moved) else {
+        guard case .failure = await viewModel.persistReviewedEditForTest(edit, to: moved) else {
             return XCTFail("Inspector save must fail closed after a failed full readback")
         }
         let rawResult = await viewModel.applyRawMetadataPropertyMaps(
@@ -176,7 +176,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
         var edit = SingleFileEditModel(from: moved)
         edit.title = "Must not write"
-        guard case .failure(let reason) = await viewModel.persistMetadataEdit(edit, to: moved) else {
+        guard case .failure(let reason) = await viewModel.persistReviewedEditForTest(edit, to: moved) else {
             return XCTFail("Expected a refresh-required failure")
         }
         XCTAssertTrue(reason.contains("Reload from Disk"))
@@ -204,7 +204,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
         var edit = SingleFileEditModel(from: moved)
         edit.title = "Verified move write"
-        guard case .success = await viewModel.persistMetadataEdit(edit, to: moved, comparedTo: moved) else {
+        guard case .success = await viewModel.persistReviewedEditForTest(edit, to: moved, comparedTo: moved) else {
             return XCTFail("A receipt-matched readback must restore metadata write authority")
         }
         XCTAssertEqual(pipeline.writeCount, 1)
@@ -242,7 +242,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
         var edit = SingleFileEditModel(from: moved)
         edit.title = "Real post-move write"
-        guard case .success = await viewModel.persistMetadataEdit(edit, to: moved, comparedTo: moved) else {
+        guard case .success = await viewModel.persistReviewedEditForTest(edit, to: moved, comparedTo: moved) else {
             return XCTFail("A receipt-matched readback must allow a real post-move write")
         }
 

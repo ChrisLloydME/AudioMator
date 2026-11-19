@@ -45,15 +45,22 @@ nonisolated final class MetadataIOPerformanceTests: XCTestCase {
                 }
                 let probe = ConcurrentBatchProbe()
                 let start = ContinuousClock.now
-                await MetadataBatchExecutor.execute(count: targets.count, maximumConcurrentMutations: limit) { index in
+                await MetadataBatchExecutor.execute(count: targets.count, maximumConcurrentMutations: limit) { index -> MetadataFileMutationResult in
                     let file = targets[index]
                     let payload = payloads[index]
                     let baseline = file.metadataConflictBaseline
                     let fingerprint = file.fileFingerprint
                     let version = file.metadataFileVersion
+                    guard let reviewedTarget = ReviewedMetadataTarget(verified: file) else {
+                        return .failure("Performance fixture must carry a coherent observation.")
+                    }
                     probe.begin()
                     defer { probe.end() }
-                    return await executor.execute(at: file.url, id: file.id, expectedFileFingerprint: nil) { pipeline, url in
+                    return await executor.execute(
+                        at: file.url,
+                        id: file.id,
+                        admission: .reviewed(reviewedTarget, permit: MetadataCommitPermit())
+                    ) { pipeline, url in
                         guard let baseline, let fingerprint, let version else {
                             throw CocoaError(.fileReadUnknown)
                         }

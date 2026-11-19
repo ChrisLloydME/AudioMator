@@ -33,7 +33,7 @@ nonisolated final class NumberTextDependencyContractTests: XCTestCase {
             XCTAssertEqual(try Data(contentsOf: url), beforeBytes)
             let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
             viewModel.mergeQuickImportFiles([file])
-            guard case .failure(let reason) = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file) else {
+            guard case .failure(let reason) = await viewModel.persistReviewedEditForTest(edit, to: file, comparedTo: file) else {
                 return XCTFail("Unsupported text must not be reported as saved")
             }
             XCTAssertTrue(reason.contains(disc ? "Disc Number contains text" : "Track Number contains text"))

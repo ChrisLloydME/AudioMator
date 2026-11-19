@@ -34,7 +34,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertTrue(blocked.requiresMetadataRefreshBeforeWriting)
         var edit = SingleFileEditModel(from: blocked)
         edit.title = "Must refuse"
-        guard case .failure = await viewModel.persistMetadataEdit(edit, to: blocked) else {
+        guard case .failure = await viewModel.persistReviewedEditForTest(edit, to: blocked) else {
             return XCTFail("Automatic refresh must leave writes disabled")
         }
 

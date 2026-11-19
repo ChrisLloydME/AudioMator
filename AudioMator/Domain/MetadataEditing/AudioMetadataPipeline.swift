@@ -67,6 +67,12 @@ struct MetadataEditPayload: Sendable {
     var contentAdvisoryChanged: Bool
     var trackNumberTextChanged: Bool
     var discNumberTextChanged: Bool
+    /// Number components whose removal cannot be inferred from numeric
+    /// comparison (for example malformed loaded raw text that projects
+    /// numerically to zero). Only `.track`/`.trackTotal`/`.disc`/`.discTotal`
+    /// may appear here; the adapter emits an explicit component removal for
+    /// each entry that the numeric comparison did not already produce.
+    var explicitComponentRemovals: Set<MetadataFieldKey> = []
 
     /// Preserve numeric text validation while allowing total-only pairs.
     nonisolated var numberPairValidationMessage: String? {
@@ -125,6 +131,7 @@ struct MetadataEditPayload: Sendable {
         }
         if case .unchanged = artwork {} else { fields.insert(.artwork) }
         fields.formUnion(containerFields.keys)
+        fields.formUnion(explicitComponentRemovals)
         return fields
     }
 }

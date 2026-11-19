@@ -401,6 +401,13 @@ private enum MetadataPipelineSupport {
                 )
             }
         }
+        // Explicit scoped removals cover loaded raw text that projects to zero,
+        // where numeric comparison alone cannot express component presence.
+        for field in edit.explicitComponentRemovals where
+            [MetadataFieldKey.track, .trackTotal, .disc, .discTotal].contains(field)
+            && !componentOperations.contains(where: { $0.field == field }) {
+            componentOperations.append(MetadataNumberComponentOperation(field: field, value: nil))
+        }
         for operation in componentOperations {
             fields[operation.field] = operation.value.map { .integer($0) } ?? .remove
         }

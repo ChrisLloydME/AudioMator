@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 struct MetadataTextExportRow: Identifiable {
     let id: AudioFile.ID
@@ -92,37 +93,72 @@ struct MetadataExchangeFieldChange: Identifiable {
     let currentValue: String
     let importedValue: String
     let willWrite: Bool
+    /// True for a typed explicit removal (profile-v2 token, zero number
+    /// component, or clear-enabled blank). Distinct from a literal value that
+    /// happens to be empty.
+    var isExplicitRemoval: Bool = false
 
     var id: String { field.placeholderName }
 
     /// Preview text for an explicit removal, distinct from a literal value.
     var displayImportedValue: String {
-        MetadataExchangeProfile.displayValue(importedValue)
+        isExplicitRemoval
+            ? MetadataExchangeProfile.removalToken
+            : MetadataExchangeProfile.displayValue(importedValue)
     }
 }
 
 struct MetadataExchangeWriteEntry: Identifiable {
     let fileID: AudioFile.ID
     let fileName: String
+    /// Legacy Apply-compatible scalar values. They are derived from the resolved
+    /// typed intent with `preservingNumberPairComponents == true`, so the current
+    /// write path already applies component-only number semantics. Production
+    /// presentation should read `resolvedIntent`/`frozenPayload` instead.
     let values: [MetadataExchangeField: String]
     let expectedFileFingerprint: AudioFileFingerprint?
     let preservingNumberPairComponents: Bool
+    /// Frozen typed intent shared by preview and the future strict Apply path.
+    let resolvedIntent: ExchangeResolvedIntent?
+    let frozenPayload: MetadataEditPayload?
+    let frozenProjection: MetadataWriteProjection?
+    let frozenTarget: ReviewedMetadataTarget?
 
     init(
         fileID: AudioFile.ID,
         fileName: String,
         values: [MetadataExchangeField: String],
         expectedFileFingerprint: AudioFileFingerprint? = nil,
-        preservingNumberPairComponents: Bool = false
+        preservingNumberPairComponents: Bool = false,
+        resolvedIntent: ExchangeResolvedIntent? = nil,
+        frozenPayload: MetadataEditPayload? = nil,
+        frozenProjection: MetadataWriteProjection? = nil,
+        frozenTarget: ReviewedMetadataTarget? = nil
     ) {
         self.fileID = fileID
         self.fileName = fileName
         self.values = values
         self.expectedFileFingerprint = expectedFileFingerprint
         self.preservingNumberPairComponents = preservingNumberPairComponents
+        self.resolvedIntent = resolvedIntent
+        self.frozenPayload = frozenPayload
+        self.frozenProjection = frozenProjection
+        self.frozenTarget = frozenTarget
     }
 
     var id: AudioFile.ID { fileID }
+
+    /// The frozen reviewed write when a reviewed target and adapter projection
+    /// are available. The C1 strict executor consumes this value; the legacy
+    /// Apply path in this phase consumes the compatibility fields above.
+    var frozenWrite: ReviewedMetadataWrite? {
+        guard let frozenTarget, let frozenPayload, let frozenProjection else { return nil }
+        return ReviewedMetadataWrite(
+            target: frozenTarget,
+            intent: .semantic(frozenPayload),
+            projection: frozenProjection
+        )
+    }
 }
 
 struct MetadataExchangeImportPreviewRow: Identifiable {
@@ -139,13 +175,29 @@ struct MetadataExchangeImportPreviewRow: Identifiable {
 struct MetadataExchangeImportPlan {
     let validationMessage: String?
     let rows: [MetadataExchangeImportPreviewRow]
+    /// Set when positional records cannot be mapped one-to-one to the reviewed
+    /// ordered targets. The plan carries no writable entries in that case; Apply
+    /// must stay blocked until the user fixes the records or uses a locator.
+    let blockingMessage: String?
+
+    init(
+        validationMessage: String?,
+        rows: [MetadataExchangeImportPreviewRow],
+        blockingMessage: String? = nil
+    ) {
+        self.validationMessage = validationMessage
+        self.rows = rows
+        self.blockingMessage = blockingMessage
+    }
 
     var writeEntries: [MetadataExchangeWriteEntry] {
-        rows.compactMap(\.writeEntry)
+        blockingMessage == nil && validationMessage == nil
+            ? rows.compactMap(\.writeEntry)
+            : []
     }
 
     var canApply: Bool {
-        validationMessage == nil && !writeEntries.isEmpty
+        validationMessage == nil && blockingMessage == nil && !writeEntries.isEmpty
     }
 
     var readyCount: Int {
@@ -153,7 +205,9 @@ struct MetadataExchangeImportPlan {
     }
 
     var issueCount: Int {
-        rows.filter { $0.status.isIssue }.count + (validationMessage == nil ? 0 : 1)
+        rows.filter { $0.status.isIssue }.count
+            + (validationMessage == nil ? 0 : 1)
+            + (blockingMessage == nil ? 0 : 1)
     }
 }
 
@@ -163,6 +217,8 @@ enum MetadataExchangePlanner {
     private static let maximumImportRecordCount = MetadataExchangeResourceLimits.maximumRecordCount
     private static let maximumTextRecordUTF8ByteCount = MetadataExchangeResourceLimits.maximumTextRecordUTF8ByteCount
     private static let maximumCSVFieldUTF8ByteCount = MetadataExchangeResourceLimits.maximumCSVFieldUTF8ByteCount
+
+    // MARK: – Export
 
     static func makeTextExportPlan(
         template: String,
@@ -349,11 +405,14 @@ enum MetadataExchangePlanner {
         )
     }
 
+    // MARK: – Text import
+
     static func makeTextImportPlan(
         template: String,
         sourceText: String,
         targetFiles: [AudioFile],
-        clearBlankImportedValues: Bool
+        clearBlankImportedValues: Bool,
+        projector: (any AudioMetadataPipeline)? = nil
     ) -> MetadataExchangeImportPlan {
         guard template.utf8.count <= maximumTemplateUTF8ByteCount else {
             return MetadataExchangeImportPlan(
@@ -374,58 +433,46 @@ enum MetadataExchangePlanner {
             return MetadataExchangeImportPlan(validationMessage: validationMessage, rows: [])
         }
 
-        let profile = MetadataExchangeProfile.extract(from: sourceText)
-        if let errorMessage = profile.errorMessage {
+        let extraction = MetadataExchangeProfile.extract(from: sourceText)
+        if let errorMessage = extraction.errorMessage {
             return MetadataExchangeImportPlan(validationMessage: errorMessage, rows: [])
         }
 
-        var normalizedSource = profile.source
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-        if normalizedSource.hasPrefix("\u{FEFF}") {
-            normalizedSource.removeFirst()
+        let framing = MetadataExchangeTextFramer.frame(sourceText, extraction: extraction)
+        if let validationMessage = framing.validationMessage {
+            return MetadataExchangeImportPlan(validationMessage: validationMessage, rows: [])
         }
 
-        var records = normalizedSource.isEmpty
-            ? []
-            : normalizedSource.components(separatedBy: "\n")
-        if clearBlankImportedValues {
-            if normalizedSource.hasSuffix("\n"), records.last?.isEmpty == true {
-                records.removeLast()
-            }
-        } else {
-            records.removeAll { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        }
-
-        guard !records.isEmpty else {
+        guard !framing.records.isEmpty else {
             return MetadataExchangeImportPlan(
                 validationMessage: L10n.string("Add at least one record to import."),
                 rows: []
             )
         }
 
-        guard records.count <= maximumImportRecordCount else {
+        guard framing.records.count <= maximumImportRecordCount else {
             return MetadataExchangeImportPlan(
                 validationMessage: L10n.string("You can import up to 100,000 records at a time. Split the records into smaller batches."),
                 rows: []
             )
         }
 
-        guard !records.contains(where: { $0.utf8.count > maximumTextRecordUTF8ByteCount }) else {
+        guard !framing.records.contains(where: { $0.rawText.utf8.count > maximumTextRecordUTF8ByteCount }) else {
             return MetadataExchangeImportPlan(
                 validationMessage: L10n.string("One text record exceeds 256 KB. Use CSV import for very long values or values with line breaks."),
                 rows: []
             )
         }
 
-        let matcher = MetadataExchangeTextMatcher(document: document)
-        let parsedRecords = records.enumerated().map { index, record in
+        let matcher = MetadataExchangeTextMatcher(
+            document: document,
+            profileVersion: framing.profileVersion
+        )
+        let parsedRecords = framing.records.map { record in
             ParsedExternalRecord(
-                index: index,
-                displayText: record,
-                captures: (profile.version ?? MetadataExchangeProfile.legacyVersion) >= 2
-                    ? matcher.match(record).removingExplicitRemovalTokens()
-                    : matcher.match(record)
+                sourceIndex: record.sourceIndex,
+                displayText: record.rawText,
+                captures: matcher.match(record.rawText)
             )
         }
 
@@ -433,16 +480,21 @@ enum MetadataExchangePlanner {
             parsedRecords: parsedRecords,
             fields: document.fields,
             targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankImportedValues
+            clearBlankImportedValues: clearBlankImportedValues,
+            positionalLayout: .text(framing),
+            projector: projector
         )
     }
+
+    // MARK: – CSV import
 
     static func makeCSVImportPlan(
         template: String,
         sourceText: String,
         firstRowIsHeader: Bool,
         targetFiles: [AudioFile],
-        clearBlankImportedValues: Bool
+        clearBlankImportedValues: Bool,
+        projector: (any AudioMetadataPipeline)? = nil
     ) -> MetadataExchangeImportPlan {
         guard sourceText.utf8.count <= maximumImportUTF8ByteCount else {
             return MetadataExchangeImportPlan(
@@ -462,15 +514,16 @@ enum MetadataExchangePlanner {
             )
         }
 
-        let profile = MetadataExchangeProfile.extract(from: sourceText)
-        if let errorMessage = profile.errorMessage {
+        let extraction = MetadataExchangeProfile.extract(from: sourceText)
+        if let errorMessage = extraction.errorMessage {
             return MetadataExchangeImportPlan(validationMessage: errorMessage, rows: [])
         }
+        let codec = MetadataExchangeCSVCodec(profileVersion: extraction.version)
 
         let parsedCSV: [[MetadataExchangeCSVField]]
         do {
             parsedCSV = try MetadataExchangeCSV.parseFields(
-                profile.source,
+                extraction.source,
                 delimiter: result.delimiter,
                 allowsBareQuotesInUnquotedFields: MetadataExchangeCSV.allowsBareQuotesInUnquotedFields(for: result.delimiter),
                 maximumRowCount: maximumImportRecordCount + (firstRowIsHeader ? 1 : 0),
@@ -493,9 +546,9 @@ enum MetadataExchangePlanner {
             }
             for (index, cell) in header.enumerated() {
                 let field = result.columns[index]
-                guard field == .ignore || headerCell(cell, matches: field) else {
+                guard field == .ignore || headerCell(cell, matches: field, codec: codec) else {
                     return MetadataExchangeImportPlan(
-                        validationMessage: String(localized: "CSV column \(index + 1) is “\(cell.value)”, but the template expects \(field.displayName). Reorder the CSV columns or change the template to match."),
+                        validationMessage: String(localized: "CSV column \(index + 1) is “\(codec.decoded(cell))”, but the template expects \(field.displayName). Reorder the CSV columns or change the template to match."),
                         rows: []
                     )
                 }
@@ -517,21 +570,16 @@ enum MetadataExchangePlanner {
             )
         }
 
-        guard clearBlankImportedValues || dataRows.contains(where: isUsableCSVDataRow) else {
-            return MetadataExchangeImportPlan(
-                validationMessage: L10n.string("The CSV has no data rows with values. Add data before importing."),
-                rows: []
-            )
-        }
-
+        let allowsRemoval = (extraction.version ?? MetadataExchangeProfile.legacyVersion)
+            >= MetadataExchangeProfile.currentVersion
         let parsedRecords = dataRows.enumerated().map { index, cells in
             let displayText = cells.map {
-                $0.decodedValue.replacingOccurrences(of: "\n", with: " ")
+                codec.decoded($0).replacingOccurrences(of: "\n", with: " ")
             }.joined(separator: " | ")
             if cells.count < result.columns.count {
                 let missingCount = result.columns.count - cells.count
                 return ParsedExternalRecord(
-                    index: index,
+                    sourceIndex: index,
                     displayText: displayText,
                     captures: .failure(String(localized: "Missing CSV columns: \(missingCount). Add the missing columns to match the template."))
                 )
@@ -539,16 +587,21 @@ enum MetadataExchangePlanner {
             if cells.count > result.columns.count {
                 let extraCount = cells.count - result.columns.count
                 return ParsedExternalRecord(
-                    index: index,
+                    sourceIndex: index,
                     displayText: displayText,
                     captures: .failure(String(localized: "Extra CSV columns: \(extraCount). Remove them or add corresponding fields to the template."))
                 )
             }
 
             return ParsedExternalRecord(
-                index: index,
+                sourceIndex: index,
                 displayText: displayText,
-                captures: captures(from: cells, columns: result.columns, allowsRemoval: (profile.version ?? MetadataExchangeProfile.legacyVersion) >= 2)
+                captures: captures(
+                    from: cells,
+                    columns: result.columns,
+                    codec: codec,
+                    allowsRemoval: allowsRemoval
+                )
             )
         }
 
@@ -556,7 +609,9 @@ enum MetadataExchangePlanner {
             parsedRecords: parsedRecords,
             fields: result.columns,
             targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankImportedValues
+            clearBlankImportedValues: clearBlankImportedValues,
+            positionalLayout: .csv(dataRowCount: dataRows.count),
+            projector: projector
         )
     }
 
@@ -576,7 +631,6 @@ enum MetadataExchangePlanner {
             guard rows.count == 1, let row = rows.first, !row.isEmpty else {
                 return ([], delimiter, L10n.string("Use one row for the CSV column template."))
             }
-
 
             guard row.count <= MetadataExchangeField.allCases.count + 64 else {
                 return ([], delimiter, L10n.string("This template has too many columns. Remove some columns before continuing."))
@@ -607,161 +661,20 @@ enum MetadataExchangePlanner {
         }
     }
 
-    private static func render(
-        document: MetadataExchangeTemplateDocument,
-        file: AudioFile,
-        index: Int,
-        relativeBasePath: String?
-    ) -> String {
-        document.segments.map { segment in
-            switch segment {
-            case .literal(let literal):
-                return literal
-            case .field(let field):
-                let value = field.value(from: file, index: index, relativeBasePath: relativeBasePath)
-                // Reserve the bare token for removal, and escape every leading
-                // backslash run so both literal tokens and escapes round-trip.
-                return value.drop(while: { $0 == "\\" }) == MetadataExchangeProfile.removalToken
-                    ? "\\" + value : value
-            }
-        }.joined()
-    }
+    // MARK: – Import row construction
 
-    private static func validateImportTextTemplate(_ document: MetadataExchangeTemplateDocument) -> String? {
-        if document.isEmpty {
-            return L10n.string("Enter a template that matches the records you want to import.")
-        }
-
-        if let validationMessage = validateTemplateSyntax(document, requiresSingleLine: true) {
-            return validationMessage
-        }
-
-        guard document.hasWritableMetadataFields else {
-            return L10n.string("Add at least one editable metadata field to the import template.")
-        }
-
-        for index in document.segments.indices.dropLast() {
-            guard case .field = document.segments[index],
-                  case .field = document.segments[index + 1]
-            else {
-                continue
-            }
-            return L10n.string("Add text between adjacent fields so AudioMator can tell their values apart.")
-        }
-
-        return nil
-    }
-
-    private static func validateTemplateSyntax(
-        _ document: MetadataExchangeTemplateDocument,
-        requiresSingleLine: Bool
-    ) -> String? {
-        if document.rawValue.utf8.count > maximumTemplateUTF8ByteCount {
-            return L10n.string("This text template is too long. Shorten it before continuing.")
-        }
-
-        if document.segments.count > 256 {
-            return L10n.string("This text template has too many parts. Remove some fields or separators.")
-        }
-
-        if document.hasUnterminatedPlaceholder {
-            return L10n.string("A field is missing its closing }}. Complete it, for example {{title}}.")
-        }
-
-        if let unknownPlaceholderName = document.unknownPlaceholderNames.first {
-            let name = unknownPlaceholderName.isEmpty ? "{{}}" : "{{\(unknownPlaceholderName)}}"
-            return String(localized: "“\(name)” isn't a supported field. Choose a field from the available list.")
-        }
-
-        if requiresSingleLine,
-           document.rawValue.unicodeScalars.contains(where: { $0.value == 0x0A || $0.value == 0x0D }) {
-            return L10n.string("Keep this template on one line. Use CSV for metadata that contains line breaks.")
-        }
-
-        return nil
-    }
-
-    private static func headerCell(
-        _ cell: MetadataExchangeCSVField,
-        matches field: MetadataExchangeField
-    ) -> Bool {
-        let normalizedCell = normalizedHeaderToken(cell.decodedValue)
-        guard !normalizedCell.isEmpty else { return false }
-
-        // A legacy `DATE` header means the native YEAR slot. It must never be
-        // silently reinterpreted as the independent semantic Date column.
-        if field == .date,
-           cell.decodedValue.trimmingCharacters(in: .whitespacesAndNewlines) == "DATE" {
-            return false
-        }
-
-        let externalAliases: [String]
-        switch field {
-        case .fileName: externalAliases = ["Name", "File Name", "Filename"]
-        case .comment: externalAliases = ["Comments", "Comment"]
-        case .trackNumber: externalAliases = ["Track #", "Track", "Track Number"]
-        case .discNumber: externalAliases = ["Disc #", "Disc", "Disc Number", "Disk Number"]
-        default: externalAliases = []
-        }
-        let aliases = externalAliases + [
-            field.displayName,
-            field.placeholderName,
-            field.propertyMapKey ?? "",
-            String(describing: field),
-            "{{" + field.placeholderName + "}}"
-        ]
-        return aliases.contains { alias in
-            normalizedHeaderToken(alias) == normalizedCell
-        }
-    }
-
-    private static func normalizedHeaderToken(_ value: String) -> String {
-        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasPrefix("{{"), trimmed.hasSuffix("}}"), trimmed.count >= 4 {
-            trimmed.removeFirst(2)
-            trimmed.removeLast(2)
-        }
-        let folded = trimmed.folding(
-            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-            locale: .current
-        )
-        return String(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
-            .lowercased()
-    }
-
-    private static func captures(
-        from cells: [MetadataExchangeCSVField],
-        columns: [MetadataExchangeField],
-        allowsRemoval: Bool
-    ) -> MetadataExchangeCaptureResult {
-        var captures: [MetadataExchangeField: String] = [:]
-        for (index, field) in columns.enumerated() {
-            guard field != .ignore else { continue }
-            // An unquoted removal token is distinct from an omitted column and
-            // from an empty cell: it clears only this field.
-            if allowsRemoval, !cells[index].wasQuoted,
-               cells[index].importedValue == MetadataExchangeProfile.removalToken {
-                captures[field] = MetadataExchangeProfile.removalSentinel
-                continue
-            }
-            let importedValue = field.canonicalImportedValue(cells[index].importedValue)
-            if let validationMessage = field.importedValueValidationMessage(importedValue) {
-                return .failure(validationMessage)
-            }
-            captures[field] = importedValue
-        }
-        return .success(captures)
-    }
-
-    nonisolated private static func isUsableCSVDataRow(_ cells: [MetadataExchangeCSVField]) -> Bool {
-        cells.contains(where: \.hasImportContent)
+    private enum PositionalImportLayout {
+        case text(MetadataExchangeFraming)
+        case csv(dataRowCount: Int)
     }
 
     private static func makeImportPlan(
         parsedRecords: [ParsedExternalRecord],
         fields: [MetadataExchangeField],
         targetFiles: [AudioFile],
-        clearBlankImportedValues: Bool
+        clearBlankImportedValues: Bool,
+        positionalLayout: PositionalImportLayout,
+        projector: (any AudioMetadataPipeline)?
     ) -> MetadataExchangeImportPlan {
         let uniqueFiles = uniqueTargetFiles(targetFiles)
         guard uniqueFiles.count <= maximumImportRecordCount else {
@@ -775,75 +688,348 @@ enum MetadataExchangePlanner {
         let locatorFields = fields.filter { field in
             field.isLocatorField && seenLocatorFields.insert(field).inserted
         }
-        let rows: [MetadataExchangeImportPreviewRow]
 
         if !locatorFields.isEmpty {
-            rows = makeMatchedImportRows(
-                parsedRecords: parsedRecords,
-                targetFiles: uniqueFiles,
-                locatorFields: locatorFields,
-                clearBlankImportedValues: clearBlankImportedValues
-            )
-        } else {
-            rows = makeSelectionOrderImportRows(
-                parsedRecords: parsedRecords,
-                targetFiles: uniqueFiles,
-                clearBlankImportedValues: clearBlankImportedValues
+            // Explicit locators determine identity independent of input order.
+            // Incidental all-blank lines cannot identify a file and are skipped,
+            // preserving the legacy tolerant behavior for locator imports.
+            let locatorRecords = parsedRecords.filter { record in
+                !record.displayText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+            return MetadataExchangeImportPlan(
+                validationMessage: nil,
+                rows: makeMatchedImportRows(
+                    parsedRecords: locatorRecords,
+                    targetFiles: uniqueFiles,
+                    locatorFields: locatorFields,
+                    clearBlankImportedValues: clearBlankImportedValues,
+                    projector: projector
+                )
             )
         }
 
-        return MetadataExchangeImportPlan(validationMessage: nil, rows: rows)
+        return makePositionalImportPlan(
+            parsedRecords: parsedRecords,
+            targetFiles: uniqueFiles,
+            clearBlankImportedValues: clearBlankImportedValues,
+            layout: positionalLayout,
+            projector: projector
+        )
     }
 
-    private static func makeSelectionOrderImportRows(
+    private static func makePositionalImportPlan(
         parsedRecords: [ParsedExternalRecord],
         targetFiles: [AudioFile],
-        clearBlankImportedValues: Bool
-    ) -> [MetadataExchangeImportPreviewRow] {
-        let count = max(parsedRecords.count, targetFiles.count)
-        return (0..<count).map { index in
-            let record = index < parsedRecords.count ? parsedRecords[index] : nil
-            let file = index < targetFiles.count ? targetFiles[index] : nil
+        clearBlankImportedValues: Bool,
+        layout: PositionalImportLayout,
+        projector: (any AudioMetadataPipeline)?
+    ) -> MetadataExchangeImportPlan {
+        let binding: MetadataExchangePositionalBinding
+        switch layout {
+        case .text(let framing):
+            binding = MetadataExchangePositionalBinder.bind(
+                framing: framing,
+                targetCount: targetFiles.count,
+                clearBlankImportedValues: clearBlankImportedValues
+            )
+        case .csv(let dataRowCount):
+            binding = MetadataExchangePositionalBinder.bindCSV(
+                dataRowCount: dataRowCount,
+                targetCount: targetFiles.count
+            )
+        }
 
-            guard let file else {
-                return MetadataExchangeImportPreviewRow(
-                    id: UUID(),
-                    fileID: nil,
-                    fileName: "—",
-                    externalRecord: record?.displayText ?? "",
-                    status: .extraExternalRecord,
-                    changes: [],
-                    issueMessage: L10n.string("No selected file corresponds to this record's position. Select the matching file or remove the record."),
-                    writeEntry: nil
+        switch binding {
+        case .invalid(let message):
+            return MetadataExchangeImportPlan(validationMessage: message, rows: [])
+
+        case .aligned(let records):
+            let rows = targetFiles.enumerated().map { index, file -> MetadataExchangeImportPreviewRow in
+                let record = record(
+                    atSourceIndex: records[index].sourceIndex,
+                    in: parsedRecords
+                ) ?? parsedRecords[index]
+                return makeImportRow(
+                    file: file,
+                    record: record,
+                    clearBlankImportedValues: clearBlankImportedValues,
+                    allowsWriteEntry: true,
+                    projector: projector
+                )
+            }
+            return MetadataExchangeImportPlan(validationMessage: nil, rows: rows)
+
+        case .legacyOneRecordPadding(_, let recordIndex):
+            guard targetFiles.count == 1,
+                  let record = record(atParsedIndex: recordIndex, in: parsedRecords) else {
+                return MetadataExchangeImportPlan(
+                    validationMessage: nil,
+                    rows: [],
+                    blockingMessage: String(localized: "The import records can’t be matched to the selected files.")
+                )
+            }
+            return MetadataExchangeImportPlan(
+                validationMessage: nil,
+                rows: [
+                    makeImportRow(
+                        file: targetFiles[0],
+                        record: record,
+                        clearBlankImportedValues: clearBlankImportedValues,
+                        allowsWriteEntry: true,
+                        projector: projector
+                    )
+                ]
+            )
+
+        case .countMismatch(let recordCount, let targetCount):
+            let blockingMessage = positionalBlockingMessage(
+                records: recordCount,
+                targets: targetCount
+            )
+            let rowCount = max(parsedRecords.count, targetFiles.count)
+            let rows = (0..<rowCount).map { index -> MetadataExchangeImportPreviewRow in
+                let file = index < targetFiles.count ? targetFiles[index] : nil
+                let record = index < parsedRecords.count ? parsedRecords[index] : nil
+
+                guard let record else {
+                    return MetadataExchangeImportPreviewRow(
+                        id: UUID(),
+                        fileID: file?.id,
+                        fileName: file?.url.lastPathComponent ?? "—",
+                        externalRecord: "",
+                        status: .missingExternalRecord,
+                        changes: [],
+                        issueMessage: L10n.string("No import record corresponds to this file's position. Add the matching record or leave this file out of the selection."),
+                        writeEntry: nil
+                    )
+                }
+                guard let file else {
+                    return MetadataExchangeImportPreviewRow(
+                        id: UUID(),
+                        fileID: nil,
+                        fileName: "—",
+                        externalRecord: record.displayText,
+                        status: .extraExternalRecord,
+                        changes: [],
+                        issueMessage: L10n.string("No selected file corresponds to this record's position. Select the matching file or remove the record."),
+                        writeEntry: nil
+                    )
+                }
+                return makeImportRow(
+                    file: file,
+                    record: record,
+                    clearBlankImportedValues: clearBlankImportedValues,
+                    allowsWriteEntry: false,
+                    projector: projector
+                )
+            }
+            return MetadataExchangeImportPlan(
+                validationMessage: nil,
+                rows: rows,
+                blockingMessage: blockingMessage
+            )
+        }
+    }
+
+    private static func record(
+        atSourceIndex sourceIndex: Int,
+        in records: [ParsedExternalRecord]
+    ) -> ParsedExternalRecord? {
+        records.first { $0.sourceIndex == sourceIndex }
+    }
+
+    private static func record(
+        atParsedIndex index: Int,
+        in records: [ParsedExternalRecord]
+    ) -> ParsedExternalRecord? {
+        guard index >= 0, index < records.count else { return nil }
+        return records[index]
+    }
+
+    private static func positionalBlockingMessage(records: Int, targets: Int) -> String {
+        if records > targets {
+            let extra = records - targets
+            return String(localized: "This import has \(records) records but \(targets) files are selected. Remove \(extra) extra record(s), or use a file name, path, or index locator. A trailing empty line after the last record counts as an extra record.")
+        }
+        let missing = targets - records
+        return String(localized: "This import has \(records) records but \(targets) files are selected. Add \(missing) missing record(s), or use a file name, path, or index locator.")
+    }
+
+    private static func makeImportRow(
+        file: AudioFile,
+        record: ParsedExternalRecord,
+        clearBlankImportedValues: Bool,
+        allowsWriteEntry: Bool,
+        projector: (any AudioMetadataPipeline)?
+    ) -> MetadataExchangeImportPreviewRow {
+        switch record.captures {
+        case .failure(let message):
+            return parseErrorRow(record: record, file: file, message: message)
+        case .success(let captures):
+            if file.hasUnverifiedIndependentDateProjection,
+               captures.keys.contains(where: \.isIndependentDateField) {
+                return parseErrorRow(
+                    record: record,
+                    file: file,
+                    message: String(localized: "These date fields can't be edited separately in ID3v2.3 tags.")
                 )
             }
 
-            guard let record else {
+            let writableCaptureCount = captures.keys.filter(\.isWritableMetadataField).count
+            guard writableCaptureCount > 0 else {
                 return MetadataExchangeImportPreviewRow(
                     id: UUID(),
                     fileID: file.id,
                     fileName: file.url.lastPathComponent,
-                    externalRecord: "",
-                    status: .missingExternalRecord,
+                    externalRecord: record.displayText,
+                    status: .noWritableFields,
                     changes: [],
-                    issueMessage: L10n.string("No import record corresponds to this file's position. Add the matching record or leave this file out of the selection."),
+                    issueMessage: L10n.string("This record has no editable metadata fields to import."),
                     writeEntry: nil
                 )
             }
 
-            return makeImportRow(
-                file: file,
-                record: record,
-                clearBlankImportedValues: clearBlankImportedValues
+            let intent: ExchangeResolvedIntent
+            switch ExchangeIntentResolver.resolveImportedRow(
+                captures: captures,
+                clearBlankImportedValues: clearBlankImportedValues,
+                reviewedFile: file,
+                maximumComponentValue: AudioFormatNumberBounds.componentMaximum(
+                    forFileExtension: file.url.pathExtension
+                )
+            ) {
+            case .failure(let rejection):
+                return parseErrorRow(record: record, file: file, message: rejection.message)
+            case .success(let resolved):
+                intent = resolved
+            }
+
+            let outcome = ExchangeWriteTranslator.makeFrozenWrite(
+                from: file,
+                intent: intent,
+                projector: projector
             )
+
+            switch outcome {
+            case .unavailable(let message):
+                return sourceUnavailableRow(record: record, file: file, message: message)
+            case .rejected(let message):
+                return parseErrorRow(record: record, file: file, message: message)
+            case .unchanged:
+                return MetadataExchangeImportPreviewRow(
+                    id: UUID(),
+                    fileID: file.id,
+                    fileName: file.url.lastPathComponent,
+                    externalRecord: record.displayText,
+                    status: .unchanged,
+                    changes: displayChanges(intent: intent, file: file, effectiveFields: []),
+                    issueMessage: record.warning,
+                    writeEntry: nil
+                )
+            case .executable(let frozen):
+                let changes = displayChanges(
+                    intent: intent,
+                    file: file,
+                    effectiveFields: frozen.payload.requestedFields
+                )
+                let entry: MetadataExchangeWriteEntry? = allowsWriteEntry
+                    ? MetadataExchangeWriteEntry(
+                        fileID: file.id,
+                        fileName: file.url.lastPathComponent,
+                        values: legacyValues(from: intent),
+                        expectedFileFingerprint: file.fileFingerprint,
+                        preservingNumberPairComponents: true,
+                        resolvedIntent: intent,
+                        frozenPayload: frozen.payload,
+                        frozenProjection: frozen.projection,
+                        frozenTarget: frozen.target
+                      )
+                    : nil
+                return MetadataExchangeImportPreviewRow(
+                    id: UUID(),
+                    fileID: file.id,
+                    fileName: file.url.lastPathComponent,
+                    externalRecord: record.displayText,
+                    status: .ready,
+                    changes: changes,
+                    issueMessage: record.warning,
+                    writeEntry: entry
+                )
+            }
         }
     }
+
+    private static func displayChanges(
+        intent: ExchangeResolvedIntent,
+        file: AudioFile,
+        effectiveFields: Set<MetadataFieldKey>
+    ) -> [MetadataExchangeFieldChange] {
+        var changesByField: [MetadataExchangeField: MetadataExchangeFieldChange] = [:]
+        for operation in intent.operations {
+            let change: MetadataExchangeFieldChange
+            switch operation {
+            case .setText(let field, let text):
+                let canonical = field.canonicalImportedValue(text)
+                change = MetadataExchangeFieldChange(
+                    field: field,
+                    currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
+                    importedValue: canonical,
+                    willWrite: effectiveFields.contains(field.semanticFieldKey ?? .title)
+                )
+            case .removeText(let field):
+                change = MetadataExchangeFieldChange(
+                    field: field,
+                    currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
+                    importedValue: "",
+                    willWrite: effectiveFields.contains(field.semanticFieldKey ?? .title),
+                    isExplicitRemoval: true
+                )
+            case .setNumber(let field, _, let literalText):
+                change = MetadataExchangeFieldChange(
+                    field: field,
+                    currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
+                    importedValue: literalText,
+                    willWrite: effectiveFields.contains(field.semanticFieldKey ?? .title)
+                )
+            case .removeNumber(let field):
+                change = MetadataExchangeFieldChange(
+                    field: field,
+                    currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
+                    importedValue: "",
+                    willWrite: effectiveFields.contains(field.semanticFieldKey ?? .title),
+                    isExplicitRemoval: true
+                )
+            }
+            changesByField[change.field] = change
+        }
+        return MetadataExchangeField.allCases.compactMap { changesByField[$0] }
+    }
+
+    private static func legacyValues(from intent: ExchangeResolvedIntent) -> [MetadataExchangeField: String] {
+        var values: [MetadataExchangeField: String] = [:]
+        for operation in intent.operations {
+            switch operation {
+            case .setText(let field, let text):
+                values[field] = field.canonicalImportedValue(text)
+            case .removeText(let field):
+                values[field] = ""
+            case .setNumber(let field, _, let literalText):
+                values[field] = literalText
+            case .removeNumber(let field):
+                values[field] = ""
+            }
+        }
+        return values
+    }
+
+    // MARK: – Locator matching
 
     private static func makeMatchedImportRows(
         parsedRecords: [ParsedExternalRecord],
         targetFiles: [AudioFile],
         locatorFields: [MetadataExchangeField],
-        clearBlankImportedValues: Bool
+        clearBlankImportedValues: Bool,
+        projector: (any AudioMetadataPipeline)?
     ) -> [MetadataExchangeImportPreviewRow] {
         let candidateIndex = MetadataExchangeLocatorCandidateIndex(
             itemCount: targetFiles.count,
@@ -862,8 +1048,9 @@ enum MetadataExchangePlanner {
             case .failure(let message):
                 return (record, .parseError(message))
             case .success(let captures):
-                let description = locatorDescription(captures: captures, locatorFields: locatorFields)
-                guard let signature = locatorSignature(captures: captures, locatorFields: locatorFields) else {
+                let locatorValues = locatorValues(from: captures)
+                let description = locatorDescription(captures: locatorValues, locatorFields: locatorFields)
+                guard let signature = locatorSignature(captures: locatorValues, locatorFields: locatorFields) else {
                     return (record, .noMatch(description))
                 }
 
@@ -872,12 +1059,12 @@ enum MetadataExchangePlanner {
                     match = cachedMatch
                 } else {
                     let candidateIndices = candidateIndex.candidateIndices(fields: locatorFields) { field in
-                        locatorLookupKey(captures[field] ?? "", field: field)
+                        locatorLookupKey(locatorValues[field] ?? "", field: field)
                     }
                     let matchingFiles = candidateIndices.compactMap { fileIndex -> AudioFile? in
                         let file = targetFiles[fileIndex]
                         return matchesAllLocators(
-                            captures: captures,
+                            captures: locatorValues,
                             locatorFields: locatorFields,
                             file: file,
                             fileIndex: fileIndex
@@ -966,7 +1153,9 @@ enum MetadataExchangePlanner {
                     rows.append(makeImportRow(
                         file: file,
                         record: record,
-                        clearBlankImportedValues: clearBlankImportedValues
+                        clearBlankImportedValues: clearBlankImportedValues,
+                        allowsWriteEntry: true,
+                        projector: projector
                     ))
                 }
             }
@@ -988,6 +1177,18 @@ enum MetadataExchangePlanner {
         }
 
         return rows
+    }
+
+    private static func locatorValues(
+        from captures: [MetadataExchangeField: ExchangeCapture]
+    ) -> [MetadataExchangeField: String] {
+        var values: [MetadataExchangeField: String] = [:]
+        for (field, capture) in captures where field.isLocatorField {
+            if case .locator(let text) = capture {
+                values[field] = text
+            }
+        }
+        return values
     }
 
     private static func matchesAllLocators(
@@ -1181,99 +1382,6 @@ enum MetadataExchangePlanner {
             .precomposedStringWithCanonicalMapping
     }
 
-    private static func makeImportRow(
-        file: AudioFile,
-        record: ParsedExternalRecord,
-        clearBlankImportedValues: Bool
-    ) -> MetadataExchangeImportPreviewRow {
-        switch record.captures {
-        case .failure(let message):
-            return parseErrorRow(record: record, file: file, message: message)
-        case .success(let captures):
-            if file.hasUnverifiedIndependentDateProjection,
-               captures.keys.contains(where: \.isIndependentDateField) {
-                return parseErrorRow(record: record, file: file, message: String(localized: "These date fields can't be edited separately in ID3v2.3 tags."))
-            }
-            for (field, importedValue) in captures where field.isWritableMetadataField {
-                if importedValue == MetadataExchangeProfile.removalSentinel { continue }
-                if let validationMessage = field.importedValueValidationMessage(importedValue) {
-                    return parseErrorRow(record: record, file: file, message: validationMessage)
-                }
-            }
-
-            if let advisory = captures[.contentAdvisory],
-               advisory != MetadataExchangeProfile.removalSentinel, !advisory.isEmpty,
-               ContentAdvisory.fromMetadataText(advisory) == nil,
-               advisory != file.advisoryRawValue {
-                return parseErrorRow(record: record, file: file, message:
-                    String(localized: "This content advisory code can stay in its original file, but it can't be copied to another file. Choose a supported advisory option to set a new value."))
-            }
-
-            let changes = MetadataExchangeField.allCases.compactMap { field -> MetadataExchangeFieldChange? in
-                guard field.isWritableMetadataField, let importedValue = captures[field] else { return nil }
-                let currentValue = field.value(from: file, index: 0, relativeBasePath: nil)
-                let shouldWriteBlank = clearBlankImportedValues && importedValue.isEmpty
-                let willWrite = (shouldWriteBlank || !importedValue.isEmpty) && currentValue != importedValue
-                return MetadataExchangeFieldChange(
-                    field: field,
-                    currentValue: currentValue,
-                    importedValue: importedValue,
-                    willWrite: willWrite
-                )
-            }
-
-            guard !changes.isEmpty else {
-                return MetadataExchangeImportPreviewRow(
-                    id: UUID(),
-                    fileID: file.id,
-                    fileName: file.url.lastPathComponent,
-                    externalRecord: record.displayText,
-                    status: .noWritableFields,
-                    changes: [],
-                    issueMessage: L10n.string("This record has no editable metadata fields to import."),
-                    writeEntry: nil
-                )
-            }
-
-            let values = Dictionary(
-                uniqueKeysWithValues: changes
-                    .filter(\.willWrite)
-                    .map { ($0.field, $0.importedValue) }
-            )
-            let writeEntry: MetadataExchangeWriteEntry?
-            let status: MetadataExchangePreviewStatus
-            let issueMessage: String?
-            if values.isEmpty {
-                writeEntry = nil
-                status = .unchanged
-                issueMessage = record.warning
-            } else if let expectedFileFingerprint = file.fileFingerprint {
-                writeEntry = MetadataExchangeWriteEntry(
-                    fileID: file.id,
-                    fileName: file.url.lastPathComponent,
-                    values: values,
-                    expectedFileFingerprint: expectedFileFingerprint
-                )
-                status = .ready
-                issueMessage = record.warning
-            } else {
-                writeEntry = nil
-                status = .sourceUnavailable
-                issueMessage = L10n.string("The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
-            }
-            return MetadataExchangeImportPreviewRow(
-                id: UUID(),
-                fileID: file.id,
-                fileName: file.url.lastPathComponent,
-                externalRecord: record.displayText,
-                status: status,
-                changes: changes,
-                issueMessage: issueMessage,
-                writeEntry: writeEntry
-            )
-        }
-    }
-
     private static func parseErrorRow(
         record: ParsedExternalRecord,
         file: AudioFile? = nil,
@@ -1289,6 +1397,187 @@ enum MetadataExchangePlanner {
             issueMessage: message,
             writeEntry: nil
         )
+    }
+
+    private static func sourceUnavailableRow(
+        record: ParsedExternalRecord,
+        file: AudioFile,
+        message: String
+    ) -> MetadataExchangeImportPreviewRow {
+        MetadataExchangeImportPreviewRow(
+            id: UUID(),
+            fileID: file.id,
+            fileName: file.url.lastPathComponent,
+            externalRecord: record.displayText,
+            status: .sourceUnavailable,
+            changes: [],
+            issueMessage: message,
+            writeEntry: nil
+        )
+    }
+
+    // MARK: – CSV capture
+
+    private static func captures(
+        from cells: [MetadataExchangeCSVField],
+        columns: [MetadataExchangeField],
+        codec: MetadataExchangeCSVCodec,
+        allowsRemoval: Bool
+    ) -> MetadataExchangeCaptureResult {
+        var captures: [MetadataExchangeField: ExchangeCapture] = [:]
+        for (index, field) in columns.enumerated() {
+            guard field != .ignore else { continue }
+            let cell = cells[index]
+            let importedValue = codec.importedValue(cell)
+            let trimmedCell = importedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if field.isLocatorField {
+                if allowsRemoval, !cell.wasQuoted, trimmedCell == MetadataExchangeProfile.removalToken {
+                    return .failure(
+                        String(localized: "A removal token can’t identify a file. Enter the file’s name, path, or index, or quote the token as literal text.")
+                    )
+                }
+                captures[field] = .locator(importedValue)
+                continue
+            }
+
+            guard field.isWritableMetadataField else { continue }
+
+            if allowsRemoval, !cell.wasQuoted, trimmedCell == MetadataExchangeProfile.removalToken {
+                captures[field] = .explicitRemoval
+            } else if trimmedCell.isEmpty {
+                captures[field] = .blank
+            } else {
+                captures[field] = .literal(importedValue)
+            }
+        }
+        return .success(captures)
+    }
+
+    // MARK: – Template helpers
+
+    private static func render(
+        document: MetadataExchangeTemplateDocument,
+        file: AudioFile,
+        index: Int,
+        relativeBasePath: String?
+    ) -> String {
+        document.segments.map { segment in
+            switch segment {
+            case .literal(let literal):
+                return literal
+            case .field(let field):
+                let value = field.value(from: file, index: index, relativeBasePath: relativeBasePath)
+                // Reserve the bare token for removal, and escape every leading
+                // backslash run so both literal tokens and escapes round-trip.
+                return value.drop(while: { $0 == "\\" }) == MetadataExchangeProfile.removalToken
+                    ? "\\" + value : value
+            }
+        }.joined()
+    }
+
+    private static func validateImportTextTemplate(_ document: MetadataExchangeTemplateDocument) -> String? {
+        if document.isEmpty {
+            return L10n.string("Enter a template that matches the records you want to import.")
+        }
+
+        if let validationMessage = validateTemplateSyntax(document, requiresSingleLine: true) {
+            return validationMessage
+        }
+
+        guard document.hasWritableMetadataFields else {
+            return L10n.string("Add at least one editable metadata field to the import template.")
+        }
+
+        for index in document.segments.indices.dropLast() {
+            guard case .field = document.segments[index],
+                  case .field = document.segments[index + 1]
+            else {
+                continue
+            }
+            return L10n.string("Add text between adjacent fields so AudioMator can tell their values apart.")
+        }
+
+        return nil
+    }
+
+    private static func validateTemplateSyntax(
+        _ document: MetadataExchangeTemplateDocument,
+        requiresSingleLine: Bool
+    ) -> String? {
+        if document.rawValue.utf8.count > maximumTemplateUTF8ByteCount {
+            return L10n.string("This text template is too long. Shorten it before continuing.")
+        }
+
+        if document.segments.count > 256 {
+            return L10n.string("This text template has too many parts. Remove some fields or separators.")
+        }
+
+        if document.hasUnterminatedPlaceholder {
+            return L10n.string("A field is missing its closing }}. Complete it, for example {{title}}.")
+        }
+
+        if let unknownPlaceholderName = document.unknownPlaceholderNames.first {
+            let name = unknownPlaceholderName.isEmpty ? "{{}}" : "{{\(unknownPlaceholderName)}}"
+            return String(localized: "“\(name)” isn't a supported field. Choose a field from the available list.")
+        }
+
+        if requiresSingleLine,
+           document.rawValue.unicodeScalars.contains(where: { $0.value == 0x0A || $0.value == 0x0D }) {
+            return L10n.string("Keep this template on one line. Use CSV for metadata that contains line breaks.")
+        }
+
+        return nil
+    }
+
+    private static func headerCell(
+        _ cell: MetadataExchangeCSVField,
+        matches field: MetadataExchangeField,
+        codec: MetadataExchangeCSVCodec
+    ) -> Bool {
+        let decoded = codec.decoded(cell)
+        let normalizedCell = normalizedHeaderToken(decoded)
+        guard !normalizedCell.isEmpty else { return false }
+
+        // A legacy `DATE` header means the native YEAR slot. It must never be
+        // silently reinterpreted as the independent semantic Date column.
+        if field == .date,
+           decoded.trimmingCharacters(in: .whitespacesAndNewlines) == "DATE" {
+            return false
+        }
+
+        let externalAliases: [String]
+        switch field {
+        case .fileName: externalAliases = ["Name", "File Name", "Filename"]
+        case .comment: externalAliases = ["Comments", "Comment"]
+        case .trackNumber: externalAliases = ["Track #", "Track", "Track Number"]
+        case .discNumber: externalAliases = ["Disc #", "Disc", "Disc Number", "Disk Number"]
+        default: externalAliases = []
+        }
+        let aliases = externalAliases + [
+            field.displayName,
+            field.placeholderName,
+            field.propertyMapKey ?? "",
+            String(describing: field),
+            "{{" + field.placeholderName + "}}"
+        ]
+        return aliases.contains { alias in
+            normalizedHeaderToken(alias) == normalizedCell
+        }
+    }
+
+    private static func normalizedHeaderToken(_ value: String) -> String {
+        var trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("{{"), trimmed.hasSuffix("}}"), trimmed.count >= 4 {
+            trimmed.removeFirst(2)
+            trimmed.removeLast(2)
+        }
+        let folded = trimmed.folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: .current
+        )
+        return String(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+            .lowercased()
     }
 
     private static func commonDirectoryPath(for files: [AudioFile]) -> String? {
@@ -1328,39 +1617,27 @@ enum MetadataExchangePlanner {
 }
 
 private struct ParsedExternalRecord {
-    let index: Int
+    let sourceIndex: Int
     let displayText: String
     let captures: MetadataExchangeCaptureResult
     var warning: String? = nil
 }
 
 private enum MetadataExchangeCaptureResult {
-    case success([MetadataExchangeField: String])
+    case success([MetadataExchangeField: ExchangeCapture])
     case failure(String)
-
-    /// Converts the unquoted removal token into an explicit empty value while
-    /// leaving every other captured value untouched.
-    func removingExplicitRemovalTokens() -> Self {
-        guard case .success(let captures) = self else { return self }
-        let converted = captures.mapValues { value in
-            if value == MetadataExchangeProfile.removalToken {
-                return MetadataExchangeProfile.removalSentinel
-            }
-            if value.hasPrefix("\\"),
-               value.drop(while: { $0 == "\\" }) == MetadataExchangeProfile.removalToken {
-                return String(value.dropFirst())
-            }
-            return value
-        }
-        return .success(converted)
-    }
 }
 
 private struct MetadataExchangeTextMatcher {
     let document: MetadataExchangeTemplateDocument
+    let profileVersion: Int?
 
     private static let maximumMatchSteps = 50_000
     private static let maximumLiteralCandidates = 4_096
+
+    private var profileAllowsRemoval: Bool {
+        (profileVersion ?? MetadataExchangeProfile.legacyVersion) >= MetadataExchangeProfile.currentVersion
+    }
 
     private struct MatchBudget {
         var remainingSteps: Int
@@ -1373,7 +1650,7 @@ private struct MetadataExchangeTextMatcher {
     }
 
     private enum SearchResult {
-        case success([MetadataExchangeField: String])
+        case success([MetadataExchangeField: ExchangeCapture])
         case failure(String)
         case ambiguous
         case tooComplex
@@ -1405,7 +1682,7 @@ private struct MetadataExchangeTextMatcher {
         in source: String,
         at segmentIndex: Int,
         sourceIndex: String.Index,
-        captures: [MetadataExchangeField: String],
+        captures: [MetadataExchangeField: ExchangeCapture],
         budget: inout MatchBudget
     ) -> SearchResult {
         guard budget.consume() else { return .tooComplex }
@@ -1454,7 +1731,7 @@ private struct MetadataExchangeTextMatcher {
                 return .tooComplex
             }
 
-            var uniqueCapture: [MetadataExchangeField: String]?
+            var uniqueCapture: [MetadataExchangeField: ExchangeCapture]?
             var lastFailure: String?
             for literalPosition in literalPositions.reversed() {
                 switch captureValue(String(source[sourceIndex..<literalPosition]), for: field, into: captures) {
@@ -1496,23 +1773,76 @@ private struct MetadataExchangeTextMatcher {
     private func captureValue(
         _ rawValue: String,
         for field: MetadataExchangeField,
-        into captures: [MetadataExchangeField: String]
+        into captures: [MetadataExchangeField: ExchangeCapture]
     ) -> MetadataExchangeCaptureResult {
         guard field != .ignore else { return .success(captures) }
 
-        let value = field.canonicalImportedValue(
-            rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        if let validationMessage = field.importedValueValidationMessage(value) {
-            return .failure(validationMessage)
+        if rawValue.unicodeScalars.contains(where: { $0.value == 0 }) {
+            return .failure(
+                String(localized: "\(field.displayName) contains a hidden character that can’t be saved. Remove it before importing.\nDetails: null character (U+0000).")
+            )
         }
-        if let existingValue = captures[field], existingValue != value {
-            return .failure(String(localized: "This record gives more than one value for \(field.displayName). Keep one value or use CSV import."))
+
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let capture: ExchangeCapture
+
+        if field.isLocatorField {
+            if profileAllowsRemoval, trimmed == MetadataExchangeProfile.removalToken {
+                return .failure(
+                    String(localized: "A removal token can’t identify a file. Enter the file’s name, path, or index, or escape the token as literal text.")
+                )
+            }
+            if let escaped = unescapeRemovalToken(trimmed) {
+                capture = .locator(escaped)
+            } else {
+                capture = .locator(trimmed)
+            }
+        } else {
+            if profileAllowsRemoval, trimmed == MetadataExchangeProfile.removalToken {
+                // Typed removal wins before any value validation.
+                capture = .explicitRemoval
+            } else if trimmed.isEmpty {
+                capture = .blank
+            } else {
+                let literal = unescapeRemovalToken(trimmed) ?? trimmed
+                if let validationMessage = field.importedValueValidationMessage(literal) {
+                    return .failure(validationMessage)
+                }
+                capture = .literal(literal)
+            }
+        }
+
+        if let existing = captures[field] {
+            let sameMeaning: Bool = switch (existing, capture) {
+            case (.locator(let left), .locator(let right)): left == right
+            default: ExchangeIntentResolver.capturesHaveSameTypedMeaning(
+                field: field,
+                lhs: existing,
+                rhs: capture
+            )
+            }
+            if sameMeaning {
+                return .success(captures)
+            }
+            return .failure(
+                String(localized: "This record gives more than one value for \(field.displayName). Keep one value or use CSV import.")
+            )
         }
 
         var updatedCaptures = captures
-        updatedCaptures[field] = value
+        updatedCaptures[field] = capture
         return .success(updatedCaptures)
+    }
+
+    /// Text export reserves `<remove>` and escapes a literal token by adding one
+    /// backslash to its leading backslash run. Import removes exactly one.
+    private func unescapeRemovalToken(_ trimmed: String) -> String? {
+        guard trimmed.hasPrefix("\\") else { return nil }
+        let withoutLeadingBackslashes = trimmed.drop(while: { $0 == "\\" })
+        guard withoutLeadingBackslashes == Substring(MetadataExchangeProfile.removalToken) else {
+            return nil
+        }
+        return String(trimmed.dropFirst())
     }
 
     private func findLiteralPositions(

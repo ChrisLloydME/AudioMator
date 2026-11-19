@@ -298,7 +298,8 @@ struct MetadataFilenameWindowView: View {
         makeFilenameMetadataPlan(
             template: filenameToMetadataTemplate,
             targetFiles: targetFiles,
-            replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces
+            replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
+            projector: viewModel.metadataPipeline
         )
     }
 
@@ -314,7 +315,8 @@ struct MetadataFilenameWindowView: View {
             template: textToMetadataTemplate,
             sourceText: textImportSource,
             targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankTextImportedValues
+            clearBlankImportedValues: clearBlankTextImportedValues,
+            projector: viewModel.metadataPipeline
         )
     }
 
@@ -332,12 +334,16 @@ struct MetadataFilenameWindowView: View {
             sourceText: csvImportSource,
             firstRowIsHeader: firstCSVRowIsHeader,
             targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankCSVImportedValues
+            clearBlankImportedValues: clearBlankCSVImportedValues,
+            projector: viewModel.metadataPipeline
         )
     }
 
     private var fieldTransferPlan: MetadataExchangeImportPlan {
-        fieldTransferStore.makePlan(targetFiles: targetFiles)
+        fieldTransferStore.makePlan(
+            targetFiles: targetFiles,
+            projector: viewModel.metadataPipeline
+        )
     }
 
     private var activeTemplate: String {

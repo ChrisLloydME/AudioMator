@@ -1,4 +1,5 @@
 import XCTest
+import TagLibAudioMetadata
 @testable import AudioMator
 
 @MainActor
@@ -81,13 +82,15 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
         XCTAssertNil(removalPlan.validationMessage)
         let removalEntry = try XCTUnwrap(removalPlan.writeEntries.first)
-        XCTAssertEqual(removalEntry.values[.date], MetadataExchangeProfile.removalSentinel)
+        XCTAssertEqual(removalEntry.values[.date], "")
         XCTAssertNil(removalEntry.values[.year], "Unchanged fields are not written")
         XCTAssertNil(removalEntry.values[.releaseDate])
         XCTAssertEqual(
             removalPlan.rows.first?.changes.first { $0.field == .date }?.displayImportedValue,
             "<remove>"
         )
+        XCTAssertEqual(removalEntry.resolvedIntent?.operations, [.removeText(.date)])
+        XCTAssertEqual(removalEntry.frozenPayload?.requestedFields, [.standaloneDate])
         var removalEdit = SingleFileEditModel(from: target)
         for field in MetadataExchangeField.allCases {
             guard let value = removalEntry.values[field] else { continue }
@@ -193,6 +196,244 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
         XCTAssertNotNil(datePlan.validationMessage, "A legacy DATE header must not silently map to standalone Date")
         XCTAssertTrue(datePlan.writeEntries.isEmpty)
+    }
+
+    func testCSVNumberRemovalResolvesOneComponentOnly() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac"),
+            track: 3,
+            trackTotal: 12,
+            disc: 2,
+            discTotal: 4,
+            trackNumberText: "3/12",
+            discNumberText: "2/4"
+        )
+        let csv = """
+        \(MetadataExchangeProfile.markerLine())
+        <remove>
+        """
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackNumber}}",
+            sourceText: csv,
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        XCTAssertEqual(entry.values[.trackNumber], "")
+        XCTAssertEqual(entry.resolvedIntent?.operations, [.removeNumber(.trackNumber)])
+        XCTAssertEqual(entry.frozenPayload?.requestedFields, [.track])
+        XCTAssertEqual(entry.frozenProjection?.requestedFields, [.track])
+        let payload = try XCTUnwrap(entry.frozenPayload)
+        XCTAssertEqual(
+            try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
+            [.track: .remove]
+        )
+    }
+
+    func testTextV2NumberRemovalIsRecognizedBeforeNumericValidation() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac"),
+            track: 3,
+            trackTotal: 12,
+            trackNumberText: "3/12"
+        )
+        let text = """
+        \(MetadataExchangeProfile.markerLine())
+        <remove>
+        """
+        let plan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{trackNumber}}",
+            sourceText: text,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(plan.validationMessage, "\(String(describing: plan.validationMessage))")
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        XCTAssertEqual(entry.frozenPayload?.requestedFields, [.track])
+        XCTAssertEqual(plan.rows.first?.status, .ready)
+    }
+
+    func testUnknownAdvisoryRemovalRequestsExplicitUnset() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/advisory.m4a"),
+            contentAdvisory: .explicit
+        )
+        let csv = """
+        \(MetadataExchangeProfile.markerLine())
+        <remove>
+        """
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{contentAdvisory}}",
+            sourceText: csv,
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        XCTAssertEqual(entry.values[.contentAdvisory], "")
+        XCTAssertEqual(entry.resolvedIntent?.operations, [.removeText(.contentAdvisory)])
+        XCTAssertEqual(entry.frozenPayload?.requestedFields, [.explicitContent])
+        XCTAssertEqual(plan.rows.first?.changes.first?.displayImportedValue, "<remove>")
+    }
+
+    func testNumberZeroAndSlashPairResolvePerComponent() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac"),
+            track: 3,
+            trackTotal: 12,
+            disc: 2,
+            discTotal: 4,
+            trackNumberText: "3/12",
+            discNumberText: "2/4"
+        )
+
+        let zeroPlan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackNumber}}", sourceText: "0", firstRowIsHeader: false,
+            targetFiles: [target], clearBlankImportedValues: false
+        )
+        XCTAssertEqual(try XCTUnwrap(zeroPlan.writeEntries.first).frozenPayload?.requestedFields, [.track])
+
+        let pairPlan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackNumber}}", sourceText: "4/12", firstRowIsHeader: false,
+            targetFiles: [target], clearBlankImportedValues: false
+        )
+        let pairEntry = try XCTUnwrap(pairPlan.writeEntries.first)
+        XCTAssertEqual(pairEntry.values[.trackNumber], "4")
+        XCTAssertEqual(pairEntry.values[.trackTotal], "12")
+        XCTAssertEqual(pairEntry.frozenPayload?.requestedFields, [.track])
+
+        let totalOnlyPlan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackTotal}}", sourceText: "0", firstRowIsHeader: false,
+            targetFiles: [target], clearBlankImportedValues: false
+        )
+        XCTAssertEqual(try XCTUnwrap(totalOnlyPlan.writeEntries.first).frozenPayload?.requestedFields, [.trackTotal])
+    }
+
+    func testTotalColumnWinsOverEmbeddedTotalEvenWhenEqual() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac"),
+            track: 3,
+            trackTotal: 12,
+            trackNumberText: "3/12"
+        )
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackNumber}},{{trackTotal}}",
+            sourceText: "4/9,12",
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        XCTAssertEqual(entry.values[.trackNumber], "4")
+        XCTAssertEqual(entry.values[.trackTotal], "12")
+        XCTAssertEqual(entry.frozenPayload?.requestedFields, [.track], "Explicit total equal to the baseline must not write the embedded total")
+    }
+
+    func testInvalidNumberSpellingsRejectWholeRow() {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac")
+        )
+        for source in ["-1", "2147483648", "/12", "3/", "1/2/3", "abc"] {
+            let plan = MetadataExchangePlanner.makeCSVImportPlan(
+                template: "{{title}},{{trackNumber}}",
+                sourceText: "Title,\(source)",
+                firstRowIsHeader: false,
+                targetFiles: [target],
+                clearBlankImportedValues: false
+            )
+            XCTAssertTrue(plan.writeEntries.isEmpty, source)
+            XCTAssertEqual(plan.rows.first?.status, .parseError, source)
+        }
+        let mp4Target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.m4a")
+        )
+        let tooLarge = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackNumber}}", sourceText: "65536", firstRowIsHeader: false,
+            targetFiles: [mp4Target], clearBlankImportedValues: false
+        )
+        XCTAssertTrue(tooLarge.writeEntries.isEmpty)
+        XCTAssertEqual(tooLarge.rows.first?.status, .parseError)
+    }
+
+    func testEscapedAndQuotedRemovalTokensRemainLiteral() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac"),
+            title: "Keep"
+        )
+        let escapedText = """
+        \(MetadataExchangeProfile.markerLine())
+        \\<remove>
+        """
+        let textPlan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: escapedText,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(try XCTUnwrap(textPlan.writeEntries.first).values[.title], "<remove>")
+
+        let quotedCSV = """
+        \(MetadataExchangeProfile.markerLine())
+        "<remove>"
+        """
+        let csvPlan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}",
+            sourceText: quotedCSV,
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(try XCTUnwrap(csvPlan.writeEntries.first).values[.title], "<remove>")
+    }
+
+    func testMalformedRawNumberRemovalUsesExplicitComponentOperation() throws {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/malformed.flac"),
+            track: 0,
+            trackTotal: 0,
+            trackNumberText: "A1"
+        )
+        let csv = """
+        \(MetadataExchangeProfile.markerLine())
+        <remove>
+        """
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{trackNumber}}",
+            sourceText: csv,
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        let payload = try XCTUnwrap(entry.frozenPayload)
+        XCTAssertTrue(entry.preservingNumberPairComponents)
+        XCTAssertEqual(payload.explicitComponentRemovals, [.track])
+        XCTAssertEqual(payload.requestedFields, [.track])
+        XCTAssertEqual(
+            try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
+            [.track: .remove]
+        )
+    }
+
+    func testQuotedWhitespaceOnlyCellFollowsClearOption() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/numbers.flac"),
+            title: "Existing"
+        )
+        let keep = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}", sourceText: "\"   \"", firstRowIsHeader: false,
+            targetFiles: [target], clearBlankImportedValues: false
+        )
+        XCTAssertEqual(keep.rows.first?.status, .unchanged)
+        XCTAssertTrue(keep.writeEntries.isEmpty)
+
+        let clear = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}", sourceText: "\"   \"", firstRowIsHeader: false,
+            targetFiles: [target], clearBlankImportedValues: true
+        )
+        XCTAssertEqual(clear.rows.first?.status, .ready)
+        XCTAssertEqual(try XCTUnwrap(clear.writeEntries.first).values[.title], "")
     }
 
     func testTextExportAndImportCarryProfileMarkerAndIndependentDates() {

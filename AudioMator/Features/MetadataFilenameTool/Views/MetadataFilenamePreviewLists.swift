@@ -497,7 +497,7 @@ private extension FilenameMetadataPreviewStatus {
             return .systemGreen
         case .unchanged, .noWritableFields:
             return .secondaryLabelColor
-        case .noMatch, .sourceUnavailable:
+        case .noMatch, .sourceUnavailable, .unsupported:
             return .systemOrange
         }
     }
@@ -508,7 +508,7 @@ private extension FilenameMetadataPreviewStatus {
             return "checkmark.circle.fill"
         case .unchanged:
             return "minus.circle.fill"
-        case .noMatch, .sourceUnavailable:
+        case .noMatch, .sourceUnavailable, .unsupported:
             return "exclamationmark.triangle.fill"
         case .noWritableFields:
             return "questionmark.circle.fill"

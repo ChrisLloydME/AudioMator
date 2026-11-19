@@ -86,7 +86,9 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.first?.status, .ready)
         let values = try XCTUnwrap(plan.rows.first?.writeEntry?.values)
-        XCTAssertEqual(values[.title], "  Keep Surrounding Spaces  ")
+        // The lexer keeps quoted whitespace; the semantic intent trims it the same
+        // way the production adapter does, so preview and write agree.
+        XCTAssertEqual(values[.title], "Keep Surrounding Spaces")
         XCTAssertEqual(values[.artist], "Trim Me")
     }
 

@@ -26,6 +26,13 @@ nonisolated enum MetadataExchangeProfile {
         let source: String
         /// `nil` when no marker was present: the legacy v1 profile.
         let version: Int?
+        /// True when a leading marker line (or a malformed label attempt) was
+        /// present. Text framing needs this to distinguish the exporter's single
+        /// empty record from empty unmarked input.
+        let hadMarker: Bool
+        /// False when a marker line was recognized but is not terminated by its
+        /// own line break. That is an incomplete marker line, not an empty import.
+        let markerLineTerminated: Bool
         let errorMessage: String?
     }
 
@@ -40,7 +47,13 @@ nonisolated enum MetadataExchangeProfile {
         }
         let trimmedLeading = text.drop(while: { $0 == " " || $0 == "\t" })
         guard trimmedLeading.hasPrefix(markerPrefix) else {
-            return Extraction(source: source, version: nil, errorMessage: nil)
+            return Extraction(
+                source: source,
+                version: nil,
+                hadMarker: false,
+                markerLineTerminated: false,
+                errorMessage: nil
+            )
         }
 
         let markerAndRest = trimmedLeading
@@ -48,14 +61,17 @@ nonisolated enum MetadataExchangeProfile {
         // matched explicitly as a single Character.
         let lineEnd = markerAndRest.firstIndex(where: {
             $0 == "\n" || $0 == "\r" || $0 == "\r\n"
-        }) ?? markerAndRest.endIndex
-        let markerLine = markerAndRest[..<lineEnd]
+        })
+        let markerLineTerminated = lineEnd != nil
+        let markerLine = markerAndRest[..<(lineEnd ?? markerAndRest.endIndex)]
         let versionText = markerLine.dropFirst(markerPrefix.count)
             .trimmingCharacters(in: .whitespaces)
         guard let version = Int(versionText) else {
             return Extraction(
                 source: source,
                 version: nil,
+                hadMarker: true,
+                markerLineTerminated: markerLineTerminated,
                 errorMessage: String(localized: "The import file's AudioMator version label isn't valid. Check the label or export the file again from AudioMator.")
             )
         }
@@ -63,7 +79,19 @@ nonisolated enum MetadataExchangeProfile {
             return Extraction(
                 source: source,
                 version: version,
+                hadMarker: true,
+                markerLineTerminated: markerLineTerminated,
                 errorMessage: String(localized: "This file was exported with a newer metadata profile (\(version)). This version of AudioMator supports up to \(currentVersion). Update AudioMator before importing it.")
+            )
+        }
+
+        guard let lineEnd else {
+            return Extraction(
+                source: source,
+                version: version,
+                hadMarker: true,
+                markerLineTerminated: false,
+                errorMessage: nil
             )
         }
 
@@ -71,7 +99,13 @@ nonisolated enum MetadataExchangeProfile {
         if remainder.hasPrefix("\r\n") || remainder.hasPrefix("\n") || remainder.hasPrefix("\r") {
             remainder.removeFirst()
         }
-        return Extraction(source: remainder, version: version, errorMessage: nil)
+        return Extraction(
+            source: remainder,
+            version: version,
+            hadMarker: true,
+            markerLineTerminated: true,
+            errorMessage: nil
+        )
     }
 }
 
@@ -157,20 +191,10 @@ struct MetadataExchangeLocatorCandidateIndex<Field: Hashable> {
 }
 
 struct MetadataExchangeCSVField {
+    /// Lexical cell text as it appeared in the document (after quote removal and
+    /// doubled-quote unescaping, before any application-level decoding).
     let value: String
     let wasQuoted: Bool
-
-    nonisolated var decodedValue: String {
-        MetadataExchangeCSV.decodeSpreadsheetProtectedValue(value)
-    }
-
-    nonisolated var importedValue: String {
-        wasQuoted ? decodedValue : decodedValue.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    nonisolated var hasImportContent: Bool {
-        wasQuoted ? !decodedValue.isEmpty : !importedValue.isEmpty
-    }
 }
 
 enum MetadataExchangeCSV {
@@ -201,9 +225,12 @@ enum MetadataExchangeCSV {
         delimiterCandidates.firstIndex(of: delimiter) ?? delimiterCandidates.count
     }
 
+    /// Returns lexical row text only (raw cell values and quoting are preserved
+    /// by `parseFields`). Spreadsheet-protection reversal is an application-level
+    /// concern selected by the exchange profile; see `MetadataExchangeCSVCodec`.
     nonisolated static func parse(_ source: String, delimiter: Character = ",") throws -> [[String]] {
         try parseFields(source, delimiter: delimiter).map { row in
-            row.map(\.decodedValue)
+            row.map(\.value)
         }
     }
 
@@ -363,10 +390,17 @@ enum MetadataExchangeCSV {
         rows
             .map { row in
                 row.map { value in
-                    escape(
+                    // A sole empty cell is the export representation of a
+                    // structurally empty record. Quote it so the parser can tell
+                    // that record apart from the end of the document.
+                    let isSoleEmptyCell = row.count == 1 && value.isEmpty
+                    return escape(
                         spreadsheetProtectedValue(value),
                         delimiter: delimiter,
-                        forceQuote: value.trimmingCharacters(in: .whitespacesAndNewlines) == MetadataExchangeProfile.removalToken || value.first?.isWhitespace == true || value.last?.isWhitespace == true
+                        forceQuote: isSoleEmptyCell
+                            || value.trimmingCharacters(in: .whitespacesAndNewlines) == MetadataExchangeProfile.removalToken
+                            || value.first?.isWhitespace == true
+                            || value.last?.isWhitespace == true
                     )
                 }
                 .joined(separator: String(delimiter))

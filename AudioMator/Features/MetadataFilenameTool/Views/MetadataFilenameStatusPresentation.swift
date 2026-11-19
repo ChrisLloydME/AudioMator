@@ -103,6 +103,10 @@ enum MetadataFilenameStatusPresentation {
             return validationMessage
         }
 
+        if let blockingMessage = plan.blockingMessage {
+            return blockingMessage
+        }
+
         if plan.readyCount > 0, plan.issueCount > 0 {
             return "\(plan.readyCount) file(s) are ready. \(plan.issueCount) issue(s) need review."
         }

@@ -7,12 +7,16 @@ final class MetadataFieldTransferStore: ObservableObject {
     @Published var destination: MetadataExchangeField = .albumArtist
     @Published var operation: MetadataFieldTransferOperation = .copy
 
-    func makePlan(targetFiles: [AudioFile]) -> MetadataExchangeImportPlan {
+    func makePlan(
+        targetFiles: [AudioFile],
+        projector: (any AudioMetadataPipeline)?
+    ) -> MetadataExchangeImportPlan {
         MetadataFieldTransferPlanner.makePlan(
             source: source,
             destination: destination,
             operation: operation,
-            targetFiles: targetFiles
+            targetFiles: targetFiles,
+            projector: projector
         )
     }
 

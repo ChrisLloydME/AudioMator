@@ -36,6 +36,7 @@ let package = Package(
                 "Domain/MetadataEditing/TextEditPipeline.swift",
                 "Domain/MetadataEditing/FileMutationCoordinator.swift",
                 "Domain/MetadataExchange/MetadataExchangeCSV.swift",
+                "Domain/MetadataExchange/MetadataExchangeImportCore.swift",
                 "Domain/MetadataExchange/MetadataExchangeTemplateSyntax.swift",
                 "Domain/MuseAmp/MuseAmpCommentIDGenerator.swift",
                 "Domain/Rename/FileRenamePlanCore.swift",

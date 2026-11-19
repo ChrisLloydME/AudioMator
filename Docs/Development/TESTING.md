@@ -190,10 +190,10 @@ The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core
 5. **Watched-folder OS integration is partially native.** Monitor tests open real `O_EVTONLY` descriptors with disposable temporary directories through the production controller, but real sandbox bookmark grants, external volumes, file providers and volume-revocation notifications are not exercised; app-hosted tests use isolated `UserDefaults` suites.
 6. **Quick Import security-scope leases are tested through an injected access adapter.** The refcounted start/stop balance, `notRequired`/`revoked` tracking and explicit-authorization retry are deterministic unit/work-counter tests. Real signed-sandbox bookmark grants, revocation by the system and reauthorization remain a manual gate on a signed sandboxed build; do not treat the injected adapter as proof of real scope behavior.
 7. **Full `AudioViewModel` watched-folder scanning and long-running batch UI** are only partially covered by synthesized orchestration tests.
-7. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup (ledger candidate INF-04, commit `97016668`); typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
-8. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
-9. **Source-policy tests depend on repository layout.** Tests read files via `#filePath`; moving those files breaks the tests.
-10. **Dated test documents are stale by design.** Counts in this file drift; counts in `Docs/Engineering/` records describe the revision they name.
+8. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup (ledger candidate INF-04, commit `97016668`); typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
+9. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
+10. **Source-policy tests depend on repository layout.** Tests read files via `#filePath`; moving those files breaks the tests.
+11. **Dated test documents are stale by design.** Counts in this file drift; counts in `Docs/Engineering/` records describe the revision they name.
 
 ## Manual Verification Boundary
 

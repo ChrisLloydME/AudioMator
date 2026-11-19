@@ -14,7 +14,7 @@ AudioMator has two sources, shown in the sidebar.
 2. Select one or more audio files.
 3. Files are loaded into the session list. The session is not persisted; files disappear from the app when you remove them or quit.
 
-Quick Import reads files concurrently in the background and adds them to the list in batches as they finish, in selection order. Duplicate selections of the same path collapse to one row. Failures are reported per file. Selecting the same path again reuses the existing file identity and refreshes the loaded snapshot, keeping the row's position; removing or clearing rows cannot be undone by a read that was already in flight.
+Quick Import reads files concurrently in the background and adds them to the list in batches as they finish. Rows are ordered by file name and path (lexical order), not by the order you selected the files. Duplicate selections of the same path collapse to one row. Failures are reported per file. Selecting the same path again reuses the existing file identity and refreshes the loaded snapshot, keeping the row's position; removing or clearing rows cannot be undone by a read that was already in flight.
 
 A file that is replaced, moved, or has its containing folder replaced while it is being read is skipped and reported, because the read can no longer be tied to the entry you selected. Select that file again to reload it; AudioMator does not silently retry or bind the result to a different file. Access to the files you add is held for the rows that need it and released when the row is removed or the session is cleared.
 

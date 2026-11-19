@@ -110,7 +110,7 @@ Journal-path durability and pre-upgrade manual recovery remain separate concerns
 - Only volumes that report exclusive-rename support participate; other volumes are rejected before staging with a specific error.
 - The transaction cannot overlap app-owned metadata writes to any source, destination, staging or symlink-target path (reservations compose the symlink-resolved comparison key and the directory-entry location key).
 - A file with an unresolved recovery decision or a journal-blocked path cannot be renamed or written until a coherent reload or the verified recovery flow clears it; the planner only accepts a coherent observation fingerprint, never a fresh stat probe.
-- Process-termination recovery is the exercised contract. Power-loss durability depends on the barriers actually supported by the host filesystem and is not claimed beyond them.
+- Process-termination recovery is exercised by real killed-process probes for the documented crash gates (prepared/staged, partially finalized, committed-marker, and restore-boundary gates); the remediation acceptance record names the covered gates. Power-loss durability depends on the barriers actually supported by the host filesystem and is not claimed beyond them.
 
 ## Track Renumbering
 

@@ -4,14 +4,14 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-19. The current integrated remediation candidate declares **1008 app-hosted tests across 115 `XCTestCase` classes** and **94 SwiftPM core tests across 6 classes**; the final validation gate must confirm these exact counts. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-19. The current integrated remediation candidate declares **1010 app-hosted tests across 115 `XCTestCase` classes** and **97 SwiftPM core tests across 6 classes**; the final validation gate must confirm these exact counts. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 94 | 6 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1008 | 115 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1010 | 115 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 121 `XCTestCase` classes across both targets (115 app-hosted, 6 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
@@ -89,7 +89,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Application/MetadataExchange` | 6 | 104 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
 | `Application/Rename` | 10 | 68 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
 | `Application/WatchedFolders` | 6 | 51 | identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
-| `Concurrency` | 4 | 47 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
+| `Concurrency` | 4 | 49 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 113 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
 | `Integration/TagLib` | 13 | 121 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
@@ -97,7 +97,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Unit/Presentation` | 15 | 81 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **122** | **1008** | |
+| **Total** | **122** | **1010** | |
 
 Notable coverage:
 
@@ -170,14 +170,14 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the policy tests with `python3 -m unittest discover -s scripts/tests` (currently 29: 13 evidence-gate tests and 16 build-helper shell policy tests),
-2. runs all 94 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+2. runs all 97 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
 3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the inventory at the 2026-11-19 878e2fc6 gate was 949 app-hosted and 70 core tests; the later F5 wave adds the incremental Quick Import suites and core index/lease tests),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 
 `bash scripts/validate-release.sh --tests-only` runs steps 1-3 and skips the Release build and artifact checks; it is not full release acceptance. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
 
-The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths. The current working tree declares 1008 app-hosted tests and 94 core tests by source inspection; the final validation gate must confirm the exact named inventory.
+The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths. The current working tree declares 1010 app-hosted tests and 97 core tests by source inspection; the final validation gate must confirm the exact named inventory.
 
 The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary.
 

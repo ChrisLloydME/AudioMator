@@ -46,7 +46,7 @@ Both Debug and Release currently share the same marketing/build values but use d
 The following steps are the minimum supported procedure. The repository implements the build, gate, and artifact checks; signing, notarization, packaging, publication, and UI acceptance remain manual.
 
 1. **Choose the version and build.** Edit `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in both app target configurations, and confirm the Release bundle ID. Do not reuse an existing published tag.
-2. **Run the unified gate.** `bash scripts/validate-release.sh` runs the policy tests (29 at this revision), 88 core tests, the complete serial app-hosted suite (994 source-declared tests at this revision), an unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
+2. **Run the unified gate.** `bash scripts/validate-release.sh` runs the policy tests (29 at this revision), 97 core tests, the complete serial app-hosted suite (1010 source-declared tests at this revision), an unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
 3. **Smoke test on temporary copies.** Verify import, read, single/batch edit, save, reload, rename, renumber, metadata/filename conversion, and failure reporting. Manual.
 4. **Sign.** Sign the app and embedded frameworks with a Developer ID identity, preserving hardened runtime and entitlements. Not automated and not configured in the repository.
 5. **Notarize and staple.** Submit to Apple's notary service and staple the ticket. Not automated and not verified in this repository.

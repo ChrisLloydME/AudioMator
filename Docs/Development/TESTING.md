@@ -4,17 +4,17 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were verified by source inspection on 2026-11-18 (checkout `554385cc`, after the accumulated-code cleanup campaign and the Inspector menu-save fix). They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests; the working tree now declares 630 because one Inspector menu-save test (`testMenuSaveEditsWritesOnlySelectedFilesAndClearsBatchDraft`) was added after that gate.
+Counts and paths below were re-verified by source inspection on 2026-11-19 and matched by a full `validate-release.sh --tests-only` run (758 app-hosted and 69 SwiftPM tests, exact source-to-`xcresult` identity). They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 62 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 630 | 80 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 69 | 4 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 758 | 92 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 84 `XCTestCase` classes across both targets (80 app-hosted, 4 core); no custom base class.
+- There are 96 `XCTestCase` classes across both targets (92 app-hosted, 4 core); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
@@ -63,7 +63,7 @@ Performance tests are part of the same scheme and run in CI. See [Performance te
 
 ## SwiftPM Fast Target
 
-`Package.swift` compiles exactly 30 Foundation-only production files:
+`Package.swift` compiles exactly 31 Foundation-only production files:
 
 - Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, fuzzy similarity, independent date text.
 - Domain: metadata model core, fingerprint, mutation directory plan, conflict policy, text edit pipeline, mutation coordinator, CSV and template syntax, MuseAmp IDs, rename plan/template/sanitizer, filename extraction, track renumber.
@@ -95,7 +95,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Unit/Presentation` | 11 | 54 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 3 | 0 | shared test factories and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **83** | **630** | |
+| **Total** | **96** | **758** | |
 
 Notable coverage:
 
@@ -157,8 +157,8 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the policy tests with `python3 -m unittest discover -s scripts/tests` (currently 29: 13 evidence-gate tests and 16 build-helper shell policy tests),
-2. runs all 62 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
-3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor),
+2. runs all 69 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the current inventory is 758 app-hosted and 69 core tests),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 

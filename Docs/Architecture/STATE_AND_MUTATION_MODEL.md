@@ -51,6 +51,8 @@ Rebuilding the visible collection prunes IDs that are no longer present and upda
 
 ## Mutation Lifecycle
 
+Legacy/conflict-aware lifecycle:
+
 ```text
 prepare immutable input + expected fingerprint/version
   → reserve every affected normalized path
@@ -62,6 +64,25 @@ prepare immutable input + expected fingerprint/version
   → release the reservation
   → publish the snapshot/result on the main actor
 ```
+
+Reviewed (strict) lifecycle — see ADR 0006:
+
+```text
+reviewed target + frozen intent + adapter projection (plan time)
+  → classify staleness/recovery/capability before any prompt
+  → reserve the captured path
+  → MainActor recheck of membership, URL identity and recovery state
+  → register MetadataCommitPermit (pending) for the operation
+  → detached worker verifies the captured fingerprint
+  → admit() immediately before the synchronous package write
+       revoked → precommit rejection, zero package calls
+       admitted → commit + bounded reload report the real outcome
+  → release the reservation, publish by stable file ID under the operation generation
+```
+
+A queued cancellation synchronously revokes the permit. Because the package
+commit is synchronous after admission, cancellation cannot interrupt an admitted
+commit; the real outcome, warnings included, is reported and never retried.
 
 Conflict groups follow actual native storage: `track`/`trackTotal` share one group, `disc`/`discTotal` share another, and YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent groups. A changed YEAR therefore does not create a blanket date conflict, while a shared native number pair remains protected. Alias/private-number cleanup is an explicit captured plan, not a conflict-resolution side effect.
 
@@ -88,8 +109,11 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Write fails | Snapshot and draft remain unchanged; failure reported |
 | Write succeeds, reload succeeds | New snapshot published; draft synchronized when appropriate |
 | Write succeeds, reload times out or fails | Persisted-with-warning; no fabricated snapshot; user can reload |
-| Rename succeeds, full reload fails | Fingerprint and metadata revision are recovered independently; if either fails, snapshot is refresh-required and writes fail closed |
-| Rename rollback incomplete | Recovery items list original, intended, and observed locations plus rollback errors |
+| Reviewed write queued, then membership/protection/recovery/scope changes | Pending permit is revoked; zero package calls; a precommit rejection or cancellation is reported structurally |
+| Cancelled while queued for a reviewed write | Permit revoked before admission; reported as cancelled, not as a failure |
+| Cancelled after a reviewed write was admitted | Commit is not interrupted; its real outcome and warnings are reported |
+| Rename succeeds, destination full readback fails, times out or observes a different entry | Moved file stays an authority-free projection with a pending-readback decision; stat/version probes never restore a revision; explicit Reload from Disk is required |
+| Rename rollback incomplete | Recovery items list original, intended, and observed locations plus rollback errors; a uniquely verified location is rebound through the same receipt/readback path, others stay blocked |
 | File path/object identity changes, or file is deleted | Identity/revision validation refuses writes; no "looks similar" substitution. Changed revisions require equal non-nil package audio identities before rebasing, including same-inode changes; unavailable identity requires explicit reload. See File Revision and Reload. |
 | TagLib reports commit committed but durability uncertain | Treated as committed with a warning; retrying as a failure is explicitly discouraged |
 
@@ -103,7 +127,7 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Raw PropertyMap write | Per file, exact delta | Yes | Yes |
 | Erase All Metadata | Per file | Yes | Yes |
 | Track renumber | Per file, serial | Yes, verification enabled | Yes |
-| Rename | One multi-file two-phase transaction | Per completed move | No; rollback or recovery report |
+| Rename | One multi-file transaction under a union reservation; per-destination bounded readback under separate reservations | Per completed move | No; rollback or recovery report |
 | LRCLIB lyrics apply | Per file raw patch | Yes | Batch auto-match yes |
 | Provider tagging plan | Up to four files concurrently, per-file commits | Yes | Yes |
 | Selected-file reload | Per file | Read only | Yes |

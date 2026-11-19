@@ -49,7 +49,7 @@ For the authoritative current version, build number, bundle identifiers, entitle
 
 ## Swift Package (Core Logic Tests)
 
-`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of 30 Foundation-only production files for fast tests.
+`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of 31 Foundation-only production files for fast tests.
 
 ```bash
 swift test
@@ -135,7 +135,7 @@ The app-hosted test target launches the app as its test host. Always keep the se
 bash scripts/validate-release.sh
 ```
 
-This is the normal release gate. It runs the policy tests, the 62 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
+This is the normal release gate. It runs the policy tests, the 69 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
 
 The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate). The test-only form is `bash scripts/validate-release.sh --tests-only`, which skips the Release build and artifact phases.
 

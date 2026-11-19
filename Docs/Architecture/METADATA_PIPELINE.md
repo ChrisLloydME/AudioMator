@@ -64,6 +64,37 @@ Key rules:
 - On success the loader is the only production route that constructs the write-authorizing observation (`AudioFile.Observation`): requested ID, lexical URL, nonoptional package version, conflict baseline, and the verified fingerprint, all from that one read. A display or rename/recovery projection carries no observation; metadata writes require a coherent observation plus a clear recovery decision.
 - The snapshot also stores a `MetadataConflictBaseline` containing the raw value map, structured ID3/MP4/ASF/artwork/comment/lyrics projections, and optional package audio-content identity. `TagLibNumberingProjection` converts the package number inventory into displayed number/total/text.
 
+### Reviewed writes and commit admission
+
+Strict metadata workflows (`Domain/MetadataEditing/ReviewedMetadataWrite.swift`,
+`AudioViewModel+ReviewedMetadataWrite.swift`, `MetadataFileMutationExecutor.swift`)
+do not write from a live editor model:
+
+- `ReviewedMetadataTarget` captures the logical file ID, operational URL,
+  fingerprint and nonoptional package revision from one coherent observation.
+  A display or recovery projection cannot produce a target.
+- `ReviewedMetadataWrite` freezes a semantic payload, a raw patch or erase-all.
+  `MetadataWriteProjection` is the adapter-owned, I/O-free summary of the exact
+  field and number-component operations the same deterministic encoder will
+  commit; missing capability information marks every requested field
+  unsupported, and an empty request is a no-op that never reaches a writer.
+- Plan-time eligibility rejects stale, recovery-blocked, unsupported or missing
+  targets before any authorization prompt. Under the captured path reservation
+  the owner revalidates membership, URL and recovery state, then registers a
+  per-file `MetadataCommitPermit`.
+- Cancellation synchronously revokes a pending permit. The detached worker
+  verifies the captured fingerprint and admits the permit immediately before the
+  synchronous package write; a revoked permit performs zero package calls. An
+  admitted commit cannot be interrupted, so it reports its real outcome,
+  warnings included, and is never retried. A cancelled queued write is reported
+  as a cancelled outcome, not as a failure.
+- Inspector and Raw Metadata Editor drafts use a distinct draft-aware route that
+  keeps their conflict baseline, policy validation and audio-identity checks;
+  the strict route passes the captured nonoptional revision to the package.
+  The documented boundary is enforced by unit, execution and full-gate tests;
+  remaining legacy callers are a migration boundary recorded in the remediation
+  campaign, not an authorization fallback.
+
 ### Missing, unsupported, and malformed metadata
 
 - Missing tags become empty strings, zero numbers, or `nil` artwork/advisory.

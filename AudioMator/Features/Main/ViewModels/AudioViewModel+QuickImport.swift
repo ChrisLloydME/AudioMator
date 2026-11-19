@@ -98,6 +98,9 @@ struct QuickImportMetrics: Sendable {
     var restoredMembershipMigrationCount = 0
     var publicationCount = 0
     var publishedRowCount = 0
+    /// Rows accepted in each published callback, in publication order. Lets the
+    /// counter tests assert per-callback work and that the sum is the row total.
+    var batchPublicationRowCounts: [Int] = []
     /// Falsifiable terminal-mutation detector: incremented when a terminal path
     /// mutates the published rows, publishes a batch, or calls the merge seam.
     var terminalMergeCount = 0
@@ -547,6 +550,7 @@ extension AudioViewModel {
         let duration = start.duration(to: ContinuousClock.now)
         quickImportBookkeeping.metrics.publicationCount += 1
         quickImportBookkeeping.metrics.publishedRowCount += publishedRowCount
+        quickImportBookkeeping.metrics.batchPublicationRowCounts.append(publishedRowCount)
         quickImportBookkeeping.metrics.batchCount += 1
         quickImportBookkeeping.metrics.totalBatchItemCount += publishedRowCount
         quickImportBookkeeping.metrics.cumulativePublicationDuration += duration
@@ -588,6 +592,20 @@ extension AudioViewModel {
         cancelled: Bool,
         additionalFailures: [QuickImportPendingFailure] = []
     ) {
+        withTerminalMergeDetector {
+            finishQuickImportRequestBody(
+                requestID: requestID,
+                taskID: taskID,
+                generation: generation,
+                cancelled: cancelled,
+                additionalFailures: additionalFailures
+            )
+        }
+    }
+
+    /// Runs `body` under the falsifiable terminal-mutation detector. A terminal
+    /// path may not add rows or publish after the request has terminated.
+    private func withTerminalMergeDetector(_ body: () -> Void) {
         let rowCountBefore = quickImportFiles.count
         let publicationCountBefore = quickImportBookkeeping.metrics.publicationCount
         quickImportBookkeeping.isFinishingRequest = true
@@ -600,7 +618,23 @@ extension AudioViewModel {
                 quickImportBookkeeping.metrics.terminalMergedRowCount += abs(rowsAdded)
             }
         }
+        body()
+    }
 
+    /// Test-only negative control: executes the same terminal detector around a
+    /// synthetic mutation to prove `terminalMergeCount`/`terminalMergedRowCount`
+    /// are falsifiable. Never called from production.
+    func runTerminalMergeDetectorForTesting(_ body: () -> Void) {
+        withTerminalMergeDetector(body)
+    }
+
+    private func finishQuickImportRequestBody(
+        requestID: UUID,
+        taskID: UUID,
+        generation: UInt64,
+        cancelled: Bool,
+        additionalFailures: [QuickImportPendingFailure]
+    ) {
         inFlightQuickImportTaskIDs.remove(taskID)
         quickImportTasks[taskID] = nil
         quickImportLoadingURLs[taskID] = nil

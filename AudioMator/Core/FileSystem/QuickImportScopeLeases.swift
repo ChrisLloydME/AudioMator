@@ -323,8 +323,9 @@ nonisolated final class QuickImportScopeLeases: @unchecked Sendable {
                 metrics.dedupedGrantTransferStopCount += 1
             }
 
-            if var destination {
+            if let destinationBefore = destination {
                 if movingGrantOutstanding {
+                    var destination = destinationBefore
                     switch destination.state {
                     case .granted:
                         if !destinationIsLiveGranted {
@@ -343,13 +344,38 @@ nonisolated final class QuickImportScopeLeases: @unchecked Sendable {
                         metrics.stopCount += 1
                         metrics.unusedGrantStopCount += 1
                     }
-                } else if !destination.wasGranted {
+                    destination.owners.insert(owner)
+                    entries[newKey] = destination
+                } else if destinationIsLiveGranted {
+                    // The destination grant is genuinely live (started by another
+                    // owner): join it without touching its stop obligation.
+                    var destination = destinationBefore
+                    destination.owners.insert(owner)
+                    entries[newKey] = destination
+                } else if case .granted = destinationBefore.state {
+                    // A retained-but-stopped `.granted` entry already balanced its
+                    // single start with a stop. Resurrecting it as a live lease
+                    // would fabricate a grant and plan a second stop, so acquire a
+                    // real destination start (or record its authorized failure).
+                    _ = acquireLocked(
+                        url: url,
+                        key: newKey,
+                        owner: owner,
+                        authorizationEpoch: nil
+                    )
+                } else if !destinationBefore.wasGranted {
+                    var destination = destinationBefore
                     destination.state = Self.stateKeepingGrant(movingState, url: url)
                     destination.failedAtEpoch = movingFailedAtEpoch
                     destination.wasGranted = movingWasGranted
+                    destination.owners.insert(owner)
+                    entries[newKey] = destination
+                } else {
+                    // Destination owns revoked/notRequired evidence; keep it.
+                    var destination = destinationBefore
+                    destination.owners.insert(owner)
+                    entries[newKey] = destination
                 }
-                destination.owners.insert(owner)
-                entries[newKey] = destination
             } else {
                 entries[newKey] = Entry(
                     state: Self.stateKeepingGrant(movingState, url: url),

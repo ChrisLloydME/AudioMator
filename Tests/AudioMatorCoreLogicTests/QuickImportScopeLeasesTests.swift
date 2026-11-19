@@ -410,6 +410,123 @@ final class QuickImportScopeLeasesTests: XCTestCase {
         XCTAssertEqual(metrics.startCount, 2)
         XCTAssertEqual(metrics.stopCount, 2)
     }
+
+    func testMigrateNonGrantedLeaseIntoRetainedStoppedGrantStartsFreshAndNeverDoubleStops() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import/old.mp3")
+        let destinationURL = URL(fileURLWithPath: "/tmp/moved/destination.mp3")
+        let destinationOwner = QuickImportScopeOwner.membership(UUID())
+        let movingOwner = QuickImportScopeOwner.membership(UUID())
+
+        // Destination is started once, then fully released: the entry is
+        // retained as `.granted` but has no outstanding stop obligation.
+        access.setGranted(true, for: destinationURL)
+        leases.acquire(url: destinationURL, key: "destination", owner: destinationOwner)
+        leases.release(key: "destination", owner: destinationOwner)
+        XCTAssertEqual(access.startCount(for: destinationURL), 1)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 1)
+        XCTAssertFalse(leases.isLiveGranted(forKey: "destination"))
+
+        // The migrating old key never had a grant.
+        access.setGranted(false, for: sourceURL)
+        leases.acquire(url: sourceURL, key: "source", owner: movingOwner)
+        XCTAssertEqual(leases.state(forKey: "source"), .notRequired(url: sourceURL))
+
+        leases.migrateKey(from: "source", to: "destination", url: destinationURL, owner: movingOwner)
+
+        // R1 regression: the retained-but-stopped destination must not be
+        // resurrected as a live lease. A real fresh start is required.
+        XCTAssertEqual(
+            access.startCount(for: destinationURL),
+            2,
+            "The destination must start a fresh grant instead of fabricating a live one"
+        )
+        XCTAssertEqual(leases.state(forKey: "destination"), .granted(url: destinationURL))
+        XCTAssertTrue(leases.isLiveGranted(forKey: "destination"))
+        XCTAssertEqual(leases.metricsSnapshot().transferCount, 0, "A non-granted source is not a transfer")
+
+        leases.release(key: "destination", owner: movingOwner)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 2)
+        XCTAssertEqual(
+            access.startCount(for: destinationURL),
+            access.stopCount(for: destinationURL),
+            "Each destination start must have exactly one stop (no fabricated grant, no double-stop)"
+        )
+        let metrics = leases.metricsSnapshot()
+        XCTAssertEqual(metrics.startCount, 3)
+        XCTAssertEqual(metrics.stopCount, 2)
+        XCTAssertEqual(metrics.grantedCount, 2)
+        XCTAssertEqual(metrics.notRequiredCount, 1)
+    }
+
+    func testMigrateIntoRetainedStoppedGrantWithRefusedRestartRecordsRevocationWithoutFabrication() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import/old.mp3")
+        let destinationURL = URL(fileURLWithPath: "/tmp/moved/destination.mp3")
+        let destinationOwner = QuickImportScopeOwner.membership(UUID())
+        let movingOwner = QuickImportScopeOwner.membership(UUID())
+
+        access.setGranted(true, for: destinationURL)
+        leases.acquire(url: destinationURL, key: "destination", owner: destinationOwner)
+        leases.release(key: "destination", owner: destinationOwner)
+        XCTAssertEqual(access.startCount(for: destinationURL), 1)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 1)
+
+        access.setGranted(false, for: destinationURL)
+        access.setGranted(false, for: sourceURL)
+        leases.acquire(url: sourceURL, key: "source", owner: movingOwner)
+
+        leases.migrateKey(from: "source", to: "destination", url: destinationURL, owner: movingOwner)
+
+        XCTAssertEqual(access.startCount(for: destinationURL), 2, "A fresh start was attempted")
+        XCTAssertEqual(
+            leases.state(forKey: "destination"),
+            .revoked(url: destinationURL),
+            "A refused restart is recorded as revoked evidence, not a live grant"
+        )
+        XCTAssertFalse(leases.isLiveGranted(forKey: "destination"))
+        leases.release(key: "destination", owner: movingOwner)
+        XCTAssertEqual(
+            access.stopCount(for: destinationURL),
+            1,
+            "No fabricated grant means no extra stop"
+        )
+    }
+
+    func testMigrateOutstandingGrantIntoNotRequiredDestinationStopsSourceExactlyOnce() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import/old.mp3")
+        let destinationURL = URL(fileURLWithPath: "/tmp/moved/destination.mp3")
+        let destinationOwner = QuickImportScopeOwner.membership(UUID())
+        let movingOwner = QuickImportScopeOwner.membership(UUID())
+
+        access.setGranted(false, for: destinationURL)
+        leases.acquire(url: destinationURL, key: "destination", owner: destinationOwner)
+        leases.release(key: "destination", owner: destinationOwner)
+        XCTAssertEqual(leases.state(forKey: "destination"), .notRequired(url: destinationURL))
+
+        access.setGranted(true, for: sourceURL)
+        leases.acquire(url: sourceURL, key: "source", owner: movingOwner)
+
+        leases.migrateKey(from: "source", to: "destination", url: destinationURL, owner: movingOwner)
+
+        // R2: the destination's own notRequired evidence wins, and the now
+        // ownerless source grant is stopped exactly once.
+        XCTAssertEqual(access.stopCount(for: sourceURL), 1)
+        XCTAssertEqual(leases.state(forKey: "destination"), .notRequired(url: destinationURL))
+        XCTAssertEqual(leases.owners(forKey: "destination"), [movingOwner])
+        XCTAssertEqual(leases.metricsSnapshot().unusedGrantStopCount, 1)
+        XCTAssertEqual(leases.metricsSnapshot().transferCount, 0)
+        XCTAssertEqual(leases.metricsSnapshot().startCount, 2)
+        XCTAssertEqual(leases.metricsSnapshot().stopCount, 1)
+
+        leases.release(key: "destination", owner: movingOwner)
+        XCTAssertEqual(access.stopCount(for: sourceURL), 1, "A notRequired lease owns no stop")
+        XCTAssertEqual(access.stopCount(for: destinationURL), 0)
+    }
 }
 
 private final class ScriptedQuickImportScopeAccess: QuickImportScopeAccessing, @unchecked Sendable {

@@ -125,6 +125,16 @@ nonisolated final class QuickImportProgressivePerformanceTests: XCTestCase {
         harness.viewModel.importQuickFiles(from: paths)
         try await waitForImport(harness.viewModel, expectedCount: count)
         let wallClock = start.duration(to: ContinuousClock.now)
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        let expectedBatches = (count + 47) / 48
+        XCTAssertEqual(
+            diagnostics.metrics.batchPublicationRowCounts.count,
+            expectedBatches,
+            "One per-callback accepted-row counter per publication"
+        )
+        XCTAssertEqual(diagnostics.metrics.batchPublicationRowCounts.reduce(0, +), count)
+        XCTAssertEqual(diagnostics.metrics.batchPublicationRowCounts.max(), min(48, count))
+        XCTAssertEqual(diagnostics.metrics.terminalMergedRowCount, 0)
         return makeReport(
             harness: harness.viewModel,
             fixtureCount: count,
@@ -166,6 +176,16 @@ nonisolated final class QuickImportProgressivePerformanceTests: XCTestCase {
         harness.viewModel.importQuickFiles(from: paths)
         try await waitForImport(harness.viewModel, expectedCount: count, timeout: 180)
         let wallClock = start.duration(to: ContinuousClock.now)
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        let expectedBatches = (count + 47) / 48
+        XCTAssertEqual(
+            diagnostics.metrics.batchPublicationRowCounts.count,
+            expectedBatches,
+            "One per-callback accepted-row counter per publication"
+        )
+        XCTAssertEqual(diagnostics.metrics.batchPublicationRowCounts.reduce(0, +), count)
+        XCTAssertEqual(diagnostics.metrics.batchPublicationRowCounts.max(), min(48, count))
+        XCTAssertEqual(diagnostics.metrics.terminalMergedRowCount, 0)
         let providerSnapshot = identityProvider.snapshot
         return makeReport(
             harness: harness.viewModel,

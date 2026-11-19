@@ -229,6 +229,80 @@ nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testPerCallbackPublicationPathKeyWorkIsZero() async throws {
+        try requireFixtures()
+        let urls = syntheticURLs(count: 480)
+        let provider = SyntheticQuickImportIdentityProvider()
+        let access = CountingQuickImportScopeAccess()
+        let pipeline = ProgressiveQuickImportMetadataPipeline()
+        let harness = try makeHarness(pipeline: pipeline, provider: provider, access: access, policy: .forced24)
+        defer { harness.tearDown() }
+
+        let recorder = observePublications(of: harness.viewModel, identityProvider: provider)
+        harness.viewModel.importQuickFiles(from: urls)
+        try await waitForImport(harness.viewModel, expectedCount: 480)
+
+        XCTAssertEqual(recorder.batches.count, 20)
+        XCTAssertEqual(
+            recorder.providerFileKeyComputationCounts,
+            Array(repeating: 480, count: 20),
+            "Every publication callback must add zero path-key work (all candidates were prepared once up front)"
+        )
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(
+            diagnostics.metrics.batchPublicationRowCounts,
+            Array(repeating: 24, count: 20),
+            "Per-callback accepted-row counters must match the forced batch cadence"
+        )
+        XCTAssertEqual(diagnostics.metrics.batchPublicationRowCounts.reduce(0, +), 480)
+        XCTAssertEqual(provider.snapshot.identityPreparationCount, 480, "One identity preparation per candidate")
+        XCTAssertEqual(provider.snapshot.parentKeyComputationCount, 1)
+        XCTAssertEqual(diagnostics.metrics.terminalMergeCount, 0)
+        XCTAssertEqual(diagnostics.metrics.terminalMergedRowCount, 0)
+        harness.viewModel.clearQuickImportFiles()
+    }
+
+    @MainActor
+    func testTerminalMergeDetectorCountsSyntheticTerminalMutation() throws {
+        try requireFixtures()
+        let urls = syntheticURLs(count: 2)
+        let provider = SyntheticQuickImportIdentityProvider()
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: ProgressiveQuickImportMetadataPipeline(),
+            provider: provider,
+            access: access,
+            policy: .forced24
+        )
+        defer { harness.tearDown() }
+        XCTAssertEqual(harness.viewModel.quickImportDiagnostics().metrics.terminalMergeCount, 0)
+
+        // Row-delta detector path: a synthetic row added inside a terminal body
+        // must be detected even though no production merge seam is involved.
+        harness.viewModel.runTerminalMergeDetectorForTesting {
+            harness.viewModel.quickImportFiles.append(AudioFileTestFactory.make(url: urls[0]))
+        }
+        var metrics = harness.viewModel.quickImportDiagnostics().metrics
+        XCTAssertEqual(metrics.terminalMergeCount, 1)
+        XCTAssertEqual(metrics.terminalMergedRowCount, 1)
+
+        // Merge-seam path: calling the documented merge seam from a terminal body
+        // is also counted (seam increment plus its row delta).
+        harness.viewModel.runTerminalMergeDetectorForTesting {
+            harness.viewModel.mergeQuickImportFiles([AudioFileTestFactory.make(url: urls[1])])
+        }
+        metrics = harness.viewModel.quickImportDiagnostics().metrics
+        XCTAssertEqual(metrics.terminalMergeCount, 3, "One seam detection and one row-delta detection")
+        XCTAssertEqual(metrics.terminalMergedRowCount, 2)
+
+        // A clean terminal pass must leave both counters unchanged.
+        harness.viewModel.runTerminalMergeDetectorForTesting { }
+        metrics = harness.viewModel.quickImportDiagnostics().metrics
+        XCTAssertEqual(metrics.terminalMergeCount, 3)
+        XCTAssertEqual(metrics.terminalMergedRowCount, 2)
+    }
+
     // MARK: - Retarget rejection
 
     @MainActor
@@ -983,6 +1057,18 @@ nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
         let finalIDs = recorder.batches.last?.map(\.id) ?? []
         XCTAssertEqual(finalIDs.count, count)
         XCTAssertEqual(Set(finalIDs).count, count)
+        XCTAssertEqual(
+            diagnostics.metrics.batchPublicationRowCounts.count,
+            expectedBatchCount,
+            "One per-callback accepted-row counter per publication"
+        )
+        XCTAssertEqual(diagnostics.metrics.batchPublicationRowCounts.reduce(0, +), count)
+        XCTAssertEqual(
+            diagnostics.metrics.batchPublicationRowCounts.max(),
+            min(policy.forceFlushBatchSize, count),
+            "Each callback publishes at most the forced batch size"
+        )
+        XCTAssertEqual(diagnostics.metrics.terminalMergedRowCount, 0)
         // Every publication is a growing prefix snapshot, never a full re-emit
         // of a collection that was replaced.
         var previousCount = 0
@@ -1006,14 +1092,25 @@ nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
 
     private final class PublicationRecorder {
         var batches: [[AudioFile]] = []
+        /// Provider file-key counter sampled at each publication callback. It must
+        /// be constant: all candidate path-key work happens before publication.
+        var providerFileKeyComputationCounts: [Int] = []
         var cancellables: [AnyCancellable] = []
     }
 
     @MainActor
-    private func observePublications(of viewModel: AudioViewModel) -> PublicationRecorder {
+    private func observePublications(
+        of viewModel: AudioViewModel,
+        identityProvider: SyntheticQuickImportIdentityProvider? = nil
+    ) -> PublicationRecorder {
         let recorder = PublicationRecorder()
         let cancellable = viewModel.$files.dropFirst().sink { files in
             recorder.batches.append(files)
+            if let identityProvider {
+                recorder.providerFileKeyComputationCounts.append(
+                    identityProvider.snapshot.fileKeyComputationCount
+                )
+            }
         }
         recorder.cancellables.append(cancellable)
         publicationRecorders.append(recorder)

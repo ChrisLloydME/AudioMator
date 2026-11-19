@@ -447,7 +447,7 @@ private actor QuickImportLoadGate {
     }
 }
 
-private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let gate: QuickImportLoadGate
     private let shouldFail: Bool
 
@@ -490,7 +490,7 @@ private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @
     }
 }
 
-private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let unreadableURL: URL
     private let heldURL: URL?
     private let gate: QuickImportLoadGate?
@@ -567,7 +567,7 @@ private actor TransientQuickImportReadControl {
     }
 }
 
-private final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let control: TransientQuickImportReadControl
 
     init(control: TransientQuickImportReadControl) {
@@ -615,7 +615,7 @@ private actor WatchedFolderReadControl {
     }
 }
 
-private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let control = WatchedFolderReadControl()
 
     func setUnreadableURLs(_ urls: Set<URL>) async {
@@ -650,7 +650,7 @@ private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipe
     }
 }
 
-private final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let returnedURL: URL
 
     init(returnedURL: URL) {

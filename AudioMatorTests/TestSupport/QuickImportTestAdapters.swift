@@ -9,7 +9,7 @@ import TagLibAudioMetadata
 /// same URL passes the production canonical-location verification without any
 /// real files. Tests that exercise retarget rejection use
 /// `FileSystemQuickImportPathIdentityProvider` and real temporary entries.
-final class SyntheticQuickImportIdentityProvider: QuickImportPathIdentityProviding, @unchecked Sendable {
+nonisolated final class SyntheticQuickImportIdentityProvider: QuickImportPathIdentityProviding, @unchecked Sendable {
     struct Snapshot: Equatable, Sendable {
         let identityPreparationCount: Int
         let fileKeyComputationCount: Int
@@ -113,7 +113,7 @@ final class SyntheticQuickImportIdentityProvider: QuickImportPathIdentityProvidi
 }
 
 /// Wraps the real filesystem identity provider and counts one call per candidate.
-final class CountingFileSystemQuickImportIdentityProvider: QuickImportPathIdentityProviding, @unchecked Sendable {
+nonisolated final class CountingFileSystemQuickImportIdentityProvider: QuickImportPathIdentityProviding, @unchecked Sendable {
     private let lock = NSLock()
     private let provider = FileSystemQuickImportPathIdentityProvider()
     private var identityPreparations = 0
@@ -138,7 +138,7 @@ final class CountingFileSystemQuickImportIdentityProvider: QuickImportPathIdenti
 }
 
 /// Scripted security-scope adapter for the lease tests.
-final class CountingQuickImportScopeAccess: QuickImportScopeAccessing, @unchecked Sendable {
+nonisolated final class CountingQuickImportScopeAccess: QuickImportScopeAccessing, @unchecked Sendable {
     struct Snapshot: Equatable, Sendable {
         let startCount: Int
         let stopCount: Int
@@ -233,7 +233,7 @@ actor QuickImportProgressiveGate {
 /// - `.realFingerprint`: captures the file's real fingerprint when the read
 ///   starts (after any gate release), so a retarget between preparation and load
 ///   is observed exactly like the production adapter.
-final class ProgressiveQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+nonisolated final class ProgressiveQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     enum Mode {
         case synthetic
         case realFingerprint

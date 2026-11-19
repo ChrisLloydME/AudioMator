@@ -185,12 +185,13 @@ The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core
 
 The integrated remediation candidate keeps the original concurrency settings: Swift 5 language
 mode, complete strict concurrency, MainActor default actor isolation, and Approachable Concurrency
-for both `AudioMator` and the app-hosted test target. The campaign introduced no warning
-suppressions, no `@preconcurrency` imports, no new `@unchecked Sendable` conformances, no new
-`nonisolated(unsafe)` escapes, and no language or default-isolation changes. `@unchecked Sendable`
-declarations do already exist in the production sources (for example locked adapter/recorder
-fixtures from earlier work) and remain unchanged; this campaign adds none and does not use them as
-a substitute for the isolation corrections above.
+for both `AudioMator` and the app-hosted test target. The campaign adds no warning suppressions,
+no `@preconcurrency` imports, no `nonisolated(unsafe)` escapes, and no language or default-isolation
+changes. It does add a small number of justified `@unchecked Sendable` conformances on lock-guarded
+classes that must cross isolation domains - the Quick Import lease store, the rename-journal lock,
+the rename cancellation flag and the directory-monitor wrappers - while pre-existing declarations
+remain. Each is backed by internal locking, none substitutes for the isolation corrections above,
+and the AM-19 gate counts compiler diagnostics rather than hiding them.
 
 Isolation ownership convention:
 

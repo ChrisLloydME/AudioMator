@@ -22,7 +22,7 @@ acceptance; this record is retained.
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Final full gate `bash scripts/validate-release.sh` at `247c8ed6` | policy passed; core `accepted: true, expected 97, executed 97`; app-hosted `accepted: true, expected 1010, executed 1010`, zero missing/unexpected/skips/failures; unsigned Release build passed; artifact validation passed | `.deriveddata-codex/Validation/20261119-215753-46405/` (`source.txt`, `app.log`, `app.xcresult`, `core`, `release`, `artifact` outputs) |
+| Final full gate `bash scripts/validate-release.sh` at `247c8ed6` | policy passed; core `accepted: true, expected 97, executed 97`; app-hosted `accepted: true, expected 1010, executed 1010`, zero missing/unexpected/skips/failures; unsigned Release build passed; artifact validation passed | `.deriveddata-codex/Validation/20261119-215753-46405/` (`source.txt`, `app.log`, `AppTests.xcresult`, `core`, `release`, `artifact` outputs) |
 | Earlier full gate at `aaeb9b23` | policy 29/29; core 88/88; app 994/994 exact identity; unsigned Release + artifact passed | `.deriveddata-codex/Validation/20261119-183535-17055/` |
 | Cold isolated Debug `build-for-testing` from disposable `git archive` of `74466f0a` | `** TEST BUILD SUCCEEDED **`, 0 errors | `.tmp/t2-evidence/cold-debug.log` (sha256 `06f0c302…`) |
 | Cold isolated Release `build-for-testing` (with verification-only `ENABLE_TESTABILITY=YES`) from the same archive | `** TEST BUILD SUCCEEDED **`, 0 errors | `.tmp/t2-evidence/cold-release2.log` (sha256 `a33e7f2e…`) |
@@ -57,11 +57,11 @@ historical baseline reproductions.
 | AM-11 raw utility preview differs from apply | E2 | Implemented. Per-element raw value model, ordered entry add/remove/duplicate identity, stale-preview rejection, captured apply; `MetadataEditorRawValueArrayTests` 15 plus real fixture persistence readback. |
 | AM-12 renumber planned sequence differs from submission | E3 | Implemented with the approved product decisions: shared reviewed plan, start at 1, 1–9999 clamp, no padding, numeric preview, unchanged rows not written; `TrackRenumberTests` 13, `TrackRenumberExecutionTests` 12, real FLAC/MP3/M4A round trips. |
 | AM-13 large exchange preview redundant synchronous work | E4 | Implemented. Store-owned active plan and concurrent value planner with debounce/cancellation; controller-instrumented one-plan/zero-inactive dispatch and bounded 10k/100k benchmark without wall-clock thresholds; `MetadataFilenameConverterPlanTests` 19, `MetadataFilenamePlannerBenchmarkTests`. |
-| AM-14 progressive Quick Import reindexes collection | F5 | Implemented. Ordered path index and refcounted scope leases in Foundation-only Core; one identity preparation per candidate, zero per-batch path work, original request-token admission/supersession, first-contiguous progressive publication, incremental replace/append, atomic rename/restore migration, stable IDs; owner-safe lease transfer (no over-stop, no fabricated grant, exactly-once stop) and request-identity pruning fixed from independent audits. 18+ core index/lease tests (24/24 Quick Import filter), `QuickImportCancellationTests` 11, `QuickImportProgressiveIndexTests` 21, `QuickImportProgressivePerformanceTests` 2; counters reproduced (audit 17,040/67,680 at 480/960; post-fix identityPreps = n, one parent key, publications ceil(n/batch)). Signed-sandbox scope grants remain a manual gate. |
+| AM-14 progressive Quick Import reindexes collection | F5 | Implemented. Ordered path index and refcounted scope leases in Foundation-only Core; one identity preparation per candidate, zero per-batch path work, original request-token admission/supersession, first-contiguous progressive publication, incremental replace/append, atomic rename/restore migration, stable IDs; owner-safe lease transfer (no over-stop, no fabricated grant, exactly-once stop) and request-identity pruning fixed from independent audits. 18+ core index/lease tests (24/24 Quick Import filter), `QuickImportCancellationTests` 11, `QuickImportProgressiveIndexTests` 23, `QuickImportProgressivePerformanceTests` 2; counters reproduced (audit 17,040/67,680 at 480/960; post-fix identityPreps = n, one parent key, publications ceil(n/batch)). Signed-sandbox scope grants remain a manual gate. |
 | AM-15 build helper claims success without compiling | T1 | Implemented. Fail-closed `scripts/codex-build.sh` (discovery/status handling, relevant path coverage, marker only on successful compile, no implicit prune) plus 16 policy tests; archived-baseline negative control fails 25 sub-cases, fixed helper passes the same cases and a forced wrapper build was verified. |
 | AM-16 CSV decodes unmarked apostrophes | E1 | Implemented. Profile-scoped CSV decoding, quoted/escaped literals preserved, marked-export codec unaffected; literal disk readback of apostrophes. |
 | AM-17 iTunes results shared across storefronts | N3 | Implemented. Storefront-scoped results, detail cache and previews; `iTunesStorefrontScopingTests` 8 (same collection ID in US/JP, A→B→A counts, cancelled search, delayed detail across reopen, per-selection previews). |
-| AM-18 artwork retry/destination draft | N4a/N4b | Implemented. Attempt identity/fault channels and same-candidate retry for downloads (`ArtworkLookupResponsivenessTests` 17, `ArtworkPreviewFallbackTests` 6); destination-draft transfer intents captured before every suspension for online and the six local handoffs, guarded commit revalidating session/command/targets/draft, stale-selection outcomes, unrelated edits preserved, clear/keep/newer commands supersede, disk untouched until Inspector Save (`ArtworkHandoffOwnershipTests` 5, real-fixture `ArtworkStagedSaveReadbackTests`). |
+| AM-18 artwork retry/destination draft | N4a/N4b | Implemented. Attempt identity/fault channels and same-candidate retry for downloads (`ArtworkLookupResponsivenessTests` 22, `ArtworkPreviewFallbackTests` 6); destination-draft transfer intents captured before every suspension for online and the six local handoffs, guarded commit revalidating session/command/targets/draft, stale-selection outcomes, unrelated edits preserved, clear/keep/newer commands supersede, disk untouched until Inspector Save (`ArtworkHandoffOwnershipTests` 12, real-fixture `ArtworkStagedSaveReadbackTests`). |
 | AM-19 warning/isolation debt | T2 | Implemented. Two app-target ownership fixes (rename-recovery count helper, weak HUD captures + generation decision) and app-target isolation/Sendable fixes in eight files; whole app-hosted suite converted to explicit isolation (`nonisolated final` classes, explicit `@MainActor` members, nonisolated URLProtocol/fixture types, locked recorders, hoisted autoclosure reads). Cold Debug and Release builds have **zero** forbidden diagnostics (extractor accepted); `MetadataWriteHUDDismissalDecisionTests` 5 and `RenameRecoveryPresentationTests` 2 added. Named inventory is additive: 1010 app-hosted tests / 115 classes / 122 files vs 994 at the pre-T2 candidate; 0 removed or renamed. |
 | C1 strict reviewed-target write boundary | C1/C2 | Implemented. `ReviewedMetadataTarget`/`ReviewedMetadataWrite`/projection/permit; every listed caller family migrated; S13 removed the legacy optional-version forwarding (`persistMetadataEdit`, legacy admission, optional executor overload) with source-policy tests (`LegacyWriteRouteRemovalPolicyTests`) banning them and production `expectedVersion: nil`; ADR 0006 records the boundary. |
 | C1 operation lifetime/cancellation/publication | C1/C2 | Implemented. OSAllocatedUnfairLock commit permit, pre-commit revocation, caller-side cancellation handler, admission immediately before the writer, no unstarted-intent consumption, committed outcomes never retried/relabelled; cancellation/admission race and writer-cancel tests. |
@@ -82,19 +82,31 @@ historical baseline reproductions.
 
 ## Independent review trail
 
-- [Phase-1 audit disposition](.tmp/remediation/design/PHASE1-INDEPENDENT-AUDIT.md) and
-  [integrated audit](.tmp/remediation/design/INTEGRATED-INDEPENDENT-AUDIT.md) (candidate-derived
+- Phase-1 disposition (` .tmp/remediation/design/PHASE1-INDEPENDENT-AUDIT.md`) and
+  integrated audit (`.tmp/remediation/design/INTEGRATED-INDEPENDENT-AUDIT.md`) (candidate-derived
   blockers were fixed: AM-01/02/16, AM-11, AM-05/08, AM-10/17, AM-09, AM-13, AM-07, AM-12 accepted;
   AM-04/AM-06/AM-18 gaps closed in the completion wave).
-- [Completion-wave audit](.tmp/remediation/design/WAVE-INDEPENDENT-AUDIT.md): found two real F5 defects
+- Completion-wave audit (`.tmp/remediation/design/WAVE-INDEPENDENT-AUDIT.md`): found two real F5 defects
   (lease grant transfer, unpublished-key pruning) and documentation defects; all were fixed in
   `6ed11cb1`, `42ae40dd`, `a63a7984`, and the docs corrections commit.
-- [Final verification A](.tmp/remediation/design/FINAL-VERIFICATION-A.md): accepted F5 fixes, AM-04
+- Final verification A (`.tmp/remediation/design/FINAL-VERIFICATION-A.md`): accepted F5 fixes, AM-04
   matrix and docs; flagged R1 (lease double-stop residual), commit-provenance mixing and a stale ADR
   wording. R1 was fixed in `42ae40dd`; the F5 test additions are now committed with the test-target
   conversion; ADR wording was corrected in `f406de52`.
 - Auditor checklists (acceptance specification rows) may use their own probes; the implementer's
   assertions and evidence are inputs, not the final disposition.
+
+## Independent reviewer disposition (2026-11-19)
+
+The independent acceptance reviewer (task-53) accepted the candidate for the maintainer's release
+decision after independently checking gate integrity (base/HEAD/branch/commit count, clean tree,
+`source.txt` revision, exact 1010/1010 named leaves passed, 97/97 core, 29/29 policy re-run, Release
+build, artifact checks), tracing every finding's production seam and oracle, and auditing the negative
+controls and AM-19 cold-build evidence. No blocking functional defect and no equivalent path that could
+reintroduce a remediated finding was found. Non-blocking documentation defects it reported were fixed
+before this record's final commit: the dangling `.tmp` evidence links in this record, the `@unchecked
+Sendable` wording in `TESTING.md`, and the stale suite counts above. Its full report is
+`.tmp/remediation/design/REVIEWER-ACCEPTANCE.md`. Release approval remains with the maintainer.
 
 ## Known limitations and remaining manual gates
 
@@ -117,6 +129,10 @@ historical baseline reproductions.
 - **Diagnostic gate:** the AM-19 metric covers compiler diagnostics on repository sources in the app and
   app-hosted test targets in Debug and Release; package/toolchain/linker diagnostics are reported
   separately, never suppressed, and were zero in the cold builds.
+- **Gate runtime diagnostic:** the full suite prints one SwiftUI test-harness warning
+  (`OnlineMetadataWorkbenchPerformanceTests:120`, `State<Bool>` accessed outside a view). It is a
+  runtime warning from a test fixture, not a compiler diagnostic, is not suppressed, and does not
+  affect the asserted boundaries; the AM-19 metric covers compiler diagnostics.
 - **Performance:** the batch-save deadline is wall-clock; an externally loaded host can exceed it
   (observed once, re-measured green when idle). Count-based budgets are deterministic.
 - **Campaign documents:** `Docs/Development/REMEDIATION_IMPLEMENTATION.md` and

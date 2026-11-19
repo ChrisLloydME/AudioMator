@@ -78,7 +78,7 @@ extension AudioViewModel {
         )
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set(entries.map(\.fileID)))
         }
 
         presentBatchMetadataOperationSummary(summary)
@@ -163,11 +163,27 @@ extension AudioViewModel {
         )
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set(entries.map(\.fileID)))
         }
 
         presentBatchMetadataOperationSummary(summary)
         return summary
+    }
+
+    /// Completion-side draft publication for a plan batch.
+    ///
+    /// A batch may write files the Inspector does not currently show, and an
+    /// Inspector draft can be created or edited while it runs. Only the captured
+    /// batch targets may trigger the F3 clean-refresh path; a dirty, pending-review
+    /// or different live draft is left untouched. The F3 operation itself also
+    /// refuses to replace a dirty draft.
+    private func refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set<AudioFile.ID>) {
+        guard !capturedTargetIDs.isEmpty else { return }
+        let liveDraftTargetIDs = Set(inspectorDraftIdentity?.targetIDs ?? [])
+        guard !liveDraftTargetIDs.isEmpty,
+              liveDraftTargetIDs.isSubset(of: capturedTargetIDs),
+              selectedAudioIDs == liveDraftTargetIDs else { return }
+        refreshInspectorDraftAfterAcceptedPublication()
     }
 
     private func presentDuplicateMetadataPlanFailure() {

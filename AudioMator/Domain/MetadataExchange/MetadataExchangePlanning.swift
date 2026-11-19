@@ -936,7 +936,10 @@ enum MetadataExchangePlanner {
                     ? MetadataExchangeWriteEntry(
                         fileID: file.id,
                         fileName: file.url.lastPathComponent,
-                        values: legacyValues(from: intent),
+                        values: legacyValues(
+                            from: intent,
+                            effectiveFields: frozen.payload.requestedFields
+                        ),
                         expectedFileFingerprint: file.fileFingerprint,
                         preservingNumberPairComponents: true,
                         resolvedIntent: intent,
@@ -1005,13 +1008,23 @@ enum MetadataExchangePlanner {
         return MetadataExchangeField.allCases.compactMap { changesByField[$0] }
     }
 
-    private static func legacyValues(from intent: ExchangeResolvedIntent) -> [MetadataExchangeField: String] {
+    /// Legacy Apply-compatible scalar values derived from the frozen intent.
+    ///
+    /// Text operations are included only when the frozen payload actually writes
+    /// them; number component operations stay present so the current preserving
+    /// setter path can apply them without reintroducing whole-pair semantics.
+    private static func legacyValues(
+        from intent: ExchangeResolvedIntent,
+        effectiveFields: Set<MetadataFieldKey>
+    ) -> [MetadataExchangeField: String] {
         var values: [MetadataExchangeField: String] = [:]
         for operation in intent.operations {
             switch operation {
             case .setText(let field, let text):
+                guard effectiveFields.contains(field.semanticFieldKey ?? .title) else { continue }
                 values[field] = field.canonicalImportedValue(text)
             case .removeText(let field):
+                guard effectiveFields.contains(field.semanticFieldKey ?? .title) else { continue }
                 values[field] = ""
             case .setNumber(let field, _, let literalText):
                 values[field] = literalText

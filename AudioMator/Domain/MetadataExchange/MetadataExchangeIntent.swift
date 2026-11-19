@@ -455,6 +455,7 @@ nonisolated enum ExchangeWriteTranslator {
         return makeFrozenWrite(
             from: reviewedFile,
             payload: payload,
+            hasRawNumberTextIntent: hasRawNumberTextIntent(edit, reviewedFile: reviewedFile),
             projector: projector
         )
     }
@@ -469,13 +470,27 @@ nonisolated enum ExchangeWriteTranslator {
         makeFrozenWrite(
             from: reviewedFile,
             payload: MetadataEditPayload(edit, comparedTo: reviewedFile),
+            hasRawNumberTextIntent: hasRawNumberTextIntent(edit, reviewedFile: reviewedFile),
             projector: projector
         )
+    }
+
+    /// The filename workflow deliberately compares stored raw number text as a
+    /// conservative change signal even when the numeric pair is unchanged (for
+    /// example empty stored text versus filename "07" with number 7). Preserve
+    /// that existing planner behavior instead of reporting an unchanged row.
+    nonisolated static func hasRawNumberTextIntent(
+        _ edit: SingleFileEditModel,
+        reviewedFile: AudioFile
+    ) -> Bool {
+        edit.trackNumberText != reviewedFile.trackNumberText
+            || edit.discNumberText != reviewedFile.discNumberText
     }
 
     private nonisolated static func makeFrozenWrite(
         from reviewedFile: AudioFile,
         payload: MetadataEditPayload,
+        hasRawNumberTextIntent: Bool,
         projector: (any AudioMetadataPipeline)?
     ) -> ExchangeFrozenWriteOutcome {
         guard let target = ReviewedMetadataTarget(verified: reviewedFile) else {
@@ -496,6 +511,7 @@ nonisolated enum ExchangeWriteTranslator {
             }
             switch projection.validation {
             case .executable:
+                // The adapter projection's no-op decision is authoritative.
                 if projection.isNoOp { return .unchanged }
                 return .executable(
                     FrozenExchangeWrite(target: target, payload: payload, projection: projection)
@@ -510,7 +526,19 @@ nonisolated enum ExchangeWriteTranslator {
         // Without an adapter projection (for example a pure planner test), fall
         // back to the same fail-closed declared capability check.
         let requested = payload.requestedFields
-        guard !requested.isEmpty else { return .unchanged }
+        guard !requested.isEmpty else {
+            guard hasRawNumberTextIntent else { return .unchanged }
+            // Conservative raw number-text comparison: the planner reports the
+            // change (as before the typed-intent phase) while the eventual
+            // adapter projection remains the authority for whether bytes change.
+            return .executable(
+                FrozenExchangeWrite(
+                    target: target,
+                    payload: payload,
+                    projection: MetadataWriteProjection(validation: .executable)
+                )
+            )
+        }
         let unsupported = unsupportedRequestedFields(
             requested,
             fileExtension: reviewedFile.url.pathExtension

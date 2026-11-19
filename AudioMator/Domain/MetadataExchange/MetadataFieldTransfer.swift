@@ -176,7 +176,10 @@ enum MetadataFieldTransferPlanner {
                 message: String(localized: "The destination already has this value. This file will be skipped without changes.")
             )
         case .executable(let frozen):
-            var values: [MetadataExchangeField: String] = [destination: destinationDisplayValue]
+            var values: [MetadataExchangeField: String] = [:]
+            if frozen.payload.requestedFields.contains(destination.semanticFieldKey ?? .title) {
+                values[destination] = destinationDisplayValue
+            }
             if operation == .cut { values[source] = "" }
             let entry = MetadataExchangeWriteEntry(
                 fileID: file.id,
@@ -202,27 +205,25 @@ enum MetadataFieldTransferPlanner {
         }
     }
 
+    /// Returns changes in resolved-operation order (destination first, then the
+    /// Cut source) so preview rows keep the existing transfer presentation.
     private static func displayChanges(
         intent: ExchangeResolvedIntent,
         file: AudioFile,
         effectiveFields: Set<MetadataFieldKey>,
         destinationDisplayValue: String
     ) -> [MetadataExchangeFieldChange] {
-        var changesByField: [MetadataExchangeField: MetadataExchangeFieldChange] = [:]
-        for operation in intent.operations {
+        intent.operations.map { operation in
             switch operation {
             case .setText(let field, _):
-                let importedValue = field == .contentAdvisory
-                    ? destinationDisplayValue
-                    : destinationDisplayValue
-                changesByField[field] = MetadataExchangeFieldChange(
+                return MetadataExchangeFieldChange(
                     field: field,
                     currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
-                    importedValue: importedValue,
+                    importedValue: destinationDisplayValue,
                     willWrite: effectiveFields.contains(field.semanticFieldKey ?? .title)
                 )
             case .removeText(let field):
-                changesByField[field] = MetadataExchangeFieldChange(
+                return MetadataExchangeFieldChange(
                     field: field,
                     currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
                     importedValue: "",
@@ -230,14 +231,14 @@ enum MetadataFieldTransferPlanner {
                     isExplicitRemoval: true
                 )
             case .setNumber(let field, _, let literalText):
-                changesByField[field] = MetadataExchangeFieldChange(
+                return MetadataExchangeFieldChange(
                     field: field,
                     currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
                     importedValue: literalText,
                     willWrite: effectiveFields.contains(field.semanticFieldKey ?? .title)
                 )
             case .removeNumber(let field):
-                changesByField[field] = MetadataExchangeFieldChange(
+                return MetadataExchangeFieldChange(
                     field: field,
                     currentValue: field.value(from: file, index: 0, relativeBasePath: nil),
                     importedValue: "",
@@ -246,7 +247,6 @@ enum MetadataFieldTransferPlanner {
                 )
             }
         }
-        return MetadataExchangeField.allCases.compactMap { changesByField[$0] }
     }
 }
 

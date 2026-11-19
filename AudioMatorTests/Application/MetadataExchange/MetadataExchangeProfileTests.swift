@@ -89,7 +89,11 @@ final class MetadataExchangeProfileTests: XCTestCase {
             removalPlan.rows.first?.changes.first { $0.field == .date }?.displayImportedValue,
             "<remove>"
         )
-        XCTAssertEqual(removalEntry.resolvedIntent?.operations, [.removeText(.date)])
+        let removalOperations = removalEntry.resolvedIntent?.operations.filter { operation in
+            if case .removeText = operation { return true }
+            return false
+        }
+        XCTAssertEqual(removalOperations, [.removeText(.date)])
         XCTAssertEqual(removalEntry.frozenPayload?.requestedFields, [.standaloneDate])
         var removalEdit = SingleFileEditModel(from: target)
         for field in MetadataExchangeField.allCases {

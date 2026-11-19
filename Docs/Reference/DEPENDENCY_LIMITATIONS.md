@@ -18,6 +18,12 @@ Version 0.8.1 supplies automatic edited-group numbering recovery and retirement.
 
 Loading opts into the package's optional `audioContentIdentity`. Automatic conflict rebases require equal, non-nil baseline and current tokens and commit with both the baseline token and exact current version. An unchanged exact version may still save normally; two absent tokens never establish continuity. The token is package-owned and opaque to the app; its derivation, cost and layout coverage are package responsibilities.
 
+Reviewed write authorization requires a nonoptional `MetadataFileVersion`; a
+load that cannot supply one produces no writable target. The app no longer has
+any nil-revision write path: the removed mixed helper and its optional expected
+version forwarding are gone. Such a file stays readable and must be reviewed
+again after a coherent reread.
+
 `MetadataFileVersion` remains an opaque revision token. Package support is limited by format and layout, so automatic rebases are unavailable whenever either snapshot lacks a token. Whole-file hashes are not used as a fallback. Current app integration coverage includes the same-inode content-replacement regression; it does not prove continuity for every container. WAV, AIFF/AIFF-C and native FLAC have been reported for the current pin, but the app treats continuity as optional and format-dependent rather than assumed.
 
 ## Number Text and Normalization

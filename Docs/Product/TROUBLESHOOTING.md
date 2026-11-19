@@ -139,6 +139,10 @@ Artwork write support depends on the container and is checked before writing. Th
 
 A failed online artwork search and a failed candidate download are reported separately. **Search Again** retries only a failed search; it never repeats a download. After a failed, timed-out or cancelled download the result grid and selected candidate stay available: press **Try Again** for the same candidate, or select another candidate and apply it without searching again. While a download runs, applying and switching candidates are disabled; **Stop Download** cancels it without closing the sheet. A failed download does not change the file or the Inspector draft.
 
+### Artwork wasn't applied because the selection changed
+
+An artwork command is tied to the Inspector draft that was active when you chose the image or online result. If you change the selection, reopen a draft for the same files, remove one of the captured files, or issue a newer artwork command (another image, another online result, **Clear Artwork** or **Keep Current Artwork**) before the image finishes loading, the handoff is rejected and nothing is written to the draft or to disk. The message names the affected selection; a stale **Fetch Online…** sheet stays open with its results for reference only. Select the intended files again and choose the artwork again. Artwork is never transferred to a different selection or to a surviving subset of a batch implicitly.
+
 ### Lyrics will not apply because the file changed
 
 LRCLIB applies synced lyrics only to the file revision that was reviewed when the browser queued it. Close and reopen LRCLIB (or rerun Online Metadata) so the current title/artist/album values are reviewed and a new search is issued, then apply the result. If you returned to Sources, choose LRCLIB and press Search first. Do not expect Reload from Disk alone to authorize an old lyrics result.

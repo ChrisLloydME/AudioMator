@@ -117,7 +117,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 949 test functions and 107 `XCTestCase` classes in 112 Swift files, plus fixtures and test-support files.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 994 test functions and 113 `XCTestCase` classes in 120 Swift files, plus fixtures and test-support files.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -135,7 +135,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 70 test functions in four `XCTestCase` classes across three source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 31-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 88 test functions in six `XCTestCase` classes across five source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 

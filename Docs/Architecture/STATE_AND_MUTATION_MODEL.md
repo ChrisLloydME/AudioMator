@@ -11,7 +11,7 @@ This document describes how AudioMator models application state and how it seria
 | Selection | Current visible file IDs owned exclusively by `AudioViewModel`. | Session |
 | Editing draft | `SingleFileEditModel` or `MultiFileEditModel`, plus the source snapshots it was created from. | Session; never implicit disk truth |
 | Presentation | Progress, HUDs, open sheets/windows, issue summaries. | Session |
-| Online artwork lookup | `ArtworkLookupSession`: one search attempt (`searching`/`results`/`failed`/`cancelled`), one candidate download attempt owned by session and attempt IDs, a candidate-scoped retryable download fault, and the selected candidate ID. | Session; results and candidate faults are discarded when the sheet closes |
+| Online artwork lookup | `ArtworkLookupSession`: one search attempt (`searching`/`results`/`failed`/`cancelled`), one candidate download attempt owned by session and attempt IDs, a candidate-scoped retryable download fault, the selected candidate ID, and the captured destination transfer intent (or preview-only). | Session; results, candidate faults and the transfer intent are discarded when the sheet closes |
 | Source configuration | Watched-folder and file-access bookmark records. | `UserDefaults` |
 | Preferences | Sidebar/sort/columns/toolbar/inspector visibility, conflict policy, welcome state, MuseAmp toggle. | `UserDefaults` |
 | Save issue log | Non-success batch summaries. | JSON in Application Support |
@@ -24,7 +24,12 @@ This document describes how AudioMator models application state and how it seria
 - A URL key is standardized, symlink-resolved, and Unicode-precomposed. Case folding is applied only on case-insensitive volumes (`FileSystemPathSemantics`).
 - Imports and rescans reuse the existing UUID for the same path through `fileIDsByKey`.
 - A rename operation carries the file ID, source, destination, and the preview fingerprint. On success the ID is retained and the URL mapping is updated.
-- Metadata and provider write plans carry an expected fingerprint and metadata version. They are validated again inside the mutation reservation.
+- Metadata and provider write plans carry a captured reviewed target: the logical
+  ID, operational URL, fingerprint and nonoptional package metadata version. They
+  are validated again inside the mutation reservation. There is no optional
+  expected-version forwarding path: every production metadata write is either
+  reviewed or draft-aware, and a source without both tokens cannot authorize a
+  write.
 
 ## Immutable Snapshots
 
@@ -47,6 +52,23 @@ Each watched folder owns one `DirectoryMonitorController` with a capped set of `
 
 Status separates cap omissions, open failures (missing, inaccessible or revoked folders), identity mismatches (the path now refers to a different directory), scan failures and metadata read failures; only identity-verified descriptors count as actively monitored. In-place edits to an already indexed file are not directory-entry events: that refresh remains best effort and explicit Refresh/Reload or activation covers it.
 
+### Quick Import indexing and scope leases
+
+Quick Import keeps the published `quickImportFiles` array plus a parallel ordered `QuickImportPathIndex`, both in Foundation-only `Core/FileSystem`. The index is the bookkeeping source of truth: row order (`orderedIDs`), stable row IDs per canonical file key, per-URL replacement tokens, admission sequences, and file/parent reference counts. Replacing a row keeps its original position and stable ID; removing one compacts the order. The published array is updated by applying one index delta per accepted batch, never by re-scanning the whole collection.
+
+An `importQuickFiles(from:)` request:
+
+1. dedupes exact standardized URLs and sorts lexically with no path-key work, registers one request/token sequence, and starts the job's URL-level scope leases so the worker may observe the selected entries;
+2. prepares Sendable candidate identities off the main actor, one canonical/volume resolution for the file and one for its lexical parent plus entry device/inode evidence, reusing the parent evidence of a sibling. Candidates carry their operational URL, canonical path, file/parent keys and versioned request token; no path key is computed per batch later;
+3. admits candidates on the main actor: a newer request sequence supersedes an older one for the same file key, an alias in the same request keeps the later candidate, and the stable ID is looked up (or assigned) in the session-wide `fileIDsByKey` map;
+4. loads with the shared keyed loader, which flushes only a contiguous resolved prefix at the production cadence or the injected forced batch size, and publishes the batch once: stale token/sequence batches and empty batches never publish and never rebuild the visible collection;
+5. verifies the observation's canonical location and, when captured, device/inode identity against the candidate before accepting it. A symlink retarget or a parent entry replacement between preparation and load is declined and reported as "select again" instead of retried, so a different file never receives the selected row;
+6. terminates exactly once: releases the job's leases (stale batch publication cannot restore a removed row), prunes tokens for keys that never published, and reports only failures whose original request token is still current. There is no end-of-job merge of already-published results and no per-callback token re-key pass.
+
+Scope access is refcounted per file and parent key by `QuickImportScopeLeases`. The first owner starts one security scope; later owners only join. Releasing the last owner stops it exactly once. A start that reports no scope required is tracked as `notRequired` and is never retried by passive batch sync; a scope that was granted before and fails later becomes `revoked` and is retried only at an explicit authorization event (a new user import or relaunch). A forced start/stop pair is therefore balanced, and a removal or clear cannot stop a scope another job, watched folder or rename read still holds. Clearing Quick Import releases every lease at once.
+
+Rename and recovery migration is atomic under the existing rename reservation: `publishMovePlaceholders` migrates the ID map, replacement tokens, index identity, file/parent leases and the membership URL in one main-actor step before the single visible rebuild, and the destination identity is computed once and checked against the move receipt's device/inode evidence. A journal restore migrates a membership back to its original URL only when the restored entry's device/inode matches the captured membership; ambiguous evidence skips migration and keeps the recovery decision. `fileIDsByKey` remains session-wide so re-selecting a path reuses its identity even after removal or clear.
+
 ## Selection Ownership
 
 `AudioViewModel.setSelectedAudioIDs`:
@@ -62,6 +84,10 @@ Rebuilding the visible collection prunes IDs that are no longer present and upda
 The Inspector draft has a store-owned session identity independent of the current selection and of any single disk observation: a session ID, the captured target IDs and source baselines, a monotonic edit generation, and an independent artwork command generation. `AudioViewModel` rebuilds the published `edit`/`multiEdit` payload only through named operations: explicit selection transition, session-scoped clean refresh, and own-save completion. A dirty draft keeps its payload and original expected version across passive refresh and watch/scan publication; a clean draft follows the newest accepted observation.
 
 A save captures a receipt (session identity, target baselines, submitted per-target intent) before any suspension. Completion is accepted only for that session/generation, advances the baseline of successful targets from their accepted readback, inherits readback normalization for fields whose live value still equals the submitted value, and reapplies newer typed edits (including an intentional revert to the pre-save value) as still-dirty intent. A commit whose reload failed records no new baseline. Partial batches maintain a completed-target ledger so a retry submits only failed targets or newer changes.
+
+#### Artwork command handoffs
+
+An asynchronous artwork command — online lookup/download and the Finder, photo-library and clipboard single and batch imports — captures one `ArtworkTransferIntent` before its first suspension: the F3 draft session ID, the independent artwork command generation, the ordered captured target IDs, a transfer/attempt identity and the source context. Staging is a guarded commit rather than a setter: it accepts the intent only while the same draft session and artwork command generation are live, the current selection and draft shape still represent the full ordered captured target set, every captured target is still in source membership, writable for artwork, and not blocked by a recovery decision. Otherwise it returns a localized stale-selection or superseded rejection and mutates nothing. It never creates or steals a draft for the captured IDs, never substitutes the current selection, and never stages a surviving subset of a batch. Unrelated text edits advance only the edit generation and preserve the handoff; Clear/Keep and every newer artwork command advance the artwork generation and supersede older handoffs. A deferred picker or transfer completion whose captured intent is already obsolete is silent, and an explicit selection change or pending-review transition cancels the in-flight local preparation. Staged artwork remains draft state until Inspector Save.
 
 When a dirty draft's captured targets become unavailable (passive prune or an intentional removal), the payload, captured values and ledger are retained as a detached pending-review session. Selection is still pruned to the visible collection; Save is suspended until every captured target is available again and the user resumes, or until the user discards the review. Cross-source or new-target transfer of captured values never happens implicitly. Explicit transitions remain the only discard routes and their confirmation is revalidated against the session/generation that displayed it.
 
@@ -107,6 +133,11 @@ commit; the real outcome, warnings included, is reported and never retried.
 Conflict groups follow actual native storage: `track`/`trackTotal` share one group, `disc`/`discTotal` share another, and YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent groups. A changed YEAR therefore does not create a blanket date conflict, while a shared native number pair remains protected. Alias/private-number cleanup is an explicit captured plan, not a conflict-resolution side effect.
 
 LRCLIB session ownership is explicit: `LRCLIBLyricsBrowserStore` owns one session ID plus a monotonic generation and at most one operation token. Every publication (`searchState`, candidates, applied marks, progress) is gated by the token's generation, and every write handoff carries the reviewed target captured at seed. Close, Back and reseed invalidate the generation first, then cancel the operation; the commit permit remains the only ordering point between a cancelled and an admitted write. Back retains the queued rows/bindings but clears candidates, so a new review is required.
+
+The removed mixed write helper (`persistMetadataEdit`) is no longer a production
+route. Inspector and Raw Metadata Editor saves use the draft-aware route with
+their captured baseline/conflict policy; every other metadata workflow uses the
+strict reviewed route with a captured nonoptional revision.
 
 Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename and CSV/text plans run up to four independent targets concurrently. Cancellation prevents unstarted targets from invoking their writers; up to four already started commits may finish and all actual outcomes are retained. Results and cancelled entries are accounted for in captured plan order. Raw-map and renumber loops retain their sequential cancellation checks. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 

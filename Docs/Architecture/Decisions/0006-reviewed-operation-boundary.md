@@ -85,10 +85,11 @@ between the final check and the commit.
 - The package remains the only owner of container I/O, atomic commit and revision
   comparison. The app verifies fingerprint identity and observable outcomes but
   does not claim to prove the package's rollback behavior by itself.
-- Inspector, Raw Metadata Editor, LRCLIB, MuseAmp and erase routes must migrate
-  to the reviewed or draft-aware routes before the optional forwarding path is
-  removed; until then the legacy route is an explicitly labeled migration
-  boundary, not an authorization fallback.
+- Inspector, Raw Metadata Editor, LRCLIB, MuseAmp, erase, provider and renumber
+  routes migrated to the reviewed or draft-aware routes; the mixed
+  `persistMetadataEdit` helper, its optional expected-version/expected-fingerprint
+  forwarding, the legacy executor admission and the optional fingerprint
+  validator were then removed. Source-policy tests forbid their return.
 - Test doubles must implement the adapter-owned projection when a plan-time
   projector is required; fabricated package revisions are not acceptable, so
   tests mint real tokens from disposable fixture copies.
@@ -106,5 +107,17 @@ between the final check and the commit.
   `MetadataBoundaryMatrixTests`, `MetadataSaveJourneyTests`: structural
   cancellation accounting, admission ordering, strict provider writes and
   real-adapter readback.
+- `LegacyWriteRouteRemovalPolicyTests`: production sources contain no
+  `persistMetadataEdit`, `executeMetadataFileMutation`, `executeUnmigrated`,
+  legacy admission case or `expectedVersion: nil` forwarding.
 - Full named gate evidence: `.deriveddata-codex/Validation/` runs on the
   integrated candidate.
+
+## Related
+
+- [ADR 0001](0001-atomic-write-and-reload-reservation.md): the reservation this
+  boundary admits commits into.
+- [ADR 0003](0003-metadata-contract-and-taglib-adapter.md): the package contract
+  whose nonoptional revision is captured here.
+- [ADR 0002](0002-single-selection-owner.md): the MainActor owner that plans and
+  revalidates writes.

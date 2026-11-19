@@ -30,6 +30,13 @@ A conflict therefore does not prove that tags changed. It proves that the app ca
 
 ## Where Revision Checks Happen
 
+There is no optional expected-revision write path. The mixed helper that could
+forward `expectedVersion: nil` or default to the model loaded at Apply has been
+removed; every production metadata write is a reviewed write (captured target,
+fingerprint and nonoptional package revision) or a draft-aware Inspector/Raw
+Editor write with its captured baseline. A file without both captured tokens is
+read-only for metadata editing until a coherent reread produces an observation.
+
 ```mermaid
 flowchart LR
     A[Snapshot loaded] --> B[Expected fingerprint + version stored]

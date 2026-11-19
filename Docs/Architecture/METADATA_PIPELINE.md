@@ -91,9 +91,10 @@ do not write from a live editor model:
 - Inspector and Raw Metadata Editor drafts use a distinct draft-aware route that
   keeps their conflict baseline, policy validation and audio-identity checks;
   the strict route passes the captured nonoptional revision to the package.
-  The documented boundary is enforced by unit, execution and full-gate tests;
-  remaining legacy callers are a migration boundary recorded in the remediation
-  campaign, not an authorization fallback.
+  The documented boundary is enforced by unit, execution and full-gate tests.
+  After the final family migration the mixed optional-version entry point was
+  removed: no production metadata write forwards an optional expected revision,
+  and `ReviewedMetadataTarget` is the only write-authorization value.
 
 ### Missing, unsupported, and malformed metadata
 
@@ -143,20 +144,35 @@ No value is inferred, synchronized, completed or truncated; `2004-07-15` remains
 
 Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. `ArtworkImageNormalizer` bounds input at 50 MiB, 4096 px output dimension, and 4096×4096 source pixels. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
 
-The online artwork lookup hands its normalized download to the same `ArtworkEditAction.replace` draft staging; it does not write or reload the file. Its search and per-candidate download fault channels live in the lookup sheet, so a failed download leaves the result grid and selected candidate available for retry or alternate selection without creating or altering a draft. Nothing reaches disk until the separate Inspector Save, which still uses the normal reviewed-write route, conflict checks, and per-field format preflight.
+Every asynchronous artwork handoff — online lookup/download and the Finder, photo-library and clipboard single and batch imports — captures the Inspector destination before its first suspension: the F3 draft session ID, the independent artwork command generation, the ordered captured target IDs and the source context. Data is staged only through the guarded commit, which revalidates the same draft session/command generation, the full ordered target set, source membership, artwork write support and recovery state immediately before the draft mutation. A stale destination is rejected with a localized message; the commit never creates or steals a draft, never substitutes the current selection, and never stages a surviving subset. The online lookup's search and per-candidate download fault channels live in the lookup sheet, so a failed download leaves the result grid and selected candidate available for retry or alternate selection without creating or altering a draft. Nothing reaches disk until the separate Inspector Save, which still uses the normal reviewed-write route, conflict checks, and per-field format preflight.
 
 ## Write Preflight
 
-Before any semantic write, `persistMetadataEdit`:
+Every production semantic write is planned before any authorization prompt and
+runs through either the strict reviewed route or the draft-aware
+Inspector/Raw Editor route. The removed mixed helper (`persistMetadataEdit`) and
+its optional expected-version/expected-fingerprint forwarding no longer exist in
+production source.
 
-1. refuses if the snapshot is marked refresh-required,
-2. checks `isTagWriteSupportedExtension` against the runtime writable extensions,
-3. builds `MetadataEditPayload` compared to the baseline snapshot,
-4. expands the requested fields with advisory and number-component companions,
-5. looks up `AudioFormatSupport.writableMetadataFields(for:)`,
-6. refuses the write if any requested field is unsupported, naming the fields.
+1. capture a failable `ReviewedMetadataTarget` from the reviewed observation
+   (missing fingerprint or package version, or a recovery block, means the file
+   is not writable),
+2. build `MetadataEditPayload` compared to the reviewed baseline snapshot,
+3. obtain the adapter-owned `MetadataWriteProjection` from the same deterministic
+   encoder the commit uses; malformed number/date text and unsupported fields are
+   rejected here, and a no-op projection never reaches a writer,
+4. look up `AudioFormatSupport.writableMetadataFields(for:)`. Missing capability
+   information marks every requested field unsupported (fail closed); an unknown
+   format is never treated as permission to write,
+5. revalidate current membership, URL, recovery state and the captured tokens
+   under the path reservation before the package writer runs.
 
-`nil` capability information means the format is not known to the app's snapshot; the write is left to the package's own validation. This is a deliberate fail-open for unknown capability data, offset by package verification and error reporting.
+The draft-aware route keeps the Inspector/Raw Editor conflict baseline, conflict
+policy and audio-continuity validation; the strict route passes the captured
+nonoptional package revision and never selects a merge policy or substitutes a
+newer version. The raw editor keeps its documented low-level exception from
+semantic field preflight, but it still requires a reviewed target and a captured
+nonoptional revision; there is no unversioned fallback.
 
 ## Payload Construction
 

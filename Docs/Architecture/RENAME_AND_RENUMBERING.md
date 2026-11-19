@@ -110,12 +110,15 @@ lock.
 `TrackRenumberOptions`:
 
 - direction: ascending or descending,
-- start number: clamped to `0...9_999`,
-- zero padding: on/off.
+- start number: a required positive integer from `1` to `9_999`, default `1`.
 
-`trackRenumberPadWidth` returns at least width 2 when padding is enabled, based on the largest assigned number. When disabled, width is 0 (no padding).
+There is no zero-padding option. The preview and execution submit the stored numeric value; text formatting such as `07` is not a supported input intent. A blank, malformed, zero, negative, signed, fractional, overflowed, or Unicode-lookalike start number is an explicit invalid state that disables Apply and causes zero writes; the value is never clamped or replaced by a fallback.
 
-### Target order
+### Plan and target order
+
+`makeTrackRenumberPlan(...)` builds one `TrackRenumberPlan` from the ordered files and the current selection. Each ordered row carries a reasoned disposition (ready, unchanged, rejected, or skipped), the reviewed write target, the assigned numeric value and a frozen track-only `MetadataEditPayload` derived from the same reviewed snapshot. Preview, eligibility, counts and Apply all consume that same plan; Apply never recomputes the sequence from the current collection.
+
+Unsupported, refresh-required, duplicate-identity and stale targets are classified before numbering and do not consume numbers. A target that already has the desired number is an unchanged numbered row: it keeps its slot and performs no disk write. A later write failure keeps its slot so following rows keep their reviewed assignments.
 
 The UI supplies the current list order and selection:
 
@@ -124,21 +127,17 @@ The UI supplies the current list order and selection:
 
 ### Write behavior
 
-For each target, in order:
+For each ready row, in order:
 
-1. Refuse if the snapshot is refresh-required.
-2. Skip if the extension is not metadata-writable.
-3. Skip if `.track` or `.trackTotal` is unsupported for the format.
-4. Format the number (`07`, `7`, …).
-5. Submit a typed track-number component intent through `MetadataEditPayload` with the expected metadata version. The existing total and the complete disc group are carried as untouched values and are not removed.
-6. Reload the snapshot from disk.
-7. Report success, warnings, or failure per file.
+1. Revalidate the captured reviewed target against current membership, path identity and recovery state.
+2. Submit the frozen track-number component intent through the reviewed executor with the captured nonoptional metadata revision. The existing total, the complete disc group and unrelated fields are carried as untouched values and are not removed.
+3. Reload the snapshot from disk and report success, warnings, or failure per file.
 
-Renumbering is serial and uses the same `MetadataFileMutationExecutor` and path reservation as metadata writes and erase. It does not modify disc numbers.
+Renumbering is serial and uses the same reviewed-write reservation, commit permit and bounded readback as other metadata writes and erase. It does not modify disc numbers.
 
 ### Results
 
-`TrackRenumberResult` reports total targets, succeeded, skipped unsupported, failed, per-file failures, and per-file warnings. The UI displays the summary; there is no group rollback.
+`TrackRenumberResult` reports total targets, succeeded, unchanged, skipped unsupported, skipped duplicates, failed, any start validation message, per-file failures, and per-file warnings. The UI displays the summary; there is no group rollback.
 
 ### Constraints
 
@@ -146,7 +145,7 @@ Renumbering is serial and uses the same `MetadataFileMutationExecutor` and path 
 - The operation writes a typed number component, not a formatting-only text patch and not a full semantic replacement. Disc numbers and their totals are preserved.
 - Ambiguous or invalid legacy number candidates make the package reject the write; renumbering reports the failure and does not pick a candidate.
 - Renumbering never performs private-atom cleanup; typed component patches leave legacy aliases and unrelated keys untouched.
-- Containers may normalize padding. Verification compares numeric component values; a text-only difference is not by itself a failed write. Package warnings are surfaced as returned.
+- Containers may normalize number representation. Verification compares numeric component values; a text-only difference is not by itself a failed write. Package warnings are surfaced as returned. An unchanged numeric value performs no write, so padded original raw text is preserved when its numeric value already matches.
 - Unsupported formats are skipped rather than force-written.
 
 ## Tests
@@ -155,8 +154,9 @@ Renumbering is serial and uses the same `MetadataFileMutationExecutor` and path 
 - Independent filename tokens: `year` keeps complete stored YEAR text; `date`, `releaseDate` and `originalReleaseDate` edit only their own field. Extraction applies only the explicitly targeted field.
 - Transaction rollback and recovery: `FileRenameTransactionTests`.
 - Post-rename refresh safety: `RenameRefreshSafetyTests`.
-- Renumber pad/start policy: `TrackRenumberTests`.
-- Renumber execution, verification, and disk readback: `TrackRenumberExecutionTests`.
+- Renumber start policy, plan rows and dispositions: `TrackRenumberTests` (plus the Foundation-only start policy in `AudioMatorCoreLogicTests`).
+- Renumber strict execution, verification, cancellation and disk readback: `TrackRenumberExecutionTests`.
+- Real FLAC/MP3/M4A renumber round trips: `TrackRenumberRoundTripTests`.
 
 Interactive preview UI is not covered by automated UI tests.
 
@@ -168,7 +168,7 @@ Renumbering treats a committed-but-durability-uncertain outcome as a successful 
 
 ## Renumber Eligibility and Cancellation
 
-Only format-capable targets with a verified loaded revision participate in number assignment and padding width. Refresh-required targets are reported as failures before directory-access prompting and do not consume numbers. A runtime write failure may still leave a gap; renumbering does not retry or roll back committed files. Cancellation stops before the next target. The current commit and readback finish under their mutation reservation, and the result retains committed successes and records every unprocessed target as cancelled.
+Only format-capable targets with a verified loaded revision participate in number assignment. Refresh-required targets are reported as failures before directory-access prompting and do not consume numbers. A runtime write failure may still leave a gap; renumbering does not retry or roll back committed files. Cancellation stops before the next target. The current commit and readback finish under their mutation reservation, and the result retains committed successes and records every unprocessed target as cancelled.
 
 ## Related Documents
 

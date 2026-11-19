@@ -161,8 +161,9 @@ struct ContentView: View {
     }
 
     private func openTrackRenumberSheet() {
-        // Seed defaults each time the sheet opens
-        trackRenumberStartText = String(max(1, trackRenumberOptions.startNumber))
+        // Seed the approved default start each time the sheet opens. The transient
+        // options value is only ever set from a validated plan.
+        trackRenumberStartText = String(trackRenumberOptions.startNumber)
         trackRenumberResult = .empty
         isTrackRenumberPresented = true
     }

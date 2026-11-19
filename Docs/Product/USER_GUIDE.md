@@ -161,10 +161,10 @@ Choose a source field, a destination field, and **Copy** or **Cut**. Each file u
 
 1. Arrange files in the intended order in the middle list (or select a subset).
 2. Choose **Renumber Tracks…**.
-3. Choose ascending or descending direction, a start number (0–9,999), and zero-padding.
-4. Review the preview and apply.
+3. Choose ascending or descending direction and a start number from 1 to 9,999 (default 1). There is no zero-padding option; a blank or invalid start disables Apply.
+4. Review the preview, which shows the numeric number each reviewed file will store, then apply.
 
-Renumbering rewrites track number text with verification enabled, then reloads each file from disk. Unsupported formats are skipped and counted. Failures and warnings are reported per file. The operation is serialized with other file mutations.
+Renumbering applies the reviewed plan with the package revision captured at review time, then reloads each file from disk. Unsupported, refresh-required and duplicate targets are skipped without consuming numbers, and a file that already has the desired number is reported as unchanged with no write. Totals, disc numbers and unrelated fields are preserved. Failures and warnings are reported per file, and the operation is serialized with other file mutations.
 
 ## Online Metadata, Artwork, and Lyrics
 

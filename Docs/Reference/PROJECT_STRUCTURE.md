@@ -70,7 +70,7 @@ Business rules and value models that do not own UI or concrete file transactions
 | `MetadataExchange/` | Converter modes/fields, exchange profile, template syntax, CSV, import/export planning, field transfer |
 | `MuseAmp/` | Deterministic MuseAmp ID generation |
 | `Rename/` | Filename templates, extraction, rename plan, collision policy |
-| `TrackRenumber/` | Renumber options, padding, result models |
+| `TrackRenumber/` | Renumber start policy, shared plan/row dispositions, result models |
 
 There is no `Domain/UIState` folder. UI state lives under `Features/Main/State`.
 

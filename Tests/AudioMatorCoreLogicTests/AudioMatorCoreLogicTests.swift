@@ -166,6 +166,21 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(pair.replacingNumberText("").canonicalRawText, "/11")
     }
 
+    func testTextEditPipelineTransformsValueArraysPerElement() {
+        let pipeline = TextEditPipeline(steps: [
+            .trimEdges(.whitespacesAndNewlines),
+            .transformCase(.uppercase)
+        ])
+
+        XCTAssertEqual(
+            pipeline.applying(
+                to: [" alpha ", "", "beta"],
+                context: TextEditPipelineContext(locale: Locale(identifier: "en_US_POSIX"))
+            ),
+            ["ALPHA", "", "BETA"]
+        )
+    }
+
     func testTextEditPipelineAppliesDeterministicOrderedTransforms() {
         let pipeline = TextEditPipeline(steps: [
             .trimEdges(.whitespacesAndNewlines),

@@ -108,6 +108,49 @@ final class TextEditPipelineTests: XCTestCase {
         )
     }
 
+    func testArrayTransformMapsEveryValueIndependentlyAndPreservesOrder() {
+        let pipeline = TextEditPipeline(steps: [.insertText("P-", position: .prefix)])
+
+        XCTAssertEqual(
+            pipeline.applying(
+                to: ["Alpha", "", "line one\nline two"],
+                context: TextEditPipelineContext(locale: locale)
+            ),
+            ["P-Alpha", "P-", "P-line one\nline two"]
+        )
+    }
+
+    func testArrayTransformKeepsDuplicatesAndEmptyInput() {
+        let pipeline = TextEditPipeline(steps: [.transformCase(.uppercase)])
+
+        XCTAssertEqual(
+            pipeline.applying(to: ["dup", "dup"], context: TextEditPipelineContext(locale: locale)),
+            ["DUP", "DUP"]
+        )
+        XCTAssertEqual(
+            pipeline.applying(to: [], context: TextEditPipelineContext(locale: locale)),
+            []
+        )
+    }
+
+    func testArrayWholeValueMatchAppliesPerElement() {
+        let pipeline = TextEditPipeline(steps: [
+            .replaceText(TextFindReplacement(
+                findText: "Alpha",
+                replacementText: "Changed",
+                options: TextFindReplacementOptions(matchesCase: false, matchesWholeText: true)
+            ))
+        ])
+
+        XCTAssertEqual(
+            pipeline.applying(
+                to: ["Alpha", "Beta"],
+                context: TextEditPipelineContext(locale: locale)
+            ),
+            ["Changed", "Beta"]
+        )
+    }
+
     func testPipelineAppliesStepsInOrder() {
         let pipeline = TextEditPipeline(steps: [
             .trimEdges(.whitespacesAndNewlines),

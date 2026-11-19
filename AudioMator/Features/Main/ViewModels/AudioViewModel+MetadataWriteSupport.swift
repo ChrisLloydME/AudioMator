@@ -164,8 +164,8 @@ extension AudioViewModel {
                     refreshGeneration: refreshGeneration,
                     deferVisibleRefresh: metadataSaveProgress != nil && !syncInspectorAfterReload
                 )
-                if didApplyReloadedFile, syncInspectorAfterReload, selectedAudioIDs.contains(id) {
-                    updateEditForSelection()
+                if didApplyReloadedFile, syncInspectorAfterReload {
+                    refreshInspectorDraftAfterAcceptedPublication()
                 }
             }
 

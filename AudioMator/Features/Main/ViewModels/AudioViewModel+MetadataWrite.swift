@@ -24,11 +24,39 @@ nonisolated func unsupportedMetadataWriteFields(
     return requestedFields.subtracting(writableFields)
 }
 
+/// One captured Inspector save target. The reviewed target and frozen payload are
+/// built from `inspectorEditSourceFilesByID` at save start, before the bounded
+/// batch or any suspension; the model loaded at Apply is never consulted for
+/// revision authority.
+private struct InspectorWritePlan: Sendable {
+    enum Route: Sendable {
+        case draft(ReviewedMetadataDraft)
+        case strict(ReviewedMetadataWrite)
+        case rejected(String)
+    }
+
+    let targetID: AudioFile.ID
+    let fileName: String
+    let url: URL
+    /// Snapshot identity of the captured Inspector source observation. Completion
+    /// may advance this file's baseline only while the draft still represents it.
+    let sourceSnapshotID: UUID?
+    let route: Route
+}
+
 extension AudioViewModel {
     // MARK: - Inspector Writes (TagLib)
 
     func saveInspectorEdits() {
         guard metadataSaveProgress == nil else { return }
+        guard !hasInspectorPendingReview else {
+            presentMetadataWriteHUD(
+                style: .warning,
+                title: String(localized: "Inspector Draft Needs Review"),
+                subtitle: String(localized: "Resume editing the captured files or discard the pending Inspector edits before saving.")
+            )
+            return
+        }
         guard hasUnsavedInspectorChanges else { return }
 
         if selectedAudioIDs.count > 1 {
@@ -38,12 +66,18 @@ extension AudioViewModel {
         }
     }
 
-    /// Writes the current inspector edits back to the selected audio file through the TagLib bridge.
+    /// Writes the current inspector edits back to the selected audio file.
+    ///
+    /// The write is authoritatively bound to the captured Inspector source
+    /// observation (`inspectorEditSourceFilesByID`): a missing source or missing
+    /// disk tokens fail closed instead of borrowing the model loaded at Apply.
+    /// The documented conflict-aware draft route runs through
+    /// `executeReviewedDraftMetadataWrite`, whose resolver keeps its baseline,
+    /// policy and audio-identity checks.
     func saveSingleEdits() {
         guard
             let edit = edit,
-            let id = selectedAudioIDs.first,
-            let file = files.first(where: { $0.id == id })
+            let id = selectedAudioIDs.first
         else {
             return
         }
@@ -53,54 +87,69 @@ extension AudioViewModel {
             return
         }
 
+        guard let sourceFile = inspectorEditSourceFilesByID[id] else {
+            presentMetadataWriteFailure(
+                for: fileNameForInspectorTarget(id)
+                    ?? String(localized: "This file"),
+                reason: Self.inspectorSourceUnavailableMessage
+            )
+            return
+        }
+
+        guard let receipt = captureInspectorSaveReceipt() else { return }
+        let plan = makeInspectorWritePlan(
+            edit: edit,
+            sourceFile: sourceFile,
+            sessionID: receipt.identity.sessionID,
+            targetIDs: receipt.targetIDs
+        )
+        if case .rejected(let message) = plan.route {
+            finishInspectorSave()
+            presentMetadataWriteFailure(for: plan.fileName, reason: message)
+            return
+        }
+
         beginMetadataSaveProgress(
             title: "Saving Metadata",
-            subtitle: file.url.lastPathComponent,
+            subtitle: plan.fileName,
             totalUnitCount: 1
         )
-        let expectedFileFingerprint = inspectorEditSourceFilesByID[id]?.fileFingerprint
-            ?? file.fileFingerprint
-        let expectedMetadataVersion = inspectorEditSourceFilesByID[id]?.metadataFileVersion
-            ?? file.metadataFileVersion
-        let sourceFile = inspectorEditSourceFilesByID[id] ?? file
 
         Task(priority: .userInitiated) {
-            let result = await self.persistMetadataEdit(
-                edit,
-                to: file,
-                comparedTo: sourceFile,
-                expectedFileFingerprint: expectedFileFingerprint,
-                expectedMetadataVersion: expectedMetadataVersion
-            )
+            let result = await self.executeInspectorWritePlan(plan, publication: .immediate)
             self.updateMetadataSaveProgress(
-                subtitle: file.url.lastPathComponent,
+                subtitle: plan.fileName,
                 completedUnitCount: 1
             )
             self.endMetadataSaveProgress()
 
             switch result {
             case .success(let success):
-                if success.warnings.isEmpty {
-                    self.presentMetadataWriteSuccess(for: file.url.lastPathComponent)
-                } else {
-                    self.presentMetadataWriteWarning(
-                        title: String(localized: "Changes Saved with Warnings"),
-                        fileName: file.url.lastPathComponent,
-                        warnings: success.warnings
+                self.recordInspectorSaveTargetCompletion(
+                    InspectorSavedTargetOutcome(
+                        targetID: plan.targetID,
+                        didRefreshFileModel: success.didRefreshFileModel,
+                        readback: success.didRefreshFileModel
+                            ? self.loadedFile(withID: plan.targetID) : nil
                     )
-                }
-            case .failure(let reason):
-                self.presentMetadataWriteFailure(
-                    for: file.url.lastPathComponent,
-                    reason: reason
                 )
+                self.finishInspectorSave()
+                self.publishInspectorSingleSaveSuccess(plan: plan, success: success)
+            case .failure(let reason):
+                self.finishInspectorSave()
+                self.presentMetadataWriteFailure(for: plan.fileName, reason: reason)
             case .cancelled:
-                self.presentMetadataWriteCancellation(for: file.url.lastPathComponent)
+                self.finishInspectorSave()
+                self.presentMetadataWriteCancellation(for: plan.fileName)
             }
         }
     }
 
-    /// Applies only the modified multi-file fields to each selected file, then reuses the existing write path.
+    /// Applies only the modified multi-file fields to each selected file.
+    ///
+    /// Every target/payload pair is captured before the bounded batch starts. A
+    /// selected file without a captured Inspector source observation becomes a
+    /// rejected row; the live model is not used to synthesize authority.
     func saveMultiFileEdits() {
         guard selectedAudioIDs.count > 1, let multiEdit else {
             return
@@ -111,80 +160,98 @@ extension AudioViewModel {
         }
 
         let completedEdits = completedInspectorEditsByID
-        let targetFiles = files.filter {
-            selectedAudioIDs.contains($0.id) && multiEdit.hasPendingChanges(
-                comparedTo: inspectorEditSourceFilesByID[$0.id] ?? $0,
-                excluding: completedEdits[$0.id]
-            )
-        }
-        guard !targetFiles.isEmpty else { return }
-        guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
-
         let editSnapshot = multiEdit
         let selectionSnapshot = selectedAudioIDs
-        let expectedFileFingerprints = inspectorEditSourceFilesByID.mapValues(\.fileFingerprint)
-        let expectedMetadataVersions = inspectorEditSourceFilesByID.compactMapValues(\.metadataFileVersion)
-        let sourceFiles = inspectorEditSourceFilesByID
+        guard let receipt = captureInspectorSaveReceipt() else { return }
+        let sessionID = receipt.identity.sessionID
+        let sessionTargetIDs = receipt.targetIDs
+
+        var plans: [InspectorWritePlan] = []
+        for file in files where selectedAudioIDs.contains(file.id) {
+            guard let sourceFile = inspectorEditSourceFilesByID[file.id] else {
+                plans.append(
+                    InspectorWritePlan(
+                        targetID: file.id,
+                        fileName: file.url.lastPathComponent,
+                        url: file.url,
+                        sourceSnapshotID: nil,
+                        route: .rejected(Self.inspectorSourceUnavailableMessage)
+                    )
+                )
+                continue
+            }
+
+            guard multiEdit.hasPendingChanges(
+                comparedTo: sourceFile,
+                excluding: completedEdits[file.id]
+            ) else {
+                continue
+            }
+
+            let effectiveEdit = editSnapshot.applyingChanges(
+                to: sourceFile,
+                excluding: completedEdits[file.id]
+            )
+            plans.append(
+                makeInspectorWritePlan(
+                    edit: effectiveEdit,
+                    sourceFile: sourceFile,
+                    sessionID: sessionID,
+                    targetIDs: sessionTargetIDs
+                )
+            )
+        }
+        guard !plans.isEmpty else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: plans.map(\.url)) else { return }
 
         beginMetadataSaveProgress(
             title: "Saving Metadata",
-            subtitle: "Preparing \(targetFiles.count) files…",
-            totalUnitCount: targetFiles.count
+            subtitle: "Preparing \(plans.count) files…",
+            totalUnitCount: plans.count
         )
 
         Task(priority: .userInitiated) {
-            var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count)
-
+            var summary = BatchMetadataOperationSummary(totalTargets: plans.count)
             var completedCount = 0
             var resultsByIndex: [Int: MetadataWriteExecutionResult] = [:]
-            await MetadataBatchExecutor.execute(count: targetFiles.count) { index in
-                let file = targetFiles[index]
-                let sourceFile = sourceFiles[file.id] ?? file
-                let effectiveEdit = editSnapshot.applyingChanges(to: sourceFile, excluding: completedEdits[file.id])
-                return await self.persistMetadataEdit(
-                    effectiveEdit,
-                    to: file,
-                    comparedTo: sourceFile,
-                    syncInspectorAfterReload: false,
-                    expectedFileFingerprint: expectedFileFingerprints[file.id]
-                        ?? file.fileFingerprint,
-                    expectedMetadataVersion: expectedMetadataVersions[file.id]
-                        ?? file.metadataFileVersion
-                )
+
+            await MetadataBatchExecutor.execute(count: plans.count) { index in
+                let plan = plans[index]
+                return await self.executeInspectorWritePlan(plan, publication: .batched)
             } onCompletion: { index, result in
-                let file = targetFiles[index]
-                let sourceFile = sourceFiles[file.id] ?? file
+                let plan = plans[index]
                 completedCount += 1
                 resultsByIndex[index] = result
                 self.updateMetadataSaveProgress(
-                    subtitle: file.url.lastPathComponent,
+                    subtitle: plan.fileName,
                     completedUnitCount: completedCount
                 )
-                if case .success(let success) = result,
-                   self.selectedAudioIDs.contains(file.id),
-                   self.inspectorEditSourceFilesByID[file.id]?.snapshotID == sourceFile.snapshotID {
-                    // Advance each successful baseline as soon as its readback
-                    // arrives, even when other targets finish out of order.
-                    self.completedInspectorEditsByID[file.id] = editSnapshot
-                    if success.didRefreshFileModel,
-                       let refreshed = self.loadedFile(withID: file.id), refreshed.url == file.url {
-                        self.inspectorEditSourceFilesByID[file.id] = refreshed
-                    }
+
+                if case .success(let success) = result {
+                    self.recordInspectorSaveTargetCompletion(
+                        InspectorSavedTargetOutcome(
+                            targetID: plan.targetID,
+                            didRefreshFileModel: success.didRefreshFileModel,
+                            readback: success.didRefreshFileModel
+                                ? self.loadedFile(withID: plan.targetID) : nil
+                        )
+                    )
                 }
             }
 
-            // Keep issue presentation in selection order, independent of disk timing.
-            for (index, file) in targetFiles.enumerated() {
+            // Keep issue presentation in captured plan order, independent of disk timing.
+            for (index, plan) in plans.enumerated() {
                 guard let result = resultsByIndex[index] else { continue }
                 switch result {
                 case .success(let success):
                     summary.succeeded += 1
-                    summary.allSuccessfulFilesRefreshed = summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
+                    summary.allSuccessfulFilesRefreshed =
+                        summary.allSuccessfulFilesRefreshed && success.didRefreshFileModel
 
                     if !success.warnings.isEmpty {
                         summary.warningIssues.append(
                             BatchMetadataWriteIssue(
-                                fileName: file.url.lastPathComponent,
+                                fileName: plan.fileName,
                                 messages: success.warnings
                             )
                         )
@@ -192,30 +259,159 @@ extension AudioViewModel {
                 case .failure(let reason):
                     summary.failureIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
+                            fileName: plan.fileName,
                             messages: [reason]
                         )
                     )
                 case .cancelled:
-                    summary.recordCancelledFiles([file.url.lastPathComponent])
+                    summary.recordCancelledFiles([plan.fileName])
                 }
             }
 
             self.updateMetadataSaveProgress(
                 subtitle: "Finishing…",
-                completedUnitCount: targetFiles.count
+                completedUnitCount: plans.count
             )
             self.endMetadataSaveProgress()
 
-            if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed,
-               self.selectedAudioIDs == selectionSnapshot, !self.hasUnsavedInspectorChanges {
-                self.updateEditForSelection()
-            }
-
+            self.finishInspectorSave()
             self.presentBatchMetadataOperationSummary(summary)
         }
     }
 
+    // MARK: - Inspector captured plan construction and execution
+
+    /// Builds the frozen reviewed plan for one captured Inspector target.
+    private func makeInspectorWritePlan(
+        edit: SingleFileEditModel,
+        sourceFile: AudioFile,
+        sessionID: InspectorDraftSessionID,
+        targetIDs: [AudioFile.ID]
+    ) -> InspectorWritePlan {
+        // Capture the F3 draft identity with the plan so a completion can be
+        // scoped to the draft that submitted it. Session IDs never substitute for
+        // disk tokens; they only guard presentation.
+        _ = InspectorDraftIdentity(
+            sessionID: sessionID,
+            targetIDs: targetIDs,
+            editGeneration: 0,
+            artworkGeneration: 0
+        )
+
+        let targetID = sourceFile.id
+        let fileName = sourceFile.url.lastPathComponent
+        let url = sourceFile.url
+        let snapshotID: UUID? = sourceFile.snapshotID
+
+        func plan(_ route: InspectorWritePlan.Route) -> InspectorWritePlan {
+            InspectorWritePlan(
+                targetID: targetID,
+                fileName: fileName,
+                url: url,
+                sourceSnapshotID: snapshotID,
+                route: route
+            )
+        }
+
+        guard !sourceFile.requiresMetadataRefreshBeforeWriting else {
+            return plan(.rejected(Self.inspectorRecoveryRequiredMessage))
+        }
+        guard isTagWriteSupportedExtension(sourceFile.url.pathExtension) else {
+            return plan(.rejected(String(localized: "AudioMator doesn't support saving metadata to this file format.")))
+        }
+        guard let write = ReviewedMetadataWriteFactory.semanticWrite(
+            edit: edit,
+            comparedTo: sourceFile
+        ) else {
+            return plan(.rejected(Self.inspectorSourceUnavailableMessage))
+        }
+
+        switch write.projection.validation {
+        case .rejected(let message):
+            return plan(.rejected(message))
+        case .unsupported(let fields):
+            return plan(.rejected(Self.unsupportedInspectorFieldsMessage(fields)))
+        case .executable:
+            break
+        }
+
+        // A genuinely unchanged edit produces no write; the executor classifies
+        // the frozen projection as a no-op and reports success without a writer.
+        if write.isNoOp {
+            return plan(.strict(write))
+        }
+
+        let policy = MetadataConflictPolicy.load(from: conflictPolicyDefaults)
+        if let baseline = sourceFile.metadataConflictBaseline {
+            return plan(.draft(ReviewedMetadataDraft(
+                write: write,
+                baseline: baseline,
+                policy: policy
+            )))
+        }
+        return plan(.strict(write))
+    }
+
+    private func executeInspectorWritePlan(
+        _ plan: InspectorWritePlan,
+        publication: MetadataPublicationPolicy
+    ) async -> MetadataWriteExecutionResult {
+        switch plan.route {
+        case .rejected(let message):
+            return .failure(message)
+        case .strict(let write):
+            return await executeReviewedMetadataWrite(write, publication: publication)
+        case .draft(let draft):
+            return await executeReviewedDraftMetadataWrite(draft, publication: publication)
+        }
+    }
+
+    /// Presents the single-file save outcome. Draft baseline advancement is done
+    /// by the F3 draft-session completion before this presentation helper.
+    private func publishInspectorSingleSaveSuccess(
+        plan: InspectorWritePlan,
+        success: MetadataWriteSuccessOutcome
+    ) {
+        if success.warnings.isEmpty {
+            presentMetadataWriteSuccess(for: plan.fileName)
+        } else {
+            presentMetadataWriteWarning(
+                title: String(localized: "Changes Saved with Warnings"),
+                fileName: plan.fileName,
+                warnings: success.warnings
+            )
+        }
+    }
+
+    private func fileNameForInspectorTarget(_ id: AudioFile.ID) -> String? {
+        inspectorEditSourceFilesByID[id]?.url.lastPathComponent
+            ?? files.first(where: { $0.id == id })?.url.lastPathComponent
+    }
+
+    private static func unsupportedInspectorFieldsMessage(
+        _ fields: Set<MetadataFieldKey>
+    ) -> String {
+        let labels = ListFormatter.localizedString(byJoining: fields.map {
+            MetadataFieldRegistry.schema(for: $0)?.displayName ?? String(localized: "Metadata field")
+        }.sorted())
+        return String(localized: "Changes to \(labels) can’t be saved in this file format. No changes were saved.")
+    }
+
+    private static var inspectorSourceUnavailableMessage: String {
+        String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
+    }
+
+    private static var inspectorRecoveryRequiredMessage: String {
+        String(localized: "The file couldn’t be checked after it moved. Before editing, choose Reload from Disk from the file’s context menu.")
+    }
+
+    // MARK: - Temporary unmigrated writer
+
+    /// **Temporary unmigrated helper.** Inspector saves no longer use this mixed
+    /// route. It remains only for callers scheduled to migrate in later packages
+    /// (E1 exchange/filename plans, N1 LRCLIB, rename follow-ups) and legacy
+    /// conflict-policy tests. Do not add new callers; delete after the final
+    /// family migration.
     func persistMetadataEdit(
         _ edit: SingleFileEditModel,
         to file: AudioFile,

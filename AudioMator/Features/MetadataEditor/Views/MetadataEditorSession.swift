@@ -89,14 +89,56 @@ enum MetadataEditorOpenDecision: Equatable, Sendable {
 
 /// Immutable snapshot captured when Done starts applying. It freezes the exact
 /// targets, baselines and raw maps that the operation is allowed to complete.
+///
+/// E2 adds the key-level captured changes and the captured original maps so the
+/// reviewed raw route can prove that the patch it writes is exactly the delta the
+/// user reviewed: `beforeValues` come from the captured original map, never from
+/// a later disk read, and no unchanged target is admitted.
 struct MetadataEditorApplyRequest {
     let presentationID: MetadataEditorPresentationID
     let applyID: MetadataEditorApplyID
     let targets: [MetadataEditorTarget]
     let pendingTargets: [MetadataEditorTarget]
+    /// Full captured original maps for the pending targets only.
+    let submittedOriginalPropertyMaps: [AudioFile.ID: RawMetadataValueMap]
+    /// Full captured draft maps for the pending targets only. Required by the
+    /// conflict-aware resolver to merge external changes under its policy.
     let submittedPropertyMaps: [AudioFile.ID: RawMetadataValueMap]
+    /// Exact per-file/key before/after arrays captured from the same maps.
+    let pendingChanges: [RawFieldValueChange]
     /// Draft generation at capture. A later mutation means a newer edit exists.
     let draftGeneration: UInt64
+
+    init(
+        presentationID: MetadataEditorPresentationID,
+        applyID: MetadataEditorApplyID,
+        targets: [MetadataEditorTarget],
+        pendingTargets: [MetadataEditorTarget],
+        submittedOriginalPropertyMaps: [AudioFile.ID: RawMetadataValueMap] = [:],
+        submittedPropertyMaps: [AudioFile.ID: RawMetadataValueMap],
+        pendingChanges: [RawFieldValueChange] = [],
+        draftGeneration: UInt64
+    ) {
+        self.presentationID = presentationID
+        self.applyID = applyID
+        self.targets = targets
+        self.pendingTargets = pendingTargets
+        self.submittedOriginalPropertyMaps = submittedOriginalPropertyMaps
+        self.submittedPropertyMaps = submittedPropertyMaps
+        self.pendingChanges = pendingChanges
+        self.draftGeneration = draftGeneration
+    }
+
+    /// True when this request carries the E2 captured key-level changes. The
+    /// legacy compatibility seam leaves them empty and the reviewed plan falls
+    /// back to deriving the delta from the captured baseline.
+    var hasCapturedChanges: Bool {
+        !pendingChanges.isEmpty
+    }
+
+    func changes(for targetID: AudioFile.ID) -> [RawFieldValueChange] {
+        pendingChanges.filter { $0.targetID == targetID }
+    }
 }
 
 /// Result of a raw apply, scoped to the apply/session that began it.

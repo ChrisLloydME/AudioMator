@@ -33,6 +33,21 @@ nonisolated struct ReviewedMetadataTarget: Sendable, Equatable {
         self.version = version
     }
 
+    /// Explicit construction used by the feature boundary for targets that were
+    /// already captured from a coherent observation (for example the raw editor's
+    /// `MetadataEditorTarget`). Production code should prefer `init?(verified:)`.
+    nonisolated init(
+        id: AudioFile.ID,
+        url: URL,
+        fingerprint: AudioFileFingerprint,
+        version: MetadataFileVersion
+    ) {
+        self.id = id
+        self.url = url
+        self.fingerprint = fingerprint
+        self.version = version
+    }
+
     /// Association check used before prompts and inside the reservation.
     ///
     /// The logical ID must match and the separately captured URLs must alias the

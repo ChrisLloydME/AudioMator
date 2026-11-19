@@ -2,22 +2,6 @@ import SwiftUI
 import AppKit
 
 
-struct MetadataTextUtilityPreviewRow: Identifiable, Hashable {
-    let targetID: AudioFile.ID
-    let fileName: String
-    let fieldKey: String
-    let currentValue: String
-    let previewValue: String
-
-    var id: String {
-        "\(targetID.uuidString):\(fieldKey)"
-    }
-
-    var changed: Bool {
-        currentValue != previewValue
-    }
-}
-
 private enum MetadataTextUtilityOperation: String, CaseIterable, Identifiable {
     case trimWhitespaceAndNewlines
     case uppercase
@@ -92,6 +76,7 @@ struct MetadataTextUtilitiesSheet: View {
     @State private var replacementText: String = ""
     @State private var matchesCase: Bool = false
     @State private var matchesWholeText: Bool = false
+    @State private var staleMessage: String?
 
     private var sortedFieldKeys: [String] {
         fieldKeys.sorted {
@@ -136,25 +121,17 @@ struct MetadataTextUtilitiesSheet: View {
         }
     }
 
-    private var previewRows: [MetadataTextUtilityPreviewRow] {
-        guard let pipeline else { return [] }
-        return store.previewTextUtility(pipeline: pipeline, fieldKeys: fieldKeys)
+    private func makePreview() -> MetadataTextUtilityPreview? {
+        guard let pipeline else { return nil }
+        return store.makeTextUtilityPreview(pipeline: pipeline, fieldKeys: fieldKeys)
     }
 
-    private var changedPreviewRows: [MetadataTextUtilityPreviewRow] {
-        previewRows.filter(\.changed)
-    }
+    private func previewSummary(_ preview: MetadataTextUtilityPreview?) -> String {
+        guard let preview else {
+            return L10n.string("Preview unavailable")
+        }
 
-    private var canApply: Bool {
-        pipeline != nil && !changedPreviewRows.isEmpty
-    }
-
-    private var previewSummary: String {
-        let fileCount = Set(previewRows.map(\.targetID)).count
-        let fieldCount = sortedFieldKeys.count
-        let changeCount = changedPreviewRows.count
-
-        return "\(changeCount) changes across \(fileCount) files and \(fieldCount) fields"
+        return "\(preview.changedRows.count) changes across \(preview.changedFileCount) files and \(preview.changedFieldCount) fields"
     }
 
     private var selectedFieldsText: String {
@@ -162,16 +139,18 @@ struct MetadataTextUtilitiesSheet: View {
     }
 
     var body: some View {
+        let preview = makePreview()
+
         VStack(alignment: .leading, spacing: 16) {
             header
             controls
             selectedFields
-            preview
+            previewSection(preview)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            footer
+            footer(preview)
         }
         .padding(20)
-        .frame(width: 900, height: 640)
+        .frame(width: 940, height: 680)
     }
 
     private var header: some View {
@@ -267,7 +246,8 @@ struct MetadataTextUtilitiesSheet: View {
         }
     }
 
-    private var preview: some View {
+    @ViewBuilder
+    private func previewSection(_ preview: MetadataTextUtilityPreview?) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Preview")
@@ -275,43 +255,54 @@ struct MetadataTextUtilitiesSheet: View {
 
                 Spacer()
 
-                Text(previewSummary)
+                Text(previewSummary(preview))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            ScrollView([.vertical, .horizontal]) {
-                Grid(horizontalSpacing: 10, verticalSpacing: 0) {
-                    GridRow {
-                        previewHeaderCell("File")
-                            .gridColumnAlignment(.leading)
-                            .frame(width: 150, alignment: .leading)
-                        previewHeaderCell("Field")
-                            .gridColumnAlignment(.leading)
-                            .frame(width: 150, alignment: .leading)
-                        previewHeaderCell("Current")
-                            .gridColumnAlignment(.leading)
-                            .frame(width: 230, alignment: .leading)
-                        previewHeaderCell("Preview")
-                            .gridColumnAlignment(.leading)
-                            .frame(width: 230, alignment: .leading)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(nsColor: .controlBackgroundColor))
+            if let preview, !preview.rows.isEmpty {
+                ScrollView([.vertical, .horizontal]) {
+                    Grid(horizontalSpacing: 10, verticalSpacing: 0) {
+                        GridRow {
+                            previewHeaderCell("File")
+                                .gridColumnAlignment(.leading)
+                                .frame(width: 140, alignment: .leading)
+                            previewHeaderCell("Field")
+                                .gridColumnAlignment(.leading)
+                                .frame(width: 140, alignment: .leading)
+                            previewHeaderCell("Current values")
+                                .gridColumnAlignment(.leading)
+                                .frame(width: 250, alignment: .leading)
+                            previewHeaderCell("Preview values")
+                                .gridColumnAlignment(.leading)
+                                .frame(width: 250, alignment: .leading)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color(nsColor: .controlBackgroundColor))
 
-                    ForEach(previewRows) { row in
-                        MetadataTextUtilityPreviewGridRow(row: row)
+                        ForEach(preview.rows) { row in
+                            MetadataTextUtilityPreviewGridRow(row: row)
+                        }
                     }
                 }
+                .defaultScrollAnchor(.topLeading, for: .alignment)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+                )
+            } else {
+                Text(preview == nil
+                    ? "The selected fields cannot be previewed in the current editor session."
+                    : "No metadata values are available for the selected fields.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
-            .defaultScrollAnchor(.topLeading, for: .alignment)
-            .background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
-            )
         }
     }
 
@@ -321,8 +312,15 @@ struct MetadataTextUtilitiesSheet: View {
             .foregroundStyle(.secondary)
     }
 
-    private var footer: some View {
-        HStack {
+    private func footer(_ preview: MetadataTextUtilityPreview?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            if let staleMessage {
+                Text(staleMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Spacer()
 
             Button("Cancel") {
@@ -331,14 +329,25 @@ struct MetadataTextUtilitiesSheet: View {
             }
 
             Button("Apply") {
-                if let pipeline {
-                    store.applyTextUtility(pipeline: pipeline, fieldKeys: fieldKeys)
+                guard let preview else {
+                    dismiss()
+                    onClose()
+                    return
                 }
-                dismiss()
-                onClose()
+
+                switch store.applyTextUtilityPreview(preview) {
+                case .applied, .noChanges:
+                    dismiss()
+                    onClose()
+                case .stale:
+                    staleMessage = L10n.string("The values changed. Review the updated preview and apply again.")
+                case .unavailable:
+                    dismiss()
+                    onClose()
+                }
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(!canApply)
+            .disabled(preview.map { $0.changedRows.isEmpty } ?? true)
         }
     }
 }
@@ -348,14 +357,22 @@ private struct MetadataTextUtilityPreviewGridRow: View {
 
     var body: some View {
         GridRow {
-            previewCell(row.fileName, font: .body, color: .primary)
-                .frame(width: 150, alignment: .leading)
-            previewCell(row.fieldKey, font: .system(size: 12, weight: .medium, design: .monospaced), color: .primary)
-                .frame(width: 150, alignment: .leading)
-            previewCell(row.currentValue, font: .system(size: 12, design: .monospaced), color: .secondary)
-                .frame(width: 230, alignment: .leading)
-            previewCell(row.previewValue, font: .system(size: 12, design: .monospaced), color: row.changed ? .primary : .secondary)
-                .frame(width: 230, alignment: .leading)
+            Text(row.fileName)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .frame(width: 140, alignment: .leading)
+            Text(row.fieldKey)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .frame(width: 140, alignment: .leading)
+            MetadataRawValueListText(values: row.beforeValues)
+                .frame(width: 250, alignment: .leading)
+            MetadataRawValueListText(values: row.afterValues)
+                .frame(width: 250, alignment: .leading)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -366,14 +383,47 @@ private struct MetadataTextUtilityPreviewGridRow: View {
                 .frame(height: 1)
         }
     }
+}
 
-    private func previewCell(_ text: String, font: Font, color: Color) -> some View {
-        Text(text.isEmpty ? " " : text)
-            .font(font)
-            .foregroundStyle(color)
-            .lineLimit(3)
-            .truncationMode(.tail)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
+/// Ordered value list used by the preview grid. Element boundaries are visible
+/// separators and an embedded line break inside one element is shown as `⏎`.
+private struct MetadataRawValueListText: View {
+    let values: [String]
+
+    var body: some View {
+        if values.isEmpty {
+            Text(MetadataRawValueDisplay.noValuesPlaceholder)
+                .font(.system(size: 11, design: .monospaced))
+                .italic()
+                .foregroundStyle(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text("\(index + 1)")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 16, alignment: .trailing)
+
+                        Text(value.isEmpty
+                            ? MetadataRawValueDisplay.emptyValuePlaceholder
+                            : MetadataRawValueDisplay.elementText(value))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(value.isEmpty ? .secondary : .primary)
+                            .lineLimit(6)
+                            .truncationMode(.tail)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if index < values.count - 1 {
+                        Rectangle()
+                            .fill(Color(nsColor: .separatorColor).opacity(0.4))
+                            .frame(height: 1)
+                            .padding(.leading, 21)
+                    }
+                }
+            }
+        }
     }
 }

@@ -33,6 +33,25 @@ struct MetadataEditorTarget: Identifiable, Hashable {
     nonisolated var fileName: String {
         url.lastPathComponent
     }
+
+    /// The captured reviewed write authority for this editor target. Nil when the
+    /// target was not built from a coherent observation (missing tokens, recovery
+    /// block, or a stale compatibility target). The raw apply route fails closed
+    /// without this value; the model loaded at Apply cannot supply it.
+    nonisolated var reviewedTarget: ReviewedMetadataTarget? {
+        guard !requiresMetadataRefresh,
+              let expectedFileFingerprint,
+              let expectedMetadataVersion,
+              url.isFileURL else {
+            return nil
+        }
+        return ReviewedMetadataTarget(
+            id: id,
+            url: url,
+            fingerprint: expectedFileFingerprint,
+            version: expectedMetadataVersion
+        )
+    }
 }
 
 private struct MetadataTextUtilitiesContext: Identifiable {
@@ -363,21 +382,43 @@ final class MetadataEditorStore: ObservableObject {
 
     // MARK: - Apply session lifecycle
 
-    /// Captures the exact targets, baselines and raw maps that Done may write.
-    /// Returns nil unless the store is ready, loaded, dirty and not draining.
+    /// Captures the exact targets, baselines and raw value arrays that Done may
+    /// write. Returns nil unless the store is ready, loaded, dirty and not
+    /// draining, or when no target has a key-level change.
     func startApply() -> MetadataEditorApplyRequest? {
         guard case .ready(let presentationID) = sessionState,
               !isDrainingApply,
               isEditable,
               hasUnsavedChanges else { return nil }
 
+        let capturedPendingTargets = pendingTargets
+        let changes = MetadataEditorDraftChanges.changes(
+            original: originalPropertyMaps,
+            draft: draftPropertyMaps,
+            targetIDs: capturedPendingTargets.map(\.id)
+        )
+        guard !changes.isEmpty else { return nil }
+
+        var submittedOriginalMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
+        var submittedDraftMaps: [AudioFile.ID: RawMetadataValueMap] = [:]
+        for target in capturedPendingTargets {
+            if let original = originalPropertyMaps[target.id] {
+                submittedOriginalMaps[target.id] = original
+            }
+            if let draft = draftPropertyMaps[target.id] {
+                submittedDraftMaps[target.id] = draft
+            }
+        }
+
         let applyID = MetadataEditorApplyID()
         let request = MetadataEditorApplyRequest(
             presentationID: presentationID,
             applyID: applyID,
             targets: targets,
-            pendingTargets: pendingTargets,
-            submittedPropertyMaps: draftPropertyMaps,
+            pendingTargets: capturedPendingTargets,
+            submittedOriginalPropertyMaps: submittedOriginalMaps,
+            submittedPropertyMaps: submittedDraftMaps,
+            pendingChanges: changes,
             draftGeneration: draftGeneration
         )
         currentApplyID = applyID
@@ -479,105 +520,254 @@ final class MetadataEditorStore: ObservableObject {
         }
     }
 
-    fileprivate func makeAddFieldContext() -> MetadataFieldEditorContext {
-        MetadataFieldEditorContext(
+    func makeAddFieldContext() -> MetadataFieldEditorContext? {
+        guard isEditable,
+              case .ready(let presentationID) = sessionState else { return nil }
+
+        return MetadataFieldEditorContext(
             mode: .add,
             key: nil,
-            initialValue: "",
-            isMixed: false
+            values: [],
+            targetIDs: targets.map(\.id),
+            beforeValuesByTarget: [:],
+            selectedValueIndex: nil,
+            isMixed: false,
+            presentationID: presentationID,
+            draftGeneration: draftGeneration,
+            emptyStartReason: .newField
         )
     }
 
-    fileprivate func makeEditFieldContext() -> MetadataFieldEditorContext? {
-        guard isEditable, let key = selectedFieldKey else { return nil }
+    func makeEditFieldContext() -> MetadataFieldEditorContext? {
+        guard isEditable,
+              case .ready(let presentationID) = sessionState,
+              let key = selectedFieldKey else { return nil }
 
-        let values = targets.compactMap { draftPropertyMaps[$0.id]?[key] }
-        let firstValues = values.first ?? []
-        let isUniform = values.count == targets.count && values.dropFirst().allSatisfy { $0 == firstValues }
+        var beforeValuesByTarget: [AudioFile.ID: [String]?] = [:]
+        var presentValues: [[String]] = []
+        for target in targets {
+            let values = draftPropertyMaps[target.id]?[key]
+            beforeValuesByTarget[target.id] = values
+            if let values {
+                presentValues.append(values)
+            }
+        }
+
+        let firstValues = presentValues.first ?? []
+        let isUniform = presentValues.count == targets.count
+            && presentValues.dropFirst().allSatisfy { $0 == firstValues }
+        let displayName = MetadataFieldGuide.displayName(
+            forRawKey: key,
+            fileExtensions: targets.map { $0.url.pathExtension }
+        )
+
+        guard isUniform else {
+            return MetadataFieldEditorContext(
+                mode: .edit,
+                key: key,
+                values: [],
+                targetIDs: targets.map(\.id),
+                beforeValuesByTarget: beforeValuesByTarget,
+                selectedValueIndex: nil,
+                isMixed: true,
+                presentationID: presentationID,
+                draftGeneration: draftGeneration,
+                displayName: displayName,
+                emptyStartReason: .mixedSelection
+            )
+        }
 
         return MetadataFieldEditorContext(
             mode: .edit,
             key: key,
-            initialValue: isUniform ? firstValues.joined(separator: "\n") : "",
-            isMixed: !isUniform,
-            displayName: MetadataFieldGuide.displayName(forRawKey: key, fileExtensions: targets.map { $0.url.pathExtension })
+            values: firstValues,
+            targetIDs: targets.map(\.id),
+            beforeValuesByTarget: beforeValuesByTarget,
+            selectedValueIndex: firstValues.isEmpty ? nil : 0,
+            isMixed: false,
+            presentationID: presentationID,
+            draftGeneration: draftGeneration,
+            displayName: displayName,
+            emptyStartReason: firstValues.isEmpty ? .existingEmptyArray : nil
         )
     }
 
-    func upsertField(key: String, value: String) {
+    /// Exact array set for one raw key on every target. Unlike the removed
+    /// `String` route this never derives element boundaries by splitting text.
+    func setFieldValues(_ values: [String], forKey key: String) {
+        guard isEditable, !key.isEmpty else { return }
+        _ = applyValues(values, toAllTargetsForKey: key, selectKey: false)
+    }
+
+    /// Explicit add/seed path. The key is normalized for a new field exactly as
+    /// the Add Field autocomplete route always did; an existing raw key is
+    /// written through `commitFieldEntry`/`setFieldValues` without normalization.
+    func upsertField(key: String, values: [String]) {
         guard isEditable else { return }
         let normalizedKey = Self.normalizedFieldKey(key)
-        guard !normalizedKey.isEmpty else { return }
-
-        for target in targets {
-            var propertyMap = draftPropertyMaps[target.id] ?? [:]
-            propertyMap[normalizedKey] = Self.exactFieldValues(value)
-            draftPropertyMaps[target.id] = propertyMap
-        }
-
-        draftGeneration &+= 1
-        selectedFieldKey = normalizedKey
+        guard !normalizedKey.isEmpty, !values.isEmpty else { return }
+        _ = applyValues(values, toAllTargetsForKey: normalizedKey, selectKey: true)
     }
 
-    fileprivate func commitFieldEntry(
-        context: MetadataFieldEditorContext,
-        key: String,
-        value: String
-    ) {
-        guard isEditable else { return }
+    /// Convenience for seeding one exact value. It does not split on line breaks:
+    /// use `values:` for a multi-element raw value.
+    func upsertField(key: String, value: String) {
+        upsertField(key: key, values: [value])
+    }
+
+    func commitFieldEntry(
+        _ context: MetadataFieldEditorContext,
+        typedKey: String,
+        values: [String]
+    ) -> MetadataFieldCommitOutcome {
+        guard isEditable,
+              case .ready(let presentationID) = sessionState else {
+            return .rejected(.staleDraft)
+        }
+        guard context.presentationID == presentationID,
+              context.targetIDs == targets.map(\.id),
+              context.draftGeneration == draftGeneration else {
+            return .rejected(.staleDraft)
+        }
+
         switch context.mode {
         case .add:
-            upsertField(key: key, value: value)
+            let key = Self.normalizedFieldKey(typedKey)
+            guard !key.isEmpty else { return .rejected(.emptyKey) }
+            guard !values.isEmpty else { return .rejected(.emptyValueList) }
+            return applyValues(values, toAllTargetsForKey: key, selectKey: true)
         case .edit:
-            guard let originalKey = context.key else { return }
-            upsertField(key: originalKey, value: value)
+            guard let key = context.key else { return .rejected(.emptyKey) }
+            guard capturedBeforeValuesMatch(context, key: key) else {
+                return .rejected(.staleDraft)
+            }
+            // A same-value save of a uniform edit (including an empty array) may
+            // dismiss as a no-op; it must not create a draft change.
+            if !context.isMixed, values == context.values {
+                return .noChange
+            }
+            guard !values.isEmpty else { return .rejected(.emptyValueList) }
+            return applyValues(values, toAllTargetsForKey: key, selectKey: false)
         }
     }
 
-    func previewTextUtility(
+    private func applyValues(
+        _ values: [String],
+        toAllTargetsForKey key: String,
+        selectKey: Bool
+    ) -> MetadataFieldCommitOutcome {
+        var didChange = false
+        for target in targets {
+            var propertyMap = draftPropertyMaps[target.id] ?? [:]
+            guard propertyMap[key] != values else { continue }
+            propertyMap[key] = values
+            draftPropertyMaps[target.id] = propertyMap
+            didChange = true
+        }
+
+        guard didChange else { return .noChange }
+        draftGeneration &+= 1
+        if selectKey {
+            selectedFieldKey = key
+        }
+        realignSelection(preferred: key)
+        return .applied
+    }
+
+    private func capturedBeforeValuesMatch(
+        _ context: MetadataFieldEditorContext,
+        key: String
+    ) -> Bool {
+        for target in targets {
+            let captured = context.beforeValuesByTarget[target.id] ?? nil
+            guard captured == draftPropertyMaps[target.id]?[key] else { return false }
+        }
+        return true
+    }
+
+    /// Captures a text-transform preview over exact value arrays. Each result is
+    /// computed once from the captured before-values; the returned preview is the
+    /// same value used for display, counts, button eligibility and Apply.
+    func makeTextUtilityPreview(
         pipeline: TextEditPipeline,
-        fieldKeys: Set<String>
-    ) -> [MetadataTextUtilityPreviewRow] {
-        guard !fieldKeys.isEmpty else { return [] }
+        fieldKeys: Set<String>,
+        context: TextEditPipelineContext = .default
+    ) -> MetadataTextUtilityPreview? {
+        guard isEditable,
+              !isApplying,
+              case .ready(let presentationID) = sessionState,
+              !fieldKeys.isEmpty else { return nil }
 
         let sortedKeys = fieldKeys.sorted {
             $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
 
-        return targets.flatMap { target in
-            sortedKeys.compactMap { key in
-                guard let currentValues = draftPropertyMaps[target.id]?[key] else { return nil }
-                let currentValue = currentValues.joined(separator: "\n")
+        let rows = targets.flatMap { target -> [MetadataTextUtilityPreviewRow] in
+            sortedKeys.compactMap { key -> MetadataTextUtilityPreviewRow? in
+                guard let beforeValues = draftPropertyMaps[target.id]?[key] else {
+                    return nil
+                }
                 return MetadataTextUtilityPreviewRow(
                     targetID: target.id,
                     fileName: target.fileName,
                     fieldKey: key,
-                    currentValue: currentValue,
-                    previewValue: pipeline.applying(to: currentValue)
+                    beforeValues: beforeValues,
+                    afterValues: pipeline.applying(to: beforeValues, context: context)
                 )
             }
         }
+
+        return MetadataTextUtilityPreview(
+            presentationID: presentationID,
+            draftGeneration: draftGeneration,
+            targetIDs: targets.map(\.id),
+            rows: rows
+        )
     }
 
-    func applyTextUtility(
-        pipeline: TextEditPipeline,
-        fieldKeys: Set<String>
-    ) {
-        guard isEditable, !fieldKeys.isEmpty else { return }
+    /// Applies exactly the arrays one captured preview showed after verifying its
+    /// session, target set, draft generation and every row's before-values.
+    /// Missing fields stay missing and no key is ever inserted or removed.
+    ///
+    /// Identity checks run before availability: a preview captured from a
+    /// superseded presentation, or one whose target set/generation changed, is
+    /// stale even when the current session is no longer editable (for example a
+    /// target was removed or a new presentation is loading). Reporting those cases
+    /// as merely unavailable would hide a stale preview from the sheet's stale
+    /// handling without weakening any array guard.
+    func applyTextUtilityPreview(
+        _ preview: MetadataTextUtilityPreview
+    ) -> MetadataTextUtilityApplyOutcome {
+        guard currentPresentationID == preview.presentationID,
+              preview.targetIDs == targets.map(\.id),
+              preview.draftGeneration == draftGeneration else {
+            return .stale
+        }
+        guard isEditable,
+              !isApplying,
+              case .ready = sessionState else {
+            return .unavailable
+        }
 
-        for target in targets {
-            var propertyMap = draftPropertyMaps[target.id] ?? [:]
-
-            for key in fieldKeys {
-                guard let currentValues = propertyMap[key] else { continue }
-                propertyMap[key] = currentValues.map { pipeline.applying(to: $0) }
+        for row in preview.rows {
+            guard let currentValues = draftPropertyMaps[row.targetID]?[row.fieldKey],
+                  currentValues == row.beforeValues else {
+                return .stale
             }
+        }
 
-            draftPropertyMaps[target.id] = propertyMap
+        let changedRows = preview.changedRows
+        guard !changedRows.isEmpty else { return .noChanges }
+
+        for row in changedRows {
+            guard var propertyMap = draftPropertyMaps[row.targetID],
+                  propertyMap[row.fieldKey] != nil else { return .stale }
+            propertyMap[row.fieldKey] = row.afterValues
+            draftPropertyMaps[row.targetID] = propertyMap
         }
 
         draftGeneration &+= 1
-        realignSelection(preferred: selectedFieldKey)
+        return .applied(changeCount: changedRows.count)
     }
 
     func deleteSelectedField() {
@@ -661,10 +851,6 @@ final class MetadataEditorStore: ObservableObject {
     nonisolated private static func normalizedFieldKey(_ key: String) -> String {
         MetadataFieldSuggestion.resolvedKey(for: key)
     }
-
-    nonisolated private static func exactFieldValues(_ value: String) -> [String] {
-        value.components(separatedBy: "\n")
-    }
 }
 
 struct MetadataEditorWindowView: View {
@@ -703,8 +889,8 @@ struct MetadataEditorWindowView: View {
             }
         )
         .sheet(item: $editorContext) { context in
-            MetadataFieldEntrySheet(context: context) { key, value in
-                store.commitFieldEntry(context: context, key: key, value: value)
+            MetadataFieldEntrySheet(context: context) { key, values in
+                store.commitFieldEntry(context, typedKey: key, values: values)
             }
         }
         .sheet(item: $utilityContext) { context in
@@ -847,15 +1033,7 @@ struct MetadataEditorWindowView: View {
 
         guard let request = store.startApply() else { return }
         let applyTask = Task { @MainActor in
-            let applyResult = await viewModel.applyRawMetadataPropertyMaps(
-                request.submittedPropertyMaps,
-                to: request.pendingTargets
-            )
-            let outcome = store.makeApplyOutcome(
-                from: applyResult,
-                for: request,
-                wasCancelled: Task.isCancelled
-            )
+            let outcome = await viewModel.applyRawMetadataApplyRequest(request)
             switch store.completeApply(outcome) {
             case .dismiss:
                 dismiss()

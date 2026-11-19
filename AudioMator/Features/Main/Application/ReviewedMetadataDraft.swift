@@ -11,6 +11,22 @@ nonisolated struct ReviewedMetadataDraft: Sendable {
     let write: ReviewedMetadataWrite
     let baseline: MetadataConflictBaseline
     let policy: MetadataConflictPolicy
+    /// Captured whole raw draft map for the conflict-aware raw route. The strict
+    /// unchanged-revision path still uses the frozen exact delta in `write.intent`;
+    /// the resolver needs the draft map only to merge under its documented policy.
+    let rawDraft: RawMetadataValueMap?
+
+    nonisolated init(
+        write: ReviewedMetadataWrite,
+        baseline: MetadataConflictBaseline,
+        policy: MetadataConflictPolicy,
+        rawDraft: RawMetadataValueMap? = nil
+    ) {
+        self.write = write
+        self.baseline = baseline
+        self.policy = policy
+        self.rawDraft = rawDraft
+    }
 }
 
 /// Builds frozen reviewed writes from a coherent loaded observation.

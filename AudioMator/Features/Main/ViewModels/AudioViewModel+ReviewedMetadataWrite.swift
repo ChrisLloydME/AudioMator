@@ -182,9 +182,25 @@ extension AudioViewModel {
                         pipeline: pipeline,
                         url: url
                     )
-                case .raw, .eraseAll:
-                    // The conflict-aware raw/erase routes remain on the older
-                    // dedicated writers until their own migration step.
+                case .raw(let patch):
+                    // The resolver validates file identity and audio continuity,
+                    // then merges the captured raw draft under the configured
+                    // policy. The frozen exact delta is used only on the
+                    // unchanged-revision fast path inside the resolver.
+                    guard let rawDraft = draft.rawDraft else {
+                        throw CocoaError(.featureUnsupported)
+                    }
+                    _ = patch
+                    return try MetadataConflictResolver.writeRawMetadata(
+                        rawDraft,
+                        original: draft.baseline,
+                        originalFingerprint: target.fingerprint,
+                        originalVersion: target.version,
+                        policy: draft.policy,
+                        pipeline: pipeline,
+                        url: url
+                    )
+                case .eraseAll:
                     throw CocoaError(.featureUnsupported)
                 }
             }

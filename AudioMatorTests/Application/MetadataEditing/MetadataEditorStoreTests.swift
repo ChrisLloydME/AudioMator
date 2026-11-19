@@ -73,12 +73,16 @@ final class MetadataEditorStoreTests: XCTestCase {
 
         store.present(targetFiles: [firstFile, secondFile])
         try await waitUntilLoaded(store)
-        store.upsertField(key: " CUSTOMFIELD ", value: "  Shared Value\n")
+        store.upsertField(key: " CUSTOMFIELD ", values: ["  Shared Value", ""])
 
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["CUSTOMFIELD"], ["  Shared Value", ""])
         XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["CUSTOMFIELD"], ["  Shared Value", ""])
         XCTAssertEqual(store.selectedFieldKey, "CUSTOMFIELD")
         XCTAssertTrue(store.hasUnsavedChanges)
+
+        // A line break inside one element is data, not an element boundary.
+        store.upsertField(key: "MULTILINE", values: ["line one\nline two"])
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["MULTILINE"], ["line one\nline two"])
     }
 
     func testUpsertFieldIgnoresEmptyKeysButPreservesWhitespaceAndEmptyValueBoundaries() async throws {
@@ -93,7 +97,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.present(targetFiles: [file])
         try await waitUntilLoaded(store)
         store.upsertField(key: "   ", value: "Ignored")
-        store.upsertField(key: "CUSTOMFIELD", value: " \n ")
+        store.upsertField(key: "CUSTOMFIELD", values: [" ", " "])
 
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["Original"])
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["CUSTOMFIELD"], [" ", " "])
@@ -168,11 +172,18 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.present(targetFiles: [firstFile, secondFile])
         try await waitUntilLoaded(store)
 
-        let preview = store.previewTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
-        XCTAssertEqual(preview.count, 4)
-        XCTAssertTrue(preview.contains { $0.fieldKey == "TITLE" && $0.currentValue == " first " && $0.previewValue == "First" })
+        let preview = try XCTUnwrap(
+            store.makeTextUtilityPreview(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
+        )
+        XCTAssertEqual(preview.rows.count, 4)
+        let firstTitle = try XCTUnwrap(
+            preview.rows.first { $0.targetID == firstFile.id && $0.fieldKey == "TITLE" }
+        )
+        XCTAssertEqual(firstTitle.beforeValues, [" first "])
+        XCTAssertEqual(firstTitle.afterValues, ["First"])
+        XCTAssertTrue(firstTitle.changed)
 
-        store.applyTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
+        XCTAssertEqual(store.applyTextUtilityPreview(preview), .applied(changeCount: 4))
 
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["TITLE"], ["First"])
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["ARTIST"], ["Artist"])
@@ -194,14 +205,17 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.present(targetFiles: [file])
         try await waitUntilLoaded(store)
 
-        store.applyTextUtility(
+        let prefixPreview = try XCTUnwrap(store.makeTextUtilityPreview(
             pipeline: TextEditPipeline(steps: [.insertText("  ", position: .prefix)]),
             fieldKeys: ["TITLE"]
-        )
-        store.applyTextUtility(
+        ))
+        XCTAssertEqual(store.applyTextUtilityPreview(prefixPreview), .applied(changeCount: 1))
+
+        let suffixPreview = try XCTUnwrap(store.makeTextUtilityPreview(
             pipeline: TextEditPipeline(steps: [.insertText("  ", position: .suffix)]),
             fieldKeys: ["ARTIST"]
-        )
+        ))
+        XCTAssertEqual(store.applyTextUtilityPreview(suffixPreview), .applied(changeCount: 1))
 
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["  Title"])
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], ["Artist  "])
@@ -263,22 +277,54 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testPartialApplyRetriesOnlyFailedTargetThroughProductionWritePath() async throws {
+        let firstURL = try MetadataTestTokens.makeFixtureCopy()
+        let secondURL = try MetadataTestTokens.makeFixtureCopy()
+        addTeardownBlock {
+            MetadataTestTokens.removeFixtureCopy(at: firstURL)
+            MetadataTestTokens.removeFixtureCopy(at: secondURL)
+        }
+        let firstTokens = try MetadataTestTokens.mintedTokens(at: firstURL)
+        let secondTokens = try MetadataTestTokens.mintedTokens(at: secondURL)
+        let firstID = UUID()
+        let secondID = UUID()
+        // Reviewed observations authorize the production raw apply route.
+        let firstObserved = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "First",
+            fileFingerprint: firstTokens.fingerprint,
+            metadataFileVersion: firstTokens.version
+        )
+        let secondObserved = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Second",
+            fileFingerprint: secondTokens.fingerprint,
+            metadataFileVersion: secondTokens.version
+        )
+        // Display compatibility projections feed the store's raw-map load seam.
         let firstFile = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/01-retry.mp3"),
+            id: firstID,
+            url: firstURL,
+            title: "First",
             includeDefaultFileFingerprint: false
         )
         let secondFile = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/02-retry.mp3"),
+            id: secondID,
+            url: secondURL,
+            title: "Second",
             includeDefaultFileFingerprint: false
         )
         let pipeline = RetryableMetadataEditorPipeline(
             propertyMapsByURL: [
-                firstFile.url: ["TITLE": "First"],
-                secondFile.url: ["TITLE": "Second"]
+                firstFile.url: firstObserved.metadataConflictBaseline?.values.compactMapValues(\.first) ?? [:],
+                secondFile.url: secondObserved.metadataConflictBaseline?.values.compactMapValues(\.first) ?? [:]
             ],
-            initiallyFailingURL: secondFile.url
+            initiallyFailingURL: secondFile.url,
+            fileVersionsByURL: [
+                firstURL: firstTokens.version,
+                secondURL: secondTokens.version
+            ]
         )
         let store = MetadataEditorStore(metadataPipeline: pipeline)
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -288,9 +334,10 @@ final class MetadataEditorStoreTests: XCTestCase {
         try await waitUntilLoaded(store)
         store.upsertField(key: "ALBUM", value: "Shared Draft")
 
+        let observedTargets = [MetadataEditorTarget(file: firstObserved), MetadataEditorTarget(file: secondObserved)]
         let firstResult = await viewModel.applyRawMetadataPropertyMaps(
             store.draftPropertyMaps,
-            to: store.pendingTargets
+            to: observedTargets
         )
         store.recordAppliedTargets(firstResult.succeededTargetIDs)
 
@@ -304,9 +351,12 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(pipeline.writeAttemptCount(for: secondFile.url), 1)
 
         pipeline.allowWrites(to: secondFile.url)
+        let retryTargets = observedTargets.filter { target in
+            store.pendingTargets.contains { $0.id == target.id }
+        }
         let retryResult = await viewModel.applyRawMetadataPropertyMaps(
             store.draftPropertyMaps,
-            to: store.pendingTargets
+            to: retryTargets
         )
         store.recordAppliedTargets(retryResult.succeededTargetIDs)
 
@@ -450,9 +500,23 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
     private var writeAttemptsByURL: [URL: Int] = [:]
     private var recordedPatchesByURL: [URL: [RawMetadataPatch]] = [:]
 
-    init(propertyMapsByURL: [URL: [String: String]], initiallyFailingURL: URL) {
+    private let fileVersionsByURL: [URL: MetadataFileVersion]
+
+    init(
+        propertyMapsByURL: [URL: [String: String]],
+        initiallyFailingURL: URL,
+        fileVersionsByURL: [URL: MetadataFileVersion] = [:]
+    ) {
         self.propertyMapsByURL = propertyMapsByURL
         self.failingURLs = [initiallyFailingURL]
+        self.fileVersionsByURL = fileVersionsByURL
+    }
+
+    nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
+        guard let version = lock.withLock({ fileVersionsByURL[url] }) else {
+            throw CocoaError(.featureUnsupported)
+        }
+        return version
     }
 
     func allowWrites(to url: URL) {

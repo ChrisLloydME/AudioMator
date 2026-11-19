@@ -154,6 +154,13 @@ struct TextEditPipeline: Sendable, Hashable {
             step.applied(to: currentText, context: context)
         }
     }
+
+    /// Applies the pipeline to every value independently and preserves the array
+    /// order, duplicates and empty elements. A raw field is an ordered array; its
+    /// elements are never joined or split by a transform.
+    func applying(to values: [String], context: TextEditPipelineContext = .default) -> [String] {
+        values.map { applying(to: $0, context: context) }
+    }
 }
 
 private extension String {

@@ -220,6 +220,16 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion)
     }
+
+    // Plan-time projection is adapter-owned; the reviewed renumber planner asks
+    // the injected pipeline for it. Delegate to the real adapter so this test
+    // double exercises the same deterministic encoder as production.
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        try TagLibAudioMetadataPipeline().projectMetadataWrite(intent, fileExtension: fileExtension)
+    }
 }
 
 nonisolated final class ProviderSemanticWriteTests: XCTestCase {

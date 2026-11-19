@@ -269,10 +269,21 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
             XCTAssertEqual(reloaded.itunesCatalogID, "54321")
             XCTAssertEqual(viewModel.files.first { $0.id == original.id }?.itunesArtistID, "67890")
         }
-        await viewModel.applyMusicBrainzTaggingPlan(files.map {
-            MusicBrainzTaggingWriteEntry(file: $0,
-                values: [.title: "MusicBrainz title", .musicBrainzAlbumID: "00000000-0000-0000-0000-000000000001"])
-        })
+        // The strict route freezes the reviewed observation per entry. The iTunes
+        // commit advanced every file's package revision, so the MusicBrainz entries
+        // must be built from the refreshed observations rather than the pre-iTunes
+        // snapshots captured above.
+        let refreshedFilesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        let musicBrainzEntries = files.compactMap { original -> MusicBrainzTaggingWriteEntry? in
+            guard let refreshed = refreshedFilesByID[original.id] else { return nil }
+            return MusicBrainzTaggingWriteEntry(
+                file: refreshed,
+                values: [.title: "MusicBrainz title",
+                         .musicBrainzAlbumID: "00000000-0000-0000-0000-000000000001"]
+            )
+        }
+        XCTAssertEqual(musicBrainzEntries.count, files.count)
+        await viewModel.applyMusicBrainzTaggingPlan(musicBrainzEntries)
         for original in files {
             let reloaded = try await pipeline.loadAudioFile(at: original.url, id: original.id)
             XCTAssertEqual(reloaded.title, "MusicBrainz title")

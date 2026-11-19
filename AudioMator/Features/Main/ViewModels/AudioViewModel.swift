@@ -2614,7 +2614,8 @@ extension AudioViewModel {
             do {
                 return try await coordinator.withExclusiveAccess(to: [receipt.destinationURL]) {
                     let before = try? FileEntryIdentityCapture.capture(at: receipt.destinationURL)
-                    guard before == receipt.entryIdentity else {
+                    guard let before,
+                          before.isSameDirectoryEntry(as: receipt.entryIdentity) else {
                         return Result<AudioFile, MoveReadbackFailure>.failure(.destinationChanged)
                     }
                     let loaded: AudioFile
@@ -2634,7 +2635,7 @@ extension AudioViewModel {
                     let after = try? FileEntryIdentityCapture.capture(at: receipt.destinationURL)
                     guard loaded.url == receipt.destinationURL,
                           loaded.observation != nil,
-                          after == receipt.entryIdentity else {
+                          after?.isSameDirectoryEntry(as: receipt.entryIdentity) == true else {
                         return .failure(.destinationChanged)
                     }
                     return .success(loaded)

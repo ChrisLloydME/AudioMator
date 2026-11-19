@@ -48,4 +48,19 @@ nonisolated struct RenameEntryIdentity: Hashable, Sendable {
         self.volumeIdentifier = volumeIdentifier
         self.linkTarget = linkTarget
     }
+
+    /// True when both values describe the same physical directory entry.
+    ///
+    /// Device, inode and entry kind are the identity. `volumeIdentifier` and
+    /// `linkTarget` are evidence captured on different platform surfaces (journal
+    /// records versus an `lstat` readback), so including them in a post-move
+    /// comparison would reject a file that did not move. Unknown device/inode
+    /// never counts as a match.
+    nonisolated func isSameDirectoryEntry(as other: RenameEntryIdentity) -> Bool {
+        guard let device, let inode,
+              let otherDevice = other.device, let otherInode = other.inode else {
+            return self == other
+        }
+        return device == otherDevice && inode == otherInode && kind == other.kind
+    }
 }

@@ -261,6 +261,48 @@ final class RenameRefreshSafetyTests: XCTestCase {
         )
     }
 
+    /// Journal receipts carry extra identity evidence (volume identifier, symlink
+    /// target) captured on a different platform surface than F1's `lstat`
+    /// readback. The readback must compare the stable entry identity (device,
+    /// inode, kind) so a real committed rename still restores authority.
+    func testReceiptIdentityWithJournalEvidenceStillMatchesPlainReadbackCapture() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let pipeline = RenameReadbackPipeline(mode: .real)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+
+        let plain = try FileEntryIdentityCapture.capture(at: environment.destinationURL)
+        let enriched = RenameEntryIdentity(
+            device: plain.device,
+            inode: plain.inode,
+            kind: plain.kind,
+            size: plain.size,
+            modificationDate: plain.modificationDate,
+            creationDate: plain.creationDate,
+            volumeIdentifier: "volume-evidence-only",
+            linkTarget: nil
+        )
+        let receipt = FileRenameMoveReceipt(
+            moveID: FileMoveID(),
+            fileID: original.id,
+            sourceURL: environment.sourceURL,
+            destinationURL: environment.destinationURL,
+            entryIdentity: enriched
+        )
+        viewModel.publishMovePlaceholders([receipt])
+
+        let warnings = await viewModel.readBackMovedFiles([receipt])
+        XCTAssertTrue(warnings.isEmpty, warnings.joined(separator: "; "))
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertEqual(moved.url, environment.destinationURL)
+        XCTAssertFalse(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertNotNil(moved.observation)
+        XCTAssertFalse(viewModel.hasRecoveryDecision(for: moved.id))
+    }
+
     func testReadbackAcrossSamePathReplacementStaysBlocked() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }

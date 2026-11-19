@@ -13454,6 +13454,36 @@
     },
     "Try Again" : {
 
+    },
+    "Artwork Wasn’t Applied" : {
+
+    },
+    "Selection Changed" : {
+
+    },
+    "Unknown file" : {
+
+    },
+    "This lookup isn’t connected to an editable Inspector draft, so the artwork can’t be applied. Select the files in the Inspector and use Fetch Online… again." : {
+
+    },
+    "This artwork lookup isn’t connected to an editable Inspector draft, so the artwork wasn’t applied. Nothing was written. Select the intended files in the Inspector and use Fetch Online… again." : {
+
+    },
+    "Some files from %@ are no longer available, so the artwork wasn’t applied to any file. Nothing was written. Select the intended files again and choose the artwork again." : {
+
+    },
+    "A newer artwork command replaced the unfinished one for %@, so the older artwork wasn’t applied. Nothing was written." : {
+
+    },
+    "This artwork can’t be applied because the Inspector doesn’t have an editable draft for %@. Nothing was written. Select the intended files in the Inspector and choose the artwork again." : {
+
+    },
+    "The Inspector draft changed before the artwork for %@ finished loading, so nothing was applied. Select the intended files again and choose the artwork again." : {
+
+    },
+    "The Inspector selection no longer matches %@, so the artwork wasn’t applied. Nothing was written. Select the intended files again and choose the artwork again." : {
+
     }
   },
   "version" : "1.0"

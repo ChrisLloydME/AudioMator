@@ -197,6 +197,13 @@ struct AlbumArtworkLookupSheet: View {
                 }
             }
 
+            if session.isPreviewOnly, !session.results.isEmpty {
+                Text(String(localized: "This lookup isn’t connected to an editable Inspector draft, so the artwork can’t be applied. Select the files in the Inspector and use Fetch Online… again."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let fault = session.downloadFault {
                 downloadFaultView(fault: fault, session: session)
             }
@@ -213,10 +220,10 @@ struct AlbumArtworkLookupSheet: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(
-                fault.isCancellation
-                    ? String(localized: "Artwork Download Cancelled")
-                    : String(localized: "Artwork Download Failed"),
-                systemImage: fault.isCancellation ? "stop.circle" : "exclamationmark.triangle"
+                fault.inlineTitle,
+                systemImage: fault.isTransferFault
+                    ? "exclamationmark.shield"
+                    : (fault.isCancellation ? "stop.circle" : "exclamationmark.triangle")
             )
             .font(.subheadline)
             .fontWeight(.medium)

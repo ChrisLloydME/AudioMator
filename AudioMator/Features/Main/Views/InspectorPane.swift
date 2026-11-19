@@ -23,6 +23,7 @@ struct InspectorPane: View {
     @State private var inspectorQuickBinding: Binding<String>? = nil
     @State private var isInspectorQuickPresented: Bool = false
     @State private var photoLibraryArtworkTarget: ArtworkImportTarget?
+    @State private var photoLibraryArtworkIntent: ArtworkTransferIntent?
     @State private var isPhotoLibraryArtworkPickerPresented: Bool = false
     @State private var selectedPhotoLibraryArtworkItem: PhotosPickerItem?
 
@@ -329,7 +330,29 @@ struct InspectorPane: View {
     }
 
     private func presentPhotoLibraryArtworkPicker(for target: ArtworkImportTarget) {
+        // The destination draft is authorized before the picker is presented;
+        // the intent crosses the PhotosPicker/loadTransferable suspension
+        // untouched and is revalidated at commit.
+        let intent: ArtworkTransferIntent?
+        switch target {
+        case .file(let file):
+            intent = viewModel.beginPhotoLibraryArtworkImport(for: file)
+        case .files(let files):
+            intent = viewModel.beginPhotoLibraryArtworkImport(for: files)
+        }
+
+        guard let intent else {
+            switch target {
+            case .file(let file):
+                viewModel.presentArtworkTransferNoDestination(for: [file])
+            case .files(let files):
+                viewModel.presentArtworkTransferNoDestination(for: files)
+            }
+            return
+        }
+
         photoLibraryArtworkTarget = target
+        photoLibraryArtworkIntent = intent
 
         Task { @MainActor in
             await Task.yield()
@@ -414,19 +437,17 @@ struct InspectorPane: View {
     }
 
     private func importSelectedPhotoLibraryArtwork(_ item: PhotosPickerItem?) {
-        guard let item, let target = photoLibraryArtworkTarget else { return }
+        guard let item, let intent = photoLibraryArtworkIntent else { return }
         selectedPhotoLibraryArtworkItem = nil
         photoLibraryArtworkTarget = nil
+        photoLibraryArtworkIntent = nil
 
         Task {
             let data = try? await item.loadTransferable(type: Data.self)
             await MainActor.run {
-                switch target {
-                case .file(let file):
-                    viewModel.importArtworkFromPhotoLibrary(data, for: file)
-                case .files(let files):
-                    viewModel.importArtworkFromPhotoLibrary(data, for: files)
-                }
+                // Only the newest captured intent may stage; an older
+                // completion is inert because the view model revalidates it.
+                viewModel.finishPhotoLibraryArtworkImport(data: data, intent: intent)
             }
         }
     }

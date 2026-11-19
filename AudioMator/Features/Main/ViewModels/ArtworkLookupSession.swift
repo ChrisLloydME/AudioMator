@@ -42,21 +42,30 @@ enum ArtworkLookupSearchState: Equatable {
 
 /// A download fault belongs to exactly one candidate. It never replaces the
 /// search state and it is retryable for that candidate; switching candidates
-/// clears it.
+/// clears it. A stale-selection / superseded fault belongs to the destination
+/// draft instead: it is terminal for the sheet's apply path (only closing and
+/// starting a new command can recover), never retryable against the network.
 enum ArtworkLookupDownloadFault: Equatable {
     case failed(candidateID: iTunesArtworkSearchResult.ID, message: String)
     case cancelled(candidateID: iTunesArtworkSearchResult.ID, message: String)
+    case staleSelection(message: String)
+    case superseded(message: String)
 
-    var candidateID: iTunesArtworkSearchResult.ID {
+    var candidateID: iTunesArtworkSearchResult.ID? {
         switch self {
         case .failed(let candidateID, _), .cancelled(let candidateID, _):
             return candidateID
+        case .staleSelection, .superseded:
+            return nil
         }
     }
 
     var message: String {
         switch self {
-        case .failed(_, let message), .cancelled(_, let message):
+        case .failed(_, let message),
+             .cancelled(_, let message),
+             .staleSelection(let message),
+             .superseded(let message):
             return message
         }
     }
@@ -64,6 +73,39 @@ enum ArtworkLookupDownloadFault: Equatable {
     var isCancellation: Bool {
         if case .cancelled = self { return true }
         return false
+    }
+
+    /// Candidate-scoped faults can be retried against the same candidate; a
+    /// destination fault cannot.
+    var isRetryable: Bool {
+        switch self {
+        case .failed, .cancelled:
+            return true
+        case .staleSelection, .superseded:
+            return false
+        }
+    }
+
+    var isTransferFault: Bool {
+        switch self {
+        case .staleSelection, .superseded:
+            return true
+        case .failed, .cancelled:
+            return false
+        }
+    }
+
+    var inlineTitle: String {
+        switch self {
+        case .failed:
+            return String(localized: "Artwork Download Failed")
+        case .cancelled:
+            return String(localized: "Artwork Download Cancelled")
+        case .staleSelection:
+            return String(localized: "Selection Changed")
+        case .superseded:
+            return String(localized: "Artwork Wasn’t Applied")
+        }
     }
 }
 
@@ -87,6 +129,9 @@ struct ArtworkLookupSession: Identifiable {
     var download: ArtworkLookupDownloadAttempt?
     var downloadFault: ArtworkLookupDownloadFault?
     var emptyMessage: String?
+    /// Destination-draft authority captured before the search started. nil means
+    /// the lookup is preview-only: results can be inspected but never applied.
+    var transfer: ArtworkTransferIntent?
 
     var isMultiSelection: Bool {
         fileIDs.count > 1
@@ -111,14 +156,23 @@ struct ArtworkLookupSession: Identifiable {
         searchState == .results && download == nil
     }
 
-    /// The Apply affordance is enabled for any settled grid with a selection
-    /// while no download is in flight. A previous candidate fault is retryable.
+    /// A preview-only lookup has no captured Inspector draft to stage into.
+    var isPreviewOnly: Bool {
+        transfer == nil
+    }
+
+    /// The Apply affordance is enabled for a settled grid with a selection, a
+    /// captured destination draft, and no in-flight attempt. Candidate-scoped
+    /// faults are retryable; destination faults are terminal for this sheet.
     var canApplySelectedResult: Bool {
-        searchState == .results && download == nil && selectedResult != nil
+        guard searchState == .results, download == nil, selectedResult != nil else { return false }
+        guard !isPreviewOnly else { return false }
+        guard let downloadFault else { return true }
+        return downloadFault.isRetryable
     }
 
     var isRetryingSelectedCandidate: Bool {
-        guard let downloadFault, let selectedResultID else { return false }
+        guard let downloadFault, downloadFault.isRetryable, let selectedResultID else { return false }
         return downloadFault.candidateID == selectedResultID
     }
 
@@ -149,7 +203,7 @@ struct ArtworkLookupSession: Identifiable {
     }
 
     var downloadFaultCandidateTitle: String? {
-        guard let fault = downloadFault else { return nil }
-        return results.first { $0.id == fault.candidateID }?.title
+        guard let fault = downloadFault, let candidateID = fault.candidateID else { return nil }
+        return results.first { $0.id == candidateID }?.title
     }
 }

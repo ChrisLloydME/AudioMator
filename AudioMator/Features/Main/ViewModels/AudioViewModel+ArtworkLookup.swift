@@ -93,9 +93,12 @@ extension AudioViewModel {
         }
 
         session.selectedResultID = id
-        if session.downloadFault?.candidateID != id {
-            // A candidate-scoped download fault is replaced by choosing another
-            // candidate; the search fault channel is never touched here.
+        if let fault = session.downloadFault,
+           fault.isRetryable,
+           fault.candidateID != id {
+            // A retryable candidate fault is replaced by choosing another
+            // candidate; search and destination-draft faults are never cleared
+            // by selecting.
             session.downloadFault = nil
         }
         artworkLookupSession = session
@@ -117,8 +120,7 @@ extension AudioViewModel {
             sessionID: session.id,
             searchAttemptID: session.searchAttemptID,
             attempt: attempt,
-            candidate: selectedResult,
-            targetFileIDs: session.fileIDs
+            candidate: selectedResult
         )
     }
 
@@ -172,13 +174,24 @@ extension AudioViewModel {
     ) {
         artworkLookupTask?.cancel()
 
+        // Capture destination-draft authority before the first suspension. The
+        // resolved ordered target set is the draft's captured target set, not
+        // the visible projection passed by the caller.
+        let command = beginArtworkCommand(for: fileIDs)
+        let resolvedFileIDs = command?.targetIDs ?? fileIDs
         let searchAttemptID = UUID()
-        let session = ArtworkLookupSession(
-            fileIDs: fileIDs,
+        var session = ArtworkLookupSession(
+            fileIDs: resolvedFileIDs,
             selectionTitle: selectionTitle,
             request: request,
             searchAttemptID: searchAttemptID
         )
+        if let command {
+            session.transfer = makeArtworkTransferIntent(
+                command: command,
+                source: .onlineLookup(sessionID: session.id)
+            )
+        }
         artworkLookupSession = session
 
         startArtworkSearch(
@@ -251,8 +264,7 @@ extension AudioViewModel {
         sessionID: UUID,
         searchAttemptID: UUID?,
         attempt: ArtworkLookupDownloadAttempt,
-        candidate: iTunesArtworkSearchResult,
-        targetFileIDs: [AudioFile.ID]
+        candidate: iTunesArtworkSearchResult
     ) {
         let service = artworkLookupService
         let operationTimeout = artworkLookupOperationTimeout
@@ -288,29 +300,30 @@ extension AudioViewModel {
 
             switch outcome {
             case .success(let pngData):
-                let targetFiles = self.files.filter { targetFileIDs.contains($0.id) }
-                guard !targetFiles.isEmpty else {
+                guard let intent = currentSession.transfer else {
                     currentSession.download = nil
-                    currentSession.downloadFault = .failed(
-                        candidateID: attempt.candidateID,
-                        message: String(localized: "The files selected for this artwork lookup are no longer available. Select the files again.")
+                    currentSession.downloadFault = .staleSelection(
+                        message: String(localized: "This artwork lookup isn’t connected to an editable Inspector draft, so the artwork wasn’t applied. Nothing was written. Select the intended files in the Inspector and use Fetch Online… again.")
                     )
                     self.artworkLookupSession = currentSession
                     self.artworkLookupTask = nil
                     return
                 }
 
-                // Identity checks completed above and staging is synchronous, so
-                // the artwork can only be staged for the still-current attempt.
+                // The guarded commit revalidates the captured draft session,
+                // command generation and full ordered target set before staging.
+                // A failure keeps the sheet open with results for reference.
                 let pendingArtwork = PendingArtwork(data: pngData, mimeType: "image/png")
-                if targetFiles.count == 1, let targetFile = targetFiles.first {
-                    self.applyArtworkEditAction(.replace(pendingArtwork), to: targetFile)
-                } else {
-                    self.applyArtworkEditAction(.replace(pendingArtwork), to: targetFiles)
+                switch self.commitArtworkTransfer(intent, action: .replace(pendingArtwork)) {
+                case .staged:
+                    self.artworkLookupSession = nil
+                    self.artworkLookupTask = nil
+                case .rejected(let rejection):
+                    currentSession.download = nil
+                    currentSession.downloadFault = self.artworkTransferRejectionForLookup(rejection)
+                    self.artworkLookupSession = currentSession
+                    self.artworkLookupTask = nil
                 }
-
-                self.artworkLookupSession = nil
-                self.artworkLookupTask = nil
             case .failure(let error):
                 currentSession.download = nil
                 if error is CancellationError {

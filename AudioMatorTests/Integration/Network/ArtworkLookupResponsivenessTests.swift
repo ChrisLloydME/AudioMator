@@ -11,7 +11,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         let service = NonCooperativeArtworkService(searchGate: gate)
         let viewModel = makeViewModel(service: service)
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         await gate.waitUntilStarted()
@@ -37,6 +37,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         weak let weakViewModel = viewModel
         let file = makeArtworkFile()
         viewModel?.mergeQuickImportFiles([file])
+        viewModel?.setSelectedAudioIDs([file.id])
 
         viewModel?.findOnlineArtwork(for: file)
         await gate.waitUntilStarted()
@@ -52,7 +53,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         let service = NonCooperativeArtworkService(searchGate: gate)
         let viewModel = makeViewModel(service: service)
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         await gate.waitUntilStarted()
@@ -80,7 +81,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service)
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -119,6 +120,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         weak let weakViewModel = viewModel
         let file = makeArtworkFile()
         viewModel?.mergeQuickImportFiles([file])
+        viewModel?.setSelectedAudioIDs([file.id])
 
         viewModel?.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -143,7 +145,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -171,7 +173,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertTrue(viewModel.artworkLookupSession?.canSelectCandidate == true)
         XCTAssertTrue(viewModel.artworkLookupSession?.canApplySelectedResult == true)
         XCTAssertTrue(viewModel.artworkLookupSession?.isRetryingSelectedCandidate == true)
-        XCTAssertNil(viewModel.edit)
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
         let failedDownloadCandidateIDs = await service.recordedDownloadCandidateIDs()
         XCTAssertEqual(failedDownloadCandidateIDs, [result.id])
 
@@ -197,7 +199,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -240,7 +242,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service)
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -279,7 +281,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -318,7 +320,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -339,7 +341,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertTrue(viewModel.artworkLookupSession?.canApplySelectedResult == true)
         XCTAssertTrue(viewModel.artworkLookupSession?.canSelectCandidate == true)
         XCTAssertNil(viewModel.artworkLookupSession?.searchFailureMessage)
-        XCTAssertNil(viewModel.edit)
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
 
         await gate.releaseAll()
         viewModel.applySelectedArtworkLookupResult()
@@ -363,7 +365,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -396,7 +398,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertEqual(viewModel.artworkLookupSession?.results.count, 1)
         XCTAssertNil(viewModel.artworkLookupSession?.download)
         XCTAssertNil(viewModel.artworkLookupSession?.downloadFault)
-        XCTAssertNil(viewModel.edit)
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
         XCTAssertNil(viewModel.multiEdit)
     }
 
@@ -411,7 +413,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -458,7 +460,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -502,7 +504,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -521,7 +523,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         let adverseDownloadCandidateIDs = await service.recordedDownloadCandidateIDs()
         XCTAssertEqual(adverseSearchCallCount, 1)
         XCTAssertEqual(adverseDownloadCandidateIDs, [])
-        XCTAssertNil(viewModel.edit)
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
     }
 
     func testApplyPredicateAcrossSearchingResolvingFailedAndApplying() async throws {
@@ -537,7 +539,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         await searchGate.waitUntilStarted()
@@ -602,7 +604,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         let service = ControllableArtworkService(searchOutcomes: [.success([candidateA, candidateB])])
         let viewModel = makeViewModel(service: service, timeout: .seconds(5))
         let file = makeArtworkFile()
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
 
         viewModel.findOnlineArtwork(for: file)
         try await waitUntil {
@@ -671,7 +673,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
             title: "Test Track",
             album: "Test Album"
         )
-        viewModel.mergeQuickImportFiles([file])
+        prepareLookupDraft(for: file, in: viewModel)
         viewModel.setSelectedAudioIDs([file.id])
         var draft = try XCTUnwrap(viewModel.edit)
         draft.title = "Edited Title"
@@ -707,7 +709,207 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
     }
 
+    // MARK: - Destination-draft ownership (N4b)
+
+    func testOnlineDownloadRejectsWhenSelectionChangesBeforeCompletion() async throws {
+        let gate = ArtworkCallGate()
+        let expectedPNG = makeExpectedPNGData()
+        let result = makeArtworkResult()
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([result])],
+            expectedPNGData: expectedPNG,
+            downloadGate: gate
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let fileA = makeArtworkFile(url: URL(fileURLWithPath: "/tmp/artwork-a.mp3"), title: "Track A")
+        let fileB = makeArtworkFile(url: URL(fileURLWithPath: "/tmp/artwork-b.mp3"), title: "Track B")
+        viewModel.mergeQuickImportFiles([fileA, fileB])
+        viewModel.setSelectedAudioIDs([fileA.id, fileB.id])
+
+        viewModel.findOnlineArtwork(for: [fileA, fileB])
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        XCTAssertEqual(
+            viewModel.artworkLookupSession?.transfer?.command.targetIDs,
+            [fileA.id, fileB.id],
+            "The session must capture the ordered draft target set"
+        )
+
+        viewModel.applySelectedArtworkLookupResult()
+        try await gate.waitUntilStarted(1)
+
+        // The draft changes while the download is gated: a new single-file draft
+        // for B owns the Inspector now.
+        viewModel.setSelectedAudioIDs([fileB.id])
+        await gate.releaseAll()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.downloadFault?.isTransferFault == true
+        }
+
+        let fault = try XCTUnwrap(viewModel.artworkLookupSession?.downloadFault)
+        guard case .staleSelection(let message) = fault else {
+            return XCTFail("Expected a stale-selection destination fault, got \(fault)")
+        }
+        XCTAssertFalse(message.isEmpty)
+        XCTAssertNil(viewModel.artworkLookupSession?.download)
+        XCTAssertEqual(viewModel.artworkLookupSession?.results.count, 1, "Grid and selected candidate stay available")
+        XCTAssertEqual(viewModel.artworkLookupSession?.selectedResultID, result.id)
+        XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
+        XCTAssertTrue(viewModel.artworkLookupSession?.canSelectCandidate == true)
+        XCTAssertEqual(viewModel.editSourceFileID, fileB.id)
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
+        XCTAssertNil(viewModel.multiEdit)
+    }
+
+    func testOnlineDownloadRejectsWhenCapturedTargetIsRemoved() async throws {
+        let gate = ArtworkCallGate()
+        let result = makeArtworkResult()
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([result])],
+            expectedPNGData: makeExpectedPNGData(),
+            downloadGate: gate
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        viewModel.applySelectedArtworkLookupResult()
+        try await gate.waitUntilStarted(1)
+
+        viewModel.removeQuickImportFile(id: file.id)
+        await gate.releaseAll()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.downloadFault?.isTransferFault == true
+        }
+
+        XCTAssertTrue(viewModel.artworkLookupSession?.downloadFault?.isRetryable == false)
+        XCTAssertNil(viewModel.edit, "No draft is created for a removed captured target")
+        XCTAssertNil(viewModel.multiEdit)
+        XCTAssertEqual(viewModel.artworkLookupSession?.results.count, 1)
+    }
+
+    func testNewerClearSupersedesPendingOnlineDownload() async throws {
+        let gate = ArtworkCallGate()
+        let result = makeArtworkResult()
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([result])],
+            expectedPNGData: makeExpectedPNGData(),
+            downloadGate: gate
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        viewModel.applySelectedArtworkLookupResult()
+        try await gate.waitUntilStarted(1)
+
+        // A newer synchronous artwork command owns the draft and supersedes the
+        // pending download.
+        viewModel.clearArtwork(for: file)
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .remove)
+
+        await gate.releaseAll()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.downloadFault?.isTransferFault == true
+        }
+
+        XCTAssertEqual(
+            viewModel.edit?.artworkEditAction,
+            .remove,
+            "The late download must not overwrite the newer Clear command"
+        )
+        if case .superseded? = viewModel.artworkLookupSession?.downloadFault {
+            // expected
+        } else {
+            XCTFail("Expected the pending download to be superseded, got \(String(describing: viewModel.artworkLookupSession?.downloadFault))")
+        }
+        XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
+    }
+
+    func testUnrelatedTextEditDuringDownloadStagesArtworkAndKeepsText() async throws {
+        let gate = ArtworkCallGate()
+        let expectedPNG = makeExpectedPNGData()
+        let result = makeArtworkResult()
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([result])],
+            expectedPNGData: expectedPNG,
+            downloadGate: gate
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        let capturedCommand = try XCTUnwrap(viewModel.artworkLookupSession?.transfer?.command)
+        viewModel.applySelectedArtworkLookupResult()
+        try await gate.waitUntilStarted(1)
+
+        // An unrelated text edit advances the draft edit generation only.
+        viewModel.edit?.title = "Edited While Waiting"
+        XCTAssertTrue(
+            viewModel.isCurrentArtworkCommand(capturedCommand),
+            "Unrelated text edits must preserve artwork command authority"
+        )
+
+        await gate.releaseAll()
+        try await waitUntil {
+            viewModel.artworkLookupSession == nil
+        }
+
+        XCTAssertEqual(viewModel.edit?.title, "Edited While Waiting")
+        try assertStagedArtwork(expectedPNG, in: viewModel)
+    }
+
+    func testOnlineLookupWithoutInspectorDraftIsPreviewOnly() async throws {
+        let expectedPNG = makeExpectedPNGData()
+        let result = makeArtworkResult()
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([result])],
+            expectedPNGData: expectedPNG
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        viewModel.mergeQuickImportFiles([file])
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+
+        XCTAssertTrue(viewModel.artworkLookupSession?.isPreviewOnly == true)
+        XCTAssertNil(viewModel.artworkLookupSession?.transfer)
+        XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
+
+        viewModel.applySelectedArtworkLookupResult()
+        try await Task.sleep(for: .milliseconds(30))
+        let downloadCandidateIDs = await service.recordedDownloadCandidateIDs()
+        XCTAssertEqual(downloadCandidateIDs, [], "Preview-only lookups never download or stage")
+        XCTAssertNil(viewModel.edit)
+        XCTAssertNil(viewModel.multiEdit)
+
+        viewModel.dismissArtworkLookup()
+    }
+
     // MARK: - Helpers
+
+    /// Selects the file so F3-b creates the Inspector draft that authorizes the
+    /// online artwork transfer; production Inspector lookups always have one.
+    private func prepareLookupDraft(for file: AudioFile, in viewModel: AudioViewModel) {
+        viewModel.mergeQuickImportFiles([file])
+        viewModel.setSelectedAudioIDs([file.id])
+    }
 
     private func makeViewModel(
         service: any iTunesArtworkServicing,
@@ -720,10 +922,13 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
     }
 
-    private func makeArtworkFile() -> AudioFile {
+    private func makeArtworkFile(
+        url: URL = URL(fileURLWithPath: "/tmp/artwork-lookup.mp3"),
+        title: String = "Test Track"
+    ) -> AudioFile {
         AudioFileTestFactory.make(
-            url: URL(fileURLWithPath: "/tmp/artwork-lookup.mp3"),
-            title: "Test Track",
+            url: url,
+            title: title,
             album: "Test Album"
         )
     }

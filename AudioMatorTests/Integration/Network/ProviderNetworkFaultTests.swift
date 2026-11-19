@@ -672,7 +672,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
 
     @MainActor
     func testMusicBrainzTermCountVotesAndRatingValueAcceptAlternateFormsAndDefaults() async throws {
-        let cases: [(name: String, body: Data, expectedCount: Int?, expectedValue: Double?, expectedVotes: Int)] = [
+        let cases: [(name: String, body: Data, expectedCount: Int?, expectedValue: Double?, expectedVotes: Int?)] = [
             (
                 "integer forms",
                 ProviderMusicBrainzFixture.recordingLookup(
@@ -695,7 +695,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
                 4.5,
                 9
             ),
-            ("absent", ProviderMusicBrainzFixture.recordingLookup(), nil, nil, 0),
+            ("absent", ProviderMusicBrainzFixture.recordingLookup(), nil, nil, nil),
             (
                 "null",
                 ProviderMusicBrainzFixture.recordingLookup(

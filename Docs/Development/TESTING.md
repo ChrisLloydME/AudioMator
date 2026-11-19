@@ -11,7 +11,7 @@ Counts and paths below were re-verified by source inspection on 2026-11-19 and m
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 70 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 948 | 107 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 949 | 107 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 111 `XCTestCase` classes across both targets (107 app-hosted, 4 core); no custom base class.

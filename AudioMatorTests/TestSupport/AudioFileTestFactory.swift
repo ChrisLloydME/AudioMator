@@ -54,6 +54,8 @@ enum AudioFileTestFactory {
         id: UUID = UUID(),
         url: URL,
         title: String = "",
+        artist: String = "",
+        album: String = "",
         fileFingerprint: AudioFileFingerprint,
         metadataFileVersion: MetadataFileVersion,
         metadataConflictBaseline: MetadataConflictBaseline? = nil
@@ -68,7 +70,10 @@ enum AudioFileTestFactory {
                 conflictBaseline: $0
             )
         }
-        return makeWithObservation(id: id, url: url, title: title, observation: observation)
+        return makeWithObservation(
+            id: id, url: url, title: title, artist: artist, album: album,
+            observation: observation
+        )
     }
 
     static func make(

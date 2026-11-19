@@ -33,7 +33,7 @@ enum NetworkServiceDisclosure {
             uncompressedArtworkHost
         ]
 
-        static let sentDataSummary = "iTunes lookup may send search terms derived from tags, filenames, parent folder names, or user input, such as title, artist, album, album artist, UPC/barcode, an iTunes album or track ID, a pasted Apple Music or iTunes link, storefront country, or a manually entered search. Artwork downloads use Apple-returned artwork URLs, so Apple may direct the app to an Apple artwork host beyond the hosts listed here."
+        static let sentDataSummary = "iTunes search requests send a search term, the selected storefront country, and the media, entity, and limit parameters, or a lookup by Apple album/track ID, UPC, or a pasted Apple Music or iTunes link. The search term can be derived from tags, file names, and parent or grandparent folder names (title, artist, album, album artist) or typed manually. Track number, disc number, duration, iTunes artist ID, and catalog ID are not URL parameters; they are used locally for matching. No full file path, file contents, or audio bytes are sent. Artwork downloads request an Apple-returned artwork URL, so Apple may direct the app to an Apple artwork host beyond the hosts listed here."
     }
 
     enum MusicBrainz {
@@ -50,7 +50,7 @@ enum NetworkServiceDisclosure {
             webHost
         ]
 
-        static let sentDataSummary = "MusicBrainz lookup may send queries or identifiers derived from tags, filenames, parent folder names, or user input, including title, artist, album, album artist, track number, duration, release identifiers, ISRC, barcode, MusicBrainz IDs, and manually entered search terms or links."
+        static let sentDataSummary = "MusicBrainz requests send a search query or a MusicBrainz ID. Query terms can be derived from the selected files’ tags, file names, and parent or grandparent folder names, and may include title, artist, album, album artist, track number, track total, duration, release date/year, release country, release status, media format, release MBID, recording MBID, ISRC, and barcode, plus any search text, release filters, or MusicBrainz link you enter. Lookups send a recording or release MBID with a fixed request-option list. No full file path, file contents, or audio bytes are sent."
 
         nonisolated static func webURL(path: String) -> URL? {
             URL(string: "\(webBaseURLString)\(path)")
@@ -64,7 +64,7 @@ enum NetworkServiceDisclosure {
             host
         ]
 
-        static let sentDataSummary = "LRCLIB lookup may send queries derived from tags, filenames, or user input, including title, artist, album, and duration, to search for synced lyrics."
+        static let sentDataSummary = "LRCLIB search sends the track name, artist name, album name, and, when known, duration as the track_name, artist_name, album_name, and duration query parameters. Values come from the selected file’s tags when present; missing values can be derived from the file name (title/track number) and from parent or grandparent folder names (artist and album, including an “Artist - Album” folder split). No full file path, file contents, or audio bytes are sent."
     }
 
     enum ProviderWebPages {

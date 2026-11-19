@@ -17,6 +17,7 @@ struct ContentView: View {
     @ObservedObject var metadataFilenameToolStore: MetadataFilenameToolStore
     @ObservedObject var metadataEditorStore: MetadataEditorStore
     let metadataPipeline: any AudioMetadataPipeline
+    let onlineMetadataRouter: OnlineMetadataRoutingController
     @Environment(\.openWindow) private var openWindow
 
     @AppStorage(WelcomeSplashProgress.completionKey, store: AudioMatorTestHost.preferences) private var hasCompletedWelcomeSplash: Bool = false
@@ -174,22 +175,25 @@ struct ContentView: View {
     }
 
     private func openOnlineMetadataBrowser() {
-        onlineMetadataBrowserStore.apply(seed: currentMusicBrainzMatchSeed())
-        seedLRCLIBLyricsBrowser()
-        openWindow(id: OnlineMetadataBrowserView.windowID)
-
-        if onlineMetadataBrowserStore.hasSearchText {
-            onlineMetadataBrowserStore.search()
-        }
+        // Seeds local provider state and presents the source picker. No provider client is
+        // invoked until the user performs an explicit provider action.
+        onlineMetadataRouter.openGeneric(
+            selectedFiles: selectedFilesSnapshot(),
+            openWindow: { openWindow(id: OnlineMetadataBrowserView.windowID) }
+        )
     }
 
     private func findSelectedFileInMusicBrainz() {
-        guard let seed = currentMusicBrainzMatchSeed() else { return }
+        // Explicit MusicBrainz activation: the captured query is published as a consume-once
+        // intent and submitted once by the window session.
+        onlineMetadataRouter.findInMusicBrainz(
+            selectedFiles: selectedFilesSnapshot(),
+            openWindow: { openWindow(id: OnlineMetadataBrowserView.windowID) }
+        )
+    }
 
-        onlineMetadataBrowserStore.apply(seed: seed)
-        seedLRCLIBLyricsBrowser()
-        openWindow(id: OnlineMetadataBrowserView.windowID)
-        onlineMetadataBrowserStore.search()
+    private func selectedFilesSnapshot() -> [AudioFile] {
+        viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
     }
 
     private func openMetadataFilenameTool(targetFileIDs: [AudioFile.ID]) {
@@ -413,42 +417,6 @@ struct ContentView: View {
         withAnimation(.easeInOut(duration: 0.18)) {
             isInspectorVisible = isVisible
         }
-    }
-
-    private func currentMusicBrainzMatchSeed() -> MusicBrainzSearchSeed? {
-        let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
-        let fileInputs = musicBrainzFileInputs(from: selectedFiles)
-        guard let selectedFile = selectedFiles.first, let selectedInput = fileInputs.first else { return nil }
-
-        return MusicBrainzSearchSeed(
-            mode: .file,
-            title: selectedInput.title,
-            artist: selectedInput.artist,
-            albumArtist: selectedInput.albumArtist,
-            album: selectedInput.album,
-            trackNumber: selectedInput.trackNumber,
-            trackTotal: selectedFile.trackTotal,
-            durationMilliseconds: AudioNumericConversion.positiveDurationMilliseconds(selectedFile.duration),
-            releaseDate: selectedInput.releaseDate,
-            isrc: selectedFile.isrc,
-            barcode: selectedFile.barcode,
-            musicBrainzAlbumID: selectedFile.musicBrainzAlbumID,
-            musicBrainzTrackID: selectedFile.musicBrainzTrackID,
-            fileInputs: fileInputs,
-            link: "",
-            sourceDescription: selectedFiles.count == 1
-                ? "From the selected file metadata, filename, and path."
-                : "From \(selectedFiles.count) selected files, with filename and path fallback."
-        )
-    }
-
-    private func musicBrainzFileInputs(from files: [AudioFile]) -> [MusicBrainzFileSearchInput] {
-        files.map { MusicBrainzFilenameFallbackResolver.makeSearchInput(for: $0) }
-    }
-
-    private func seedLRCLIBLyricsBrowser() {
-        let selectedFiles = viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
-        lrclibLyricsBrowserStore.seed(from: selectedFiles)
     }
 
     private func toggleInspector() {
@@ -762,7 +730,12 @@ struct ContentView_Previews: PreviewProvider {
             lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore(),
             metadataFilenameToolStore: MetadataFilenameToolStore(),
             metadataEditorStore: MetadataEditorStore(metadataPipeline: TagLibAudioMetadataPipeline()),
-            metadataPipeline: TagLibAudioMetadataPipeline()
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            onlineMetadataRouter: OnlineMetadataRoutingController(
+                musicBrainzStore: MusicBrainzBrowserStore(),
+                lrclibStore: LRCLIBLyricsBrowserStore(),
+                activationStore: OnlineMetadataActivationStore()
+            )
         )
     }
 }

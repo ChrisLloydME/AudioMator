@@ -21,16 +21,6 @@ struct LRCLIBLyricsBrowserView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .audiomatorWindowBackground))
         .audiomatorMacTitlebarScrollEdgeBar()
-        .onAppear {
-            if store.hasFiles {
-                store.searchCurrentFile()
-            }
-        }
-        .onChange(of: store.navigationResetToken) { _, _ in
-            if store.hasFiles {
-                store.searchCurrentFile()
-            }
-        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {

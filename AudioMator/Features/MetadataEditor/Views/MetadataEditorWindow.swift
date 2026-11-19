@@ -58,11 +58,59 @@ final class MetadataEditorStore: ObservableObject {
     @Published private(set) var loadErrorMessage: String?
     @Published var selectedFieldKeys: Set<String> = []
 
+    /// Store-owned session identity. A new value is created for every explicit
+    /// presentation; completions, closes and load results are accepted only
+    /// while their captured identity is still current.
+    @Published private(set) var sessionState: MetadataEditorSessionState = .idle
+    /// True while a closed applying session is still draining its admitted apply.
+    @Published private(set) var isDrainingApply = false
+    /// App-owned outcome of the most recent apply, retained even after the window
+    /// closed so the operation's real result is never lost with the presentation.
+    @Published private(set) var lastApplyOutcome: MetadataEditorApplyOutcome?
+
     private let metadataPipeline: any AudioMetadataPipeline
-    private var loadToken = UUID()
+    private var loadGeneration: UInt64 = 0
+    /// Monotonic counter advanced for every draft mutation and explicit discard.
+    private(set) var draftGeneration: UInt64 = 0
+    private var currentApplyID: MetadataEditorApplyID?
+    private var currentApplyRequest: MetadataEditorApplyRequest?
+    private var currentApplyTask: Task<Void, Never>?
+    private var drainingApply: DrainingApply?
+    private var isWindowPresented = false
+    /// Stale completions from a superseded presentation are counted rather than
+    /// applied, so tests can prove suppression without inspecting private state.
+    private(set) var suppressedStaleCompletionCount = 0
+
+    private struct DrainingApply {
+        let presentationID: MetadataEditorPresentationID
+        let applyID: MetadataEditorApplyID
+        let request: MetadataEditorApplyRequest
+    }
 
     init(metadataPipeline: any AudioMetadataPipeline) {
         self.metadataPipeline = metadataPipeline
+    }
+
+    var currentPresentationID: MetadataEditorPresentationID? {
+        sessionState.presentationID
+    }
+
+    var isApplying: Bool {
+        sessionState.isApplying
+    }
+
+    /// A closed apply session cannot admit a second raw write until it drains.
+    var applyBlockedByDraining: Bool {
+        isDrainingApply
+    }
+
+    var canStartApply: Bool {
+        guard case .ready = sessionState else { return false }
+        return isEditable && !isDrainingApply
+    }
+
+    var currentTargetIDs: [AudioFile.ID] {
+        targets.map(\.id)
     }
 
     var hasUnsavedChanges: Bool {
@@ -117,29 +165,57 @@ final class MetadataEditorStore: ObservableObject {
         return L10n.string("Only non-empty metadata fields are shown. Mixed values appear as Multiple Values, and changes apply to every selected file.")
     }
 
+    /// Compatibility entry point used by the window before the main-window
+    /// integration adopts `openDecision(for:)`. It always starts a fresh
+    /// presentation; callers that must preserve a live draft go through
+    /// `openDecision(for:)`/`discardAndOpen` first.
     func present(targetFiles: [AudioFile]) {
-        let targets = targetFiles.map(MetadataEditorTarget.init(file:))
-        let token = UUID()
+        presentNew(targetFiles: targetFiles)
+    }
 
-        self.targets = targets
-        self.originalPropertyMaps = [:]
-        self.draftPropertyMaps = [:]
-        self.loadErrorMessage = nil
-        self.selectedFieldKeys = []
-        self.isLoading = true
-        self.loadToken = token
+    /// Starts a fresh presentation for `targetFiles` without consulting the
+    /// current session. The caller owns any required discard confirmation.
+    @discardableResult
+    func presentNew(targetFiles: [AudioFile]) -> MetadataEditorPresentationID {
+        let presentationID = MetadataEditorPresentationID()
+        startPresentation(targetFiles: targetFiles, presentationID: presentationID)
+        return presentationID
+    }
+
+    private func startPresentation(
+        targetFiles: [AudioFile],
+        presentationID: MetadataEditorPresentationID
+    ) {
+        let capturedTargets = targetFiles.map(MetadataEditorTarget.init(file:))
+        loadGeneration &+= 1
+        draftGeneration &+= 1
+        let loadContext = MetadataEditorLoadContext(
+            presentationID: presentationID,
+            loadGeneration: loadGeneration
+        )
+
+        targets = capturedTargets
+        originalPropertyMaps = [:]
+        draftPropertyMaps = [:]
+        loadErrorMessage = nil
+        selectedFieldKeys = []
+        isLoading = true
+        sessionState = .loading(presentationID: presentationID, loadGeneration: loadGeneration)
         let metadataPipeline = self.metadataPipeline
 
-        Task.detached(priority: .userInitiated) { [targets, token, metadataPipeline] in
-            let loadedState = Self.loadState(for: targets, metadataPipeline: metadataPipeline)
+        Task.detached(priority: .userInitiated) { [capturedTargets, loadContext, metadataPipeline] in
+            let loadedState = Self.loadState(for: capturedTargets, metadataPipeline: metadataPipeline)
 
             await MainActor.run {
-                guard self.loadToken == token else { return }
+                guard self.currentPresentationID == loadContext.presentationID,
+                      case .loading(_, let activeGeneration) = self.sessionState,
+                      activeGeneration == loadContext.loadGeneration else { return }
                 self.targets = loadedState.targets
                 self.originalPropertyMaps = loadedState.propertyMaps
                 self.draftPropertyMaps = loadedState.propertyMaps
                 self.loadErrorMessage = loadedState.errorMessage
                 self.isLoading = false
+                self.sessionState = .ready(presentationID: loadContext.presentationID)
                 if loadedState.errorMessage == nil {
                     self.realignSelection(preferred: self.selectedFieldKey)
                 } else {
@@ -149,11 +225,131 @@ final class MetadataEditorStore: ObservableObject {
         }
     }
 
+    /// The document controller observes the window being on screen. Repeated
+    /// opens are driven by `openDecision(for:)`.
+    func windowDidAppear() {
+        isWindowPresented = true
+    }
+
+    /// Explicit close ownership. The Metadata Editor window calls this (via its
+    /// close observer) instead of resetting draft state from a generic
+    /// `onDisappear`.
+    ///
+    /// - Idle/ready/loading close is the documented deliberate discard.
+    /// - Close during an apply cancels precommit work, retains an app-owned
+    ///   outcome for any admitted write, and leaves the apply draining. The
+    ///   presented session ends; a reopened window may load new data but cannot
+    ///   start another apply until the drain finishes.
+    /// - A close notification carrying a superseded presentation identity is
+    ///   ignored so it cannot clear a newer session.
+    func windowWillClose(presentationID: MetadataEditorPresentationID?) {
+        guard let presentationID,
+              currentPresentationID == presentationID else { return }
+        isWindowPresented = false
+
+        if case .applying(let applyingPresentationID, let applyID) = sessionState,
+           let request = currentApplyRequest {
+            currentApplyTask?.cancel()
+            currentApplyTask = nil
+            currentApplyRequest = nil
+            currentApplyID = nil
+            drainingApply = DrainingApply(
+                presentationID: applyingPresentationID,
+                applyID: applyID,
+                request: request
+            )
+            isDrainingApply = true
+        }
+        endPresentedSession()
+    }
+
+    /// Explicit Cancel/close when no apply is in flight. Discards the live draft.
+    func cancelAndClose() {
+        guard !sessionState.isApplying else { return }
+        isWindowPresented = false
+        endPresentedSession()
+    }
+
+    private func endPresentedSession() {
+        // Invalidate any detached load or late completion for this presentation.
+        loadGeneration &+= 1
+        draftGeneration &+= 1
+        sessionState = .idle
+        targets = []
+        originalPropertyMaps = [:]
+        draftPropertyMaps = [:]
+        loadErrorMessage = nil
+        isLoading = false
+        selectedFieldKeys = []
+        currentApplyID = nil
+        currentApplyRequest = nil
+        currentApplyTask = nil
+    }
+
+    /// What the main window should do for a requested Metadata Editor open.
+    ///
+    /// A watch-prune or other passive publication never calls this; it only
+    /// decides an explicit user open. The store never resets itself here.
+    func openDecision(for targetIDs: [AudioFile.ID]) -> MetadataEditorOpenDecision {
+        guard let presentationID = currentPresentationID else {
+            if let drainingApply {
+                return .presentWhileDraining(presentationID: drainingApply.presentationID)
+            }
+            return .presentNew
+        }
+
+        let requestedIDs = Set(targetIDs)
+        switch sessionState {
+        case .idle:
+            if let drainingApply {
+                return .presentWhileDraining(presentationID: drainingApply.presentationID)
+            }
+            return .presentNew
+        case .loading:
+            return requestedIDs == Set(currentTargetIDs)
+                ? .focusExisting(presentationID: presentationID)
+                : (isDrainingApply
+                    ? .presentWhileDraining(presentationID: presentationID)
+                    : .presentNew)
+        case .applying:
+            // The window is presented whenever a session is loading/ready/applying;
+            // a closed window ends the presented session. Focus rather than reset.
+            return .focusExisting(presentationID: presentationID)
+        case .ready:
+            if requestedIDs == Set(currentTargetIDs) {
+                return .focusExisting(presentationID: presentationID)
+            }
+            if isWindowPresented, hasUnsavedChanges {
+                return .confirmDiscardAndOpen(presentationID: presentationID)
+            }
+            return .presentNew
+        }
+    }
+
+    /// Deliberate discard-and-open for a confirmed different-target request.
+    /// Revalidation against `sessionID` means a stale confirmation cannot discard
+    /// a newer draft.
+    @discardableResult
+    func discardAndOpen(
+        targetFiles: [AudioFile],
+        sessionID: MetadataEditorPresentationID
+    ) -> Bool {
+        guard currentPresentationID == sessionID,
+              case .ready = sessionState else { return false }
+        endPresentedSession()
+        presentNew(targetFiles: targetFiles)
+        return true
+    }
+
     func discardChanges() {
         draftPropertyMaps = originalPropertyMaps
+        draftGeneration &+= 1
         realignSelection(preferred: selectedFieldKey)
     }
 
+    /// Compatibility seam for direct apply callers and existing integration tests.
+    /// The editor window itself completes applies through `startApply()` /
+    /// `completeApply(_:)`, which is scoped to the captured session and targets.
     func recordAppliedTargets(_ targetIDs: Set<AudioFile.ID>) {
         guard !targetIDs.isEmpty else { return }
 
@@ -163,6 +359,124 @@ final class MetadataEditorStore: ObservableObject {
             draftPropertyMaps.removeValue(forKey: targetID)
         }
         realignSelection(preferred: selectedFieldKey)
+    }
+
+    // MARK: - Apply session lifecycle
+
+    /// Captures the exact targets, baselines and raw maps that Done may write.
+    /// Returns nil unless the store is ready, loaded, dirty and not draining.
+    func startApply() -> MetadataEditorApplyRequest? {
+        guard case .ready(let presentationID) = sessionState,
+              !isDrainingApply,
+              isEditable,
+              hasUnsavedChanges else { return nil }
+
+        let applyID = MetadataEditorApplyID()
+        let request = MetadataEditorApplyRequest(
+            presentationID: presentationID,
+            applyID: applyID,
+            targets: targets,
+            pendingTargets: pendingTargets,
+            submittedPropertyMaps: draftPropertyMaps,
+            draftGeneration: draftGeneration
+        )
+        currentApplyID = applyID
+        currentApplyRequest = request
+        sessionState = .applying(presentationID: presentationID, applyID: applyID)
+        return request
+    }
+
+    /// The window stores the task so an explicit close can cancel unstarted work.
+    func attachApplyTask(_ task: Task<Void, Never>) {
+        guard sessionState.isApplying else {
+            task.cancel()
+            return
+        }
+        currentApplyTask = task
+    }
+
+    /// Maps the raw apply result onto the request it belongs to. This is the
+    /// store-side adapter until AudioViewModel exposes a session-scoped outcome.
+    func makeApplyOutcome(
+        from result: RawMetadataApplyResult,
+        for request: MetadataEditorApplyRequest,
+        wasCancelled: Bool = false
+    ) -> MetadataEditorApplyOutcome {
+        MetadataEditorApplyOutcome(
+            presentationID: request.presentationID,
+            applyID: request.applyID,
+            succeededTargetIDs: result.succeededTargetIDs,
+            failedTargetIDs: result.failedTargetIDs,
+            didApplyAllChanges: result.didApplyAllChanges,
+            wasCancelled: wasCancelled
+        )
+    }
+
+    /// Accepts an apply outcome only for the session/apply that started it.
+    ///
+    /// Successful targets are removed only when the current customer-facing
+    /// target still equals the captured target (ID, URL, expected revision and
+    /// baseline). Failures keep their original property maps and live intent. A
+    /// completion that belongs to a closed/draining session is recorded as the
+    /// app-owned outcome but can never mutate a newer presentation.
+    @discardableResult
+    func completeApply(_ outcome: MetadataEditorApplyOutcome) -> MetadataEditorApplyCompletion {
+        if let drainingApply,
+           outcome.presentationID == drainingApply.presentationID,
+           outcome.applyID == drainingApply.applyID {
+            lastApplyOutcome = outcome
+            self.drainingApply = nil
+            isDrainingApply = false
+            return .sessionClosed
+        }
+
+        guard case .applying(let presentationID, let applyID) = sessionState,
+              outcome.presentationID == presentationID,
+              outcome.applyID == applyID,
+              let request = currentApplyRequest else {
+            suppressedStaleCompletionCount &+= 1
+            return .sessionClosed
+        }
+
+        lastApplyOutcome = outcome
+        removeCapturedSuccessfulTargets(
+            outcome.succeededTargetIDs,
+            capturedTargets: request.pendingTargets
+        )
+        let hasNewerDraftEdits = draftGeneration != request.draftGeneration
+        currentApplyID = nil
+        currentApplyRequest = nil
+        currentApplyTask = nil
+        sessionState = .ready(presentationID: presentationID)
+
+        if outcome.didApplyAllChanges && !hasNewerDraftEdits {
+            return .dismiss
+        }
+        return .remainReady
+    }
+
+    private func removeCapturedSuccessfulTargets(
+        _ succeededTargetIDs: Set<AudioFile.ID>,
+        capturedTargets: [MetadataEditorTarget]
+    ) {
+        var capturedByID: [AudioFile.ID: MetadataEditorTarget] = [:]
+        for target in capturedTargets where capturedByID[target.id] == nil {
+            capturedByID[target.id] = target
+        }
+
+        var removedAny = false
+        for targetID in succeededTargetIDs {
+            guard let capturedTarget = capturedByID[targetID],
+                  let index = targets.firstIndex(where: { $0.id == targetID }),
+                  targets[index] == capturedTarget else { continue }
+            targets.remove(at: index)
+            originalPropertyMaps.removeValue(forKey: targetID)
+            draftPropertyMaps.removeValue(forKey: targetID)
+            removedAny = true
+        }
+        if removedAny {
+            realignSelection(preferred: selectedFieldKey)
+        }
     }
 
     fileprivate func makeAddFieldContext() -> MetadataFieldEditorContext {
@@ -201,6 +515,7 @@ final class MetadataEditorStore: ObservableObject {
             draftPropertyMaps[target.id] = propertyMap
         }
 
+        draftGeneration &+= 1
         selectedFieldKey = normalizedKey
     }
 
@@ -261,6 +576,7 @@ final class MetadataEditorStore: ObservableObject {
             draftPropertyMaps[target.id] = propertyMap
         }
 
+        draftGeneration &+= 1
         realignSelection(preferred: selectedFieldKey)
     }
 
@@ -283,6 +599,7 @@ final class MetadataEditorStore: ObservableObject {
             draftPropertyMaps[target.id] = propertyMap
         }
 
+        draftGeneration &+= 1
         if realignAfterDelete {
             realignSelection(preferred: nil)
         }
@@ -360,7 +677,6 @@ struct MetadataEditorWindowView: View {
 
     @State private var editorContext: MetadataFieldEditorContext?
     @State private var utilityContext: MetadataTextUtilitiesContext?
-    @State private var isApplyingChanges: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -381,6 +697,11 @@ struct MetadataEditorWindowView: View {
                 }
             }
         }
+        .background(
+            MetadataEditorWindowCloseObserver {
+                store.windowWillClose(presentationID: store.currentPresentationID)
+            }
+        )
         .sheet(item: $editorContext) { context in
             MetadataFieldEntrySheet(context: context) { key, value in
                 store.commitFieldEntry(context: context, key: key, value: value)
@@ -391,10 +712,8 @@ struct MetadataEditorWindowView: View {
                 utilityContext = nil
             }
         }
-        .onDisappear {
-            if !isApplyingChanges {
-                store.discardChanges()
-            }
+        .onAppear {
+            store.windowDidAppear()
         }
     }
 
@@ -476,35 +795,39 @@ struct MetadataEditorWindowView: View {
             Button("Edit Selected…") {
                 editorContext = store.makeEditFieldContext()
             }
-            .disabled(store.selectedFieldKeys.count != 1 || !store.isEditable || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.count != 1 || !store.isEditable || store.isApplying)
 
             Button("Add Field…") {
                 editorContext = store.makeAddFieldContext()
             }
-            .disabled(!store.isEditable || isApplyingChanges)
+            .disabled(!store.isEditable || store.isApplying)
 
             Button("Delete Field", role: .destructive) {
                 store.deleteSelectedField()
             }
-            .disabled(store.selectedFieldKeys.isEmpty || !store.isEditable || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.isEmpty || !store.isEditable || store.isApplying)
 
             Button("Utilities…") {
                 utilityContext = MetadataTextUtilitiesContext(fieldKeys: store.selectedFieldKeys)
             }
-            .disabled(store.selectedFieldKeys.isEmpty || !store.isEditable || isApplyingChanges)
+            .disabled(store.selectedFieldKeys.isEmpty || !store.isEditable || store.isApplying)
 
             Spacer()
 
-            if isApplyingChanges {
+            if store.isApplying {
                 ProgressView()
                     .controlSize(.small)
+            } else if store.applyBlockedByDraining {
+                ProgressView()
+                    .controlSize(.small)
+                    .help(String(localized: "A previous save is still finishing. Wait before saving again."))
             }
 
             Button("Cancel") {
-                store.discardChanges()
+                store.cancelAndClose()
                 dismiss()
             }
-            .disabled(isApplyingChanges)
+            .disabled(store.isApplying)
 
             Button("Done") {
                 Task {
@@ -512,27 +835,82 @@ struct MetadataEditorWindowView: View {
                 }
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(store.isLoading || isApplyingChanges)
+            .disabled(store.isLoading || !store.canStartApply)
         }
     }
 
     private func commitAndDismiss() async {
-        guard !isApplyingChanges else { return }
-
         if !store.hasUnsavedChanges {
             dismiss()
             return
         }
 
-        isApplyingChanges = true
-        let applyResult = await viewModel.applyRawMetadataPropertyMaps(
-            store.draftPropertyMaps,
-            to: store.pendingTargets
+        guard let request = store.startApply() else { return }
+        let applyTask = Task { @MainActor in
+            let applyResult = await viewModel.applyRawMetadataPropertyMaps(
+                request.submittedPropertyMaps,
+                to: request.pendingTargets
+            )
+            let outcome = store.makeApplyOutcome(
+                from: applyResult,
+                for: request,
+                wasCancelled: Task.isCancelled
+            )
+            switch store.completeApply(outcome) {
+            case .dismiss:
+                dismiss()
+            case .remainReady, .sessionClosed:
+                break
+            }
+        }
+        store.attachApplyTask(applyTask)
+        await applyTask.value
+    }
+}
+
+/// Window-close ownership for the Metadata Editor.
+///
+/// The close is reported to `MetadataEditorStore` with the presentation identity
+/// captured at notification time; the store ignores a superseded identity and
+/// never relies on a generic `onDisappear` reset.
+private struct MetadataEditorWindowCloseObserver: NSViewRepresentable {
+    let onWindowWillClose: () -> Void
+
+    func makeNSView(context: Context) -> MetadataEditorWindowCloseObserverView {
+        let view = MetadataEditorWindowCloseObserverView()
+        view.onWindowWillClose = onWindowWillClose
+        return view
+    }
+
+    func updateNSView(_ nsView: MetadataEditorWindowCloseObserverView, context: Context) {
+        nsView.onWindowWillClose = onWindowWillClose
+    }
+}
+
+private final class MetadataEditorWindowCloseObserverView: NSView {
+    var onWindowWillClose: (() -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        detach()
+        guard let window else { return }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWindowWillClose),
+            name: NSWindow.willCloseNotification,
+            object: window
         )
-        isApplyingChanges = false
-        store.recordAppliedTargets(applyResult.succeededTargetIDs)
-        let didApplyAllChanges = applyResult.didApplyAllChanges
-        guard didApplyAllChanges else { return }
-        dismiss()
+    }
+
+    @objc private func handleWindowWillClose(_ notification: Notification) {
+        onWindowWillClose?()
+    }
+
+    private func detach() {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: NSWindow.willCloseNotification,
+            object: nil
+        )
     }
 }

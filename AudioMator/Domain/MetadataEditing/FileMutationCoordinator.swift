@@ -25,15 +25,19 @@ actor FileMutationCoordinator {
         to urls: [URL],
         perform operation: @Sendable () async throws -> Value
     ) async throws -> Value {
-        let keys = Set(urls.map(Self.normalizedFileKey(for:)))
+        let keys = Self.reservationKeys(for: urls)
         try await acquire(keys)
         defer { release(keys) }
         try Task.checkCancellation()
         return try await operation()
     }
 
-    nonisolated private static func normalizedFileKey(for url: URL) -> String {
-        FileSystemPathSemantics.key(for: url)
+    nonisolated private static func reservationKeys(for urls: [URL]) -> Set<String> {
+        var keys: Set<String> = []
+        for url in urls {
+            keys.formUnion(FileSystemPathSemantics.reservationKeys(for: url))
+        }
+        return keys
     }
 
     private func acquire(_ keys: Set<String>) async throws {

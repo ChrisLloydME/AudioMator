@@ -215,6 +215,85 @@ nonisolated final class RenameTransactionServiceTests: XCTestCase {
         XCTAssertTrue(store.loadManifests().manifests.isEmpty)
     }
 
+    func testJournalWriteFailurePreventsAnyMove() throws {
+        let faultStore = FaultInjectingJournalStore(base: store)
+        faultStore.failWritePrepared = true
+        let faultService = RenameTransactionService(fileSystem: fileSystem, journal: faultStore)
+        let prepared = try makePrepared(names: [("first.wav", "renamed-first.wav")])
+
+        switch faultService.execute(prepared) {
+        case .rejected(.journalUnavailable):
+            break
+        default:
+            return XCTFail("Expected journalUnavailable rejection")
+        }
+        XCTAssertEqual(try directoryNames(at: rootURL), ["first.wav"])
+        XCTAssertTrue(store.loadManifests().manifests.isEmpty)
+    }
+
+    func testCommittedMarkerFailureRetainsPreparedRecord() throws {
+        let faultStore = FaultInjectingJournalStore(base: store)
+        faultStore.failMarkCommitted = true
+        let faultService = RenameTransactionService(fileSystem: fileSystem, journal: faultStore)
+        let prepared = try makePrepared(names: [("first.wav", "renamed-first.wav")])
+
+        switch faultService.execute(prepared) {
+        case .unresolved(_, let classification, let reason):
+            XCTAssertEqual(classification.status, .preparedAllAtIntended)
+            XCTAssertEqual(reason, .committedRecordFailed)
+        default:
+            return XCTFail("Expected an unresolved outcome when the committed marker cannot be written")
+        }
+
+        let retained = try XCTUnwrap(store.loadManifests().manifests.first)
+        XCTAssertEqual(retained.phase, .prepared)
+        XCTAssertEqual(
+            try String(contentsOf: rootURL.appendingPathComponent("renamed-first.wav"), encoding: .utf8),
+            "entry-0"
+        )
+    }
+
+    func testCommittedRecordRetainedWhenCleanupFails() throws {
+        let faultStore = FaultInjectingJournalStore(base: store)
+        faultStore.failRemoveManifest = true
+        let faultService = RenameTransactionService(fileSystem: fileSystem, journal: faultStore)
+        let prepared = try makePrepared(names: [("first.wav", "renamed-first.wav")])
+
+        switch faultService.execute(prepared) {
+        case .committed(_, let moves, let diagnostics):
+            XCTAssertEqual(moves.count, 1)
+            XCTAssertTrue(diagnostics.contains(.journalCleanupDeferred))
+        default:
+            return XCTFail("Expected a committed outcome with a retained cleanup record")
+        }
+
+        let retained = try XCTUnwrap(store.loadManifests().manifests.first)
+        XCTAssertEqual(retained.phase, .committed)
+        XCTAssertEqual(
+            try String(contentsOf: rootURL.appendingPathComponent("renamed-first.wav"), encoding: .utf8),
+            "entry-0"
+        )
+    }
+
+    func testClassifyUnavailableWhenParentDirectoryIsMovedAway() throws {
+        let manifest = try makePreparedManifestAndStageMove()
+        let movedRootURL = baseURL.appendingPathComponent("FilesMovedAway", isDirectory: true)
+        try FileManager.default.moveItem(at: rootURL, to: movedRootURL)
+        defer { try? FileManager.default.moveItem(at: movedRootURL, to: rootURL) }
+
+        let classification = try XCTUnwrap(service.classify([manifest]).first)
+        XCTAssertEqual(classification.status, .preparedUnavailable)
+        XCTAssertEqual(classification.entries.first?.role, .unavailable)
+
+        switch service.restoreOriginals(manifest) {
+        case .unresolved(_, let updated, _):
+            XCTAssertEqual(updated.status, .preparedUnavailable)
+        default:
+            return XCTFail("Expected unavailable classification to prevent a restore")
+        }
+        XCTAssertEqual(store.loadManifests().manifests.first?.phase, .prepared)
+    }
+
     // MARK: - Helpers
 
     private func makePrepared(
@@ -366,5 +445,46 @@ private nonisolated struct ExclusiveRenameUnsupportedFileSystem: RenameFileSyste
     }
     func syncDirectory(_ handle: RenameDirectoryHandle) throws {
         try base.syncDirectory(handle)
+    }
+}
+
+/// Journal store double that can fail one durable transition while forwarding all
+/// other operations to the real store.
+private nonisolated final class FaultInjectingJournalStore: RenameJournalStoring, @unchecked Sendable {
+    let base: LocalRenameJournalStore
+    var failWritePrepared = false
+    var failMarkCommitted = false
+    var failRemoveManifest = false
+
+    init(base: LocalRenameJournalStore) {
+        self.base = base
+    }
+
+    var directoryURL: URL { base.directoryURL }
+
+    func ensureDirectory() throws { try base.ensureDirectory() }
+    func loadManifests() -> RenameJournalLoadResult { base.loadManifests() }
+    func tryAcquireLock() throws -> RenameJournalLock? { try base.tryAcquireLock() }
+    func directoryBarrierSupport() -> RenameDirectoryBarrierSupport { base.directoryBarrierSupport() }
+
+    func writePrepared(_ manifest: RenameJournalManifest) throws {
+        if failWritePrepared {
+            throw RenameJournalStoreError.writeFailed(code: 5)
+        }
+        try base.writePrepared(manifest)
+    }
+
+    func markCommitted(_ manifest: RenameJournalManifest) throws {
+        if failMarkCommitted {
+            throw RenameJournalStoreError.writeFailed(code: 5)
+        }
+        try base.markCommitted(manifest)
+    }
+
+    func removeManifest(operationID: UUID) throws {
+        if failRemoveManifest {
+            throw RenameJournalStoreError.removalFailed(code: 5)
+        }
+        try base.removeManifest(operationID: operationID)
     }
 }

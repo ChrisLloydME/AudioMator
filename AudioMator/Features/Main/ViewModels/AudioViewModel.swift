@@ -198,6 +198,23 @@ final class AudioViewModel: ObservableObject {
     // Recovery decisions outlive individual metadata observations. They are
     // cleared only through named FileRecoveryClearance transitions.
     private var recoveryDecisionsByID: [AudioFile.ID: Set<FileRecoveryDecision>] = [:]
+
+    // Durable rename-journal state (F2). Path-keyed blocks protect recorded
+    // locations even when no session file ID is loaded; the presentation state is
+    // rebuilt from read-only classification and never moves files by itself.
+    let renameFileSystem: any RenameFileSystem
+    let renameJournalStore: any RenameJournalStoring
+    @Published var renameJournalRecovery: RenameJournalRecoveryState = .empty
+    @Published var renameJournalActionInProgress: UUID?
+    var renameJournalManifests: [RenameJournalManifest] = []
+    var renameJournalPathBlocks: Set<String> = []
+    var renameJournalOperationByPathKey: [String: UUID] = [:]
+    var renameJournalFileIDsByOperation: [UUID: Set<AudioFile.ID>] = [:]
+    var renameJournalClaimedFileIDs: [AudioFile.ID: UUID] = [:]
+    var didPresentRenameJournalStartupWarning = false
+    var renameJournalRefreshTask: Task<Void, Never>?
+    var renameJournalRefreshGeneration: UInt64 = 0
+
     let moveReadbackTimeout: Duration
     private var lastMetadataReloadPublication = ContinuousClock.now
     var lastMetadataProgressPublication = ContinuousClock.now
@@ -219,7 +236,10 @@ final class AudioViewModel: ObservableObject {
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
         artworkLookupOperationTimeout: Duration = .seconds(30),
         conflictPolicyDefaults: UserDefaults = .standard,
-        moveReadbackTimeout: Duration = .seconds(60)
+        moveReadbackTimeout: Duration = .seconds(60),
+        renameFileSystem: any RenameFileSystem = LocalRenameFileSystem(),
+        renameJournalStore: any RenameJournalStoring = AudioViewModel.defaultRenameJournalStore(),
+        renameJournalAutoClassification: Bool = true
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.fileAccessGrantStore = fileAccessGrantStore
@@ -229,6 +249,8 @@ final class AudioViewModel: ObservableObject {
         self.artworkLookupService = artworkLookupService
         self.artworkLookupOperationTimeout = artworkLookupOperationTimeout
         self.moveReadbackTimeout = moveReadbackTimeout
+        self.renameFileSystem = renameFileSystem
+        self.renameJournalStore = renameJournalStore
 
         let restoredFolders = watchedFolderStore.loadFolders()
         self.watchedFolders = restoredFolders
@@ -251,6 +273,12 @@ final class AudioViewModel: ObservableObject {
             beginAccessingFileAccessGrant(grant)
         }
 
+        // Read-only journal bootstrap after authorized folders are available and
+        // before scans/mutations can publish. Loading manifests installs
+        // path-keyed blocks immediately; classification is deferred and never
+        // moves files.
+        bootstrapRenameJournalRecovery(scheduleClassification: renameJournalAutoClassification)
+
         for folder in restoredFolders {
             beginAccessingWatchedFolder(folder)
             updateDirectoryMonitors(for: folder.id, directories: [folder.url])
@@ -264,6 +292,7 @@ final class AudioViewModel: ObservableObject {
         artworkImportTask?.cancel()
         artworkLookupTask?.cancel()
         metadataWriteHUDDismissTask?.cancel()
+        renameJournalRefreshTask?.cancel()
         quickImportTasks.values.forEach { $0.cancel() }
         folderRescanTasks.values.forEach { $0.cancel() }
         folderDirectoryMonitors.removeAll()
@@ -741,6 +770,7 @@ final class AudioViewModel: ObservableObject {
         if let clearing, let observation = file.observation {
             clearRecoveryDecisions(for: file.id, clearing: clearing, observation: observation)
         }
+        attachRenameJournalDecisionIfNeeded(fileID: file.id, url: file.url)
         let accepted = applyingRecoveryProjection(file)
         revokeCommitPermitsIfObservationIncompatible(accepted)
         return accepted
@@ -820,6 +850,85 @@ final class AudioViewModel: ObservableObject {
         guard !hasRecoveryDecision(for: id) else {
             throw AudioFileFingerprintValidationError.recoveryRequired(fileName: url.lastPathComponent)
         }
+        guard !isRenameJournalBlocked(url: url) else {
+            throw RenameJournalRecoveryError(fileName: url.lastPathComponent)
+        }
+    }
+
+    /// Clears `.journalPending` decisions for the known file IDs of one journal
+    /// operation after a verified restore or explicit acknowledgement. Path blocks
+    /// are rebuilt from the manifests by the recovery refresh.
+    func clearJournalRecoveryDecisions(
+        forFileIDs fileIDs: Set<AudioFile.ID>,
+        operationID: UUID
+    ) {
+        guard !fileIDs.isEmpty else { return }
+        for id in fileIDs {
+            renameJournalClaimedFileIDs.removeValue(forKey: id)
+            guard var decisions = recoveryDecisionsByID[id] else { continue }
+            decisions.remove(.journalPending(operationID))
+            recoveryDecisionsByID[id] = decisions.isEmpty ? nil : decisions
+            if let current = committedFile(withID: id) {
+                replaceSourceMembershipEntry(current.projectingRecoveryState())
+            }
+        }
+        renameJournalFileIDsByOperation[operationID] = nil
+        rebuildVisibleFiles()
+    }
+
+    /// Records `.journalPending` decisions for the known file IDs of an unresolved
+    /// rename and republishes their authority-free projections. Used after a
+    /// rename outcome refreshes the journal path index.
+    func applyRenameJournalPendingDecisions(
+        fileIDs: [AudioFile.ID],
+        operationID: UUID
+    ) {
+        guard !fileIDs.isEmpty else { return }
+        for fileID in fileIDs {
+            renameJournalClaimedFileIDs[fileID] = operationID
+            renameJournalFileIDsByOperation[operationID, default: []].insert(fileID)
+            recoveryDecisionsByID[fileID, default: []].insert(.journalPending(operationID))
+            revokeCommitPermitsForRecoveryDecision(fileID)
+        }
+        for fileID in fileIDs {
+            if let current = committedFile(withID: fileID) {
+                replaceSourceMembershipEntry(current.projectingRecoveryState())
+            }
+        }
+        rebuildVisibleFiles()
+    }
+
+    /// Attaches the named journal decision for a loaded observation whose path is
+    /// recorded by an unresolved prepared operation. Called while the observation
+    /// is being accepted, before projection/publication.
+    func attachRenameJournalDecisionIfNeeded(fileID: AudioFile.ID, url: URL) {
+        guard let operationID = renameJournalOperationID(for: url) else { return }
+        renameJournalClaimedFileIDs[fileID] = operationID
+        renameJournalFileIDsByOperation[operationID, default: []].insert(fileID)
+        guard !recoveryDecisionsByID[fileID, default: []].contains(.journalPending(operationID)) else {
+            return
+        }
+        recoveryDecisionsByID[fileID, default: []].insert(.journalPending(operationID))
+        revokeCommitPermitsForRecoveryDecision(fileID)
+    }
+
+    /// Invalidates in-flight scans for file IDs rebound by a verified journal
+    /// restore so an older pre-restore page cannot republish.
+    func invalidateWatchedFolderScansForRestoredJournalFiles(_ fileIDs: Set<AudioFile.ID>) {
+        for id in fileIDs {
+            invalidateWatchedFolderScans(containingFileID: id)
+        }
+    }
+
+    /// Default journal store for production and the app-hosted test host. The test
+    /// host never reads or writes the developer's Application Support journal.
+    nonisolated static func defaultRenameJournalStore() -> any RenameJournalStoring {
+        if AudioMatorTestHost.isEnabled {
+            let directoryURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("AudioMatorTestRenameJournal-\(UUID().uuidString)", isDirectory: true)
+            return LocalRenameJournalStore(directoryURL: directoryURL)
+        }
+        return LocalRenameJournalStore()
     }
 
     func loadedFile(withID id: AudioFile.ID) -> AudioFile? {

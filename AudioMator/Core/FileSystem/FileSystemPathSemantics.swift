@@ -12,6 +12,28 @@ enum FileSystemPathSemantics {
         return comparisonKey(forCanonicalPath: canonicalURL.path, isCaseSensitive: isCaseSensitive)
     }
 
+    /// Reservation identities for one lexical path: the symlink-resolved
+    /// comparison identity plus the directory-entry location identity. Writers
+    /// reserve both so a symlink object and its target cannot be mutated as if
+    /// they were independent entries.
+    nonisolated static func reservationKeys(for url: URL) -> Set<String> {
+        [key(for: url), directoryEntryKey(for: url)]
+    }
+
+    /// Identity of the directory entry formed by resolving only the parent path
+    /// and folding the basename using the parent volume's filename semantics.
+    nonisolated static func directoryEntryKey(for url: URL) -> String {
+        let standardizedURL = url.standardizedFileURL
+        let parentURL = standardizedURL.deletingLastPathComponent().resolvingSymlinksInPath()
+        let basename = standardizedURL.lastPathComponent.precomposedStringWithCanonicalMapping
+        let isCaseSensitive = volumeSupportsCaseSensitiveNames(for: parentURL) ?? true
+        let foldedBasename = isCaseSensitive
+            ? basename
+            : basename.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        let parentPath = parentURL.path.precomposedStringWithCanonicalMapping
+        return "entry:" + parentPath + "/" + foldedBasename
+    }
+
     nonisolated static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
         let urlKey = key(for: url)
         let ancestorKey = key(for: ancestorURL)

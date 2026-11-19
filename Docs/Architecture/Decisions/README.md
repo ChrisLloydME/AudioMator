@@ -12,6 +12,7 @@ Architecture Decision Records (ADRs) capture decisions that constrain future wor
 | [0004](0004-metadata-exchange-responsibility-boundaries.md) | Split Metadata Exchange by responsibility | Accepted |
 | [0005](0005-metadata-mapping-compatibility-contract.md) | Adopt the versioned metadata interoperability metadata mapping contract | Accepted; implemented by published package 0.8.1 |
 | [0006](0006-reviewed-operation-boundary.md) | Reviewed writes bind authority to one observation and admit commits through permits | Accepted |
+| [0007](0007-durable-rename-journal.md) | Durable rename journal and restart recovery | Accepted |
 
 ## When to Write an ADR
 

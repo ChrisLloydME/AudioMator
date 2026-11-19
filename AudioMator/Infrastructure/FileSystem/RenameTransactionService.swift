@@ -1,5 +1,12 @@
 import Foundation
 
+nonisolated enum RenameRecordRemovalOutcome: Equatable, Sendable {
+    case removed(operationID: UUID)
+    case busy
+    case rejected(RenameRestoreRejection)
+    case unresolved(RenameJournalClassification)
+}
+
 /// Durable, exclusive rename transaction service.
 ///
 /// The service owns filesystem effects and durability ordering; the view model
@@ -421,6 +428,44 @@ nonisolated struct RenameTransactionService: Sendable {
             moves: restoredMoves,
             retainedRecord: retainedRecord
         )
+    }
+
+    // MARK: - Explicit acknowledgement
+
+    /// Removes a record only after an explicit user acknowledgement and a fresh
+    /// read-only verification under the journal lock. A committed record (or a
+    /// prepared record that proves no file moved) may be removed; everything else
+    /// stays for inspection.
+    func removeAcknowledgedRecord(_ operationID: UUID) -> RenameRecordRemovalOutcome {
+        let lock: RenameJournalLock
+        do {
+            guard let acquired = try journal.tryAcquireLock() else { return .busy }
+            lock = acquired
+        } catch {
+            return .rejected(.journalUnavailable)
+        }
+        defer { lock.release() }
+
+        guard let current = journal.loadManifests().manifests.first(where: {
+            $0.operationID == operationID
+        }) else {
+            return .rejected(.recordMissing)
+        }
+
+        let classification = classifyManifest(current)
+        switch classification.status {
+        case .committedConfirmed, .committedUncertain, .preparedNoFilesMoved:
+            do {
+                try journal.removeManifest(operationID: operationID)
+                return .removed(operationID: operationID)
+            } catch {
+                return .rejected(.journalUnavailable)
+            }
+        case .busy:
+            return .busy
+        default:
+            return .unresolved(classification)
+        }
     }
 
     // MARK: - Input validation
@@ -1055,6 +1100,16 @@ nonisolated struct RenameTransactionService: Sendable {
             )
         }
 
+        // Check the containing directory before probing entries so a missing or
+        // unreadable folder is reported as unavailable rather than missing.
+        do {
+            if try fileSystem.entryIdentityIfPresent(at: originalURL.deletingLastPathComponent()) == nil {
+                return unavailableClassification(for: entry, issueCodes: [.directoryUnavailable])
+            }
+        } catch {
+            return unavailableClassification(for: entry, issueCodes: [.directoryUnavailable])
+        }
+
         var matches: [(role: RenameEntryRole, url: URL, identity: RenameEntryIdentity)] = []
         var foreign: (url: URL, identity: RenameEntryIdentity)?
         var unavailable = false
@@ -1154,6 +1209,22 @@ nonisolated struct RenameTransactionService: Sendable {
         )
     }
 
+    private func unavailableClassification(
+        for entry: RenameJournalEntry,
+        issueCodes: [RenameClassificationIssueCode]
+    ) -> EntryClassificationResult {
+        EntryClassificationResult(
+            classification: RenameEntryClassification(
+                index: entry.index,
+                role: .unavailable,
+                expectedIdentity: entry.sourceIdentity,
+                observedURL: nil,
+                observedIdentity: nil
+            ),
+            issueCodes: issueCodes
+        )
+    }
+
     private func aliasResolvesToIntendedName(originalURL: URL, intendedURL: URL) -> Bool {
         guard
             FileSystemPathSemantics.key(for: originalURL)
@@ -1191,15 +1262,14 @@ nonisolated struct RenameTransactionService: Sendable {
     ) -> RenameJournalOperationStatus {
         let roles = entries.map(\.role)
 
-        if roles.contains(.unavailable) { return .preparedUnavailable }
-        if entries.contains(where: {
-            $0.role == .ambiguous || $0.role == .foreign || $0.role == .missing
-        }) {
-            return .preparedUnresolved
-        }
-
         switch manifest.phase {
         case .prepared:
+            if roles.contains(.unavailable) { return .preparedUnavailable }
+            if entries.contains(where: {
+                $0.role == .ambiguous || $0.role == .foreign || $0.role == .missing
+            }) {
+                return .preparedUnresolved
+            }
             if roles.allSatisfy({ $0 == .original }) { return .preparedNoFilesMoved }
             if roles.allSatisfy({ $0 == .intended }) { return .preparedAllAtIntended }
             return .preparedNeedsRestore

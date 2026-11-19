@@ -22,7 +22,9 @@ Quick Import reads files concurrently in the background and adds them to the lis
 2. Choose one or more folders.
 3. AudioMator stores security-scoped bookmarks so the folders are restored on later launches.
 
-Watched folders scan recursively, skipping hidden files and package descendants. Directory changes trigger a debounced rescan (350 ms). On app activation, the selected files are checked for external changes as well. If a folder contains too many directories (the monitoring limit is 128 per folder) or some cannot be monitored, the sidebar and Settings → Folders report degraded automatic refresh; a manual reload or activation can still refresh files.
+Watched folders scan recursively, skipping hidden files and package descendants. AudioMator watches each folder's directory entries for added, removed and renamed items; a folder counts as actively monitored only while the open directory still matches the authorized path. Directory changes trigger a debounced rescan (350 ms). Edits inside a file that is already listed are not guaranteed to appear automatically. Use **Refresh Watched Folders** from the Edit menu or a watched folder's context menu, or **Refresh** for a folder in Settings → Folders, to rescan and reattach monitoring. On app activation, the selected files are checked for external changes as well.
+
+If a folder contains too many directories (the monitoring limit is 128 per folder), becomes unavailable, or its path now refers to a different directory, the sidebar and Settings → Folders report degraded automatic refresh with the reason. Restore or reauthorize the folder, then refresh again; a folder that moved to a new path must be added again.
 
 Removing a watched folder from AudioMator does not delete it from disk.
 
@@ -44,6 +46,10 @@ The right Inspector is a curated common-field editor. Settings → Interface →
 
 The Inspector edits the fields visible for the current selection. For a single file it is a direct draft of that file. For multiple files it shows shared values and marks mixed values; edited fields are applied to every selected file.
 
+A background refresh (watched-folder rescan or imported-file reload) does not recreate or replace a dirty Inspector draft, and a save keeps the original expected revision until it succeeds. After a successful save, fields you did not edit again follow the value read back from disk; edits made while the save was in flight stay pending. If some files in a batch fail, Save retries only those files or your newer changes.
+
+If a watched folder, Quick Import list or settings removal makes some of a dirty draft's files unavailable, AudioMator prunes the selection as usual but keeps your captured values in a review state. The Inspector explains which files are unavailable and shows the captured changes; **Save is suspended** until every captured file is available again and you choose **Resume Editing**, or you choose **Discard Edits**. Captured values are never applied to other files.
+
 1. Select one or more files.
 2. Edit fields in the Inspector.
 3. Choose **Save** in the Inspector toolbar or **Save Edits** from the Edit menu to write pending changes, or **Cancel** in the Inspector toolbar (**Cancel Edits** in the Edit menu) to discard them. Both save commands apply to the current selection.
@@ -62,14 +68,18 @@ Older numbering values are handled internally and can appear in the normal Track
 
 Artwork can be replaced from a local image, the photo library, or clipboard data, or cleared. The original embedded bytes are retained for unchanged files. Replacement bytes and MIME type are sent to the metadata pipeline as one artwork patch. Artwork write support is format-dependent and is preflighted like other fields. Single-file controls offer **Choose Artwork…** (Finder or Photo Library), **Fetch Online…**, and **Clear Artwork**; the context menu adds **Import from Clipboard**. Multi-selection controls offer the same actions with **Clear All**, and **Keep Current Artwork** in the context menu.
 
+**Fetch Online…** reports search and download problems separately. A failed search offers **Search Again**, which retries only the search. A failed, timed-out or cancelled candidate download keeps the result grid and selected candidate, shows the reason next to the preview, and changes the primary action to **Try Again**; you can also pick another candidate and apply it without searching again. While a download runs, applying and switching candidates are disabled, and **Stop Download** cancels it without closing the sheet. The selected preview falls back through Apple's preferred image URLs in order, and choosing another candidate starts again at the first URL.
+
 ## Editing Raw Metadata (Metadata Editor)
 
-The Metadata Editor exposes the TagLib PropertyMap projection as ordered value lists. One line represents one value; duplicates, empty values, whitespace, and literal semicolons are preserved.
+The Metadata Editor exposes the TagLib PropertyMap projection as ordered value lists. Each list entry is one exact value; duplicates, blank entries, whitespace, literal semicolons, and line breaks inside a single value are preserved as that value's data.
 
 - Open it from the toolbar or from **Metadata Editor…** in the Edit menu.
-- Add, edit, or delete fields for the selected files with **Add Field…**, **Edit Selected…** and **Delete Field**.
-- **Utilities…** can trim, replace, change case, and add prefixes/suffixes across selected fields.
-- **Done** writes only changed keys as a raw patch, preserving unrelated external keys and value arrays. **Cancel** or closing the window discards the draft.
+- **Add Field…**, **Edit Selected…** and **Delete Field** work on ordered value lists. The editor lists each value separately; **Add Value** and **Remove Value** change the list. The last value can't be removed from the list — use **Delete Field** to remove the entire field. A blank entry is a real value.
+- When the selected files disagree, or a field is missing from some of them, the editor starts with no values. Enter the replacement list explicitly; saving replaces the whole list on every selected file.
+- **Utilities…** previews the ordered values per file and field, transforms each value independently, and applies exactly the values it showed. A stale preview is rejected; review the updated preview and apply again.
+- **Done** writes only changed keys as a raw patch, preserving unrelated external keys and value arrays. An unchanged confirmation creates no change and no write. **Cancel** or closing the window discards the draft.
+- Some containers reject a blank, duplicate or multiline array element. The save reports the failure and no substitute write is made; see [dependency limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 Container-native structures that TagLib does not project into PropertyMap do not appear here. Use Tag Inspector to inspect them.
 
@@ -174,7 +184,13 @@ Open **Online Metadata** from the toolbar or the Edit menu. Choose a source:
 - **iTunes** — Apple catalog metadata, UPC/link/store-ID lookup, artwork.
 - **LRCLIB** — synced lyrics for the selected track metadata.
 
-Network requests start only after an explicit search or lookup action. Review results and the write plan before applying. Provider results are written through the same metadata pipeline and revision guards as manual edits.
+Opening Online Metadata or choosing a source only prepares the local query fields and shows the provider picker; no provider is contacted. Each provider starts network requests only from its own explicit action: the **Search** button (or Return) in the MusicBrainz or iTunes form, **Auto Apply Best Matches** or **Search** in LRCLIB, or the file list's **Find in MusicBrainz** command, which opens or retargets the MusicBrainz source and submits that captured query once. Selecting a source tile, returning to Sources, reopening the window, and LRCLIB Previous/Next do not start requests; use Search to run a query for the current row or provider.
+
+Review results and the write plan before applying. Provider results are written through the same metadata pipeline and revision guards as manual edits.
+
+The iTunes source searches the selected storefront country. Changing the storefront clears the current results and navigation so a new search starts in the chosen region; album and track details follow the storefront that produced the result, not the region currently shown in the picker. Track links opened from an album detail keep that album's region.
+
+LRCLIB synced lyrics are bound to the file revision that was reviewed when the browser queued the file. Editing or replacing that file and reloading it while LRCLIB is open can reuse the same stable ID and path; applying the old lyrics result is then refused and asks you to close and reopen LRCLIB (or rerun Online Metadata) so the current values are reviewed again. Leaving LRCLIB with **Sources**, closing the Online Metadata window, or starting a new LRCLIB session cancels outstanding lookups and any lyrics write that has not started saving. A save that already started completes and is reported in the HUD and Settings → Logs. Returning to LRCLIB from Sources keeps the queued files so you can search again; it clears the previous results and review.
 
 MusicBrainz requests are rate-limited to one request per 1.1 seconds and identify the app in the `User-Agent`; HTTP 503 responses are retried up to two times. Provider outages, rate limits, malformed responses, and cancellations are surfaced in the UI; partial provider failures are possible.
 
@@ -211,12 +227,15 @@ Settings contains six tabs:
 - Interface preferences and conflict policy: app preferences.
 - Save issue log: `Application Support/AudioMator/SaveIssueLog.json` inside the app sandbox container; the log keeps at most 200 entries.
 - User-selected audio files: unchanged location; metadata is written in place.
+- Rename recovery records: `Application Support/AudioMator/RenameJournal/` inside the app sandbox container. They contain the recorded original, temporary and new names plus local file-entry identity evidence, and are retained only until the interrupted rename is restored, acknowledged, or confirmed complete. They never contain metadata, drafts, or access bookmarks.
 
 AudioMator does not store copies of audio files.
 
 ## Recovery and Unusual Number Text
 
 After a rename, a file becomes editable again automatically only when the app can read its metadata in full and confirm it is the same file entry at the new location. If that check fails, or a different file now has the name, metadata editing stays disabled even if the app can still read basic file details. Automatic activation checks and watched-folder rescans never re-enable editing. Resolve any pending Inspector draft and choose Reload from Disk to accept the file now at the displayed path; if a different file has replaced it, review that file deliberately. A renamed file with an unresolved recovery warning also cannot be renamed again until it is reloaded.
+
+If a rename is interrupted before it finishes — for example the app quits or the Mac loses power — AudioMator keeps a local rename recovery record. The next launch shows a warning and never moves files by itself. Open **Settings > Folders > Rename Recovery** to review the recorded original and new names and where each file was found. Choose **Restore Original Names** to put every verified file back: restoration verifies each file entry, never overwrites another file, and stops if a conflicting file has appeared. Choose **Remove Record** only when the app shows the rename completed or that no files moved; removing a record does not move files. If another copy of AudioMator is using rename recovery, wait and check again. Renames are only allowed on volumes that support safe exclusive renaming; a folder on another volume is rejected before anything moves.
 
 Inspector number-text edits require numeric components with the current metadata engine. Existing values such as `A1/12` remain intact during unrelated edits; use Metadata Editor for raw textual values. Renumbering excludes refresh-required files before assigning numbers. Cancelling a provider, filename, CSV/text, raw-map, or renumber batch preserves an in-progress commit and stops before the next file; the summary accounts for unprocessed files.
 

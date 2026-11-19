@@ -143,6 +143,8 @@ No value is inferred, synchronized, completed or truncated; `2004-07-15` remains
 
 Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. `ArtworkImageNormalizer` bounds input at 50 MiB, 4096 px output dimension, and 4096×4096 source pixels. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
 
+The online artwork lookup hands its normalized download to the same `ArtworkEditAction.replace` draft staging; it does not write or reload the file. Its search and per-candidate download fault channels live in the lookup sheet, so a failed download leaves the result grid and selected candidate available for retry or alternate selection without creating or altering a draft. Nothing reaches disk until the separate Inspector Save, which still uses the normal reviewed-write route, conflict checks, and per-field format preflight.
+
 ## Write Preflight
 
 Before any semantic write, `persistMetadataEdit`:
@@ -239,13 +241,14 @@ The late reload result is discarded if its refresh generation is stale. See [Sta
 
 ## Raw Metadata Editing
 
-`RawMetadataValueMap` is `[String: [String]]` keyed by uppercase property key.
+`RawMetadataValueMap` is `[String: [String]]` keyed by uppercase property key. A value list is ordered data: duplicates, an empty element, and a line break embedded inside one element are distinct and preserved.
 
-- Loading uses `rawMetadataValueMap`, which preserves value order.
+- Loading uses `rawMetadataValueMap`, which preserves value order. A missing key is represented only by absence; it is not the same as an existing empty array, and neither is the same as one blank element.
 - Metadata Editor presents shared AudioMator field names and purposes; raw keys remain the row IDs and write identities. Selected suggestion keys are kept separately from their visible labels. Uppercase raw aliases are not canonicalised as a side effect of editing. See [field guide](../Product/METADATA_FIELD_GUIDE.md#shared-field-names-in-metadata-editor).
-- Saving computes an exact delta from the original map: `writeRawMetadataValueMap` sets keys whose values changed, removes keys absent from the draft, and leaves all other keys untouched.
-- The raw editor deliberately bypasses semantic field preflight because it is a low-level tool; it still uses the shared reservation, expected version, and conflict policy when a baseline is available.
-- If no conflict baseline exists, the older strict path uses the expected version without rebasing.
+- The field editor works on an ordered element list. Its commit path accepts an array and never derives element boundaries by splitting text; an existing raw key keeps its exact identity. An empty list is never a key deletion: the last element cannot be removed from the list and key removal is the separate Delete Field command. A mixed selection requires an explicit replacement list.
+- A text-utility preview captures per-file/key before/after arrays for the current presentation, target set and draft generation. `TextEditPipeline` transforms each element independently; Apply stages exactly the captured after-arrays and never inserts a missing key. A preview whose generation, targets, session or before-values changed is rejected with no mutation.
+- Done captures the per-file/key before/after arrays for pending targets at apply start. The reviewed raw route requires a coherent reviewed target and captured conflict baseline and fails closed otherwise; it freezes the exact patch from the captured original map (never the current disk) and never writes an unchanged target. Unrelated keys and value arrays are preserved by the package's exact raw patch. See [ADR 0006](Decisions/0006-reviewed-operation-boundary.md).
+- A container may reject a blank, duplicate or multiline element. The raw editor keeps its low-level exception from semantic field preflight, so there is no per-key capability preflight; the pipeline reports the failure and the app does not retry with a different write.
 
 ## Erase All Metadata
 

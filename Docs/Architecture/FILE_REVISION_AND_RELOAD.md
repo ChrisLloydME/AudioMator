@@ -44,7 +44,7 @@ flowchart LR
     J --> K[Write with fresh version or stop]
 ```
 
-Strict paths (preview-based imports, online plans, renumbering, lyrics, erase) require an unchanged revision and do not rebase. Inspector and Metadata Editor drafts support the configurable policies below.
+Strict paths (preview-based imports, online plans, renumbering, lyrics, erase) require an unchanged revision and do not rebase. LRCLIB lyrics additionally bind the app fingerprint **and** the package metadata version captured when the browser queue was seeded; applying after a same-ID/same-path reload or replacement is refused until the queue is reseeded (close/reopen LRCLIB or rerun the Online Metadata command). The strict raw `LYRICS` write never falls back to the current model's version or to `expectedVersion: nil`. Inspector and Metadata Editor drafts support the configurable policies below.
 
 ## Conflict Policies
 

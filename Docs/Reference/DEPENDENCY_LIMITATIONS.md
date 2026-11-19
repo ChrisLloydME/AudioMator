@@ -26,6 +26,10 @@ The semantic adapter rejects non-numeric track/disc number text. The accepted se
 
 Individual components preserve a positive total when the number is cleared, serialized as `/total`; whole-pair clearing still removes both components. The package owner should document the accepted grammar or add non-numeric number-text round trips. AudioMator does not bypass the package with a speculative semantic-to-raw mapping.
 
+## Raw Value Arrays
+
+`RawMetadataValueMap` is `[String: [String]]`; the app treats each list as ordered data and preserves duplicates, empty elements and line breaks embedded inside one element. The published package exposes no per-key raw capability API, so a raw patch is accepted by the deterministic projection and the container then either round-trips the exact array or fails its own post-write verification. AudioMator reports that failure and does not retry with a semantic or different raw write. Blank, duplicate and multiline element acceptance is format- and container-dependent; fixture coverage is limited to the committed MP3/M4A/FLAC files (see [Testing](../Development/TESTING.md#fixtures)). The app preserves an existing empty array but does not emit `valuesToSet[key] = []` from normal editing; changing it requires an explicit value or the Delete Field command.
+
 ## Artwork
 
 Standard single-cover integration tests pass. Multi-cover write support is **not claimed**, and no workaround is installed.

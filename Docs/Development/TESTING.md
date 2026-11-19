@@ -4,18 +4,20 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-19 and matched by a full `validate-release.sh --tests-only` run (758 app-hosted and 69 SwiftPM tests, exact source-to-`xcresult` identity). They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-19 and matched by a full `validate-release.sh --tests-only` run at an earlier candidate revision (758 app-hosted and 69 SwiftPM tests, exact source-to-`xcresult` identity); the integrated remediation candidate declares 949 app-hosted and 70 SwiftPM tests, which the final gate must confirm. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 69 | 4 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 758 | 92 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 70 | 4 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 948 | 107 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 96 `XCTestCase` classes across both targets (92 app-hosted, 4 core); no custom base class.
+- There are 111 `XCTestCase` classes across both targets (107 app-hosted, 4 core); no custom base class.
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
+- F4 directory-monitor coverage lives in `AudioMatorTests/Application/WatchedFolders/DirectoryMonitorIdentityTests.swift` (15 native tests over disposable real directories: descriptor device/inode/kind capture, same-key move-aside/recreate rebinding, removal/reappearance, cap/root priority, open-vs-identity failure split, terminal event and balanced close, in-place-write platform limit) and `WatchedFolderMonitoringWiringTests.swift` (11 ViewModel-driven tests: attach-before-scan with no redundant follow-up, exactly one follow-up scan for a newly attached nested directory, cap omission status, same-key root replacement rebinding, stale-callback suppression, removed-nested-directory terminal rescan, missing/permission-denied root degraded status and manual refresh recovery, removal/reappearance with a fresh controller, cancelled scan after folder removal, user-requested refresh of all watched folders).
+- F3 Inspector draft-session coverage lives in `AudioMatorTests/Application/MetadataEditing/InspectorDraftSessionTests.swift` (session identity/generations, dirty and original-revision retention across passive refresh, clean refresh, detached pending review and resume/discard, per-field save-delta completion including an intentional pre-save revert, partial-batch ledger, unverified readback, and independent artwork command generations), plus extended cases in `InspectorDirtyStateTests`, `InspectorAndMetadataEditorWorkflowTests`, `WatchedFolderRefreshOrderingTests` and `RenameRefreshSafetyTests`.
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
 - Source-policy tests read repository files through `#filePath`; moving the test or its target file breaks them.
@@ -83,27 +85,35 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 | Directory | Files | Tests | Validates |
 | --- | ---: | ---: | --- |
-| `Application/MetadataEditing` | 15 | 170 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
-| `Application/MetadataExchange` | 4 | 66 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 4 | 24 | template parsing, transaction rollback, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 4 | 23 | directory-monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Application/MetadataEditing` | 23 | 262 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
+| `Application/MetadataExchange` | 6 | 104 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
+| `Application/Rename` | 9 | 65 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
+| `Application/WatchedFolders` | 6 | 51 | identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 3 | 25 | reservation ordering/cancellation/starvation, quick-import cancellation, 200-track presentation stress |
-| `Integration/Network` | 5 | 42 | mocked HTTP faults, LRCLIB, artwork timeout/cancel, page traversal, search restart |
-| `Integration/TagLib` | 10 | 103 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
+| `Integration/Network` | 8 | 108 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
+| `Integration/TagLib` | 12 | 120 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys |
 | `Performance` | 4 | 20 | batch concurrency, publication bounds, IO stages, online workbench work bounds |
-| `Unit/Core` | 18 | 87 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 11 | 54 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
+| `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
+| `Unit/Presentation` | 14 | 76 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
-| `TestSupport` | 3 | 0 | shared test factories and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **96** | **758** | |
+| `TestSupport` | 5 | 0 | shared test factories and the ID3v2.3 fixture builder (no test functions) |
+| **Total** | **112** | **949** | |
 
 Notable coverage:
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
 - Real TagLib writes use temporary copies of the six committed audio fixtures.
+- Metadata Editor raw value arrays (`MetadataEditorRawValueArrayTests`, `MetadataFieldValueDraftTests`, `MetadataRawValuePresentationTests`, `MetadataEditorRawValueArrayPersistenceTests`) use the real store with an array-backed pipeline fake for per-element utility preview/apply (whole-value, prefix/suffix, case/trim, empty/duplicate/multiline elements, missing keys, reordering), stale-preview rejection, ordered field-entry add/remove/duplicate identity, no-op confirmations with zero writes, and captured Done before/after arrays. The persistence lane seeds temporary FLAC copies and asserts exact multiline/duplicate array readback with unrelated keys preserved, or an atomic failure with unchanged bytes.
+
 - Conflict-strategy tests drive the real adapter on a temporary FLAC copy, including rejection of changed revisions and replacements when original inode identity is absent.
 - Provider cancellation and semantic-write tests use real FLAC copies to verify committed outcomes, exact preservation, and total-only persistence through MusicBrainz, iTunes, and CSV execution.
+- LRCLIB lyrics tests drive the real browser store and `AudioViewModel` write handoff with a gated non-cooperative fake provider and a recording real-package pipeline: seed-captured reviewed targets, same-ID/same-path reload and replacement rejection, equal-observation refresh control, equal-fingerprint/different-version control, mixed-bulk accounting, close/back/reseed cancellation at the provider/reservation/commit-boundary checkpoints, and real FLAC/M4A raw-map readback of `LYRICS` with unrelated tags and audio identity preserved.
+- Rename journal and exclusive-move tests use disposable temporary directories and injected filesystem/journal fakes. Native probes exercise `renameatx_np(RENAME_EXCL)`, case-only renames and directory flushing only in those disposable directories; no test opens a real audio library or launches the app UI.
 - Provider URLProtocol tests cover stale-ID fallback and MusicBrainz results beyond the detail-verification cap.
+- MusicBrainz cache-admission tests use an ephemeral cache-free `URLProtocol` script: each of the four request shapes returns one invalid 200 and then a valid body for the identical URL and must recover on the same client with two transport calls and a later cache hit; wrong-schema valid JSON, HTTP failure, timeout and transport cancellation leave no cached entry; two coalesced waiters share one fetch (including when one is cancelled and the other must succeed and populate the cache); and the DTO score/count/votes/rating fields accept JSON-integer, numeric-string, absent and null forms while malformed, overflowing, non-integer and nonfinite forms fail with a field-level error. An `Int.min` runner-up drives the release-detail score-gap check without overflow, with 7-point continue and 8-point stop controls.
+- iTunes storefront tests use one fake catalog that returns distinct albums and tracks for the same collection ID in the US and Japan: both album-result and track-result entry paths must request the submitted country and show that region's data; an A→B→A storefront/detail sequence fetches once per storefront; a delayed search after a storefront switch never publishes; a delayed detail completing after close/reopen cannot repopulate the cache; and two local selections sharing one remote album receive their own match previews while the raw detail is fetched once.
+- `ArtworkLookupResponsivenessTests` drives the real online artwork lookup sheet state through a scripted in-process service: search failure/cancellation/timeout stay on the search channel while per-candidate download failure, timeout and cancellation stay on the candidate channel with the result grid and selection retained; same-candidate retry and alternate-candidate apply work without a repeated search; duplicate Apply starts one download; Stop Download keeps the sheet and grid; a superseded attempt and a completion arriving after dismissal/new session cannot publish a fault, staged draft or close the newer session; and button enablement is asserted through the same `ArtworkLookupSession` predicates the sheet binds. Staging is asserted against expected PNG bytes in the Inspector draft with unrelated draft fields preserved and file bytes plus the metadata pipeline untouched until Inspector Save. `ArtworkPreviewFallbackTests` covers the candidate-scoped preview URL fallback (A→B reset, delayed previous-candidate failure ignored, no successor at the last URL, preferred URL order preserved).
+- Provider-activation routing tests use counting fake MusicBrainz/LRCLIB clients and the real stores, routing controller and consume-once session model: generic open and source-tile selection make zero provider calls, explicit Find in MusicBrainz submits the captured query exactly once in a new window and when retargeting an open window, a consumed intent cannot replay after window recreation, generic open returns to the picker without resending, empty selection is inert, a replacement Find cancels and supersedes the previous search, back-to-Sources cancels tracked work while retaining the seed, LRCLIB Previous/Next cancels the departing row without a search, synthetic-path/tagged LRCLIB query values are asserted, and the disclosure constants name the actual fields and folder-derived terms.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget.
 - `MetadataBoundaryMatrixTests` and `MetadataSaveJourneyTests` exercise sparse date-presence states, CSV/profile behavior, provider field selection, Inspector/Editor drafts, and real disk reloads.
@@ -124,6 +134,7 @@ There are no live-network tests and no environment gating.
 
 - `MockURLProtocol` (LRCLIB), `ProviderFaultURLProtocol`, and `UpdateMockURLProtocol` intercept requests in ephemeral sessions.
 - Other tests inject non-cooperative or traversal client fakes.
+- LRCLIB session tests use an injected non-cooperative provider gate that ignores task cancellation; closing/back/reseeding must still stop later requests and writes, and a gated real-package reload proves an admitted commit reports its actual outcome while later files remain untouched.
 - Production request timeouts are asserted to be 15 seconds where applicable.
 - Provider stores are tested for cancellation, restart races, timeout clearing, and bounded fan-out.
 
@@ -157,8 +168,8 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the policy tests with `python3 -m unittest discover -s scripts/tests` (currently 29: 13 evidence-gate tests and 16 build-helper shell policy tests),
-2. runs all 69 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
-3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the current inventory is 758 app-hosted and 69 core tests),
+2. runs all 70 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the current inventory is 949 app-hosted and 70 core tests),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 
@@ -174,7 +185,7 @@ The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core
 2. **Artwork writes only for MP3/M4A/FLAC.** Other artwork-capable formats are untested.
 3. **No live-network coverage.** Provider integration is mocked.
 4. **No UI automation.** Full SwiftUI/AppKit interaction, file panels, drag-and-drop, accessibility, and visual behavior are manual.
-5. **Watched-folder OS integration is simulated.** Tests use temporary directories and isolated `UserDefaults` suites; real sandbox bookmark grants, file providers, and volume notifications are not exercised.
+5. **Watched-folder OS integration is partially native.** Monitor tests open real `O_EVTONLY` descriptors with disposable temporary directories through the production controller, but real sandbox bookmark grants, external volumes, file providers and volume-revocation notifications are not exercised; app-hosted tests use isolated `UserDefaults` suites.
 6. **Full `AudioViewModel` watched-folder scanning and long-running batch UI** are only partially covered by synthesized orchestration tests.
 7. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup (ledger candidate INF-04, commit `97016668`); typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
 8. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
@@ -189,7 +200,7 @@ Automated tests and builds are the Agent verification boundary. Interactive acce
 - rename and renumber previews and failure reporting,
 - text/CSV import and export, including profile v2 and `<remove>` handling,
 - online metadata apply and cancellation,
-- watched-folder restore and degraded status,
+- watched-folder restore, identity-aware monitor rebinding/terminal events/degraded status,
 - settings persistence and conflict policies.
 
 Do not run destructive smoke tests against a real music library.

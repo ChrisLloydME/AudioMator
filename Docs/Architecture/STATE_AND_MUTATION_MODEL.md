@@ -11,9 +11,11 @@ This document describes how AudioMator models application state and how it seria
 | Selection | Current visible file IDs owned exclusively by `AudioViewModel`. | Session |
 | Editing draft | `SingleFileEditModel` or `MultiFileEditModel`, plus the source snapshots it was created from. | Session; never implicit disk truth |
 | Presentation | Progress, HUDs, open sheets/windows, issue summaries. | Session |
+| Online artwork lookup | `ArtworkLookupSession`: one search attempt (`searching`/`results`/`failed`/`cancelled`), one candidate download attempt owned by session and attempt IDs, a candidate-scoped retryable download fault, and the selected candidate ID. | Session; results and candidate faults are discarded when the sheet closes |
 | Source configuration | Watched-folder and file-access bookmark records. | `UserDefaults` |
 | Preferences | Sidebar/sort/columns/toolbar/inspector visibility, conflict policy, welcome state, MuseAmp toggle. | `UserDefaults` |
 | Save issue log | Non-success batch summaries. | JSON in Application Support |
+| Rename recovery journal | Durable `prepared`/`committed` rename records, path-keyed mutation blocks and read-only recovery presentation. | Versioned JSON manifests + stable lock file in Application Support |
 
 `SharedState` owns presentation preferences and sidebar choice. It does **not** own the selected audio IDs.
 
@@ -35,9 +37,15 @@ Refresh publication has several guards:
 3. Watched-folder scans compare their scan token and captured folder mutation epoch after enumeration and loading. A changed epoch discards that scan and schedules a debounced retry. A scan reuses a previous file only when its fingerprint and package version still match. A failed metadata read retains the latest accepted snapshot, including a pending commit, and does not advance that file’s observation generation.
 4. Unknown rename recovery locations discard queued reloads, advance the file publication generation, and invalidate in-flight folder scans before making the model refresh-required.
 
-Recovery decisions are retained independently of snapshots as named reasons (`moveReadbackPending(moveID, destination, entryIdentity)`, `recoveryLocationUnresolved(expectedIdentity)`, and F2's `journalPending`). The shared mutation executor rechecks them after acquiring the reservation, so stale Inspector/Metadata Editor targets and queued writers cannot bypass a newer decision. Automatic observations preserve that state, discard their write revisions, and are published as authority-free projections. A receipt-matched readback clears only its own move decision; an explicit selected-file reload may clear a pending move decision for the same URL and a resolved-path failure only when its full read observed the same device/inode, after resolving any dirty inspector draft. A successor entry cannot be accepted silently. Neither an automatic read nor a successful move readback clears a pre-existing resolved-path or journal decision.
+Recovery decisions are retained independently of snapshots as named reasons (`moveReadbackPending(moveID, destination, entryIdentity)`, `recoveryLocationUnresolved(expectedIdentity)`, and `journalPending(operationID)`). The shared writer guard rechecks the decisions and the journal's path-keyed blocks after acquiring the reservation, so stale Inspector/Metadata Editor targets and queued writers cannot bypass a newer decision, even when no session file ID is loaded. Automatic observations preserve that state, discard their write revisions, and are published as authority-free projections. A receipt-matched readback clears only its own move decision; an explicit selected-file reload may clear a pending move decision for the same URL and a resolved-path failure only when its full read observed the same device/inode, after resolving any dirty inspector draft. A successor entry cannot be accepted silently. Neither an automatic read nor a successful move readback clears a pre-existing resolved-path or journal decision. A `.journalPending` decision is attached when an observation is accepted at a recorded path and is cleared only by a verified restore or explicit acknowledgement of that operation.
 
 These guards order app-owned mutations and observations. A directory scan is not an atomic filesystem snapshot: an external edit after the last revision probe can remain unseen until a later reload or notification. Write-time revision checks still apply.
+
+### Watched-folder directory monitoring
+
+Each watched folder owns one `DirectoryMonitorController` with a capped set of `O_EVTONLY` descriptors (128 per folder; the root is always first). A directory is active only while the identity captured from its opened descriptor (`fstat` device/inode/kind) matches the current authorized path. Reconciliation compares retained and planned identities even when the path key is unchanged, closes stale descriptors, reopens them, and verifies the newly opened inode against its path before installing it. `.rename`, `.delete` and `.revoke` make an instance terminal and close its descriptor exactly once; a terminal event schedules a debounced rescan and never degrades a replacement. A newly installed or rebound descriptor requests exactly one follow-up scan for the scan-before-attach interval; a scan whose attachments are unchanged requests none. Late callbacks are dropped by instance token, and status publication is guarded by the folder lifetime, the scan token and a monotonic reconciliation generation, so an older result cannot overwrite a newer published status. Descriptor and path I/O run off the main actor while the folder scope is held.
+
+Status separates cap omissions, open failures (missing, inaccessible or revoked folders), identity mismatches (the path now refers to a different directory), scan failures and metadata read failures; only identity-verified descriptors count as actively monitored. In-place edits to an already indexed file are not directory-entry events: that refresh remains best effort and explicit Refresh/Reload or activation covers it.
 
 ## Selection Ownership
 
@@ -48,6 +56,18 @@ These guards order app-owned mutations and observations. A directory scan is not
 3. rebuilds the single-file or multi-file inspector draft in the same main-actor operation.
 
 Rebuilding the visible collection prunes IDs that are no longer present and updates the draft. Views use a guarded binding; selection changes that could discard unsaved edits are confirmed by `ContentView` before calling the owner.
+
+### Inspector draft sessions
+
+The Inspector draft has a store-owned session identity independent of the current selection and of any single disk observation: a session ID, the captured target IDs and source baselines, a monotonic edit generation, and an independent artwork command generation. `AudioViewModel` rebuilds the published `edit`/`multiEdit` payload only through named operations: explicit selection transition, session-scoped clean refresh, and own-save completion. A dirty draft keeps its payload and original expected version across passive refresh and watch/scan publication; a clean draft follows the newest accepted observation.
+
+A save captures a receipt (session identity, target baselines, submitted per-target intent) before any suspension. Completion is accepted only for that session/generation, advances the baseline of successful targets from their accepted readback, inherits readback normalization for fields whose live value still equals the submitted value, and reapplies newer typed edits (including an intentional revert to the pre-save value) as still-dirty intent. A commit whose reload failed records no new baseline. Partial batches maintain a completed-target ledger so a retry submits only failed targets or newer changes.
+
+When a dirty draft's captured targets become unavailable (passive prune or an intentional removal), the payload, captured values and ledger are retained as a detached pending-review session. Selection is still pruned to the visible collection; Save is suspended until every captured target is available again and the user resumes, or until the user discards the review. Cross-source or new-target transfer of captured values never happens implicitly. Explicit transitions remain the only discard routes and their confirmation is revalidated against the session/generation that displayed it.
+
+### Metadata Editor raw draft
+
+The Metadata Editor draft is `[AudioFile.ID: RawMetadataValueMap]`; every value is an ordered array, never a joined string. A text-utility preview captures per-file/key before/after arrays together with the presentation identity, target set and draft generation. Apply accepts that captured preview only while all of them still match, stages exactly the captured after-arrays, and never inserts or removes a key. Done captures the per-file/key before/after arrays for pending targets and starts the reviewed raw apply from the captured baseline; an unchanged draft produces no request and no write. A completion is accepted only for the presentation/apply that started it. Field entry commits an ordered value list; the last element cannot be removed there, and key removal is the separate Delete Field command.
 
 ## Mutation Lifecycle
 
@@ -86,25 +106,35 @@ commit; the real outcome, warnings included, is reported and never retried.
 
 Conflict groups follow actual native storage: `track`/`trackTotal` share one group, `disc`/`discTotal` share another, and YEAR, DATE, RELEASEDATE and ORIGINALDATE are independent groups. A changed YEAR therefore does not create a blanket date conflict, while a shared native number pair remains protected. Alias/private-number cleanup is an explicit captured plan, not a conflict-resolution side effect.
 
+LRCLIB session ownership is explicit: `LRCLIBLyricsBrowserStore` owns one session ID plus a monotonic generation and at most one operation token. Every publication (`searchState`, candidates, applied marks, progress) is gated by the token's generation, and every write handoff carries the reviewed target captured at seed. Close, Back and reseed invalidate the generation first, then cancel the operation; the commit permit remains the only ordering point between a cancelled and an admitted write. Back retains the queued rows/bindings but clears candidates, so a new review is required.
+
 Metadata batches commit file by file, so partial success is a valid outcome. Provider, filename and CSV/text plans run up to four independent targets concurrently. Cancellation prevents unstarted targets from invoking their writers; up to four already started commits may finish and all actual outcomes are retained. Results and cancelled entries are accounted for in captured plan order. Raw-map and renumber loops retain their sequential cancellation checks. Renumbering inherits caller cancellation; the per-file executor alone detaches the non-interruptible commit lifecycle. Results preserve each file's failure and warning. A file that was written but could not be reloaded is never reported as "not written".
 
 ## Reservation Rules
 
 `FileMutationCoordinator` is an actor keyed by normalized path:
 
-- A mutation reserves every source and destination path.
+- A mutation reserves every source and destination path. Each lexical path contributes both its symlink-resolved comparison key and its directory-entry location key (parent resolved, basename folded with the parent volume's case semantics), so a symlink object and its target cannot be mutated as independent entries.
+- Rename reservations also include the deterministic staging URLs, so another rename or writer cannot claim a temporary name for the same operation.
 - Reservations are acquired atomically for multi-path operations, avoiding deadlock between overlapping rename and metadata operations.
 - Waiters are granted in a way that avoids starvation: a later waiter is granted only if it conflicts with neither active work nor an older blocked waiter.
 - Cancellation while waiting removes the waiter and throws `CancellationError`; the mutation must not run later.
 - Cancellation after acquisition is checked before irreversible work starts.
 
-Operations that use the coordinator include semantic metadata writes, raw metadata writes, erase-all, track renumbering, rename transactions, and selected file reloads.
+Operations that use the coordinator include semantic metadata writes, raw metadata writes, erase-all, track renumbering, rename transactions, explicit rename-journal restores/acknowledgements, and selected file reloads.
+
+### Rename journal and restart recovery
+
+`AudioViewModel` owns authorization, folder scopes, the union reservation, path-keyed blocks and presentation. `RenameTransactionService` (`Infrastructure/FileSystem`) owns durability and exclusive filesystem effects: one versioned manifest per operation UUID under `Application Support/AudioMator/RenameJournal/`, a stable non-blocking journal lock, `prepared`/`committed` transitions, atomic/flushed writes, and `renameatx_np(RENAME_EXCL)` moves on held directory descriptors.
+
+Startup restores authorized folders, loads manifest records read-only, installs path-keyed blocks even when no file IDs are loaded, and classifies in the background. Classification never moves or removes files. A startup warning points at **Settings > Folders > Rename Recovery**, which exposes read-only per-entry roles plus explicit **Restore Original Names** (prepared records; revalidated under the journal lock and union reservation, never overwriting an occupied name, idempotent across repeated interruption) and **Remove Record** (committed or no-move prepared records only, after fresh verification; files are not moved). Missing or revoked folder access is reported as unavailable and a restore requests the exact recorded folder before taking the lock. Volumes without exclusive-rename support are rejected before staging; other programs remain external writers and the external source/destination race limits are documented in [Rename and Renumbering](RENAME_AND_RENUMBERING.md).
 
 ## Cancellation and Recovery
 
 | Situation | Result |
 | --- | --- |
 | Cancelled while waiting for reservation | Operation never executes; reported as cancelled |
+| LRCLIB session ended (close, Back, reseed) | Store invalidates the generation and cancels the operation; pending permits are revoked, unstarted files are recorded cancelled once, and an admitted commit completes and reports its real outcome |
 | Cancelled after reservation, before write | Write is not attempted; reservation released |
 | Write fails | Snapshot and draft remain unchanged; failure reported |
 | Write succeeds, reload succeeds | New snapshot published; draft synchronized when appropriate |
@@ -113,7 +143,10 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Cancelled while queued for a reviewed write | Permit revoked before admission; reported as cancelled, not as a failure |
 | Cancelled after a reviewed write was admitted | Commit is not interrupted; its real outcome and warnings are reported |
 | Rename succeeds, destination full readback fails, times out or observes a different entry | Moved file stays an authority-free projection with a pending-readback decision; stat/version probes never restore a revision; explicit Reload from Disk is required |
-| Rename rollback incomplete | Recovery items list original, intended, and observed locations plus rollback errors; a uniquely verified location is rebound through the same receipt/readback path, others stay blocked |
+| Rename interrupted before commit | A durable `prepared` journal record survives process termination; startup installs path-keyed blocks and shows the observed roles without moving files. Explicit Restore Original Names (identity-checked, no overwrite, idempotent) is required |
+| Rename committed record left by termination | Startup verifies the recorded locations, keeps the new names, and offers explicit record removal only; never an automatic restore or move |
+| Rename recovery record unreadable/unsupported | Retained for inspection with a sanitized warning; no file is moved and no path block is derived from unparseable data |
+| Rename rollback incomplete | The prepared journal record is retained and reports original, intended, and observed locations; a unique verified location can be restored through the explicit recovery flow, others stay blocked |
 | File path/object identity changes, or file is deleted | Identity/revision validation refuses writes; no "looks similar" substitution. Changed revisions require equal non-nil package audio identities before rebasing, including same-inode changes; unavailable identity requires explicit reload. See File Revision and Reload. |
 | TagLib reports commit committed but durability uncertain | Treated as committed with a warning; retrying as a failure is explicitly discouraged |
 
@@ -127,8 +160,8 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 | Raw PropertyMap write | Per file, exact delta | Yes | Yes |
 | Erase All Metadata | Per file | Yes | Yes |
 | Track renumber | Per file, serial | Yes, verification enabled | Yes |
-| Rename | One multi-file transaction under a union reservation; per-destination bounded readback under separate reservations | Per completed move | No; rollback or recovery report |
-| LRCLIB lyrics apply | Per file raw patch | Yes | Batch auto-match yes |
+| Rename | One multi-file durable transaction under a union reservation plus a process-wide journal lock; exclusive `RENAME_EXCL` moves on held directory descriptors; per-destination bounded readback under separate reservations | Per completed move | No; verified rollback, or a retained `prepared`/`committed` journal record for explicit restart recovery |
+| LRCLIB lyrics apply | Per file raw patch through the strict reviewed target (captured at seed) | Yes, captured package version | Batch auto-match yes; cancelled unstarted rows recorded once |
 | Provider tagging plan | Up to four files concurrently, per-file commits | Yes | Yes |
 | Selected-file reload | Per file | Read only | Yes |
 
@@ -138,7 +171,7 @@ Operations that use the coordinator include semantic metadata writes, raw metada
 - Watched folders and file-access grants: security-scoped bookmark data in `UserDefaults` (`watchedFolderRecords`, `fileAccessGrantRecords`).
 - Conflict policy: `metadata.conflictPolicy`.
 - Save issue log: `Application Support/AudioMator/SaveIssueLog.json`, capped at 200 entries.
-- No audio content is copied into application storage.
+- Rename recovery journal: `Application Support/AudioMator/RenameJournal/` — versioned manifests and a stable lock file; recorded paths and local entry identity evidence only, retained until verified restore, explicit acknowledgement, or verified completion. No audio content is copied into application storage.
 
 ## Inspector Effective Dirty State
 

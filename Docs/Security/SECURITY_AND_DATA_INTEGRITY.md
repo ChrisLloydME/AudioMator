@@ -59,6 +59,7 @@ The app persists `.withSecurityScope` bookmark data but does **not** include `co
 | Bookmarks | `UserDefaults` (`watchedFolderRecords`, `fileAccessGrantRecords`, plus `.corruptBackup` keys) | Security-scoped data; separate per bundle ID |
 | Preferences | `UserDefaults` | Includes conflict policy and UI state |
 | Save issue log | `<Application Support>/AudioMator/SaveIssueLog.json` inside the sandbox container | 200 entries; file names + messages; `.corrupt` quarantine copies |
+| Rename recovery journal | `<Application Support>/AudioMator/RenameJournal/` inside the sandbox container | One versioned JSON manifest per rename operation plus a stable lock file. Records absolute original/temporary/intended paths and local file-entry identity evidence only; retained until restored, acknowledged, or confirmed complete. Never contains metadata, drafts, tag values, or scope bookmarks. |
 | Raw metadata dump | In memory / pasteboard | Includes full path and tag values; not logged |
 
 There is no database, cache of audio content, Keychain item, or credential.
@@ -74,14 +75,14 @@ The raw metadata dump intentionally contains the full file path and tag values. 
 
 ## Network Activity
 
-All app requests are HTTP GETs. There is no upload path, multipart body, or request authentication.
+All app requests are HTTP GETs. There is no upload path, multipart body, or request authentication. Opening the Online Metadata window or choosing a provider only prepares local query fields; provider clients are invoked only by an explicit provider Search/Return action, LRCLIB Auto Apply, or the explicit Find in MusicBrainz command. No full file path or audio bytes are sent.
 
 | Service | Hosts contacted by the app | Data sent |
 | --- | --- | --- |
-| MusicBrainz | `musicbrainz.org` | Lucene query terms and identifiers derived from tags or filename/path fallback |
-| iTunes | `itunes.apple.com` | search term, country, media/entity/limit, album/track ID, or UPC |
+| MusicBrainz | `musicbrainz.org` | Lucene query terms and identifiers derived from tags, file names, or parent/grandparent folder names (title, artist, album, album artist, track number/total, duration, release date/year, country, status, format, release/recording MBIDs, ISRC, barcode, filters), or a lookup MBID with fixed options |
+| iTunes | `itunes.apple.com` | search term (tags/file/folder-derived or typed), storefront country, media/entity/limit, album/track ID, UPC, or Apple Music/iTunes link |
 | Apple artwork | Apple-returned `artworkUrl100` host, `is5-ssl.mzstatic.com`, `a5.mzstatic.com` | image GET only |
-| LRCLIB | `lrclib.net` | track name, artist, album, duration |
+| LRCLIB | `lrclib.net` | `track_name`, `artist_name`, `album_name`, `duration`; artist/album may be derived from parent/grandparent folder names |
 | GitHub | `api.github.com` | repository release request; no auth token |
 | GitHub Releases page | `github.com` | opened in the default browser, not requested by the app |
 
@@ -91,7 +92,7 @@ The in-app disclosure registry includes API lookups, artwork downloads, embedded
 
 1. **Apple artwork hosts are not allow-listed.** `thumbnailURL` and `standardURL` keep whatever host Apple returned; only hires/uncompressed URLs are rewritten. The disclosure mentions additional Apple-returned hosts.
 2. **Embedded page navigation is restricted; subresources are not.** Initial URLs and navigation require HTTPS on `apple.com` or `musicbrainz.org` (including subdomains). WebKit uses non-persistent storage, but a page can load subresources from other hosts and use session cookies. This is disclosed in-app.
-3. **Filename/path-derived text can be sent** by MusicBrainz, iTunes, and LRCLIB when tags are missing, as stated in their disclosure summaries.
+3. **Filename/folder-derived text can be sent** by MusicBrainz, iTunes, and LRCLIB when tags are missing; LRCLIB derives artist and album from parent/grandparent folder names. The disclosure summaries state the derived terms; a full file path and audio bytes are never request fields.
 4. **`github.com` is opened externally** by `NSWorkspace`; update API requests go to `api.github.com`.
 5. **Release notes include prereleases.** The client filters drafts only and requests the first 50 releases.
 
@@ -104,9 +105,11 @@ The in-app disclosure registry includes API lookups, artwork downloads, embedded
 
 ## Additional File Access Notes
 
-- Directory monitoring holds one `O_EVTONLY` descriptor per monitored directory, capped at 128 per watched folder, with the root always monitored.
+- Directory monitoring holds one `O_EVTONLY` descriptor per monitored directory, capped at 128 per watched folder, with the root always monitored. Each descriptor records the device/inode and directory kind obtained by `fstat` on the opened descriptor.
+- A directory is active only while that captured identity matches the current authorized path. Reconciliation compares retained descriptors against current path identities even when the path string is unchanged, replaces a mismatched or terminal instance only with a verified descriptor, and otherwise reports open/identity-degraded state instead of counting it as active. A `.rename`, `.delete` or `.revoke` event makes an instance terminal and closes its descriptor once; late events from a superseded instance are dropped by instance token.
 - Removed folders stop monitors and release security scopes.
-- The monitoring status reports omitted/failed/scanned-error counts.
+- Rename recovery classification reads only recorded paths; a missing or unauthorized folder is reported as unavailable, and restore requests access to the exact recorded folder before taking the journal lock.
+- The monitoring status separates cap omissions, open failures (missing/inaccessible/revoked), identity mismatches (the path now refers to a different directory), scan failures and metadata read failures. It states that directory monitoring covers added/removed/renamed entries rather than in-place file edits.
 - File access prompts validate that the chosen folder matches the requested directory exactly.
 
 ## Malformed and Untrusted Audio Files
@@ -130,7 +133,8 @@ Existing protections:
 - Conflict policies never clear the expected version; filesystem-identity-changing replacements are refused. Changed revisions also require verified package audio continuity before automatic rebasing.
 - A failed write leaves the snapshot and draft unchanged.
 - A successful write with a failed reload is reported as committed-with-warning.
-- Rename is two-phase and reports incomplete rollback locations.
+- Rename is two-phase and reports incomplete rollback locations. A durable rename journal is written and flushed before any file move, reports `prepared`/`committed` state after process termination, and is removed only after verified completion, verified rollback/restore, or explicit user acknowledgement. Rename moves use same-directory `renameatx_np(RENAME_EXCL)` on held directory descriptors, verify the destination entry identity after every move, and reject volumes that cannot provide exclusive renames before staging.
+- A blocked rename-recovery path rejects metadata writes and rename planning until the recorded operation is restored or acknowledged; automatic reads never clear that state.
 - Erase-all requires an unchanged revision and reports best-effort warnings.
 - Batch writes are per-file and report partial success.
 
@@ -138,7 +142,9 @@ Data-loss characteristics:
 
 - Writes are in place; there is no automatic backup or undo.
 - A partial batch can leave some files changed and others not.
-- An incomplete rename rollback can leave files at temporary or destination paths; the app reports locations but does not repair them.
+- An incomplete rename rollback can leave files at temporary or destination paths. The app retains a prepared recovery record and reports the observed locations; it does not repair them automatically. An explicit Restore Original Names action verifies each entry and never overwrites an occupied name.
+- Rename recovery is proven for process termination on supported host filesystems. Power-loss durability is limited to the barriers the host filesystem actually supports and is reported honestly; no stronger durability is claimed.
+- A second AudioMator instance in the same bundle container is serialized by the journal lock. Other programs remain external writers: a source-name change between verification and the rename syscall and an external destination change are outside the app transaction.
 - A durability-uncertain commit may have reached disk; the app tells the user not to retry as a failure.
 - A malicious or buggy external parser could corrupt a file; the package owns that risk.
 
@@ -197,7 +203,7 @@ Verified by source inspection on 2026-11-18:
 - no upload code, no `httpMethod`/body/auth headers, no telemetry, no Keychain usage,
 - no diagnostic logging in app source; `SensitiveLoggingPolicyTests` detector covers `print`, `debugPrint`, `NSLog`, `os_log`, and `Logger`,
 - bookmark corruption quarantine and persistence keys,
-- capped directory monitoring (128 per watched folder),
+- identity-verified capped directory monitoring (128 per watched folder),
 - request hosts, query parameters, embedded-page allowlist, and non-persistent WebKit storage,
 - five bundled license texts in the current Debug build product,
 - absence of signing/notarization/release automation.

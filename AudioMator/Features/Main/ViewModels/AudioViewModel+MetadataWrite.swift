@@ -211,6 +211,8 @@ extension AudioViewModel {
         )
 
         Task(priority: .userInitiated) {
+            self.isInspectorBatchSaveActive = true
+            defer { self.isInspectorBatchSaveActive = false }
             var summary = BatchMetadataOperationSummary(totalTargets: plans.count)
             var completedCount = 0
             var resultsByIndex: [Int: MetadataWriteExecutionResult] = [:]

@@ -1441,6 +1441,9 @@ final class AudioViewModel: ObservableObject {
 
     var artworkImportTask: Task<Void, Never>?
 
+    /// True while a multi-file Inspector save owns the merged draft.
+    var isInspectorBatchSaveActive = false
+
     func withSecurityScopedAccessForQuickImportURLs<T>(
         _ urls: [URL],
         perform body: () async throws -> T
@@ -1709,10 +1712,11 @@ final class AudioViewModel: ObservableObject {
             selectedAudioIDs = prunedSelection
         }
 
-        // A batch save owns draft transitions through its per-target completions;
-        // re-evaluating the merged draft on every publication is both stale and
-        // quadratic in batch size.
-        if metadataSaveProgress != nil {
+        // A multi-file Inspector batch save owns draft transitions through its
+        // per-target completions; re-evaluating the merged draft on every
+        // publication is both stale and quadratic in batch size. Reload and
+        // other progress-owning flows still need the clean refresh below.
+        if isInspectorBatchSaveActive {
             return
         }
 

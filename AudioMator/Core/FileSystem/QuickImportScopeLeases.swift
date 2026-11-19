@@ -77,6 +77,15 @@ nonisolated final class QuickImportScopeLeases: @unchecked Sendable {
         var suppressedStartAttempts = 0
         var authorizationRetryCount = 0
         var liveLeaseCount = 0
+        /// A live grant was carried from an unshared source key to an unshared
+        /// destination key without a second start.
+        var transferCount = 0
+        /// A duplicated live grant was stopped once when the destination key
+        /// already held its own live grant (key-safe de-duplication).
+        var dedupedGrantTransferStopCount = 0
+        /// An outstanding source grant was stopped once because the destination
+        /// key's own evidence says it does not need a scope.
+        var unusedGrantStopCount = 0
     }
 
     private nonisolated struct Entry {
@@ -131,97 +140,119 @@ nonisolated final class QuickImportScopeLeases: @unchecked Sendable {
         authorizationEpoch: UInt64? = nil
     ) -> QuickImportScopeLeaseState {
         lock.withLock {
-            if var entry = entries[key] {
-                // Idempotent per owner: a repeated acquire (for example the same
-                // import job readying a shared parent directory for each sibling)
-                // must neither start the scope again nor count as a failed retry.
-                if entry.owners.contains(owner) {
-                    entries[key] = entry
-                    refreshLiveLeaseCountLocked()
-                    return entry.state
-                }
-                entry.owners.insert(owner)
-                switch entry.state {
-                case .granted:
-                    if entry.owners.count > 1 {
-                        entries[key] = entry
-                        refreshLiveLeaseCountLocked()
-                        return entry.state
-                    }
-                    // The previous owners all released, so this is a fresh lease
-                    // on a key that granted access before. Start it again.
-                    metrics.startCount += 1
-                    if access.startAccessingScope(for: url) {
-                        metrics.grantedCount += 1
-                        entry.state = .granted(url: url)
-                        entry.failedAtEpoch = nil
-                        entry.wasGranted = true
-                    } else {
-                        metrics.revokedCount += 1
-                        entry.state = .revoked(url: url)
-                        entry.failedAtEpoch = authorizationEpoch ?? currentEpochLocked
-                    }
-                    entries[key] = entry
-                    refreshLiveLeaseCountLocked()
-                    return entry.state
-
-                case .notRequired, .revoked:
-                    let mayRetry = authorizationEpoch.map { epoch in
-                        guard let failedAtEpoch = entry.failedAtEpoch else { return false }
-                        return epoch > failedAtEpoch
-                    } ?? false
-                    guard mayRetry else {
-                        metrics.suppressedStartAttempts += 1
-                        entries[key] = entry
-                        refreshLiveLeaseCountLocked()
-                        return entry.state
-                    }
-                    metrics.authorizationRetryCount += 1
-                    metrics.startCount += 1
-                    if access.startAccessingScope(for: url) {
-                        metrics.grantedCount += 1
-                        entry.state = .granted(url: url)
-                        entry.failedAtEpoch = nil
-                        entry.wasGranted = true
-                    } else if entry.wasGranted {
-                        metrics.revokedCount += 1
-                        entry.state = .revoked(url: url)
-                        entry.failedAtEpoch = authorizationEpoch ?? currentEpochLocked
-                    } else {
-                        entry.failedAtEpoch = authorizationEpoch ?? currentEpochLocked
-                    }
-                    entries[key] = entry
-                    refreshLiveLeaseCountLocked()
-                    return entry.state
-                }
-            }
-
-            metrics.startCount += 1
-            if access.startAccessingScope(for: url) {
-                metrics.grantedCount += 1
-                entries[key] = Entry(
-                    state: .granted(url: url),
-                    owners: [owner],
-                    failedAtEpoch: nil,
-                    wasGranted: true
-                )
-            } else {
-                metrics.notRequiredCount += 1
-                entries[key] = Entry(
-                    state: .notRequired(url: url),
-                    owners: [owner],
-                    failedAtEpoch: authorizationEpoch ?? currentEpochLocked,
-                    wasGranted: false
-                )
-            }
-            refreshLiveLeaseCountLocked()
-            return entries[key]?.state ?? .notRequired(url: url)
+            acquireLocked(
+                url: url,
+                key: key,
+                owner: owner,
+                authorizationEpoch: authorizationEpoch
+            )
         }
     }
 
+    /// Acquisition body; callers must already hold `lock`.
+    private nonisolated func acquireLocked(
+        url: URL,
+        key: String,
+        owner: QuickImportScopeOwner,
+        authorizationEpoch: UInt64?
+    ) -> QuickImportScopeLeaseState {
+        if var entry = entries[key] {
+            // Idempotent per owner: a repeated acquire (for example the same
+            // import job readying a shared parent directory for each sibling)
+            // must neither start the scope again nor count as a failed retry.
+            if entry.owners.contains(owner) {
+                entries[key] = entry
+                refreshLiveLeaseCountLocked()
+                return entry.state
+            }
+            entry.owners.insert(owner)
+            switch entry.state {
+            case .granted:
+                if entry.owners.count > 1 {
+                    entries[key] = entry
+                    refreshLiveLeaseCountLocked()
+                    return entry.state
+                }
+                // The previous owners all released, so this is a fresh lease
+                // on a key that granted access before. Start it again.
+                metrics.startCount += 1
+                if access.startAccessingScope(for: url) {
+                    metrics.grantedCount += 1
+                    entry.state = .granted(url: url)
+                    entry.failedAtEpoch = nil
+                    entry.wasGranted = true
+                } else {
+                    metrics.revokedCount += 1
+                    entry.state = .revoked(url: url)
+                    entry.failedAtEpoch = authorizationEpoch ?? currentEpochLocked
+                }
+                entries[key] = entry
+                refreshLiveLeaseCountLocked()
+                return entry.state
+
+            case .notRequired, .revoked:
+                let mayRetry = authorizationEpoch.map { epoch in
+                    guard let failedAtEpoch = entry.failedAtEpoch else { return false }
+                    return epoch > failedAtEpoch
+                } ?? false
+                guard mayRetry else {
+                    metrics.suppressedStartAttempts += 1
+                    entries[key] = entry
+                    refreshLiveLeaseCountLocked()
+                    return entry.state
+                }
+                metrics.authorizationRetryCount += 1
+                metrics.startCount += 1
+                if access.startAccessingScope(for: url) {
+                    metrics.grantedCount += 1
+                    entry.state = .granted(url: url)
+                    entry.failedAtEpoch = nil
+                    entry.wasGranted = true
+                } else if entry.wasGranted {
+                    metrics.revokedCount += 1
+                    entry.state = .revoked(url: url)
+                    entry.failedAtEpoch = authorizationEpoch ?? currentEpochLocked
+                } else {
+                    entry.failedAtEpoch = authorizationEpoch ?? currentEpochLocked
+                }
+                entries[key] = entry
+                refreshLiveLeaseCountLocked()
+                return entry.state
+            }
+        }
+
+        metrics.startCount += 1
+        if access.startAccessingScope(for: url) {
+            metrics.grantedCount += 1
+            entries[key] = Entry(
+                state: .granted(url: url),
+                owners: [owner],
+                failedAtEpoch: nil,
+                wasGranted: true
+            )
+        } else {
+            metrics.notRequiredCount += 1
+            entries[key] = Entry(
+                state: .notRequired(url: url),
+                owners: [owner],
+                failedAtEpoch: authorizationEpoch ?? currentEpochLocked,
+                wasGranted: false
+            )
+        }
+        refreshLiveLeaseCountLocked()
+        return entries[key]?.state ?? .notRequired(url: url)
+    }
+
     /// Migrates one owner's lease from an old key (a source path) to a new key
-    /// (a destination path) without starting a new scope. Rename publication must
-    /// not fabricate destination authority.
+    /// (a destination path) without fabricating destination authority.
+    ///
+    /// Grant ownership is key-safe: one `startAccessingScope` call may back only
+    /// one live granted entry. The grant moves with the owner only when the
+    /// moving owner was the last owner of the old key and the destination does
+    /// not already hold its own grant. If the old key still has owners the grant
+    /// stays with them and the destination is acquired through the ordinary
+    /// start/retry rules. If both keys hold live grants the redundant source
+    /// grant is stopped exactly once.
     nonisolated func migrateKey(
         from oldKey: String,
         to newKey: String,
@@ -236,47 +267,99 @@ nonisolated final class QuickImportScopeLeases: @unchecked Sendable {
             }
             return
         }
+
         lock.withLock {
-            guard var oldEntry = entries[oldKey] else { return }
-            oldEntry.owners.remove(owner)
-            let moving = oldEntry.state
-            let movingWasGranted = oldEntry.wasGranted
-            let movingFailedAtEpoch = oldEntry.failedAtEpoch
-            if oldEntry.owners.isEmpty {
-                entries.removeValue(forKey: oldKey)
-            } else {
-                entries[oldKey] = oldEntry
+            guard let oldEntryBefore = entries[oldKey],
+                  oldEntryBefore.owners.contains(owner) else {
+                // Idempotent repeat: the owner may already hold the destination.
+                if var destination = entries[newKey], destination.owners.contains(owner) {
+                    destination.state = Self.stateKeepingGrant(destination.state, url: url)
+                    entries[newKey] = destination
+                }
+                return
             }
 
-            if var newEntry = entries[newKey] {
-                if case .granted = moving {
-                    if case .granted = newEntry.state, !newEntry.owners.isEmpty {
-                        // Both keys already hold a live grant. Keep the
-                        // destination grant and stop the redundant source start
-                        // exactly once.
-                        access.stopAccessingScope(for: moving.url)
+            let movingState = oldEntryBefore.state
+            let movingIsGranted: Bool
+            if case .granted = movingState { movingIsGranted = true } else { movingIsGranted = false }
+            let movingWasGranted = oldEntryBefore.wasGranted
+            let movingFailedAtEpoch = oldEntryBefore.failedAtEpoch
+
+            var oldEntry = oldEntryBefore
+            oldEntry.owners.remove(owner)
+            let oldKeyStillOwned = !oldEntry.owners.isEmpty
+            if oldKeyStillOwned {
+                entries[oldKey] = oldEntry
+            } else {
+                entries.removeValue(forKey: oldKey)
+            }
+
+            if movingIsGranted && oldKeyStillOwned {
+                // The single old grant must stay with its remaining owners. The
+                // moved owner acquires the destination for real (start attempt
+                // follows the normal authorized-retry rules; no copied grant).
+                _ = acquireLocked(
+                    url: url,
+                    key: newKey,
+                    owner: owner,
+                    authorizationEpoch: nil
+                )
+                refreshLiveLeaseCountLocked()
+                return
+            }
+
+            // At this point a granted moving state means the old key had exactly
+            // this owner, so the grant obligation travels with the owner.
+            let movingGrantOutstanding = movingIsGranted
+            let destination = entries[newKey]
+            let destinationIsLiveGranted = destination?.isLiveGranted ?? false
+
+            if movingGrantOutstanding, destinationIsLiveGranted {
+                // The destination holds its own start; a copied grant would plan
+                // a second stop for one start, so stop the redundant source start
+                // exactly once instead of duplicating it.
+                access.stopAccessingScope(for: movingState.url)
+                metrics.stopCount += 1
+                metrics.dedupedGrantTransferStopCount += 1
+            }
+
+            if var destination {
+                if movingGrantOutstanding {
+                    switch destination.state {
+                    case .granted:
+                        if !destinationIsLiveGranted {
+                            // Destination previously granted and stopped: carry the
+                            // outstanding grant (and its single stop) to this key.
+                            destination.state = .granted(url: movingState.url)
+                            destination.wasGranted = true
+                            destination.failedAtEpoch = nil
+                            metrics.transferCount += 1
+                        }
+                    case .notRequired, .revoked:
+                        // The destination's own evidence says it does not need a
+                        // usable scope. Keep that evidence and stop the now
+                        // ownerless source grant exactly once so no stop leaks.
+                        access.stopAccessingScope(for: movingState.url)
                         metrics.stopCount += 1
-                    } else {
-                        // Transfer the live grant (and its eventual stop) to the
-                        // destination key. The started URL is preserved so the
-                        // later stop targets the URL that actually started.
-                        newEntry.state = moving
-                        newEntry.wasGranted = true
-                        newEntry.failedAtEpoch = nil
+                        metrics.unusedGrantStopCount += 1
                     }
-                } else if !newEntry.wasGranted {
-                    newEntry.state = Self.stateKeepingGrant(moving, url: url)
-                    newEntry.failedAtEpoch = movingFailedAtEpoch
+                } else if !destination.wasGranted {
+                    destination.state = Self.stateKeepingGrant(movingState, url: url)
+                    destination.failedAtEpoch = movingFailedAtEpoch
+                    destination.wasGranted = movingWasGranted
                 }
-                newEntry.owners.insert(owner)
-                entries[newKey] = newEntry
+                destination.owners.insert(owner)
+                entries[newKey] = destination
             } else {
                 entries[newKey] = Entry(
-                    state: Self.stateKeepingGrant(moving, url: url),
+                    state: Self.stateKeepingGrant(movingState, url: url),
                     owners: [owner],
                     failedAtEpoch: movingFailedAtEpoch,
                     wasGranted: movingWasGranted
                 )
+                if movingGrantOutstanding {
+                    metrics.transferCount += 1
+                }
             }
             refreshLiveLeaseCountLocked()
         }
@@ -353,6 +436,12 @@ nonisolated final class QuickImportScopeLeases: @unchecked Sendable {
                 guard entry.isLiveGranted, case .granted(let url) = entry.state else { return nil }
                 return url
             }
+        }
+    }
+
+    nonisolated func leaseSnapshot() -> [String: (state: QuickImportScopeLeaseState, owners: Set<QuickImportScopeOwner>)] {
+        lock.withLock {
+            entries.mapValues { (state: $0.state, owners: $0.owners) }
         }
     }
 

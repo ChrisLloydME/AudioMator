@@ -155,6 +155,18 @@ nonisolated struct QuickImportPathIndex: Sendable {
         idByFileKey[fileKey].flatMap { recordsByID[$0] }
     }
 
+    /// Immutable identity snapshot keyed by membership row ID.
+    nonisolated func membershipIdentitiesByID() -> [UUID: QuickImportPathIdentity] {
+        var identities: [UUID: QuickImportPathIdentity] = [:]
+        identities.reserveCapacity(orderedIDs.count)
+        for id in orderedIDs {
+            if let record = recordsByID[id] {
+                identities[id] = record.identity
+            }
+        }
+        return identities
+    }
+
     nonisolated func fileKeyRefCount(_ fileKey: String) -> Int {
         fileKeyRefCounts[fileKey] ?? 0
     }

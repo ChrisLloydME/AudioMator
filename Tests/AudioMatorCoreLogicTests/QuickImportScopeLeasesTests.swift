@@ -169,6 +169,230 @@ final class QuickImportScopeLeasesTests: XCTestCase {
         XCTAssertEqual(access.stopCount(for: parentURL), 1)
     }
 
+    func testMigrateFromSharedKeyStartsDestinationAndKeepsSourceGrant() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import/01.mp3")
+        let destinationURL = URL(fileURLWithPath: "/tmp/renamed/01.mp3")
+        let movingOwner = QuickImportScopeOwner.membership(UUID())
+        let siblingOwner = QuickImportScopeOwner.membership(UUID())
+        access.setGranted(true, for: sourceURL)
+        access.setGranted(true, for: destinationURL)
+
+        leases.acquire(url: sourceURL, key: "shared-parent", owner: movingOwner)
+        leases.acquire(url: sourceURL, key: "shared-parent", owner: siblingOwner)
+        leases.migrateKey(
+            from: "shared-parent",
+            to: "destination-parent",
+            url: destinationURL,
+            owner: movingOwner
+        )
+
+        XCTAssertEqual(access.startCount(for: sourceURL), 1, "The shared source grant must not move")
+        XCTAssertEqual(access.startCount(for: destinationURL), 1, "The moved owner gets its own destination start")
+        XCTAssertEqual(leases.state(forKey: "shared-parent"), .granted(url: sourceURL))
+        XCTAssertEqual(leases.owners(forKey: "shared-parent"), [siblingOwner])
+        XCTAssertEqual(leases.owners(forKey: "destination-parent"), [movingOwner])
+
+        leases.release(key: "destination-parent", owner: movingOwner)
+        leases.release(key: "shared-parent", owner: siblingOwner)
+        let metrics = leases.metricsSnapshot()
+        XCTAssertEqual(metrics.startCount, 2)
+        XCTAssertEqual(metrics.stopCount, 2, "One start per key must produce exactly one stop")
+        XCTAssertEqual(metrics.transferCount, 0, "A shared grant is never copied onto a second key")
+        XCTAssertEqual(metrics.dedupedGrantTransferStopCount, 0)
+    }
+
+    func testMigrateSecondOwnerFromNowUnsharedKeyTransfersTheSingleOutstandingGrant() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import")
+        let firstDestinationURL = URL(fileURLWithPath: "/tmp/disc-one")
+        let secondDestinationURL = URL(fileURLWithPath: "/tmp/disc-two")
+        let firstOwner = QuickImportScopeOwner.membership(UUID())
+        let secondOwner = QuickImportScopeOwner.membership(UUID())
+        access.setGranted(true, for: sourceURL)
+        access.setGranted(true, for: firstDestinationURL)
+
+        leases.acquire(url: sourceURL, key: "source-parent", owner: firstOwner)
+        leases.acquire(url: sourceURL, key: "source-parent", owner: secondOwner)
+
+        // First move: the old key is still shared, so the destination starts once.
+        leases.migrateKey(
+            from: "source-parent",
+            to: "destination-one",
+            url: firstDestinationURL,
+            owner: firstOwner
+        )
+        XCTAssertEqual(access.startCount(for: sourceURL), 1)
+        XCTAssertEqual(access.startCount(for: firstDestinationURL), 1)
+
+        // Second move: the old key is now unshared, so its single outstanding
+        // grant travels to the new key instead of planning a second stop.
+        leases.migrateKey(
+            from: "source-parent",
+            to: "destination-two",
+            url: secondDestinationURL,
+            owner: secondOwner
+        )
+        XCTAssertNil(leases.state(forKey: "source-parent"))
+        XCTAssertEqual(leases.state(forKey: "destination-two"), .granted(url: sourceURL))
+        XCTAssertEqual(access.startCount(for: secondDestinationURL), 0, "A transferred grant is not restarted")
+        XCTAssertEqual(leases.metricsSnapshot().transferCount, 1)
+
+        leases.release(key: "destination-one", owner: firstOwner)
+        leases.release(key: "destination-two", owner: secondOwner)
+        let metrics = leases.metricsSnapshot()
+        XCTAssertEqual(metrics.startCount, 2)
+        XCTAssertEqual(metrics.stopCount, 2, "Transferred grant keeps one start and one stop")
+    }
+
+    func testMigrateIntoLivGrantStopsTheRedundantSourceGrantExactlyOnce() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import/01.mp3")
+        let destinationURL = URL(fileURLWithPath: "/tmp/renamed/01.mp3")
+        let movingOwner = QuickImportScopeOwner.membership(UUID())
+        let residentOwner = QuickImportScopeOwner.membership(UUID())
+        access.setGranted(true, for: sourceURL)
+        access.setGranted(true, for: destinationURL)
+
+        leases.acquire(url: sourceURL, key: "source", owner: movingOwner)
+        leases.acquire(url: destinationURL, key: "destination", owner: residentOwner)
+        XCTAssertEqual(leases.metricsSnapshot().startCount, 2)
+
+        leases.migrateKey(from: "source", to: "destination", url: destinationURL, owner: movingOwner)
+
+        XCTAssertNil(leases.state(forKey: "source"))
+        XCTAssertEqual(access.stopCount(for: sourceURL), 1, "The duplicated source start is stopped exactly once")
+        XCTAssertEqual(leases.state(forKey: "destination"), .granted(url: destinationURL))
+        XCTAssertEqual(leases.owners(forKey: "destination"), [residentOwner, movingOwner])
+        XCTAssertEqual(leases.metricsSnapshot().dedupedGrantTransferStopCount, 1)
+
+        leases.release(key: "destination", owner: movingOwner)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 0, "The resident owner keeps the destination live")
+        leases.release(key: "destination", owner: residentOwner)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 1)
+        let metrics = leases.metricsSnapshot()
+        XCTAssertEqual(metrics.startCount, 2)
+        XCTAssertEqual(metrics.stopCount, 2, "De-duplication keeps starts and stops balanced")
+    }
+
+    func testOwnerAddedDuringTransferSharesTheDestinationGrant() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import")
+        let destinationURL = URL(fileURLWithPath: "/tmp/disc-two")
+        let firstOwner = QuickImportScopeOwner.membership(UUID())
+        let secondOwner = QuickImportScopeOwner.membership(UUID())
+        let addedOwner = QuickImportScopeOwner.membership(UUID())
+        access.setGranted(true, for: sourceURL)
+        access.setGranted(true, for: destinationURL)
+
+        leases.acquire(url: sourceURL, key: "source-parent", owner: firstOwner)
+        leases.acquire(url: sourceURL, key: "source-parent", owner: secondOwner)
+        leases.migrateKey(
+            from: "source-parent",
+            to: "destination-parent",
+            url: destinationURL,
+            owner: firstOwner
+        )
+        // A new owner joins the destination while the second sibling is about to move.
+        leases.acquire(url: destinationURL, key: "destination-parent", owner: addedOwner)
+        XCTAssertEqual(access.startCount(for: destinationURL), 1)
+
+        leases.migrateKey(
+            from: "source-parent",
+            to: "destination-parent",
+            url: destinationURL,
+            owner: secondOwner
+        )
+        XCTAssertEqual(access.stopCount(for: sourceURL), 1)
+        XCTAssertEqual(leases.owners(forKey: "destination-parent"), [firstOwner, secondOwner, addedOwner])
+        XCTAssertEqual(access.startCount(for: destinationURL), 1, "A third owner only joins the live grant")
+
+        leases.release(key: "destination-parent", owner: firstOwner)
+        leases.release(key: "destination-parent", owner: addedOwner)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 0)
+        leases.release(key: "destination-parent", owner: secondOwner)
+        XCTAssertEqual(access.stopCount(for: destinationURL), 1)
+        let metrics = leases.metricsSnapshot()
+        XCTAssertEqual(metrics.startCount, metrics.stopCount)
+    }
+
+    func testMigratePreservesDestinationNotRequiredAndRevokedEvidence() {
+        let access = ScriptedQuickImportScopeAccess()
+        let notRequiredLeases = QuickImportScopeLeases(access: access)
+        let notRequiredURL = URL(fileURLWithPath: "/tmp/not-required")
+        let notRequiredDestination = URL(fileURLWithPath: "/tmp/not-required-destination")
+        let firstOwner = QuickImportScopeOwner.membership(UUID())
+        let secondOwner = QuickImportScopeOwner.membership(UUID())
+        access.setGranted(false, for: notRequiredURL)
+        access.setGranted(false, for: notRequiredDestination)
+        notRequiredLeases.acquire(url: notRequiredURL, key: "not-required", owner: firstOwner)
+        notRequiredLeases.acquire(url: notRequiredURL, key: "not-required", owner: secondOwner)
+        notRequiredLeases.migrateKey(
+            from: "not-required",
+            to: "not-required-destination",
+            url: notRequiredDestination,
+            owner: firstOwner
+        )
+        XCTAssertEqual(notRequiredLeases.state(forKey: "not-required-destination"), .notRequired(url: notRequiredDestination))
+        XCTAssertEqual(access.startCount(for: notRequiredURL), 1, "A notRequired source state must not retry on transfer")
+        XCTAssertEqual(access.startCount(for: notRequiredDestination), 0)
+        notRequiredLeases.releaseAll()
+        XCTAssertEqual(access.stopCount(for: notRequiredURL), 0, "A scope that never started is never stopped")
+
+        let revokedAccess = ScriptedQuickImportScopeAccess()
+        let revokedLeases = QuickImportScopeLeases(access: revokedAccess)
+        let revokedURL = URL(fileURLWithPath: "/tmp/revoked")
+        let revokedDestination = URL(fileURLWithPath: "/tmp/revoked-destination")
+        let revokedOwner = QuickImportScopeOwner.membership(UUID())
+        let joiningOwner = QuickImportScopeOwner.membership(UUID())
+        revokedAccess.setGranted(true, for: revokedURL)
+        revokedLeases.acquire(url: revokedURL, key: "revoked", owner: revokedOwner)
+        revokedLeases.release(owner: revokedOwner)
+        revokedAccess.setGranted(false, for: revokedURL)
+        let epoch = revokedLeases.beginAuthorizationEpoch()
+        revokedLeases.acquire(
+            url: revokedURL,
+            key: "revoked",
+            owner: revokedOwner,
+            authorizationEpoch: epoch
+        )
+        XCTAssertEqual(revokedLeases.state(forKey: "revoked"), .revoked(url: revokedURL))
+        revokedLeases.acquire(url: revokedURL, key: "revoked", owner: joiningOwner)
+        revokedLeases.migrateKey(
+            from: "revoked",
+            to: "revoked-destination",
+            url: revokedDestination,
+            owner: joiningOwner
+        )
+        XCTAssertEqual(revokedLeases.state(forKey: "revoked-destination"), .revoked(url: revokedDestination))
+        XCTAssertEqual(revokedAccess.startCount(for: revokedURL), 2, "A revoked state is never retried during transfer")
+        revokedLeases.releaseAll()
+        let revokedMetrics = revokedLeases.metricsSnapshot()
+        XCTAssertEqual(revokedMetrics.startCount, 2, "One initial grant plus one authorized retry")
+        XCTAssertEqual(revokedMetrics.grantedCount, 1, "Only the initial start was granted")
+        XCTAssertEqual(revokedMetrics.stopCount, 1, "Only the previously granted start is stopped")
+        XCTAssertEqual(revokedMetrics.transferCount, 0, "A revoked state transfers evidence, not a grant")
+    }
+
+    func testMigrateWithoutTheOldOwnerIsInert() {
+        let access = ScriptedQuickImportScopeAccess()
+        let leases = QuickImportScopeLeases(access: access)
+        let sourceURL = URL(fileURLWithPath: "/tmp/import/01.mp3")
+        let unknownOwner = QuickImportScopeOwner.membership(UUID())
+        access.setGranted(true, for: sourceURL)
+        leases.acquire(url: sourceURL, key: "source", owner: .membership(UUID()))
+
+        leases.migrateKey(from: "source", to: "destination", url: sourceURL, owner: unknownOwner)
+
+        XCTAssertEqual(leases.state(forKey: "source"), .granted(url: sourceURL))
+        XCTAssertNil(leases.state(forKey: "destination"))
+        XCTAssertEqual(leases.metricsSnapshot().startCount, 1)
+    }
+
     func testImmediateReacquireAfterReleaseRestartsAndStopsExactlyOnce() {
         let access = ScriptedQuickImportScopeAccess()
         let leases = QuickImportScopeLeases(access: access)

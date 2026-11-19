@@ -155,7 +155,22 @@ final class QuickImportPathIndexTests: XCTestCase {
 
         XCTAssertEqual(first.operationalURL, firstURL.standardizedFileURL)
         XCTAssertEqual(first.canonicalPath, try AudioFileFingerprint.capture(at: firstURL).normalizedPath)
-        XCTAssertEqual(first.fileKey, FileSystemPathSemantics.key(for: firstURL))
+        // Independent oracle: test the documented case-sensitivity rule against
+        // the volume's own report instead of comparing two calls of the same helper.
+        let volumeSupportsCaseSensitiveNames = try XCTUnwrap(
+            try firstURL.resourceValues(
+                forKeys: [.volumeSupportsCaseSensitiveNamesKey]
+            ).volumeSupportsCaseSensitiveNames,
+            "The temporary volume must report filename case semantics"
+        )
+        XCTAssertEqual(
+            first.fileKey,
+            FileSystemPathSemantics.comparisonKey(
+                forCanonicalPath: first.canonicalPath,
+                isCaseSensitive: volumeSupportsCaseSensitiveNames
+            ),
+            "The provider key must follow the volume's filename case rule"
+        )
         XCTAssertEqual(first.directoryEntryKey, FileSystemPathSemantics.directoryEntryKey(for: firstURL))
         XCTAssertEqual(first.parentKey, FileSystemPathSemantics.key(for: root))
         XCTAssertEqual(second.parentKey, first.parentKey)

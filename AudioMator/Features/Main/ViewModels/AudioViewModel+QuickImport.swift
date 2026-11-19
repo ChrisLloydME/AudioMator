@@ -98,7 +98,10 @@ struct QuickImportMetrics: Sendable {
     var restoredMembershipMigrationCount = 0
     var publicationCount = 0
     var publishedRowCount = 0
+    /// Falsifiable terminal-mutation detector: incremented when a terminal path
+    /// mutates the published rows, publishes a batch, or calls the merge seam.
     var terminalMergeCount = 0
+    var terminalMergedRowCount = 0
     var batchCount = 0
     var totalBatchItemCount = 0
     var cumulativePublicationDuration: Duration = .zero
@@ -112,6 +115,15 @@ struct QuickImportMetrics: Sendable {
     var batchDropEmptyCount = 0
 }
 
+/// Token/sequence ownership recorded by one request for one file key at
+/// admission time. Terminal pruning only removes an unpublished key when the
+/// current registry still holds this exact ownership, so a newer overlapping
+/// request's token is never deleted by an older request finishing.
+struct QuickImportRequestKeyOwnership: Sendable, Equatable {
+    let sequence: UInt64
+    let token: UUID
+}
+
 struct QuickImportRequestState {
     let requestID: UUID
     let sequence: UInt64
@@ -119,7 +131,7 @@ struct QuickImportRequestState {
     let refreshGeneration: UInt64
     let taskID: UUID
     let authorizationEpoch: UInt64
-    var preparedFileKeys: Set<String> = []
+    var preparedKeys: [String: QuickImportRequestKeyOwnership] = [:]
     var pendingFailures: [QuickImportPendingFailure] = []
 }
 
@@ -132,6 +144,9 @@ struct QuickImportBookkeeping {
     var admittedSequenceByFileKey: [String: UInt64] = [:]
     var requests: [UUID: QuickImportRequestState] = [:]
     var metrics = QuickImportMetrics()
+    /// True only for the synchronous terminal body. The merge seam increments
+    /// `terminalMergeCount` if a terminal path ever merges published rows again.
+    var isFinishingRequest = false
     private var nextSequence: UInt64 = 0
 
     init(environment: QuickImportEnvironment) {
@@ -145,6 +160,7 @@ struct QuickImportBookkeeping {
 
     /// Records a tombstone token and supersession sequence for one file key. No
     /// in-flight batch whose admission sequence is older can publish afterwards.
+    @discardableResult
     mutating func tombstone(fileKey: String) -> UInt64 {
         let sequence = allocateSequence()
         tokensByFileKey[fileKey] = UUID()
@@ -160,8 +176,17 @@ struct QuickImportBookkeeping {
         requests.removeAll()
     }
 
-    mutating func pruneUnpublishedKeys(keeping fileKeys: Set<String>) {
-        for fileKey in fileKeys where index.id(forFileKey: fileKey) == nil {
+    /// Drops registry entries for this request's prepared-but-unpublished keys,
+    /// but only while this request still owns the token/sequence. A newer
+    /// overlapping request that has already admitted the same key keeps its
+    /// token and can publish normally.
+    mutating func pruneUnpublishedKeys(for request: QuickImportRequestState) {
+        for (fileKey, ownership) in request.preparedKeys
+        where index.id(forFileKey: fileKey) == nil {
+            guard tokensByFileKey[fileKey] == ownership.token,
+                  admittedSequenceByFileKey[fileKey] == ownership.sequence else {
+                continue
+            }
             tokensByFileKey.removeValue(forKey: fileKey)
             admittedSequenceByFileKey.removeValue(forKey: fileKey)
         }
@@ -180,6 +205,9 @@ struct QuickImportDiagnostics {
     let leaseMetrics: QuickImportScopeLeases.Metrics
     let pendingFailureCount: Int
     let activeRequestCount: Int
+    let leaseStatesByKey: [String: QuickImportScopeLeaseState]
+    let leaseOwnersByKey: [String: Set<QuickImportScopeOwner>]
+    let membershipIdentitiesByID: [UUID: QuickImportPathIdentity]
     let consistencyIssues: [String]
 }
 
@@ -351,6 +379,7 @@ extension AudioViewModel {
 
         var accepted: [QuickImportAcceptedCandidate] = []
         accepted.reserveCapacity(lastByFileKey.count)
+        var admittedOwnership: [String: QuickImportRequestKeyOwnership] = [:]
         for candidate in lastByFileKey.values.sorted(by: { $0.ordinal < $1.ordinal }) {
             let fileKey = candidate.identity.fileKey
             if let admittedSequence = quickImportBookkeeping.admittedSequenceByFileKey[fileKey],
@@ -365,6 +394,10 @@ extension AudioViewModel {
 
             quickImportBookkeeping.tokensByFileKey[fileKey] = candidate.requestToken
             quickImportBookkeeping.admittedSequenceByFileKey[fileKey] = candidate.sequence
+            admittedOwnership[fileKey] = QuickImportRequestKeyOwnership(
+                sequence: candidate.sequence,
+                token: candidate.requestToken
+            )
 
             // The selected-URL lease is already held by intake and keeps its
             // non-granted state across imports, so the parent directory is the
@@ -387,7 +420,7 @@ extension AudioViewModel {
         }
 
         if var request = quickImportBookkeeping.requests[requestID] {
-            request.preparedFileKeys.formUnion(accepted.map { $0.candidate.identity.fileKey })
+            request.preparedKeys.merge(admittedOwnership) { _, new in new }
             quickImportBookkeeping.requests[requestID] = request
         }
         return accepted
@@ -555,6 +588,19 @@ extension AudioViewModel {
         cancelled: Bool,
         additionalFailures: [QuickImportPendingFailure] = []
     ) {
+        let rowCountBefore = quickImportFiles.count
+        let publicationCountBefore = quickImportBookkeeping.metrics.publicationCount
+        quickImportBookkeeping.isFinishingRequest = true
+        defer {
+            quickImportBookkeeping.isFinishingRequest = false
+            let rowsAdded = quickImportFiles.count - rowCountBefore
+            if rowsAdded != 0
+                || quickImportBookkeeping.metrics.publicationCount != publicationCountBefore {
+                quickImportBookkeeping.metrics.terminalMergeCount += 1
+                quickImportBookkeeping.metrics.terminalMergedRowCount += abs(rowsAdded)
+            }
+        }
+
         inFlightQuickImportTaskIDs.remove(taskID)
         quickImportTasks[taskID] = nil
         quickImportLoadingURLs[taskID] = nil
@@ -575,7 +621,7 @@ extension AudioViewModel {
             quickImportBookkeeping.tokensByFileKey[pending.fileKey] == pending.token
         }
         quickImportBookkeeping.metrics.rejectedReadCount += reportable.count
-        quickImportBookkeeping.pruneUnpublishedKeys(keeping: request.preparedFileKeys)
+        quickImportBookkeeping.pruneUnpublishedKeys(for: request)
 
         guard !cancelled, generation == quickImportGeneration else { return }
         presentQuickImportFailures(reportable.map(\.failure))
@@ -637,6 +683,9 @@ extension AudioViewModel {
     /// scope reconciliation.
     func mergeQuickImportFiles(_ incoming: [AudioFile], refreshGeneration: UInt64? = nil) {
         guard !incoming.isEmpty else { return }
+        if quickImportBookkeeping.isFinishingRequest {
+            quickImportBookkeeping.metrics.terminalMergeCount += 1
+        }
         let generation = refreshGeneration ?? makeFileModelRefreshGeneration()
         var parentEvidenceByPath: [String: QuickImportParentEvidence] = [:]
         var publishedAnything = false
@@ -703,7 +752,8 @@ extension AudioViewModel {
     // MARK: Diagnostics
 
     func quickImportDiagnostics() -> QuickImportDiagnostics {
-        QuickImportDiagnostics(
+        let leaseSnapshot = quickImportBookkeeping.leases.leaseSnapshot()
+        return QuickImportDiagnostics(
             orderedIDs: quickImportBookkeeping.index.orderedIDs,
             fileKeyRefCounts: quickImportBookkeeping.index.fileKeyRefCounts,
             parentKeyRefCounts: quickImportBookkeeping.index.parentKeyRefCounts,
@@ -715,6 +765,9 @@ extension AudioViewModel {
                 $0 + $1.pendingFailures.count
             },
             activeRequestCount: quickImportBookkeeping.requests.count,
+            leaseStatesByKey: leaseSnapshot.mapValues { $0.state },
+            leaseOwnersByKey: leaseSnapshot.mapValues { $0.owners },
+            membershipIdentitiesByID: quickImportBookkeeping.index.membershipIdentitiesByID(),
             consistencyIssues: quickImportBookkeeping.index.consistencyIssues()
         )
     }

@@ -38,20 +38,21 @@ nonisolated final class MetadataWriteHUDDismissalDecisionTests: XCTestCase {
     }
 
     func testDeallocatedOwnerCompletionPerformsNoAction() {
-        var completion: (() -> Void)?
         var orderedOut = false
-        let probe = HUDDismissalOwnerProbe()
-        let decision = MetadataWriteHUDDismissalDecision(expectedGeneration: probe.presentationGeneration)
-        var owner: HUDDismissalOwnerProbe? = probe
-        completion = owner?.dismissalCompletion(decision: decision) {
+        var owner: HUDDismissalOwnerProbe? = HUDDismissalOwnerProbe()
+        let decision = MetadataWriteHUDDismissalDecision(
+            expectedGeneration: owner!.presentationGeneration
+        )
+        let completion = owner?.dismissalCompletion(decision: decision) {
             orderedOut = true
         }
 
+        weak var weakOwner = owner
         owner = nil
+        XCTAssertNil(weakOwner, "The probe must deallocate before the completion fires")
         completion?()
 
         XCTAssertFalse(orderedOut, "A completion whose owner deallocated must not order out a panel")
-        completion = nil
     }
 
     func testCurrentOwnerWithPresentedHUDOrdersOut() {

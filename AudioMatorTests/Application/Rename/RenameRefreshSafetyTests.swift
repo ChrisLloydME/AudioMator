@@ -211,6 +211,56 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertNotNil(pipeline.lastExpectedVersion)
     }
 
+    /// End-to-end disk evidence: a real move, a real bounded readback and a real
+    /// post-move write through the production adapter. Verifies the persisted
+    /// value, preserved number/disc components and untouched unrelated raw values.
+    func testReceiptMatchedReadbackRestoresAuthorityForRealPostMoveWrite() async throws {
+        let environment = try makeEnvironment()
+        let sourceURL = environment.sourceURL
+        let destinationURL = environment.destinationURL
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+        defer { MetadataTestTokens.removeFixtureCopy(at: sourceURL) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        let source = try await pipeline.loadAudioFile(at: sourceURL, id: UUID())
+        let beforeMap = try pipeline.rawMetadataValueMap(for: sourceURL)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([source])
+
+        // A real move, not a copy: the source directory entry no longer exists.
+        try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+        let receipt = try makeReceipt(for: source, from: sourceURL, to: destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+
+        let warnings = await viewModel.readBackMovedFiles([receipt])
+        XCTAssertTrue(warnings.isEmpty, warnings.joined(separator: "; "))
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertEqual(moved.url, destinationURL)
+        XCTAssertFalse(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertNotNil(moved.observation)
+        XCTAssertFalse(viewModel.hasRecoveryDecision(for: moved.id))
+
+        var edit = SingleFileEditModel(from: moved)
+        edit.title = "Real post-move write"
+        guard case .success = await viewModel.persistMetadataEdit(edit, to: moved, comparedTo: moved) else {
+            return XCTFail("A receipt-matched readback must allow a real post-move write")
+        }
+
+        let persisted = try await pipeline.loadAudioFile(at: destinationURL, id: source.id)
+        XCTAssertEqual(persisted.title, "Real post-move write")
+        XCTAssertEqual(persisted.trackTotal, source.trackTotal)
+        XCTAssertEqual(persisted.disc, source.disc)
+        XCTAssertEqual(persisted.discTotal, source.discTotal)
+
+        let afterMap = try pipeline.rawMetadataValueMap(for: destinationURL)
+        let changedKeys = Set(beforeMap.keys).union(afterMap.keys).filter { beforeMap[$0] != afterMap[$0] }
+        XCTAssertTrue(changedKeys.contains("TITLE"))
+        XCTAssertTrue(
+            changedKeys.subtracting(["TITLE"]).isEmpty,
+            "Unrelated raw values must survive the post-move write: \(changedKeys.subtracting(["TITLE"]))"
+        )
+    }
+
     func testReadbackAcrossSamePathReplacementStaysBlocked() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }

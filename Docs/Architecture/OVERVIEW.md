@@ -180,15 +180,12 @@ A synchronous TagLib commit cannot be interrupted once it starts. Cancellation i
 
 ### Rename
 
-Rename is a two-phase transaction under one multi-path reservation:
+Rename moves files in two reservation phases:
 
-1. Validate each source fingerprint.
-2. Move every source to a unique temporary name in the same directory.
-3. Move each temporary name to its destination.
-4. On failure, roll back finalized and staged files in reverse order.
-5. Report structured recovery items if rollback is incomplete.
+1. Under one multi-path reservation: validate each source's coherent observation, stage every source to a unique same-directory temporary name, finalize destinations, capture each destination's directory-entry identity, and publish verified move receipts plus a pending-readback recovery decision before releasing the reservation. Failures roll back finalized and staged files in reverse order and report structured recovery items for anything uncertain.
+2. After release, reacquire each destination under its own reservation for a bounded (60 second) full read. The entry identity must still match the receipt before the read and after it; only that coherent observation restores write authority and clears the pending decision.
 
-Metadata reload after rename recovers the fingerprint and metadata revision independently. If either cannot be recovered, the snapshot is marked refresh-required and version-checked writes fail closed.
+A failed or timed-out readback leaves the moved file as an authority-free display projection with metadata editing paused. Stat-only or version-only probes never restore a writable revision, and an external program can still change the path between the two phases; that external-writer race limit is documented in [Rename and Renumbering](RENAME_AND_RENUMBERING.md).
 
 ### Online Metadata
 

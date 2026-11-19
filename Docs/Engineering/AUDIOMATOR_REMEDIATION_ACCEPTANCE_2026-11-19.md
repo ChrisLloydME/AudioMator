@@ -1,11 +1,10 @@
 # AudioMator audit remediation — engineering acceptance and handoff (2026-11-19)
 
-**Status.** Implementation-side record for independent review. The independent reviewer named by the
-[acceptance specification](../Development/REMEDIATION_ACCEPTANCE.md) owns the disposition; the
-maintainer owns any later release decision. This record covers automated evidence only: no signed,
-notarized, installed or interactive UI acceptance is claimed. Per the campaign instruction, the
-temporary implementation specification and acceptance checklist are removed **after** reviewer
-acceptance; this record is retained.
+**Status.** Implementation-side record for independent review. An independent reviewer (not the
+implementer) owns the disposition; the maintainer owns any later release decision. This record covers
+automated evidence only: no signed, notarized, installed or interactive UI acceptance is claimed.
+The temporary implementation specification and acceptance checklist were retired after the independent
+acceptance below; this dated record is retained as the authoritative campaign evidence.
 
 ## Candidate
 
@@ -135,16 +134,15 @@ Sendable` wording in `TESTING.md`, and the stale suite counts above. Its full re
   affect the asserted boundaries; the AM-19 metric covers compiler diagnostics.
 - **Performance:** the batch-save deadline is wall-clock; an externally loaded host can exceed it
   (observed once, re-measured green when idle). Count-based budgets are deterministic.
-- **Campaign documents:** `Docs/Development/REMEDIATION_IMPLEMENTATION.md` and
-  `Docs/Development/REMEDIATION_ACCEPTANCE.md` remain until independent acceptance, then they and their
-  index entries are removed per the specification; this dated record and the existing engineering
-  evidence remain.
+- **Campaign documents:** the temporary implementation specification and acceptance checklist were
+  removed after the independent acceptance, per that specification; this dated record and the existing
+  engineering evidence remain.
 
 ## Reviewer handoff
 
-1. Read the [interaction acceptance specification](../Development/REMEDIATION_ACCEPTANCE.md), the
-   [implementation specification](../Development/REMEDIATION_IMPLEMENTATION.md) and the
-   [original audit](AUDIOMATOR_INDEPENDENT_AUDIT_2026-11-18.md) with its evidence companion.
+1. Read this record, the reviewer disposition (`.tmp/remediation/design/REVIEWER-ACCEPTANCE.md`),
+   and the [original audit](AUDIOMATOR_INDEPENDENT_AUDIT_2026-11-18.md) with its evidence companion.
+   The temporary campaign specification and acceptance checklist were removed after acceptance.
 2. Candidate: branch `remediation/audit-2026-11-18`; tested source `74466f0a`; final full gate at
    `247c8ed6` (later commits are documentation-only; confirm with `git log` and the `source.txt` in the
    validation directory). Base `51872140`.
@@ -154,8 +152,8 @@ Sendable` wording in `TESTING.md`, and the stale suite counts above. Its full re
    `build-for-testing` with `ENABLE_TESTABILITY=YES`, then
    `python3 .tmp/t2-tools/extract-diagnostics.py --label Debug --log <debug.log> --label Release --log <release.log>`.
    Evidence commands and intermediate JSONs are under `.tmp/t2-evidence/` and `.tmp/remediation/`.
-4. Run the reviewer-owned probes and negative controls from the acceptance specification; the
-   implementation record supplies dispositions and evidence, not the verdict.
-5. After acceptance: remove the two campaign documents and their index entries; retain this record (or
-   the reviewer's dated equivalent) with dispositions, tested revisions and evidence. Release approval
+4. Run the reviewer-owned probes and negative controls recorded in the reviewer disposition and this
+   record; the implementation record supplies dispositions and evidence, not the verdict.
+5. The campaign documents and their index entries are already retired; retain this record (or the
+   reviewer's dated equivalent) with dispositions, tested revisions and evidence. Release approval
    remains with the maintainer.

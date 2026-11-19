@@ -57,7 +57,6 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 - [Commit Messages](Development/COMMIT_MESSAGES.md) — typed subject, scope, merge and revert conventions, body rules, and the advisory checker.
 - [Release Engineering](Development/RELEASE.md) — versioning, current release process, what is and is not automated.
 - [Documentation Maintenance](Development/DOCUMENTATION.md) — document ownership, update matrix, agent requirements, labels, and verification.
-- **Active remediation campaign** · [Implementation specification and handoff](Development/REMEDIATION_IMPLEMENTATION.md) · [Independent acceptance](Development/REMEDIATION_ACCEPTANCE.md). Temporary proposed work linked to the dated independent audit.
 
 ### Reference
 

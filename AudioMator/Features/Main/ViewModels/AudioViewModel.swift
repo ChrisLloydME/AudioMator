@@ -241,7 +241,6 @@ final class AudioViewModel: ObservableObject {
     var renameJournalRefreshGeneration: UInt64 = 0
 
     let moveReadbackTimeout: Duration
-    private var lastMetadataReloadPublication = ContinuousClock.now
     var lastMetadataProgressPublication = ContinuousClock.now
 
     convenience init() {
@@ -1237,8 +1236,11 @@ final class AudioViewModel: ObservableObject {
         invalidateWatchedFolderScans(containingFileID: accepted.id)
         if deferVisibleRefresh {
             pendingMetadataReloadsByID[accepted.id] = (accepted, refreshGeneration)
-            if pendingMetadataReloadsByID.count >= 32 ||
-                lastMetadataReloadPublication.duration(to: .now) >= .milliseconds(200) {
+            // Bound publication work for batches: flush every fixed number of
+            // accepted reloads instead of on elapsed wall time, so a slow
+            // MainActor cannot turn a batch into one full collection rebuild per
+            // file. The summary completion flushes the tail.
+            if pendingMetadataReloadsByID.count >= 32 {
                 flushPendingMetadataReloads()
             }
         } else {
@@ -1380,6 +1382,18 @@ final class AudioViewModel: ObservableObject {
         return nil
     }
 
+    /// Stable IDs currently present in the authoritative source collections.
+    ///
+    /// Availability checks use one set build instead of a linear membership scan
+    /// per captured target, which would otherwise be quadratic in batch size.
+    func committedSourceFileIDs() -> Set<AudioFile.ID> {
+        var ids = Set(quickImportFiles.map(\.id))
+        for files in watchedFolderFiles.values {
+            ids.formUnion(files.map(\.id))
+        }
+        return ids
+    }
+
     /// Updates every source membership that already contains the ID. Never adds a
     /// missing ID (no resurrection).
     @discardableResult
@@ -1401,7 +1415,6 @@ final class AudioViewModel: ObservableObject {
     }
 
     func flushPendingMetadataReloads() {
-        lastMetadataReloadPublication = .now
         guard !pendingMetadataReloadsByID.isEmpty else { return }
         let reloadedFiles = pendingMetadataReloadsByID.values.compactMap { pending in
             appliedFileModelRefreshGenerations[pending.file.id] == pending.generation
@@ -1696,14 +1709,22 @@ final class AudioViewModel: ObservableObject {
             selectedAudioIDs = prunedSelection
         }
 
+        // A batch save owns draft transitions through its per-target completions;
+        // re-evaluating the merged draft on every publication is both stale and
+        // quadratic in batch size.
+        if metadataSaveProgress != nil {
+            return
+        }
+
         if let session = inspectorDraft {
             if session.pendingReview != nil {
                 updateInspectorPendingReviewAvailability()
                 return
             }
 
+            let committedIDs = committedSourceFileIDs()
             let unavailableCapturedIDs = Set(
-                session.targetIDs.filter { committedFile(withID: $0) == nil }
+                session.targetIDs.filter { !committedIDs.contains($0) }
             )
             if !unavailableCapturedIDs.isEmpty,
                isInspectorDraftPayloadDirty || !session.completedByID.isEmpty {
@@ -1733,7 +1754,8 @@ final class AudioViewModel: ObservableObject {
 
     private func updateInspectorPendingReviewAvailability() {
         guard var session = inspectorDraft, let current = session.pendingReview else { return }
-        let unavailable = Set(session.targetIDs.filter { committedFile(withID: $0) == nil })
+        let committedIDs = committedSourceFileIDs()
+        let unavailable = Set(session.targetIDs.filter { !committedIDs.contains($0) })
         let updated = InspectorPendingReview(
             identity: session.identity,
             capturedTargetIDs: current.capturedTargetIDs,

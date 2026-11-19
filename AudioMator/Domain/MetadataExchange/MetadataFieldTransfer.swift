@@ -1,7 +1,7 @@
 import Foundation
 import TagLibAudioMetadata
 
-enum MetadataFieldTransferOperation: String, CaseIterable, Identifiable {
+nonisolated enum MetadataFieldTransferOperation: String, CaseIterable, Identifiable, Sendable {
     case copy
     case cut
 
@@ -26,7 +26,7 @@ enum MetadataFieldTransferOperation: String, CaseIterable, Identifiable {
     }
 }
 
-enum MetadataFieldTransferPlanner {
+nonisolated enum MetadataFieldTransferPlanner {
     static let fields = MetadataExchangeField.allCases.filter(\.isWritableMetadataField)
 
     static func makePlan(
@@ -73,7 +73,6 @@ enum MetadataFieldTransferPlanner {
         // Match the shared writer's text normalization in the preview. In
         // particular, whitespace-only sources must never erase a destination.
         let normalizedSourceValue = sourceValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let currentDestinationValue = destination.value(from: file, index: 0, relativeBasePath: nil)
 
         func row(
             status: MetadataExchangePreviewStatus,

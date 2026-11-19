@@ -4,6 +4,9 @@ import AppKit
 struct MetadataFieldTransferDetailView: View {
     @ObservedObject var store: MetadataFieldTransferStore
     let plan: MetadataExchangeImportPlan
+    /// Non-nil while the active plan is pending or rejected; the status label
+    /// then shows the phase instead of plan counts.
+    let phaseMessage: String?
     let targetCount: Int
     let selectionSummaryText: String
     let isApplying: Bool
@@ -113,14 +116,21 @@ struct MetadataFieldTransferDetailView: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 Label(
-                    MetadataFilenameStatusPresentation.importMessage(targetCount: targetCount, plan: plan),
+                    phaseMessage
+                        ?? MetadataFilenameStatusPresentation.importMessage(targetCount: targetCount, plan: plan),
                     systemImage: previewStatusSymbol
                 )
                 .font(.subheadline)
                 .foregroundStyle(previewStatusTint)
 
-                MetadataExchangeImportPreviewList(plan: plan, isFieldTransfer: true)
-                    .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+                if phaseMessage != nil {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity, minHeight: 280)
+                } else {
+                    MetadataExchangeImportPreviewList(plan: plan, isFieldTransfer: true)
+                        .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(sectionInset)
@@ -132,11 +142,13 @@ struct MetadataFieldTransferDetailView: View {
     }
 
     private var previewStatusSymbol: String {
+        if phaseMessage != nil { return "info.circle.fill" }
         if plan.issueCount > 0 { return "exclamationmark.triangle.fill" }
         return plan.readyCount > 0 ? "checkmark.circle.fill" : "info.circle.fill"
     }
 
     private var previewStatusTint: Color {
+        if phaseMessage != nil { return .secondary }
         if plan.issueCount > 0 { return .orange }
         return plan.readyCount > 0 ? .green : .secondary
     }

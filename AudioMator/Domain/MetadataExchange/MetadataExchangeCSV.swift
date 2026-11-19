@@ -116,7 +116,7 @@ nonisolated enum MetadataExchangeResourceLimits {
     static let maximumCSVFieldUTF8ByteCount = 1_048_576
 }
 
-struct MetadataExchangeExportBudget {
+nonisolated struct MetadataExchangeExportBudget {
     let maximumUTF8ByteCount: Int
     let recordSeparatorUTF8ByteCount: Int
 
@@ -143,7 +143,7 @@ struct MetadataExchangeExportBudget {
     }
 }
 
-struct MetadataExchangeLocatorCandidateIndex<Field: Hashable> {
+nonisolated struct MetadataExchangeLocatorCandidateIndex<Field: Hashable> {
     private let candidateIndicesByFieldAndKey: [Field: [String: [Int]]]
 
     init(
@@ -155,6 +155,9 @@ struct MetadataExchangeLocatorCandidateIndex<Field: Hashable> {
         for field in fields {
             var candidatesByKey: [String: [Int]] = [:]
             for itemIndex in 0..<max(itemCount, 0) {
+                // Bounded index work stops promptly on cancellation; the plan
+                // worker also rechecks before publishing.
+                if Task.isCancelled { break }
                 for key in Set(keysForItem(field, itemIndex)) where !key.isEmpty {
                     candidatesByKey[key, default: []].append(itemIndex)
                 }
@@ -190,14 +193,14 @@ struct MetadataExchangeLocatorCandidateIndex<Field: Hashable> {
     }
 }
 
-struct MetadataExchangeCSVField {
+nonisolated struct MetadataExchangeCSVField: Sendable {
     /// Lexical cell text as it appeared in the document (after quote removal and
     /// doubled-quote unescaping, before any application-level decoding).
     let value: String
     let wasQuoted: Bool
 }
 
-enum MetadataExchangeCSV {
+nonisolated enum MetadataExchangeCSV {
     nonisolated private static let delimiterCandidates: [Character] = ["\t", ",", ";", "|"]
 
     nonisolated static func allowsBareQuotesInUnquotedFields(for delimiter: Character) -> Bool {
@@ -300,6 +303,9 @@ enum MetadataExchangeCSV {
         }
 
         while index < text.endIndex {
+            if Task.isCancelled {
+                throw CancellationError()
+            }
             let character = text[index]
 
             if isQuoted {

@@ -1,6 +1,6 @@
 import Foundation
 
-enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
+nonisolated enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable, Sendable {
     case title
     case artist
     case album
@@ -69,12 +69,12 @@ enum FileRenameMetadataField: CaseIterable, Hashable, Identifiable {
     }
 }
 
-enum FileRenameTemplateSegment: Equatable {
+nonisolated enum FileRenameTemplateSegment: Equatable, Sendable {
     case literal(String)
     case field(FileRenameMetadataField)
 }
 
-struct FileRenameTemplateDocument: Equatable {
+nonisolated struct FileRenameTemplateDocument: Equatable, Sendable {
     let rawValue: String
     let segments: [FileRenameTemplateSegment]
     let unknownPlaceholderNames: [String]
@@ -103,7 +103,7 @@ struct FileRenameTemplateDocument: Equatable {
     }
 }
 
-struct FileRenameTemplateParseResult: Equatable {
+nonisolated struct FileRenameTemplateParseResult: Equatable, Sendable {
     let segments: [FileRenameTemplateSegment]
     let unknownPlaceholderNames: [String]
     let hasUnterminatedPlaceholder: Bool
@@ -114,7 +114,7 @@ struct FileRenameTemplateParseResult: Equatable {
 /// The rename field mapping stays separate from the metadata-exchange mapping:
 /// both consume `MetadataExchangeTemplateSyntaxParser`, but each resolves its own
 /// field type and preserves the shared literal/unknown-placeholder semantics.
-enum FileRenameTemplateParser {
+nonisolated enum FileRenameTemplateParser {
     static func parse(_ rawValue: String) -> FileRenameTemplateParseResult {
         let syntax = MetadataExchangeTemplateSyntaxParser.parse(rawValue)
         var segments: [FileRenameTemplateSegment] = []
@@ -152,7 +152,7 @@ enum FileRenameTemplateParser {
     }
 }
 
-struct FileRenameSanitizer {
+nonisolated struct FileRenameSanitizer: Sendable {
     /// Fixed, user-visible replacement policy: path-unsafe scalars become `-`,
     /// other control characters become a space, surrounding whitespace is
     /// trimmed, and an empty result is rejected. See `RENAME_AND_RENUMBERING.md`.

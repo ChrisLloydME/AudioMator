@@ -90,7 +90,7 @@ enum ExplicitInspectorSelection: Hashable, Identifiable {
 
 }
 
-struct SingleFileEditModel {
+nonisolated struct SingleFileEditModel {
     var title: String
     var artist: String
     var album: String
@@ -433,12 +433,12 @@ struct SingleFileEditModel {
 /// The single-file draft and the multi-file value projection must render the
 /// same text for the same stored pair; both routes call this projection so
 /// inspector previews and dirty-state comparisons cannot drift apart.
-private enum NumberPairDisplayText {
-    static func number(rawText: String, number: Int, total: Int) -> String {
+nonisolated private enum NumberPairDisplayText {
+    nonisolated static func number(rawText: String, number: Int, total: Int) -> String {
         AudioTagNumberPair(rawText: rawText, number: number, total: total).displayedNumberText
     }
 
-    static func total(rawText: String, number: Int, total: Int) -> String {
+    nonisolated static func total(rawText: String, number: Int, total: Int) -> String {
         AudioTagNumberPair(rawText: rawText, number: number, total: total).displayedTotalText
     }
 }

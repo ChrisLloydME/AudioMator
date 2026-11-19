@@ -1,6 +1,6 @@
 import Foundation
 
-extension FileRenameMetadataField {
+nonisolated extension FileRenameMetadataField {
     static let metadataToFilenameFields: [Self] = [
         .title,
         .artist,
@@ -91,7 +91,7 @@ extension FileRenameMetadataField {
     }
 }
 
-struct FilenameMetadataTemplateMatcher {
+nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
     let document: FileRenameTemplateDocument
     let replaceUnderscoresWithSpaces: Bool
     private let matchingStepLimit: Int

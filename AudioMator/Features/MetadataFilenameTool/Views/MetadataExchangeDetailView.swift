@@ -7,6 +7,9 @@ struct MetadataExchangeDetailView: View {
     let targetCount: Int
     let selectionSummaryText: String
     let isApplying: Bool
+    /// Non-nil while the active plan is pending or rejected; the status label
+    /// then shows the phase instead of plan counts.
+    let phaseMessage: String?
     @Binding var template: String
     @Binding var pendingInsertion: MetadataExchangeTemplateEditorInsertion?
     @Binding var externalSource: String
@@ -15,10 +18,7 @@ struct MetadataExchangeDetailView: View {
     @Binding var includeCSVHeaderRow: Bool
     @Binding var firstCSVRowIsHeader: Bool
     @Binding var clearBlankImportedValues: Bool
-    let metadataTextExportPlan: MetadataTextExportPlan
-    let textMetadataImportPlan: MetadataExchangeImportPlan
-    let metadataCSVExportPlan: MetadataCSVExportPlan
-    let csvMetadataImportPlan: MetadataExchangeImportPlan
+    let result: MetadataFilenameConverterResult
     let chooseExternalFile: () -> Void
 
     private let sectionInset: CGFloat = 12
@@ -209,17 +209,31 @@ struct MetadataExchangeDetailView: View {
 
     @ViewBuilder
     private var previewContent: some View {
-        switch selectedMode {
-        case .metadataToText:
-            MetadataTextExportPreviewList(plan: metadataTextExportPlan)
-        case .textToMetadata:
-            MetadataExchangeImportPreviewList(plan: textMetadataImportPlan)
-        case .metadataToCSV:
-            MetadataCSVExportPreviewList(plan: metadataCSVExportPlan)
-        case .csvToMetadata:
-            MetadataExchangeImportPreviewList(plan: csvMetadataImportPlan)
-        case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
-            EmptyView()
+        if phaseMessage != nil {
+            ProgressView()
+                .controlSize(.small)
+                .frame(maxWidth: .infinity, minHeight: 280)
+        } else {
+            switch selectedMode {
+            case .metadataToText:
+                if let plan = result.textExportPlan {
+                    MetadataTextExportPreviewList(plan: plan)
+                }
+            case .textToMetadata:
+                if let plan = result.textImportPlan {
+                    MetadataExchangeImportPreviewList(plan: plan)
+                }
+            case .metadataToCSV:
+                if let plan = result.csvExportPlan {
+                    MetadataCSVExportPreviewList(plan: plan)
+                }
+            case .csvToMetadata:
+                if let plan = result.csvImportPlan {
+                    MetadataExchangeImportPreviewList(plan: plan)
+                }
+            case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
+                EmptyView()
+            }
         }
     }
 
@@ -283,26 +297,31 @@ struct MetadataExchangeDetailView: View {
     }
 
     private var statusMessage: String {
+        if let phaseMessage { return phaseMessage }
         switch selectedMode {
         case .metadataToText:
+            guard let plan = result.textExportPlan else { return "" }
             return MetadataFilenameStatusPresentation.textExportMessage(
                 targetCount: targetCount,
-                plan: metadataTextExportPlan
+                plan: plan
             )
         case .textToMetadata:
+            guard let plan = result.textImportPlan else { return "" }
             return MetadataFilenameStatusPresentation.importMessage(
                 targetCount: targetCount,
-                plan: textMetadataImportPlan
+                plan: plan
             )
         case .metadataToCSV:
+            guard let plan = result.csvExportPlan else { return "" }
             return MetadataFilenameStatusPresentation.csvExportMessage(
                 targetCount: targetCount,
-                plan: metadataCSVExportPlan
+                plan: plan
             )
         case .csvToMetadata:
+            guard let plan = result.csvImportPlan else { return "" }
             return MetadataFilenameStatusPresentation.importMessage(
                 targetCount: targetCount,
-                plan: csvMetadataImportPlan
+                plan: plan
             )
         case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return ""
@@ -310,30 +329,32 @@ struct MetadataExchangeDetailView: View {
     }
 
     private var statusSymbol: String {
+        if phaseMessage != nil { return "info.circle.fill" }
         switch selectedMode {
         case .metadataToText:
-            return metadataTextExportPlan.canExport ? "checkmark.circle.fill" : "info.circle.fill"
+            return result.textExportPlan?.canExport == true ? "checkmark.circle.fill" : "info.circle.fill"
         case .metadataToCSV:
-            return metadataCSVExportPlan.canExport ? "checkmark.circle.fill" : "info.circle.fill"
+            return result.csvExportPlan?.canExport == true ? "checkmark.circle.fill" : "info.circle.fill"
         case .textToMetadata:
-            return textMetadataImportPlan.issueCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+            return (result.textImportPlan?.issueCount ?? 0) > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
         case .csvToMetadata:
-            return csvMetadataImportPlan.issueCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+            return (result.csvImportPlan?.issueCount ?? 0) > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
         case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return "info.circle.fill"
         }
     }
 
     private var statusTint: Color {
+        if phaseMessage != nil { return .secondary }
         switch selectedMode {
         case .metadataToText:
-            return metadataTextExportPlan.canExport ? .green : .secondary
+            return result.textExportPlan?.canExport == true ? .green : .secondary
         case .metadataToCSV:
-            return metadataCSVExportPlan.canExport ? .green : .secondary
+            return result.csvExportPlan?.canExport == true ? .green : .secondary
         case .textToMetadata:
-            return textMetadataImportPlan.issueCount > 0 ? .orange : .green
+            return (result.textImportPlan?.issueCount ?? 0) > 0 ? .orange : .green
         case .csvToMetadata:
-            return csvMetadataImportPlan.issueCount > 0 ? .orange : .green
+            return (result.csvImportPlan?.issueCount ?? 0) > 0 ? .orange : .green
         case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
             return .secondary
         }

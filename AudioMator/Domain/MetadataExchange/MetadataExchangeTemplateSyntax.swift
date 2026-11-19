@@ -1,16 +1,16 @@
 import Foundation
 
-enum MetadataExchangeTemplateSyntaxSegment: Equatable {
+nonisolated enum MetadataExchangeTemplateSyntaxSegment: Equatable, Sendable {
     case literal(String)
     case placeholder(String)
 }
 
-struct MetadataExchangeTemplateSyntaxResult: Equatable {
+nonisolated struct MetadataExchangeTemplateSyntaxResult: Equatable, Sendable {
     let segments: [MetadataExchangeTemplateSyntaxSegment]
     let hasUnterminatedPlaceholder: Bool
 }
 
-enum MetadataExchangeTemplateSyntaxParser {
+nonisolated enum MetadataExchangeTemplateSyntaxParser {
     static func parse(_ rawValue: String) -> MetadataExchangeTemplateSyntaxResult {
         guard !rawValue.isEmpty else {
             return MetadataExchangeTemplateSyntaxResult(

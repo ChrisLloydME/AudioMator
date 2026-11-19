@@ -1,6 +1,6 @@
 import Foundation
 
-extension FileRenameMetadataField {
+nonisolated extension FileRenameMetadataField {
     func currentMetadataValue(from file: AudioFile) -> String {
         switch self {
         case .title:
@@ -78,12 +78,12 @@ extension FileRenameMetadataField {
     }
 }
 
-enum FilenameMetadataFieldChangeStatus: Equatable {
+nonisolated enum FilenameMetadataFieldChangeStatus: Equatable, Sendable {
     case same
     case different
 }
 
-struct FilenameMetadataFieldChange: Identifiable {
+nonisolated struct FilenameMetadataFieldChange: Identifiable, Sendable {
     let field: FileRenameMetadataField
     let currentValue: String
     let extractedValue: String
@@ -93,7 +93,7 @@ struct FilenameMetadataFieldChange: Identifiable {
     var id: String { field.placeholderName }
 }
 
-enum FilenameMetadataPreviewStatus: Equatable {
+nonisolated enum FilenameMetadataPreviewStatus: Equatable, Sendable {
     case ready
     case unchanged
     case noMatch
@@ -147,7 +147,7 @@ enum FilenameMetadataPreviewStatus: Equatable {
     }
 }
 
-struct FilenameMetadataWriteEntry: Identifiable {
+nonisolated struct FilenameMetadataWriteEntry: Identifiable, Sendable {
     let fileName: String
     /// Frozen reviewed write captured from the reviewed file during planning.
     let write: ReviewedMetadataWrite
@@ -167,7 +167,7 @@ struct FilenameMetadataWriteEntry: Identifiable {
     var frozenTarget: ReviewedMetadataTarget { write.target }
 }
 
-struct FilenameMetadataPreviewRow: Identifiable {
+nonisolated struct FilenameMetadataPreviewRow: Identifiable, Sendable {
     let id: AudioFile.ID
     let currentName: String
     let sourceBaseName: String
@@ -177,7 +177,7 @@ struct FilenameMetadataPreviewRow: Identifiable {
     let writeEntry: FilenameMetadataWriteEntry?
 }
 
-struct FilenameMetadataPlan {
+nonisolated struct FilenameMetadataPlan: Sendable {
     let template: String
     let replaceUnderscoresWithSpaces: Bool
     let validationMessage: String?
@@ -217,7 +217,7 @@ struct FilenameMetadataPlan {
     }
 }
 
-func makeFilenameMetadataPlan(
+nonisolated func makeFilenameMetadataPlan(
     template: String,
     targetFiles: [AudioFile],
     replaceUnderscoresWithSpaces: Bool,
@@ -250,7 +250,7 @@ func makeFilenameMetadataPlan(
     return builder.makePlan(document: document, targetFiles: targetFiles)
 }
 
-private struct FilenameMetadataPlanBuilder {
+nonisolated private struct FilenameMetadataPlanBuilder: Sendable {
     let replaceUnderscoresWithSpaces: Bool
     let projector: (any AudioMetadataPipeline)?
 
@@ -272,8 +272,19 @@ private struct FilenameMetadataPlanBuilder {
             replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces
         )
 
-        let rows = targetFiles.map { file in
-            makeRow(for: file, matcher: matcher, document: document)
+        var rows: [FilenameMetadataPreviewRow] = []
+        rows.reserveCapacity(targetFiles.count)
+        for file in targetFiles {
+            // Cancellation propagates into the filename match/frozen-write loop.
+            if Task.isCancelled {
+                return FilenameMetadataPlan(
+                    template: document.rawValue,
+                    replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
+                    validationMessage: nil,
+                    rows: []
+                )
+            }
+            rows.append(makeRow(for: file, matcher: matcher, document: document))
         }
 
         return FilenameMetadataPlan(
@@ -369,7 +380,7 @@ private struct FilenameMetadataPlanBuilder {
         }
 
         var writeEntry: FilenameMetadataWriteEntry?
-        if status == .ready, let expectedFileFingerprint = file.fileFingerprint {
+        if status == .ready, file.fileFingerprint != nil {
             var edit = SingleFileEditModel(from: file)
             for field in FileRenameMetadataField.allCases {
                 guard let value = writeValues[field] else { continue }

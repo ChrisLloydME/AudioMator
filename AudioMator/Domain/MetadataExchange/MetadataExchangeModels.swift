@@ -1,6 +1,6 @@
 import Foundation
 
-enum MetadataConverterMode: String, CaseIterable, Identifiable {
+nonisolated enum MetadataConverterMode: String, CaseIterable, Identifiable, Sendable {
     case metadataToFilename
     case filenameToMetadata
     case metadataToText
@@ -79,7 +79,7 @@ enum MetadataConverterMode: String, CaseIterable, Identifiable {
         }
     }
 }
-enum MetadataExchangeField: CaseIterable, Hashable, Identifiable {
+nonisolated enum MetadataExchangeField: CaseIterable, Hashable, Identifiable, Sendable {
     case fileName
     case baseName
     case path

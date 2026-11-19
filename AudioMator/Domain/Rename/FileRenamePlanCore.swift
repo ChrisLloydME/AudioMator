@@ -1,7 +1,7 @@
 import Foundation
 
 /// Raw values map one-to-one to `FileRenamePreviewStatus`; keep them aligned.
-enum FileRenameCoreStatus: String, Equatable {
+nonisolated enum FileRenameCoreStatus: String, Equatable, Sendable {
     case ready
     case unchanged
     case emptyName
@@ -20,7 +20,7 @@ enum FileRenameCoreStatus: String, Equatable {
     }
 }
 
-struct FileRenameCoreDraft<ID: Hashable>: Equatable {
+nonisolated struct FileRenameCoreDraft<ID: Hashable>: Equatable {
     let id: ID
     let sourceKey: String?
     let destinationKey: String?
@@ -42,7 +42,7 @@ struct FileRenameCoreDraft<ID: Hashable>: Equatable {
     }
 }
 
-enum FileRenameCollisionPolicy {
+nonisolated enum FileRenameCollisionPolicy {
     static func finalizedStatuses<ID: Hashable>(
         for drafts: [FileRenameCoreDraft<ID>]
     ) -> [ID: FileRenameCoreStatus] {

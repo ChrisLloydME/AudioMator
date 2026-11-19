@@ -350,15 +350,9 @@ struct ContentPane: View {
         let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
 
         guard !targets.isEmpty else { return }
-        if let failure = viewModel.ensureMutationDirectoryAccess(for: targets.map(\.url)) {
-            viewModel.presentMetadataWriteHUD(
-                style: .warning,
-                title: String(localized: "Allow Folder Access"),
-                subtitle: failure
-            )
-            return
-        }
-
+        // Opening the converter, typing a template and exporting text/CSV need
+        // no mutation grant. The only scope request happens at Apply, for the
+        // executable targets captured by that plan.
         onOpenMetadataFilenameTool(targets.map(\.id))
     }
 

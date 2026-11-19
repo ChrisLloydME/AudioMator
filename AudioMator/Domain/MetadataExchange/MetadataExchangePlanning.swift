@@ -1,12 +1,12 @@
 import Foundation
 import TagLibAudioMetadata
 
-struct MetadataTextExportRow: Identifiable {
+nonisolated struct MetadataTextExportRow: Identifiable, Sendable {
     let id: AudioFile.ID
     let fileName: String
     let output: String
 }
-struct MetadataTextExportPlan {
+nonisolated struct MetadataTextExportPlan: Sendable {
     let validationMessage: String?
     let rows: [MetadataTextExportRow]
 
@@ -20,7 +20,7 @@ struct MetadataTextExportPlan {
     }
 }
 
-struct MetadataCSVExportPlan {
+nonisolated struct MetadataCSVExportPlan: Sendable {
     let validationMessage: String?
     let columns: [MetadataExchangeField]
     let rows: [[String]]
@@ -43,7 +43,7 @@ struct MetadataCSVExportPlan {
     }
 }
 
-enum MetadataExchangePreviewStatus: Equatable {
+nonisolated enum MetadataExchangePreviewStatus: Equatable, Sendable {
     case ready
     case unchanged
     case noMatch
@@ -88,7 +88,7 @@ enum MetadataExchangePreviewStatus: Equatable {
     }
 }
 
-struct MetadataExchangeFieldChange: Identifiable {
+nonisolated struct MetadataExchangeFieldChange: Identifiable, Sendable {
     let field: MetadataExchangeField
     let currentValue: String
     let importedValue: String
@@ -108,7 +108,7 @@ struct MetadataExchangeFieldChange: Identifiable {
     }
 }
 
-struct MetadataExchangeWriteEntry: Identifiable {
+nonisolated struct MetadataExchangeWriteEntry: Identifiable, Sendable {
     let fileName: String
     /// Frozen reviewed write captured during planning. This is the only value the
     /// strict Apply path consumes; it cannot be rebuilt from the live model.
@@ -151,7 +151,7 @@ struct MetadataExchangeWriteEntry: Identifiable {
     }
 }
 
-struct MetadataExchangeImportPreviewRow: Identifiable {
+nonisolated struct MetadataExchangeImportPreviewRow: Identifiable, Sendable {
     let id: UUID
     let fileID: AudioFile.ID?
     let fileName: String
@@ -162,7 +162,7 @@ struct MetadataExchangeImportPreviewRow: Identifiable {
     let writeEntry: MetadataExchangeWriteEntry?
 }
 
-struct MetadataExchangeImportPlan {
+nonisolated struct MetadataExchangeImportPlan: Sendable {
     let validationMessage: String?
     let rows: [MetadataExchangeImportPreviewRow]
     /// Set when positional records cannot be mapped one-to-one to the reviewed
@@ -201,7 +201,7 @@ struct MetadataExchangeImportPlan {
     }
 }
 
-enum MetadataExchangePlanner {
+nonisolated enum MetadataExchangePlanner {
     private static let maximumTemplateUTF8ByteCount = 16_384
     private static let maximumImportUTF8ByteCount = MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
     private static let maximumImportRecordCount = MetadataExchangeResourceLimits.maximumRecordCount
@@ -262,6 +262,10 @@ enum MetadataExchangePlanner {
         var containsMultilineRecord = false
 
         for (index, file) in uniqueFiles.enumerated() {
+            // Cancellation propagates into export rendering and encoding.
+            if Task.isCancelled {
+                return MetadataTextExportPlan(validationMessage: nil, rows: [])
+            }
             let output = render(
                 document: document,
                 file: file,
@@ -356,6 +360,16 @@ enum MetadataExchangePlanner {
         }
 
         for (index, file) in uniqueFiles.enumerated() {
+            // Cancellation propagates into export rendering and CSV encoding.
+            if Task.isCancelled {
+                return MetadataCSVExportPlan(
+                    validationMessage: nil,
+                    columns: result.columns,
+                    rows: [],
+                    includeHeaderRow: includeHeaderRow,
+                    delimiter: result.delimiter
+                )
+            }
             let row = result.columns.map { field in
                 field.value(from: file, index: index, relativeBasePath: relativeBasePath)
             }
@@ -458,11 +472,20 @@ enum MetadataExchangePlanner {
             document: document,
             profileVersion: framing.profileVersion
         )
-        let parsedRecords = framing.records.map { record in
-            ParsedExternalRecord(
-                sourceIndex: record.sourceIndex,
-                displayText: record.rawText,
-                captures: matcher.match(record.rawText)
+        var parsedRecords: [ParsedExternalRecord] = []
+        parsedRecords.reserveCapacity(framing.records.count)
+        for record in framing.records {
+            // Cancellation stops text matching cheaply; the worker rechecks
+            // before publishing.
+            if Task.isCancelled {
+                return MetadataExchangeImportPlan(validationMessage: nil, rows: [])
+            }
+            parsedRecords.append(
+                ParsedExternalRecord(
+                    sourceIndex: record.sourceIndex,
+                    displayText: record.rawText,
+                    captures: matcher.match(record.rawText)
+                )
             )
         }
 
@@ -562,35 +585,48 @@ enum MetadataExchangePlanner {
 
         let allowsRemoval = (extraction.version ?? MetadataExchangeProfile.legacyVersion)
             >= MetadataExchangeProfile.currentVersion
-        let parsedRecords = dataRows.enumerated().map { index, cells in
+        var parsedRecords: [ParsedExternalRecord] = []
+        parsedRecords.reserveCapacity(dataRows.count)
+        for (index, cells) in dataRows.enumerated() {
+            if Task.isCancelled {
+                return MetadataExchangeImportPlan(validationMessage: nil, rows: [])
+            }
             let displayText = cells.map {
                 codec.decoded($0).replacingOccurrences(of: "\n", with: " ")
             }.joined(separator: " | ")
             if cells.count < result.columns.count {
                 let missingCount = result.columns.count - cells.count
-                return ParsedExternalRecord(
-                    sourceIndex: index,
-                    displayText: displayText,
-                    captures: .failure(String(localized: "Missing CSV columns: \(missingCount). Add the missing columns to match the template."))
+                parsedRecords.append(
+                    ParsedExternalRecord(
+                        sourceIndex: index,
+                        displayText: displayText,
+                        captures: .failure(String(localized: "Missing CSV columns: \(missingCount). Add the missing columns to match the template."))
+                    )
                 )
+                continue
             }
             if cells.count > result.columns.count {
                 let extraCount = cells.count - result.columns.count
-                return ParsedExternalRecord(
-                    sourceIndex: index,
-                    displayText: displayText,
-                    captures: .failure(String(localized: "Extra CSV columns: \(extraCount). Remove them or add corresponding fields to the template."))
+                parsedRecords.append(
+                    ParsedExternalRecord(
+                        sourceIndex: index,
+                        displayText: displayText,
+                        captures: .failure(String(localized: "Extra CSV columns: \(extraCount). Remove them or add corresponding fields to the template."))
+                    )
                 )
+                continue
             }
 
-            return ParsedExternalRecord(
-                sourceIndex: index,
-                displayText: displayText,
-                captures: captures(
-                    from: cells,
-                    columns: result.columns,
-                    codec: codec,
-                    allowsRemoval: allowsRemoval
+            parsedRecords.append(
+                ParsedExternalRecord(
+                    sourceIndex: index,
+                    displayText: displayText,
+                    captures: captures(
+                        from: cells,
+                        columns: result.columns,
+                        codec: codec,
+                        allowsRemoval: allowsRemoval
+                    )
                 )
             )
         }
@@ -734,17 +770,26 @@ enum MetadataExchangePlanner {
             return MetadataExchangeImportPlan(validationMessage: message, rows: [])
 
         case .aligned(let records):
-            let rows = targetFiles.enumerated().map { index, file -> MetadataExchangeImportPreviewRow in
+            var rows: [MetadataExchangeImportPreviewRow] = []
+            rows.reserveCapacity(targetFiles.count)
+            for (index, file) in targetFiles.enumerated() {
+                // Cancellation stops positional matching and frozen-write
+                // construction; the worker rechecks before publishing.
+                if Task.isCancelled {
+                    return MetadataExchangeImportPlan(validationMessage: nil, rows: [])
+                }
                 let record = record(
                     atSourceIndex: records[index].sourceIndex,
                     in: parsedRecords
                 ) ?? parsedRecords[index]
-                return makeImportRow(
-                    file: file,
-                    record: record,
-                    clearBlankImportedValues: clearBlankImportedValues,
-                    allowsWriteEntry: true,
-                    projector: projector
+                rows.append(
+                    makeImportRow(
+                        file: file,
+                        record: record,
+                        clearBlankImportedValues: clearBlankImportedValues,
+                        allowsWriteEntry: true,
+                        projector: projector
+                    )
                 )
             }
             return MetadataExchangeImportPlan(validationMessage: nil, rows: rows)
@@ -777,40 +822,57 @@ enum MetadataExchangePlanner {
                 targets: targetCount
             )
             let rowCount = max(parsedRecords.count, targetFiles.count)
-            let rows = (0..<rowCount).map { index -> MetadataExchangeImportPreviewRow in
+            var rows: [MetadataExchangeImportPreviewRow] = []
+            rows.reserveCapacity(rowCount)
+            for index in 0..<rowCount {
+                if Task.isCancelled {
+                    return MetadataExchangeImportPlan(
+                        validationMessage: nil,
+                        rows: [],
+                        blockingMessage: blockingMessage
+                    )
+                }
                 let file = index < targetFiles.count ? targetFiles[index] : nil
                 let record = index < parsedRecords.count ? parsedRecords[index] : nil
 
                 guard let record else {
-                    return MetadataExchangeImportPreviewRow(
-                        id: UUID(),
-                        fileID: file?.id,
-                        fileName: file?.url.lastPathComponent ?? "—",
-                        externalRecord: "",
-                        status: .missingExternalRecord,
-                        changes: [],
-                        issueMessage: L10n.string("No import record corresponds to this file's position. Add the matching record or leave this file out of the selection."),
-                        writeEntry: nil
+                    rows.append(
+                        MetadataExchangeImportPreviewRow(
+                            id: UUID(),
+                            fileID: file?.id,
+                            fileName: file?.url.lastPathComponent ?? "—",
+                            externalRecord: "",
+                            status: .missingExternalRecord,
+                            changes: [],
+                            issueMessage: L10n.string("No import record corresponds to this file's position. Add the matching record or leave this file out of the selection."),
+                            writeEntry: nil
+                        )
                     )
+                    continue
                 }
                 guard let file else {
-                    return MetadataExchangeImportPreviewRow(
+                    rows.append(
+                        MetadataExchangeImportPreviewRow(
                         id: UUID(),
                         fileID: nil,
                         fileName: "—",
                         externalRecord: record.displayText,
                         status: .extraExternalRecord,
                         changes: [],
-                        issueMessage: L10n.string("No selected file corresponds to this record's position. Select the matching file or remove the record."),
-                        writeEntry: nil
+                            issueMessage: L10n.string("No selected file corresponds to this record's position. Select the matching file or remove the record."),
+                            writeEntry: nil
+                        )
                     )
+                    continue
                 }
-                return makeImportRow(
-                    file: file,
-                    record: record,
-                    clearBlankImportedValues: clearBlankImportedValues,
-                    allowsWriteEntry: false,
-                    projector: projector
+                rows.append(
+                    makeImportRow(
+                        file: file,
+                        record: record,
+                        clearBlankImportedValues: clearBlankImportedValues,
+                        allowsWriteEntry: false,
+                        projector: projector
+                    )
                 )
             }
             return MetadataExchangeImportPlan(
@@ -1010,15 +1072,20 @@ enum MetadataExchangePlanner {
         }
         var matchCache: [LocatorSignature: LocatorMatch] = [:]
 
-        let resolutions: [(record: ParsedExternalRecord, resolution: LocatorResolution)] = parsedRecords.map { record in
+        var resolutions: [(record: ParsedExternalRecord, resolution: LocatorResolution)] = []
+        resolutions.reserveCapacity(parsedRecords.count)
+        for record in parsedRecords {
+            if Task.isCancelled { return [] }
             switch record.captures {
             case .failure(let message):
-                return (record, .parseError(message))
+                resolutions.append((record, .parseError(message)))
+                continue
             case .success(let captures):
                 let locatorValues = locatorValues(from: captures)
                 let description = locatorDescription(captures: locatorValues, locatorFields: locatorFields)
                 guard let signature = locatorSignature(captures: locatorValues, locatorFields: locatorFields) else {
-                    return (record, .noMatch(description))
+                    resolutions.append((record, .noMatch(description)))
+                    continue
                 }
 
                 let match: LocatorMatch
@@ -1028,14 +1095,18 @@ enum MetadataExchangePlanner {
                     let candidateIndices = candidateIndex.candidateIndices(fields: locatorFields) { field in
                         locatorLookupKey(locatorValues[field] ?? "", field: field)
                     }
-                    let matchingFiles = candidateIndices.compactMap { fileIndex -> AudioFile? in
+                    var matchingFiles: [AudioFile] = []
+                    for fileIndex in candidateIndices {
+                        if Task.isCancelled { return [] }
                         let file = targetFiles[fileIndex]
-                        return matchesAllLocators(
+                        if matchesAllLocators(
                             captures: locatorValues,
                             locatorFields: locatorFields,
                             file: file,
                             fileIndex: fileIndex
-                        ) ? file : nil
+                        ) {
+                            matchingFiles.append(file)
+                        }
                     }
 
                     switch matchingFiles.count {
@@ -1051,11 +1122,11 @@ enum MetadataExchangePlanner {
 
                 switch match {
                 case .none:
-                    return (record, .noMatch(description))
+                    resolutions.append((record, .noMatch(description)))
                 case .ambiguous:
-                    return (record, .ambiguous(description))
+                    resolutions.append((record, .ambiguous(description)))
                 case .matched(let file):
-                    return (record, .matched(file))
+                    resolutions.append((record, .matched(file)))
                 }
             }
         }
@@ -1583,19 +1654,19 @@ enum MetadataExchangePlanner {
     }
 }
 
-private struct ParsedExternalRecord {
+nonisolated private struct ParsedExternalRecord {
     let sourceIndex: Int
     let displayText: String
     let captures: MetadataExchangeCaptureResult
     var warning: String? = nil
 }
 
-private enum MetadataExchangeCaptureResult {
+nonisolated private enum MetadataExchangeCaptureResult {
     case success([MetadataExchangeField: ExchangeCapture])
     case failure(String)
 }
 
-private struct MetadataExchangeTextMatcher {
+nonisolated private struct MetadataExchangeTextMatcher {
     let document: MetadataExchangeTemplateDocument
     let profileVersion: Int?
 

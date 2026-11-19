@@ -95,6 +95,9 @@ struct ContentView: View {
                 guard !isWelcomeSplashPresented else { return }
                 isWelcomeSplashPresented = true
             }
+            .onReceive(NotificationCenter.default.publisher(for: .requestRefreshWatchedFolders)) { _ in
+                viewModel.refreshWatchedFolders()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataDump)) { _ in
                 guard !viewModel.selectedAudioIDs.isEmpty else { return }
                 presentMetadataDump()
@@ -125,7 +128,9 @@ struct ContentView: View {
                 viewModel: viewModel,
                 state: state,
                 onSelectSidebarItem: attemptSidebarSelectionChange,
-                onRemoveWatchedFolder: attemptWatchedFolderRemoval
+                onRemoveWatchedFolder: attemptWatchedFolderRemoval,
+                onRefreshWatchedFolder: { folder in viewModel.refreshWatchedFolder(id: folder.id) },
+                onRefreshWatchedLibrary: { viewModel.refreshWatchedFolders() }
             )
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
         } detail: {

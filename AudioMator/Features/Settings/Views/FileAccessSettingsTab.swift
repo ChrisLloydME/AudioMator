@@ -120,7 +120,7 @@ struct FileAccessSettingsTab: View {
                 Text(String(localized: "Watched Folders"))
                     .font(.title3.weight(.semibold))
 
-                Text(String(localized: "Watched folders stay in the sidebar across launches."))
+                Text(String(localized: "Watched folders stay in the sidebar across launches. AudioMator watches folder contents for added, removed and renamed entries; edits inside an already loaded file may need Refresh. If a folder becomes unavailable, reauthorize it or add it again."))
                     .foregroundStyle(.secondary)
             }
 
@@ -262,6 +262,10 @@ struct FileAccessSettingsTab: View {
             monitoringStatus: viewModel.directoryMonitoringStatuses[folder.id]
         )
         .contextMenu {
+            Button(String(localized: "Refresh"), systemImage: "arrow.clockwise") {
+                viewModel.refreshWatchedFolder(id: folder.id)
+            }
+            Divider()
             Button(String(localized: "Remove"), role: .destructive) {
                 if watchedFolderSelection.ids.contains(folder.id) {
                     removeSelectedWatchedFolders()
@@ -350,6 +354,19 @@ struct FileAccessSettingsTab: View {
             }
             .buttonStyle(.borderless)
             .help(String(localized: "Add Watched Folder…"))
+
+            Divider()
+                .frame(height: 16)
+
+            Button {
+                viewModel.refreshWatchedFolders(ids: watchedFolderSelection.ids)
+            } label: {
+                Label(String(localized: "Refresh Selected Folders"), systemImage: "arrow.clockwise")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .disabled(watchedFolderSelection.ids.isEmpty)
+            .help(String(localized: "Refresh Selected Folders"))
 
             Divider()
                 .frame(height: 16)

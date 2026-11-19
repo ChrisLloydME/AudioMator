@@ -201,7 +201,11 @@ final class AudioViewModel: ObservableObject {
     private var activeSidebarSelection: SidebarSelection = .quickImport
     private var fileIDsByKey: [String: UUID] = [:]
     private var folderRescanTasks: [UUID: Task<Void, Never>] = [:]
-    private var folderDirectoryMonitors: [UUID: [String: DirectoryMonitor]] = [:]
+    // One identity-aware reconciliation controller per watched folder. Each
+    // controller owns that folder's descriptors; reconciliation itself runs off
+    // the main actor. See AudioViewModel+... `DirectoryMonitorController`.
+    private var folderDirectoryMonitors: [UUID: DirectoryMonitorController] = [:]
+    private var publishedDirectoryMonitorGenerations: [UUID: UInt64] = [:]
     private var watchedFolderScanFailureCounts: [UUID: Int] = [:]
     private var watchedFolderMetadataReadFailureCounts: [UUID: Int] = [:]
     private var securityScopedFolderURLs: [UUID: URL] = [:]
@@ -302,7 +306,7 @@ final class AudioViewModel: ObservableObject {
 
         for folder in restoredFolders {
             beginAccessingWatchedFolder(folder)
-            updateDirectoryMonitors(for: folder.id, directories: [folder.url])
+            startDirectoryMonitoring(for: folder)
             scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
         }
 
@@ -316,7 +320,9 @@ final class AudioViewModel: ObservableObject {
         renameJournalRefreshTask?.cancel()
         quickImportTasks.values.forEach { $0.cancel() }
         folderRescanTasks.values.forEach { $0.cancel() }
+        folderDirectoryMonitors.values.forEach { $0.stop() }
         folderDirectoryMonitors.removeAll()
+        publishedDirectoryMonitorGenerations.removeAll()
         securityScopedFolderURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
         securityScopedQuickImportFileURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
         securityScopedQuickImportDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
@@ -1013,7 +1019,7 @@ final class AudioViewModel: ObservableObject {
 
         for folder in addedFolders {
             beginAccessingWatchedFolder(folder)
-            updateDirectoryMonitors(for: folder.id, directories: [folder.url])
+            startDirectoryMonitoring(for: folder)
             scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
         }
 
@@ -1050,6 +1056,7 @@ final class AudioViewModel: ObservableObject {
             watchedFolderMetadataReadFailureCounts[id] = nil
             folderScanTokens[id] = nil
             watchedFolderMutationEpochs[id] = nil
+            publishedDirectoryMonitorGenerations[id] = nil
         }
         watchedFolders.removeAll { existingIDs.contains($0.id) }
 
@@ -1563,6 +1570,12 @@ final class AudioViewModel: ObservableObject {
         let mutationEpoch = watchedFolderMutationEpochs[id] ?? 0
         let refreshGeneration = makeFileModelRefreshGeneration()
 
+        // Attach a descriptor for the authorized root before enumeration. A
+        // first scan whose attachment races the enumeration would otherwise
+        // report a scan-before-attach gap and schedule a redundant follow-up.
+        await attachDirectoryMonitorsBeforeScanIfNeeded(for: id, scanToken: scanToken)
+        guard !Task.isCancelled, folderScanTokens[id] == scanToken else { return }
+
         let scanTask = Task.detached(priority: .utility) {
             Self.scanFolderSnapshot(for: folder.url)
         }
@@ -1580,13 +1593,14 @@ final class AudioViewModel: ObservableObject {
 
         if snapshot.scanFailureCount > 0 {
             watchedFolderScanFailureCounts[id] = snapshot.scanFailureCount
-            let retainedMonitorKeys = folderDirectoryMonitors[id].map { Array($0.keys) } ?? []
-            let retainedMonitorURLs = retainedMonitorKeys.map {
-                URL(fileURLWithPath: $0, isDirectory: true)
-            }
-            updateDirectoryMonitors(
+            // Keep the previous file list where appropriate, but do not count
+            // inaccessible or pre-replacement descriptors as active: the
+            // identity-aware reconciliation closes those that no longer match.
+            await reconcileDirectoryMonitors(
                 for: id,
-                directories: snapshot.directoryURLs + retainedMonitorURLs
+                directories: snapshot.directoryURLs + directoryMonitorBindingURLs(for: id),
+                scanToken: scanToken,
+                allowsFollowUpScan: false
             )
             rebuildVisibleFiles()
             return
@@ -1641,7 +1655,12 @@ final class AudioViewModel: ObservableObject {
                 ?? previousFilesByKey[Self.urlKey(for: url)]
         }
         watchedFolderMetadataReadFailureCounts[id] = loadResult.failures.count
-        updateDirectoryMonitors(for: id, directories: snapshot.directoryURLs)
+        await reconcileDirectoryMonitors(
+            for: id,
+            directories: snapshot.directoryURLs,
+            scanToken: scanToken,
+            allowsFollowUpScan: true
+        )
         rebuildVisibleFiles()
     }
 
@@ -1820,8 +1839,8 @@ final class AudioViewModel: ObservableObject {
         folderRescanTasks[id]?.cancel()
         folderRescanTasks[id] = nil
 
-        folderDirectoryMonitors[id]?.values.forEach { $0.stop() }
-        folderDirectoryMonitors[id] = nil
+        folderDirectoryMonitors.removeValue(forKey: id)?.stop()
+        publishedDirectoryMonitorGenerations[id] = nil
         directoryMonitoringStatuses[id] = nil
 
         stopAccessingWatchedFolder(id)
@@ -1977,46 +1996,183 @@ final class AudioViewModel: ObservableObject {
         return grant
     }
 
-    private func updateDirectoryMonitors(for folderID: UUID, directories: [URL]) {
-        guard let rootURL = watchedFolders.first(where: { $0.id == folderID })?.url else { return }
-        let plan = DirectoryMonitoringPlan.make(
-            directories: directories,
-            rootURL: rootURL,
-            limit: Self.maximumDirectoryMonitorsPerFolder
-        )
-        let normalizedDirectories = Self.urlsByKey(plan.monitoredURLs)
+    // MARK: - Identity-aware directory monitoring (F4)
 
-        var monitors = folderDirectoryMonitors[folderID] ?? [:]
-        var failedToOpenCount = 0
+    /// Internal test seam: the controller that currently owns this folder's
+    /// descriptors.
+    func directoryMonitorController(for folderID: UUID) -> DirectoryMonitorController? {
+        folderDirectoryMonitors[folderID]
+    }
 
-        for key in Array(monitors.keys) where normalizedDirectories[key] == nil {
-            monitors[key]?.stop()
-            monitors[key] = nil
-        }
-
-        for (key, directoryURL) in normalizedDirectories where monitors[key] == nil {
-            guard let monitor = DirectoryMonitor(url: directoryURL, eventHandler: { [weak self] in
+    private func startDirectoryMonitoring(for folder: WatchedFolder) {
+        guard folderDirectoryMonitors[folder.id] == nil else { return }
+        let folderID = folder.id
+        let controller = DirectoryMonitorController(
+            rootURL: folder.url,
+            limit: Self.maximumDirectoryMonitorsPerFolder,
+            onEvent: { [weak self] event in
                 Task { @MainActor [weak self] in
-                    self?.scheduleWatchedFolderRescan(for: folderID)
+                    self?.handleDirectoryMonitorEvent(folderID: folderID, event: event)
                 }
-            }) else {
-                failedToOpenCount += 1
-                continue
             }
+        )
+        folderDirectoryMonitors[folderID] = controller
+        publishedDirectoryMonitorGenerations[folderID] = 0
+    }
 
-            monitor.start()
-            monitors[key] = monitor
+    /// A terminal instance detached itself because its directory was renamed,
+    /// replaced or revoked. Reschedule the scan. A replacement binding may
+    /// already be active; that stale event must not degrade the replacement.
+    func handleDirectoryMonitorEvent(folderID: UUID, event: DirectoryMonitorControllerEvent) {
+        guard watchedFolders.contains(where: { $0.id == folderID }),
+              let controller = folderDirectoryMonitors[folderID] else { return }
+
+        if event.isTerminal {
+            if let current = controller.binding(forKey: event.key),
+               current.instanceToken != event.instanceToken {
+                return
+            }
+            scheduleWatchedFolderRescan(for: folderID)
+            return
         }
 
-        folderDirectoryMonitors[folderID] = monitors
-        directoryMonitoringStatuses[folderID] = DirectoryMonitoringStatus(
-            totalDirectoryCount: plan.totalDirectoryCount,
-            monitoredDirectoryCount: monitors.count,
-            omittedByLimitCount: plan.omittedByLimitCount,
-            failedToOpenCount: failedToOpenCount,
+        guard controller.isCurrent(event.instanceToken, forKey: event.key) else { return }
+        scheduleWatchedFolderRescan(for: folderID)
+    }
+
+    private func attachDirectoryMonitorsBeforeScanIfNeeded(for folderID: UUID, scanToken: UUID) async {
+        guard let folder = watchedFolders.first(where: { $0.id == folderID }),
+              let controller = folderDirectoryMonitors[folderID],
+              controller.snapshot().bindings.isEmpty else {
+            return
+        }
+        await reconcileDirectoryMonitors(
+            for: folderID,
+            directories: [folder.url],
+            scanToken: scanToken,
+            allowsFollowUpScan: false
+        )
+    }
+
+    private func directoryMonitorBindingURLs(for folderID: UUID) -> [URL] {
+        folderDirectoryMonitors[folderID]?.snapshot().bindings.map(\.url) ?? []
+    }
+
+    private func scheduleDirectoryMonitorFollowUpScan(for folderID: UUID) {
+        guard watchedFolders.contains(where: { $0.id == folderID }) else { return }
+        scheduleWatchedFolderRescan(for: folderID, debounceMilliseconds: 350)
+    }
+
+    /// Reconciles descriptors off the main actor and publishes status only when
+    /// this folder still owns the same controller and the result is newer than
+    /// the last published reconciliation (and still belongs to `scanToken`).
+    private func reconcileDirectoryMonitors(
+        for folderID: UUID,
+        directories: [URL],
+        scanToken: UUID?,
+        allowsFollowUpScan: Bool
+    ) async {
+        guard let controller = folderDirectoryMonitors[folderID],
+              watchedFolders.contains(where: { $0.id == folderID }) else {
+            return
+        }
+
+        let result = await Task.detached(priority: .utility) {
+            controller.reconcile(directories: directories)
+        }.value
+
+        guard !Task.isCancelled else { return }
+        guard watchedFolders.contains(where: { $0.id == folderID }),
+              let currentController = folderDirectoryMonitors[folderID],
+              currentController === controller else {
+            return
+        }
+        if let scanToken, folderScanTokens[folderID] != scanToken { return }
+        let publishedGeneration = publishedDirectoryMonitorGenerations[folderID] ?? 0
+        guard result.reconciliationGeneration > publishedGeneration else { return }
+        publishedDirectoryMonitorGenerations[folderID] = result.reconciliationGeneration
+
+        let status = DirectoryMonitoringStatus(
+            totalDirectoryCount: result.totalDirectoryCount,
+            monitoredDirectoryCount: result.activeDirectoryCount,
+            omittedByLimitCount: result.omittedByLimitCount,
+            failedToOpenCount: result.failedToOpenCount,
+            identityMismatchCount: result.identityMismatchCount,
             scanFailureCount: watchedFolderScanFailureCounts[folderID] ?? 0,
             metadataReadFailureCount: watchedFolderMetadataReadFailureCounts[folderID] ?? 0
         )
+        if directoryMonitoringStatuses[folderID] != status {
+            directoryMonitoringStatuses[folderID] = status
+        }
+
+        if allowsFollowUpScan, result.needsFollowUpScan {
+            scheduleDirectoryMonitorFollowUpScan(for: folderID)
+        }
+    }
+
+    // MARK: - User-requested watched-folder refresh
+
+    /// User-requested refresh for one watched folder: revalidate access, then
+    /// run the ordinary scan pipeline so the file list and descriptors
+    /// reconcile together.
+    func refreshWatchedFolder(id: UUID) {
+        refreshWatchedFolders(ids: [id])
+    }
+
+    /// User-requested refresh for every watched folder.
+    func refreshWatchedFolders() {
+        refreshWatchedFolders(ids: Set(watchedFolders.map(\.id)))
+    }
+
+    func refreshWatchedFolders(ids: Set<UUID>) {
+        let targets = watchedFolders.filter { ids.contains($0.id) }
+        guard !targets.isEmpty else { return }
+
+        var unavailableNames: [String] = []
+        for folder in targets {
+            if !ensureWatchedFolderAccess(folder) {
+                unavailableNames.append(folder.displayName)
+            }
+            // Always rescan: an inaccessible root must surface as degraded
+            // status rather than keeping a stale active status.
+            scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        }
+
+        if !unavailableNames.isEmpty {
+            presentMetadataWriteHUD(
+                style: .warning,
+                title: String(localized: "Watched Folder Unavailable"),
+                subtitle: Self.watchedFolderUnavailableMessage(for: unavailableNames)
+            )
+        }
+    }
+
+    nonisolated static func watchedFolderUnavailableMessage(for displayNames: [String]) -> String {
+        if displayNames.count == 1, let name = displayNames.first {
+            return String(localized: "“\(name)” can’t be reached right now. Reauthorize it in Settings → Folders, then refresh again.")
+        }
+        return String(localized: "\(displayNames.count) watched folders can’t be reached right now. Reauthorize them in Settings → Folders, then refresh again.")
+    }
+
+    /// Re-establish a security scope macOS dropped (unmounted volume, provider
+    /// teardown) without re-adding the folder. A moved folder keeps its recorded
+    /// URL until the user reauthorizes it explicitly.
+    private func ensureWatchedFolderAccess(_ folder: WatchedFolder) -> Bool {
+        if securityScopedFolderURLs[folder.id] != nil { return true }
+        if folder.url.startAccessingSecurityScopedResource() {
+            securityScopedFolderURLs[folder.id] = folder.url
+            return true
+        }
+        if let restored = watchedFolderStore.loadFolders().first(where: { $0.id == folder.id }),
+           restored.url.standardizedFileURL == folder.url.standardizedFileURL,
+           restored.url.startAccessingSecurityScopedResource() {
+            securityScopedFolderURLs[folder.id] = restored.url
+            return true
+        }
+        // Non-security-scoped URLs (tests, non-sandboxed builds) and scopes macOS
+        // grants transparently still work; let the scan surface a degraded state
+        // if the path is genuinely unreachable.
+        return FileManager.default.fileExists(atPath: folder.url.path)
     }
 
     @discardableResult

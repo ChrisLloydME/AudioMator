@@ -28,6 +28,13 @@ struct ToolbarEditCommands: Commands {
             }
 
             Button {
+                NotificationCenter.default.post(name: .requestRefreshWatchedFolders, object: nil)
+            } label: {
+                Label("Refresh Watched Folders", systemImage: "arrow.clockwise")
+            }
+            .disabled(viewModel.watchedFolders.isEmpty)
+
+            Button {
                 NotificationCenter.default.post(name: .requestMetadataDump, object: nil)
             } label: {
                 Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)

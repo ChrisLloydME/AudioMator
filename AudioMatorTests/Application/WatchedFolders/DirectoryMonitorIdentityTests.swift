@@ -288,6 +288,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertEqual(result.monitoredDirectoryCount, 1)
         XCTAssertEqual(result.activeDirectoryCount, 0)
         XCTAssertEqual(result.failedToOpenCount, 1)
+        XCTAssertEqual(result.identityMismatchCount, 0)
         XCTAssertEqual(result.omittedByLimitCount, 0)
         XCTAssertTrue(result.bindings.isEmpty)
         XCTAssertTrue(result.isDegraded)
@@ -316,7 +317,8 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         let result = controller.reconcile(directories: [])
 
         XCTAssertEqual(result.activeDirectoryCount, 0)
-        XCTAssertEqual(result.failedToOpenCount, 1)
+        XCTAssertEqual(result.failedToOpenCount, 0)
+        XCTAssertEqual(result.identityMismatchCount, 1)
         XCTAssertTrue(result.isDegraded)
         XCTAssertTrue(result.bindings.isEmpty)
         XCTAssertEqual(fileSystem.openAttempts, DirectoryMonitorController.maximumBindingAttempts)

@@ -10,5 +10,6 @@ extension Notification.Name {
     static let requestToggleInspector = Notification.Name("requestToggleInspector")
     static let requestClearListConfirmation = Notification.Name("requestClearListConfirmation")
     static let requestSelectAllTracks = Notification.Name("requestSelectAllTracks")
+    static let requestRefreshWatchedFolders = Notification.Name("requestRefreshWatchedFolders")
     static let requestSidebarSelectionChange = Notification.Name("requestSidebarSelectionChange")
 }

@@ -245,6 +245,55 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertTrue(status.message.contains("1 audio file couldn’t be read"))
         XCTAssertTrue(status.message.contains("Previously loaded metadata is still shown"))
         XCTAssertTrue(status.message.contains("previous file list will stay visible"))
+        // The status explains the directory-entry/in-place distinction.
+        XCTAssertTrue(status.message.contains("edits inside an already loaded file may need Refresh"))
+    }
+
+    func testStatusDistinguishesIdentityMismatchFromFailedOpenAndExplainsEventCoverage() {
+        let status = DirectoryMonitoringStatus(
+            totalDirectoryCount: 2,
+            monitoredDirectoryCount: 1,
+            omittedByLimitCount: 0,
+            failedToOpenCount: 0,
+            identityMismatchCount: 1,
+            scanFailureCount: 0,
+            metadataReadFailureCount: 0
+        )
+
+        XCTAssertTrue(status.isDegraded)
+        XCTAssertTrue(status.message.contains("1 of 2"))
+        XCTAssertTrue(status.message.contains("1 folder now refers to a different directory"))
+        XCTAssertFalse(status.message.contains("couldn’t be opened"))
+        XCTAssertTrue(status.message.contains("edits inside an already loaded file may need Refresh"))
+
+        let healthy = DirectoryMonitoringStatus(
+            totalDirectoryCount: 2,
+            monitoredDirectoryCount: 2,
+            omittedByLimitCount: 0,
+            failedToOpenCount: 0,
+            scanFailureCount: 0,
+            metadataReadFailureCount: 0
+        )
+        XCTAssertFalse(healthy.isDegraded)
+        XCTAssertTrue(healthy.message.contains("monitoring all 2 folders"))
+        XCTAssertTrue(healthy.message.contains("added, removed and renamed entries"))
+    }
+
+    func testStatusReportsUnaccountedPlannedDirectoriesAsDegraded() {
+        let status = DirectoryMonitoringStatus(
+            totalDirectoryCount: 3,
+            monitoredDirectoryCount: 1,
+            omittedByLimitCount: 0,
+            failedToOpenCount: 0,
+            scanFailureCount: 0,
+            metadataReadFailureCount: 0
+        )
+
+        XCTAssertEqual(status.plannedDirectoryCount, 3)
+        XCTAssertEqual(status.unaccountedDirectoryCount, 2)
+        XCTAssertTrue(status.isDegraded)
+        XCTAssertTrue(status.message.contains("2 folders are not actively monitored"))
+        XCTAssertTrue(status.message.contains("Changes in unmonitored subfolders"))
     }
 
     private func resolveBookmark(_ bookmarkData: Data) throws -> (url: URL, isStale: Bool) {

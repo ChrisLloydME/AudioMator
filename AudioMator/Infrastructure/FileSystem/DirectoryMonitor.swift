@@ -41,19 +41,67 @@ struct DirectoryMonitoringPlan: Equatable, Sendable {
 
 struct DirectoryMonitoringStatus: Equatable, Sendable {
     let totalDirectoryCount: Int
+    /// Directories with an active descriptor whose captured identity currently
+    /// matches the authorized path.
     let monitoredDirectoryCount: Int
     let omittedByLimitCount: Int
+    /// Planned directories whose descriptor could not be opened: missing path,
+    /// lost permission, revoked scope or a disappeared volume.
     let failedToOpenCount: Int
+    /// Directories that opened but did not identify the authorized path, or whose
+    /// stale descriptor could not be replaced by an identity-matching one.
+    let identityMismatchCount: Int
     let scanFailureCount: Int
     let metadataReadFailureCount: Int
 
+    init(
+        totalDirectoryCount: Int,
+        monitoredDirectoryCount: Int,
+        omittedByLimitCount: Int,
+        failedToOpenCount: Int,
+        identityMismatchCount: Int = 0,
+        scanFailureCount: Int,
+        metadataReadFailureCount: Int
+    ) {
+        self.totalDirectoryCount = totalDirectoryCount
+        self.monitoredDirectoryCount = monitoredDirectoryCount
+        self.omittedByLimitCount = omittedByLimitCount
+        self.failedToOpenCount = failedToOpenCount
+        self.identityMismatchCount = identityMismatchCount
+        self.scanFailureCount = scanFailureCount
+        self.metadataReadFailureCount = metadataReadFailureCount
+    }
+
+    /// Planned directories that should be actively monitored: the total minus
+    /// cap omissions.
+    var plannedDirectoryCount: Int {
+        max(0, totalDirectoryCount - omittedByLimitCount)
+    }
+
+    /// Planned directories that are neither actively monitored nor explained by
+    /// an open or identity failure. Reconciliation normally accounts for every
+    /// planned directory, so a non-zero value means a descriptor detached
+    /// between installation and publication and monitoring is not complete.
+    var unaccountedDirectoryCount: Int {
+        max(0, plannedDirectoryCount - monitoredDirectoryCount - failedToOpenCount - identityMismatchCount)
+    }
+
     var isDegraded: Bool {
-        omittedByLimitCount > 0 || failedToOpenCount > 0 || scanFailureCount > 0 || metadataReadFailureCount > 0
+        omittedByLimitCount > 0 || failedToOpenCount > 0 || identityMismatchCount > 0
+            || scanFailureCount > 0 || metadataReadFailureCount > 0
+            || unaccountedDirectoryCount > 0
+    }
+
+    /// Directory monitoring observes directory-entry changes. It never promises
+    /// in-place file-content refresh; keep that distinction visible in status.
+    private var eventDistinctionExplanation: String {
+        String(localized: "Folder contents are watched for added, removed and renamed entries; edits inside an already loaded file may need Refresh.")
     }
 
     var message: String {
         guard isDegraded else {
-            return "Automatic refresh is monitoring all \(monitoredDirectoryCount) folders."
+            return String(localized: "Automatic refresh is monitoring all \(monitoredDirectoryCount) folders.")
+                + " " + eventDistinctionExplanation
         }
 
         var reasons: [String] = []
@@ -62,6 +110,16 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
         }
         if failedToOpenCount > 0 {
             reasons.append(failedToOpenCount == 1 ? String(localized: "1 folder couldn’t be opened") : String(localized: "\(failedToOpenCount) folders couldn't be opened"))
+        }
+        if identityMismatchCount > 0 {
+            reasons.append(identityMismatchCount == 1
+                ? String(localized: "1 folder now refers to a different directory")
+                : String(localized: "\(identityMismatchCount) folders now refer to different directories"))
+        }
+        if unaccountedDirectoryCount > 0 {
+            reasons.append(unaccountedDirectoryCount == 1
+                ? String(localized: "1 folder is not actively monitored")
+                : String(localized: "\(unaccountedDirectoryCount) folders are not actively monitored"))
         }
         if scanFailureCount > 0 {
             reasons.append(scanFailureCount == 1
@@ -75,7 +133,8 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
         }
 
         var message = String(localized: "Automatic refresh is active for \(monitoredDirectoryCount) of \(totalDirectoryCount) folders. \(reasons.joined(separator: ", ")).")
-        if omittedByLimitCount > 0 || failedToOpenCount > 0 {
+        if omittedByLimitCount > 0 || failedToOpenCount > 0 || identityMismatchCount > 0
+            || unaccountedDirectoryCount > 0 {
             message += " " + String(localized: "Changes in unmonitored subfolders may not appear until a scan succeeds.")
         }
         if metadataReadFailureCount > 0 {
@@ -84,6 +143,7 @@ struct DirectoryMonitoringStatus: Equatable, Sendable {
         if scanFailureCount > 0 {
             message += " " + String(localized: "The previous file list will stay visible until a scan completes successfully.")
         }
+        message += " " + eventDistinctionExplanation
         return message
     }
 }
@@ -349,17 +409,6 @@ nonisolated final class DirectoryMonitor: @unchecked Sendable {
         self.fileDescriptor = descriptor
     }
 
-    /// Compatibility seam for the current `AudioViewModel` call site, which
-    /// still passes an untyped closure. The reconciliation wiring migrates the
-    /// call site to the typed initializer and then this overload can be removed.
-    convenience init?(
-        url: URL,
-        queue: DispatchQueue = DispatchQueue(label: "AudioMator.DirectoryMonitor", qos: .utility),
-        eventHandler: @escaping @Sendable () -> Void
-    ) {
-        self.init(url: url, queue: queue) { _ in eventHandler() }
-    }
-
     nonisolated var currentState: DirectoryMonitorState {
         lock.withLock { state }
     }
@@ -489,6 +538,10 @@ nonisolated struct DirectoryMonitorReconciliation: Equatable, Sendable {
     let activeDirectoryCount: Int
     let omittedByLimitCount: Int
     let failedToOpenCount: Int
+    /// Planned directories that opened but no longer identified their path.
+    /// Kept separate from open failures so degraded status can state the real
+    /// reason instead of calling a replaced directory "couldn't be opened".
+    let identityMismatchCount: Int
     let reboundDirectoryCount: Int
     let closedDirectoryCount: Int
     let droppedStaleEventCount: Int
@@ -509,6 +562,7 @@ nonisolated struct DirectoryMonitorReconciliation: Equatable, Sendable {
     nonisolated var isDegraded: Bool {
         omittedByLimitCount > 0
             || failedToOpenCount > 0
+            || identityMismatchCount > 0
             || activeDirectoryCount < monitoredDirectoryCount
     }
 
@@ -609,6 +663,7 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
                 activeDirectoryCount: 0,
                 omittedByLimitCount: plan.omittedByLimitCount,
                 failedToOpenCount: 0,
+                identityMismatchCount: 0,
                 reboundDirectoryCount: 0,
                 closedDirectoryCount: 0,
                 droppedStaleEventCount: droppedStaleEventCount,
@@ -622,6 +677,7 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
         var reboundDirectoryCount = 0
         var closedDirectoryCount = 0
         var failedToOpenCount = 0
+        var identityMismatchCount = 0
         var needsFollowUpScan = false
 
         // Directories that left the plan are closed before new descriptors are
@@ -647,7 +703,8 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
 
             let hadExistingMonitor = monitors[key] != nil
             let wasInvalidated = invalidatedKeys.contains(key)
-            if let candidate = bindMonitor(url: url, key: key) {
+            switch bindMonitor(url: url, key: key) {
+            case .success(let candidate):
                 if let existing = monitors[key] {
                     existing.stop()
                     closedDirectoryCount += 1
@@ -662,8 +719,13 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
                 // scan-before-attach interval, so exactly one follow-up scan is
                 // required. A scan with unchanged attachments requests none.
                 needsFollowUpScan = true
-            } else {
-                failedToOpenCount += 1
+            case .failure(let failure):
+                switch failure {
+                case .openFailed:
+                    failedToOpenCount += 1
+                case .identityMismatch:
+                    identityMismatchCount += 1
+                }
                 if let existing = monitors[key] {
                     // Inaccessible or mismatched path: never count an old or
                     // inaccessible descriptor as active.
@@ -682,6 +744,7 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
             activeDirectoryCount: bindings.count,
             omittedByLimitCount: plan.omittedByLimitCount,
             failedToOpenCount: failedToOpenCount,
+            identityMismatchCount: identityMismatchCount,
             reboundDirectoryCount: reboundDirectoryCount,
             closedDirectoryCount: closedDirectoryCount,
             droppedStaleEventCount: droppedStaleEventCount,
@@ -776,7 +839,14 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
         monitors.forEach { $0.stop() }
     }
 
-    private nonisolated func bindMonitor(url: URL, key: String) -> DirectoryMonitor? {
+    private nonisolated enum MonitorBindingFailure: Error, Equatable {
+        case openFailed
+        case identityMismatch
+    }
+
+    private nonisolated func bindMonitor(url: URL, key: String) -> Result<DirectoryMonitor, MonitorBindingFailure> {
+        var lastFailure = MonitorBindingFailure.openFailed
+        var sawIdentityMismatch = false
         for _ in 0..<Self.maximumBindingAttempts {
             guard let candidate = DirectoryMonitor(
                 url: url,
@@ -786,6 +856,7 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
                     self?.receive(event, forKey: key)
                 }
             ) else {
+                lastFailure = .openFailed
                 continue
             }
 
@@ -795,11 +866,15 @@ nonisolated final class DirectoryMonitorController: @unchecked Sendable {
             // closes the candidate and retries (bounded).
             guard let pathIdentity = fileSystem.identity(at: url), pathIdentity == candidate.identity else {
                 candidate.stop()
+                lastFailure = .identityMismatch
+                sawIdentityMismatch = true
                 continue
             }
-            return candidate
+            return .success(candidate)
         }
-        return nil
+        // A mismatch observed during a bounded retry is the more specific truth
+        // even when a later attempt could not open the path at all.
+        return .failure(sawIdentityMismatch ? .identityMismatch : lastFailure)
     }
 
     private nonisolated static func bindings(from monitors: [String: DirectoryMonitor]) -> [DirectoryMonitorBinding] {

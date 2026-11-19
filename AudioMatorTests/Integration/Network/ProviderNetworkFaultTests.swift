@@ -365,6 +365,406 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertEqual(recordings.map(\.title), ["Retry Result"])
     }
 
+    // MARK: - AM-10 · Validate MusicBrainz responses before cache admission
+
+    @MainActor
+    func testMusicBrainzInvalidJSONThenValidResponseRecoversForEveryRequestShape() async throws {
+        for shape in ProviderMusicBrainzRequestShape.allCases {
+            let script = ProviderScriptedTransport()
+            script.setMode(.invalidJSON)
+            ProviderFaultURLProtocol.requestHandler = { request in try script.response(for: request) }
+            let client = makeScriptedMusicBrainzClient()
+
+            do {
+                try await shape.perform(on: client)
+                XCTFail("Expected a decoding failure for \(shape).")
+            } catch let error as MusicBrainzClientError {
+                guard case .decodingFailed = error else {
+                    return XCTFail("Unexpected error for \(shape): \(error)")
+                }
+            }
+
+            let failedRequestCount = script.requestCount
+            XCTAssertEqual(failedRequestCount, 1, "\(shape) must attempt exactly one transport request before failing")
+
+            script.setMode(.success(shape.validBody))
+            try await shape.perform(on: client)
+            let recoveredRequestCount = script.requestCount
+            XCTAssertEqual(recoveredRequestCount, 2, "\(shape) must retry the same URL once and decode successfully")
+
+            try await shape.perform(on: client)
+            XCTAssertEqual(
+                script.requestCount,
+                recoveredRequestCount,
+                "\(shape) must reuse the validated cache entry instead of refetching."
+            )
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzWrongSchemaJSONIsNotAdmittedForEveryRequestShape() async throws {
+        for shape in ProviderMusicBrainzRequestShape.allCases {
+            let script = ProviderScriptedTransport()
+            script.setMode(.wrongSchema)
+            ProviderFaultURLProtocol.requestHandler = { request in try script.response(for: request) }
+            let client = makeScriptedMusicBrainzClient()
+
+            do {
+                try await shape.perform(on: client)
+                XCTFail("Expected a decoding failure for \(shape).")
+            } catch let error as MusicBrainzClientError {
+                guard case .decodingFailed = error else {
+                    return XCTFail("Unexpected error for \(shape): \(error)")
+                }
+            }
+            XCTAssertEqual(script.requestCount, 1, "\(shape) must attempt exactly one transport request before failing")
+
+            script.setMode(.success(shape.validBody))
+            try await shape.perform(on: client)
+            XCTAssertEqual(
+                script.requestCount,
+                2,
+                "\(shape) must refetch after a wrong-schema response instead of using a poisoned cache entry."
+            )
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzUnsuccessfulSharedLoadsLeaveNoCachedEntry() async throws {
+        let failureModes: [(name: String, mode: ProviderScriptedTransportMode)] = [
+            ("http 503", .httpStatus(503)),
+            ("timeout", .transportError(.timedOut)),
+            ("transport cancellation", .transportError(.cancelled))
+        ]
+        let shape = ProviderMusicBrainzRequestShape.recordingLookup
+
+        for failure in failureModes {
+            let script = ProviderScriptedTransport()
+            script.setMode(failure.mode)
+            ProviderFaultURLProtocol.requestHandler = { request in try script.response(for: request) }
+            let client = makeScriptedMusicBrainzClient()
+
+            do {
+                try await shape.perform(on: client)
+                XCTFail("Expected \(failure.name) to fail.")
+            } catch is MusicBrainzClientError {
+                // Expected mapping for non-2xx status.
+            } catch let error as URLError {
+                XCTAssertTrue(
+                    [.timedOut, .cancelled].contains(error.code),
+                    "Unexpected transport error for \(failure.name): \(error)"
+                )
+            } catch is CancellationError {
+                // Expected when Foundation maps a cancelled URLProtocol load to task cancellation.
+            }
+            let failedRequestCount = script.requestCount
+            XCTAssertGreaterThan(failedRequestCount, 0)
+
+            script.setMode(.success(shape.validBody))
+            try await shape.perform(on: client)
+            let recoveredRequestCount = script.requestCount
+            XCTAssertGreaterThan(recoveredRequestCount, failedRequestCount)
+
+            try await shape.perform(on: client)
+            XCTAssertEqual(
+                script.requestCount,
+                recoveredRequestCount,
+                "\(failure.name) must not have poisoned the cache."
+            )
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzCoalescedWaitersShareOneInvalidFetchThenRecover() async throws {
+        let script = ProviderScriptedTransport()
+        let gate = ProviderResponseGate()
+        script.setMode(.invalidJSON)
+        script.blockFirstRequest(on: gate)
+        ProviderFaultURLProtocol.requestHandler = { request in try script.response(for: request) }
+        let client = makeScriptedMusicBrainzClient()
+        let recordingID = ProviderMusicBrainzFixture.recordingID
+
+        let first = Task { try await client.recordingDetail(id: recordingID) }
+        let second = Task { try await client.recordingDetail(id: recordingID) }
+        let started = try await waitUntil { gate.didStart }
+        XCTAssertTrue(started, "The shared fetch must start before both waiters continue.")
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        gate.release()
+
+        var decodingFailures = 0
+        for task in [first, second] {
+            do {
+                _ = try await task.value
+                XCTFail("Expected the shared invalid response to fail both waiters.")
+            } catch let error as MusicBrainzClientError {
+                if case .decodingFailed = error {
+                    decodingFailures += 1
+                }
+            }
+        }
+        XCTAssertEqual(decodingFailures, 2)
+        XCTAssertEqual(script.requestCount, 1, "Both waiters must share one transport request.")
+
+        script.setMode(.success(ProviderMusicBrainzRequestShape.recordingLookup.validBody))
+        _ = try await client.recordingDetail(id: recordingID)
+        XCTAssertEqual(script.requestCount, 2, "A retry after an invalid shared response must fetch again.")
+
+        _ = try await client.recordingDetail(id: recordingID)
+        XCTAssertEqual(script.requestCount, 2, "The recovered response must be cached.")
+    }
+
+    @MainActor
+    func testMusicBrainzCancelledCoalescedWaiterDoesNotPoisonSharedSuccess() async throws {
+        let script = ProviderScriptedTransport()
+        let gate = ProviderResponseGate()
+        script.setMode(.success(ProviderMusicBrainzRequestShape.recordingLookup.validBody))
+        script.blockFirstRequest(on: gate)
+        ProviderFaultURLProtocol.requestHandler = { request in try script.response(for: request) }
+        let client = makeScriptedMusicBrainzClient()
+        let recordingID = ProviderMusicBrainzFixture.recordingID
+
+        let cancelledWaiter = Task { try await client.recordingDetail(id: recordingID) }
+        let survivingWaiter = Task { try await client.recordingDetail(id: recordingID) }
+        let started = try await waitUntil { gate.didStart }
+        XCTAssertTrue(started)
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+        cancelledWaiter.cancel()
+        gate.release()
+
+        let survived = try await survivingWaiter.value
+        XCTAssertEqual(survived.id, recordingID)
+        _ = try? await cancelledWaiter.value
+        XCTAssertEqual(
+            script.requestCount,
+            1,
+            "A cancelled waiter must not invalidate the shared response or start a second fetch."
+        )
+
+        _ = try await client.recordingDetail(id: recordingID)
+        XCTAssertEqual(script.requestCount, 1, "The shared successful response must have been cached.")
+    }
+
+    @MainActor
+    func testMusicBrainzRecordingSearchScoreAcceptsIntegerStringAndDefaults() async throws {
+        let validCases: [(name: String, field: String, expected: Int)] = [
+            ("integer", #""score":100"#, 100),
+            ("numeric string", #""score":"100""#, 100),
+            ("absent", "", 0),
+            ("null", #""score":null"#, 0)
+        ]
+
+        for testCase in validCases {
+            let client = makeSingleResponseClient(
+                ProviderMusicBrainzFixture.recordingSearch(scoreField: testCase.field)
+            )
+            let results = try await client.searchRecordings(
+                matching: MusicBrainzSearchQuery(title: "Numeric"),
+                limit: 1
+            )
+            XCTAssertEqual(results.first?.score, testCase.expected, testCase.name)
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzReleaseSearchScoreAcceptsIntegerStringAndDefaults() async throws {
+        let validCases: [(name: String, field: String, expected: Int)] = [
+            ("integer", #""score":75"#, 75),
+            ("numeric string", #""score":"75""#, 75),
+            ("absent", "", 0),
+            ("null", #""score":null"#, 0)
+        ]
+
+        for testCase in validCases {
+            let client = makeSingleResponseClient(
+                ProviderMusicBrainzFixture.releaseSearch(scoreField: testCase.field)
+            )
+            let results = try await client.searchReleases(
+                matching: MusicBrainzSearchQuery(mode: .album, album: "Numeric"),
+                limit: 1
+            )
+            XCTAssertEqual(results.first?.score, testCase.expected, testCase.name)
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzSearchScoresRejectMalformedOverflowAndNonIntegerValues() async throws {
+        let invalidFields: [(name: String, field: String)] = [
+            ("malformed string", #""score":"abc""#),
+            ("decimal string", #""score":"1.5""#),
+            ("overflow string", #""score":"99999999999999999999""#),
+            ("overflow number", #""score":99999999999999999999"#),
+            ("decimal number", #""score":1.5"#)
+        ]
+
+        for testCase in invalidFields {
+            let recordingClient = makeSingleResponseClient(
+                ProviderMusicBrainzFixture.recordingSearch(scoreField: testCase.field)
+            )
+            do {
+                _ = try await recordingClient.searchRecordings(
+                    matching: MusicBrainzSearchQuery(title: "Numeric"),
+                    limit: 1
+                )
+                XCTFail("Expected recording \(testCase.name) score to fail decoding.")
+            } catch let error as MusicBrainzClientError {
+                guard case .decodingFailed(let detail) = error else {
+                    return XCTFail("Unexpected recording error for \(testCase.name): \(error)")
+                }
+                XCTAssertTrue(
+                    detail.lowercased().contains("score"),
+                    "Expected a field-level score error, got: \(detail)"
+                )
+            }
+
+            let releaseClient = makeSingleResponseClient(
+                ProviderMusicBrainzFixture.releaseSearch(scoreField: testCase.field)
+            )
+            do {
+                _ = try await releaseClient.searchReleases(
+                    matching: MusicBrainzSearchQuery(mode: .album, album: "Numeric"),
+                    limit: 1
+                )
+                XCTFail("Expected release \(testCase.name) score to fail decoding.")
+            } catch let error as MusicBrainzClientError {
+                guard case .decodingFailed = error else {
+                    return XCTFail("Unexpected release error for \(testCase.name): \(error)")
+                }
+            }
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzMalformedNumericResponseIsNotCached() async throws {
+        let script = ProviderScriptedTransport()
+        script.setMode(.success(ProviderMusicBrainzFixture.recordingSearch(scoreField: #""score":"abc""#)))
+        ProviderFaultURLProtocol.requestHandler = { request in try script.response(for: request) }
+        let client = makeScriptedMusicBrainzClient()
+
+        do {
+            _ = try await client.searchRecordings(
+                matching: MusicBrainzSearchQuery(title: "Numeric"),
+                limit: 1
+            )
+            XCTFail("Expected the malformed score to fail decoding.")
+        } catch let error as MusicBrainzClientError {
+            guard case .decodingFailed = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        let failedRequestCount = script.requestCount
+
+        script.setMode(.success(ProviderMusicBrainzFixture.recordingSearch(scoreField: #""score":100"#)))
+        let results = try await client.searchRecordings(
+            matching: MusicBrainzSearchQuery(title: "Numeric"),
+            limit: 1
+        )
+        XCTAssertEqual(results.first?.score, 100)
+        XCTAssertGreaterThan(
+            script.requestCount,
+            failedRequestCount,
+            "A malformed numeric field must not leave a cached entry."
+        )
+    }
+
+    @MainActor
+    func testMusicBrainzTermCountVotesAndRatingValueAcceptAlternateFormsAndDefaults() async throws {
+        let cases: [(name: String, body: Data, expectedCount: Int?, expectedValue: Double?, expectedVotes: Int)] = [
+            (
+                "integer forms",
+                ProviderMusicBrainzFixture.recordingLookup(
+                    countField: #""count":7"#,
+                    ratingValueField: #""value":4.5"#,
+                    votesField: #""votes-count":9"#
+                ),
+                7,
+                4.5,
+                9
+            ),
+            (
+                "numeric string forms",
+                ProviderMusicBrainzFixture.recordingLookup(
+                    countField: #""count":"7""#,
+                    ratingValueField: #""value":"4.5""#,
+                    votesField: #""votes-count":"9""#
+                ),
+                7,
+                4.5,
+                9
+            ),
+            ("absent", ProviderMusicBrainzFixture.recordingLookup(), nil, nil, 0),
+            (
+                "null",
+                ProviderMusicBrainzFixture.recordingLookup(
+                    countField: #""count":null"#,
+                    ratingValueField: #""value":null"#,
+                    votesField: #""votes-count":null"#
+                ),
+                nil,
+                nil,
+                0
+            )
+        ]
+
+        for testCase in cases {
+            let client = makeSingleResponseClient(testCase.body)
+            let detail = try await client.recordingDetail(id: ProviderMusicBrainzFixture.recordingID)
+            XCTAssertEqual(detail.genres.first?.count, testCase.expectedCount, testCase.name)
+            XCTAssertEqual(detail.rating?.value, testCase.expectedValue, testCase.name)
+            XCTAssertEqual(detail.rating?.voteCount, testCase.expectedVotes, testCase.name)
+        }
+    }
+
+    @MainActor
+    func testMusicBrainzTermCountVotesAndRatingValueRejectMalformedOverflowAndNonfinite() async throws {
+        let invalidBodies: [(name: String, body: Data)] = [
+            ("malformed count", ProviderMusicBrainzFixture.recordingLookup(countField: #""count":"abc""#)),
+            ("decimal count", ProviderMusicBrainzFixture.recordingLookup(countField: #""count":1.5"#)),
+            ("overflow count", ProviderMusicBrainzFixture.recordingLookup(countField: #""count":99999999999999999999"#)),
+            ("malformed votes", ProviderMusicBrainzFixture.recordingLookup(votesField: #""votes-count":"abc""#)),
+            ("overflow votes", ProviderMusicBrainzFixture.recordingLookup(votesField: #""votes-count":99999999999999999999"#)),
+            ("malformed rating value", ProviderMusicBrainzFixture.recordingLookup(ratingValueField: #""value":"abc""#)),
+            ("nonfinite rating NaN", ProviderMusicBrainzFixture.recordingLookup(ratingValueField: #""value":"NaN""#)),
+            ("nonfinite rating infinity", ProviderMusicBrainzFixture.recordingLookup(ratingValueField: #""value":"inf""#)),
+            ("nonfinite rating string overflow", ProviderMusicBrainzFixture.recordingLookup(ratingValueField: #""value":"1e400""#)),
+            ("nonfinite rating number overflow", ProviderMusicBrainzFixture.recordingLookup(ratingValueField: #""value":1e400"#))
+        ]
+
+        for testCase in invalidBodies {
+            let client = makeSingleResponseClient(testCase.body)
+            do {
+                _ = try await client.recordingDetail(id: ProviderMusicBrainzFixture.recordingID)
+                XCTFail("Expected \(testCase.name) to fail decoding.")
+            } catch let error as MusicBrainzClientError {
+                guard case .decodingFailed = error else {
+                    return XCTFail("Unexpected error for \(testCase.name): \(error)")
+                }
+            }
+        }
+    }
+
+    func testMusicBrainzScoreGapDecisionHandlesIntMinWithoutOverflowAndPreservesThresholds() {
+        let preview = ProviderMusicBrainzFixture.matchPreview()
+
+        func shouldStop(candidate: Int, next: Int?, evidence: Double = 0) -> Bool {
+            MusicBrainzClient.shouldStopReleaseDetailVerification(
+                candidate: ProviderMusicBrainzFixture.releaseResult(score: candidate),
+                nextCandidate: next.map(ProviderMusicBrainzFixture.releaseResult(score:)),
+                preview: preview,
+                evidence: evidence
+            )
+        }
+
+        XCTAssertTrue(shouldStop(candidate: 100, next: Int.min), "Int.min must not overflow the gap check")
+        XCTAssertTrue(shouldStop(candidate: 100, next: 92), "An 8-point gap stops")
+        XCTAssertFalse(shouldStop(candidate: 100, next: 93), "A 7-point gap continues")
+        XCTAssertFalse(shouldStop(candidate: 89, next: Int.min), "Evidence below 90 continues")
+        XCTAssertTrue(shouldStop(candidate: 50, next: Int.min, evidence: 1), "Evidence of one stops")
+    }
+
     func testArtworkNormalizerDownsamplesBeforePNGEncoding() throws {
         let sourceData = try XCTUnwrap(
             Data(
@@ -507,7 +907,22 @@ final class ProviderNetworkFaultTests: XCTestCase {
     private func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ProviderFaultURLProtocol.self]
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         return URLSession(configuration: configuration)
+    }
+
+    private func makeScriptedMusicBrainzClient() -> MusicBrainzClient {
+        MusicBrainzClient(
+            session: makeSession(),
+            rateLimiter: MusicBrainzRateLimiter(minimumIntervalNanoseconds: 0),
+            retryPolicy: .disabled
+        )
+    }
+
+    private func makeSingleResponseClient(_ body: Data) -> MusicBrainzClient {
+        ProviderFaultURLProtocol.requestHandler = response(statusCode: 200, data: body)
+        return makeScriptedMusicBrainzClient()
     }
 
     private func response(
@@ -619,4 +1034,212 @@ private nonisolated final class ProviderFaultURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+}
+
+private nonisolated enum ProviderScriptedTransportMode {
+    case success(Data)
+    case invalidJSON
+    case wrongSchema
+    case httpStatus(Int)
+    case transportError(URLError.Code)
+}
+
+private nonisolated final class ProviderScriptedTransport: @unchecked Sendable {
+    private let lock = NSLock()
+    private var mode: ProviderScriptedTransportMode = .invalidJSON
+    private var requestCountValue = 0
+    private var firstRequestGate: ProviderResponseGate?
+
+    var requestCount: Int {
+        lock.withLock { requestCountValue }
+    }
+
+    func setMode(_ mode: ProviderScriptedTransportMode) {
+        lock.withLock { self.mode = mode }
+    }
+
+    func blockFirstRequest(on gate: ProviderResponseGate) {
+        lock.withLock { firstRequestGate = gate }
+    }
+
+    func response(for request: URLRequest) throws -> (HTTPURLResponse, Data) {
+        let (mode, gate) = lock.withLock { () -> (ProviderScriptedTransportMode, ProviderResponseGate?) in
+            requestCountValue += 1
+            let gate = requestCountValue == 1 ? firstRequestGate : nil
+            if requestCountValue == 1 {
+                firstRequestGate = nil
+            }
+            return (mode, gate)
+        }
+
+        gate?.blockUntilReleased()
+
+        guard let url = request.url else { throw URLError(.badURL) }
+        guard let response = HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        ) else {
+            throw URLError(.badServerResponse)
+        }
+
+        switch mode {
+        case .success(let data):
+            return (response, data)
+        case .invalidJSON:
+            return (response, Data("this is not JSON".utf8))
+        case .wrongSchema:
+            return (response, Data(#"{"unexpected":true}"#.utf8))
+        case .httpStatus(let statusCode):
+            guard let statusResponse = HTTPURLResponse(
+                url: url,
+                statusCode: statusCode,
+                httpVersion: nil,
+                headerFields: nil
+            ) else {
+                throw URLError(.badServerResponse)
+            }
+            return (statusResponse, Data())
+        case .transportError(let code):
+            throw URLError(code)
+        }
+    }
+}
+
+private nonisolated enum ProviderMusicBrainzRequestShape: CaseIterable {
+    case recordingSearch
+    case releaseSearch
+    case recordingLookup
+    case releaseLookup
+
+    var validBody: Data {
+        switch self {
+        case .recordingSearch:
+            return ProviderMusicBrainzFixture.recordingSearch(scoreField: #""score":100"#)
+        case .releaseSearch:
+            return ProviderMusicBrainzFixture.releaseSearch(scoreField: #""score":100"#)
+        case .recordingLookup:
+            return ProviderMusicBrainzFixture.recordingLookup(
+                countField: #""count":7"#,
+                ratingValueField: #""value":4.5"#,
+                votesField: #""votes-count":9"#
+            )
+        case .releaseLookup:
+            return Data(
+                #"{"id":"22222222-2222-2222-2222-222222222222","title":"Recovered"}"#.utf8
+            )
+        }
+    }
+
+    func perform(on client: MusicBrainzClient) async throws {
+        switch self {
+        case .recordingSearch:
+            _ = try await client.searchRecordings(
+                matching: MusicBrainzSearchQuery(title: "Recovery"),
+                limit: 1
+            )
+        case .releaseSearch:
+            _ = try await client.searchReleases(
+                matching: MusicBrainzSearchQuery(mode: .album, album: "Recovery"),
+                limit: 1
+            )
+        case .recordingLookup:
+            _ = try await client.recordingDetail(id: ProviderMusicBrainzFixture.recordingID)
+        case .releaseLookup:
+            _ = try await client.releaseDetail(id: ProviderMusicBrainzFixture.releaseID)
+        }
+    }
+}
+
+private nonisolated enum ProviderMusicBrainzFixture {
+    static let recordingID = "11111111-1111-1111-1111-111111111111"
+    static let releaseID = "22222222-2222-2222-2222-222222222222"
+
+    static func recordingSearch(scoreField: String) -> Data {
+        let suffix = scoreField.isEmpty ? "" : ",\(scoreField)"
+        return Data(
+            "{\"recordings\":[{\"id\":\"\(recordingID)\",\"title\":\"Numeric\"\(suffix)}]}".utf8
+        )
+    }
+
+    static func releaseSearch(scoreField: String) -> Data {
+        let suffix = scoreField.isEmpty ? "" : ",\(scoreField)"
+        return Data(
+            "{\"releases\":[{\"id\":\"\(releaseID)\",\"title\":\"Numeric\"\(suffix)}]}".utf8
+        )
+    }
+
+    static func recordingLookup(
+        countField: String = "",
+        ratingValueField: String = "",
+        votesField: String = ""
+    ) -> Data {
+        let genreSuffix = countField.isEmpty ? "" : ",\(countField)"
+        let ratingParts = [ratingValueField, votesField].filter { !$0.isEmpty }.joined(separator: ",")
+        let ratingJSON = ratingParts.isEmpty ? "null" : "{\(ratingParts)}"
+        let json = """
+        {"id":"\(recordingID)","title":"Numeric","genres":[{"name":"rock"\(genreSuffix)}],"rating":\(ratingJSON)}
+        """
+        return Data(json.utf8)
+    }
+
+    static func releaseResult(score: Int) -> MusicBrainzReleaseSearchResult {
+        MusicBrainzReleaseSearchResult(
+            id: releaseID,
+            title: "Numeric",
+            artistCredit: "Artist",
+            score: score,
+            date: "",
+            country: "",
+            status: "",
+            mediaFormats: [],
+            releaseGroup: nil,
+            selectionMatchPreview: nil,
+            selectionMatchScore: nil
+        )
+    }
+
+    static func matchPreview() -> MusicBrainzReleaseMatchPreview {
+        let file = MusicBrainzFileSearchInput(
+            id: "file",
+            displayTitle: "Track",
+            title: "Track",
+            artist: "Artist",
+            albumArtist: "Artist",
+            album: "Album",
+            trackNumber: "1"
+        )
+        let track = MusicBrainzReleaseMatchTrack(
+            id: "track",
+            mediumTitle: "CD 1",
+            mediumFormat: "CD",
+            mediumPosition: 1,
+            mediumTrackCount: 1,
+            releaseMediumCount: 1,
+            number: "1",
+            title: "Track",
+            artistCredit: "Artist",
+            durationMilliseconds: nil,
+            recordingID: "recording",
+            isrcs: []
+        )
+        return MusicBrainzReleaseMatchPreview(
+            totalSelectedFiles: 1,
+            matchedAssignments: [
+                MusicBrainzReleaseMatchAssignment(
+                    id: "file:track",
+                    file: file,
+                    track: track,
+                    score: 1,
+                    reason: "fixture"
+                )
+            ],
+            unmatchedFiles: [],
+            unassignedTracks: [],
+            averageTrackScore: 0.95,
+            overallScore: 0.95,
+            selectionLooksMixed: false
+        )
+    }
 }

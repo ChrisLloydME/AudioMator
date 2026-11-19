@@ -126,7 +126,7 @@ nonisolated struct LRCLIBLyricsAutoWriteIntent: Sendable {
 enum LRCLIBLyricsWriteIntentBuilder {
     private static let projectionAdapter = TagLibAudioMetadataPipeline()
 
-    static let rawLyricsKey = "LYRICS"
+    nonisolated static let rawLyricsKey = "LYRICS"
 
     /// The exact write shape the lyrics path has always used: one scoped raw
     /// `LYRICS` value, never a whole property-map rewrite.
@@ -136,7 +136,7 @@ enum LRCLIBLyricsWriteIntentBuilder {
 
     /// Trims synced lyrics and rejects an empty value; keeps the candidate's text
     /// otherwise byte-for-byte so preview and disk agree.
-    nonisolated static func normalizedSyncedLyrics(
+    static func normalizedSyncedLyrics(
         _ candidate: LRCLIBLyricsCandidate
     ) -> String? {
         guard candidate.hasSyncedLyrics, let syncedLyrics = candidate.syncedLyrics else {

@@ -107,7 +107,7 @@ struct MetadataSaveProgress: Equatable {
 }
 
 @MainActor
-final class AudioViewModel: ObservableObject {
+final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     nonisolated private static let readableAudioExtensions = AudioFormatSupport.readableExtensions
     nonisolated private static let maximumDirectoryMonitorsPerFolder = 128
 
@@ -406,7 +406,7 @@ final class AudioViewModel: ObservableObject {
     }
 
     var isInspectorDraftDirty: Bool {
-        guard inspectorPendingReview == nil, let session = inspectorDraft else {
+        guard inspectorPendingReview == nil, inspectorDraft != nil else {
             return inspectorPendingReview != nil
         }
         return hasUnsavedInspectorChanges
@@ -2219,7 +2219,7 @@ extension AudioViewModel {
     /// the projection and pending decision stay in place.
     func readBackMovedFiles(_ receipts: [FileRenameMoveReceipt]) async -> [String] {
         guard !receipts.isEmpty else { return [] }
-        let limiter = MoveReadbackLaneLimiter()
+        let limiter = MoveReadbackLaneLimiter(maximum: MetadataBatchExecutor.maximumConcurrentMutations)
         var warnings: [String] = []
         await withTaskGroup(of: String?.self) { group in
             for receipt in receipts {
@@ -2372,7 +2372,11 @@ extension AudioViewModel {
 
 private actor MoveReadbackLaneLimiter {
     private var inUse = 0
-    private let maximum = MetadataBatchExecutor.maximumConcurrentMutations
+    private let maximum: Int
+
+    init(maximum: Int) {
+        self.maximum = maximum
+    }
 
     func acquire() -> Bool {
         guard inUse < maximum else { return false }

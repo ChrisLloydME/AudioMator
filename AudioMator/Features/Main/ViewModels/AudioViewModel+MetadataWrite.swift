@@ -161,7 +161,6 @@ extension AudioViewModel {
 
         let completedEdits = completedInspectorEditsByID
         let editSnapshot = multiEdit
-        let selectionSnapshot = selectedAudioIDs
         guard let receipt = captureInspectorSaveReceipt() else { return }
         let sessionID = receipt.identity.sessionID
         let sessionTargetIDs = receipt.targetIDs

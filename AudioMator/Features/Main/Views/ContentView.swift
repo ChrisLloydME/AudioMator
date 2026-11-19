@@ -539,6 +539,19 @@ private struct MetadataWriteHUDView: View {
     }
 }
 
+/// Pure dismissal decision for the HUD panel completion hop.
+///
+/// Nonisolated so the generation/current-ID barrier can be exercised headlessly
+/// without AppKit. A completion may order the panel out only while it still owns
+/// the current presentation generation and no newer HUD has been presented.
+nonisolated struct MetadataWriteHUDDismissalDecision: Equatable {
+    let expectedGeneration: UUID
+
+    func shouldOrderOut(currentGeneration: UUID, presentedHUDID: UUID?) -> Bool {
+        expectedGeneration == currentGeneration && presentedHUDID == nil
+    }
+}
+
 private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
     let hud: MetadataWriteHUD?
 
@@ -649,14 +662,21 @@ private struct MetadataWriteHUDScreenPresenter: NSViewRepresentable {
             presentedHUDID = nil
             let generation = UUID()
             presentationGeneration = generation
+            let decision = MetadataWriteHUDDismissalDecision(expectedGeneration: generation)
 
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.12
                 panel.animator().alphaValue = 0
-            } completionHandler: {
+            } completionHandler: { [weak self] in
                 Task { @MainActor [weak self] in
-                    guard let self, self.presentationGeneration == generation,
-                          self.presentedHUDID == nil else { return }
+                    guard let self else { return }
+                    guard decision.shouldOrderOut(
+                        currentGeneration: self.presentationGeneration,
+                        presentedHUDID: self.presentedHUDID
+                    ) else { return }
+                    // Strongly load the panel only inside actor-isolated code,
+                    // after the generation/current-ID check.
+                    guard let panel = self.panel else { return }
                     panel.orderOut(nil)
                 }
             }

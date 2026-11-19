@@ -245,6 +245,7 @@ nonisolated struct InspectorSaveReceipt {
 nonisolated enum InspectorDraftDelta {
     /// Rebuilds a single-file draft from `readback`, then reapplies every field
     /// where `live` differs from `submitted`.
+    @MainActor
     static func reappliedSingleDraft(
         live: SingleFileEditModel,
         submitted: SingleFileEditModel,
@@ -334,6 +335,7 @@ nonisolated enum InspectorDraftDelta {
 
     /// Rebuilds a multi-file draft from the accepted readbacks, then reapplies
     /// only the fields whose live intent differs from the submission.
+    @MainActor
     static func reappliedMultiDraft(
         readbackFiles: [AudioFile],
         live: MultiFileEditModel,

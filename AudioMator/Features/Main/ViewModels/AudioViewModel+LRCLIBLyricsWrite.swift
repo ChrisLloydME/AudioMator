@@ -10,7 +10,7 @@ import TagLibAudioMetadata
 /// permit. The permit's first transition is the single ordering point between
 /// cancellation and accepted work: a pending write is cancelled, and an admitted
 /// one is never interrupted and reports its real outcome.
-extension AudioViewModel: LRCLIBLyricsWriting {
+extension AudioViewModel {
     private var unreviewedLyricsEntryMessage: String {
         String(localized: "This lyrics result wasn’t built from a reviewed copy of this file. Close and reopen LRCLIB, then review the current lyrics before applying them.")
     }

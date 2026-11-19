@@ -26,7 +26,10 @@ enum MetadataWriteExecutionResult: Sendable {
     case cancelled
 }
 
-func fileCountLabel(_ count: Int) -> String {
+/// Pure localized count label shared by failure reporting. Nonisolated because
+/// it only formats localized text and is also used while composing detached
+/// failure output.
+nonisolated func fileCountLabel(_ count: Int) -> String {
     count == 1 ? String(localized: "1 file") : String(localized: "\(count) files")
 }
 

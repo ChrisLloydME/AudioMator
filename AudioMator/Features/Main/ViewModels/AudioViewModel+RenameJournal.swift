@@ -238,8 +238,9 @@ extension AudioViewModel {
             clearJournalRecoveryDecisions(forFileIDs: restoredFileIDs, operationID: operationID)
             // Quick Import memberships are re-keyed only when the restored file
             // entry's device/inode evidence matches the captured membership. An
-            // ambiguous or unknown identity skips migration and keeps the
-            // recovery decision; startup classification never moves files.
+            // ambiguous or unknown identity leaves the membership at its previous
+            // URL/key binding (the verified restore already cleared the journal
+            // decision); startup classification never moves files.
             migrateQuickImportMembershipsAfterJournalRestore(
                 manifest: manifest,
                 restoredFileIDs: restoredFileIDs

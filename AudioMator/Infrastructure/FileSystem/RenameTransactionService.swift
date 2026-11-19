@@ -1336,7 +1336,7 @@ nonisolated struct RenameTransactionService: Sendable {
         for move in toOriginal {
             guard
                 let originalURL = URL(string: manifest.entries.first(where: { $0.index == move.index })?.originalURL ?? ""),
-                let handle = handle(for: originalURL, in: handles)
+                handle(for: originalURL, in: handles) != nil
             else { return .failure(.parentUnavailable(index: move.index)) }
 
             do {

@@ -37,7 +37,7 @@ struct FileRenameTransactionFailure: Sendable {
 /// Caller-side cancellation flag for the detached exclusive-move transaction.
 /// The service checks it only before its first writable stage; once staging has
 /// begun the operation owns completion or rollback and reports real effects.
-private final class RenameCancellationFlag: @unchecked Sendable {
+private nonisolated final class RenameCancellationFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
 
@@ -364,6 +364,13 @@ extension AudioViewModel {
                     rollbackErrors: [],
                     verifiedLocation: verifiedLocation
                 )
+            )
+        }
+
+        if !recoveryItems.isEmpty {
+            lines.insert(
+                String(localized: "Recovery required for \(fileCountLabel(recoveryItems.count)):"),
+                at: 0
             )
         }
 

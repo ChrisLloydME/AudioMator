@@ -5,9 +5,9 @@ struct LRCLIBLyricsBrowserView: View {
     @ObservedObject var viewModel: AudioViewModel
     let onBackToSources: () -> Void
 
-    @State private var isApplyingLyrics = false
-    @State private var isAutoApplyingLyrics = false
-    @State private var autoApplyProgress: MetadataSaveProgress?
+    private var isAutoApplyingLyrics: Bool {
+        store.operationProgress?.kind == .autoApply
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,7 +41,7 @@ struct LRCLIBLyricsBrowserView: View {
             }
 
             ToolbarItemGroup(placement: .primaryAction) {
-                if store.searchState == .searching && !isAutoApplyingLyrics {
+                if store.searchState == .searching && !store.isOperationActive {
                     Button("Cancel") {
                         store.cancelSearch()
                     }
@@ -50,7 +50,7 @@ struct LRCLIBLyricsBrowserView: View {
                         store.searchCurrentFile()
                     }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!store.hasFiles || isAutoApplyingLyrics)
+                    .disabled(!store.hasFiles || store.isOperationActive)
                 }
             }
         }
@@ -109,7 +109,7 @@ struct LRCLIBLyricsBrowserView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if isAutoApplyingLyrics {
-            autoApplyProgressView
+            operationProgressView
         } else {
             HStack(spacing: 0) {
                 resultsPane
@@ -121,33 +121,62 @@ struct LRCLIBLyricsBrowserView: View {
         }
     }
 
-    private var autoApplyProgressView: some View {
-        let progress = viewModel.metadataSaveProgress ?? autoApplyProgress
+    private var operationProgressView: some View {
+        let writeProgress = viewModel.metadataSaveProgress
+        let storeProgress = store.operationProgress
+
+        let title: String
+        let subtitle: String
+        let fraction: Double
+        let label: String
+
+        if let writeProgress {
+            title = writeProgress.title
+            subtitle = writeProgress.subtitle
+            fraction = writeProgress.fractionCompleted
+            label = writeProgress.progressLabel
+        } else if let storeProgress {
+            title = storeProgress.kind == .autoApply
+                ? String(localized: "Finding LRCLIB Best Matches")
+                : String(localized: "Applying LRCLIB Lyrics")
+            if storeProgress.phase == .searching {
+                subtitle = storeProgress.currentFileName.isEmpty
+                    ? String(localized: "Preparing selected files...")
+                    : storeProgress.currentFileName
+            } else {
+                subtitle = String(localized: "Applying lyrics to the matched files...")
+            }
+            fraction = storeProgress.fractionCompleted
+            label = storeProgress.progressLabel
+        } else {
+            title = String(localized: "Finding LRCLIB Best Matches")
+            subtitle = String(localized: "Preparing selected files...")
+            fraction = 0
+            label = "0 / 1"
+        }
 
         return VStack(spacing: 16) {
             ProgressView()
 
             VStack(spacing: 4) {
-                Text(progress?.title ?? "Finding LRCLIB Best Matches")
+                Text(title)
                     .font(.headline)
-                Text(progress?.subtitle ?? "Preparing selected files...")
+                Text(subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
-            if let progress {
-                VStack(alignment: .trailing, spacing: 7) {
-                    ProgressView(value: progress.fractionCompleted)
-                        .progressViewStyle(.linear)
-                        .tint(.accentColor)
+            VStack(alignment: .trailing, spacing: 7) {
+                ProgressView(value: fraction)
+                    .progressViewStyle(.linear)
+                    .tint(.accentColor)
 
-                    Text(progress.progressLabel)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: 360, alignment: .trailing)
+                Text(label)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
+            .frame(maxWidth: 360, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -325,85 +354,39 @@ struct LRCLIBLyricsBrowserView: View {
             } label: {
                 Label("Previous", systemImage: "chevron.left")
             }
-            .disabled(!store.canMovePrevious || isApplyingLyrics || isAutoApplyingLyrics)
+            .disabled(!store.canMovePrevious || store.isOperationActive)
 
             Button {
                 store.moveNext()
             } label: {
                 Label("Next", systemImage: "chevron.right")
             }
-            .disabled(!store.canMoveNext || isApplyingLyrics || isAutoApplyingLyrics)
+            .disabled(!store.canMoveNext || store.isOperationActive)
 
             Spacer()
 
-            if isApplyingLyrics || isAutoApplyingLyrics {
+            if store.isOperationActive {
                 ProgressView()
                     .controlSize(.small)
             }
 
             if store.hasMultipleFiles {
                 Button("Auto Apply Best Matches") {
-                    Task {
-                        await autoApplyBestSyncedLyrics()
-                    }
+                    store.startAutoApply(writer: viewModel)
                 }
-                .disabled(isApplyingLyrics || isAutoApplyingLyrics || store.searchState == .searching)
+                .disabled(store.isOperationActive || store.searchState == .searching)
             }
 
             Button("Apply Synced Lyrics") {
-                Task {
-                    await applySelectedLyrics()
-                }
+                store.startManualApply(writer: viewModel)
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(!store.canApplySelectedCandidate || isApplyingLyrics || isAutoApplyingLyrics)
+            .disabled(!store.canApplySelectedCandidate || store.isOperationActive || store.searchState == .searching)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
     }
 
-    private func applySelectedLyrics() async {
-        guard
-            !isApplyingLyrics,
-            let currentFile = store.currentFile,
-            let candidate = store.selectedCandidate,
-            let syncedLyrics = candidate.syncedLyrics,
-            candidate.hasSyncedLyrics
-        else {
-            return
-        }
-
-        isApplyingLyrics = true
-        let didApply = await viewModel.applyLRCLIBSyncedLyrics(syncedLyrics, to: currentFile.id)
-        if didApply {
-            store.markCurrentFileApplied(candidateID: candidate.id)
-        }
-        isApplyingLyrics = false
-    }
-
-    private func autoApplyBestSyncedLyrics() async {
-        guard !isApplyingLyrics, !isAutoApplyingLyrics else { return }
-
-        isAutoApplyingLyrics = true
-        autoApplyProgress = MetadataSaveProgress(
-            title: "Finding LRCLIB Best Matches",
-            subtitle: "Preparing selected files...",
-            completedUnitCount: 0,
-            totalUnitCount: max(store.fileInputs.count, 1)
-        )
-        let matches = await store.autoSyncedLyricsMatchesForAllFiles { completedCount, totalCount, currentFileName in
-            autoApplyProgress = MetadataSaveProgress(
-                title: "Finding LRCLIB Best Matches",
-                subtitle: currentFileName.isEmpty ? "Preparing selected files..." : currentFileName,
-                completedUnitCount: completedCount,
-                totalUnitCount: max(totalCount, 1)
-            )
-        }
-        let appliedFileIDs = await viewModel.applyLRCLIBSyncedLyricsAutoMatches(matches)
-        store.markFilesApplied(matches, appliedFileIDs: appliedFileIDs)
-        autoApplyProgress = nil
-        isAutoApplyingLyrics = false
-    }
 }
 
 private struct LRCLIBCandidateRow: View {

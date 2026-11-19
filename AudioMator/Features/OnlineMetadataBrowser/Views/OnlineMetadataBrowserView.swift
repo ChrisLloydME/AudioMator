@@ -56,7 +56,14 @@ struct OnlineMetadataBrowserView: View {
                     LRCLIBLyricsBrowserView(
                         store: lrclibStore,
                         viewModel: viewModel,
-                        onBackToSources: { self.selectedMetadataSource = nil }
+                        onBackToSources: {
+                            // Sources navigation cancels outstanding lookups and every
+                            // write that has not crossed the commit boundary, clears
+                            // candidates/results, and retains the queued rows with their
+                            // seed bindings for an explicit new Search.
+                            self.lrclibStore.leaveBrowser()
+                            self.selectedMetadataSource = nil
+                        }
                     )
                 }
             } else {

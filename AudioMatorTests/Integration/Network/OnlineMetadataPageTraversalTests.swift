@@ -90,6 +90,11 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
             client: TraversaliTunesClient(fixture: fixture.iTunes, behavior: .success)
         )
         iTunesStore.seed(from: [fixture.file])
+        let iTunesContext = iTunesSearchContext(
+            storefront: iTunesStore.storefront,
+            generation: UUID(),
+            submittedSelection: iTunesStore.fileSelectionSummary
+        )
 
         await render(
             AnyView(
@@ -154,6 +159,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
             AnyView(
                 iTunesTrackDetailView(
                     track: fixture.iTunes.track,
+                    context: iTunesContext,
                     store: iTunesStore,
                     viewModel: viewModel
                 )
@@ -164,6 +170,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
             AnyView(
                 iTunesAlbumDetailView(
                     album: fixture.iTunes.album,
+                    context: iTunesContext,
                     store: iTunesStore,
                     viewModel: viewModel
                 )
@@ -206,7 +213,8 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
-                isLoading: true
+                searchAttemptID: UUID(),
+                searchState: .searching
             ),
             ArtworkLookupSession(
                 fileIDs: [fixture.file.id],
@@ -216,8 +224,8 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
-                isLoading: false,
-                errorMessage: "Synthetic artwork failure"
+                searchAttemptID: UUID(),
+                searchState: .failed(message: "Synthetic artwork failure")
             ),
             ArtworkLookupSession(
                 fileIDs: [fixture.file.id],
@@ -227,7 +235,8 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
-                isLoading: false,
+                searchAttemptID: UUID(),
+                searchState: .results,
                 results: [artworkResult],
                 selectedResultID: artworkResult.id
             )

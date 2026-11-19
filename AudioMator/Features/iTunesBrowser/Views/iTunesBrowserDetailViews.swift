@@ -2,6 +2,7 @@ import SwiftUI
 
 struct iTunesTrackDetailView: View {
     let track: iTunesTrackResult
+    let context: iTunesSearchContext
     @ObservedObject var store: iTunesBrowserStore
     @ObservedObject var viewModel: AudioViewModel
 
@@ -27,7 +28,7 @@ struct iTunesTrackDetailView: View {
     private var detailContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
-                if store.seededFileInputs.count == 1 {
+                if submittedFileInputs.count == 1 {
                     MetadataSectionCard(title: "Selected File Match", symbolName: "checklist") {
                         iTunesMetadataButtonRow(
                             title: "Review & Apply Tags",
@@ -83,8 +84,12 @@ struct iTunesTrackDetailView: View {
         ].compactMap { $0 }
     }
 
+    private var submittedFileInputs: [iTunesFileSearchInput] {
+        context.submittedSelection?.files ?? store.seededFileInputs
+    }
+
     private func prepareWorkbench() {
-        guard let fileInput = store.seededFileInputs.first else { return }
+        guard let fileInput = submittedFileInputs.first else { return }
         guard workbenchPreparationTask == nil else { return }
         isPreparingWorkbench = true
 
@@ -95,29 +100,11 @@ struct iTunesTrackDetailView: View {
             }
             let detail: iTunesAlbumDetail
 
-            if let collectionID = track.collectionID {
+            if track.collectionID != nil {
                 do {
-                    detail = try await store.albumDetail(
-                        for: iTunesAlbumResult(
-                            collectionID: collectionID,
-                            artistID: track.artistID,
-                            collectionArtistID: track.collectionArtistID,
-                            collectionName: track.collectionName,
-                            artistName: track.artistName,
-                            collectionArtistName: track.collectionArtistName,
-                            trackCount: track.trackCount,
-                            releaseDate: track.releaseDate,
-                            primaryGenreName: track.primaryGenreName,
-                            country: track.country,
-                            copyright: track.copyright,
-                            contentAdvisoryRating: track.contentAdvisoryRating,
-                            collectionExplicitness: track.collectionExplicitness,
-                            collectionViewURL: track.collectionViewURL,
-                            artistViewURL: track.artistViewURL,
-                            selectionMatchPreview: nil,
-                            selectionMatchScore: nil
-                        )
-                    )
+                    // The submitted context supplies the catalog region; the track's
+                    // provider-returned country is display data only.
+                    detail = try await store.albumDetail(for: track, context: context)
                 } catch is CancellationError {
                     return
                 } catch {
@@ -191,6 +178,7 @@ struct iTunesTrackDetailView: View {
 
 struct iTunesAlbumDetailView: View {
     let album: iTunesAlbumResult
+    let context: iTunesSearchContext
     @ObservedObject var store: iTunesBrowserStore
     @ObservedObject var viewModel: AudioViewModel
 
@@ -254,7 +242,7 @@ struct iTunesAlbumDetailView: View {
 
                 MetadataSectionCard(title: "Tracks", symbolName: "music.note.list") {
                     ForEach(Array(detail.tracks.enumerated()), id: \.element.id) { index, track in
-                        NavigationLink(value: iTunesBrowserDestination.track(track)) {
+                        NavigationLink(value: iTunesBrowserDestination.track(track, context)) {
                             iTunesMetadataTrackRow(
                                 number: track.trackNumber > 0 ? String(track.trackNumber) : "",
                                 title: track.trackName,
@@ -412,7 +400,7 @@ struct iTunesAlbumDetailView: View {
         }
 
         do {
-            let detail = try await store.albumDetail(for: album)
+            let detail = try await store.albumDetail(for: album, context: context)
             try Task.checkCancellation()
 
             var comparisonGroups: [iTunesMetadataComparisonGroup] = []
@@ -456,12 +444,16 @@ struct iTunesAlbumDetailView: View {
     private var detailLoadID: DetailLoadID {
         DetailLoadID(
             albumID: album.collectionID,
+            storefrontCode: context.storefront.countryCode,
+            searchGeneration: context.generation,
             fileFingerprints: viewModel.files.map(\.middleListContentFingerprint)
         )
     }
 
     private struct DetailLoadID: Hashable {
         let albumID: Int
+        let storefrontCode: String
+        let searchGeneration: UUID
         let fileFingerprints: [Int]
     }
 

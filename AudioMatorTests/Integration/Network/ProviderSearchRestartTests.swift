@@ -58,8 +58,13 @@ final class ProviderSearchRestartTests: XCTestCase {
             AudioFileTestFactory.make(title: "Track", artist: "Artist", album: "Album")
         ])
 
+        let context = iTunesSearchContext(
+            storefront: store.storefront,
+            generation: UUID(),
+            submittedSelection: store.fileSelectionSummary
+        )
         let detailTask = Task {
-            try await store.albumDetail(for: detail.album)
+            try await store.albumDetail(for: detail.album, context: context)
         }
         let matcherStarted = try await waitUntil { matchingGate.didStart }
 

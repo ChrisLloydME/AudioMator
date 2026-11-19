@@ -200,8 +200,56 @@ struct ContentView: View {
         let targets = targetFileIDs.compactMap { filesByID[$0] }
         guard !targets.isEmpty else { return }
 
-        metadataEditorStore.present(targetFiles: targets)
-        openWindow(id: MetadataEditorWindowView.windowID)
+        let targetCount = targets.count
+        let decision = metadataEditorStore.openDecision(for: targets.map(\.id))
+        Task { @MainActor in
+            let outcome = await MetadataEditorOpener.open(
+                store: metadataEditorStore,
+                targetFiles: targets,
+                decision: decision,
+                confirmDiscard: { _ in
+                    await confirmDiscardingMetadataEditorDraft(targetCount: targetCount)
+                }
+            )
+            switch outcome {
+            case .focusExisting, .presentedNew, .presentedWhileDraining:
+                openWindow(id: MetadataEditorWindowView.windowID)
+            case .discardDeclined:
+                break
+            case .staleConfirmation:
+                viewModel.presentMetadataWriteHUD(
+                    style: .warning,
+                    title: String(localized: "Metadata Editor Changed"),
+                    subtitle: String(localized: "The Metadata Editor changed before it could open these files. Choose Metadata Editor… again.")
+                )
+            }
+        }
+    }
+
+    /// Localized discard decision for a raw Metadata Editor draft when a
+    /// different target selection is requested. The response is only a claim
+    /// about the session that was current when the alert was requested;
+    /// `MetadataEditorOpener` revalidates it through the store before discarding.
+    @MainActor
+    private func confirmDiscardingMetadataEditorDraft(targetCount: Int) async -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "Discard Metadata Editor Changes?")
+        alert.informativeText = targetCount == 1
+            ? String(localized: "The Metadata Editor has unsaved changes. Opening the selected file discards them.")
+            : String(localized: "The Metadata Editor has unsaved changes. Opening the selected files discards them.")
+        alert.addButton(withTitle: String(localized: "Discard and Open"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            return await withCheckedContinuation { continuation in
+                alert.beginSheetModal(for: window) { response in
+                    continuation.resume(returning: response == .alertFirstButtonReturn)
+                }
+            }
+        }
+
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func dismissWelcomeSplash() {
@@ -855,5 +903,61 @@ extension ContentView {
         }
 
         return "(unreadable value)"
+    }
+}
+
+// MARK: - Metadata Editor open routing (F3)
+
+/// Maps the store's raw-editor open decision onto the window side effects.
+///
+/// The store alone owns presentation identity and revalidates a discard decision;
+/// this type only sequences the user confirmation and the resulting store call,
+/// so the routing is testable without AppKit window presentation.
+@MainActor
+enum MetadataEditorOpener {
+    enum Outcome: Equatable {
+        /// The current presentation owns the window; raise it without resetting.
+        case focusExisting
+        /// A new presentation was started for the requested targets.
+        case presentedNew
+        /// A new presentation was started while a closed apply drains; Done is
+        /// blocked store-side until the drain completes.
+        case presentedWhileDraining
+        /// The user declined to discard the live draft.
+        case discardDeclined
+        /// The live session changed while the discard decision was pending; the
+        /// store refused to discard it and no window should open.
+        case staleConfirmation
+    }
+
+    static func open(
+        store: MetadataEditorStore,
+        targetFiles: [AudioFile],
+        decision: MetadataEditorOpenDecision,
+        confirmDiscard: @MainActor (MetadataEditorPresentationID) async -> Bool
+    ) async -> Outcome {
+        switch decision {
+        case .focusExisting:
+            return .focusExisting
+
+        case .presentNew:
+            store.presentNew(targetFiles: targetFiles)
+            return .presentedNew
+
+        case .presentWhileDraining:
+            store.presentNew(targetFiles: targetFiles)
+            return .presentedWhileDraining
+
+        case .confirmDiscardAndOpen(let presentationID):
+            let confirmed = await confirmDiscard(presentationID)
+            guard confirmed else { return .discardDeclined }
+            guard store.discardAndOpen(
+                targetFiles: targetFiles,
+                sessionID: presentationID
+            ) else {
+                return .staleConfirmation
+            }
+            return .presentedNew
+        }
     }
 }

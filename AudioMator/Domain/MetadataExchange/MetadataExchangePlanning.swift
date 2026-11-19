@@ -109,55 +109,45 @@ struct MetadataExchangeFieldChange: Identifiable {
 }
 
 struct MetadataExchangeWriteEntry: Identifiable {
-    let fileID: AudioFile.ID
     let fileName: String
-    /// Legacy Apply-compatible scalar values. They are derived from the resolved
-    /// typed intent with `preservingNumberPairComponents == true`, so the current
-    /// write path already applies component-only number semantics. Production
-    /// presentation should read `resolvedIntent`/`frozenPayload` instead.
-    let values: [MetadataExchangeField: String]
-    let expectedFileFingerprint: AudioFileFingerprint?
-    let preservingNumberPairComponents: Bool
-    /// Frozen typed intent shared by preview and the future strict Apply path.
+    /// Frozen reviewed write captured during planning. This is the only value the
+    /// strict Apply path consumes; it cannot be rebuilt from the live model.
+    let write: ReviewedMetadataWrite
+    /// Resolved typed intent kept for preview truth/tests. One intent, one write.
     let resolvedIntent: ExchangeResolvedIntent?
-    let frozenPayload: MetadataEditPayload?
-    let frozenProjection: MetadataWriteProjection?
-    let frozenTarget: ReviewedMetadataTarget?
 
-    init(
-        fileID: AudioFile.ID,
-        fileName: String,
-        values: [MetadataExchangeField: String],
-        expectedFileFingerprint: AudioFileFingerprint? = nil,
-        preservingNumberPairComponents: Bool = false,
-        resolvedIntent: ExchangeResolvedIntent? = nil,
-        frozenPayload: MetadataEditPayload? = nil,
-        frozenProjection: MetadataWriteProjection? = nil,
-        frozenTarget: ReviewedMetadataTarget? = nil
-    ) {
-        self.fileID = fileID
-        self.fileName = fileName
-        self.values = values
-        self.expectedFileFingerprint = expectedFileFingerprint
-        self.preservingNumberPairComponents = preservingNumberPairComponents
-        self.resolvedIntent = resolvedIntent
-        self.frozenPayload = frozenPayload
-        self.frozenProjection = frozenProjection
-        self.frozenTarget = frozenTarget
+    var id: AudioFile.ID { write.target.id }
+    var fileID: AudioFile.ID { write.target.id }
+
+    var frozenPayload: MetadataEditPayload? {
+        guard case .semantic(let payload) = write.intent else { return nil }
+        return payload
     }
 
-    var id: AudioFile.ID { fileID }
+    var frozenProjection: MetadataWriteProjection { write.projection }
+    var frozenTarget: ReviewedMetadataTarget { write.target }
 
-    /// The frozen reviewed write when a reviewed target and adapter projection
-    /// are available. The C1 strict executor consumes this value; the legacy
-    /// Apply path in this phase consumes the compatibility fields above.
-    var frozenWrite: ReviewedMetadataWrite? {
-        guard let frozenTarget, let frozenPayload, let frozenProjection else { return nil }
-        return ReviewedMetadataWrite(
-            target: frozenTarget,
-            intent: .semantic(frozenPayload),
-            projection: frozenProjection
-        )
+    /// Presentation-only flattened values derived from the frozen intent and the
+    /// adapter projection. Never used to build a commit.
+    var previewValues: [MetadataExchangeField: String] {
+        guard let resolvedIntent, let payload = frozenPayload else { return [:] }
+        let effectiveFields = payload.requestedFields
+        var values: [MetadataExchangeField: String] = [:]
+        for operation in resolvedIntent.operations {
+            switch operation {
+            case .setText(let field, let text):
+                guard effectiveFields.contains(field.semanticFieldKey ?? .title) else { continue }
+                values[field] = field.canonicalImportedValue(text)
+            case .removeText(let field):
+                guard effectiveFields.contains(field.semanticFieldKey ?? .title) else { continue }
+                values[field] = ""
+            case .setNumber(let field, _, let literalText):
+                values[field] = literalText
+            case .removeNumber(let field):
+                values[field] = ""
+            }
+        }
+        return values
     }
 }
 
@@ -934,18 +924,9 @@ enum MetadataExchangePlanner {
                 )
                 let entry: MetadataExchangeWriteEntry? = allowsWriteEntry
                     ? MetadataExchangeWriteEntry(
-                        fileID: file.id,
                         fileName: file.url.lastPathComponent,
-                        values: legacyValues(
-                            from: intent,
-                            effectiveFields: frozen.payload.requestedFields
-                        ),
-                        expectedFileFingerprint: file.fileFingerprint,
-                        preservingNumberPairComponents: true,
-                        resolvedIntent: intent,
-                        frozenPayload: frozen.payload,
-                        frozenProjection: frozen.projection,
-                        frozenTarget: frozen.target
+                        write: frozen.reviewedWrite,
+                        resolvedIntent: intent
                       )
                     : nil
                 return MetadataExchangeImportPreviewRow(
@@ -1006,33 +987,6 @@ enum MetadataExchangePlanner {
             changesByField[change.field] = change
         }
         return MetadataExchangeField.allCases.compactMap { changesByField[$0] }
-    }
-
-    /// Legacy Apply-compatible scalar values derived from the frozen intent.
-    ///
-    /// Text operations are included only when the frozen payload actually writes
-    /// them; number component operations stay present so the current preserving
-    /// setter path can apply them without reintroducing whole-pair semantics.
-    private static func legacyValues(
-        from intent: ExchangeResolvedIntent,
-        effectiveFields: Set<MetadataFieldKey>
-    ) -> [MetadataExchangeField: String] {
-        var values: [MetadataExchangeField: String] = [:]
-        for operation in intent.operations {
-            switch operation {
-            case .setText(let field, let text):
-                guard effectiveFields.contains(field.semanticFieldKey ?? .title) else { continue }
-                values[field] = field.canonicalImportedValue(text)
-            case .removeText(let field):
-                guard effectiveFields.contains(field.semanticFieldKey ?? .title) else { continue }
-                values[field] = ""
-            case .setNumber(let field, _, let literalText):
-                values[field] = literalText
-            case .removeNumber(let field):
-                values[field] = ""
-            }
-        }
-        return values
     }
 
     // MARK: – Locator matching

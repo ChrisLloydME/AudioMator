@@ -25,11 +25,11 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertEqual(plan.readyCount, 1)
         XCTAssertEqual(plan.rows[0].status, .ready)
 
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.trackNumberText], "07")
         XCTAssertEqual(values[.artist], "Boards of Canada")
         XCTAssertEqual(values[.title], "Roygbiv")
-        XCTAssertEqual(plan.rows[0].writeEntry?.expectedFileFingerprint, fingerprint)
+        XCTAssertEqual(plan.rows[0].writeEntry?.write.target.fingerprint, fingerprint)
     }
 
     func testFilenameMetadataPlanMarksUnchangedRows() {
@@ -166,7 +166,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertEqual(numberChange.extractedValue, "07")
         XCTAssertEqual(numberChange.status, .different)
         XCTAssertTrue(numberChange.willWrite)
-        XCTAssertEqual(extractionPlan.rows.first?.writeEntry?.values[.trackNumberText], "07")
+        XCTAssertEqual(extractionPlan.rows.first?.writeEntry?.previewValues[.trackNumberText], "07")
 
         let renamePlan = makeFileRenamePlan(
             template: "{{trackNumber}} - {{title}}",

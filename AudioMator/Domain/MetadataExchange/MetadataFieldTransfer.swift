@@ -176,21 +176,10 @@ enum MetadataFieldTransferPlanner {
                 message: String(localized: "The destination already has this value. This file will be skipped without changes.")
             )
         case .executable(let frozen):
-            var values: [MetadataExchangeField: String] = [:]
-            if frozen.payload.requestedFields.contains(destination.semanticFieldKey ?? .title) {
-                values[destination] = destinationDisplayValue
-            }
-            if operation == .cut { values[source] = "" }
             let entry = MetadataExchangeWriteEntry(
-                fileID: file.id,
                 fileName: file.url.lastPathComponent,
-                values: values,
-                expectedFileFingerprint: file.fileFingerprint,
-                preservingNumberPairComponents: true,
-                resolvedIntent: intent,
-                frozenPayload: frozen.payload,
-                frozenProjection: frozen.projection,
-                frozenTarget: frozen.target
+                write: frozen.reviewedWrite,
+                resolvedIntent: intent
             )
             return row(
                 status: .ready,

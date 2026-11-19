@@ -18,7 +18,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows.count, 1)
         XCTAssertEqual(plan.rows[0].status, .ready)
 
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "Quiet Storm")
     }
 
@@ -180,7 +180,7 @@ final class MetadataExchangeTests: XCTestCase {
 
             XCTAssertNil(plan.validationMessage, delimiter)
             XCTAssertEqual(plan.rows.first?.status, .ready, delimiter)
-            let values = try XCTUnwrap(plan.rows.first?.writeEntry?.values, delimiter)
+            let values = try XCTUnwrap(plan.rows.first?.writeEntry?.previewValues, delimiter)
             XCTAssertEqual(values[.title], "Room 404: \"Do Not Wake\"", delimiter)
         }
     }
@@ -311,7 +311,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows[0].status, .ready)
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "Example Song")
         XCTAssertEqual(values[.artist], "Example Artist")
         XCTAssertEqual(values[.composer], "Example Composer")
@@ -347,9 +347,9 @@ final class MetadataExchangeTests: XCTestCase {
             firstRowIsHeader: true, targetFiles: [file], clearBlankImportedValues: false)
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.writeEntries.count, 1)
-        XCTAssertEqual(plan.writeEntries.first?.values[.comment], "Keep this")
-        XCTAssertEqual(plan.writeEntries.first?.values[.trackNumber], "3")
-        XCTAssertEqual(plan.writeEntries.first?.values[.discNumber], "2")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.comment], "Keep this")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.trackNumber], "3")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.discNumber], "2")
         let reordered = MetadataExchangePlanner.makeCSVImportPlan(
             template: "{{comment}},{{trackNumber}}", sourceText: "Track #,Comments\n3,Keep this",
             firstRowIsHeader: true, targetFiles: [file], clearBlankImportedValues: false)
@@ -368,8 +368,8 @@ final class MetadataExchangeTests: XCTestCase {
         )
 
         XCTAssertNil(plan.validationMessage)
-        XCTAssertEqual(plan.writeEntries.first?.values[.artist], "Performer")
-        XCTAssertEqual(plan.writeEntries.first?.values[.title], "Song")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.artist], "Performer")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.title], "Song")
     }
 
     func testCSVImportBlankCellsOnlyClearWhenEnabled() throws {
@@ -396,7 +396,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: true
         )
         XCTAssertEqual(clearPlan.rows[0].status, .ready)
-        let values = try XCTUnwrap(clearPlan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(clearPlan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "")
     }
 
@@ -415,7 +415,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows[0].status, .ready)
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "Quiet Storm")
     }
 
@@ -480,7 +480,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.map(\.status), [.ready, .ready, .ready])
-        XCTAssertEqual(plan.writeEntries.map { $0.values[.title] }, ["New A", "", "New C"])
+        XCTAssertEqual(plan.writeEntries.map { $0.previewValues[.title] }, ["New A", "", "New C"])
     }
 
     func testTextImportRejectsAmbiguousAndPathologicalSeparatorMatches() {
@@ -515,7 +515,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.first?.status, .ready)
-        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.values[.title]), "Imported")
+        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.previewValues[.title]), "Imported")
     }
 
     func testTextTemplatesRejectUnknownUnterminatedAndMultilineFields() {
@@ -611,7 +611,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.map(\.fileID), [second.id, first.id])
-        XCTAssertEqual(plan.writeEntries.map { $0.values[.title] }, ["New B", "New A"])
+        XCTAssertEqual(plan.writeEntries.map { $0.previewValues[.title] }, ["New B", "New A"])
     }
 
     func testCSVImportIndexesLargeReorderedSelections() {
@@ -649,7 +649,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.first?.fileID, second.id)
-        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.values[.title]), "New Two")
+        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.previewValues[.title]), "New Two")
         XCTAssertEqual(plan.rows.last?.fileID, first.id)
         XCTAssertEqual(plan.rows.last?.status, .missingExternalRecord)
     }
@@ -687,7 +687,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
         XCTAssertEqual(subset.rows.first?.status, .ready)
-        XCTAssertEqual(try XCTUnwrap(subset.writeEntries.first?.values[.title]), "Right")
+        XCTAssertEqual(try XCTUnwrap(subset.writeEntries.first?.previewValues[.title]), "Right")
     }
 
     func testCSVImportRejectsContradictoryMultipleLocators() {
@@ -738,14 +738,14 @@ final class MetadataExchangeTests: XCTestCase {
         )
 
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        XCTAssertEqual(entry.values[.trackNumber], "2")
-        XCTAssertEqual(entry.values[.trackTotal], "10")
-        XCTAssertEqual(entry.values[.discNumber], "1")
-        XCTAssertEqual(entry.values[.discTotal], "2")
-        XCTAssertEqual(entry.values[.isrc], "USABC1234567")
-        XCTAssertEqual(entry.values[.lyricist], "Writer")
-        XCTAssertEqual(entry.values[.contentAdvisory], "1")
-        XCTAssertEqual(entry.expectedFileFingerprint, fingerprint)
+        XCTAssertEqual(entry.previewValues[.trackNumber], "2")
+        XCTAssertEqual(entry.previewValues[.trackTotal], "10")
+        XCTAssertEqual(entry.previewValues[.discNumber], "1")
+        XCTAssertEqual(entry.previewValues[.discTotal], "2")
+        XCTAssertEqual(entry.previewValues[.isrc], "USABC1234567")
+        XCTAssertEqual(entry.previewValues[.lyricist], "Writer")
+        XCTAssertEqual(entry.previewValues[.contentAdvisory], "1")
+        XCTAssertEqual(entry.write.target.fingerprint, fingerprint)
     }
 
     func testStructuredNumberAndContentAdvisoryExportsAreRoundTripStable() {
@@ -823,7 +823,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: true
         )
 
-        let values = try XCTUnwrap(plan.writeEntries.first?.values)
+        let values = try XCTUnwrap(plan.writeEntries.first?.previewValues)
         XCTAssertEqual(values[.title], "")
         XCTAssertEqual(values[.artist], "")
     }
@@ -924,7 +924,7 @@ final class MetadataExchangeTests: XCTestCase {
         )
         XCTAssertNil(terminalBlank.blockingMessage)
         XCTAssertEqual(terminalBlank.rows.map(\.status), [.ready, .unchanged])
-        XCTAssertEqual(terminalBlank.writeEntries.map { $0.values[.title] }, ["A-tag"])
+        XCTAssertEqual(terminalBlank.writeEntries.map { $0.previewValues[.title] }, ["A-tag"])
 
         let trailingTerminator = MetadataExchangePlanner.makeTextImportPlan(
             template: "{{title}}",
@@ -933,7 +933,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
         XCTAssertNil(trailingTerminator.blockingMessage)
-        XCTAssertEqual(trailingTerminator.writeEntries.map { $0.values[.title] }, ["A-tag", "B-tag"])
+        XCTAssertEqual(trailingTerminator.writeEntries.map { $0.previewValues[.title] }, ["A-tag", "B-tag"])
 
         let single = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A")
         let padded = MetadataExchangePlanner.makeTextImportPlan(
@@ -943,7 +943,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
         XCTAssertNil(padded.blockingMessage)
-        XCTAssertEqual(padded.writeEntries.map { $0.values[.title] }, ["Quiet Storm"])
+        XCTAssertEqual(padded.writeEntries.map { $0.previewValues[.title] }, ["Quiet Storm"])
 
         let blankSlot = MetadataExchangePlanner.makeTextImportPlan(
             template: "{{title}}",
@@ -952,7 +952,7 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: true
         )
         XCTAssertNil(blankSlot.blockingMessage)
-        XCTAssertEqual(blankSlot.writeEntries.map { $0.values[.title] }, [""])
+        XCTAssertEqual(blankSlot.writeEntries.map { $0.previewValues[.title] }, [""])
     }
 
     func testTextBlankWithClearEnabledOnlyClearsCapturedFields() {
@@ -977,8 +977,8 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: true
         )
         let entry = blankRecord.writeEntries.first
-        XCTAssertEqual(entry?.values[.title], "")
-        XCTAssertNil(entry?.values[.artist])
+        XCTAssertEqual(entry?.previewValues[.title], "")
+        XCTAssertNil(entry?.previewValues[.artist])
     }
 
     func testCSVSoleEmptyCellRoundTrips() {
@@ -1053,7 +1053,7 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [target],
             clearBlankImportedValues: false
         )
-        XCTAssertEqual(try XCTUnwrap(literalApostrophe.writeEntries.first).values[.title], "'+44")
+        XCTAssertEqual(try XCTUnwrap(literalApostrophe.writeEntries.first).previewValues[.title], "'+44")
 
         let leadingEmpty = MetadataExchangePlanner.makeCSVImportPlan(
             template: "{{title}},{{artist}}",
@@ -1063,8 +1063,8 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let entry = try XCTUnwrap(leadingEmpty.writeEntries.first)
-        XCTAssertEqual(entry.values[.artist], "New Artist")
-        XCTAssertNil(entry.values[.title], "A leading empty cell stays an unchanged field, not a shifted one")
+        XCTAssertEqual(entry.previewValues[.artist], "New Artist")
+        XCTAssertNil(entry.previewValues[.title], "A leading empty cell stays an unchanged field, not a shifted one")
     }
 
     func testMarkedCSVReversesItsOwnSpreadsheetProtection() throws {
@@ -1085,7 +1085,7 @@ final class MetadataExchangeTests: XCTestCase {
             targetFiles: [AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"))],
             clearBlankImportedValues: false
         )
-        XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).values[.title], "=1+1")
+        XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).previewValues[.title], "=1+1")
     }
 
     func testExchangePlansDeduplicateRepeatedTargetIDs() {

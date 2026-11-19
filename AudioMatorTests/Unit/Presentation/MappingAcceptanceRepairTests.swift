@@ -75,9 +75,9 @@ final class MappingAcceptanceRepairTests: XCTestCase {
             targetFiles: [target], clearBlankImportedValues: false
         )
         let entry = try XCTUnwrap(imported.writeEntries.first)
-        XCTAssertEqual(entry.values[.title], "<remove>")
+        XCTAssertEqual(entry.previewValues[.title], "<remove>")
         var edit = SingleFileEditModel(from: target)
-        MetadataExchangeField.title.applyImportedValue(entry.values[.title]!, to: &edit, preservingNumberPairComponents: true)
+        MetadataExchangeField.title.applyImportedValue(entry.previewValues[.title]!, to: &edit, preservingNumberPairComponents: true)
         XCTAssertEqual(edit.title, "<remove>")
     }
 
@@ -87,7 +87,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
             template: "{{title}}", sourceText: "Title\n<remove>", firstRowIsHeader: true,
             targetFiles: [target], clearBlankImportedValues: false
         )
-        XCTAssertEqual(try XCTUnwrap(legacy.writeEntries.first).values[.title], "<remove>")
+        XCTAssertEqual(try XCTUnwrap(legacy.writeEntries.first).previewValues[.title], "<remove>")
         for literal in ["<remove>", "\\<remove>", "\\\\<remove>"] {
             let original = AudioFileTestFactory.make(title: literal)
             let exported = MetadataExchangePlanner.makeTextExportPlan(template: "{{title}}", targetFiles: [original])
@@ -95,7 +95,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
                 template: "{{title}}", sourceText: exported.outputText,
                 targetFiles: [target], clearBlankImportedValues: false
             )
-            XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).values[.title], literal)
+            XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).previewValues[.title], literal)
         }
     }
 

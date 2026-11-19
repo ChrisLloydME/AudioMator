@@ -148,44 +148,23 @@ enum FilenameMetadataPreviewStatus: Equatable {
 }
 
 struct FilenameMetadataWriteEntry: Identifiable {
-    let fileID: UUID
     let fileName: String
-    /// Legacy Apply-compatible extracted values.
-    let values: [FileRenameMetadataField: String]
-    let expectedFileFingerprint: AudioFileFingerprint?
-    /// Frozen semantic payload captured from the reviewed file during planning.
-    let frozenPayload: MetadataEditPayload?
-    let frozenProjection: MetadataWriteProjection?
-    let frozenTarget: ReviewedMetadataTarget?
+    /// Frozen reviewed write captured from the reviewed file during planning.
+    let write: ReviewedMetadataWrite
+    /// Presentation-only extracted values for previews/tests. Never used to build
+    /// a commit.
+    let previewValues: [FileRenameMetadataField: String]
 
-    init(
-        fileID: UUID,
-        fileName: String,
-        values: [FileRenameMetadataField: String],
-        expectedFileFingerprint: AudioFileFingerprint? = nil,
-        frozenPayload: MetadataEditPayload? = nil,
-        frozenProjection: MetadataWriteProjection? = nil,
-        frozenTarget: ReviewedMetadataTarget? = nil
-    ) {
-        self.fileID = fileID
-        self.fileName = fileName
-        self.values = values
-        self.expectedFileFingerprint = expectedFileFingerprint
-        self.frozenPayload = frozenPayload
-        self.frozenProjection = frozenProjection
-        self.frozenTarget = frozenTarget
+    var id: UUID { write.target.id }
+    var fileID: UUID { write.target.id }
+
+    var frozenPayload: MetadataEditPayload? {
+        guard case .semantic(let payload) = write.intent else { return nil }
+        return payload
     }
 
-    var id: UUID { fileID }
-
-    var frozenWrite: ReviewedMetadataWrite? {
-        guard let frozenTarget, let frozenPayload, let frozenProjection else { return nil }
-        return ReviewedMetadataWrite(
-            target: frozenTarget,
-            intent: .semantic(frozenPayload),
-            projection: frozenProjection
-        )
-    }
+    var frozenProjection: MetadataWriteProjection { write.projection }
+    var frozenTarget: ReviewedMetadataTarget { write.target }
 }
 
 struct FilenameMetadataPreviewRow: Identifiable {
@@ -403,13 +382,9 @@ private struct FilenameMetadataPlanBuilder {
             ) {
             case .executable(let frozen):
                 writeEntry = FilenameMetadataWriteEntry(
-                    fileID: file.id,
                     fileName: file.url.lastPathComponent,
-                    values: writeValues,
-                    expectedFileFingerprint: expectedFileFingerprint,
-                    frozenPayload: frozen.payload,
-                    frozenProjection: frozen.projection,
-                    frozenTarget: frozen.target
+                    write: frozen.reviewedWrite,
+                    previewValues: writeValues
                 )
             case .unchanged:
                 status = .unchanged

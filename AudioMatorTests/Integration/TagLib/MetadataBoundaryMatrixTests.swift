@@ -191,15 +191,15 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
                 sourceText: "\(field.placeholderName)\n\(sample.1)", firstRowIsHeader: true,
                 targetFiles: [file], clearBlankImportedValues: false)
             let entry = try XCTUnwrap(plan.writeEntries.first, "CSV \(field) \(plan.rows)")
-            var edit = SingleFileEditModel(from: file)
-            for (key, value) in entry.values {
-                key.applyImportedValue(value, to: &edit, preservingNumberPairComponents: true)
-            }
-            let payload = MetadataEditPayload(edit, comparedTo: file)
+            let payload = try XCTUnwrap(entry.frozenPayload, "CSV \(field)")
             XCTAssertTrue(payload.requestedFields.contains(sample.0), "CSV \(field)")
             let bytesBeforeWrite = try Data(contentsOf: url)
             do {
-                _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
+                _ = try pipeline.writeReviewedMetadata(
+                    payload,
+                    to: url,
+                    expectedVersion: entry.write.target.version
+                )
             } catch {
                 XCTAssertEqual(try Data(contentsOf: url), bytesBeforeWrite, "Rejected CSV write must not commit")
                 XCTFail("CSV \(field.placeholderName), requested=\(payload.requestedFields), before YEAR=\(file.year), DATE=\(file.date), RELEASEDATE=\(file.releaseDate): \(error)")

@@ -102,13 +102,11 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
             switch workflow {
             case "filename":
                 _ = await viewModel.applyFilenameMetadataPlan(files.map {
-                    FilenameMetadataWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    makeCancellationFilenameEntry(file: $0)
                 })
             case "csv":
                 _ = await viewModel.applyMetadataExchangeWriteEntries(files.map {
-                    MetadataExchangeWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    makeCancellationExchangeEntry(file: $0)
                 })
             case "raw":
                 let maps = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
@@ -184,6 +182,44 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         XCTAssertEqual(entry.issues.map(\.fileName), Array(names.dropFirst(expectedWrites)))
         XCTAssertTrue(entry.issues[0].messages.joined().localizedCaseInsensitiveContains("cancel"))
     }
+}
+
+@MainActor
+private func makeCancellationExchangeEntry(file: AudioFile) -> MetadataExchangeWriteEntry {
+    var edit = SingleFileEditModel(from: file)
+    edit.title = "Applied"
+    let payload = MetadataEditPayload(edit, comparedTo: file)
+    let target = ReviewedMetadataTarget(verified: file)!
+    let projection = MetadataWriteProjection(
+        requestedFields: payload.requestedFields,
+        effectiveFields: payload.requestedFields,
+        validation: .executable,
+        isEncoderNoOp: false
+    )
+    return MetadataExchangeWriteEntry(
+        fileName: file.url.lastPathComponent,
+        write: ReviewedMetadataWrite(target: target, intent: .semantic(payload), projection: projection),
+        resolvedIntent: nil
+    )
+}
+
+@MainActor
+private func makeCancellationFilenameEntry(file: AudioFile) -> FilenameMetadataWriteEntry {
+    var edit = SingleFileEditModel(from: file)
+    edit.title = "Applied"
+    let payload = MetadataEditPayload(edit, comparedTo: file)
+    let target = ReviewedMetadataTarget(verified: file)!
+    let projection = MetadataWriteProjection(
+        requestedFields: payload.requestedFields,
+        effectiveFields: payload.requestedFields,
+        validation: .executable,
+        isEncoderNoOp: false
+    )
+    return FilenameMetadataWriteEntry(
+        fileName: file.url.lastPathComponent,
+        write: ReviewedMetadataWrite(target: target, intent: .semantic(payload), projection: projection),
+        previewValues: [.title: "Applied"]
+    )
 }
 
 private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipeline, @unchecked Sendable {

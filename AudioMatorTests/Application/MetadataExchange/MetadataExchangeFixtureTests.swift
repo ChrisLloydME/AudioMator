@@ -85,7 +85,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.first?.status, .ready)
-        let values = try XCTUnwrap(plan.rows.first?.writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows.first?.writeEntry?.previewValues)
         // The lexer keeps quoted whitespace; the semantic intent trims it the same
         // way the production adapter does, so preview and write agree.
         XCTAssertEqual(values[.title], "Keep Surrounding Spaces")
@@ -132,11 +132,11 @@ final class MetadataExchangeFixtureTests: XCTestCase {
     private func normalizedRecord(from entry: MetadataExchangeWriteEntry) throws -> NormalizedMetadataRecord {
         NormalizedMetadataRecord(
             filename: entry.fileName,
-            title: try XCTUnwrap(entry.values[.title], entry.fileName),
-            artist: try XCTUnwrap(entry.values[.artist], entry.fileName),
-            album: try XCTUnwrap(entry.values[.album], entry.fileName),
-            composer: try XCTUnwrap(entry.values[.composer], entry.fileName),
-            comment: try XCTUnwrap(entry.values[.comment], entry.fileName)
+            title: try XCTUnwrap(entry.previewValues[.title], entry.fileName),
+            artist: try XCTUnwrap(entry.previewValues[.artist], entry.fileName),
+            album: try XCTUnwrap(entry.previewValues[.album], entry.fileName),
+            composer: try XCTUnwrap(entry.previewValues[.composer], entry.fileName),
+            comment: try XCTUnwrap(entry.previewValues[.comment], entry.fileName)
         )
     }
 

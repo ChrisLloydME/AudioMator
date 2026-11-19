@@ -213,12 +213,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             source: source, destination: destination, operation: operation, targetFiles: [file]
         )
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        var edit = SingleFileEditModel(from: file)
-        for field in MetadataExchangeField.allCases {
-            guard let value = entry.values[field] else { continue }
-            field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: entry.preservingNumberPairComponents)
-        }
-        return MetadataEditPayload(edit, comparedTo: file)
+        return try XCTUnwrap(entry.frozenPayload)
     }
 
     func testFieldTransferRejectedWritesLeaveSourceAndFileIntact() async throws {

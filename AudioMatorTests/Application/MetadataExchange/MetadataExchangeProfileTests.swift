@@ -49,15 +49,15 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
         XCTAssertNil(importPlan.validationMessage)
         let entry = importPlan.writeEntries.first
-        XCTAssertEqual(entry?.values[.year], "2004")
-        XCTAssertEqual(entry?.values[.date], "2008-03-04")
-        XCTAssertEqual(entry?.values[.releaseDate], "2017-06-09")
-        XCTAssertEqual(entry?.values[.originalReleaseDate], "1999-11-12")
+        XCTAssertEqual(entry?.previewValues[.year], "2004")
+        XCTAssertEqual(entry?.previewValues[.date], "2008-03-04")
+        XCTAssertEqual(entry?.previewValues[.releaseDate], "2017-06-09")
+        XCTAssertEqual(entry?.previewValues[.originalReleaseDate], "1999-11-12")
 
         // Preview values are the values the write path applies.
         var edit = SingleFileEditModel(from: blankTarget)
         for field in MetadataExchangeField.allCases {
-            guard let value = entry?.values[field] else { continue }
+            guard let value = entry?.previewValues[field] else { continue }
             field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: true)
         }
         XCTAssertEqual(edit.year, "2004")
@@ -82,9 +82,9 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
         XCTAssertNil(removalPlan.validationMessage)
         let removalEntry = try XCTUnwrap(removalPlan.writeEntries.first)
-        XCTAssertEqual(removalEntry.values[.date], "")
-        XCTAssertNil(removalEntry.values[.year], "Unchanged fields are not written")
-        XCTAssertNil(removalEntry.values[.releaseDate])
+        XCTAssertEqual(removalEntry.previewValues[.date], "")
+        XCTAssertNil(removalEntry.previewValues[.year], "Unchanged fields are not written")
+        XCTAssertNil(removalEntry.previewValues[.releaseDate])
         XCTAssertEqual(
             removalPlan.rows.first?.changes.first { $0.field == .date }?.displayImportedValue,
             "<remove>"
@@ -97,7 +97,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(removalEntry.frozenPayload?.requestedFields, [.standaloneDate])
         var removalEdit = SingleFileEditModel(from: target)
         for field in MetadataExchangeField.allCases {
-            guard let value = removalEntry.values[field] else { continue }
+            guard let value = removalEntry.previewValues[field] else { continue }
             field.applyImportedValue(value, to: &removalEdit, preservingNumberPairComponents: true)
         }
         XCTAssertEqual(removalEdit.date, "")
@@ -134,7 +134,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let literalTextEntry = try XCTUnwrap(literalTextPlan.writeEntries.first)
-        XCTAssertEqual(literalTextEntry.values[.title], "<remove>")
+        XCTAssertEqual(literalTextEntry.previewValues[.title], "<remove>")
 
         // An omitted column (template without releaseDate) is unchanged, not a
         // removal.
@@ -152,7 +152,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let omittedEntry = try XCTUnwrap(omittedPlan.writeEntries.first)
-        XCTAssertNil(omittedEntry.values[.releaseDate])
+        XCTAssertNil(omittedEntry.previewValues[.releaseDate])
     }
 
     func testUnknownProfileVersionIsRejectedBeforeAnyWrite() {
@@ -188,8 +188,8 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let yearEntry = try XCTUnwrap(yearPlan.writeEntries.first)
-        XCTAssertEqual(yearEntry.values[.year], "2005")
-        XCTAssertNil(yearEntry.values[.date])
+        XCTAssertEqual(yearEntry.previewValues[.year], "2005")
+        XCTAssertNil(yearEntry.previewValues[.date])
 
         let datePlan = MetadataExchangePlanner.makeCSVImportPlan(
             template: "{{date}}",
@@ -224,10 +224,10 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        XCTAssertEqual(entry.values[.trackNumber], "")
+        XCTAssertEqual(entry.previewValues[.trackNumber], "")
         XCTAssertEqual(entry.resolvedIntent?.operations, [.removeNumber(.trackNumber)])
         XCTAssertEqual(entry.frozenPayload?.requestedFields, [.track])
-        XCTAssertEqual(entry.frozenProjection?.requestedFields, [.track])
+        XCTAssertEqual(entry.frozenProjection.requestedFields, [.track])
         let payload = try XCTUnwrap(entry.frozenPayload)
         XCTAssertEqual(
             try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload).fields,
@@ -275,7 +275,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        XCTAssertEqual(entry.values[.contentAdvisory], "")
+        XCTAssertEqual(entry.previewValues[.contentAdvisory], "")
         XCTAssertEqual(entry.resolvedIntent?.operations, [.removeText(.contentAdvisory)])
         XCTAssertEqual(entry.frozenPayload?.requestedFields, [.explicitContent])
         XCTAssertEqual(plan.rows.first?.changes.first?.displayImportedValue, "<remove>")
@@ -303,8 +303,8 @@ final class MetadataExchangeProfileTests: XCTestCase {
             targetFiles: [target], clearBlankImportedValues: false
         )
         let pairEntry = try XCTUnwrap(pairPlan.writeEntries.first)
-        XCTAssertEqual(pairEntry.values[.trackNumber], "4")
-        XCTAssertEqual(pairEntry.values[.trackTotal], "12")
+        XCTAssertEqual(pairEntry.previewValues[.trackNumber], "4")
+        XCTAssertEqual(pairEntry.previewValues[.trackTotal], "12")
         XCTAssertEqual(pairEntry.frozenPayload?.requestedFields, [.track])
 
         let totalOnlyPlan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -329,8 +329,8 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        XCTAssertEqual(entry.values[.trackNumber], "4")
-        XCTAssertEqual(entry.values[.trackTotal], "12")
+        XCTAssertEqual(entry.previewValues[.trackNumber], "4")
+        XCTAssertEqual(entry.previewValues[.trackTotal], "12")
         XCTAssertEqual(entry.frozenPayload?.requestedFields, [.track], "Explicit total equal to the baseline must not write the embedded total")
     }
 
@@ -375,7 +375,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
             targetFiles: [target],
             clearBlankImportedValues: false
         )
-        XCTAssertEqual(try XCTUnwrap(textPlan.writeEntries.first).values[.title], "<remove>")
+        XCTAssertEqual(try XCTUnwrap(textPlan.writeEntries.first).previewValues[.title], "<remove>")
 
         let quotedCSV = """
         \(MetadataExchangeProfile.markerLine())
@@ -388,7 +388,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
             targetFiles: [target],
             clearBlankImportedValues: false
         )
-        XCTAssertEqual(try XCTUnwrap(csvPlan.writeEntries.first).values[.title], "<remove>")
+        XCTAssertEqual(try XCTUnwrap(csvPlan.writeEntries.first).previewValues[.title], "<remove>")
     }
 
     func testMalformedRawNumberRemovalUsesExplicitComponentOperation() throws {
@@ -411,7 +411,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
         let entry = try XCTUnwrap(plan.writeEntries.first)
         let payload = try XCTUnwrap(entry.frozenPayload)
-        XCTAssertTrue(entry.preservingNumberPairComponents)
+        XCTAssertEqual(entry.resolvedIntent?.operations, [.removeNumber(.trackNumber)])
         XCTAssertEqual(payload.explicitComponentRemovals, [.track])
         XCTAssertEqual(payload.requestedFields, [.track])
         XCTAssertEqual(
@@ -437,7 +437,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
             targetFiles: [target], clearBlankImportedValues: true
         )
         XCTAssertEqual(clear.rows.first?.status, .ready)
-        XCTAssertEqual(try XCTUnwrap(clear.writeEntries.first).values[.title], "")
+        XCTAssertEqual(try XCTUnwrap(clear.writeEntries.first).previewValues[.title], "")
     }
 
     func testTextExportAndImportCarryProfileMarkerAndIndependentDates() {
@@ -454,9 +454,9 @@ final class MetadataExchangeProfileTests: XCTestCase {
             clearBlankImportedValues: false
         )
         XCTAssertNil(importPlan.validationMessage)
-        XCTAssertEqual(importPlan.writeEntries.first?.values[.year], "2004")
-        XCTAssertEqual(importPlan.writeEntries.first?.values[.date], "2008-03-04")
-        XCTAssertEqual(importPlan.writeEntries.first?.values[.releaseDate], "2017-06-09")
-        XCTAssertEqual(importPlan.writeEntries.first?.values[.originalReleaseDate], "1999-11-12")
+        XCTAssertEqual(importPlan.writeEntries.first?.previewValues[.year], "2004")
+        XCTAssertEqual(importPlan.writeEntries.first?.previewValues[.date], "2008-03-04")
+        XCTAssertEqual(importPlan.writeEntries.first?.previewValues[.releaseDate], "2017-06-09")
+        XCTAssertEqual(importPlan.writeEntries.first?.previewValues[.originalReleaseDate], "1999-11-12")
     }
 }

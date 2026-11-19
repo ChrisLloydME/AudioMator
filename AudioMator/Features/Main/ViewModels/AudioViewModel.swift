@@ -191,15 +191,22 @@ final class AudioViewModel: ObservableObject {
     // Successfully submitted intent per target, retained across a partial batch
     // failure so retrying does not reapply already handled conflicts.
     var completedInspectorEditsByID: [UUID: MultiFileEditModel] = [:]
-    private var quickImportFiles: [AudioFile] = []
-    private var quickImportGeneration: UInt64 = 0
-    private var quickImportTasks: [UUID: Task<Void, Never>] = [:]
-    private var inFlightQuickImportTaskIDs: Set<UUID> = []
-    private var quickImportLoadingURLs: [UUID: [URL]] = [:]
-    private var quickImportTokensByURLKey: [String: UUID] = [:]
+    // Published ordered Quick Import rows. `quickImportBookkeeping.index` is the
+    // parallel ordered index that owns row IDs, replacement tokens and scope
+    // leases; the array stays the published projection of that order (F5).
+    var quickImportFiles: [AudioFile] = []
+    var quickImportFilesByID: [AudioFile.ID: AudioFile] = [:]
+    var quickImportGeneration: UInt64 = 0
+    var quickImportTasks: [UUID: Task<Void, Never>] = [:]
+    var inFlightQuickImportTaskIDs: Set<UUID> = []
+    var quickImportLoadingURLs: [UUID: [URL]] = [:]
+    let quickImportEnvironment: QuickImportEnvironment
+    var quickImportBookkeeping: QuickImportBookkeeping
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
-    private var activeSidebarSelection: SidebarSelection = .quickImport
-    private var fileIDsByKey: [String: UUID] = [:]
+    var activeSidebarSelection: SidebarSelection = .quickImport
+    // Session-wide stable-ID promise: selecting the same path again reuses the
+    // existing UUID, including after remove/clear (documented in USER_GUIDE).
+    var fileIDsByKey: [String: UUID] = [:]
     private var folderRescanTasks: [UUID: Task<Void, Never>] = [:]
     // One identity-aware reconciliation controller per watched folder. Each
     // controller owns that folder's descriptors; reconciliation itself runs off
@@ -209,8 +216,6 @@ final class AudioViewModel: ObservableObject {
     private var watchedFolderScanFailureCounts: [UUID: Int] = [:]
     private var watchedFolderMetadataReadFailureCounts: [UUID: Int] = [:]
     private var securityScopedFolderURLs: [UUID: URL] = [:]
-    private var securityScopedQuickImportFileURLs: [String: URL] = [:]
-    private var securityScopedQuickImportDirectoryURLs: [String: URL] = [:]
     private var securityScopedFileAccessGrantURLs: [UUID: URL] = [:]
     private var folderScanTokens: [UUID: UUID] = [:]
     // Incremented when a committed mutation changes a file that belongs to a
@@ -218,11 +223,11 @@ final class AudioViewModel: ObservableObject {
     // publish its older snapshot over the mutation's reload.
     private var watchedFolderMutationEpochs: [UUID: UInt64] = [:]
     private var nextFileModelRefreshGeneration: UInt64 = 0
-    private var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
-    private var pendingMetadataReloadsByID: [AudioFile.ID: (file: AudioFile, generation: UInt64)] = [:]
+    var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
+    var pendingMetadataReloadsByID: [AudioFile.ID: (file: AudioFile, generation: UInt64)] = [:]
     // Recovery decisions outlive individual metadata observations. They are
     // cleared only through named FileRecoveryClearance transitions.
-    private var recoveryDecisionsByID: [AudioFile.ID: Set<FileRecoveryDecision>] = [:]
+    var recoveryDecisionsByID: [AudioFile.ID: Set<FileRecoveryDecision>] = [:]
 
     // Durable rename-journal state (F2). Path-keyed blocks protect recorded
     // locations even when no session file ID is loaded; the presentation state is
@@ -263,7 +268,8 @@ final class AudioViewModel: ObservableObject {
         moveReadbackTimeout: Duration = .seconds(60),
         renameFileSystem: any RenameFileSystem = LocalRenameFileSystem(),
         renameJournalStore: any RenameJournalStoring = AudioViewModel.defaultRenameJournalStore(),
-        renameJournalAutoClassification: Bool = true
+        renameJournalAutoClassification: Bool = true,
+        quickImportEnvironment: QuickImportEnvironment = .production
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.fileAccessGrantStore = fileAccessGrantStore
@@ -275,6 +281,8 @@ final class AudioViewModel: ObservableObject {
         self.moveReadbackTimeout = moveReadbackTimeout
         self.renameFileSystem = renameFileSystem
         self.renameJournalStore = renameJournalStore
+        self.quickImportEnvironment = quickImportEnvironment
+        self.quickImportBookkeeping = QuickImportBookkeeping(environment: quickImportEnvironment)
 
         let restoredFolders = watchedFolderStore.loadFolders()
         self.watchedFolders = restoredFolders
@@ -323,8 +331,7 @@ final class AudioViewModel: ObservableObject {
         folderDirectoryMonitors.removeAll()
         publishedDirectoryMonitorGenerations.removeAll()
         securityScopedFolderURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
-        securityScopedQuickImportFileURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
-        securityScopedQuickImportDirectoryURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
+        quickImportBookkeeping.leases.releaseAll()
         securityScopedFileAccessGrantURLs.values.forEach { $0.stopAccessingSecurityScopedResource() }
     }
 
@@ -1066,114 +1073,6 @@ final class AudioViewModel: ObservableObject {
         rebuildVisibleFiles()
     }
 
-    func mergeQuickImportFiles(_ incoming: [AudioFile], refreshGeneration: UInt64? = nil) {
-        let generation = refreshGeneration ?? makeFileModelRefreshGeneration()
-        let accepted = incoming.compactMap { acceptFileObservation($0, generation: generation) }
-        for file in accepted { invalidateWatchedFolderScans(containingFileID: file.id) }
-        publishAcceptedFiles(accepted, rebuildVisible: false)
-        quickImportFiles = mergeFilesPreservingExistingOrder(existing: quickImportFiles, incoming: accepted)
-        syncQuickImportSecurityScopedResources()
-        rebuildVisibleFiles()
-    }
-
-    func importQuickFiles(from urls: [URL]) {
-        let candidateURLs = Self.uniqueSortedURLs(urls)
-        guard !candidateURLs.isEmpty else { return }
-
-        let taskID = UUID()
-        let generation = quickImportGeneration
-        let refreshGeneration = makeFileModelRefreshGeneration()
-        var importTokensByURLKey: [String: UUID] = [:]
-        for url in candidateURLs {
-            let key = Self.urlKey(for: url)
-            let token = UUID()
-            quickImportTokensByURLKey[key] = token
-            importTokensByURLKey[key] = token
-        }
-        quickImportLoadingURLs[taskID] = candidateURLs
-        beginAccessingQuickImportResources(for: candidateURLs)
-
-        inFlightQuickImportTaskIDs.insert(taskID)
-        let task = Task.detached(priority: .userInitiated) { [weak self] in
-            let context: (fileIDsByKey: [String: UUID], metadataPipeline: any AudioMetadataPipeline)? = await MainActor.run { [weak self] in
-                guard let self, self.quickImportGeneration == generation else { return nil }
-                return (
-                    fileIDsByKey: self.prepareStableIDs(for: candidateURLs),
-                    metadataPipeline: self.metadataPipeline
-                )
-            }
-
-            guard let context, !Task.isCancelled else {
-                await MainActor.run { [weak self] in
-                    self?.finishQuickImportTask(taskID)
-                }
-                return
-            }
-
-            let loadResult = await Self.loadAudioFiles(
-                from: candidateURLs,
-                fileIDsByKey: context.fileIDsByKey,
-                metadataPipeline: context.metadataPipeline,
-                retryTransientFailures: true,
-                onBatchLoaded: { [weak self] batch in
-                    guard !batch.isEmpty, !Task.isCancelled else { return }
-                    await MainActor.run { [weak self] in
-                        guard let self, self.quickImportGeneration == generation else { return }
-                        let currentBatch = batch.filter { file in
-                            let key = Self.urlKey(for: file.url)
-                            return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
-                        }
-                        self.mergeQuickImportFiles(currentBatch, refreshGeneration: refreshGeneration)
-                    }
-                }
-            )
-
-            let shouldReportFailures = !Task.isCancelled
-            await MainActor.run { [weak self] in
-                guard let self else { return }
-                if shouldReportFailures, self.quickImportGeneration == generation {
-                    let currentFiles = loadResult.files.filter { file in
-                        let key = Self.urlKey(for: file.url)
-                        return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
-                    }
-                    self.mergeQuickImportFiles(currentFiles, refreshGeneration: refreshGeneration)
-                }
-                self.finishQuickImportTask(taskID)
-                if shouldReportFailures, self.quickImportGeneration == generation {
-                    let currentFailures = loadResult.failures.filter { failure in
-                        let key = Self.urlKey(for: failure.url)
-                        return self.quickImportTokensByURLKey[key] == importTokensByURLKey[key]
-                    }
-                    self.presentQuickImportFailures(currentFailures)
-                }
-            }
-        }
-        quickImportTasks[taskID] = task
-    }
-
-    func clearQuickImportFiles() {
-        let removedFileIDs = Set(quickImportFiles.map(\.id))
-        quickImportGeneration &+= 1
-        quickImportTasks.values.forEach { $0.cancel() }
-        quickImportTasks.removeAll()
-        quickImportTokensByURLKey.removeAll()
-        quickImportFiles.removeAll()
-        revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
-        syncQuickImportSecurityScopedResources()
-        activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
-        rebuildVisibleFiles()
-    }
-
-    func removeQuickImportFile(id: UUID) {
-        if let removedFile = quickImportFiles.first(where: { $0.id == id }) {
-            quickImportTokensByURLKey[Self.urlKey(for: removedFile.url)] = UUID()
-        }
-        quickImportFiles.removeAll { $0.id == id }
-        revokeCommitPermitsForRemovedSourceFiles([id])
-        syncQuickImportSecurityScopedResources()
-        rebuildVisibleFiles()
-    }
-
     func replaceLoadedFile(_ reloaded: AudioFile) {
         replaceLoadedFile(reloaded, refreshGeneration: makeFileModelRefreshGeneration())
     }
@@ -1192,8 +1091,14 @@ final class AudioViewModel: ObservableObject {
     }
 
     /// All observations, including scans, must be accepted before publication.
-    private func acceptFileObservation(
-        _ file: AudioFile, generation: UInt64, clearing: FileRecoveryClearance? = nil
+    ///
+    /// Quick Import passes the candidate identity it already verified off the main
+    /// actor, so journal matching and publication add no path-key work.
+    func acceptFileObservation(
+        _ file: AudioFile,
+        generation: UInt64,
+        clearing: FileRecoveryClearance? = nil,
+        pathIdentity: QuickImportPathIdentity? = nil
     ) -> AudioFile? {
         guard generation > (appliedFileModelRefreshGenerations[file.id] ?? 0) else { return nil }
         appliedFileModelRefreshGenerations[file.id] = generation
@@ -1201,7 +1106,14 @@ final class AudioViewModel: ObservableObject {
         if let clearing, let observation = file.observation {
             clearRecoveryDecisions(for: file.id, clearing: clearing, observation: observation)
         }
-        attachRenameJournalDecisionIfNeeded(fileID: file.id, url: file.url)
+        if let pathIdentity {
+            attachRenameJournalDecisionIfNeeded(
+                fileID: file.id,
+                reservationKeys: pathIdentity.reservationKeys
+            )
+        } else {
+            attachRenameJournalDecisionIfNeeded(fileID: file.id, url: file.url)
+        }
         let accepted = applyingRecoveryProjection(file)
         revokeCommitPermitsIfObservationIncompatible(accepted)
         return accepted
@@ -1335,8 +1247,33 @@ final class AudioViewModel: ObservableObject {
     /// Attaches the named journal decision for a loaded observation whose path is
     /// recorded by an unresolved prepared operation. Called while the observation
     /// is being accepted, before projection/publication.
+    ///
+    /// The empty-journal guard keeps the common case a boolean test: no path
+    /// reservation keys are computed when no recovery record is installed.
     func attachRenameJournalDecisionIfNeeded(fileID: AudioFile.ID, url: URL) {
+        guard !renameJournalPathBlocks.isEmpty || !renameJournalOperationByPathKey.isEmpty else {
+            return
+        }
         guard let operationID = renameJournalOperationID(for: url) else { return }
+        attachRenameJournalDecision(fileID: fileID, operationID: operationID)
+    }
+
+    /// Carrier overload for callers that already have the candidate's reservation
+    /// keys (Quick Import). Journal matching performs no filesystem work.
+    func attachRenameJournalDecisionIfNeeded(
+        fileID: AudioFile.ID,
+        reservationKeys: Set<String>
+    ) {
+        guard !renameJournalPathBlocks.isEmpty || !renameJournalOperationByPathKey.isEmpty else {
+            return
+        }
+        guard let operationID = renameJournalOperationID(forReservationKeys: reservationKeys) else {
+            return
+        }
+        attachRenameJournalDecision(fileID: fileID, operationID: operationID)
+    }
+
+    private func attachRenameJournalDecision(fileID: AudioFile.ID, operationID: UUID) {
         renameJournalClaimedFileIDs[fileID] = operationID
         renameJournalFileIDsByOperation[operationID, default: []].insert(fileID)
         guard !recoveryDecisionsByID[fileID, default: []].contains(.journalPending(operationID)) else {
@@ -1373,7 +1310,7 @@ final class AudioViewModel: ObservableObject {
     /// Minimal F3-a seam; F3 replaces the linear scans with its membership index.
     func committedFile(withID id: AudioFile.ID) -> AudioFile? {
         if let pending = pendingMetadataReloadsByID[id]?.file { return pending }
-        if let file = quickImportFiles.first(where: { $0.id == id }) { return file }
+        if let file = quickImportFilesByID[id] { return file }
         for folderID in watchedFolderFiles.keys {
             if let file = watchedFolderFiles[folderID]?.first(where: { $0.id == id }) {
                 return file
@@ -1387,7 +1324,7 @@ final class AudioViewModel: ObservableObject {
     /// Availability checks use one set build instead of a linear membership scan
     /// per captured target, which would otherwise be quadratic in batch size.
     func committedSourceFileIDs() -> Set<AudioFile.ID> {
-        var ids = Set(quickImportFiles.map(\.id))
+        var ids = Set(quickImportFilesByID.keys)
         for files in watchedFolderFiles.values {
             ids.formUnion(files.map(\.id))
         }
@@ -1401,6 +1338,7 @@ final class AudioViewModel: ObservableObject {
         var updated = false
         if let index = quickImportFiles.firstIndex(where: { $0.id == replacement.id }) {
             quickImportFiles[index] = replacement
+            quickImportFilesByID[replacement.id] = replacement
             updated = true
         }
         for folderID in watchedFolderFiles.keys {
@@ -1428,6 +1366,9 @@ final class AudioViewModel: ObservableObject {
         guard !reloadedFiles.isEmpty else { return }
         let reloadedByID = Dictionary(uniqueKeysWithValues: reloadedFiles.map { ($0.id, $0) })
         quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }
+        for (id, file) in reloadedByID where quickImportFilesByID[id] != nil {
+            quickImportFilesByID[id] = file
+        }
 
         for folderID in watchedFolderFiles.keys {
             guard let folderFiles = watchedFolderFiles[folderID] else { continue }
@@ -1550,19 +1491,6 @@ final class AudioViewModel: ObservableObject {
         revokeCommitPermitsForAccessScopeLoss()
     }
 
-    func registerMovedFiles(_ changes: [(id: UUID, oldURL: URL, newURL: URL)]) {
-        guard !changes.isEmpty else { return }
-
-        let oldKeys = Set(changes.map { Self.urlKey(for: $0.oldURL) })
-        for oldKey in oldKeys {
-            fileIDsByKey.removeValue(forKey: oldKey)
-        }
-
-        for change in changes {
-            fileIDsByKey[Self.urlKey(for: change.newURL)] = change.id
-        }
-    }
-
     func scheduleWatchedFolderRescan(for id: UUID, debounceMilliseconds: UInt64 = 350) {
         folderRescanTasks[id]?.cancel()
 
@@ -1624,16 +1552,26 @@ final class AudioViewModel: ObservableObject {
 
         watchedFolderScanFailureCounts[id] = 0
 
-        let fileIDsByKey = prepareStableIDs(for: snapshot.audioURLs)
+        // One path key per scanned URL for the stable ID entries; the shared
+        // keyed loader below performs no path work of its own.
+        let entries = prepareStableIDEntries(for: snapshot.audioURLs)
         let previousFilesByKey = Self.audioFilesByURLKey(watchedFolderFiles[id] ?? [])
         let metadataPipeline = self.metadataPipeline
+        let inputs = entries.enumerated().map { offset, entry in
+            AudioFileLoadInput(
+                index: offset,
+                url: entry.url,
+                id: entry.id,
+                previousFile: previousFilesByKey[entry.key],
+                expected: nil
+            )
+        }
 
         let loadTask = Task.detached(priority: .userInitiated) {
             await Self.loadAudioFiles(
-                from: snapshot.audioURLs,
-                fileIDsByKey: fileIDsByKey,
+                inputs: inputs,
                 metadataPipeline: metadataPipeline,
-                previousFilesByKey: previousFilesByKey
+                policy: .production
             )
         }
         let loadResult = await withTaskCancellationHandler {
@@ -1649,28 +1587,35 @@ final class AudioViewModel: ObservableObject {
             return
         }
 
-        var refreshedFilesByKey = Self.audioFilesByURLKey(loadResult.files)
-        for failure in loadResult.failures {
-            let key = Self.urlKey(for: failure.url)
-            if let previousFile = previousFilesByKey[key] {
-                refreshedFilesByKey[key] = previousFile
+        var refreshedFilesByKey: [String: AudioFile] = [:]
+        var failedKeys = Set<String>()
+        for outcome in loadResult.outcomes {
+            guard outcome.input.index >= 0, outcome.input.index < entries.count else { continue }
+            let entry = entries[outcome.input.index]
+            if let file = outcome.file {
+                refreshedFilesByKey[entry.key] = file
+            } else if outcome.failureReason != nil {
+                failedKeys.insert(entry.key)
+                if let previousFile = previousFilesByKey[entry.key] {
+                    refreshedFilesByKey[entry.key] = previousFile
+                }
             }
         }
 
-        let failedKeys = Set(loadResult.failures.map { Self.urlKey(for: $0.url) })
-        watchedFolderFiles[id] = snapshot.audioURLs.compactMap { url in
-            let key = Self.urlKey(for: url)
-            if failedKeys.contains(key), let previous = previousFilesByKey[key] {
+        watchedFolderFiles[id] = entries.compactMap { entry in
+            if failedKeys.contains(entry.key), let previous = previousFilesByKey[entry.key] {
                 // A failed read is not a newer observation of metadata. Keep an
                 // accepted pending commit rather than invalidating it with a fallback.
                 return loadedFile(withID: previous.id) ?? previous
             }
-            guard let file = refreshedFilesByKey[Self.urlKey(for: url)] else { return nil }
+            guard let file = refreshedFilesByKey[entry.key] else { return nil }
             return acceptFileObservation(file, generation: refreshGeneration)
                 ?? loadedFile(withID: file.id)
-                ?? previousFilesByKey[Self.urlKey(for: url)]
+                ?? previousFilesByKey[entry.key]
         }
-        watchedFolderMetadataReadFailureCounts[id] = loadResult.failures.count
+        watchedFolderMetadataReadFailureCounts[id] = loadResult.outcomes.filter {
+            $0.failureReason != nil
+        }.count
         await reconcileDirectoryMonitors(
             for: id,
             directories: snapshot.directoryURLs,
@@ -1683,14 +1628,14 @@ final class AudioViewModel: ObservableObject {
     /// Invalidates any in-flight rescan for folders that currently contain
     /// `id`. The mutation reload itself is the authoritative newer snapshot;
     /// a rescan that captured the pre-mutation epoch must not replace it.
-    private func invalidateWatchedFolderScans(containingFileID id: AudioFile.ID) {
+    func invalidateWatchedFolderScans(containingFileID id: AudioFile.ID) {
         for folderID in watchedFolderFiles.keys {
             guard watchedFolderFiles[folderID]?.contains(where: { $0.id == id }) == true else { continue }
             watchedFolderMutationEpochs[folderID, default: 0] &+= 1
         }
     }
 
-    private func rebuildVisibleFiles() {
+    func rebuildVisibleFiles() {
         let selection = normalizedSidebarSelection(activeSidebarSelection)
         activeSidebarSelection = selection
 
@@ -1771,7 +1716,7 @@ final class AudioViewModel: ObservableObject {
         inspectorPendingReview = updated
     }
 
-    private func normalizedSidebarSelection(_ selection: SidebarSelection) -> SidebarSelection {
+    func normalizedSidebarSelection(_ selection: SidebarSelection) -> SidebarSelection {
         switch selection {
         case .watchedFolder(let folderID):
             if watchedFolders.contains(where: { $0.id == folderID }) {
@@ -1800,44 +1745,22 @@ final class AudioViewModel: ObservableObject {
         return result.sorted(by: Self.compareAudioFiles)
     }
 
-    private func prepareStableIDs(for urls: [URL]) -> [String: UUID] {
-        var ids: [String: UUID] = [:]
+    /// Allocates the session-wide stable ID for each scanned URL while computing
+    /// its path key exactly once. The returned entries feed the keyed loader, so
+    /// the loader does not resolve the same paths again.
+    func prepareStableIDEntries(for urls: [URL]) -> [(url: URL, key: String, id: UUID)] {
+        var entries: [(url: URL, key: String, id: UUID)] = []
+        entries.reserveCapacity(urls.count)
 
         for url in urls {
-            let key = Self.urlKey(for: url)
-
-            if let existingID = fileIDsByKey[key] {
-                ids[key] = existingID
-                continue
-            }
-
-            let id = UUID()
+            let standardizedURL = url.standardizedFileURL
+            let key = Self.urlKey(for: standardizedURL)
+            let id = fileIDsByKey[key] ?? UUID()
             fileIDsByKey[key] = id
-            ids[key] = id
+            entries.append((standardizedURL, key, id))
         }
 
-        return ids
-    }
-
-    private func mergeFilesPreservingExistingOrder(existing: [AudioFile], incoming: [AudioFile]) -> [AudioFile] {
-        var merged = existing
-        var indicesByKey: [String: Int] = [:]
-        for (index, file) in existing.enumerated() where indicesByKey[Self.urlKey(for: file.url)] == nil {
-            indicesByKey[Self.urlKey(for: file.url)] = index
-        }
-
-        for file in incoming {
-            let key = Self.urlKey(for: file.url)
-
-            if let index = indicesByKey[key] {
-                merged[index] = file
-            } else {
-                indicesByKey[key] = merged.count
-                merged.append(file)
-            }
-        }
-
-        return merged
+        return entries
     }
 
     private func beginAccessingWatchedFolder(_ folder: WatchedFolder) {
@@ -1872,59 +1795,7 @@ final class AudioViewModel: ObservableObject {
         stopAccessingWatchedFolder(id)
     }
 
-    private func syncQuickImportSecurityScopedResources() {
-        let quickImportURLs = quickImportFiles.map(\.url) + quickImportLoadingURLs.values.flatMap { $0 }
-        let desiredFileURLsByKey = Self.urlsByKey(quickImportURLs)
-        let desiredDirectoryURLsByKey = Self.parentDirectoryURLsByKey(for: quickImportURLs)
-
-        for key in Array(securityScopedQuickImportFileURLs.keys) where desiredFileURLsByKey[key] == nil {
-            securityScopedQuickImportFileURLs[key]?.stopAccessingSecurityScopedResource()
-            securityScopedQuickImportFileURLs[key] = nil
-        }
-
-        for (key, url) in desiredFileURLsByKey where securityScopedQuickImportFileURLs[key] == nil {
-            if url.startAccessingSecurityScopedResource() {
-                securityScopedQuickImportFileURLs[key] = url
-            }
-        }
-
-        for key in Array(securityScopedQuickImportDirectoryURLs.keys) where desiredDirectoryURLsByKey[key] == nil {
-            securityScopedQuickImportDirectoryURLs[key]?.stopAccessingSecurityScopedResource()
-            securityScopedQuickImportDirectoryURLs[key] = nil
-        }
-
-        for (key, url) in desiredDirectoryURLsByKey where securityScopedQuickImportDirectoryURLs[key] == nil {
-            if url.startAccessingSecurityScopedResource() {
-                securityScopedQuickImportDirectoryURLs[key] = url
-            }
-        }
-    }
-
-    private func beginAccessingQuickImportResources(for urls: [URL]) {
-        let fileURLsByKey = Self.urlsByKey(urls)
-        let directoryURLsByKey = Self.parentDirectoryURLsByKey(for: urls)
-
-        for (key, url) in fileURLsByKey where securityScopedQuickImportFileURLs[key] == nil {
-            if url.startAccessingSecurityScopedResource() {
-                securityScopedQuickImportFileURLs[key] = url
-            }
-        }
-
-        for (key, url) in directoryURLsByKey where securityScopedQuickImportDirectoryURLs[key] == nil {
-            if url.startAccessingSecurityScopedResource() {
-                securityScopedQuickImportDirectoryURLs[key] = url
-            }
-        }
-    }
-
-    private func finishQuickImportTask(_ taskID: UUID) {
-        inFlightQuickImportTaskIDs.remove(taskID)
-        quickImportTasks[taskID] = nil
-        quickImportLoadingURLs[taskID] = nil
-        syncQuickImportSecurityScopedResources()
-    }
-
-    private func presentQuickImportFailures(_ failures: [AudioFileLoadFailure]) {
+    func presentQuickImportFailures(_ failures: [AudioFileLoadFailure]) {
         guard !failures.isEmpty else { return }
 
         var lines = failures.prefix(3).map { failure in
@@ -1946,7 +1817,21 @@ final class AudioViewModel: ObservableObject {
     }
 
     private var activeMutationDirectoryURLs: [URL] {
-        Array(securityScopedQuickImportDirectoryURLs.values)
+        // Quick Import parents come from the membership index (no stale
+        // full-collection URL map is retained); watched folders and saved grants
+        // keep their own authorized roots.
+        var quickImportParentURLs: [URL] = []
+        var seenParentPaths = Set<String>()
+        for id in quickImportBookkeeping.index.orderedIDs {
+            guard let record = quickImportBookkeeping.index.record(forID: id) else { continue }
+            guard quickImportBookkeeping.leases.isLiveGranted(forKey: record.identity.parentKey) else {
+                continue
+            }
+            let parentURL = record.identity.parentURL
+            guard seenParentPaths.insert(parentURL.path).inserted else { continue }
+            quickImportParentURLs.append(parentURL)
+        }
+        return quickImportParentURLs
             + Array(securityScopedFolderURLs.values)
             + Array(securityScopedFileAccessGrantURLs.values)
     }
@@ -2206,196 +2091,6 @@ final class AudioViewModel: ObservableObject {
         watchedFolderStore.saveFolders(watchedFolders)
     }
 
-    nonisolated private static func loadAudioFiles(
-        from urls: [URL],
-        fileIDsByKey: [String: UUID],
-        metadataPipeline: any AudioMetadataPipeline,
-        retryTransientFailures: Bool = false,
-        previousFilesByKey: [String: AudioFile] = [:],
-        onBatchLoaded: (@Sendable ([AudioFile]) async -> Void)? = nil
-    ) async -> AudioFileLoadResult {
-        let inputs: [(index: Int, url: URL, id: UUID, previousFile: AudioFile?)] = urls.enumerated().compactMap { offset, url in
-            let key = urlKey(for: url)
-            guard let id = fileIDsByKey[key] else { return nil }
-            return (offset, url, id, previousFilesByKey[key])
-        }
-
-        guard !inputs.isEmpty else { return AudioFileLoadResult(files: [], failures: []) }
-        guard !Task.isCancelled else { return AudioFileLoadResult(files: [], failures: []) }
-
-        // Audio metadata reads are mostly I/O-bound. Allow higher parallelism than the
-        // earlier fixed value so first import becomes interactive faster on larger drops.
-        let maxConcurrentLoads = min(
-            max(ProcessInfo.processInfo.activeProcessorCount * 2, 6),
-            min(12, inputs.count)
-        )
-        let partialBatchSize = 24
-        let forceFlushBatchSize = 48
-        let minimumFlushInterval: TimeInterval = 0.2
-        var nextInputIndex = maxConcurrentLoads
-        var completedByIndex: [Int: AudioFile] = [:]
-        completedByIndex.reserveCapacity(inputs.count)
-        var loadedByIndex: [(Int, AudioFile)] = []
-        loadedByIndex.reserveCapacity(inputs.count)
-        var failuresByIndex: [(Int, AudioFileLoadFailure)] = []
-        var nextContiguousIndex = 0
-        var resolvedIndices = Set<Int>()
-        var pendingBatch: [AudioFile] = []
-        pendingBatch.reserveCapacity(partialBatchSize)
-        var lastFlushTime = Date.timeIntervalSinceReferenceDate
-
-        await withTaskGroup(of: (Int, URL, AudioFile?, String?).self) { group in
-            for input in inputs.prefix(maxConcurrentLoads) {
-                group.addTask {
-                    guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
-                    if let previousFile = input.previousFile,
-                       let previousFingerprint = previousFile.fileFingerprint,
-                       let previousVersion = previousFile.metadataFileVersion,
-                       (try? AudioFileFingerprint.capture(at: input.url)) == previousFingerprint,
-                       (try? metadataPipeline.metadataFileVersion(at: input.url)) == previousVersion {
-                        return (input.index, input.url, previousFile, nil)
-                    }
-                    do {
-                        let file = try await loadAudioFile(
-                            at: input.url,
-                            id: input.id,
-                            metadataPipeline: metadataPipeline,
-                            retryTransientFailures: retryTransientFailures
-                        )
-                        // The loader must preserve the exact user-selected lexical
-                        // URL; authority may never be re-associated with another URL.
-                        guard file.url == input.url, file.observation != nil else {
-                            return (input.index, input.url, nil,
-                                    String(localized: "The file changed while it was being read. Select it again to reload it."))
-                        }
-                        return (input.index, input.url, file, nil)
-                    } catch is CancellationError {
-                        return (input.index, input.url, nil, nil)
-                    } catch {
-                        return (input.index, input.url, nil, (error as NSError).localizedDescription)
-                    }
-                }
-            }
-
-            while let (index, url, file, failureReason) = await group.next() {
-                if Task.isCancelled {
-                    group.cancelAll()
-                    break
-                }
-
-                if let file {
-                    completedByIndex[index] = file
-                    loadedByIndex.append((index, file))
-                } else if let failureReason {
-                    failuresByIndex.append(
-                        (
-                            index,
-                            AudioFileLoadFailure(
-                                url: url,
-                                reason: failureReason
-                            )
-                        )
-                    )
-                }
-                resolvedIndices.insert(index)
-
-                // Advance past both successes and failures. A failed early
-                // index must not prevent later files from being published.
-                while resolvedIndices.contains(nextContiguousIndex) {
-                    if let nextFile = completedByIndex.removeValue(forKey: nextContiguousIndex) {
-                        pendingBatch.append(nextFile)
-                    }
-                    nextContiguousIndex += 1
-
-                    let now = Date.timeIntervalSinceReferenceDate
-                    let shouldFlush =
-                        pendingBatch.count >= forceFlushBatchSize ||
-                        (
-                            pendingBatch.count >= partialBatchSize &&
-                            now - lastFlushTime >= minimumFlushInterval
-                        )
-
-                    if shouldFlush, let onBatchLoaded, !Task.isCancelled {
-                        await onBatchLoaded(pendingBatch)
-                        pendingBatch.removeAll(keepingCapacity: true)
-                        lastFlushTime = now
-                    }
-                }
-
-                guard nextInputIndex < inputs.count else { continue }
-                guard !Task.isCancelled else {
-                    group.cancelAll()
-                    break
-                }
-                let input = inputs[nextInputIndex]
-                nextInputIndex += 1
-
-                group.addTask {
-                    guard !Task.isCancelled else { return (input.index, input.url, nil, nil) }
-                    if let previousFile = input.previousFile,
-                       let previousFingerprint = previousFile.fileFingerprint,
-                       let previousVersion = previousFile.metadataFileVersion,
-                       (try? AudioFileFingerprint.capture(at: input.url)) == previousFingerprint,
-                       (try? metadataPipeline.metadataFileVersion(at: input.url)) == previousVersion {
-                        return (input.index, input.url, previousFile, nil)
-                    }
-                    do {
-                        let file = try await loadAudioFile(
-                            at: input.url,
-                            id: input.id,
-                            metadataPipeline: metadataPipeline,
-                            retryTransientFailures: retryTransientFailures
-                        )
-                        // The loader must preserve the exact user-selected lexical
-                        // URL; authority may never be re-associated with another URL.
-                        guard file.url == input.url, file.observation != nil else {
-                            return (input.index, input.url, nil,
-                                    String(localized: "The file changed while it was being read. Select it again to reload it."))
-                        }
-                        return (input.index, input.url, file, nil)
-                    } catch is CancellationError {
-                        return (input.index, input.url, nil, nil)
-                    } catch {
-                        return (input.index, input.url, nil, (error as NSError).localizedDescription)
-                    }
-                }
-            }
-        }
-
-        if !pendingBatch.isEmpty, let onBatchLoaded, !Task.isCancelled {
-            await onBatchLoaded(pendingBatch)
-        }
-
-        loadedByIndex.sort { $0.0 < $1.0 }
-        failuresByIndex.sort { $0.0 < $1.0 }
-        return AudioFileLoadResult(
-            files: loadedByIndex.map(\.1),
-            failures: failuresByIndex.map(\.1)
-        )
-    }
-
-    nonisolated private static func loadAudioFile(
-        at url: URL,
-        id: UUID,
-        metadataPipeline: any AudioMetadataPipeline,
-        retryTransientFailures: Bool
-    ) async throws -> AudioFile {
-        do {
-            return try await metadataPipeline.loadAudioFile(at: url, id: id)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            guard retryTransientFailures, !Task.isCancelled else { throw error }
-
-            // A newly selected security-scoped or file-provider URL can be briefly
-            // unavailable while macOS grants access or materializes its contents.
-            // Keep the scope alive and retry the read once instead of requiring the
-            // user to select the same file again.
-            try await Task.sleep(for: .milliseconds(200))
-            return try await metadataPipeline.loadAudioFile(at: url, id: id)
-        }
-    }
-
     nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {
         var audioURLs: [URL] = []
         var directoryURLs: [URL] = [folderURL.standardizedFileURL]
@@ -2458,10 +2153,6 @@ final class AudioViewModel: ObservableObject {
         )
     }
 
-    nonisolated private static func uniqueSortedURLs(_ urls: [URL]) -> [URL] {
-        urlsByKey(urls).values.sorted(by: compareURLs)
-    }
-
     nonisolated private static func urlsByKey(_ urls: [URL]) -> [String: URL] {
         var urlsByKey: [String: URL] = [:]
 
@@ -2488,15 +2179,15 @@ final class AudioViewModel: ObservableObject {
         FileSystemPathSemantics.isSameOrDescendant(url, of: ancestorURL)
     }
 
-    nonisolated private static func urlKey(for url: URL) -> String {
+    nonisolated static func urlKey(for url: URL) -> String {
         FileSystemPathSemantics.key(for: url)
     }
 
-    nonisolated private static func compareAudioFiles(_ lhs: AudioFile, _ rhs: AudioFile) -> Bool {
+    nonisolated static func compareAudioFiles(_ lhs: AudioFile, _ rhs: AudioFile) -> Bool {
         compareURLs(lhs.url, rhs.url)
     }
 
-    nonisolated private static func compareURLs(_ lhs: URL, _ rhs: URL) -> Bool {
+    nonisolated static func compareURLs(_ lhs: URL, _ rhs: URL) -> Bool {
         let lhsName = lhs.lastPathComponent.localizedCaseInsensitiveCompare(rhs.lastPathComponent)
         if lhsName != .orderedSame {
             return lhsName == .orderedAscending
@@ -2505,7 +2196,7 @@ final class AudioViewModel: ObservableObject {
         return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
     }
 
-    nonisolated private static func audioFilesByURLKey(_ files: [AudioFile]) -> [String: AudioFile] {
+    nonisolated static func audioFilesByURLKey(_ files: [AudioFile]) -> [String: AudioFile] {
         var filesByKey: [String: AudioFile] = [:]
         for file in files where filesByKey[urlKey(for: file.url)] == nil {
             filesByKey[urlKey(for: file.url)] = file
@@ -2520,58 +2211,9 @@ private struct FolderScanSnapshot {
     let scanFailureCount: Int
 }
 
-private struct AudioFileLoadFailure: Sendable {
-    let url: URL
-    let reason: String
-}
-
-private struct AudioFileLoadResult: Sendable {
-    let files: [AudioFile]
-    let failures: [AudioFileLoadFailure]
-}
-
-
 // MARK: – F1 move publication and bounded readback
 
 extension AudioViewModel {
-    /// Publishes verified move receipts while the rename transaction's union
-    /// reservation is still held. Old path keys are cleared before new keys are
-    /// set so swaps cannot transiently alias. Every affected identity receives an
-    /// authority-free display projection and a named pending decision.
-    func publishMovePlaceholders(_ receipts: [FileRenameMoveReceipt]) {
-        guard !receipts.isEmpty else { return }
-
-        let oldKeys = Set(receipts.map { Self.urlKey(for: $0.sourceURL) })
-        for oldKey in oldKeys {
-            fileIDsByKey.removeValue(forKey: oldKey)
-        }
-        for receipt in receipts {
-            fileIDsByKey[Self.urlKey(for: receipt.destinationURL)] = receipt.fileID
-        }
-
-        for receipt in receipts {
-            quickImportTokensByURLKey[Self.urlKey(for: receipt.sourceURL)] = UUID()
-            quickImportTokensByURLKey[Self.urlKey(for: receipt.destinationURL)] = UUID()
-            recoveryDecisionsByID[receipt.fileID, default: []].insert(
-                .moveReadbackPending(
-                    moveID: receipt.moveID,
-                    destinationURL: receipt.destinationURL,
-                    entryIdentity: EntryIdentityKey(receipt.entryIdentity)
-                )
-            )
-            pendingMetadataReloadsByID.removeValue(forKey: receipt.fileID)
-            appliedFileModelRefreshGenerations[receipt.fileID] = makeFileModelRefreshGeneration()
-            if let current = committedFile(withID: receipt.fileID) {
-                replaceSourceMembershipEntry(current.projectingDisplay(to: receipt.destinationURL))
-            }
-            invalidateWatchedFolderScans(containingFileID: receipt.fileID)
-            lastAutomaticReloadFailures = []
-        }
-
-        rebuildVisibleFiles()
-        syncQuickImportSecurityScopedResources()
-    }
-
     /// Phase B: reacquire each destination for one bounded full read. A read that
     /// times out, fails, or observes a different directory entry cannot publish;
     /// the projection and pending decision stay in place.

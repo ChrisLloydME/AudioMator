@@ -155,6 +155,17 @@ extension AudioViewModel {
         return nil
     }
 
+    /// Reservation-key lookup for callers that captured the keys before the
+    /// observation was loaded (Quick Import candidates).
+    func renameJournalOperationID(forReservationKeys keys: Set<String>) -> UUID? {
+        for key in keys {
+            if let operationID = renameJournalOperationByPathKey[key] {
+                return operationID
+            }
+        }
+        return nil
+    }
+
     func isRenameJournalBlocked(url: URL) -> Bool {
         !renameJournalPathBlocks.isDisjoint(with: FileSystemPathSemantics.reservationKeys(for: url))
     }
@@ -225,6 +236,14 @@ extension AudioViewModel {
         switch outcome {
         case .restored(let operationID, _, let retainedRecord):
             clearJournalRecoveryDecisions(forFileIDs: restoredFileIDs, operationID: operationID)
+            // Quick Import memberships are re-keyed only when the restored file
+            // entry's device/inode evidence matches the captured membership. An
+            // ambiguous or unknown identity skips migration and keeps the
+            // recovery decision; startup classification never moves files.
+            migrateQuickImportMembershipsAfterJournalRestore(
+                manifest: manifest,
+                restoredFileIDs: restoredFileIDs
+            )
             invalidateWatchedFolderScansForRestoredJournalFiles(restoredFileIDs)
             for folder in watchedFolders {
                 scheduleWatchedFolderRescan(for: folder.id)

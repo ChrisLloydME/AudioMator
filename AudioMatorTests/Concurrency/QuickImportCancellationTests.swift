@@ -301,13 +301,79 @@ final class QuickImportCancellationTests: XCTestCase {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.importQuickFiles(from: urls)
         try await gate.waitUntilStarted()
-        try await waitUntil(viewModel.files.count >= 24)
+        let deadline = Date().addingTimeInterval(2)
+        while viewModel.files.count < 24, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let firstDiagnostics = viewModel.quickImportDiagnostics()
+        XCTAssertGreaterThanOrEqual(
+            viewModel.files.count,
+            24,
+            "Progressive publication stalled before the gated final read: loads=\(pipeline.loadCount) "
+                + "active=\(viewModel.activeQuickImportTaskCount) files=\(viewModel.files.count) "
+                + "metrics=\(firstDiagnostics.metrics) requests=\(firstDiagnostics.activeRequestCount) "
+                + "pending=\(firstDiagnostics.pendingFailureCount)"
+        )
         XCTAssertEqual(viewModel.activeQuickImportTaskCount, 1, "The final load is still gated")
         XCTAssertLessThan(viewModel.files.count, 49)
         await gate.release()
         try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
         XCTAssertEqual(viewModel.files.count, 49)
         XCTAssertFalse(viewModel.files.contains { $0.url == urls[0] })
+    }
+
+    func testOverlappingImportsShareFileAndParentScopesWithoutRestarting() async throws {
+        try XCTSkipIf(
+            AudioFileTestFactory.fixtureFileVersion == nil,
+            "App-hosted fixture snapshot is unavailable in this runner"
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportOverlap-\(UUID().uuidString)", isDirectory: true)
+        let urls = [root.appendingPathComponent("01.mp3"), root.appendingPathComponent("02.mp3")]
+        let suiteName = "AudioMator.QuickImportOverlap.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let journalDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportOverlapJournal-\(UUID().uuidString)", isDirectory: true)
+        let issueLog = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportOverlap-\(UUID().uuidString).json")
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: journalDirectory)
+            try? FileManager.default.removeItem(at: issueLog)
+        }
+        let scopeAccess = CountingQuickImportScopeAccess()
+        let provider = SyntheticQuickImportIdentityProvider()
+        let environment = QuickImportEnvironment(
+            identityProvider: provider,
+            scopeAccess: scopeAccess,
+            loadPolicy: .forced48
+        )
+        let viewModel = AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: ProgressiveQuickImportMetadataPipeline(),
+            saveIssueLogStore: SaveIssueLogStore(fileURL: issueLog),
+            conflictPolicyDefaults: defaults,
+            renameJournalStore: LocalRenameJournalStore(directoryURL: journalDirectory),
+            renameJournalAutoClassification: false,
+            quickImportEnvironment: environment
+        )
+
+        // Two requests overlap on the same selected URLs and parent directory.
+        viewModel.importQuickFiles(from: urls)
+        viewModel.importQuickFiles(from: urls)
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
+        try await waitUntil(viewModel.files.count == 2)
+
+        XCTAssertEqual(Set(viewModel.files.map(\.id)).count, 2, "One row per selected file")
+        let scopeSnapshot = scopeAccess.snapshot
+        XCTAssertEqual(scopeSnapshot.startCount, 3, "Two file scopes and one shared parent start once each")
+        XCTAssertEqual(scopeSnapshot.repeatedStartAttempts, 0, "A live scope is never started twice by a second job")
+
+        viewModel.clearQuickImportFiles()
+        let finalSnapshot = scopeAccess.snapshot
+        XCTAssertEqual(finalSnapshot.stopCount, finalSnapshot.startCount, "Every started scope stops exactly once")
+        XCTAssertEqual(viewModel.files.count, 0)
     }
 
     private func waitUntil(
@@ -417,17 +483,41 @@ private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPi
     private let unreadableURL: URL
     private let heldURL: URL?
     private let gate: QuickImportLoadGate?
+    private let version: MetadataFileVersion?
+    private let loadLock = NSLock()
+    private var loads = 0
 
+    nonisolated var loadCount: Int {
+        loadLock.withLock { loads }
+    }
+
+    @MainActor
     init(unreadableURL: URL, heldURL: URL? = nil, gate: QuickImportLoadGate? = nil) {
         self.unreadableURL = unreadableURL
         self.heldURL = heldURL
         self.gate = gate
+        self.version = AudioFileTestFactory.fixtureFileVersion
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        loadLock.withLock { loads += 1 }
         if url == heldURL, let gate { await gate.suspendLoad() }
         if url == unreadableURL {
             throw CocoaError(.fileReadNoPermission)
+        }
+        // A real file is read through its actual fingerprint so the progressive
+        // canonical-location verification can accept it; synthetic paths keep the
+        // factory's deterministic fingerprint.
+        if FileManager.default.fileExists(atPath: url.path), let version {
+            let fingerprint = try AudioFileFingerprint.capture(at: url)
+            return await MainActor.run {
+                AudioFileTestFactory.make(
+                    id: id,
+                    url: url,
+                    fileFingerprint: fingerprint,
+                    metadataFileVersion: version
+                )
+            }
         }
         return await AudioFileTestFactory.make(id: id, url: url)
     }

@@ -28,6 +28,8 @@ let package = Package(
                 "Core/Audio/AudioFormatSupportCore.swift",
                 "Core/Concurrency/AsyncOperationDeadline.swift",
                 "Core/FileSystem/FileSystemPathSemantics.swift",
+                "Core/FileSystem/QuickImportPathIndex.swift",
+                "Core/FileSystem/QuickImportScopeLeases.swift",
                 "Core/Text/FuzzyStringSimilarity.swift",
                 "Domain/AudioFiles/AudioMetadataModelCore.swift",
                 "Domain/AudioFiles/AudioFileFingerprint.swift",

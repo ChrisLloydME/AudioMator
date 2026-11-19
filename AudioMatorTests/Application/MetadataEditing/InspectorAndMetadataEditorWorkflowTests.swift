@@ -633,6 +633,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         )
         let pipeline = RecordingMetadataPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
 
         try Data(repeating: 0x42, count: 32).write(to: fileURL, options: .atomic)
         let result = await viewModel.persistMetadataErase(file, syncInspectorAfterReload: false)
@@ -651,8 +652,14 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
     func testCreateMuseAmpIDsWritesDeterministicCommentPayloadsAndRefreshesLoadedFiles() async throws {
         let firstID = UUID()
         let secondID = UUID()
-        let firstURL = URL(fileURLWithPath: "/tmp/01.mp3")
-        let secondURL = URL(fileURLWithPath: "/tmp/02.mp3")
+        let firstURL = try MetadataTestTokens.makeFixtureCopy()
+        let secondURL = try MetadataTestTokens.makeFixtureCopy()
+        addTeardownBlock {
+            MetadataTestTokens.removeFixtureCopy(at: firstURL)
+            MetadataTestTokens.removeFixtureCopy(at: secondURL)
+        }
+        let firstTokens = try MetadataTestTokens.mintedTokens(at: firstURL)
+        let secondTokens = try MetadataTestTokens.mintedTokens(at: secondURL)
         let first = AudioFileTestFactory.make(
             id: firstID,
             url: firstURL,
@@ -660,7 +667,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             album: "Shared Album",
             comment: "Old First",
             albumArtist: "Shared Artist",
-            includeDefaultFileFingerprint: false
+            fileFingerprint: firstTokens.fingerprint,
+            metadataFileVersion: firstTokens.version
         )
         let second = AudioFileTestFactory.make(
             id: secondID,
@@ -669,7 +677,8 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             album: "Shared Album",
             comment: "Old Second",
             albumArtist: "Shared Artist",
-            includeDefaultFileFingerprint: false
+            fileFingerprint: secondTokens.fingerprint,
+            metadataFileVersion: secondTokens.version
         )
         let expectedAssignments = MuseAmpCommentIDGenerator.assignments(for: [
             MuseAmpTrackIdentity(album: first.album, albumArtist: first.albumArtist, trackKey: firstURL.path),
@@ -1186,14 +1195,18 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
     func testApplyMusicBrainzTaggingPlanPreservesFieldOrderAndRefreshesSelection() async throws {
         let id = UUID()
-        let url = URL(fileURLWithPath: "/tmp/musicbrainz.flac")
+        let url = try MetadataTestTokens.makeFixtureCopy()
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+        let tokens = try MetadataTestTokens.mintedTokens(at: url)
         let original = AudioFileTestFactory.make(
             id: id,
             url: url,
             title: "Old Title",
             album: "Keep Album",
             trackNumberText: "1/9",
-            discNumberText: "1/1"
+            discNumberText: "1/1",
+            fileFingerprint: tokens.fingerprint,
+            metadataFileVersion: tokens.version
         )
         let reloaded = AudioFileTestFactory.make(
             id: id,
@@ -1211,8 +1224,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         await viewModel.applyMusicBrainzTaggingPlan([
             MusicBrainzTaggingWriteEntry(
-                fileID: id,
-                fileName: url.lastPathComponent,
+                file: original,
                 values: [
                     .title: "MusicBrainz Title",
                     .trackNumber: "7",
@@ -1238,13 +1250,17 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
     func testApplyiTunesTaggingPlanWritesProviderFieldsAndRefreshesSelection() async throws {
         let id = UUID()
-        let url = URL(fileURLWithPath: "/tmp/itunes.m4a")
+        let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "m4a")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+        let tokens = try MetadataTestTokens.mintedTokens(at: url)
         let original = AudioFileTestFactory.make(
             id: id,
             url: url,
             title: "Old Title",
             album: "Keep Album",
-            trackNumberText: "1/9"
+            trackNumberText: "1/9",
+            fileFingerprint: tokens.fingerprint,
+            metadataFileVersion: tokens.version
         )
         let reloaded = AudioFileTestFactory.make(
             id: id,
@@ -1261,8 +1277,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         await viewModel.applyiTunesTaggingPlan([
             iTunesTaggingWriteEntry(
-                fileID: id,
-                fileName: url.lastPathComponent,
+                file: original,
                 values: [
                     .title: "iTunes Title",
                     .trackNumber: "7",
@@ -1289,10 +1304,18 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "iTunes Title")
     }
 
-    func testCancelledProviderApplyClearsProgressAfterCommittedReloadCompletes() async {
+    func testCancelledProviderApplyClearsProgressAfterCommittedReloadCompletes() async throws {
         let id = UUID()
-        let url = URL(fileURLWithPath: "/tmp/itunes-cancelled-apply.m4a")
-        let original = AudioFileTestFactory.make(id: id, url: url, title: "Original")
+        let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "m4a")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+        let tokens = try MetadataTestTokens.mintedTokens(at: url)
+        let original = AudioFileTestFactory.make(
+            id: id,
+            url: url,
+            title: "Original",
+            fileFingerprint: tokens.fingerprint,
+            metadataFileVersion: tokens.version
+        )
         let pipeline = ProviderApplyGatedPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
@@ -1300,8 +1323,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let applyTask = Task {
             await viewModel.applyiTunesTaggingPlan([
                 iTunesTaggingWriteEntry(
-                    fileID: id,
-                    fileName: url.lastPathComponent,
+                    file: original,
                     values: [.title: "Remote"]
                 )
             ])
@@ -1341,8 +1363,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
         await viewModel.applyiTunesTaggingPlan([
             iTunesTaggingWriteEntry(
-                fileID: id,
-                fileName: url.lastPathComponent,
+                file: original,
                 values: [.title: "Provider Title"]
             )
         ])
@@ -1431,6 +1452,43 @@ private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked
     nonisolated func eraseAllMetadata(
         at url: URL,
         expectedVersion: MetadataFileVersion?
+    ) throws -> AudioMetadataWriteResult {
+        lock.withLock {
+            recordedEraseCount += 1
+        }
+        return AudioMetadataWriteResult(warnings: [])
+    }
+
+    // MARK: Reviewer-strict adapter route (S8)
+
+    nonisolated func writeReviewedMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        if failingMetadataWriteURLs.contains(url) {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        lock.withLock {
+            metadataWrites.append(MetadataWrite(payload: edit, url: url))
+        }
+        return AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func writeReviewedRawPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        lock.withLock {
+            rawMapWrites[url] = patch.valuesToSet.mapValues { $0.joined(separator: "; ") }
+        }
+        return AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func eraseAllMetadataReviewed(
+        at url: URL,
+        expectedVersion: MetadataFileVersion
     ) throws -> AudioMetadataWriteResult {
         lock.withLock {
             recordedEraseCount += 1

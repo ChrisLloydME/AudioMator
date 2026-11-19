@@ -257,7 +257,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
         viewModel.mergeQuickImportFiles(files)
         viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
         await viewModel.applyiTunesTaggingPlan(files.map {
-            iTunesTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
+            iTunesTaggingWriteEntry(file: $0,
                 values: [.title: "Provider title", .itunesAlbumID: "12345", .itunesArtistID: "67890",
                          .itunesCatalogID: "54321", .releaseDate: "2017-06-09"])
         })
@@ -270,7 +270,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
             XCTAssertEqual(viewModel.files.first { $0.id == original.id }?.itunesArtistID, "67890")
         }
         await viewModel.applyMusicBrainzTaggingPlan(files.map {
-            MusicBrainzTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
+            MusicBrainzTaggingWriteEntry(file: $0,
                 values: [.title: "MusicBrainz title", .musicBrainzAlbumID: "00000000-0000-0000-0000-000000000001"])
         })
         for original in files {

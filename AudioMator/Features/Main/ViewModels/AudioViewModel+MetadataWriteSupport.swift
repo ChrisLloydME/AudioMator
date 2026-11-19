@@ -21,6 +21,9 @@ struct MetadataWriteSuccessOutcome: Sendable {
 enum MetadataWriteExecutionResult: Sendable {
     case success(MetadataWriteSuccessOutcome)
     case failure(String)
+    /// Precommit cancellation only. A commit that crossed the admission boundary
+    /// always reports `.success`/`.failure` with its real disk outcome.
+    case cancelled
 }
 
 func fileCountLabel(_ count: Int) -> String {
@@ -189,7 +192,7 @@ extension AudioViewModel {
             return .failure(reason)
 
         case .cancelled:
-            return .failure(MetadataCancellation.message)
+            return .cancelled
         }
     }
 

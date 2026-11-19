@@ -94,6 +94,8 @@ extension AudioViewModel {
                     for: file.url.lastPathComponent,
                     reason: reason
                 )
+            case .cancelled:
+                self.presentMetadataWriteCancellation(for: file.url.lastPathComponent)
             }
         }
     }
@@ -194,6 +196,8 @@ extension AudioViewModel {
                             messages: [reason]
                         )
                     )
+                case .cancelled:
+                    summary.recordCancelledFiles([file.url.lastPathComponent])
                 }
             }
 

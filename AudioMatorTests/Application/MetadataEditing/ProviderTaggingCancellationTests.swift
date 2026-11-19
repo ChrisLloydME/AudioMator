@@ -118,8 +118,13 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
                 })
                 _ = await viewModel.applyRawMetadataPropertyMaps(maps, to: files.map(MetadataEditorTarget.init(file:)))
             case "renumber":
-                let result = await viewModel.renumberTrackNumbers(orderedIDs: files.map(\.id), selectedIDs: [],
-                    options: TrackRenumberOptions(startNumber: 7, padWithZeros: false))
+                let plan = viewModel.makeTrackRenumberPlan(
+                    orderedFiles: files,
+                    selectedIDs: [],
+                    direction: .ascending,
+                    startNumberText: "7"
+                )
+                let result = await viewModel.renumberTrackNumbers(using: plan)
                 XCTAssertEqual(result.succeeded, queued ? 0 : 1)
                 XCTAssertEqual(result.failed, 0)
                 XCTAssertEqual(result.cancelled.count, queued ? 2 : 1)
@@ -127,13 +132,11 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
                 XCTAssertTrue(result.cancelled.allSatisfy { $0.reason.localizedCaseInsensitiveContains("cancel") })
             case "musicbrainz":
                 await viewModel.applyMusicBrainzTaggingPlan(files.map {
-                    MusicBrainzTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    MusicBrainzTaggingWriteEntry(file: $0, values: [.title: "Applied"])
                 })
             default:
                 await viewModel.applyiTunesTaggingPlan(files.map {
-                    iTunesTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    iTunesTaggingWriteEntry(file: $0, values: [.title: "Applied"])
                 })
             }
         }
@@ -232,13 +235,13 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
                 switch writer {
                 case "itunes":
                     await viewModel.applyiTunesTaggingPlan([
-                        iTunesTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent,
-                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"], expectedFileFingerprint: file.fileFingerprint)
+                        iTunesTaggingWriteEntry(file: file,
+                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"])
                     ])
                 case "musicbrainz":
                     await viewModel.applyMusicBrainzTaggingPlan([
-                        MusicBrainzTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent,
-                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"], expectedFileFingerprint: file.fileFingerprint)
+                        MusicBrainzTaggingWriteEntry(file: file,
+                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"])
                     ])
                 default:
                     let plan = MetadataExchangePlanner.makeCSVImportPlan(

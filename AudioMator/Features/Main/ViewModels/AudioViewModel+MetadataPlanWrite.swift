@@ -89,6 +89,8 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([outcome.fileName])
             }
         }
 
@@ -205,6 +207,8 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([outcome.fileName])
             }
         }
 

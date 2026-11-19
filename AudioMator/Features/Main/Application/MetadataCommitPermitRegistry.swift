@@ -19,28 +19,51 @@ nonisolated struct MetadataCommitPermitKey: Hashable, Sendable {
 /// retry cannot create a second admission gate for the same write.
 @MainActor
 final class MetadataCommitPermitRegistry {
-    private var permitsByKey: [MetadataCommitPermitKey: MetadataCommitPermit] = [:]
+    private struct Entry {
+        let permit: MetadataCommitPermit
+        /// Present for strict reviewed writes; used to decide whether a published
+        /// observation is the same reviewed observation or an incompatible one.
+        let target: ReviewedMetadataTarget?
+    }
+
+    private var entriesByKey: [MetadataCommitPermitKey: Entry] = [:]
     private var keysByOperationID: [UUID: Set<MetadataCommitPermitKey>] = [:]
 
     var activePermitCount: Int {
-        permitsByKey.count
+        entriesByKey.count
     }
 
-    /// Registers one file for an operation, returning the existing permit on retry.
+    /// Registers one reviewed file for an operation, returning the existing permit
+    /// on retry.
+    @discardableResult
+    func register(target: ReviewedMetadataTarget, operationID: UUID) -> MetadataCommitPermit {
+        register(fileID: target.id, target: target, operationID: operationID)
+    }
+
+    /// Registers one file for an operation without a strict target (conflict-aware
+    /// drafts or tests that only need admission).
     @discardableResult
     func register(fileID: AudioFile.ID, operationID: UUID) -> MetadataCommitPermit {
+        register(fileID: fileID, target: nil, operationID: operationID)
+    }
+
+    private func register(
+        fileID: AudioFile.ID,
+        target: ReviewedMetadataTarget?,
+        operationID: UUID
+    ) -> MetadataCommitPermit {
         let key = MetadataCommitPermitKey(fileID: fileID, operationID: operationID)
-        if let existing = permitsByKey[key] {
-            return existing
+        if let existing = entriesByKey[key] {
+            return existing.permit
         }
         let permit = MetadataCommitPermit()
-        permitsByKey[key] = permit
+        entriesByKey[key] = Entry(permit: permit, target: target)
         keysByOperationID[operationID, default: []].insert(key)
         return permit
     }
 
     func permit(forFileID fileID: AudioFile.ID, operationID: UUID) -> MetadataCommitPermit? {
-        permitsByKey[MetadataCommitPermitKey(fileID: fileID, operationID: operationID)]
+        entriesByKey[MetadataCommitPermitKey(fileID: fileID, operationID: operationID)]?.permit
     }
 
     /// Revokes every pending permit for a file, across operations.
@@ -49,22 +72,52 @@ final class MetadataCommitPermitRegistry {
     /// invalidation, an incompatible observed revision, or a revoked scope. It does
     /// not remove the entries; the owning operation unregisters on exit.
     func revoke(fileID: AudioFile.ID, reason: MetadataCommitPermit.PrecommitRejection) {
-        for (key, permit) in permitsByKey where key.fileID == fileID {
-            permit.revoke(reason: reason)
+        for (key, entry) in entriesByKey where key.fileID == fileID {
+            entry.permit.revoke(reason: reason)
+        }
+    }
+
+    func revoke(fileIDs: Set<AudioFile.ID>, reason: MetadataCommitPermit.PrecommitRejection) {
+        guard !fileIDs.isEmpty else { return }
+        for (key, entry) in entriesByKey where fileIDs.contains(key.fileID) {
+            entry.permit.revoke(reason: reason)
         }
     }
 
     /// Revokes every pending permit for one operation, across files.
     func revoke(operationID: UUID, reason: MetadataCommitPermit.PrecommitRejection) {
         for key in keysByOperationID[operationID] ?? [] {
-            permitsByKey[key]?.revoke(reason: reason)
+            entriesByKey[key]?.permit.revoke(reason: reason)
+        }
+    }
+
+    /// Revokes every pending permit. Used when a shared authorization scope is
+    /// revoked; an operation-specific caller should prefer `revoke(operationID:)`.
+    func revokeAll(reason: MetadataCommitPermit.PrecommitRejection) {
+        for entry in entriesByKey.values {
+            entry.permit.revoke(reason: reason)
+        }
+    }
+
+    /// Revokes permits whose reviewed observation no longer matches a published
+    /// observation. Republishing an equal observation (same path, fingerprint and
+    /// revision) does not revoke.
+    func revokeIncompatibleObservation(
+        _ file: AudioFile,
+        reason: MetadataCommitPermit.PrecommitRejection
+    ) {
+        for (key, entry) in entriesByKey where key.fileID == file.id {
+            guard let target = entry.target else { continue }
+            if !target.matches(observation: file) {
+                entry.permit.revoke(reason: reason)
+            }
         }
     }
 
     /// Removes one file/operation entry on that write's exit.
     func unregister(fileID: AudioFile.ID, operationID: UUID) {
         let key = MetadataCommitPermitKey(fileID: fileID, operationID: operationID)
-        guard permitsByKey.removeValue(forKey: key) != nil else { return }
+        guard entriesByKey.removeValue(forKey: key) != nil else { return }
         keysByOperationID[operationID]?.remove(key)
         if keysByOperationID[operationID]?.isEmpty == true {
             keysByOperationID.removeValue(forKey: operationID)
@@ -75,14 +128,14 @@ final class MetadataCommitPermitRegistry {
     func unregister(operationID: UUID) {
         guard let keys = keysByOperationID.removeValue(forKey: operationID) else { return }
         for key in keys {
-            permitsByKey.removeValue(forKey: key)
+            entriesByKey.removeValue(forKey: key)
         }
     }
 
     /// Clears the map on teardown. Callers that need to fail pending writes closed
     /// revoke first, then unregister.
     func removeAll() {
-        permitsByKey.removeAll()
+        entriesByKey.removeAll()
         keysByOperationID.removeAll()
     }
 }

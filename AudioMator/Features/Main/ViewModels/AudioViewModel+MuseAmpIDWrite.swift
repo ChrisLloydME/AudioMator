@@ -7,7 +7,6 @@ extension AudioViewModel {
         let targetFiles = targetFiles
         guard !targetFiles.isEmpty else { return }
         guard canStartExternalFileMutation() else { return }
-        guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         let assignments = MuseAmpCommentIDGenerator.assignments(
             for: targetFiles.map { file in
@@ -19,34 +18,45 @@ extension AudioViewModel {
             }
         )
 
+        // Freeze one reviewed write per target before any asynchronous execution.
+        // The comment payload is part of the frozen intent, so grouping and
+        // uniqueness are decided from the reviewed snapshots only.
+        let plannedWrites: [PlannedMuseAmpWrite] = zip(targetFiles, assignments).map { file, assignment in
+            var edit = SingleFileEditModel(from: file)
+            edit.comment = assignment.commentText
+            return PlannedMuseAmpWrite(
+                fileName: file.url.lastPathComponent,
+                write: ReviewedMetadataWriteFactory.semanticWrite(edit: edit, comparedTo: file)
+            )
+        }
+        guard prepareMetadataMutationDirectoryAccess(for: plannedWrites.compactMap { $0.write?.target.url }) else { return }
+
         beginMetadataSaveProgress(
             title: "Creating MuseAmp IDs",
-            subtitle: "Preparing \(targetFiles.count) files...",
-            totalUnitCount: targetFiles.count
+            subtitle: "Preparing \(plannedWrites.count) files...",
+            totalUnitCount: plannedWrites.count
         )
 
         Task(priority: .userInitiated) {
-            var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count)
+            var summary = BatchMetadataOperationSummary(totalTargets: plannedWrites.count)
 
-            for (index, pair) in zip(targetFiles, assignments).enumerated() {
-                let file = pair.0
-                let museAmpID = pair.1
-
+            for (index, planned) in plannedWrites.enumerated() {
                 self.updateMetadataSaveProgress(
-                    subtitle: file.url.lastPathComponent,
+                    subtitle: planned.fileName,
                     completedUnitCount: index
                 )
 
-                var edit = SingleFileEditModel(from: file)
-                edit.comment = museAmpID.commentText
+                guard let write = planned.write else {
+                    summary.failureIssues.append(
+                        BatchMetadataWriteIssue(
+                            fileName: planned.fileName,
+                            messages: [Self.unreviewedMuseAmpEntryFailureMessage]
+                        )
+                    )
+                    continue
+                }
 
-                let result = await self.persistMetadataEdit(
-                    edit,
-                    to: file,
-                    syncInspectorAfterReload: false,
-                    expectedFileFingerprint: file.fileFingerprint
-                )
-
+                let result = await self.executeReviewedMetadataWrite(write, publication: .batched)
                 switch result {
                 case .success(let success):
                     summary.succeeded += 1
@@ -55,7 +65,7 @@ extension AudioViewModel {
                     if !success.warnings.isEmpty {
                         summary.warningIssues.append(
                             BatchMetadataWriteIssue(
-                                fileName: file.url.lastPathComponent,
+                                fileName: planned.fileName,
                                 messages: success.warnings
                             )
                         )
@@ -63,16 +73,18 @@ extension AudioViewModel {
                 case .failure(let reason):
                     summary.failureIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
+                            fileName: planned.fileName,
                             messages: [reason]
                         )
                     )
+                case .cancelled:
+                    summary.recordCancelledFiles([planned.fileName])
                 }
             }
 
             self.updateMetadataSaveProgress(
                 subtitle: "Finishing...",
-                completedUnitCount: targetFiles.count
+                completedUnitCount: plannedWrites.count
             )
             self.endMetadataSaveProgress()
 
@@ -83,4 +95,14 @@ extension AudioViewModel {
             self.presentBatchMetadataOperationSummary(summary)
         }
     }
+
+    private static var unreviewedMuseAmpEntryFailureMessage: String {
+        String(localized: "This file doesn’t have a reviewed revision to write. Reload it, then try again.")
+    }
+}
+
+/// One frozen MuseAmp write captured before asynchronous execution.
+private struct PlannedMuseAmpWrite: Sendable {
+    let fileName: String
+    let write: ReviewedMetadataWrite?
 }

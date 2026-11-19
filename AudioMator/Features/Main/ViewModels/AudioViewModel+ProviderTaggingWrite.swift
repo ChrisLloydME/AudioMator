@@ -5,9 +5,7 @@ extension AudioViewModel {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
         guard canStartExternalFileMutation() else { return }
 
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        let targetURLs = entries.compactMap { filesByID[$0.fileID]?.url }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: entries.compactMap { $0.reviewedWrite?.target.url }) else { return }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
@@ -19,24 +17,11 @@ extension AudioViewModel {
 
         let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
             let entry = entries[index]
-            guard let file = filesByID[entry.fileID] else {
-                return (entry.fileName, .failure(String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")))
+            guard let write = entry.reviewedWrite else {
+                return (entry.fileName, .failure(Self.unreviewedProviderEntryFailureMessage))
             }
-
-            var edit = SingleFileEditModel(from: file)
-            for (field, value) in entry.values.sorted(by: { lhs, rhs in
-                lhs.key.writeOrderIndex < rhs.key.writeOrderIndex
-            }) {
-                field.apply(value, to: &edit)
-            }
-
-            let result = await self.persistMetadataEdit(
-                edit,
-                to: file,
-                syncInspectorAfterReload: false,
-                expectedFileFingerprint: entry.expectedFileFingerprint
-            )
-            return (file.url.lastPathComponent, result)
+            let result = await self.executeReviewedMetadataWrite(write, publication: .batched)
+            return (entry.fileName, result)
         }
         for (index, entry) in entries.enumerated() {
             guard let outcome = outcomes[index] else {
@@ -63,6 +48,8 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([outcome.fileName])
             }
         }
 
@@ -82,9 +69,7 @@ extension AudioViewModel {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
         guard canStartExternalFileMutation() else { return }
 
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        let targetURLs = entries.compactMap { filesByID[$0.fileID]?.url }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: entries.compactMap { $0.reviewedWrite?.target.url }) else { return }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
         beginMetadataSaveProgress(
@@ -96,24 +81,11 @@ extension AudioViewModel {
 
         let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
             let entry = entries[index]
-            guard let file = filesByID[entry.fileID] else {
-                return (entry.fileName, .failure(String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")))
+            guard let write = entry.reviewedWrite else {
+                return (entry.fileName, .failure(Self.unreviewedProviderEntryFailureMessage))
             }
-
-            var edit = SingleFileEditModel(from: file)
-            for (field, value) in entry.values.sorted(by: { lhs, rhs in
-                lhs.key.writeOrderIndex < rhs.key.writeOrderIndex
-            }) {
-                field.apply(value, to: &edit)
-            }
-
-            let result = await self.persistMetadataEdit(
-                edit,
-                to: file,
-                syncInspectorAfterReload: false,
-                expectedFileFingerprint: entry.expectedFileFingerprint
-            )
-            return (file.url.lastPathComponent, result)
+            let result = await self.executeReviewedMetadataWrite(write, publication: .batched)
+            return (entry.fileName, result)
         }
         for (index, entry) in entries.enumerated() {
             guard let outcome = outcomes[index] else {
@@ -140,6 +112,8 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([outcome.fileName])
             }
         }
 
@@ -153,5 +127,9 @@ extension AudioViewModel {
         }
 
         presentBatchMetadataOperationSummary(summary)
+    }
+
+    private static var unreviewedProviderEntryFailureMessage: String {
+        String(localized: "This preview wasn’t built from a reviewed file revision. Close and reopen the tool, then review the current values before applying changes.")
     }
 }

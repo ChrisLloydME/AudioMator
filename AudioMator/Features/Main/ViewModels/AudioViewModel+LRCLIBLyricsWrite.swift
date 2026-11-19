@@ -102,6 +102,15 @@ extension AudioViewModel {
                 title: String(localized: "Lyrics Couldn’t Be Applied")
             )
             return false
+
+        case .cancelled:
+            updateMetadataSaveProgress(
+                subtitle: file.url.lastPathComponent,
+                completedUnitCount: 1
+            )
+            endMetadataSaveProgress()
+            presentMetadataWriteCancellation(for: file.url.lastPathComponent)
+            return false
         }
     }
 
@@ -226,6 +235,8 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([file.url.lastPathComponent])
             }
         }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 extension AudioViewModel {
-    /// Attempts to erase all metadata from a file by writing empty tags over the existing values.
+    /// Attempts to erase all metadata from a file through the reviewed strict route.
     func eraseAllMetadata(_ file: AudioFile) {
         guard metadataSaveProgress == nil else { return }
         guard canStartExternalFileMutation() else { return }
@@ -22,6 +22,9 @@ extension AudioViewModel {
 
             switch result {
             case .success(let success):
+                if self.selectedAudioIDs.contains(file.id), success.didRefreshFileModel {
+                    self.updateEditForSelection()
+                }
                 if success.warnings.isEmpty {
                     self.presentMetadataWriteHUD(
                         style: .success,
@@ -43,6 +46,11 @@ extension AudioViewModel {
                     for: file.url.lastPathComponent, reason: reason,
                     title: String(localized: "Metadata Couldn’t Be Cleared"), operation: .clear
                 )
+            case .cancelled:
+                self.presentMetadataWriteCancellation(
+                    for: file.url.lastPathComponent,
+                    operation: .clear
+                )
             }
         }
     }
@@ -54,12 +62,17 @@ extension AudioViewModel {
         let targetFiles = targetFiles
         guard !targetFiles.isEmpty else { return }
         guard canStartExternalFileMutation() else { return }
-        guard prepareMetadataMutationDirectoryAccess(for: targetFiles.map(\.url)) else { return }
 
         if targetFiles.count == 1, let file = targetFiles.first {
             eraseAllMetadata(file)
             return
         }
+
+        // Freeze one reviewed erase intent per confirmed target before suspending.
+        let plannedTargets = targetFiles.map {
+            ReviewedMetadataWriteFactory.eraseAllWrite(for: $0)
+        }
+        guard prepareMetadataMutationDirectoryAccess(for: plannedTargets.compactMap { $0?.target.url }) else { return }
 
         beginMetadataSaveProgress(
             title: "Clearing Metadata",
@@ -76,11 +89,17 @@ extension AudioViewModel {
                     completedUnitCount: index
                 )
 
-                let result = await self.persistMetadataErase(
-                    file,
-                    syncInspectorAfterReload: false
-                )
+                guard let write = plannedTargets[index] else {
+                    summary.failureIssues.append(
+                        BatchMetadataWriteIssue(
+                            fileName: file.url.lastPathComponent,
+                            messages: [Self.unreviewedEraseFailureMessage]
+                        )
+                    )
+                    continue
+                }
 
+                let result = await self.executeReviewedMetadataWrite(write, publication: .batched)
                 switch result {
                 case .success(let success):
                     summary.succeeded += 1
@@ -101,6 +120,8 @@ extension AudioViewModel {
                             messages: [reason]
                         )
                     )
+                case .cancelled:
+                    summary.recordCancelledFiles([file.url.lastPathComponent])
                 }
             }
 
@@ -122,25 +143,19 @@ extension AudioViewModel {
         _ file: AudioFile,
         syncInspectorAfterReload: Bool
     ) async -> MetadataWriteExecutionResult {
-        guard !file.requiresMetadataRefreshBeforeWriting else {
-            return .failure(
-                String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata.")
-            )
-        }
         guard isTagWriteSupportedExtension(file.url.pathExtension) else {
             return .failure(String(localized: "AudioMator doesn't support saving metadata to this file format."))
         }
-
-        return await executeMetadataFileMutation(
-            at: file.url,
-            id: file.id,
-            expectedFileFingerprint: file.fileFingerprint,
-            syncInspectorAfterReload: syncInspectorAfterReload
-        ) { metadataPipeline, url in
-            try metadataPipeline.eraseAllMetadata(
-                at: url,
-                expectedVersion: file.metadataFileVersion
-            )
+        guard let write = ReviewedMetadataWriteFactory.eraseAllWrite(for: file) else {
+            return .failure(Self.unreviewedEraseFailureMessage)
         }
+        return await executeReviewedMetadataWrite(
+            write,
+            publication: syncInspectorAfterReload ? .immediate : .batched
+        )
+    }
+
+    private static var unreviewedEraseFailureMessage: String {
+        String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before clearing metadata.")
     }
 }

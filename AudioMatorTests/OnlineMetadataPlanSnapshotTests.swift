@@ -406,10 +406,8 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
 
         await viewModel.applyiTunesTaggingPlan([
             iTunesTaggingWriteEntry(
-                fileID: fileID,
-                fileName: fixture.fileURL.lastPathComponent,
-                values: [.title: "Displayed iTunes Value"],
-                expectedFileFingerprint: fixture.fingerprint
+                file: file,
+                values: [.title: "Displayed iTunes Value"]
             )
         ])
 

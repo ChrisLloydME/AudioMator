@@ -157,6 +157,8 @@ final class AudioViewModel: ObservableObject {
     let metadataPipeline: any AudioMetadataPipeline
     let saveIssueLogStore: SaveIssueLogStore
     let fileMutationCoordinator = FileMutationCoordinator()
+    /// Per-file commit admission permits. See AudioViewModel+ReviewedMetadataWrite.
+    let metadataCommitPermits = MetadataCommitPermitRegistry()
     let artworkLookupService: any iTunesArtworkServicing
     let artworkLookupOperationTimeout: Duration
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
@@ -586,6 +588,7 @@ final class AudioViewModel: ObservableObject {
         let existingIDs = ids.intersection(watchedFolders.map(\.id))
         guard !existingIDs.isEmpty else { return }
 
+        let removedFileIDs = Set(existingIDs.flatMap { watchedFolderFiles[$0]?.map(\.id) ?? [] })
         for id in existingIDs {
             stopWatchingFolder(id: id)
             watchedFolderFiles[id] = nil
@@ -597,6 +600,7 @@ final class AudioViewModel: ObservableObject {
         watchedFolders.removeAll { existingIDs.contains($0.id) }
 
         persistWatchedFolders()
+        revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
 
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
         rebuildVisibleFiles()
@@ -688,11 +692,13 @@ final class AudioViewModel: ObservableObject {
     }
 
     func clearQuickImportFiles() {
+        let removedFileIDs = Set(quickImportFiles.map(\.id))
         quickImportGeneration &+= 1
         quickImportTasks.values.forEach { $0.cancel() }
         quickImportTasks.removeAll()
         quickImportTokensByURLKey.removeAll()
         quickImportFiles.removeAll()
+        revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
         syncQuickImportSecurityScopedResources()
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
         rebuildVisibleFiles()
@@ -703,6 +709,7 @@ final class AudioViewModel: ObservableObject {
             quickImportTokensByURLKey[Self.urlKey(for: removedFile.url)] = UUID()
         }
         quickImportFiles.removeAll { $0.id == id }
+        revokeCommitPermitsForRemovedSourceFiles([id])
         syncQuickImportSecurityScopedResources()
         rebuildVisibleFiles()
     }
@@ -734,7 +741,9 @@ final class AudioViewModel: ObservableObject {
         if let clearing, let observation = file.observation {
             clearRecoveryDecisions(for: file.id, clearing: clearing, observation: observation)
         }
-        return applyingRecoveryProjection(file)
+        let accepted = applyingRecoveryProjection(file)
+        revokeCommitPermitsIfObservationIncompatible(accepted)
+        return accepted
     }
 
     func makeFileModelRefreshGeneration() -> UInt64 {
@@ -799,6 +808,7 @@ final class AudioViewModel: ObservableObject {
         if let current = committedFile(withID: id) {
             replaceSourceMembershipEntry(current.projectingRecoveryState())
         }
+        revokeCommitPermitsForRecoveryDecision(id)
         rebuildVisibleFiles()
     }
 
@@ -980,6 +990,7 @@ final class AudioViewModel: ObservableObject {
         }
         fileAccessGrants.removeAll { existingIDs.contains($0.id) }
         fileAccessGrantStore.saveGrants(fileAccessGrants)
+        revokeCommitPermitsForAccessScopeLoss()
     }
 
     func registerMovedFiles(_ changes: [(id: UUID, oldURL: URL, newURL: URL)]) {

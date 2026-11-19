@@ -60,6 +60,17 @@ nonisolated enum MetadataTestTokens {
         try TagLibMetadataManager.fileVersion(at: url)
     }
 
+    /// Captures the real fingerprint and opaque revision of a fixture copy so a
+    /// deliberately manufactured observation still authorizes the strict route.
+    static func mintedTokens(
+        at url: URL
+    ) throws -> (fingerprint: AudioFileFingerprint, version: MetadataFileVersion) {
+        (
+            fingerprint: try AudioFileFingerprint.capture(at: url),
+            version: try TagLibMetadataManager.fileVersion(at: url)
+        )
+    }
+
     /// Loads a coherent `AudioFile` observation with both disk tokens present.
     static func makeVerifiedAudioFile(at url: URL, id: UUID = UUID()) async throws -> AudioFile {
         try await TagLibAudioMetadataPipeline().loadAudioFile(at: url, id: id)

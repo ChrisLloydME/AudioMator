@@ -128,6 +128,9 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                failedTargetIDs.insert(target.id)
+                summary.recordCancelledFiles([target.fileName])
             }
         }
 

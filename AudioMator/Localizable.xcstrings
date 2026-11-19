@@ -13439,6 +13439,21 @@
     },
     "YYYY" : {
 
+    },
+    "Artwork Download Cancelled" : {
+
+    },
+    "Artwork Download Failed" : {
+
+    },
+    "Search Again" : {
+
+    },
+    "Stop Download" : {
+
+    },
+    "Try Again" : {
+
     }
   },
   "version" : "1.0"

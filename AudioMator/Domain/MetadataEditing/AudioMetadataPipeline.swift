@@ -183,6 +183,38 @@ protocol AudioMetadataPipeline: Sendable {
         at url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult
+
+    // MARK: – Reviewed writes (strict, captured nonoptional revision)
+
+    /// Projects a frozen write intent through the adapter's deterministic encoder
+    /// and concrete-format capability information. The projection is plan-time
+    /// truth only; it never authorizes a write by itself.
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection
+
+    /// Strict semantic write: the captured nonoptional revision is the only
+    /// expected version. Never substitutes a different revision.
+    nonisolated func writeReviewedMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult
+
+    /// Strict raw patch write with the captured nonoptional revision.
+    nonisolated func writeReviewedRawPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult
+
+    /// Strict erase-all with the captured nonoptional revision. Best effort by
+    /// container; the package performs the verified write.
+    nonisolated func eraseAllMetadataReviewed(
+        at url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult
 }
 
 extension AudioMetadataPipeline {
@@ -226,5 +258,42 @@ extension AudioMetadataPipeline {
             to: url,
             expectedVersion: expectedVersion
         )
+    }
+
+    // MARK: – Reviewed write defaults
+
+    /// Fakes that do not implement plan-time projection fail closed instead of
+    /// guessing capability.
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        throw CocoaError(.featureUnsupported)
+    }
+
+    /// Default forwarding for fakes that only implement the optional-version
+    /// methods during the migration. Production adapters forward the nonoptional
+    /// token directly to the package.
+    nonisolated func writeReviewedMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        try writeMetadata(edit, to: url, expectedVersion: expectedVersion)
+    }
+
+    nonisolated func writeReviewedRawPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        try writeRawMetadataPatch(patch, to: url, expectedVersion: expectedVersion)
+    }
+
+    nonisolated func eraseAllMetadataReviewed(
+        at url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        try eraseAllMetadata(at: url, expectedVersion: expectedVersion)
     }
 }

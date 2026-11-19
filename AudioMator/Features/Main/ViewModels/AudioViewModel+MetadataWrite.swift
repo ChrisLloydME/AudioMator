@@ -15,8 +15,11 @@ nonisolated func unsupportedMetadataWriteFields(
     _ requestedFields: Set<MetadataFieldKey>,
     forFileExtension fileExtension: String
 ) -> Set<MetadataFieldKey> {
+    guard !requestedFields.isEmpty else { return [] }
     guard let writableFields = AudioFormatSupport.writableMetadataFields(for: fileExtension) else {
-        return []
+        // Missing concrete-format capability information is not permission to
+        // write: treat every requested field as unsupported (fail closed).
+        return requestedFields
     }
     return requestedFields.subtracting(writableFields)
 }

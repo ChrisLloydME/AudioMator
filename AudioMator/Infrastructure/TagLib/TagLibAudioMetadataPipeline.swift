@@ -156,10 +156,155 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
             )
         }
     }
+
+    // MARK: - Reviewed (strict) writes
+
+    nonisolated static func isWritableMetadataFileExtension(_ fileExtension: String) -> Bool {
+        AudioFormatSupport.metadataWritableExtensions.contains(fileExtension.lowercased())
+    }
+
+    /// Applies the same deterministic encoder used by the eventual commit and the
+    /// app's fail-closed capability policy. Plan-time truth only: the returned
+    /// projection never authorizes a write by itself.
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        let extensionIsWritable = Self.isWritableMetadataFileExtension(fileExtension)
+
+        switch intent {
+        case .semantic(let payload):
+            let requested = payload.requestedFields
+            guard extensionIsWritable else {
+                return MetadataWriteProjection(
+                    requestedFields: requested,
+                    unsupportedFields: requested,
+                    validation: .unsupported(requested)
+                )
+            }
+            if let message = payload.numberPairValidationMessage {
+                return MetadataWriteProjection(
+                    requestedFields: requested,
+                    validation: .rejected(message)
+                )
+            }
+            if let message = payload.dateValidationMessage {
+                return MetadataWriteProjection(
+                    requestedFields: requested,
+                    validation: .rejected(message)
+                )
+            }
+            // Missing capability information is unsupported for every requested
+            // field; it is never treated as "the package will decide".
+            guard let writableFields = AudioFormatSupport.writableMetadataFields(for: fileExtension) else {
+                return MetadataWriteProjection(
+                    requestedFields: requested,
+                    unsupportedFields: requested,
+                    validation: .unsupported(requested)
+                )
+            }
+            let unsupported = requested.subtracting(writableFields)
+            guard unsupported.isEmpty else {
+                return MetadataWriteProjection(
+                    requestedFields: requested,
+                    unsupportedFields: unsupported,
+                    validation: .unsupported(unsupported)
+                )
+            }
+            let operations = MetadataPipelineSupport.semanticWriteOperations(from: payload)
+            return MetadataWriteProjection(
+                requestedFields: requested,
+                effectiveFields: operations.effectiveFieldKeys,
+                componentOperations: operations.componentOperations,
+                validation: .executable,
+                isEncoderNoOp: operations.effectiveFieldKeys.isEmpty
+                    && operations.componentOperations.isEmpty
+            )
+
+        case .raw(let patch):
+            guard extensionIsWritable else {
+                return MetadataWriteProjection(
+                    validation: .rejected(String(localized: "AudioMator doesn't support writing raw metadata values to this file format."))
+                )
+            }
+            return MetadataWriteProjection(
+                validation: .executable,
+                isEncoderNoOp: patch.valuesToSet.isEmpty && patch.removingKeys.isEmpty
+            )
+
+        case .eraseAll:
+            guard extensionIsWritable else {
+                return MetadataWriteProjection(
+                    validation: .rejected(String(localized: "AudioMator doesn't support clearing metadata in this file format."))
+                )
+            }
+            return MetadataWriteProjection(validation: .executable)
+        }
+    }
+
+    nonisolated func writeReviewedMetadata(
+        _ edit: MetadataEditPayload,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.applyMetadataPatch(
+                try Self.metadataPatchForWrite(from: edit),
+                to: url,
+                expectedVersion: expectedVersion
+            )
+        }
+    }
+
+    nonisolated func writeReviewedRawPatch(
+        _ patch: RawMetadataPatch,
+        to url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.applyRawMetadataPatch(
+                patch,
+                to: url,
+                expectedVersion: expectedVersion
+            )
+        }
+    }
+
+    nonisolated func eraseAllMetadataReviewed(
+        at url: URL,
+        expectedVersion: MetadataFileVersion
+    ) throws -> AudioMetadataWriteResult {
+        try Self.interpretingWrite {
+            try TagLibMetadataManager.eraseAllMetadataWithVerification(
+                from: url,
+                expectedVersion: expectedVersion
+            )
+        }
+    }
 }
 
 private enum MetadataPipelineSupport {
-    nonisolated static func metadataPatch(from edit: MetadataEditPayload) -> MetadataPatch {
+    nonisolated struct SemanticWriteOperations {
+        var fields: [MetadataFieldKey: MetadataPatchValue]
+        var explicitAdvisory: ExplicitAdvisory?
+        var artwork: MetadataArtworkPatch
+        var componentOperations: [MetadataNumberComponentOperation]
+
+        /// Exact field identities the deterministic encoder will submit,
+        /// including advisory and artwork when they changed.
+        nonisolated var effectiveFieldKeys: Set<MetadataFieldKey> {
+            var keys = Set(fields.keys)
+            if explicitAdvisory != nil { keys.insert(.explicitContent) }
+            if case .unchanged = artwork {} else { keys.insert(.artwork) }
+            return keys
+        }
+    }
+
+    /// Single deterministic semantic encoder shared by plan-time projection and
+    /// the commit. Projection and commit must never diverge.
+    nonisolated static func semanticWriteOperations(
+        from edit: MetadataEditPayload
+    ) -> SemanticWriteOperations {
         func textValue(_ value: String) -> MetadataPatchValue {
             let trimmed = normalizedFieldComponent(value)
             return trimmed.isEmpty ? .remove : .text(trimmed)
@@ -219,21 +364,45 @@ private enum MetadataPipelineSupport {
         // submitted: a number-only edit never removes or rewrites its untouched
         // total, and a total-only edit preserves the number. A cleared
         // component is an explicit removal.
+        var componentOperations: [MetadataNumberComponentOperation] = []
         if edit.trackNumberTextChanged {
             if edit.originalTrackNumber != edit.trackNumber {
-                fields[.track] = edit.trackNumber > 0 ? .integer(edit.trackNumber) : .remove
+                componentOperations.append(
+                    MetadataNumberComponentOperation(
+                        field: .track,
+                        value: edit.trackNumber > 0 ? edit.trackNumber : nil
+                    )
+                )
             }
             if edit.originalTrackTotal != edit.trackTotal {
-                fields[.trackTotal] = edit.trackTotal > 0 ? .integer(edit.trackTotal) : .remove
+                componentOperations.append(
+                    MetadataNumberComponentOperation(
+                        field: .trackTotal,
+                        value: edit.trackTotal > 0 ? edit.trackTotal : nil
+                    )
+                )
             }
         }
         if edit.discNumberTextChanged {
             if edit.originalDiscNumber != edit.discNumber {
-                fields[.disc] = edit.discNumber > 0 ? .integer(edit.discNumber) : .remove
+                componentOperations.append(
+                    MetadataNumberComponentOperation(
+                        field: .disc,
+                        value: edit.discNumber > 0 ? edit.discNumber : nil
+                    )
+                )
             }
             if edit.originalDiscTotal != edit.discTotal {
-                fields[.discTotal] = edit.discTotal > 0 ? .integer(edit.discTotal) : .remove
+                componentOperations.append(
+                    MetadataNumberComponentOperation(
+                        field: .discTotal,
+                        value: edit.discTotal > 0 ? edit.discTotal : nil
+                    )
+                )
             }
+        }
+        for operation in componentOperations {
+            fields[operation.field] = operation.value.map { .integer($0) } ?? .remove
         }
 
         // Typed container-exclusive intents are already shape-validated. Never
@@ -261,13 +430,25 @@ private enum MetadataPipelineSupport {
             .removeAll
         }
 
-        return MetadataPatch(
+        return SemanticWriteOperations(
             fields: fields,
             explicitAdvisory: advisory,
-            artwork: artwork
+            artwork: artwork,
+            componentOperations: componentOperations
         )
     }
 
+    nonisolated static func metadataPatch(from operations: SemanticWriteOperations) -> MetadataPatch {
+        MetadataPatch(
+            fields: operations.fields,
+            explicitAdvisory: operations.explicitAdvisory,
+            artwork: operations.artwork
+        )
+    }
+
+    nonisolated static func metadataPatch(from edit: MetadataEditPayload) -> MetadataPatch {
+        metadataPatch(from: semanticWriteOperations(from: edit))
+    }
 
 
     nonisolated static func rawMetadataDumpText(

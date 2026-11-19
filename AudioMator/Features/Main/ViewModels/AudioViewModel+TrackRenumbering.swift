@@ -108,7 +108,7 @@ extension AudioViewModel {
         }
 
         if didRefreshFileModel {
-            updateEditForSelection()
+            refreshInspectorDraftAfterAcceptedPublication()
         }
 
         return result

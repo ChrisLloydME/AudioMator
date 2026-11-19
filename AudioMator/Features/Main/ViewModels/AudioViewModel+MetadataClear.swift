@@ -23,7 +23,7 @@ extension AudioViewModel {
             switch result {
             case .success(let success):
                 if self.selectedAudioIDs.contains(file.id), success.didRefreshFileModel {
-                    self.updateEditForSelection()
+                    self.refreshInspectorDraftAfterAcceptedPublication()
                 }
                 if success.warnings.isEmpty {
                     self.presentMetadataWriteHUD(
@@ -132,7 +132,7 @@ extension AudioViewModel {
             self.endMetadataSaveProgress()
 
             if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-                self.updateEditForSelection()
+                self.refreshInspectorDraftAfterAcceptedPublication()
             }
 
             self.presentBatchMetadataOperationSummary(summary)

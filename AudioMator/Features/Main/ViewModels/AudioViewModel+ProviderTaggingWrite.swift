@@ -59,7 +59,7 @@ extension AudioViewModel {
         )
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            refreshInspectorDraftAfterAcceptedPublication()
         }
 
         presentBatchMetadataOperationSummary(summary)
@@ -123,7 +123,7 @@ extension AudioViewModel {
         )
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            refreshInspectorDraftAfterAcceptedPublication()
         }
 
         presentBatchMetadataOperationSummary(summary)

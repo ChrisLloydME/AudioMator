@@ -194,7 +194,9 @@ struct InspectorPane: View {
     var body: some View {
         let selectedFiles = self.selectedFiles
         Group {
-            if selectedFiles.count == 1, let file = selectedFiles.first {
+            if let pendingReview = viewModel.inspectorPendingReview {
+                pendingReviewSection(pendingReview)
+            } else if selectedFiles.count == 1, let file = selectedFiles.first {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         fileSection(file)
@@ -230,12 +232,16 @@ struct InspectorPane: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 if state.visibleToolbarButtons.contains(.cancelEdits) {
                     Button("Cancel", action: viewModel.cancelEditing)
-                        .disabled(viewModel.selectedAudioIDs.isEmpty)
+                        .disabled(viewModel.selectedAudioIDs.isEmpty && !viewModel.hasInspectorPendingReview)
                 }
 
                 if state.visibleToolbarButtons.contains(.saveEdits) {
                     Button("Save", action: viewModel.saveInspectorEdits)
-                        .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+                        .disabled(
+                            viewModel.selectedAudioIDs.isEmpty
+                                || viewModel.metadataSaveProgress != nil
+                                || viewModel.isInspectorSaveSuspended
+                        )
                 }
 
                 Button(action: onHideInspector) {
@@ -423,6 +429,62 @@ struct InspectorPane: View {
                 }
             }
         }
+    }
+
+    // MARK: - Pending review (F3-b)
+
+    @ViewBuilder
+    private func pendingReviewSection(_ review: InspectorPendingReview) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Unsaved Edits Need Review")
+                    .font(.headline)
+
+                Text(String(localized: "This draft captured files that are no longer available. The captured values are kept; Save is suspended until every file is available again and you resume editing, or you discard the edits."))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                ForEach(Array(viewModel.inspectorPendingReviewCapturedSummaries().enumerated()), id: \.offset) { _, summary in
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(summary.fileName)
+                                .font(.subheadline.weight(.semibold))
+                            if summary.values.isEmpty {
+                                Text(String(localized: "No inspectable field changes."))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(summary.values, id: \.self) { value in
+                                    Text(value)
+                                        .font(.caption)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button(String(localized: "Resume Editing")) {
+                        _ = viewModel.resumeInspectorPendingReview()
+                    }
+                    .disabled(!viewModel.isInspectorPendingReviewResumable)
+
+                    Button(String(localized: "Discard Edits"), role: .destructive) {
+                        viewModel.discardInspectorPendingReview()
+                    }
+                }
+
+                if !viewModel.isInspectorPendingReviewResumable {
+                    Text(String(localized: "Re-import or restore every captured file, then resume editing. Values are not transferred to other files."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+        }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     @ViewBuilder

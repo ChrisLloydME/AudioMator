@@ -89,7 +89,7 @@ extension AudioViewModel {
             self.endMetadataSaveProgress()
 
             if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-                self.updateEditForSelection()
+                self.refreshInspectorDraftAfterAcceptedPublication()
             }
 
             self.presentBatchMetadataOperationSummary(summary)

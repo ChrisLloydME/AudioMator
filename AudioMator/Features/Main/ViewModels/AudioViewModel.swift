@@ -134,12 +134,33 @@ final class AudioViewModel: ObservableObject {
             if edit == nil {
                 editSourceFileID = nil
             }
+            if !isPublishingInspectorDraft {
+                inspectorDraft?.noteEditMutation()
+                noteInspectorArtworkActionChange(oldValue: oldValue?.artworkEditAction, newValue: edit?.artworkEditAction)
+            }
             refreshInspectorArtworkPreview()
         }
     }
     @Published var multiEdit: MultiFileEditModel? {
-        didSet { refreshInspectorArtworkPreview() }
+        didSet {
+            if !isPublishingInspectorDraft {
+                inspectorDraft?.noteEditMutation()
+                noteInspectorArtworkActionChange(
+                    oldValue: oldValue?.artworkEditAction,
+                    newValue: multiEdit?.artworkEditAction
+                )
+            }
+            refreshInspectorArtworkPreview()
+        }
     }
+    /// Detached pending-review state for a dirty Inspector draft whose captured
+    /// targets became unavailable. The draft payload stays published; selection
+    /// stays pruned; Save is suspended until the user resumes or discards.
+    @Published private(set) var inspectorPendingReview: InspectorPendingReview?
+    /// Live draft identity/generations/baselines. Metadata only; payload remains
+    /// `edit`/`multiEdit` so existing views and tests keep their bindings.
+    private(set) var inspectorDraft: InspectorDraftSession?
+    private var isPublishingInspectorDraft = false
     let inspectorArtworkPreview = InspectorArtworkPreview()
     private let inspectorArtworkComparisons = InspectorArtworkComparisonCache()
     @Published var metadataWriteHUD: MetadataWriteHUD?
@@ -311,10 +332,12 @@ final class AudioViewModel: ObservableObject {
     }
 
     var hasUnsavedInspectorChanges: Bool {
+        if inspectorPendingReview != nil { return true }
         if selectedAudioIDs.count > 1 {
             guard let multiEdit else { return false }
             return selectedAudioIDs.contains { id in
-                guard let source = inspectorEditSourceFilesByID[id]
+                guard let source = inspectorDraft?.baselinesByID[id]
+                    ?? inspectorEditSourceFilesByID[id]
                     ?? files.first(where: { $0.id == id }) else { return true }
                 return multiEdit.hasPendingChanges(comparedTo: source, excluding: completedInspectorEditsByID[id])
             }
@@ -323,7 +346,8 @@ final class AudioViewModel: ObservableObject {
         guard
             selectedAudioIDs.count == 1,
             let id = selectedAudioIDs.first,
-            let sourceFile = inspectorEditSourceFilesByID[id]
+            let sourceFile = inspectorDraft?.baselinesByID[id]
+                ?? inspectorEditSourceFilesByID[id]
                 ?? files.first(where: { $0.id == id }),
             let edit,
             editSourceFileID == id
@@ -332,6 +356,48 @@ final class AudioViewModel: ObservableObject {
         }
 
         return edit.hasUnsavedChanges(comparedTo: sourceFile)
+    }
+
+    /// Draft-payload dirtiness independent of the current selection, so a
+    /// passive prune can detect captured edits after selection was already
+    /// pruned for the visible collection.
+    private var isInspectorDraftPayloadDirty: Bool {
+        guard let session = inspectorDraft else { return false }
+        if session.pendingReview != nil { return true }
+        if session.targetIDs.count > 1 {
+            guard let multiEdit else { return false }
+            return session.targetIDs.contains { id in
+                guard let source = session.baselinesByID[id] else { return true }
+                return multiEdit.hasPendingChanges(
+                    comparedTo: source,
+                    excluding: session.completedByID[id]
+                )
+            }
+        }
+        guard let id = session.targetIDs.first,
+              editSourceFileID == id,
+              let edit,
+              let source = session.baselinesByID[id] else { return false }
+        return edit.hasUnsavedChanges(comparedTo: source)
+    }
+
+    var hasInspectorPendingReview: Bool {
+        inspectorPendingReview != nil
+    }
+
+    var isInspectorSaveSuspended: Bool {
+        inspectorPendingReview != nil || inspectorDraft?.isSaveInFlight == true
+    }
+
+    var inspectorDraftIdentity: InspectorDraftIdentity? {
+        inspectorDraft?.identity
+    }
+
+    var isInspectorDraftDirty: Bool {
+        guard inspectorPendingReview == nil, let session = inspectorDraft else {
+            return inspectorPendingReview != nil
+        }
+        return hasUnsavedInspectorChanges
     }
 
     func setSidebarSelection(_ selection: SidebarSelection?) {
@@ -349,46 +415,11 @@ final class AudioViewModel: ObservableObject {
         return files.filter { selectedAudioIDs.contains($0.id) }
     }
 
-    /// Called when the middle-list selection changes to keep the inspector in sync with the current file.
+    /// Explicit selection-synchronization seam. Retained for ContentPane's
+    /// confirmed discard-and-reload path and for tests; production draft
+    /// publications use the named operations below instead.
     func updateEditForSelection() {
-        artworkImportTask?.cancel()
-        completedInspectorEditsByID = [:]
-        guard !selectedAudioIDs.isEmpty else {
-            edit = nil
-            editSourceFileID = nil
-            multiEdit = nil
-            inspectorEditSourceFilesByID = [:]
-            return
-        }
-
-        if selectedAudioIDs.count == 1,
-           let selectedID = selectedAudioIDs.first,
-           let selectedFile = visibleFilesByID[selectedID] {
-            inspectorEditSourceFilesByID = [selectedID: selectedFile]
-            edit = SingleFileEditModel(from: selectedFile)
-            editSourceFileID = selectedID
-            multiEdit = nil
-            return
-        }
-
-        let selectedFiles = self.selectedFiles
-        guard !selectedFiles.isEmpty else {
-            edit = nil
-            editSourceFileID = nil
-            multiEdit = nil
-            inspectorEditSourceFilesByID = [:]
-            return
-        }
-
-        edit = nil
-        editSourceFileID = nil
-        inspectorEditSourceFilesByID = Dictionary(
-            uniqueKeysWithValues: selectedFiles.map { ($0.id, $0) }
-        )
-        multiEdit = MultiFileEditModel(
-            files: selectedFiles,
-            artworkState: inspectorArtworkComparisons.resolve(selectedFiles)
-        )
+        beginInspectorDraftSessionForCurrentSelection(reason: .explicitSelectionSync)
     }
 
     func setSelectedAudioIDs(_ selection: Set<AudioFile.ID>) {
@@ -396,12 +427,406 @@ final class AudioViewModel: ObservableObject {
         guard normalizedSelection != selectedAudioIDs else { return }
 
         selectedAudioIDs = normalizedSelection
-        updateEditForSelection()
+        beginInspectorDraftSessionForCurrentSelection(reason: .selectionTransition)
     }
 
-    /// Discard the current edits and restore the latest tags from disk.
+    /// Discard the current edits (including a detached pending review) and
+    /// restore the latest tags from disk. The Inspector keeps a clean draft for
+    /// the current selection so its rows still reflect the file.
     func cancelEditing() {
-        updateEditForSelection()
+        discardInspectorDraft(reason: .explicitUserAction)
+        beginInspectorDraftSessionForCurrentSelection(reason: .explicitSelectionSync)
+    }
+
+    // MARK: - Inspector draft session lifecycle (F3-b)
+
+    /// Clean refresh after an accepted external publication. Never discards a
+    /// dirty or pending draft; a no-op unless the draft still represents the
+    /// current selection and has no unsaved changes.
+    func refreshInspectorDraftAfterAcceptedPublication() {
+        guard inspectorPendingReview == nil,
+              let session = inspectorDraft,
+              !session.isSaveInFlight,
+              Set(session.targetIDs) == selectedAudioIDs,
+              !hasUnsavedInspectorChanges else { return }
+        reconstructInspectorDraft(
+            preservingSessionID: session.id,
+            baselines: selectedFiles,
+            reason: .cleanRefresh
+        )
+    }
+
+    /// Rebuilds a new draft session for the current selection. Used by explicit
+    /// selection transitions and tests; the old payload is discarded.
+    private func beginInspectorDraftSessionForCurrentSelection(reason: InspectorDraftReconstructionReason) {
+        artworkImportTask?.cancel()
+        let baselines = selectedFiles
+        reconstructInspectorDraft(preservingSessionID: nil, baselines: baselines, reason: reason)
+    }
+
+    /// The only place that changes `edit`/`multiEdit` payload shape. Views and
+    /// completion paths mutate field values; this rebuilds the models.
+    private func reconstructInspectorDraft(
+        preservingSessionID: InspectorDraftSessionID?,
+        baselines: [AudioFile],
+        reason: InspectorDraftReconstructionReason
+    ) {
+        isPublishingInspectorDraft = true
+        defer { isPublishingInspectorDraft = false }
+
+        completedInspectorEditsByID = [:]
+        if baselines.isEmpty {
+            edit = nil
+            editSourceFileID = nil
+            multiEdit = nil
+            inspectorEditSourceFilesByID = [:]
+            inspectorDraft = nil
+            inspectorPendingReview = nil
+            return
+        }
+
+        let baselinesByID = Dictionary(uniqueKeysWithValues: baselines.map { ($0.id, $0) })
+        inspectorEditSourceFilesByID = baselinesByID
+        let targetIDs = baselines.map(\.id)
+        if preservingSessionID != nil, var session = inspectorDraft {
+            session.baselinesByID = baselinesByID
+            session.setTargets(targetIDs, baselines: baselinesByID)
+            session.advanceGenerationAfterTransition()
+            inspectorDraft = session
+            inspectorPendingReview = nil
+        } else {
+            inspectorDraft = InspectorDraftSession(targetIDs: targetIDs, baselinesByID: baselinesByID)
+            inspectorPendingReview = nil
+        }
+
+        if baselines.count == 1, let file = baselines.first {
+            inspectorDraft?.noteEditMutation()
+            edit = SingleFileEditModel(from: file)
+            editSourceFileID = file.id
+            multiEdit = nil
+            return
+        }
+
+        edit = nil
+        editSourceFileID = nil
+        multiEdit = MultiFileEditModel(
+            files: baselines,
+            artworkState: inspectorArtworkComparisons.resolve(baselines)
+        )
+    }
+
+    /// Detached pending-review session for captured targets that disappeared
+    /// from every source membership. The draft payload and baselines are kept;
+    /// selection is pruned by the caller; Save stays suspended.
+    private func enterInspectorPendingReview(unavailableTargetIDs: Set<UUID>) {
+        guard var session = inspectorDraft else { return }
+        let missing = Set(session.targetIDs.filter { committedFile(withID: $0) == nil })
+        let review = InspectorPendingReview(
+            identity: session.identity,
+            capturedTargetIDs: session.targetIDs,
+            unavailableTargetIDs: unavailableTargetIDs.union(missing),
+            reason: .targetsBecameUnavailable
+        )
+        session.pendingReview = review
+        inspectorDraft = session
+        inspectorPendingReview = review
+        // Keep the published payload unchanged so the review is inspectable.
+        inspectorEditSourceFilesByID = session.baselinesByID
+        completedInspectorEditsByID = session.completedByID
+    }
+
+    var isInspectorPendingReviewResumable: Bool {
+        guard let session = inspectorDraft, session.pendingReview != nil else { return false }
+        return session.targetIDs.allSatisfy { id in
+            committedFile(withID: id) != nil && visibleFilesByID[id] != nil
+        }
+    }
+
+    /// Resumes the captured draft against the currently available observations.
+    /// Only the original captured target IDs are restored; values are never
+    /// transferred to surviving/new targets.
+    @discardableResult
+    func resumeInspectorPendingReview() -> Bool {
+        guard let session = inspectorDraft,
+              session.pendingReview != nil,
+              isInspectorPendingReviewResumable else { return false }
+        let capturedTargets = session.targetIDs.compactMap { visibleFilesByID[$0] }
+        guard capturedTargets.count == session.targetIDs.count else { return false }
+
+        selectedAudioIDs = Set(session.targetIDs).filter { visibleFilesByID[$0] != nil }
+        inspectorEditSourceFilesByID = Dictionary(
+            uniqueKeysWithValues: capturedTargets.map { ($0.id, $0) }
+        )
+        var resumed = session
+        resumed.pendingReview = nil
+        resumed.baselinesByID = inspectorEditSourceFilesByID
+        resumed.noteEditMutation()
+        inspectorDraft = resumed
+        inspectorPendingReview = nil
+        completedInspectorEditsByID = resumed.completedByID
+        return true
+    }
+
+    func discardInspectorPendingReview() {
+        discardInspectorDraft(reason: .pendingReviewDiscard)
+        beginInspectorDraftSessionForCurrentSelection(reason: .explicitSelectionSync)
+    }
+
+    private func discardInspectorDraft(reason: InspectorDraftDiscardReason) {
+        artworkImportTask?.cancel()
+        isPublishingInspectorDraft = true
+        defer { isPublishingInspectorDraft = false }
+        edit = nil
+        editSourceFileID = nil
+        multiEdit = nil
+        inspectorEditSourceFilesByID = [:]
+        completedInspectorEditsByID = [:]
+        inspectorDraft = nil
+        inspectorPendingReview = nil
+    }
+
+    /// Captures the Inspector save intent before work starts. Returns nil when
+    /// Save is suspended (pending review, replacement session, no dirty draft).
+    func captureInspectorSaveReceipt() -> InspectorSaveReceipt? {
+        guard inspectorPendingReview == nil,
+              var session = inspectorDraft,
+              !session.isSaveInFlight,
+              Set(session.targetIDs) == selectedAudioIDs,
+              hasUnsavedInspectorChanges else { return nil }
+
+        var submittedByID: [UUID: SingleFileEditModel] = [:]
+        for targetID in session.targetIDs {
+            guard let baseline = session.baselinesByID[targetID] else { continue }
+            if selectedAudioIDs.count > 1, let multiEdit {
+                submittedByID[targetID] = multiEdit.applyingChanges(
+                    to: baseline,
+                    excluding: completedInspectorEditsByID[targetID]
+                )
+            } else if let edit {
+                submittedByID[targetID] = edit
+            }
+        }
+        let receipt = InspectorSaveReceipt(
+            identity: session.identity,
+            targetIDs: session.targetIDs,
+            submittedSingleEdit: selectedAudioIDs.count == 1 ? edit : nil,
+            submittedMultiEdit: selectedAudioIDs.count > 1 ? multiEdit : nil,
+            submittedEditsByID: submittedByID,
+            baselinesByID: session.baselinesByID
+        )
+        session.saveReceipt = receipt
+        inspectorDraft = session
+        return receipt
+    }
+
+    /// Records one target's captured save outcome. Successful reads advance the
+    /// per-field baseline and reapplied newer edits; an unavailable readback
+    /// never fabricates a baseline.
+    func recordInspectorSaveTargetCompletion(_ outcome: InspectorSavedTargetOutcome) {
+        guard var session = inspectorDraft,
+              let receipt = session.saveReceipt,
+              receipt.identity.sessionID == session.id,
+              receipt.targetIDs.contains(outcome.targetID),
+              receipt.baselinesByID[outcome.targetID] != nil else { return }
+
+        if outcome.didRefreshFileModel,
+           let readback = outcome.readback,
+           readback.id == outcome.targetID {
+            session.baselinesByID[outcome.targetID] = readback
+            inspectorEditSourceFilesByID[outcome.targetID] = readback
+            session.unverifiedReadbackIDs.remove(outcome.targetID)
+            if receipt.submittedMultiEdit != nil {
+                if let submittedMultiEdit = receipt.submittedMultiEdit {
+                    session.completedByID[outcome.targetID] = submittedMultiEdit
+                }
+            }
+            inspectorDraft = session
+            completedInspectorEditsByID = session.completedByID
+            // Single-file own-save applies the per-field readback delta to the
+            // live draft. Multi-file batches advance baselines and the
+            // completed-target ledger only; the shared merged payload keeps the
+            // pending targets' intent until every captured target completes.
+            if receipt.targetIDs.count == 1 {
+                applyInspectorReadbackToLiveDraft(
+                    targetID: outcome.targetID,
+                    readback: readback,
+                    receipt: receipt,
+                    session: session
+                )
+            }
+        } else {
+            session.unverifiedReadbackIDs.insert(outcome.targetID)
+            inspectorDraft = session
+        }
+    }
+
+    private func applyInspectorReadbackToLiveDraft(
+        targetID: UUID,
+        readback: AudioFile,
+        receipt: InspectorSaveReceipt,
+        session: InspectorDraftSession
+    ) {
+        guard receipt.identity.sessionID == inspectorDraft?.id else { return }
+        isPublishingInspectorDraft = true
+        defer { isPublishingInspectorDraft = false }
+
+        if receipt.targetIDs.count == 1,
+           let live = edit,
+           let submitted = receipt.submittedSingleEdit {
+            edit = InspectorDraftDelta.reappliedSingleDraft(
+                live: live,
+                submitted: submitted,
+                readback: readback
+            )
+            editSourceFileID = targetID
+            return
+        }
+
+        guard let live = multiEdit,
+              let submitted = receipt.submittedMultiEdit else { return }
+        let files = session.targetIDs.compactMap { session.baselinesByID[$0] }
+        guard files.count == session.targetIDs.count else { return }
+        multiEdit = InspectorDraftDelta.reappliedMultiDraft(
+            readbackFiles: files,
+            live: live,
+            submitted: submitted,
+            artworkState: inspectorArtworkComparisons.resolve(files)
+        )
+    }
+
+    /// Ends an Inspector save capture. The caller has recorded every outcome.
+    func finishInspectorSave() {
+        guard var session = inspectorDraft else { return }
+        session.saveReceipt = nil
+        inspectorDraft = session
+        if !session.unverifiedReadbackIDs.isEmpty, hasUnsavedInspectorChanges {
+            // Keep the live draft; the caller reports the reload warning.
+        }
+    }
+
+    // MARK: - Artwork command generation (N4b hook points)
+
+    /// Begins an independent artwork command for the current draft. N4b consumes
+    /// this token at the async handoff; editing another field preserves it.
+    func beginArtworkCommand(for targetIDs: [UUID]? = nil) -> ArtworkCommandToken? {
+        guard var session = inspectorDraft,
+              inspectorPendingReview == nil,
+              !session.isSaveInFlight else { return nil }
+        let requestedIDs = targetIDs ?? session.targetIDs
+        guard Set(requestedIDs) == Set(session.targetIDs) else { return nil }
+        let identity = session.noteArtworkCommand()
+        inspectorDraft = session
+        return ArtworkCommandToken(
+            sessionID: identity.sessionID,
+            artworkGeneration: identity.artworkGeneration,
+            targetIDs: identity.targetIDs
+        )
+    }
+
+    func isCurrentArtworkCommand(_ token: ArtworkCommandToken) -> Bool {
+        guard let session = inspectorDraft, inspectorPendingReview == nil else { return false }
+        return session.id == token.sessionID
+            && session.artworkGeneration == token.artworkGeneration
+            && Set(session.targetIDs) == Set(token.targetIDs)
+    }
+
+    /// Guarded staging boundary for artwork handoffs. Returns false for a stale
+    /// command/session; callers report a localized stale-selection message.
+    @discardableResult
+    func completeArtworkHandoff(
+        _ token: ArtworkCommandToken,
+        action: ArtworkEditAction
+    ) -> Bool {
+        guard isCurrentArtworkCommand(token) else { return false }
+        isPublishingInspectorDraft = true
+        defer { isPublishingInspectorDraft = false }
+        if selectedAudioIDs.count == 1, var current = edit {
+            current.artworkEditAction = action
+            edit = current
+        } else if var current = multiEdit {
+            current.setArtworkEditAction(action)
+            multiEdit = current
+        } else {
+            return false
+        }
+        return true
+    }
+
+    private func noteInspectorArtworkActionChange(
+        oldValue: ArtworkEditAction?,
+        newValue: ArtworkEditAction?
+    ) {
+        guard oldValue != newValue,
+              newValue != nil,
+              var session = inspectorDraft else { return }
+        _ = session.noteArtworkCommand()
+        inspectorDraft = session
+    }
+
+    /// Human-readable captured values for the pending-review inspection sheet.
+    func inspectorPendingReviewCapturedSummaries() -> [(fileName: String, values: [String])] {
+        guard let session = inspectorDraft, session.pendingReview != nil else { return [] }
+        return session.targetIDs.map { targetID in
+            let fileName = session.baselinesByID[targetID]?.url.lastPathComponent
+                ?? committedFile(withID: targetID)?.url.lastPathComponent
+                ?? targetID.uuidString
+            var values: [String] = []
+            if let baseline = session.baselinesByID[targetID] {
+                let submitted = session.saveReceipt?.submittedEditsByID[targetID]
+                let effective: SingleFileEditModel
+                if let editSourceFileID, editSourceFileID == targetID, let edit {
+                    effective = edit
+                } else if let multiEdit {
+                    effective = multiEdit.applyingChanges(
+                        to: baseline,
+                        excluding: session.completedByID[targetID]
+                    )
+                } else if let submitted {
+                    effective = submitted
+                } else {
+                    effective = SingleFileEditModel(from: baseline)
+                }
+                let submission = session.saveReceipt?.submittedEditsByID[targetID]
+                    ?? SingleFileEditModel(from: baseline)
+                values = Self.changedFieldSummaries(
+                    live: effective,
+                    submitted: submission,
+                    baseline: baseline
+                )
+            }
+            return (fileName, values)
+        }
+    }
+
+    private static func changedFieldSummaries(
+        live: SingleFileEditModel,
+        submitted: SingleFileEditModel,
+        baseline: AudioFile
+    ) -> [String] {
+        var lines: [String] = []
+        let baselineModel = SingleFileEditModel(from: baseline)
+        let pairs: [(String, String, String)] = [
+            ("Title", live.title, baselineModel.title),
+            ("Artist", live.artist, baselineModel.artist),
+            ("Album", live.album, baselineModel.album),
+            ("Album Artist", live.albumArtist, baselineModel.albumArtist),
+            ("Composer", live.composer, baselineModel.composer),
+            ("Genre", live.genre, baselineModel.genre),
+            ("Comment", live.comment, baselineModel.comment),
+            ("Year", live.year, baselineModel.year),
+            ("Date", live.date, baselineModel.date),
+            ("Track", live.trackNumberFieldText, baselineModel.trackNumberFieldText),
+            ("Track Total", live.trackTotalFieldText, baselineModel.trackTotalFieldText),
+            ("Disc", live.discNumberFieldText, baselineModel.discNumberFieldText),
+            ("Disc Total", live.discTotalFieldText, baselineModel.discTotalFieldText)
+        ]
+        for (label, liveValue, baseValue) in pairs where liveValue != baseValue {
+            lines.append("\(label): \(liveValue)")
+        }
+        if live.artworkEditAction != baselineModel.artworkEditAction {
+            lines.append(String(localized: "Artwork: changed"))
+        }
+        return lines
     }
 
     func presentMetadataWriteHUD(
@@ -1247,12 +1672,58 @@ final class AudioViewModel: ObservableObject {
         files = sourceFiles.map { applyingRecoveryProjection($0) }
         let validIDs = Set(files.map(\.id))
         let prunedSelection = selectedAudioIDs.intersection(validIDs)
-        if prunedSelection != selectedAudioIDs {
+        let selectionChanged = prunedSelection != selectedAudioIDs
+        if selectionChanged {
             selectedAudioIDs = prunedSelection
-            updateEditForSelection()
-        } else if !selectedAudioIDs.isEmpty && !hasUnsavedInspectorChanges {
-            updateEditForSelection()
         }
+
+        if let session = inspectorDraft {
+            if session.pendingReview != nil {
+                updateInspectorPendingReviewAvailability()
+                return
+            }
+
+            let unavailableCapturedIDs = Set(
+                session.targetIDs.filter { committedFile(withID: $0) == nil }
+            )
+            if !unavailableCapturedIDs.isEmpty,
+               isInspectorDraftPayloadDirty || !session.completedByID.isEmpty {
+                enterInspectorPendingReview(unavailableTargetIDs: unavailableCapturedIDs)
+                return
+            }
+
+            if selectionChanged || Set(session.targetIDs) != selectedAudioIDs {
+                beginInspectorDraftSessionForCurrentSelection(reason: .selectionTransition)
+                return
+            }
+
+            if !hasUnsavedInspectorChanges {
+                reconstructInspectorDraft(
+                    preservingSessionID: session.id,
+                    baselines: selectedFiles,
+                    reason: .cleanRefresh
+                )
+            }
+            return
+        }
+
+        if selectionChanged || !selectedAudioIDs.isEmpty {
+            beginInspectorDraftSessionForCurrentSelection(reason: .selectionTransition)
+        }
+    }
+
+    private func updateInspectorPendingReviewAvailability() {
+        guard var session = inspectorDraft, let current = session.pendingReview else { return }
+        let unavailable = Set(session.targetIDs.filter { committedFile(withID: $0) == nil })
+        let updated = InspectorPendingReview(
+            identity: session.identity,
+            capturedTargetIDs: current.capturedTargetIDs,
+            unavailableTargetIDs: unavailable,
+            reason: current.reason
+        )
+        session.pendingReview = updated
+        inspectorDraft = session
+        inspectorPendingReview = updated
     }
 
     private func normalizedSidebarSelection(_ selection: SidebarSelection) -> SidebarSelection {

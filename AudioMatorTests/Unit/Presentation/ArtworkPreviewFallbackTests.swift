@@ -1,13 +1,13 @@
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class ArtworkPreviewFallbackTests: XCTestCase {
+nonisolated final class ArtworkPreviewFallbackTests: XCTestCase {
     private let a1 = URL(string: "https://example.com/a-hires.jpg")!
     private let a2 = URL(string: "https://example.com/a-standard.jpg")!
     private let b1 = URL(string: "https://example.com/b-hires.jpg")!
     private let b2 = URL(string: "https://example.com/b-standard.jpg")!
 
+    @MainActor
     func testFallbackStartsAtFirstURLAndAdvancesOnlyForTheCurrentURL() {
         var fallback = ArtworkPreviewFallback(urls: [a1, a2])
 
@@ -25,6 +25,7 @@ final class ArtworkPreviewFallbackTests: XCTestCase {
         XCTAssertFalse(fallback.hasSuccessor)
     }
 
+    @MainActor
     func testCandidateSwitchStartsAtFirstURLForTheNewCandidate() {
         var candidateAFallback = ArtworkPreviewFallback(urls: [a1, a2])
         XCTAssertTrue(candidateAFallback.advance(afterFailedURL: a1))
@@ -41,6 +42,7 @@ final class ArtworkPreviewFallbackTests: XCTestCase {
         XCTAssertEqual(candidateAFallback.currentURL, a1)
     }
 
+    @MainActor
     func testDelayedFailureOfPreviousCandidateCannotAdvanceNewCandidate() {
         var candidateBFallback = ArtworkPreviewFallback(urls: [b1, b2])
         XCTAssertEqual(candidateBFallback.currentURL, b1)
@@ -53,6 +55,7 @@ final class ArtworkPreviewFallbackTests: XCTestCase {
         XCTAssertEqual(candidateBFallback.currentURL, b2)
     }
 
+    @MainActor
     func testLastURLFailureHasNoSuccessorAndDoesNotLoop() {
         var fallback = ArtworkPreviewFallback(urls: [a1, a2], index: 1)
 
@@ -63,6 +66,7 @@ final class ArtworkPreviewFallbackTests: XCTestCase {
         XCTAssertEqual(fallback.index, 1)
     }
 
+    @MainActor
     func testEmptyURLListHasNoCurrentURL() {
         var fallback = ArtworkPreviewFallback(urls: [])
 
@@ -71,6 +75,7 @@ final class ArtworkPreviewFallbackTests: XCTestCase {
         XCTAssertFalse(fallback.advance(afterFailedURL: a1))
     }
 
+    @MainActor
     func testFallbackPreservesPreferredPreviewURLOrder() {
         let hires = URL(string: "https://example.com/hires.jpg")!
         let uncompressed = URL(string: "https://example.com/uncompressed.jpg")!

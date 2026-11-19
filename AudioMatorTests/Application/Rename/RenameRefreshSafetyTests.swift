@@ -3,10 +3,10 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class RenameRefreshSafetyTests: XCTestCase {
+nonisolated final class RenameRefreshSafetyTests: XCTestCase {
     // MARK: - Move publication and in-flight invalidation
 
+    @MainActor
     func testMoveSupersedesPendingOldURLAndLateReadCannotOverwriteNewerObservation() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -34,6 +34,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertNil(moved.metadataConflictBaseline)
     }
 
+    @MainActor
     func testLateMoveReadbackCannotReplaceNewerGeneratedObservation() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -69,6 +70,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
     // MARK: - Queued writers observe the recovery decision
 
+    @MainActor
     func testRecoveryDecisionBlocksStaleDraftsAndAlreadyQueuedWriters() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -121,6 +123,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
     // MARK: - Failed readback is fail closed regardless of lightweight probes
 
+    @MainActor
     func testFailedFullReadbackKeepsMovedProjectionReadOnlyEvenWhenLightweightProbesSucceed() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -158,6 +161,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: environment.destinationURL), destinationBytes)
     }
 
+    @MainActor
     func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -183,6 +187,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertEqual(pipeline.writeCount, 0)
     }
 
+    @MainActor
     func testReceiptMatchedReadbackRestoresAuthorityOnlyForItsMove() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -214,6 +219,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
     /// End-to-end disk evidence: a real move, a real bounded readback and a real
     /// post-move write through the production adapter. Verifies the persisted
     /// value, preserved number/disc components and untouched unrelated raw values.
+    @MainActor
     func testReceiptMatchedReadbackRestoresAuthorityForRealPostMoveWrite() async throws {
         let environment = try makeEnvironment()
         let sourceURL = environment.sourceURL
@@ -265,6 +271,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
     /// target) captured on a different platform surface than F1's `lstat`
     /// readback. The readback must compare the stable entry identity (device,
     /// inode, kind) so a real committed rename still restores authority.
+    @MainActor
     func testReceiptIdentityWithJournalEvidenceStillMatchesPlainReadbackCapture() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -303,6 +310,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertFalse(viewModel.hasRecoveryDecision(for: moved.id))
     }
 
+    @MainActor
     func testReadbackAcrossSamePathReplacementStaysBlocked() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -331,6 +339,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: environment.destinationURL), replacementBytes)
     }
 
+    @MainActor
     func testReadbackTimeoutKeepsBlockedAndLateLoadCannotPublish() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -361,6 +370,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
     // MARK: - Recovery decisions survive automatic observations
 
+    @MainActor
     func testRefreshRequiredRecoveryCannotBeUndoneByQueuedOrOlderReload() throws {
         let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/recovery.mp3"))
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameReadbackPipeline(mode: .fail))
@@ -378,6 +388,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
     }
 
+    @MainActor
     func testMoveReadbackDoesNotClearOlderRecoveryDecision() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -396,6 +407,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertTrue(viewModel.hasRecoveryDecision(for: moved.id))
     }
 
+    @MainActor
     func testExplicitReloadAfterMoveReadbackFailureRestoresWritableObservation() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
@@ -422,6 +434,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
     // MARK: - Planner and preflight
 
+    @MainActor
     func testBlockedSourceIsSourceUnavailableAndCannotBePlanned() throws {
         let displayOnly = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/blocked-source.flac"),
@@ -441,6 +454,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         let destinationURL: URL
     }
 
+    @MainActor
     private func makeEnvironment() throws -> Environment {
         let source = try MetadataTestTokens.makeFixtureCopy()
         let destination = source.deletingLastPathComponent()
@@ -448,6 +462,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         return Environment(sourceURL: source, destinationURL: destination)
     }
 
+    @MainActor
     private func observedFile(at url: URL, title: String) throws -> AudioFile {
         AudioFileTestFactory.makeObserved(
             url: url,
@@ -457,6 +472,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeReceipt(
         for file: AudioFile,
         from sourceURL: URL,
@@ -477,7 +493,7 @@ final class RenameRefreshSafetyTests: XCTestCase {
 
 // MARK: - Recording pipeline
 
-private final class RenameReadbackPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class RenameReadbackPipeline: AudioMetadataPipeline, @unchecked Sendable {
     enum LoadMode {
         case fail
         case real

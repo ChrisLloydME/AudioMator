@@ -4,8 +4,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class FileMutationSerializationTests: XCTestCase {
+nonisolated final class FileMutationSerializationTests: XCTestCase {
+    @MainActor
     func testOlderImportObservationCannotReplaceNewerDeferredCommit() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
@@ -20,6 +20,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Committed")
     }
 
+    @MainActor
     func testQueuedBatchReloadPublishesOnCompletionAndKeepsDirtyDraft() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
@@ -39,6 +40,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testNewerImmediateReloadSupersedesQueuedBatchReload() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
@@ -56,6 +58,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.snapshotID, newer.snapshotID)
     }
 
+    @MainActor
     func testQueuedReloadDoesNotRestoreRemovedFile() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
@@ -70,6 +73,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 
+    @MainActor
     func testOlderMutationReloadCannotReplaceNewerAppliedFileModel() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let fileID = UUID()
@@ -95,6 +99,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Newer")
     }
 
+    @MainActor
     func testMetadataMutationKeepsReservationUntilPersistedSnapshotReloads() async throws {
         let pipeline = ReloadGatedMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -149,6 +154,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(didEnterAfterReloadFinished)
     }
 
+    @MainActor
     func testMetadataMutationDistinguishesPersistedWriteFromReloadFailure() async throws {
         let pipeline = ReloadFailingMutationPipeline()
         let executor = MetadataFileMutationExecutor(
@@ -174,6 +180,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
     }
 
+    @MainActor
     func testTimedOutReloadReportsPersistedWriteAsSuccessAndReleasesReservation() async throws {
         let pipeline = ReloadGatedMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -219,6 +226,7 @@ final class FileMutationSerializationTests: XCTestCase {
         try await followUpTask.value
     }
 
+    @MainActor
     func testSynchronousWriteIsNotReportedTimedOutWhileItCanStillCommit() async throws {
         let pipeline = BlockingMutationPipeline()
         let executor = MetadataFileMutationExecutor(
@@ -248,6 +256,7 @@ final class FileMutationSerializationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testCancellationAfterReservationStillObservesCommitAndHoldsReservation() async throws {
         let pipeline = BlockingMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -292,6 +301,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(didEnterAfterCommit)
     }
 
+    @MainActor
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {
         let pipeline = BlockingMutationPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -349,6 +359,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(pipeline.mutationCount(for: .rawMapWrite), 1)
     }
 
+    @MainActor
     func testMetadataWriteEraseAndTrackRenumberShareOneFileReservation() async throws {
         let fileID = UUID()
         let directoryURL = FileManager.default.temporaryDirectory
@@ -426,6 +437,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(result.succeeded, 1)
     }
 
+    @MainActor
     func testCancelledWaiterDoesNotExecuteQueuedMutation() async throws {
         let coordinator = FileMutationCoordinator()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorCancelledMutation.mp3")
@@ -481,6 +493,7 @@ final class FileMutationSerializationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testOlderBroadWaiterCannotBeStarvedByLaterOverlappingTraffic() async throws {
         let coordinator = FileMutationCoordinator()
         let firstURL = URL(fileURLWithPath: "/tmp/AudioMatorFairness-A.mp3")
@@ -665,7 +678,7 @@ nonisolated private enum RecordedMutationKind: Hashable {
     case trackRenumber
 }
 
-private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let condition = NSCondition()
     private var recordedMutationCounts: [RecordedMutationKind: Int] = [:]
     private var recordedTotalMutationCount = 0

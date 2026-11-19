@@ -4,10 +4,10 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class QuickImportProgressiveIndexTests: XCTestCase {
+nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
     // MARK: - Counter budgets
 
+    @MainActor
     func test480Forced24MeetsIdentityKeyAndLeaseBudgets() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 480)
@@ -22,6 +22,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         try await waitForImport(harness.viewModel, expectedCount: 480)
 
         assertBudget(
+            harness.viewModel,
             provider: provider,
             access: access,
             expectedCount: 480,
@@ -42,6 +43,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         assertBalancedScope(access: access, expectedStarts: 481)
     }
 
+    @MainActor
     func test480Forced48PublishesTenBatchesWithIdenticalWorkCounters() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 480)
@@ -66,6 +68,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         assertBalancedScope(access: access, expectedStarts: 481)
     }
 
+    @MainActor
     func test960And4000StayLinearAcrossForcedBatchSizes() async throws {
         try requireFixtures()
 
@@ -97,6 +100,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         XCTAssertEqual(counters4000.consistencyIssues, [])
     }
 
+    @MainActor
     func testForcedBatchSizeDoesNotChangeIdentityWork() async throws {
         try requireFixtures()
         let forced24 = try await runSyntheticLane(count: 480, policy: .forced24)
@@ -115,6 +119,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
 
     // MARK: - Scope leases
 
+    @MainActor
     func testScopeLeasesAreBalancedAndStartedOncePerKey() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 64)
@@ -144,6 +149,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testNotRequiredScopeIsNeverStoppedAndNeverRetriedByBatchSync() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 8)
@@ -165,6 +171,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         XCTAssertEqual(diagnostics.leaseMetrics.revokedCount, 0)
     }
 
+    @MainActor
     func testRevokedScopeIsRetriedOnlyAtANewAuthorizationEpoch() async throws {
         try requireFixtures()
         let url = syntheticURLs(count: 1)[0]
@@ -224,6 +231,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
 
     // MARK: - Retarget rejection
 
+    @MainActor
     func testSymlinkRetargetBetweenPreparationAndLoadIsDeclinedWithSelectAgain() async throws {
         try requireFixtures()
         let root = try makeTemporaryDirectory(prefix: "QuickImportSymlinkRetarget")
@@ -269,6 +277,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         assertBalancedScope(access: access, expectedStarts: 2)
     }
 
+    @MainActor
     func testReplacedParentEntryBetweenPreparationAndLoadIsDeclined() async throws {
         try requireFixtures()
         let root = try makeTemporaryDirectory(prefix: "QuickImportParentRetarget")
@@ -312,6 +321,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
 
     // MARK: - Supersession, ordering, duplicates, reimport
 
+    @MainActor
     func testOverlappingRequestsSupersedeTheOlderToken() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 2)
@@ -343,9 +353,18 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         // The two requests overlap, so the newer request's row may be appended
         // after the older request's later rows. Each request still publishes its
         // own accepted rows exactly once in contiguous order.
-        XCTAssertEqual(harness.viewModel.quickImportDiagnostics().consistencyIssues, [])
+        let overlapDiagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(overlapDiagnostics.consistencyIssues, [])
+        XCTAssertEqual(overlapDiagnostics.activeRequestCount, 0)
+        XCTAssertEqual(overlapDiagnostics.metrics.terminalMergeCount, 0)
+        for url in urls {
+            let fileKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: url)
+            XCTAssertNotNil(overlapDiagnostics.tokensByFileKey[fileKey])
+            XCTAssertNotNil(overlapDiagnostics.admittedSequenceByFileKey[fileKey])
+        }
     }
 
+    @MainActor
     func testDuplicateAliasCollapsesToOneRow() async throws {
         try requireFixtures()
         let directory = syntheticURLs(count: 4)[0].deletingLastPathComponent()
@@ -367,6 +386,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         assertBalancedScope(access: access, expectedStarts: 2)
     }
 
+    @MainActor
     func testReimportReplacesRowInPlaceWithStableID() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 3)
@@ -401,6 +421,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
 
     // MARK: - Clear/cancel and merge seam
 
+    @MainActor
     func testClearReleasesLeasesAndRejectsLateBatches() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 48)
@@ -421,9 +442,15 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         let final = access.snapshot
         XCTAssertEqual(final.startCount, 49, "48 files + parent started once")
         XCTAssertEqual(final.stopCount, 49, "Clear stops every granted lease exactly once")
-        XCTAssertEqual(harness.viewModel.quickImportDiagnostics().consistencyIssues, [])
+        let clearedDiagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(clearedDiagnostics.consistencyIssues, [])
+        XCTAssertTrue(clearedDiagnostics.tokensByFileKey.isEmpty, "Clear drops every replacement token")
+        XCTAssertTrue(clearedDiagnostics.admittedSequenceByFileKey.isEmpty)
+        XCTAssertEqual(clearedDiagnostics.activeRequestCount, 0)
+        XCTAssertEqual(clearedDiagnostics.metrics.terminalMergeCount, 0)
     }
 
+    @MainActor
     func testMergeSeamMaintainsIndexAndLeases() async throws {
         try requireFixtures()
         let urls = syntheticURLs(count: 8)
@@ -451,6 +478,411 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         assertBalancedScope(access: access, expectedStarts: 9)
     }
 
+    // MARK: - Request-token ownership across overlapping requests (D2)
+
+    @MainActor
+    func testOlderRequestFailureDoesNotPruneNewerRequestToken() async throws {
+        try requireFixtures()
+        let urls = syntheticURLs(count: 1)
+        let fileURL = urls[0]
+        let gate = QuickImportProgressiveGate()
+        let pipeline = ProgressiveQuickImportMetadataPipeline(gate: gate)
+        pipeline.setFailFirstAttempts(1, for: fileURL)
+        let provider = SyntheticQuickImportIdentityProvider()
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(pipeline: pipeline, provider: provider, access: access, policy: .forced48)
+        defer { harness.tearDown() }
+
+        harness.viewModel.importQuickFiles(from: urls)
+        try await waitUntil { pipeline.attemptCount(for: fileURL) == 1 }
+        try await gate.waitUntilEntered(atLeast: 1)
+        harness.viewModel.importQuickFiles(from: urls)
+        try await waitUntil { pipeline.attemptCount(for: fileURL) == 2 }
+        try await gate.waitUntilEntered(atLeast: 2)
+
+        let fileKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: fileURL)
+        let newerToken = harness.viewModel.quickImportDiagnostics().tokensByFileKey[fileKey]
+        XCTAssertNotNil(newerToken, "The newer request must own the key before the older request terminates")
+        await gate.release()
+        try await waitForImport(harness.viewModel, expectedCount: 1)
+        try await waitUntil { harness.viewModel.activeQuickImportTaskCount == 0 }
+
+        XCTAssertEqual(
+            harness.viewModel.files.count,
+            1,
+            "The older request's terminal must not prune the newer request's token and silently drop its row"
+        )
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(diagnostics.tokensByFileKey[fileKey], newerToken)
+        XCTAssertNotNil(diagnostics.admittedSequenceByFileKey[fileKey])
+        XCTAssertNil(harness.viewModel.metadataWriteHUD, "The superseded older failure must not surface")
+        XCTAssertEqual(diagnostics.metrics.terminalMergeCount, 0)
+        XCTAssertEqual(diagnostics.consistencyIssues, [])
+        harness.viewModel.clearQuickImportFiles()
+        assertBalancedScope(access: access, expectedStarts: 2)
+    }
+
+    @MainActor
+    func testPruneUnpublishedKeysOnlyRemovesOwnedRegistryEntries() throws {
+        let environment = QuickImportEnvironment(
+            identityProvider: SyntheticQuickImportIdentityProvider(),
+            scopeAccess: CountingQuickImportScopeAccess(),
+            loadPolicy: .forced24
+        )
+        var bookkeeping = QuickImportBookkeeping(environment: environment)
+        let sharedKey = "/tmp/shared.mp3"
+        let orphanKey = "/tmp/orphan.mp3"
+        let olderToken = UUID()
+        let newerToken = UUID()
+
+        // The newer request owns sharedKey: the older request's prepared ownership
+        // is stale and must not delete the live token/sequence.
+        bookkeeping.tokensByFileKey[sharedKey] = newerToken
+        bookkeeping.admittedSequenceByFileKey[sharedKey] = 9
+        // orphanKey was never published and the older request still owns it.
+        bookkeeping.tokensByFileKey[orphanKey] = olderToken
+        bookkeeping.admittedSequenceByFileKey[orphanKey] = 3
+
+        var olderRequest = QuickImportRequestState(
+            requestID: UUID(),
+            sequence: 3,
+            generation: 0,
+            refreshGeneration: 0,
+            taskID: UUID(),
+            authorizationEpoch: 0
+        )
+        olderRequest.preparedKeys[sharedKey] = QuickImportRequestKeyOwnership(sequence: 3, token: olderToken)
+        olderRequest.preparedKeys[orphanKey] = QuickImportRequestKeyOwnership(sequence: 3, token: olderToken)
+        bookkeeping.requests[olderRequest.requestID] = olderRequest
+
+        bookkeeping.pruneUnpublishedKeys(for: olderRequest)
+
+        XCTAssertEqual(bookkeeping.tokensByFileKey[sharedKey], newerToken, "A newer owner's token must survive")
+        XCTAssertEqual(bookkeeping.admittedSequenceByFileKey[sharedKey], 9)
+        XCTAssertNil(bookkeeping.tokensByFileKey[orphanKey], "The request's own unpublished token is pruned")
+        XCTAssertNil(bookkeeping.admittedSequenceByFileKey[orphanKey])
+    }
+
+    @MainActor
+    func testInterleavedBatchesKeepOneTokenPerKeyAndNoTerminalMutation() async throws {
+        try requireFixtures()
+        let urls = syntheticURLs(count: 2)
+        let gate = QuickImportProgressiveGate()
+        let pipeline = ProgressiveQuickImportMetadataPipeline(gate: gate)
+        let provider = SyntheticQuickImportIdentityProvider()
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(pipeline: pipeline, provider: provider, access: access, policy: .forced48)
+        defer { harness.tearDown() }
+
+        harness.viewModel.importQuickFiles(from: urls)
+        try await gate.waitUntilEntered(atLeast: 2)
+        harness.viewModel.importQuickFiles(from: urls)
+        try await gate.waitUntilEntered(atLeast: 4)
+        await gate.release()
+        try await waitForImport(harness.viewModel, expectedCount: 2)
+        try await waitUntil { harness.viewModel.activeQuickImportTaskCount == 0 }
+
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(diagnostics.activeRequestCount, 0)
+        XCTAssertEqual(diagnostics.metrics.terminalMergeCount, 0)
+        XCTAssertEqual(diagnostics.metrics.terminalMergedRowCount, 0)
+        for url in urls {
+            let fileKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: url)
+            XCTAssertNotNil(diagnostics.tokensByFileKey[fileKey], "Each published key keeps one live token")
+            XCTAssertNotNil(diagnostics.admittedSequenceByFileKey[fileKey])
+        }
+        XCTAssertEqual(Set(harness.viewModel.files.map(\.url)), Set(urls))
+        XCTAssertEqual(Set(harness.viewModel.files.map(\.id)).count, 2)
+        harness.viewModel.clearQuickImportFiles()
+        assertBalancedScope(access: access, expectedStarts: 3)
+    }
+
+    // MARK: - Rename and journal-recovery index + lease migration
+
+    @MainActor
+    func testMovePlaceholdersMigratesMembershipIndexTokensAndLeases() async throws {
+        try requireFixtures()
+        let root = try makeTemporaryDirectory(prefix: "QuickImportMove")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceDirectory = root.appendingPathComponent("disc-one", isDirectory: true)
+        let destinationDirectory = root.appendingPathComponent("disc-two", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+        let sourceURL = sourceDirectory.appendingPathComponent("01.mp3")
+        let siblingURL = sourceDirectory.appendingPathComponent("02.mp3")
+        let destinationURL = destinationDirectory.appendingPathComponent("01 - Renamed.mp3")
+        try Data().write(to: sourceURL)
+        try Data().write(to: siblingURL)
+
+        let provider = SyntheticQuickImportIdentityProvider()
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: ProgressiveQuickImportMetadataPipeline(),
+            provider: provider,
+            access: access,
+            policy: .forced48
+        )
+        defer { harness.tearDown() }
+        harness.viewModel.mergeQuickImportFiles([
+            AudioFileTestFactory.make(url: sourceURL, title: "One"),
+            AudioFileTestFactory.make(url: siblingURL, title: "Two")
+        ])
+        let movedRow = try XCTUnwrap(harness.viewModel.files.first { $0.url == sourceURL })
+        let siblingRow = try XCTUnwrap(harness.viewModel.files.first { $0.url == siblingURL })
+        XCTAssertEqual(access.snapshot.startCount, 3, "Two file scopes and the shared source parent")
+
+        harness.viewModel.publishMovePlaceholders([
+            moveReceipt(fileID: movedRow.id, sourceURL: sourceURL, destinationURL: destinationURL)
+        ])
+
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(diagnostics.consistencyIssues, [])
+        let movedIdentity = try XCTUnwrap(diagnostics.membershipIdentitiesByID[movedRow.id])
+        let oldKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: sourceURL)
+        let newKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: destinationURL)
+        XCTAssertEqual(movedIdentity.operationalURL, destinationURL.standardizedFileURL)
+        XCTAssertEqual(movedIdentity.fileKey, newKey)
+        XCTAssertEqual(
+            movedIdentity.parentKey,
+            SyntheticQuickImportIdentityProvider.parentKey(forFileURL: destinationURL)
+        )
+        XCTAssertEqual(diagnostics.fileKeyRefCounts[newKey], 1)
+        XCTAssertNil(diagnostics.fileKeyRefCounts[oldKey])
+        let destinationParentKey = SyntheticQuickImportIdentityProvider.parentKey(forFileURL: destinationURL)
+        let sourceParentKey = SyntheticQuickImportIdentityProvider.parentKey(forFileURL: sourceURL)
+        XCTAssertEqual(diagnostics.parentKeyRefCounts[destinationParentKey], 1)
+        XCTAssertEqual(diagnostics.parentKeyRefCounts[sourceParentKey], 1, "The sibling keeps the source parent")
+        XCTAssertNotNil(diagnostics.tokensByFileKey[oldKey], "The old location keeps a tombstone token")
+        XCTAssertNotNil(diagnostics.tokensByFileKey[newKey])
+        XCTAssertNotEqual(diagnostics.tokensByFileKey[oldKey], diagnostics.tokensByFileKey[newKey])
+        XCTAssertGreaterThan(
+            try XCTUnwrap(diagnostics.admittedSequenceByFileKey[newKey]),
+            try XCTUnwrap(diagnostics.admittedSequenceByFileKey[oldKey])
+        )
+        XCTAssertEqual(
+            harness.viewModel.files.first { $0.id == movedRow.id }?.url,
+            destinationURL.standardizedFileURL,
+            "The hidden membership URL must be published under the destination"
+        )
+
+        let oldFileLeaseKey = AudioViewModel.quickImportIntakeLeaseKey(for: sourceURL)
+        let newFileLeaseKey = AudioViewModel.quickImportIntakeLeaseKey(for: destinationURL)
+        XCTAssertNil(diagnostics.leaseOwnersByKey[oldFileLeaseKey])
+        XCTAssertEqual(diagnostics.leaseOwnersByKey[newFileLeaseKey], [.membership(movedRow.id)])
+        XCTAssertEqual(diagnostics.leaseOwnersByKey[sourceParentKey], [.membership(siblingRow.id)])
+        XCTAssertEqual(diagnostics.leaseOwnersByKey[destinationParentKey], [.membership(movedRow.id)])
+        XCTAssertEqual(
+            diagnostics.leaseStatesByKey[sourceParentKey],
+            .granted(url: sourceDirectory.standardizedFileURL)
+        )
+        XCTAssertEqual(diagnostics.metrics.moveMigrationIdentityMismatchCount, 0)
+
+        let scopeBeforeClear = access.snapshot
+        XCTAssertEqual(scopeBeforeClear.startCount, 4, "The destination parent starts once; file and source parent transfer")
+        XCTAssertEqual(scopeBeforeClear.stopCount, 0)
+        XCTAssertNil(scopeBeforeClear.startCountsByURL[destinationURL.standardizedFileURL])
+        XCTAssertEqual(scopeBeforeClear.startCountsByURL[destinationDirectory.standardizedFileURL], 1)
+
+        harness.viewModel.clearQuickImportFiles()
+        let finalScope = access.snapshot
+        XCTAssertEqual(finalScope.startCount, finalScope.stopCount, "Every migrated lease stops exactly once")
+        XCTAssertEqual(finalScope.startCount, 4)
+        XCTAssertEqual(harness.viewModel.quickImportDiagnostics().metrics.terminalMergeCount, 0)
+    }
+
+    @MainActor
+    func testSharedParentCrossDirectoryRenameKeepsSingleGrantPerKey() async throws {
+        try requireFixtures()
+        let root = try makeTemporaryDirectory(prefix: "QuickImportSharedMove")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceDirectory = root.appendingPathComponent("disc-one", isDirectory: true)
+        let destinationDirectory = root.appendingPathComponent("disc-two", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+        let firstSourceURL = sourceDirectory.appendingPathComponent("01.mp3")
+        let secondSourceURL = sourceDirectory.appendingPathComponent("02.mp3")
+        let firstDestinationURL = destinationDirectory.appendingPathComponent("01.mp3")
+        let secondDestinationURL = destinationDirectory.appendingPathComponent("02.mp3")
+        try Data().write(to: firstSourceURL)
+        try Data().write(to: secondSourceURL)
+
+        let provider = SyntheticQuickImportIdentityProvider()
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: ProgressiveQuickImportMetadataPipeline(),
+            provider: provider,
+            access: access,
+            policy: .forced48
+        )
+        defer { harness.tearDown() }
+        harness.viewModel.mergeQuickImportFiles([
+            AudioFileTestFactory.make(url: firstSourceURL),
+            AudioFileTestFactory.make(url: secondSourceURL)
+        ])
+        let firstRow = try XCTUnwrap(harness.viewModel.files.first { $0.url == firstSourceURL })
+        let secondRow = try XCTUnwrap(harness.viewModel.files.first { $0.url == secondSourceURL })
+
+        harness.viewModel.publishMovePlaceholders([
+            moveReceipt(fileID: firstRow.id, sourceURL: firstSourceURL, destinationURL: firstDestinationURL),
+            moveReceipt(fileID: secondRow.id, sourceURL: secondSourceURL, destinationURL: secondDestinationURL)
+        ])
+
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        let sourceParentKey = SyntheticQuickImportIdentityProvider.parentKey(forFileURL: firstSourceURL)
+        let destinationParentKey = SyntheticQuickImportIdentityProvider.parentKey(forFileURL: firstDestinationURL)
+        XCTAssertNil(diagnostics.leaseOwnersByKey[sourceParentKey])
+        XCTAssertEqual(
+            diagnostics.leaseOwnersByKey[destinationParentKey],
+            [.membership(firstRow.id), .membership(secondRow.id)]
+        )
+        XCTAssertEqual(diagnostics.parentKeyRefCounts[sourceParentKey] ?? 0, 0)
+        XCTAssertEqual(diagnostics.parentKeyRefCounts[destinationParentKey], 2)
+        XCTAssertEqual(diagnostics.fileKeyRefCounts[SyntheticQuickImportIdentityProvider.canonicalKey(for: firstDestinationURL)], 1)
+        XCTAssertEqual(diagnostics.fileKeyRefCounts[SyntheticQuickImportIdentityProvider.canonicalKey(for: secondDestinationURL)], 1)
+        XCTAssertNil(diagnostics.fileKeyRefCounts[SyntheticQuickImportIdentityProvider.canonicalKey(for: firstSourceURL)])
+
+        let leaseMetrics = diagnostics.leaseMetrics
+        XCTAssertEqual(leaseMetrics.dedupedGrantTransferStopCount, 1, "Only the redundant source-parent start is stopped")
+        XCTAssertEqual(leaseMetrics.transferCount, 2, "Each file lease transfers its single grant")
+        let scopeBeforeClear = access.snapshot
+        XCTAssertEqual(scopeBeforeClear.startCount, 4, "Two file scopes, one source parent, one destination parent")
+        XCTAssertEqual(scopeBeforeClear.stopCount, 1)
+        XCTAssertEqual(scopeBeforeClear.stopCountsByURL[sourceDirectory.standardizedFileURL], 1)
+        XCTAssertNil(scopeBeforeClear.stopCountsByURL[destinationDirectory.standardizedFileURL])
+
+        harness.viewModel.clearQuickImportFiles()
+        let finalScope = access.snapshot
+        XCTAssertEqual(finalScope.startCount, finalScope.stopCount, "Cross-directory migration must not over-stop")
+        XCTAssertEqual(finalScope.stopCountsByURL[sourceDirectory.standardizedFileURL], 1)
+        XCTAssertEqual(finalScope.stopCountsByURL[destinationDirectory.standardizedFileURL], 1)
+    }
+
+    @MainActor
+    func testJournalRestoreMigratesMembershipToOriginalURLByIdentityEvidence() async throws {
+        try requireFixtures()
+        let root = try makeTemporaryDirectory(prefix: "QuickImportRestore")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let libraryDirectory = root.appendingPathComponent("library", isDirectory: true)
+        let renamedDirectory = root.appendingPathComponent("renamed", isDirectory: true)
+        try FileManager.default.createDirectory(at: libraryDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: renamedDirectory, withIntermediateDirectories: true)
+        let originalURL = libraryDirectory.appendingPathComponent("track.mp3")
+        let intendedURL = renamedDirectory.appendingPathComponent("track.mp3")
+        try Data().write(to: intendedURL)
+
+        let provider = SyntheticQuickImportIdentityProvider()
+        let journalIdentity = QuickImportEntryIdentity(device: 7, inode: 42)
+        provider.setFileIdentityOverride(journalIdentity, for: intendedURL)
+        provider.setFileIdentityOverride(journalIdentity, for: originalURL)
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: ProgressiveQuickImportMetadataPipeline(),
+            provider: provider,
+            access: access,
+            policy: .forced48
+        )
+        defer { harness.tearDown() }
+        harness.viewModel.mergeQuickImportFiles([AudioFileTestFactory.make(url: intendedURL)])
+        let row = try XCTUnwrap(harness.viewModel.files.first)
+        XCTAssertEqual(access.snapshot.startCount, 2, "The file scope and its parent")
+
+        let manifest = try journalManifest(
+            originalURL: originalURL,
+            intendedURL: intendedURL,
+            sourceIdentity: journalIdentity
+        )
+        harness.viewModel.migrateQuickImportMembershipsAfterJournalRestore(
+            manifest: manifest,
+            restoredFileIDs: [row.id]
+        )
+
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        XCTAssertEqual(diagnostics.consistencyIssues, [])
+        let originalKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: originalURL)
+        let intendedKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: intendedURL)
+        let originalParentKey = SyntheticQuickImportIdentityProvider.parentKey(forFileURL: originalURL)
+        let intendedParentKey = SyntheticQuickImportIdentityProvider.parentKey(forFileURL: intendedURL)
+        let restoredIdentity = try XCTUnwrap(diagnostics.membershipIdentitiesByID[row.id])
+        XCTAssertEqual(restoredIdentity.operationalURL, originalURL.standardizedFileURL)
+        XCTAssertEqual(restoredIdentity.fileKey, originalKey)
+        XCTAssertEqual(restoredIdentity.parentKey, originalParentKey)
+        XCTAssertEqual(harness.viewModel.files.first { $0.id == row.id }?.url, originalURL.standardizedFileURL)
+        XCTAssertEqual(diagnostics.fileKeyRefCounts[originalKey], 1)
+        XCTAssertNil(diagnostics.fileKeyRefCounts[intendedKey])
+        XCTAssertEqual(diagnostics.parentKeyRefCounts[originalParentKey], 1)
+        XCTAssertEqual(diagnostics.parentKeyRefCounts[intendedParentKey] ?? 0, 0)
+        XCTAssertNotNil(diagnostics.tokensByFileKey[originalKey])
+        XCTAssertNotNil(diagnostics.tokensByFileKey[intendedKey], "The moved location keeps a tombstone token")
+        XCTAssertNotEqual(diagnostics.tokensByFileKey[originalKey], diagnostics.tokensByFileKey[intendedKey])
+        XCTAssertGreaterThan(
+            try XCTUnwrap(diagnostics.admittedSequenceByFileKey[originalKey]),
+            try XCTUnwrap(diagnostics.admittedSequenceByFileKey[intendedKey])
+        )
+        XCTAssertNil(diagnostics.leaseOwnersByKey[AudioViewModel.quickImportIntakeLeaseKey(for: intendedURL)])
+        XCTAssertEqual(
+            diagnostics.leaseOwnersByKey[AudioViewModel.quickImportIntakeLeaseKey(for: originalURL)],
+            [.membership(row.id)]
+        )
+        XCTAssertEqual(diagnostics.leaseOwnersByKey[originalParentKey], [.membership(row.id)])
+        XCTAssertNil(diagnostics.leaseOwnersByKey[intendedParentKey])
+        XCTAssertEqual(diagnostics.metrics.restoredMembershipMigrationCount, 1)
+
+        harness.viewModel.clearQuickImportFiles()
+        let finalScope = access.snapshot
+        XCTAssertEqual(finalScope.startCount, finalScope.stopCount, "Transferred grants keep one start and one stop")
+        XCTAssertEqual(finalScope.startCount, 2)
+    }
+
+    @MainActor
+    func testJournalRestoreSkipsMigrationWhenIdentityEvidenceDoesNotMatch() async throws {
+        try requireFixtures()
+        let root = try makeTemporaryDirectory(prefix: "QuickImportRestoreMismatch")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let libraryDirectory = root.appendingPathComponent("library", isDirectory: true)
+        let renamedDirectory = root.appendingPathComponent("renamed", isDirectory: true)
+        try FileManager.default.createDirectory(at: libraryDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: renamedDirectory, withIntermediateDirectories: true)
+        let originalURL = libraryDirectory.appendingPathComponent("track.mp3")
+        let intendedURL = renamedDirectory.appendingPathComponent("track.mp3")
+        try Data().write(to: intendedURL)
+
+        let provider = SyntheticQuickImportIdentityProvider()
+        let membershipIdentity = QuickImportEntryIdentity(device: 7, inode: 42)
+        provider.setFileIdentityOverride(membershipIdentity, for: intendedURL)
+        provider.setFileIdentityOverride(membershipIdentity, for: originalURL)
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: ProgressiveQuickImportMetadataPipeline(),
+            provider: provider,
+            access: access,
+            policy: .forced48
+        )
+        defer { harness.tearDown() }
+        harness.viewModel.mergeQuickImportFiles([AudioFileTestFactory.make(url: intendedURL)])
+        let row = try XCTUnwrap(harness.viewModel.files.first)
+        let manifest = try journalManifest(
+            originalURL: originalURL,
+            intendedURL: intendedURL,
+            sourceIdentity: QuickImportEntryIdentity(device: 8, inode: 99)
+        )
+
+        harness.viewModel.migrateQuickImportMembershipsAfterJournalRestore(
+            manifest: manifest,
+            restoredFileIDs: [row.id]
+        )
+
+        let diagnostics = harness.viewModel.quickImportDiagnostics()
+        let intendedKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: intendedURL)
+        let originalKey = SyntheticQuickImportIdentityProvider.canonicalKey(for: originalURL)
+        XCTAssertEqual(harness.viewModel.files.first { $0.id == row.id }?.url, intendedURL.standardizedFileURL)
+        XCTAssertEqual(diagnostics.membershipIdentitiesByID[row.id]?.fileKey, intendedKey)
+        XCTAssertNil(diagnostics.tokensByFileKey[originalKey])
+        XCTAssertEqual(diagnostics.fileKeyRefCounts[intendedKey], 1)
+        XCTAssertEqual(diagnostics.metrics.restoredMembershipMigrationCount, 0)
+        harness.viewModel.clearQuickImportFiles()
+        XCTAssertEqual(access.snapshot.startCount, access.snapshot.stopCount)
+    }
+
     // MARK: - Harness
 
     private struct Harness {
@@ -460,6 +892,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         let journalDirectory: URL
         let issueLogURL: URL
 
+        @MainActor
         func tearDown() {
             viewModel.clearQuickImportFiles()
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -468,6 +901,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func makeHarness(
         pipeline: any AudioMetadataPipeline,
         provider: any QuickImportPathIdentityProviding,
@@ -516,6 +950,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         var pathKeyComputations: Int { fileKeyComputations + parentPreparations }
     }
 
+    @MainActor
     private func runSyntheticLane(
         count: Int,
         policy: QuickImportLoadPolicy
@@ -574,6 +1009,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         var cancellables: [AnyCancellable] = []
     }
 
+    @MainActor
     private func observePublications(of viewModel: AudioViewModel) -> PublicationRecorder {
         let recorder = PublicationRecorder()
         let cancellable = viewModel.$files.dropFirst().sink { files in
@@ -584,7 +1020,9 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         return recorder
     }
 
+    @MainActor
     private func assertBudget(
+        _ viewModel: AudioViewModel,
         provider: SyntheticQuickImportIdentityProvider,
         access: CountingQuickImportScopeAccess,
         expectedCount: Int,
@@ -597,9 +1035,18 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         XCTAssertEqual(provider.snapshot.parentIdentityCaptureCount, 1)
         XCTAssertEqual(access.snapshot.startCount, expectedCount + 1)
         XCTAssertEqual(access.snapshot.repeatedStartAttempts, 0)
-        XCTAssertGreaterThan(expectedPublications, 0)
+        let diagnostics = viewModel.quickImportDiagnostics()
+        XCTAssertEqual(
+            diagnostics.metrics.publicationCount,
+            expectedPublications,
+            "The forced cadence must publish exactly ceil(count/batch) batches"
+        )
+        XCTAssertEqual(diagnostics.metrics.publishedRowCount, expectedCount)
+        XCTAssertEqual(diagnostics.metrics.terminalMergeCount, 0, "No terminal path may merge published rows")
+        XCTAssertEqual(diagnostics.metrics.terminalMergedRowCount, 0)
     }
 
+    @MainActor
     private func assertBalancedScope(
         access: CountingQuickImportScopeAccess,
         expectedStarts: Int,
@@ -612,18 +1059,83 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         XCTAssertEqual(snapshot.repeatedStartAttempts, 0, file: file, line: line)
     }
 
+    @MainActor
     private func assertPublishedOrderAndUniqueness(
         _ viewModel: AudioViewModel,
         expectedURLs: [URL],
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let expectedOrder = expectedURLs.sorted(by: AudioViewModel.compareURLs)
+        // Independent lexical oracle: the synthetic fixture names are fixed-width
+        // ASCII, so filename ordering is a deterministic expectation that does not
+        // call the production comparator under test.
+        let expectedOrder = expectedURLs.sorted {
+            $0.lastPathComponent.compare($1.lastPathComponent) == .orderedAscending
+        }
         XCTAssertEqual(viewModel.files.map(\.url), expectedOrder, file: file, line: line)
         let ids = viewModel.files.map(\.id)
         XCTAssertEqual(Set(ids).count, ids.count, file: file, line: line)
     }
 
+    @MainActor
+    private func moveReceipt(
+        fileID: UUID,
+        sourceURL: URL,
+        destinationURL: URL
+    ) -> FileRenameMoveReceipt {
+        let destination = destinationURL.standardizedFileURL
+        let evidence = SyntheticQuickImportIdentityProvider.syntheticEntryIdentity(for: destination)
+        return FileRenameMoveReceipt(
+            moveID: FileMoveID(),
+            fileID: fileID,
+            sourceURL: sourceURL,
+            destinationURL: destination,
+            entryIdentity: RenameEntryIdentity(
+                device: evidence.device,
+                inode: evidence.inode,
+                kind: .regular,
+                size: 0,
+                modificationDate: Date(timeIntervalSince1970: 1_700_000_000),
+                creationDate: nil
+            )
+        )
+    }
+
+    @MainActor
+    private func journalManifest(
+        originalURL: URL,
+        intendedURL: URL,
+        sourceIdentity: QuickImportEntryIdentity
+    ) throws -> RenameJournalManifest {
+        let identity = RenameEntryIdentity(
+            device: sourceIdentity.device,
+            inode: sourceIdentity.inode,
+            kind: .regular,
+            size: 0,
+            modificationDate: Date(timeIntervalSince1970: 1_700_000_000),
+            creationDate: nil
+        )
+        let entry = RenameJournalEntry(
+            index: 0,
+            originalURL: originalURL.standardizedFileURL.path,
+            temporaryURL: originalURL.standardizedFileURL.deletingLastPathComponent()
+                .appendingPathComponent(".audiomator-rename-stage").path,
+            intendedURL: intendedURL.standardizedFileURL.path,
+            sourceIdentity: try RenameJournalEntryIdentity(identity),
+            linkTarget: nil
+        )
+        return RenameJournalManifest(
+            formatVersion: RenameJournalFormat.currentVersion,
+            operationID: UUID(),
+            phase: .committed,
+            createdAt: 1_700_000_000,
+            committedAt: 1_700_000_100,
+            diagnostics: [],
+            entries: [entry]
+        )
+    }
+
+    @MainActor
     private func waitForImport(
         _ viewModel: AudioViewModel,
         expectedCount: Int,
@@ -638,6 +1150,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         XCTAssertEqual(viewModel.files.count, expectedCount)
     }
 
+    @MainActor
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool,
         timeout: TimeInterval = 5,
@@ -651,6 +1164,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         XCTAssertTrue(condition(), "Timed out waiting for condition", file: file, line: line)
     }
 
+    @MainActor
     private func requireFixtures() throws {
         try XCTSkipIf(
             AudioFileTestFactory.fixtureFileVersion == nil,
@@ -658,6 +1172,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func syntheticURLs(count: Int) -> [URL] {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorF5Synthetic-\(UUID().uuidString)", isDirectory: true)
@@ -666,6 +1181,7 @@ final class QuickImportProgressiveIndexTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func makeTemporaryDirectory(prefix: String) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)

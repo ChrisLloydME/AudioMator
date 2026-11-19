@@ -6,10 +6,10 @@ import TagLibAudioMetadata
 /// E2 real-container persistence lane: exact raw value arrays must round-trip, or
 /// the write must fail atomically with unchanged bytes. Temporary fixture copies
 /// only; no real music library is touched.
-@MainActor
-final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
+nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
     private let pipeline = TagLibAudioMetadataPipeline()
 
+    @MainActor
     func testNoOpMultilineConfirmationLeavesBytesAndRevisionUnchanged() async throws {
         let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -45,6 +45,7 @@ final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
         XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: url), revisionBefore)
     }
 
+    @MainActor
     func testUnrelatedEditPreservesMultilineElementAndIndependentExternalKey() async throws {
         let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -89,6 +90,7 @@ final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testExplicitMultilineElementEditRoundTripsOrFailsAtomically() async throws {
         let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -132,6 +134,7 @@ final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testDuplicateAndBlankArrayEditRoundTripsOrFailsAtomically() async throws {
         let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -174,6 +177,7 @@ final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func seed(_ values: RawMetadataValueMap, at url: URL) throws {
         _ = try TagLibMetadataManager.applyRawMetadataPatch(
             RawMetadataPatch(valuesToSet: values),
@@ -181,6 +185,7 @@ final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func waitUntilLoaded(
         _ store: MetadataEditorStore,
         file: StaticString = #filePath,

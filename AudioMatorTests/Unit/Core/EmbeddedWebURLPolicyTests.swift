@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import AudioMator
 
-final class EmbeddedWebURLPolicyTests: XCTestCase {
+nonisolated final class EmbeddedWebURLPolicyTests: XCTestCase {
     func testAllowsHTTPSProviderHosts() throws {
         XCTAssertNotNil(EmbeddedWebURLPolicy.validatedURL(try XCTUnwrap(URL(string: "https://music.apple.com/us/album/name/1"))))
         XCTAssertNotNil(EmbeddedWebURLPolicy.validatedURL(try XCTUnwrap(URL(string: "https://musicbrainz.org/release/abc"))))

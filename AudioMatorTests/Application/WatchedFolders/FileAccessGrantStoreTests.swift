@@ -2,8 +2,8 @@ import Foundation
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class FileAccessGrantStoreTests: XCTestCase {
+nonisolated final class FileAccessGrantStoreTests: XCTestCase {
+    @MainActor
     func testCorruptGrantCollectionIsQuarantinedAndCannotBeSilentlyOverwritten() throws {
         let suiteName = "FileAccessGrantStoreCorruptionTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -20,6 +20,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords"), corruptData)
     }
 
+    @MainActor
     func testSaveWithoutPriorLoadStillProtectsCorruptGrantCollection() throws {
         let suiteName = "FileAccessGrantStorePreflightCorruptionTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -34,6 +35,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords.corruptBackup"), corruptData)
     }
 
+    @MainActor
     func testViewModelSurfacesCorruptBookmarkCollections() throws {
         let suiteName = "BookmarkCollectionWarningTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -48,6 +50,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertTrue(viewModel.watchedFolders.isEmpty)
     }
 
+    @MainActor
     func testGrantRoundTripsAsPersistentFolderBookmark() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -71,6 +74,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertEqual(restoredGrants.first?.url.standardizedFileURL, folderURL.standardizedFileURL)
     }
 
+    @MainActor
     func testStaleGrantBookmarkIsRefreshedAndPersisted() throws {
         let suiteName = "FileAccessGrantStoreStaleBookmarkTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -127,6 +131,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertEqual(defaults.data(forKey: "fileAccessGrantRecords"), persistedData)
     }
 
+    @MainActor
     func testSavingRemainingGrantsRemovesDeletedGrant() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -156,6 +161,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         XCTAssertEqual(restoredGrants.map(\.id), [secondGrant.id])
     }
 
+    @MainActor
     func testViewModelRemovalUpdatesPublishedAndPersistedGrants() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -189,6 +195,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testViewModelRemovesMultipleSelectedGrantsTogether() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -223,6 +230,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testViewModelIgnoresRemovalOfUnknownGrant() throws {
         let suiteName = "FileAccessGrantStoreTests-\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -271,6 +279,7 @@ final class FileAccessGrantStoreTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func makeViewModel(defaults: UserDefaults) -> AudioViewModel {
         AudioViewModel(
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),

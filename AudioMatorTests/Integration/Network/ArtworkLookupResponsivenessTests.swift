@@ -2,10 +2,10 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-@MainActor
-final class ArtworkLookupResponsivenessTests: XCTestCase {
+nonisolated final class ArtworkLookupResponsivenessTests: XCTestCase {
     // MARK: - Search lifecycle
 
+    @MainActor
     func testNonCooperativeSearchTimesOutAndClearsLoadingState() async throws {
         let gate = ArtworkLookupGate()
         let service = NonCooperativeArtworkService(searchGate: gate)
@@ -30,6 +30,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         await gate.release()
     }
 
+    @MainActor
     func testDismissedNonCooperativeSearchDoesNotRetainViewModel() async throws {
         let gate = ArtworkLookupGate()
         let service = NonCooperativeArtworkService(searchGate: gate)
@@ -48,6 +49,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         await gate.release()
     }
 
+    @MainActor
     func testCancelledSearchClearsLoadingState() async throws {
         let gate = ArtworkLookupGate()
         let service = NonCooperativeArtworkService(searchGate: gate)
@@ -72,6 +74,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
     // MARK: - Download lifecycle
 
+    @MainActor
     func testNonCooperativeDownloadTimesOutAndClearsApplyingState() async throws {
         let gate = ArtworkLookupGate()
         let result = makeArtworkResult()
@@ -109,6 +112,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         await gate.release()
     }
 
+    @MainActor
     func testDismissedNonCooperativeDownloadDoesNotRetainViewModel() async throws {
         let gate = ArtworkLookupGate()
         let result = makeArtworkResult()
@@ -135,6 +139,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         await gate.release()
     }
 
+    @MainActor
     func testDownloadFailureKeepsResultsAndSameCandidateRetrySucceeds() async throws {
         let expectedPNG = makeExpectedPNGData()
         let result = makeArtworkResult()
@@ -189,6 +194,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(expectedPNG, in: viewModel)
     }
 
+    @MainActor
     func testDownloadFailureAllowsSelectingAnotherCandidateAndApplying() async throws {
         let candidateA = makeArtworkResult(id: "a", title: "Candidate A")
         let candidateB = makeArtworkResult(id: "b", title: "Candidate B")
@@ -231,6 +237,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(secondCandidatePNG, in: viewModel)
     }
 
+    @MainActor
     func testDownloadTimeoutIsRetryableAndKeepsResults() async throws {
         let gate = ArtworkLookupGate()
         let expectedPNG = makeExpectedPNGData()
@@ -270,6 +277,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(expectedPNG, in: viewModel)
     }
 
+    @MainActor
     func testDuplicateApplyStartsSingleDownload() async throws {
         let gate = ArtworkCallGate()
         let expectedPNG = makeExpectedPNGData()
@@ -288,7 +296,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
             viewModel.artworkLookupSession?.searchState == .results
         }
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         XCTAssertTrue(viewModel.artworkLookupSession?.isApplying == true)
         XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
@@ -309,6 +317,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(expectedPNG, in: viewModel)
     }
 
+    @MainActor
     func testCancelDownloadKeepsResultsAndAllowsRetry() async throws {
         let gate = ArtworkCallGate()
         let expectedPNG = makeExpectedPNGData()
@@ -327,7 +336,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
             viewModel.artworkLookupSession?.searchState == .results
         }
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         viewModel.cancelSelectedArtworkDownload()
 
@@ -354,6 +363,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(expectedPNG, in: viewModel)
     }
 
+    @MainActor
     func testLateDownloadCompletionAfterDismissOrNewSessionIsIgnored() async throws {
         let gate = ArtworkCallGate()
         let expectedPNG = makeExpectedPNGData()
@@ -373,7 +383,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         }
         let firstSessionID = try XCTUnwrap(viewModel.artworkLookupSession?.id)
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         viewModel.dismissArtworkLookup()
         XCTAssertNil(viewModel.artworkLookupSession)
@@ -402,6 +412,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertNil(viewModel.multiEdit)
     }
 
+    @MainActor
     func testLateCancelledAttemptCannotClearNewerAttempt() async throws {
         let gate = ArtworkCallGate()
         let expectedPNG = makeExpectedPNGData()
@@ -421,14 +432,14 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         }
 
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
         let firstAttempt = try XCTUnwrap(viewModel.artworkLookupSession?.download)
 
         viewModel.cancelSelectedArtworkDownload()
         viewModel.applySelectedArtworkLookupResult()
         let secondAttempt = try XCTUnwrap(viewModel.artworkLookupSession?.download)
         XCTAssertNotEqual(firstAttempt.id, secondAttempt.id)
-        try await gate.waitUntilStarted(2)
+        await gate.waitUntilStarted(2)
 
         // Let the cancelled attempt's late handler run; it must not clear the
         // newer attempt's progress state or its task handle.
@@ -450,6 +461,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
     // MARK: - Search fault separation
 
+    @MainActor
     func testSearchFaultIsSeparateFromDownloadFaultAndRetryRecovers() async throws {
         let expectedPNG = makeExpectedPNGData()
         let result = makeArtworkResult()
@@ -498,6 +510,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(expectedPNG, in: viewModel)
     }
 
+    @MainActor
     func testSearchFailureCannotBeClearedByCandidateSelectionOrDownload() async throws {
         let service = ControllableArtworkService(
             searchOutcomes: [.failure(.searchFailed), .failure(.searchFailed)]
@@ -526,6 +539,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
     }
 
+    @MainActor
     func testApplyPredicateAcrossSearchingResolvingFailedAndApplying() async throws {
         let searchGate = ArtworkLookupGate()
         let gate = ArtworkCallGate()
@@ -562,7 +576,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
         // Downloading: apply and selection disabled, cancellation available.
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
         XCTAssertTrue(viewModel.artworkLookupSession?.isApplying == true)
         XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
         XCTAssertFalse(viewModel.artworkLookupSession?.canSelectCandidate == true)
@@ -584,6 +598,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
     // MARK: - Candidate preview identity
 
+    @MainActor
     func testSelectedPreviewFallbackRestartsForCandidateAAndCannotBeAdvancedByCandidateB() async throws {
         let a1 = URL(string: "https://example.com/a-hires.jpg")!
         let a2 = URL(string: "https://example.com/a-standard.jpg")!
@@ -645,6 +660,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
     // MARK: - Staging boundary
 
+    @MainActor
     func testArtworkStagingLeavesFileBytesUnchangedUntilInspectorSave() async throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArtworkLookupResponsivenessTests-\(UUID().uuidString)", isDirectory: true)
@@ -711,6 +727,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
     // MARK: - Destination-draft ownership (N4b)
 
+    @MainActor
     func testOnlineDownloadRejectsWhenSelectionChangesBeforeCompletion() async throws {
         let gate = ArtworkCallGate()
         let expectedPNG = makeExpectedPNGData()
@@ -737,7 +754,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
 
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         // The draft changes while the download is gated: a new single-file draft
         // for B owns the Inspector now.
@@ -762,6 +779,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertNil(viewModel.multiEdit)
     }
 
+    @MainActor
     func testOnlineDownloadRejectsWhenCapturedTargetIsRemoved() async throws {
         let gate = ArtworkCallGate()
         let result = makeArtworkResult()
@@ -779,7 +797,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
             viewModel.artworkLookupSession?.searchState == .results
         }
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         viewModel.removeQuickImportFile(id: file.id)
         await gate.releaseAll()
@@ -793,6 +811,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertEqual(viewModel.artworkLookupSession?.results.count, 1)
     }
 
+    @MainActor
     func testNewerClearSupersedesPendingOnlineDownload() async throws {
         let gate = ArtworkCallGate()
         let result = makeArtworkResult()
@@ -810,7 +829,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
             viewModel.artworkLookupSession?.searchState == .results
         }
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         // A newer synchronous artwork command owns the draft and supersedes the
         // pending download.
@@ -835,6 +854,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
     }
 
+    @MainActor
     func testUnrelatedTextEditDuringDownloadStagesArtworkAndKeepsText() async throws {
         let gate = ArtworkCallGate()
         let expectedPNG = makeExpectedPNGData()
@@ -854,7 +874,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         }
         let capturedCommand = try XCTUnwrap(viewModel.artworkLookupSession?.transfer?.command)
         viewModel.applySelectedArtworkLookupResult()
-        try await gate.waitUntilStarted(1)
+        await gate.waitUntilStarted(1)
 
         // An unrelated text edit advances the draft edit generation only.
         viewModel.edit?.title = "Edited While Waiting"
@@ -872,6 +892,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         try assertStagedArtwork(expectedPNG, in: viewModel)
     }
 
+    @MainActor
     func testOnlineLookupWithoutInspectorDraftIsPreviewOnly() async throws {
         let expectedPNG = makeExpectedPNGData()
         let result = makeArtworkResult()
@@ -906,11 +927,13 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
 
     /// Selects the file so F3-b creates the Inspector draft that authorizes the
     /// online artwork transfer; production Inspector lookups always have one.
+    @MainActor
     private func prepareLookupDraft(for file: AudioFile, in viewModel: AudioViewModel) {
         viewModel.mergeQuickImportFiles([file])
         viewModel.setSelectedAudioIDs([file.id])
     }
 
+    @MainActor
     private func makeViewModel(
         service: any iTunesArtworkServicing,
         timeout: Duration = .milliseconds(40)
@@ -922,6 +945,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeArtworkFile(
         url: URL = URL(fileURLWithPath: "/tmp/artwork-lookup.mp3"),
         title: String = "Test Track"
@@ -952,10 +976,12 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeExpectedPNGData(seed: UInt8 = 0x1) -> Data {
         Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, seed, seed, seed, seed])
     }
 
+    @MainActor
     private func assertStagedArtwork(
         _ expectedPNG: Data,
         in viewModel: AudioViewModel,
@@ -970,6 +996,7 @@ final class ArtworkLookupResponsivenessTests: XCTestCase {
         XCTAssertEqual(pendingArtwork.mimeType, "image/png", file: file, line: line)
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
         condition: @escaping @MainActor () -> Bool
@@ -1253,7 +1280,7 @@ private actor ArtworkLookupGate {
 
 // MARK: - Metadata pipeline
 
-private final class ArtworkWriteRecorder: @unchecked Sendable {
+private nonisolated final class ArtworkWriteRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
 
@@ -1266,7 +1293,7 @@ private final class ArtworkWriteRecorder: @unchecked Sendable {
     }
 }
 
-private final class ArtworkLookupMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class ArtworkLookupMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let writeRecorder: ArtworkWriteRecorder?
 
     init(writeRecorder: ArtworkWriteRecorder? = nil) {

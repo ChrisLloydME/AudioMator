@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzSearchQueryTests: XCTestCase {
+nonisolated final class MusicBrainzSearchQueryTests: XCTestCase {
+    @MainActor
     func testSelectionReleaseQueryUsesNormalizedSelectionSummary() {
         let inputs = [
             MusicBrainzFileSearchInput(
@@ -51,6 +52,7 @@ final class MusicBrainzSearchQueryTests: XCTestCase {
         XCTAssertEqual(releaseQuery.releaseFilters, filters)
     }
 
+    @MainActor
     func testQueryInitializationPreservesNormalizationRules() {
         let query = MusicBrainzSearchQuery(
             mode: .track,

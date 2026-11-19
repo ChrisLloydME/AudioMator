@@ -3,8 +3,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class MetadataEditorStoreTests: XCTestCase {
+nonisolated final class MetadataEditorStoreTests: XCTestCase {
+    @MainActor
     func testFriendlyNamesNeverRedirectExistingRawDateOrAliasKeys() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/aliases.m4a"),
             includeDefaultFileFingerprint: false
@@ -24,6 +24,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["STANDALONEDATE"], ["2017-06-09"])
     }
 
+    @MainActor
     func testPresentLoadsDraftMapsAndSelectsFirstField() async throws {
         let firstID = UUID()
         let secondID = UUID()
@@ -57,6 +58,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(store.selectionSummaryText, "2 selected files")
     }
 
+    @MainActor
     func testUpsertFieldPreservesExactValuesAndAppliesToEveryTarget() async throws {
         let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -85,6 +87,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["MULTILINE"], ["line one\nline two"])
     }
 
+    @MainActor
     func testUpsertFieldIgnoresEmptyKeysButPreservesWhitespaceAndEmptyValueBoundaries() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -104,6 +107,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testDeleteSelectedFieldRemovesFieldFromEveryTargetAndRealignsSelection() async throws {
         let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -130,6 +134,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testDeleteSelectedFieldRemovesMultipleSelectedFields() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -151,6 +156,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testTextUtilityPreviewAndApplySupportMultipleFilesAndFields() async throws {
         let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -192,6 +198,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testTextUtilityApplyPreservesInsertedLeadingAndTrailingSpaces() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -221,6 +228,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], ["Artist  "])
     }
 
+    @MainActor
     func testDiscardChangesRestoresOriginalMaps() async throws {
         let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -242,6 +250,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testRecordingPartialApplyLeavesOnlyFailedTargetsPending() async throws {
         let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
             includeDefaultFileFingerprint: false
@@ -276,6 +285,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testPartialApplyRetriesOnlyFailedTargetThroughProductionWritePath() async throws {
         let firstURL = try MetadataTestTokens.makeFixtureCopy()
         let secondURL = try MetadataTestTokens.makeFixtureCopy()
@@ -372,6 +382,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(retryPatch.removingKeys.isEmpty)
     }
 
+    @MainActor
     func testPresentFailsClosedWhenAnySelectedFileCannotBeRead() async throws {
         let readableFile = AudioFileTestFactory.make(
             id: UUID(),
@@ -407,6 +418,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func waitUntilLoaded(
         _ store: MetadataEditorStore,
         file: StaticString = #filePath,
@@ -487,7 +499,7 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
     }
 }
 
-private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private enum WriteError: LocalizedError {
         case injectedFailure
 

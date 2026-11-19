@@ -6,8 +6,7 @@ import XCTest
 /// Asserts only bounded work (invocation counts and plan row counts) and
 /// reports worker vs main-actor timings. It deliberately sets no wall-clock
 /// threshold: the ordinary suite must not fail on a loaded machine.
-@MainActor
-final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
+nonisolated final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
     private nonisolated final class BenchmarkWorker: MetadataFilenamePlanWorking, @unchecked Sendable {
         private let lock = NSLock()
         private let base = MetadataFilenamePlannerWorker()
@@ -29,16 +28,12 @@ final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
         nonisolated func makePlan(
             _ input: MetadataFilenamePlannerInput
         ) async throws -> MetadataFilenameConverterResult {
-            lock.lock()
-            invocationCount += 1
-            lock.unlock()
+            lock.withLock { invocationCount += 1 }
             let clock = ContinuousClock()
             let start = clock.now
             let result = try await base.makePlan(input)
             let elapsed = clock.now - start
-            lock.lock()
-            durations.append(elapsed)
-            lock.unlock()
+            lock.withLock { durations.append(elapsed) }
             return result
         }
     }
@@ -49,6 +44,7 @@ final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testControllerReportsBoundedWorkForTenThousandAndOneHundredThousandInputs() async {
         let tenThousand = await measureCSVImportPlan(
             fileCount: 10_000,
@@ -75,6 +71,7 @@ final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
         let mainActorReadDuration: Duration
     }
 
+    @MainActor
     private func measureCSVImportPlan(fileCount: Int, label: String) async -> Measurement {
         let clock = ContinuousClock()
         let files = syntheticFiles(count: fileCount)
@@ -115,6 +112,7 @@ final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
         return measurement
     }
 
+    @MainActor
     private func measureTextExportPlan(fileCount: Int, label: String) async -> Measurement {
         let clock = ContinuousClock()
         let files = syntheticFiles(count: fileCount)
@@ -149,6 +147,7 @@ final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
         return measurement
     }
 
+    @MainActor
     private func report(label: String, measurement: Measurement) {
         print(
             "[E4 benchmark] \(label): invocations=\(measurement.invocations) "
@@ -158,6 +157,7 @@ final class MetadataFilenamePlannerBenchmarkTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func syntheticFiles(count: Int) -> [AudioFile] {
         let directory = URL(fileURLWithPath: "/tmp/AudioMatorE4Benchmark", isDirectory: true)
         var files: [AudioFile] = []

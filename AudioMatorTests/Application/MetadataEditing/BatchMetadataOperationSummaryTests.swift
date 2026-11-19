@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class BatchMetadataOperationSummaryTests: XCTestCase {
+nonisolated final class BatchMetadataOperationSummaryTests: XCTestCase {
+    @MainActor
     func testWriteSuccessUsesExistingSavedToDiskMessage() {
         var summary = BatchMetadataOperationSummary(totalTargets: 2)
         summary.succeeded = 2
@@ -11,6 +12,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         XCTAssertEqual(summary.hudSubtitle, "Changes were saved to 2 of 2 files.")
     }
 
+    @MainActor
     func testWriteWarningsUseExistingSavedWithIssuesMessageAndDetails() {
         var summary = BatchMetadataOperationSummary(totalTargets: 3)
         summary.succeeded = 3
@@ -40,6 +42,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testWriteFailuresUseExistingPartialAndFullFailureMessages() {
         var partial = BatchMetadataOperationSummary(totalTargets: 3)
         partial.succeeded = 1
@@ -77,6 +80,7 @@ final class BatchMetadataOperationSummaryTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testClearSummaryUsesExistingClearVocabulary() {
         var summary = BatchMetadataOperationSummary(totalTargets: 2, operation: .clear)
         summary.succeeded = 2

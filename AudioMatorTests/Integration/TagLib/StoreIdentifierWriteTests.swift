@@ -3,8 +3,8 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-@MainActor
-final class StoreIdentifierWriteTests: XCTestCase {
+nonisolated final class StoreIdentifierWriteTests: XCTestCase {
+    @MainActor
     private func aiff() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("aiff")
         addTeardownBlock { try? FileManager.default.removeItem(at: url) }
@@ -22,6 +22,7 @@ final class StoreIdentifierWriteTests: XCTestCase {
         return url
     }
 
+    @MainActor
     func testDedicatedIDsUseRegistryIntegerShapeAndPreserveUntouchedTextIdentifiers() throws {
         let original = AudioFileTestFactory.make()
         var edit = SingleFileEditModel(from: original)
@@ -36,6 +37,7 @@ final class StoreIdentifierWriteTests: XCTestCase {
         XCTAssertEqual(patch.fields[.musicBrainzAlbumID], .text(edit.musicBrainzAlbumID))
     }
 
+    @MainActor
     func testAIFFStoreIDsSetReplaceClearAndReloadThroughRealAppPipeline() async throws {
         let url = try aiff()
         let pipeline = TagLibAudioMetadataPipeline()
@@ -54,6 +56,7 @@ final class StoreIdentifierWriteTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInvalidAndOutOfRangeIDsRejectWithoutPartialTitleSave() async throws {
         let url = try aiff()
         let pipeline = TagLibAudioMetadataPipeline()

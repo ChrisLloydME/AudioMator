@@ -1,8 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class ErrorPresentationRepairTests: XCTestCase {
+nonisolated final class ErrorPresentationRepairTests: XCTestCase {
+    @MainActor
     func testMalformedTotalsAreRejectedForBothNumberPairs() {
         let file = AudioFileTestFactory.make(track: 3, trackTotal: 12, disc: 3, discTotal: 12,
                                             trackNumberText: "3/12", discNumberText: "3/12")
@@ -23,6 +23,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testValidTotalsAndExplicitRemovalRemainAllowed() {
         let file = AudioFileTestFactory.make(track: 3, trackTotal: 12, trackNumberText: "3/12")
         for value in ["", "0", "13", "0013"] {
@@ -32,6 +33,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testUnrelatedEditPreservesExistingTextNumbering() {
         let file = AudioFileTestFactory.make(trackNumberText: "A1/12", discNumberText: "B2/3")
         var edit = SingleFileEditModel(from: file)
@@ -39,6 +41,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertNil(MetadataEditPayload(edit, comparedTo: file).numberPairValidationMessage)
     }
 
+    @MainActor
     func testExplicitHUDContentKeepsNewlinesInFilenames() {
         let hud = MetadataWriteHUD(style: .failure, title: "Failed", subtitle: "legacy",
                                    summary: "one\ntwo.flac", details: "Reason")
@@ -46,6 +49,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertEqual(hud.details, "Reason")
     }
 
+    @MainActor
     func testHUDExplainsDetailOmissionWithoutALogLink() {
         let details = Array(repeating: String(repeating: "x", count: 100), count: 12).joined(separator: "\n")
         let hud = MetadataWriteHUD(style: .warning, title: "Warning", subtitle: "",
@@ -56,6 +60,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertFalse(hud.detailPreview.contains("Settings"))
     }
 
+    @MainActor
     func testCancelledBatchAndSkippedBatchDoNotClaimSaveFailureOrSuccess() {
         var cancelled = BatchMetadataOperationSummary(totalTargets: 2)
         cancelled.recordCancelledFiles(["one.flac", "two.flac"])
@@ -68,6 +73,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertEqual(skipped.hudTitle, "No Files Changed")
     }
 
+    @MainActor
     func testClearFailureNamesTheActualOperation() {
         var summary = BatchMetadataOperationSummary(totalTargets: 1, operation: .clear)
         summary.failureIssues = [.init(fileName: "one.flac", messages: ["Denied"])]
@@ -75,6 +81,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertFalse(summary.hudSubtitle.contains("updated"))
         XCTAssertFalse(summary.hudSubtitle.contains("Settings"))
     }
+    @MainActor
     func testOutOfRangeNumbersIdentifyTrackAndDiscFields() {
         let file = AudioFileTestFactory.make(track: 3, trackTotal: 12, disc: 3, discTotal: 12,
                                             trackNumberText: "3/12", discNumberText: "3/12")
@@ -91,6 +98,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRealBatchWarningFixtureKeepsEveryShownFileReasonTogether() {
         var result = BatchMetadataOperationSummary(totalTargets: 3)
         result.succeeded = 3
@@ -106,6 +114,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertFalse(hud.details.contains("Settings"))
     }
 
+    @MainActor
     func testRenameCancellationAndNumberingCancellationHaveDistinctOutcomes() {
         let cancelled = FileRenameTransactionFailure(message: "Cancelled", recoveryItems: [], wasCancelled: true)
         XCTAssertTrue(cancelled.wasCancelled)
@@ -116,6 +125,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertEqual(numbered.cancelled.count, 1)
     }
 
+    @MainActor
     func testGroupBudgetNeverShowsHalfOfTheNextFile() {
         let first = "one.flac\n" + String(repeating: "x", count: 600)
         let second = "two.flac\n" + String(repeating: "y", count: 600)
@@ -127,6 +137,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertTrue(hud.omissionNotice.contains("1"))
     }
 
+    @MainActor
     func testSingleOperationCancellationPresenterUsesWarningWithoutSaveFailureLog() {
         let vm = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
         vm.presentMetadataWriteFailure(for: "one.flac", reason: MetadataCancellation.message,
@@ -136,6 +147,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertTrue(vm.saveIssueLogStore.entries.isEmpty)
     }
 
+    @MainActor
     func testWarningPresenterPreservesMultilineFilenameInHUDAndLog() {
         let vm = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
         vm.presentMetadataWriteWarning(title: "Saved with Warnings", fileName: "one\ntwo.flac", warnings: ["Reload failed."])
@@ -144,6 +156,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertEqual(vm.saveIssueLogStore.entries.first?.issues.first?.fileName, "one\ntwo.flac")
     }
 
+    @MainActor
     func testSingleDetailGroupStillHonorsLineBudget() {
         let detail = (1...30).map { "Line \($0)" }.joined(separator: "\n")
         let hud = MetadataWriteHUD(style: .failure, title: "Failed", subtitle: "",
@@ -155,6 +168,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertFalse(hud.omissionNotice.isEmpty)
     }
 
+    @MainActor
     func testOmittedHeadingListIsBoundedForLargeReloadFailures() {
         let first = "Shown file\n" + String(repeating: "x", count: 900)
         let rest = (1...500).map {
@@ -170,6 +184,7 @@ final class ErrorPresentationRepairTests: XCTestCase {
         XCTAssertLessThanOrEqual(hud.omissionNotice.count, 250)
     }
 
+    @MainActor
     func testRecoveryInstructionDoesNotAssumeInspectorEdits() {
         let message = AudioFileFingerprintValidationError.recoveryRequired(fileName: "song.flac").errorDescription ?? ""
         XCTAssertFalse(message.contains("Inspector"))

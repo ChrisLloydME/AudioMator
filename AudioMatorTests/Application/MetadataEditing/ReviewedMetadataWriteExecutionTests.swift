@@ -3,10 +3,10 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class ReviewedMetadataWriteExecutionTests: XCTestCase {
+nonisolated final class ReviewedMetadataWriteExecutionTests: XCTestCase {
     // MARK: - Fixtures
 
+    @MainActor
     private func makeObservedFixture() throws -> (file: AudioFile, directory: URL) {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ReviewedMetadataWrite-\(UUID().uuidString)", isDirectory: true)
@@ -31,6 +31,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    @MainActor
     private func makeSemanticWrite(
         for file: AudioFile,
         title: String = "Reviewed title"
@@ -42,6 +43,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
 
     // MARK: - S6/S7 admission, permit and cancellation
 
+    @MainActor
     func testStrictWriteUsesCapturedRevisionAndRejectsChangedDisk() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -66,6 +68,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertEqual(pipeline.semanticWrites.count, 1)
     }
 
+    @MainActor
     func testQueuedStrictWriteCancellationReachesNoWriter() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -100,6 +103,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testSourceMembershipRemovalRevokesQueuedPermitBeforeAdmission() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -134,6 +138,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataCommitPermits.activePermitCount, 0)
     }
 
+    @MainActor
     func testRecoveryDecisionRevokesQueuedPermitBeforeAdmission() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -167,6 +172,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.semanticWrites.isEmpty)
     }
 
+    @MainActor
     func testEqualObservationRepublishDoesNotRevokePermit() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingReviewedPipeline(reloadFile: nil))
         let fixture = AudioFileTestFactory.make(
@@ -181,6 +187,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
 
     // MARK: - S8 provider / MuseAmp / erase migrations
 
+    @MainActor
     func testProviderPlanEntryCarriesFrozenWriteAndAppliesThroughStrictRoute() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -197,6 +204,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertEqual(pipeline.semanticWrites.first?.payload.title, "Provider title")
     }
 
+    @MainActor
     func testUnreviewedProviderEntryFailsClosedWithoutWriterCall() async throws {
         let pipeline = RecordingReviewedPipeline(reloadFile: nil)
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -211,6 +219,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.semanticWrites.isEmpty)
     }
 
+    @MainActor
     func testMuseAmpWritesFrozenCommentThroughStrictRoute() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -225,6 +234,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.semanticWrites.first?.payload.comment.contains("albumID") == true)
     }
 
+    @MainActor
     func testEraseUsesReviewedEraseIntentAndCapturedRevision() async throws {
         let fixture = try makeObservedFixture()
         defer { removeDirectory(fixture.directory) }
@@ -240,6 +250,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
 
     // MARK: - S5 structural cancellation classification
 
+    @MainActor
     func testBatchSummaryClassifiesCancellationStructurally() {
         var summary = BatchMetadataOperationSummary(totalTargets: 3)
         summary.succeeded = 1
@@ -259,6 +270,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func waitForQueuedMutation(in viewModel: AudioViewModel) async throws {
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         while await viewModel.fileMutationCoordinator.queuedMutationCount == 0,
@@ -269,6 +281,7 @@ final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertGreaterThan(queued, 0, "Expected the strict write to queue behind the reservation")
     }
 
+    @MainActor
     private func waitUntil(
         deadlineSeconds: TimeInterval = 5,
         _ condition: @MainActor () -> Bool
@@ -298,7 +311,7 @@ private actor TestGate {
 }
 
 /// Records the strict adapter calls and reloads a synthetic coherent observation.
-private final class RecordingReviewedPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class RecordingReviewedPipeline: AudioMetadataPipeline, @unchecked Sendable {
     struct SemanticWriteRecord: Sendable {
         let url: URL
         let version: MetadataFileVersion

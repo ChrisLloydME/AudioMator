@@ -68,21 +68,19 @@ private nonisolated final class ConverterTestPlannerWorker: MetadataFilenamePlan
     }
 
     nonisolated func makePlan(_ input: MetadataFilenamePlannerInput) async throws -> MetadataFilenameConverterResult {
-        lock.lock()
-        inputs.append(input)
-        let waiters = invocationWaiters
-        invocationWaiters.removeAll()
-        let shouldHold = holdsInvocations
-        lock.unlock()
+        let (waiters, shouldHold) = lock.withLock { () -> ([CheckedContinuation<Void, Never>], Bool) in
+            inputs.append(input)
+            let waiters = invocationWaiters
+            invocationWaiters.removeAll()
+            return (waiters, holdsInvocations)
+        }
         for waiter in waiters {
             waiter.resume()
         }
 
         if shouldHold {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                lock.lock()
-                heldContinuations.append(continuation)
-                lock.unlock()
+                lock.withLock { heldContinuations.append(continuation) }
             }
         }
         try Task.checkCancellation()
@@ -91,9 +89,7 @@ private nonisolated final class ConverterTestPlannerWorker: MetadataFilenamePlan
         let start = clock.now
         let result = try await base.makePlan(input)
         let elapsed = clock.now - start
-        lock.lock()
-        durations.append(elapsed)
-        lock.unlock()
+        lock.withLock { durations.append(elapsed) }
         return result
     }
 }
@@ -119,27 +115,25 @@ private nonisolated final class ConverterTestClock: MetadataFilenameDebounceCloc
     }
 
     nonisolated func sleep(for duration: Duration) async throws {
-        lock.lock()
-        durations.append(duration)
-        sleeperCount += 1
-        let waiters = sleeperWaiters
-        sleeperWaiters.removeAll()
-        let gated = isGated
-        lock.unlock()
+        let (waiters, gated) = lock.withLock { () -> ([CheckedContinuation<Void, Never>], Bool) in
+            durations.append(duration)
+            sleeperCount += 1
+            let waiters = sleeperWaiters
+            sleeperWaiters.removeAll()
+            return (waiters, isGated)
+        }
         for waiter in waiters {
             waiter.resume()
         }
 
         if gated {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                lock.lock()
-                if !isGated {
-                    lock.unlock()
-                    continuation.resume()
-                } else {
+                let resumeNow = lock.withLock { () -> Bool in
+                    if !isGated { return true }
                     heldContinuations.append(continuation)
-                    lock.unlock()
+                    return false
                 }
+                if resumeNow { continuation.resume() }
             }
         }
         try Task.checkCancellation()
@@ -307,8 +301,8 @@ private func settle(_ store: MetadataFilenameToolStore) async {
 
 // MARK: – Regressions
 
-@MainActor
-final class MetadataFilenameConverterPlanTests: XCTestCase {
+nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
+    @MainActor
     func testOnePlannerInvocationPerSettledInputAndNoneForReadsOrDispatch() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -337,6 +331,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertEqual(worker.invocationCount, 1)
     }
 
+    @MainActor
     func testInactiveModeAndIdleRefreshNeverInvokeThePlanner() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -351,6 +346,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertTrue(store.readyResult(for: .metadataToFilename) == nil)
     }
 
+    @MainActor
     func testDebounceUsesTheStoredOneHundredFiftyMillisecondInterval() async {
         let fixture = ConverterTestFixture()
         let clock = ConverterTestClock()
@@ -367,6 +363,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         clock.recordedDurations.last
     }
 
+    @MainActor
     func testGatedDebounceCoalescesRapidEditsIntoOnePlannerInvocation() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -390,6 +387,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertEqual(store.displayRenamePlan().template, "{{comment}}")
     }
 
+    @MainActor
     func testHoldAndReplaceTwiceOnlyLatestStartsAfterSlotRelease() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -424,6 +422,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertTrue(store.displayRenamePlan().canApply)
     }
 
+    @MainActor
     func testStaleCompletionCannotReplaceACurrentResult() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -459,6 +458,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertNotNil(store.beginDispatch(for: .metadataToFilename))
     }
 
+    @MainActor
     func testModeSwitchAndReopenCancelInFlightWork() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -494,6 +494,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertNil(store.readyResult(for: .metadataToFilename))
     }
 
+    @MainActor
     func testLoaderCompletionAfterManualTypingCannotReplaceTheText() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -533,6 +534,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         })
     }
 
+    @MainActor
     func testFileRevisionChangeInvalidatesTheReadyPlanAndApply() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -557,6 +559,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertTrue(store.displayRenamePlan().rows.contains { $0.previewName == "Revised.mp3" })
     }
 
+    @MainActor
     func testMissingTargetDisablesApplyWithoutRecomputingOnReads() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -580,6 +583,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertEqual(worker.invocationCount, countAfterRefresh)
     }
 
+    @MainActor
     func testReorderedTargetsPublishANewOrderedPlan() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -600,6 +604,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertNotEqual(store.displayRenamePlan().rows.map(\.id), fixture.files.map(\.id))
     }
 
+    @MainActor
     func testOlderApplyCompletionCannotClearANewerDispatch() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -631,6 +636,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertFalse(store.isApplying)
     }
 
+    @MainActor
     func testAllSevenModesPublishTheirOwnStoredPlan() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -694,6 +700,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testOpenerAndExportDispatchNeverRequestMutationScope() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -725,6 +732,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertTrue(store.finishDispatch(csvDispatch))
     }
 
+    @MainActor
     func testInvalidAndNoOpApplyPlansRequestNoMutationScope() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -754,6 +762,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertEqual(scope.requestedURLs.count, 0)
     }
 
+    @MainActor
     func testOneEligibleCapturedWriteRequestsOnlyItsOwnDirectory() async {
         let fixture = ConverterTestFixture(fileCount: 1)
         let worker = ConverterTestPlannerWorker()
@@ -782,6 +791,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertTrue(store.finishDispatch(dispatch))
     }
 
+    @MainActor
     func testCancelledWorkerDoesNotPublishAfterSlotRelease() async {
         let fixture = ConverterTestFixture()
         let worker = ConverterTestPlannerWorker()
@@ -804,6 +814,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertEqual(worker.invocationCount, 1)
     }
 
+    @MainActor
     func testPresentationResetClearsDraftAndApplyOwnership() {
         let fixture = ConverterTestFixture()
         let store = makeStore()
@@ -820,6 +831,7 @@ final class MetadataFilenameConverterPlanTests: XCTestCase {
         XCTAssertNil(store.beginDispatch(for: .metadataToFilename))
     }
 
+    @MainActor
     func testTargetIndexIsBuiltOncePerTrackedRevision() {
         let fixture = ConverterTestFixture()
         let store = makeStore()

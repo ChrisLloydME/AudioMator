@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MetadataRawValuePresentationTests: XCTestCase {
+nonisolated final class MetadataRawValuePresentationTests: XCTestCase {
+    @MainActor
     func testElementTextShowsEmbeddedLineBreakWithoutCreatingAnotherElement() {
         XCTAssertEqual(
             MetadataRawValueDisplay.elementText("line one\nline two"),
@@ -9,6 +10,7 @@ final class MetadataRawValuePresentationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testCompactElementTextKeepsOneLineForListRows() {
         XCTAssertEqual(
             MetadataRawValueDisplay.compactElementText("line one\r\nline two\rline three"),
@@ -16,16 +18,19 @@ final class MetadataRawValuePresentationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testJoinedLabelIsDisplayOnlyAndPreservesElementOrder() {
         XCTAssertEqual(MetadataRawValueDisplay.joinedLabel(["Alpha", "Beta"]), "Alpha\nBeta")
         XCTAssertEqual(MetadataRawValueDisplay.joinedLabel([]), MetadataRawValueDisplay.noValuesPlaceholder)
     }
 
+    @MainActor
     func testElementLabelUsesExplicitEmptyValuePlaceholder() {
         XCTAssertEqual(MetadataRawValueDisplay.elementLabel(""), MetadataRawValueDisplay.emptyValuePlaceholder)
         XCTAssertEqual(MetadataRawValueDisplay.elementLabel("A"), "A")
     }
 
+    @MainActor
     func testDraftChangesDistinguishMissingKeyEmptyArrayAndBlankElement() {
         let targetID = UUID()
         let changes = MetadataEditorDraftChanges.changes(
@@ -49,6 +54,7 @@ final class MetadataRawValuePresentationTests: XCTestCase {
         XCTAssertFalse(changes.contains { $0.key == "KEEP" }, "Unchanged arrays never produce a change")
     }
 
+    @MainActor
     func testDraftChangesEncodeDeleteFieldAsNilAfterValues() {
         let targetID = UUID()
         let changes = MetadataEditorDraftChanges.changes(
@@ -63,6 +69,7 @@ final class MetadataRawValuePresentationTests: XCTestCase {
         XCTAssertNil(changes.first?.afterValues)
     }
 
+    @MainActor
     func testDraftChangesKeepReorderingAndDuplicatesAsChanges() {
         let targetID = UUID()
         let changes = MetadataEditorDraftChanges.changes(

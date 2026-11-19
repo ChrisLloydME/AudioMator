@@ -10,8 +10,8 @@ import TagLibAudioMetadata
 /// `openMetadataEditor` funnels every programmatic open through. These tests
 /// exercise the decision matrix against a real `MetadataEditorStore` without
 /// AppKit window presentation.
-@MainActor
-final class MetadataEditorOpenDecisionTests: XCTestCase {
+nonisolated final class MetadataEditorOpenDecisionTests: XCTestCase {
+    @MainActor
     func testFocusExistingRaisesWindowWithoutResettingLiveDraft() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-focus.mp3"), title: "Original")
         let store = MetadataEditorStore(metadataPipeline: OpenDecisionTestPipeline())
@@ -39,6 +39,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         XCTAssertEqual(store.targets.map(\.id), [file.id])
     }
 
+    @MainActor
     func testPresentNewForCleanDifferentTargetsStartsNewSession() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-first.mp3"))
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-second.mp3"))
@@ -66,6 +67,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         XCTAssertEqual(store.targets.map(\.id), [second.id])
     }
 
+    @MainActor
     func testDiscardDeclinedLeavesCurrentDraftAndTargetsUntouched() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-decline-01.mp3"))
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-decline-02.mp3"))
@@ -94,6 +96,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[first.id]?["TITLE"], ["Keep This Draft"])
     }
 
+    @MainActor
     func testDiscardConfirmedStartsNewSessionForRequestedTargets() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-confirm-01.mp3"))
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-confirm-02.mp3"))
@@ -120,6 +123,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testSessionChangeWhileConfirmingIsStaleAndNeverDiscardsNewerDraft() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-stale-01.mp3"))
         let requested = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-stale-02.mp3"))
@@ -151,6 +155,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         XCTAssertNil(store.draftPropertyMaps[first.id])
     }
 
+    @MainActor
     func testPresentWhileDrainingLoadsForInspectionButCannotApply() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-draining.mp3"))
         let store = MetadataEditorStore(metadataPipeline: OpenDecisionTestPipeline())
@@ -193,6 +198,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         XCTAssertTrue(store.canStartApply)
     }
 
+    @MainActor
     private func requiredPresentationID(
         of store: MetadataEditorStore,
         file: StaticString = #filePath,
@@ -201,6 +207,7 @@ final class MetadataEditorOpenDecisionTests: XCTestCase {
         try XCTUnwrap(store.currentPresentationID, "Expected an active presentation", file: file, line: line)
     }
 
+    @MainActor
     private func waitUntilLoaded(
         _ store: MetadataEditorStore,
         file: StaticString = #filePath,

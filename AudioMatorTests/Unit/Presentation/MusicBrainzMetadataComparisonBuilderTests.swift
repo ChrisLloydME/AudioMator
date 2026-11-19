@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzMetadataComparisonBuilderTests: XCTestCase {
+nonisolated final class MusicBrainzMetadataComparisonBuilderTests: XCTestCase {
+    @MainActor
     func testPresentationBuildsFallbackPreviewAndComparisonRows() throws {
         let file = MusicBrainzFileSearchInput(
             id: "file-id",
@@ -36,6 +37,7 @@ final class MusicBrainzMetadataComparisonBuilderTests: XCTestCase {
         XCTAssertEqual(row("barcode", in: rows)?.status, .same)
     }
 
+    @MainActor
     func testPresentationPreservesProviderPreviewInsteadOfRematching() throws {
         let release = makeRelease()
         let assignment = MusicBrainzReleaseMatchAssignment(
@@ -86,6 +88,7 @@ final class MusicBrainzMetadataComparisonBuilderTests: XCTestCase {
         XCTAssertEqual(presentation.comparisonGroups.first?.assignment.id, "provider-assignment")
     }
 
+    @MainActor
     private func row(
         _ id: String,
         in rows: [MusicBrainzMetadataComparisonRow]
@@ -93,6 +96,7 @@ final class MusicBrainzMetadataComparisonBuilderTests: XCTestCase {
         rows.first { $0.id == id }
     }
 
+    @MainActor
     private func makeRelease() -> MusicBrainzReleaseDetail {
         MusicBrainzReleaseDetail(
             id: "release-id",

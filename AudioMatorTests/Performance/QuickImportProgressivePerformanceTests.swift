@@ -10,8 +10,8 @@ import XCTest
 /// This suite reports measured orchestration cost and asserts deterministic work
 /// counters only. It deliberately has no wall-clock threshold and no `measure`
 /// block: cumulative/max MainActor batch cost is recorded for the evidence record.
-@MainActor
-final class QuickImportProgressivePerformanceTests: XCTestCase {
+nonisolated final class QuickImportProgressivePerformanceTests: XCTestCase {
+    @MainActor
     func testWorkBudgetsDecodeExcluded() async throws {
         try requireFixtures()
         for count in [480, 960, 4_000] {
@@ -28,6 +28,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testWorkBudgetsDecodeIncludedRealFixtures() async throws {
         try requireFixtures()
         for count in [480, 960] {
@@ -94,6 +95,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         let issueLogURL: URL
         let workspaceDirectory: URL?
 
+        @MainActor
         func tearDown() {
             viewModel.clearQuickImportFiles()
             userDefaults.removePersistentDomain(forName: suiteName)
@@ -105,6 +107,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func runDecodeExcludedLane(count: Int) async throws -> Report {
         let paths = Self.syntheticPaths(count: count)
         let identityProvider = SyntheticQuickImportIdentityProvider()
@@ -135,6 +138,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func runDecodeIncludedLane(count: Int) async throws -> Report {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorF5Decode-\(count)-\(UUID().uuidString)", isDirectory: true)
@@ -178,6 +182,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
 
     // MARK: - Report
 
+    @MainActor
     private func makeReport(
         harness viewModel: AudioViewModel,
         fixtureCount: Int,
@@ -212,6 +217,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func attach(report: Report) {
         let attachment = XCTAttachment(string: report.reportLine)
         attachment.name = "quickimport-progressive-report"
@@ -235,6 +241,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
 
     // MARK: - Harness
 
+    @MainActor
     private func makeHarness(
         pipeline: any AudioMetadataPipeline,
         provider: any QuickImportPathIdentityProviding,
@@ -272,6 +279,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func waitForImport(
         _ viewModel: AudioViewModel,
         expectedCount: Int,
@@ -286,6 +294,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         XCTAssertEqual(viewModel.files.count, expectedCount)
     }
 
+    @MainActor
     private func requireFixtures() throws {
         try XCTSkipIf(
             AudioFileTestFactory.fixtureFileVersion == nil,
@@ -293,6 +302,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func fixtureSourceURL() throws -> URL {
         final class BundleToken {}
         let bundle = Bundle(for: BundleToken.self)
@@ -306,6 +316,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
         return url
     }
 
+    @MainActor
     private static func syntheticPaths(count: Int) -> [URL] {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorF5PerfSynthetic-\(UUID().uuidString)", isDirectory: true)
@@ -319,6 +330,7 @@ final class QuickImportProgressivePerformanceTests: XCTestCase {
             + Double(duration.components.attoseconds) / 1e15
     }
 
+    @MainActor
     private func format(_ value: Double) -> String {
         String(format: "%.2f", value)
     }

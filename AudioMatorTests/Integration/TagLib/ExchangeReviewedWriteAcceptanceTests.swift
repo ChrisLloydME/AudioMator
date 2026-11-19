@@ -9,13 +9,13 @@ import TagLibAudioMetadata
 /// executor; only the transactional-directory prompt is bypassed by a thin wrapper
 /// that declares `requiresTransactionalDirectoryAccess == false` (the real adapter
 /// still performs every load, projection and write).
-@MainActor
-final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
+nonisolated final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
     private let base = TagLibAudioMetadataPipeline()
     private let acceptancePipeline = AcceptancePipeline()
 
     // MARK: – AM-01
 
+    @MainActor
     func testAM01LoneTrackRemovalPreservesFLACSiblingTotalAndAudioIdentity() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -50,6 +50,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(identityBefore, identityAfter, "Qualified audio identity is preserved")
     }
 
+    @MainActor
     func testAM01LoneDiscRemovalPreservesFLACSiblingTotal() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -66,6 +67,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(persisted.trackTotal, 12)
     }
 
+    @MainActor
     func testAM01MP4LoneTrackRemovalPersistsOrRejectsWithUnchangedBytes() async throws {
         let url = try fixtureCopy("m4a")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -88,6 +90,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(persisted.trackTotal, 12)
     }
 
+    @MainActor
     func testAM01WholePairSetterControlWouldFailSiblingAssertion() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -110,6 +113,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: – AM-02
 
+    @MainActor
     func testAM02BlankLeadingRecordDoesNotShiftTwoRealTargets() async throws {
         let fileAURL = try fixtureCopy("flac")
         let fileBURL = try fixtureCopy("flac")
@@ -150,6 +154,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: fileAURL), bytesABefore, "The ignored blank slot wrote nothing to file A")
     }
 
+    @MainActor
     func testAM02PositionalCountMismatchBlocksWithUnchangedBytes() async throws {
         let fileAURL = try fixtureCopy("flac")
         let fileBURL = try fixtureCopy("flac")
@@ -180,6 +185,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: – AM-16
 
+    @MainActor
     func testAM16ExternalLiteralApostrophePersistsInTitle() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -196,6 +202,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: – Numeric rules
 
+    @MainActor
     func testZeroSpellingsRemoveOnlyThatComponent() async throws {
         for literal in ["0", "00", "+0"] {
             let url = try fixtureCopy("flac")
@@ -212,6 +219,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInvalidNumberSpellingsRejectWithZeroByteChanges() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -234,6 +242,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: mp4URL), mp4Bytes)
     }
 
+    @MainActor
     func testExplicitTotalColumnWinsOverEmbeddedTotalOnDisk() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -253,6 +262,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: – Copy/Cut
 
+    @MainActor
     func testCopyCutNumericZeroAndIndependentComponentsOnDisk() async throws {
         let zeroURL = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: zeroURL) }
@@ -290,6 +300,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: – Filename extraction and revision guard
 
+    @MainActor
     func testFilenameExtractionAppliesFrozenPayloadWithoutDraftFields() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("E1Filename-\(UUID().uuidString)", isDirectory: true)
@@ -313,6 +324,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(persisted.title, "Song")
     }
 
+    @MainActor
     func testApplyRejectsStaleCapturedRevisionWithoutWriting() async throws {
         let url = try fixtureCopy("flac")
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -345,6 +357,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         """
     }
 
+    @MainActor
     private func makeCSVPlan(
         template: String,
         source: String,
@@ -360,6 +373,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func applyExchange(
         _ plan: MetadataExchangeImportPlan,
         files: [AudioFile]
@@ -370,6 +384,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         return await viewModel.applyMetadataExchangeWriteEntries(plan.writeEntries)
     }
 
+    @MainActor
     private func applyFilename(
         _ plan: FilenameMetadataPlan,
         files: [AudioFile]
@@ -380,6 +395,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         return await viewModel.applyFilenameMetadataPlan(plan.writeEntries)
     }
 
+    @MainActor
     private func seed(
         _ url: URL,
         trackText: String? = nil,
@@ -399,6 +415,7 @@ final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         return try await load(url)
     }
 
+    @MainActor
     private func load(_ url: URL) async throws -> AudioFile {
         try await base.loadAudioFile(at: url, id: UUID())
     }

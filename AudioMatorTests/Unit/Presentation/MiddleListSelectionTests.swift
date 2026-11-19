@@ -3,8 +3,8 @@ import SwiftUI
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class MiddleListSelectionTests: XCTestCase {
+nonisolated final class MiddleListSelectionTests: XCTestCase {
+    @MainActor
     func testOrderingCacheSurvivesSelectionAndInvalidatesForSortManualOrderAndReload() throws {
         let suiteName = "MiddleListSelectionTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -37,6 +37,7 @@ final class MiddleListSelectionTests: XCTestCase {
         XCTAssertNotEqual(refreshed.revision, sorted.revision)
     }
 
+    @MainActor
     func testNativeSelectionAndRejectedDraftDiscardStayInSync() throws {
         let files = [makeFile(title: "First"), makeFile(title: "Second")]
         let bindings = TableBindings()
@@ -62,6 +63,7 @@ final class MiddleListSelectionTests: XCTestCase {
         XCTAssertEqual(table.selectedRowIndexes, IndexSet(integersIn: 0..<2))
     }
 
+    @MainActor
     func testReorderReloadColumnChangeAndRemovalPreserveIDSelection() throws {
         let first = makeFile(title: "First")
         let second = makeFile(title: "Second")
@@ -98,10 +100,12 @@ final class MiddleListSelectionTests: XCTestCase {
         XCTAssertTrue(table.selectedRowIndexes.isEmpty)
     }
 
+    @MainActor
     private func makeFile(title: String) -> AudioFile {
         AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/\(UUID()).mp3"), title: title)
     }
 
+    @MainActor
     private func makeTable(files: [AudioFile], bindings: TableBindings) -> MiddleListTable {
         MiddleListTable(
             files: files, filesRevision: UUID(),

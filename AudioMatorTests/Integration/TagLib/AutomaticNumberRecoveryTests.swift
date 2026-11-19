@@ -2,8 +2,7 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-@MainActor
-final class AutomaticNumberRecoveryTests: XCTestCase {
+nonisolated final class AutomaticNumberRecoveryTests: XCTestCase {
     private func fixture() throws -> URL {
         let source = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "testAudioFile", withExtension: "m4a", subdirectory: "Fixtures/Audio")
             ?? Bundle(for: Self.self).url(forResource: "testAudioFile", withExtension: "m4a"))
@@ -13,6 +12,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         return url
     }
 
+    @MainActor
     func testPrivateOnlyValuesAreRecoveredWithoutWritingTheFile() async throws {
         for prefix in ["AUDIOMATOR", "TAGLIBAUDIOMETADATA"] {
             let url = try fixture()
@@ -43,6 +43,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testUnresolvedCandidatesAreNotDisplayedAsAChosenValue() {
         let group = MetadataNumberGroupInventory(
             number: .init(state: .native, nativeValue: 3),
@@ -52,6 +53,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         XCTAssertEqual(result.total, 0)
         XCTAssertEqual(result.text, "3")
     }
+    @MainActor
     func testOrdinarySaveMigratesEditedPairWithTitleAndClearDoesNotResurrectIt() async throws {
         for prefix in ["AUDIOMATOR", "TAGLIBAUDIOMETADATA"] {
             let url = try fixture()
@@ -87,6 +89,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testCanonicalValuesAreUsedWithoutAskingForAStoragePolicy() async throws {
         let url = try fixture()
         try TagLibMetadataManager.writeStructuredMetadataWithVerification(.init(mp4Atoms: [
@@ -104,6 +107,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         XCTAssertEqual(after.track, 4); XCTAssertEqual(after.trackTotal, 6)
     }
 
+    @MainActor
     func testAmbiguityRequestsOrdinaryTotalAndAcceptsItsReplacement() async throws {
         let url = try fixture()
         try TagLibMetadataManager.writeStructuredMetadataWithVerification(.init(mp4Atoms: [
@@ -131,6 +135,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         XCTAssertEqual(after.track, 5); XCTAssertEqual(after.trackTotal, 16)
     }
 
+    @MainActor
     func testStalePrivateRecoveryCannotBeCommittedAgainstAnotherRevision() async throws {
         let url = try fixture()
         let identity = "----:com.apple.iTunes:AUDIOMATOR_TRACKNUMBER_TEXT"
@@ -152,6 +157,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
     // 2.6 (V2.6B2691) pinned package cafcf403 / 0.5.1. Its MP4 writer
     // retained both private namespaces and native pairs independently.
     // Reconstruct those layouts without running old code against user files.
+    @MainActor
     func testHistoricalNumberLayoutsRemainCleanAcrossInspectorLifecycle() async throws {
         let pipeline = TagLibAudioMetadataPipeline()
         for prefix in ["AUDIOMATOR", "TAGLIBAUDIOMETADATA"] {
@@ -211,6 +217,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRecoveredBatchReloadAndRealDraftHaveDistinctDirtyState() async throws {
         let pipeline = TagLibAudioMetadataPipeline()
         var files: [AudioFile] = []
@@ -251,6 +258,7 @@ final class AutomaticNumberRecoveryTests: XCTestCase {
         for file in files { XCTAssertEqual(try Data(contentsOf: file.url), originals[file.url]) }
     }
 
+    @MainActor
     func testSingleAndBatchNumberMigrationFinishWithCleanInspector() async throws {
         let pipeline = TagLibAudioMetadataPipeline()
         for count in [1, 2] {

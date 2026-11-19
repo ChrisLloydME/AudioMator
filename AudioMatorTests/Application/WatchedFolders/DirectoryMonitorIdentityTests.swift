@@ -11,10 +11,10 @@ import XCTest
 /// count balanced closes. Identity/status assertions are synchronous and
 /// independent of dispatch timing; only genuine event-delivery tests wait, and
 /// every wait has an explicit bound.
-@MainActor
-final class DirectoryMonitorIdentityTests: XCTestCase {
+nonisolated final class DirectoryMonitorIdentityTests: XCTestCase {
     // MARK: - Identity capture
 
+    @MainActor
     func testReconciliationCapturesDescriptorDeviceInodeAndDirectoryKind() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -46,6 +46,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertNotEqual(watchedBinding.instanceToken, rootBinding.instanceToken)
     }
 
+    @MainActor
     func testDescriptorIdentityReportsDirectoryAndNonDirectoryKinds() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -62,6 +63,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertFalse(fileIdentity.isDirectory)
     }
 
+    @MainActor
     func testMonitorRejectsNonDirectoryDescriptor() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -77,6 +79,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
 
     // MARK: - Same-key replacement (OS-backed rebinding)
 
+    @MainActor
     func testSameKeyDirectoryReplacementRebindsAndStaleInstanceCannotInvalidate() async throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -188,6 +191,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertTrue(sawReboundEvent, "rebound descriptor did not observe the replacement directory")
     }
 
+    @MainActor
     func testSameKeyRootReplacementRebindsRootDescriptor() async throws {
         let baseURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorRootReplacement-\(UUID().uuidString)", isDirectory: true)
@@ -249,6 +253,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
 
     // MARK: - Reconciliation identity/status (timing-independent)
 
+    @MainActor
     func testUnchangedAttachmentsKeepInstanceTokensAndRequestNoFollowUpScan() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -294,6 +299,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertTrue(result.isDegraded)
     }
 
+    @MainActor
     func testDescriptorIdentityMismatchIsRejectedAndCandidateDescriptorsAreClosed() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -325,6 +331,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertEqual(fileSystem.closedDescriptors, DirectoryMonitorController.maximumBindingAttempts)
     }
 
+    @MainActor
     func testCapOmissionAndRootPriorityAreReportedDegraded() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -371,6 +378,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertTrue(expandedResult.bindings.map(\.key).contains(omittedNestedKey))
     }
 
+    @MainActor
     func testDirectoryLeavingPlanClosesDescriptorAndReappearanceUsesFreshInstance() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -415,6 +423,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testStoppedFolderLifetimeDropsLateEventsAndReportsNoActiveDirectories() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -443,6 +452,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
 
     // MARK: - Terminal events
 
+    @MainActor
     func testTerminalEventClosesInstanceAndStopsDeliveringEvents() async throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -500,6 +510,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
 
     // MARK: - Cancellation and balanced close
 
+    @MainActor
     func testStopClosesDescriptorExactlyOnce() async throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -527,6 +538,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
         XCTAssertEqual(fileSystem.closedDescriptors, 1)
     }
 
+    @MainActor
     func testStopBeforeStartClosesDescriptorSynchronously() throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }
@@ -551,6 +563,7 @@ final class DirectoryMonitorIdentityTests: XCTestCase {
 
     // MARK: - Platform limitation controls
 
+    @MainActor
     func testDirectoryDescriptorReportsEntryCreationButNotInPlaceFileWrites() async throws {
         let fixture = try DirectoryMonitorFixture()
         defer { fixture.cleanup() }

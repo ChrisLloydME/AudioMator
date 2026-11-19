@@ -2,8 +2,8 @@ import Foundation
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class SaveIssueLogStoreTests: XCTestCase {
+nonisolated final class SaveIssueLogStoreTests: XCTestCase {
+    @MainActor
     func testSuccessSummaryDoesNotCreateLogEntry() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
         var summary = BatchMetadataOperationSummary(totalTargets: 1)
@@ -14,6 +14,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertTrue(store.entries.isEmpty)
     }
 
+    @MainActor
     func testWarningSummaryCreatesPersistentLogEntry() {
         let url = temporaryLogURL()
         let store = SaveIssueLogStore(fileURL: url, limit: 10)
@@ -37,6 +38,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(reloadedStore.entries, store.entries)
     }
 
+    @MainActor
     func testFailureSummaryCreatesFailureLogEntry() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
         var summary = BatchMetadataOperationSummary(totalTargets: 2)
@@ -52,6 +54,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(store.entries[0].issues[0].messages, ["Permission denied."])
     }
 
+    @MainActor
     func testMixedSummaryKeepsFailureAndWarningIssues() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
         var summary = BatchMetadataOperationSummary(totalTargets: 2)
@@ -73,6 +76,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testBatchClearSummaryPresentedByViewModelCreatesLogEntry() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 10)
         let viewModel = AudioViewModelTestFactory.make(
@@ -91,6 +95,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(store.entries[0].title, "Metadata Couldn’t Be Cleared")
     }
 
+    @MainActor
     func testLogLimitKeepsNewestEntries() {
         let store = SaveIssueLogStore(fileURL: temporaryLogURL(), limit: 2)
 
@@ -108,6 +113,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(store.entries.map { $0.issues[0].fileName }, ["file-3.flac", "file-2.flac"])
     }
 
+    @MainActor
     func testCorruptLogIsQuarantinedBeforeBeingReplaced() throws {
         let url = temporaryLogURL()
         try FileManager.default.createDirectory(
@@ -124,6 +130,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: quarantineURL), corruptData)
     }
 
+    @MainActor
     func testRepeatedCorruptionPreservesEachUnreadableLog() throws {
         let url = temporaryLogURL()
         let directory = url.deletingLastPathComponent()
@@ -143,6 +150,7 @@ final class SaveIssueLogStoreTests: XCTestCase {
         XCTAssertEqual(SaveIssueLogStore(fileURL: url).entries.count, 1)
     }
 
+    @MainActor
     func testUnwritableLogDoesNotTrapOrLoseInMemoryEntries() {
         let store = SaveIssueLogStore(
             fileURL: URL(fileURLWithPath: "/dev/null/AudioMator/SaveIssueLog.json"),

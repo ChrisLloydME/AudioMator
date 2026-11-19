@@ -1,4 +1,5 @@
 import XCTest
+import os
 import TagLibAudioMetadata
 @testable import AudioMator
 
@@ -61,8 +62,8 @@ private func rejectedTestProjection(_ message: String) -> MetadataWriteProjectio
 }
 
 #if os(macOS)
-@MainActor
-final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+nonisolated final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
+    @MainActor
     func testVisibleFileRevisionAndSelectionLookupRefreshAfterSameIDReload() {
         let original = AudioFileTestFactory.make(title: "Original")
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingMetadataPipeline())
@@ -86,6 +87,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.selectedFiles.isEmpty)
     }
 
+    @MainActor
     func testArtworkPreviewTracksSingleMultiReplacementRemovalAndDraftEdits() {
         let file = AudioFileTestFactory.make(artworkData: Data([1]))
         let other = AudioFileTestFactory.make(
@@ -117,16 +119,18 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.inspectorArtworkPreview.sourceID)
     }
 
+    @MainActor
     func testToolbarAddWatchedFolderRequestsSidebarSelectionChange() {
         let notificationCenter = NotificationCenter()
         let expectedSelection = SidebarSelection.watchedLibrary
-        var receivedSelection: SidebarSelection?
+        let receivedSelection = OSAllocatedUnfairLock<SidebarSelection?>(initialState: nil)
         let observer = notificationCenter.addObserver(
             forName: .requestSidebarSelectionChange,
             object: nil,
             queue: nil
         ) { notification in
-            receivedSelection = notification.object as? SidebarSelection
+            let selection = notification.object as? SidebarSelection
+            receivedSelection.withLock { $0 = selection }
         }
         defer { notificationCenter.removeObserver(observer) }
 
@@ -135,9 +139,10 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             notificationCenter: notificationCenter
         )
 
-        XCTAssertEqual(receivedSelection, expectedSelection)
+        XCTAssertEqual(receivedSelection.withLock { $0 }, expectedSelection)
     }
 
+    @MainActor
     func testSidebarSelectionRequestPreservesDraftUntilDiscardIsConfirmed() {
         var pendingConfirmation: (() -> Void)?
         var didDiscardDraft = false
@@ -161,15 +166,16 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(didCommitSelection)
     }
 
+    @MainActor
     func testToolbarAddWatchedFolderDoesNotRequestSelectionWhenPickerIsCancelled() {
         let notificationCenter = NotificationCenter()
-        var requestCount = 0
+        let requestCount = OSAllocatedUnfairLock(initialState: 0)
         let observer = notificationCenter.addObserver(
             forName: .requestSidebarSelectionChange,
             object: nil,
             queue: nil
         ) { _ in
-            requestCount += 1
+            requestCount.withLock { $0 += 1 }
         }
         defer { notificationCenter.removeObserver(observer) }
 
@@ -178,9 +184,10 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
             notificationCenter: notificationCenter
         )
 
-        XCTAssertEqual(requestCount, 0)
+        XCTAssertEqual(requestCount.withLock { $0 }, 0)
     }
 
+    @MainActor
     func testExplicitInspectorSelectionOrderMatchesInspectorControl() {
         XCTAssertEqual(
             ExplicitInspectorSelection.inspectorSelectionOrder.map(\.displayName),
@@ -188,6 +195,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testExplicitInspectorSelectionRoundTripsAllFourStates() {
         let cases: [(ContentAdvisory?, String)] = [
             (nil, "Unset"),
@@ -203,6 +211,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInspectorSelectionSyncPreservesAllExplicitStates() {
         let cases: [ContentAdvisory?] = [nil, .explicit, .clean, .notExplicit]
         let files = cases.enumerated().map { index, advisory in
@@ -229,6 +238,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInspectorSelectionSyncCreatesSingleAndMultiEditModels() {
         let firstID = UUID()
         let secondID = UUID()
@@ -276,6 +286,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.multiEdit?.text(for: .album), "Shared Album")
     }
 
+    @MainActor
     func testAudioViewModelOwnsSelectionDraftAndVisibleFilePruning() {
         let first = AudioFileTestFactory.make(
             id: UUID(),
@@ -318,6 +329,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.multiEdit)
     }
 
+    @MainActor
     func testSaveSingleEditsRejectsAnEditOwnedByAnotherFile() async throws {
         let firstID = UUID()
         let secondID = UUID()
@@ -347,6 +359,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Second")
     }
 
+    @MainActor
     func testPersistMetadataEditRejectsUnsupportedFieldBeforeMutation() async {
         let id = UUID()
         let file = AudioFileTestFactory.make(
@@ -369,6 +382,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
     }
 
+    @MainActor
     func testSaveInspectorEditsWritesSingleSelectionAndRefreshesEditModel() async throws {
         let id = UUID()
         let url = try MetadataTestTokens.makeFixtureCopy()
@@ -404,6 +418,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testSaveInspectorEditsRejectsFileChangedSinceSelection() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorInspectorFingerprintTests-\(UUID().uuidString)", isDirectory: true)
@@ -441,6 +456,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("has changed since it was last checked") == true)
     }
 
+    @MainActor
     func testReloadedSnapshotRefreshesAnUnmodifiedInspectorDraft() {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/reloaded-clean-inspector.mp3")
@@ -456,6 +472,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testInspectorDeltaUsesOriginalDraftDespiteListRefresh() async throws {
         let url = try MetadataTestTokens.makeFixtureCopy()
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -489,6 +506,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(payload.title, "User title")
     }
 
+    @MainActor
     func testSavingCleanInspectorDoesNotAttemptAFileMutation() {
         let pipeline = RecordingMetadataPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -502,6 +520,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
     }
 
+    @MainActor
     func testReloadedSnapshotKeepsTheOriginalFingerprintForDirtyInspectorSave() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorInspectorReloadConflict-\(UUID().uuidString)", isDirectory: true)
@@ -540,6 +559,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("has changed since it was last checked") == true)
     }
 
+    @MainActor
     func testSaveInspectorEditsAppliesOnlyModifiedMultiFileFieldsToEachFile() async throws {
         let firstID = UUID()
         let secondID = UUID()
@@ -599,6 +619,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testMetadataEditorRawMapApplyWritesEachTargetAndRefreshesLoadedFiles() async throws {
         let firstID = UUID()
         let secondID = UUID()
@@ -660,6 +681,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Raw First")
     }
 
+    @MainActor
     func testMetadataEditorRawMapApplyRejectsMissingTargetMap() async throws {
         let url = try MetadataTestTokens.makeFixtureCopy()
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
@@ -687,6 +709,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("Metadata wasn’t loaded") == true)
     }
 
+    @MainActor
     func testMetadataEditorRawMapApplyRejectsFileChangedSinceEditorOpened() async throws {
         let fileURL = try MetadataTestTokens.makeFixtureCopy()
         addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: fileURL) }
@@ -716,6 +739,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.metadataWriteHUD?.subtitle.contains("has changed since it was last checked") == true)
     }
 
+    @MainActor
     func testEraseMetadataRejectsFileChangedSinceSelection() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorEraseFingerprintTests-\(UUID().uuidString)", isDirectory: true)
@@ -748,6 +772,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testCreateMuseAmpIDsWritesDeterministicCommentPayloadsAndRefreshesLoadedFiles() async throws {
         let firstID = UUID()
         let secondID = UUID()
@@ -824,6 +849,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.comment, expectedAssignments[0].commentText)
     }
 
+    @MainActor
     func testApplyFilenameMetadataPlanWritesExtractedFieldsAndRefreshesSelection() async throws {
         let id = UUID()
         let directoryURL = FileManager.default.temporaryDirectory
@@ -877,6 +903,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testApplyMetadataExchangeWriteEntriesWritesImportedFieldsAndRefreshesSelection() async throws {
         let id = UUID()
         let directoryURL = FileManager.default.temporaryDirectory
@@ -930,6 +957,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testFieldTransferCutWritesDestinationAndSourceClearInOnePayload() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorFieldTransferTests-\(UUID().uuidString)", isDirectory: true)
@@ -968,6 +996,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testFieldTransferBatchFailureKeepsSourceAndContinuesOtherFiles() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorFieldTransferFailureTests-\(UUID())", isDirectory: true)
@@ -1008,6 +1037,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testFieldTransferExecutionAcceptsTotalOnlyPlan() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorFieldTransferSafetyTests-\(UUID())", isDirectory: true)
@@ -1035,6 +1065,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testMetadataPlanSummaryAccountsForSkippedRows() async throws {
         let id = UUID()
         let directory = FileManager.default.temporaryDirectory
@@ -1076,6 +1107,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Changes Saved with Warnings")
     }
 
+    @MainActor
     func testMetadataPlanWritesRejectDuplicateFileEntries() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/duplicate-plan.flac")
@@ -1098,6 +1130,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Changes Couldn’t Be Applied")
     }
 
+    @MainActor
     func testMetadataPlanWritesRejectInvalidFieldsAndValuesAtExecutionTime() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/invalid-plan.flac")
@@ -1127,6 +1160,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testMetadataPlanWritesRejectMissingFileFingerprintsAtExecutionTime() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/unverified-plan.flac")
@@ -1148,6 +1182,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testMetadataPlanWritesRespectGlobalSaveProgressExclusion() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/busy-plan.flac")
@@ -1176,6 +1211,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         viewModel.endMetadataSaveProgress()
     }
 
+    @MainActor
     func testMetadataPlanWritesDoNotDiscardUnsavedInspectorEdits() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/unsaved-plan.flac")
@@ -1203,6 +1239,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testMetadataPlanWritesForwardExpectedFileFingerprint() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorMetadataPlanWriteTests-\(UUID().uuidString)", isDirectory: true)
@@ -1237,6 +1274,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testApplyMusicBrainzTaggingPlanPreservesFieldOrderAndRefreshesSelection() async throws {
         let id = UUID()
         let url = try MetadataTestTokens.makeFixtureCopy()
@@ -1292,6 +1330,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "MusicBrainz Title")
     }
 
+    @MainActor
     func testApplyiTunesTaggingPlanWritesProviderFieldsAndRefreshesSelection() async throws {
         let id = UUID()
         let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "m4a")
@@ -1348,6 +1387,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "iTunes Title")
     }
 
+    @MainActor
     func testCancelledProviderApplyClearsProgressAfterCommittedReloadCompletes() async throws {
         let id = UUID()
         let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "m4a")
@@ -1389,6 +1429,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testExternalMetadataWriteDoesNotDiscardUnsavedInspectorDraft() async {
         let id = UUID()
         let url = URL(fileURLWithPath: "/tmp/itunes-unsaved.m4a")
@@ -1418,6 +1459,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.title, "Unsaved Changes")
     }
 
+    @MainActor
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,
@@ -1431,6 +1473,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertTrue(condition(), "Timed out waiting for condition", file: file, line: line)
     }
 
+    @MainActor
     func testPassivePruneKeepsCapturedMultiDraftAndBlocksImplicitTransfer() {
         let firstID = UUID()
         let secondID = UUID()
@@ -1463,7 +1506,7 @@ final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
 
 }
 
-private final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class RecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     struct MetadataWrite: Sendable {
         let payload: MetadataEditPayload
         let url: URL

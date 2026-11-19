@@ -4,8 +4,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class WatchedFolderRefreshOrderingTests: XCTestCase {
+nonisolated final class WatchedFolderRefreshOrderingTests: XCTestCase {
+    @MainActor
     func testRescanCannotReplaceNewerMutationSnapshot() async throws {
         let applicationSupport = try XCTUnwrap(
             FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -76,6 +76,7 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.id, old.id)
     }
 
+    @MainActor
     func testRescanReusesUnchangedFilesAndReloadsOnlyChangedOnes() async throws {
         let applicationSupport = try XCTUnwrap(
             FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -124,6 +125,7 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(viewModel.files.map(\.url.lastPathComponent).sorted(), ["a.mp3", "b.mp3"])
     }
 
+    @MainActor
     func testRescanPreservesRecoveryAndSupersedesOlderDeferredReload() async throws {
         let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
@@ -166,6 +168,7 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertNil(viewModel.files.first?.metadataFileVersion)
     }
 
+    @MainActor
     func testFailedRescanDoesNotDiscardAcceptedPendingCommit() async throws {
         let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
@@ -203,6 +206,7 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Committed")
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(3),
         _ condition: @escaping @MainActor () -> Bool
@@ -217,7 +221,7 @@ final class WatchedFolderRefreshOrderingTests: XCTestCase {
     }
 }
 
-private final class CountingWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class CountingWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let lock = NSLock()
     private var recordedLoadCount = 0
     private var shouldFail = false
@@ -257,7 +261,7 @@ private final class CountingWatchedFolderPipeline: AudioMetadataPipeline, @unche
     }
 }
 
-private final class GatedWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class GatedWatchedFolderPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let condition = NSCondition()
     private var loadCount = 0
     private var shouldBlockNextLoad = false

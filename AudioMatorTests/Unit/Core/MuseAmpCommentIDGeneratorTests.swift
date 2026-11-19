@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MuseAmpCommentIDGeneratorTests: XCTestCase {
+nonisolated final class MuseAmpCommentIDGeneratorTests: XCTestCase {
+    @MainActor
     func testTracksWithSameAlbumAndAlbumArtistShareAlbumID() {
         let assignments = MuseAmpCommentIDGenerator.assignments(for: [
             MuseAmpTrackIdentity(album: "Blue Hour", albumArtist: "The Band", trackKey: "disc1-track1"),
@@ -12,6 +13,7 @@ final class MuseAmpCommentIDGeneratorTests: XCTestCase {
         XCTAssertNotEqual(assignments[0].trackID, assignments[1].trackID)
     }
 
+    @MainActor
     func testDifferentAlbumOrAlbumArtistGetsDifferentAlbumID() {
         let assignments = MuseAmpCommentIDGenerator.assignments(for: [
             MuseAmpTrackIdentity(album: "Blue Hour", albumArtist: "The Band", trackKey: "1"),
@@ -22,6 +24,7 @@ final class MuseAmpCommentIDGeneratorTests: XCTestCase {
         XCTAssertEqual(Set(assignments.map(\.albumID)).count, 3)
     }
 
+    @MainActor
     func testGeneratedIDsAreNumericStrings() {
         let assignment = MuseAmpCommentIDGenerator.assignments(for: [
             MuseAmpTrackIdentity(album: "Album", albumArtist: "Artist", trackKey: "track")
@@ -31,6 +34,7 @@ final class MuseAmpCommentIDGeneratorTests: XCTestCase {
         XCTAssertTrue(assignment.trackID.allSatisfy(\.isNumber))
     }
 
+    @MainActor
     func testCommentTextMatchesMuseAmpPayloadFormat() {
         XCTAssertEqual(
             MuseAmpCommentIDGenerator.commentText(albumID: "13868407145376506873", trackID: "4906269179403622017"),
@@ -38,6 +42,7 @@ final class MuseAmpCommentIDGeneratorTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testNumericIDIsStableForSameInput() {
         XCTAssertEqual(
             MuseAmpCommentIDGenerator.numericID(for: "track", key: "Album\u{1F}Artist\u{1F}1"),

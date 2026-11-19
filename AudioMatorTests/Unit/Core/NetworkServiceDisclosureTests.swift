@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class NetworkServiceDisclosureTests: XCTestCase {
+nonisolated final class NetworkServiceDisclosureTests: XCTestCase {
+    @MainActor
     func testEveryProductionNetworkServiceHasOneCompleteDisclosure() {
         let disclosures = NetworkServiceDisclosure.allDisclosures
 
@@ -16,6 +17,7 @@ final class NetworkServiceDisclosureTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRegistryCoversEveryHostUsedByNetworkClients() {
         let disclosedHosts = Set(NetworkServiceDisclosure.allDisclosures.flatMap(\.domains))
         // Independent inventory, reviewed against request builders and page policy.

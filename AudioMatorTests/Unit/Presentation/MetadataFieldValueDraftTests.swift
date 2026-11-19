@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MetadataFieldValueDraftTests: XCTestCase {
+nonisolated final class MetadataFieldValueDraftTests: XCTestCase {
+    @MainActor
     private func context(
         mode: MetadataFieldEditorMode,
         values: [String] = [],
@@ -22,6 +23,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testUniformEditStartsWithExactOrderedElements() {
         let draft = MetadataFieldValueDraft(context: context(
             mode: .edit,
@@ -35,6 +37,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertTrue(draft.isUnchangedConfirmation)
     }
 
+    @MainActor
     func testAddFieldStartsWithOneBlankElement() {
         let draft = MetadataFieldValueDraft(context: context(
             mode: .add,
@@ -47,6 +50,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertFalse(draft.isUnchangedConfirmation)
     }
 
+    @MainActor
     func testLastElementRemovalIsBlocked() {
         var draft = MetadataFieldValueDraft(context: context(
             mode: .edit,
@@ -58,6 +62,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertEqual(draft.values, ["Only"])
     }
 
+    @MainActor
     func testRemoveValueKeepsOrderAndSelectsNeighbor() throws {
         var draft = MetadataFieldValueDraft(context: context(
             mode: .edit,
@@ -70,6 +75,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertEqual(draft.selectedElementID, draft.elements.first?.id)
     }
 
+    @MainActor
     func testDuplicateElementsAreIndependentlyAddressable() throws {
         var draft = MetadataFieldValueDraft(context: context(
             mode: .edit,
@@ -86,6 +92,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertEqual(draft.values, ["dup changed", ""])
     }
 
+    @MainActor
     func testMixedSelectionRequiresAnExplicitAddedValue() throws {
         let mixedContext = context(
             mode: .edit,
@@ -105,6 +112,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertNil(draft.emptyStartReason)
     }
 
+    @MainActor
     func testExistingEmptyArrayIsOnlyAnUnchangedConfirmation() {
         var draft = MetadataFieldValueDraft(context: context(
             mode: .edit,
@@ -122,6 +130,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertTrue(draft.canCommit)
     }
 
+    @MainActor
     func testMultilineElementStaysInsideOneElement() {
         let draft = MetadataFieldValueDraft(context: context(
             mode: .edit,
@@ -133,6 +142,7 @@ final class MetadataFieldValueDraftTests: XCTestCase {
         XCTAssertTrue(draft.isUnchangedConfirmation)
     }
 
+    @MainActor
     func testReorderingByRemoveAndAddPreservesRequestedOrder() throws {
         var draft = MetadataFieldValueDraft(context: context(
             mode: .edit,

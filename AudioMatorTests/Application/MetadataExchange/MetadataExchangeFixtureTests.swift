@@ -1,10 +1,11 @@
 import XCTest
 @testable import AudioMator
 
-final class MetadataExchangeFixtureTests: XCTestCase {
+nonisolated final class MetadataExchangeFixtureTests: XCTestCase {
     private static let textImportFixtureSubdirectory = "Fixtures/MetadataExchange/TextImport"
     private static let audioFixtureSubdirectory = "Fixtures/MetadataExchange/Audio"
 
+    @MainActor
     func testPipeDelimitedFixtureParsesToExpectedMetadata() throws {
         let expected = try loadExpectedRecords()
         let actual = try parseCSVFixture(
@@ -16,6 +17,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         XCTAssertEqual(actual, expected)
     }
 
+    @MainActor
     func testTabDelimitedFixtureParsesToExpectedMetadata() throws {
         let expected = try loadExpectedRecords()
         let actual = try parseCSVFixture(
@@ -27,6 +29,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         XCTAssertEqual(actual, expected)
     }
 
+    @MainActor
     func testCommaCSVFixtureParsesToExpectedMetadataIncludingEscapedQuotes() throws {
         let expected = try loadExpectedRecords()
         let actual = try parseCSVFixture(
@@ -39,6 +42,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         XCTAssertEqual(actual.last?.title, "Room 404: \"Do Not Wake\"")
     }
 
+    @MainActor
     func testSemicolonCSVFixtureParsesToExpectedMetadataWithEmbeddedCommasAndSemicolons() throws {
         let expected = try loadExpectedRecords()
         let actual = try parseCSVFixture(
@@ -53,6 +57,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         XCTAssertEqual(actual[5].title, "Velvet, Thunder; Rain")
     }
 
+    @MainActor
     func testAllTextImportFixturesProduceSameNormalizedMetadata() throws {
         let expected = try loadExpectedRecords()
         let fixtures: [(name: String, delimiter: Character)] = [
@@ -72,6 +77,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testCSVImportTrimsUnquotedFieldsButPreservesQuotedFieldWhitespace() throws {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/spaces.flac"))
 
@@ -92,6 +98,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         XCTAssertEqual(values[.artist], "Trim Me")
     }
 
+    @MainActor
     func testMetadataExchangeAudioFixturesExistForExpectedRows() throws {
         let bundle = Bundle(for: Self.self)
 
@@ -106,6 +113,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func parseCSVFixture(
         named fixtureName: String,
         delimiter: Character,
@@ -129,6 +137,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         return try plan.writeEntries.map(normalizedRecord(from:))
     }
 
+    @MainActor
     private func normalizedRecord(from entry: MetadataExchangeWriteEntry) throws -> NormalizedMetadataRecord {
         NormalizedMetadataRecord(
             filename: entry.fileName,
@@ -140,6 +149,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeTargetFiles(for records: [NormalizedMetadataRecord]) -> [AudioFile] {
         records.map { record in
             AudioFileTestFactory.make(
@@ -161,6 +171,7 @@ final class MetadataExchangeFixtureTests: XCTestCase {
         .joined(separator: String(delimiter))
     }
 
+    @MainActor
     private func loadExpectedRecords() throws -> [NormalizedMetadataRecord] {
         let text = try loadTextFixture(named: "expected_metadata.txt")
         var records: [NormalizedMetadataRecord] = []

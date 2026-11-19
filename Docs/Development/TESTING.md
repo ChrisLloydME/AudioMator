@@ -4,17 +4,17 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-19; the full `validate-release.sh --tests-only` gate was green at an earlier candidate revision (758 app-hosted and 69 SwiftPM tests, exact source-to-`xcresult` identity), and the final remediation candidate declares 994 app-hosted and 88 SwiftPM tests, which the final gate must confirm. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-19. The current integrated remediation candidate declares **1008 app-hosted tests across 115 `XCTestCase` classes** and **94 SwiftPM core tests across 6 classes**; the final validation gate must confirm these exact counts. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 88 | 6 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 994 | 113 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 94 | 6 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1008 | 115 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 119 `XCTestCase` classes across both targets (113 app-hosted, 6 core); no custom base class.
+- There are 121 `XCTestCase` classes across both targets (115 app-hosted, 6 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - F4 directory-monitor coverage lives in `AudioMatorTests/Application/WatchedFolders/DirectoryMonitorIdentityTests.swift` (15 native tests over disposable real directories: descriptor device/inode/kind capture, same-key move-aside/recreate rebinding, removal/reappearance, cap/root priority, open-vs-identity failure split, terminal event and balanced close, in-place-write platform limit) and `WatchedFolderMonitoringWiringTests.swift` (11 ViewModel-driven tests: attach-before-scan with no redundant follow-up, exactly one follow-up scan for a newly attached nested directory, cap omission status, same-key root replacement rebinding, stale-callback suppression, removed-nested-directory terminal rescan, missing/permission-denied root degraded status and manual refresh recovery, removal/reappearance with a fresh controller, cancelled scan after folder removal, user-requested refresh of all watched folders).
 - F3 Inspector draft-session coverage lives in `AudioMatorTests/Application/MetadataEditing/InspectorDraftSessionTests.swift` (session identity/generations, dirty and original-revision retention across passive refresh, clean refresh, detached pending review and resume/discard, per-field save-delta completion including an intentional pre-save revert, partial-batch ledger, unverified readback, and independent artwork command generations), plus extended cases in `InspectorDirtyStateTests`, `InspectorAndMetadataEditorWorkflowTests`, `WatchedFolderRefreshOrderingTests` and `RenameRefreshSafetyTests`.
@@ -87,17 +87,17 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | --- | ---: | ---: | --- |
 | `Application/MetadataEditing` | 26 | 283 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
 | `Application/MetadataExchange` | 6 | 104 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 9 | 66 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
+| `Application/Rename` | 10 | 68 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
 | `Application/WatchedFolders` | 6 | 51 | identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
-| `Concurrency` | 4 | 40 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
+| `Concurrency` | 4 | 47 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 113 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
 | `Integration/TagLib` | 13 | 121 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 14 | 76 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
+| `Unit/Presentation` | 15 | 81 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **120** | **994** | |
+| **Total** | **122** | **1008** | |
 
 Notable coverage:
 
@@ -170,16 +170,73 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the policy tests with `python3 -m unittest discover -s scripts/tests` (currently 29: 13 evidence-gate tests and 16 build-helper shell policy tests),
-2. runs all 88 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+2. runs all 94 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
 3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the inventory at the 2026-11-19 878e2fc6 gate was 949 app-hosted and 70 core tests; the later F5 wave adds the incremental Quick Import suites and core index/lease tests),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
 
 `bash scripts/validate-release.sh --tests-only` runs steps 1-3 and skips the Release build and artifact checks; it is not full release acceptance. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
 
-The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths. The current working tree declares 630 app-hosted tests; that count has not been re-run through the full gate as part of this documentation audit.
+The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths. The current working tree declares 1008 app-hosted tests and 94 core tests by source inspection; the final validation gate must confirm the exact named inventory.
 
 The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary.
+
+### Compile-clean isolation diagnostics gate (AM-19)
+
+The integrated remediation candidate keeps the original concurrency settings: Swift 5 language
+mode, complete strict concurrency, MainActor default actor isolation, and Approachable Concurrency
+for both `AudioMator` and the app-hosted test target. The campaign introduced no warning
+suppressions, no `@preconcurrency` imports, no new `@unchecked Sendable` conformances, no new
+`nonisolated(unsafe)` escapes, and no language or default-isolation changes. `@unchecked Sendable`
+declarations do already exist in the production sources (for example locked adapter/recorder
+fixtures from earlier work) and remain unchanged; this campaign adds none and does not use them as
+a substitute for the isolation corrections above.
+
+Isolation ownership convention:
+
+- App-hosted `XCTestCase` subclasses are declared `nonisolated`; methods, helpers and fixtures that
+  own app models, stores, view models or AppKit objects are explicitly `@MainActor`. `URLProtocol`
+  subclasses and protocol-witness fixtures are `nonisolated`, with locked recorders for mutable
+  state.
+- Pure value types and count/localization helpers stay `nonisolated`; synchronous move/rollback and
+  other I/O work is never moved onto the main actor to silence a diagnostic.
+- Headless coverage exists for the two former production warnings: the rename-recovery localized
+  file count (`RenameRecoveryPresentationTests`, injected committed-marker journal failure through
+  the real detached transaction and `AudioViewModel.renameFiles(using:)`) and the Metadata Write HUD
+  dismissal generation barrier (`MetadataWriteHUDDismissalDecisionTests`: current/stale generation,
+  replacement HUD, deallocated owner).
+
+The compile-clean gate is a separate cold-build check from `validate-release.sh`: it compiles the app
+and app-hosted test target from a disposable checkout in **both** configurations and searches the
+full compiler logs for actor-isolation, Swift 6 migration, `Sendable` and implicit-capture
+diagnostics. Diagnostics are keyed by target, file, line and category and de-duplicated by
+`(target, file, line, message)`; the current source must produce zero such diagnostics in both
+targets and both configurations. Package, toolchain/system, linker, asset and unrelated
+`#NoUsage`/`#UnnecessaryEffectMarker` diagnostics are reported separately by owner and are never
+suppressed.
+
+Cold-build commands (run from a disposable copy of the exact candidate; Debug also runs the serial
+named suite, Release only compiles both targets):
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+# 1. Debug: app + app-hosted test target compile, then the full serial suite
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
+  -configuration Debug -destination 'platform=macOS' \
+  -derivedDataPath .deriveddata-codex \
+  -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 \
+  CODE_SIGNING_ALLOWED=NO test
+# 2. Release: app + app-hosted test target compile in Release
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
+  -configuration Release -destination 'generic/platform=macOS' \
+  -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build-for-testing
+```
+
+A plain Release `build` is not sufficient for this check because it does not compile the test
+target. Incremental builds are not valid evidence: the candidate must be a clean checkout with no
+prior products, and the logs must be shown to contain full app and test-target compilation. The
+dated campaign evidence records the exact source revision, Xcode version, commands, log paths and
+per-category counts.
 
 ## Known Coverage Gaps
 

@@ -3,12 +3,13 @@ import ImageIO
 import XCTest
 @testable import AudioMator
 
-final class ProviderNetworkFaultTests: XCTestCase {
+nonisolated final class ProviderNetworkFaultTests: XCTestCase {
     override func tearDown() {
         ProviderFaultURLProtocol.requestHandler = nil
         super.tearDown()
     }
 
+    @MainActor
     func testMusicBrainzMapsHTTPAndInvalidPayloadFailures() async throws {
         ProviderFaultURLProtocol.requestHandler = response(statusCode: 503, data: Data())
         let client = MusicBrainzClient(
@@ -41,6 +42,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testITunesMapsHTTPAndInvalidPayloadFailures() async throws {
         ProviderFaultURLProtocol.requestHandler = response(statusCode: 429, data: Data())
         let client = iTunesClient(session: makeSession())
@@ -70,6 +72,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testLRCLIBMapsHTTPAndInvalidPayloadFailures() async throws {
         ProviderFaultURLProtocol.requestHandler = response(statusCode: 502, data: Data())
         let client = LRCLIBClient(session: makeSession())
@@ -100,6 +103,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testProviderTimeoutsRemainDistinguishableFromHTTPAndDecodeFailures() async throws {
         ProviderFaultURLProtocol.requestHandler = { _ in
             throw URLError(.timedOut)
@@ -141,6 +145,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testMusicBrainzITunesAndArtworkRequestsUseFiniteExplicitTimeouts() async throws {
         let requestRecorder = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -183,6 +188,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertTrue(requestRecorder.timeoutIntervals.allSatisfy { $0 == 15 })
     }
 
+    @MainActor
     func testMusicBrainzStaleStoredReleaseFallsBackAndReturnsCandidatesBeyondDetailCap() async throws {
         let staleID = "00000000-0000-0000-0000-000000000099"
         let ids = (1...5).map { String(format: "00000000-0000-0000-0000-%012d", $0) }
@@ -221,6 +227,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertLessThanOrEqual(results.filter { $0.selectionMatchScore != nil }.count, 3)
     }
 
+    @MainActor
     func testITunesStaleStoredAlbumFallsBackToTextSearch() async throws {
         let requests = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -244,6 +251,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertEqual(requests.requestCount, 2)
     }
 
+    @MainActor
     func testMusicBrainzMultiFileNoResultSearchHasBoundedFallbackRequests() async throws {
         let requestRecorder = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -296,6 +304,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testMusicBrainzReusesSuccessfulIdenticalSearchResponse() async throws {
         let requestRecorder = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -327,6 +336,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertEqual(requestRecorder.requestCount, firstSearchRequestCount)
     }
 
+    @MainActor
     func testMusicBrainzRetriesServiceUnavailableOnce() async throws {
         let requestRecorder = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -765,6 +775,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         XCTAssertTrue(shouldStop(candidate: 50, next: Int.min, evidence: 1), "Evidence of one stops")
     }
 
+    @MainActor
     func testArtworkNormalizerDownsamplesBeforePNGEncoding() throws {
         let sourceData = try XCTUnwrap(
             Data(
@@ -816,6 +827,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testITunesArtworkDownloadNormalizesAValidResponseFromTemporaryStorage() async throws {
         let sourceData = try XCTUnwrap(
             Data(
@@ -912,6 +924,7 @@ final class ProviderNetworkFaultTests: XCTestCase {
         return URLSession(configuration: configuration)
     }
 
+    @MainActor
     private func makeScriptedMusicBrainzClient() -> MusicBrainzClient {
         MusicBrainzClient(
             session: makeSession(),
@@ -920,11 +933,13 @@ final class ProviderNetworkFaultTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeSingleResponseClient(_ body: Data) -> MusicBrainzClient {
         ProviderFaultURLProtocol.requestHandler = response(statusCode: 200, data: body)
         return makeScriptedMusicBrainzClient()
     }
 
+    @MainActor
     private func response(
         statusCode: Int,
         data: Data

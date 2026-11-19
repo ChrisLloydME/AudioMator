@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class LicenseDisclosureTests: XCTestCase {
+nonisolated final class LicenseDisclosureTests: XCTestCase {
+    @MainActor
     func testEveryLicenseEntryIsCompleteAndUnique() {
         let entries = LicenseDisclosure.allEntries
 
@@ -23,6 +24,7 @@ final class LicenseDisclosureTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testEveryBundledLicenseTextIsAvailableAndNonEmpty() {
         for entry in LicenseDisclosure.allEntries {
             for document in entry.documents {
@@ -37,6 +39,7 @@ final class LicenseDisclosureTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testBundledAGPLTextMatchesRepositoryLicense() throws {
         let repositoryURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -56,6 +59,7 @@ final class LicenseDisclosureTests: XCTestCase {
         XCTAssertEqual(LicenseDisclosure.loadText(for: document), repositoryLicense)
     }
 
+    @MainActor
     func testTagLibKeepsBothDualLicenseDocuments() {
         guard let tagLib = LicenseDisclosure.entry(for: .tagLib) else {
             return XCTFail("TagLib entry is missing")
@@ -66,6 +70,7 @@ final class LicenseDisclosureTests: XCTestCase {
         XCTAssertEqual(tagLib.documents.map(\.resourceName), ["TagLib-LGPL-2.1", "TagLib-MPL-1.1"])
     }
 
+    @MainActor
     func testBundledTextsContainTheExpectedLicenseAndCopyrightMarkers() {
         let expectedMarkers: [LicenseDisclosure.Entry.ID: [String]] = [
             .audioMator: ["GNU AFFERO GENERAL PUBLIC LICENSE", "Version 3"],

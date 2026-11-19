@@ -1,7 +1,7 @@
 import XCTest
 @testable import AudioMator
 
-final class FileRenameTemplateTests: XCTestCase {
+nonisolated final class FileRenameTemplateTests: XCTestCase {
     func testTemplateParserSplitsLiteralsAndKnownFields() {
         let document = FileRenameTemplateDocument(rawValue: "{{trackNumber}} - {{artist}} - {{title}}")
 
@@ -36,6 +36,7 @@ final class FileRenameTemplateTests: XCTestCase {
         XCTAssertTrue(unterminated.hasUnterminatedPlaceholder)
     }
 
+    @MainActor
     func testRenamePlanSanitizesInvalidFilenameCharactersAndPreservesExtension() {
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let file = AudioFileTestFactory.make(
@@ -53,6 +54,7 @@ final class FileRenameTemplateTests: XCTestCase {
         XCTAssertEqual(plan.operations.count, 1)
     }
 
+    @MainActor
     func testRenamePlanRejectsInvalidTemplatesAndOverlongNames() {
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let file = AudioFileTestFactory.make(
@@ -79,6 +81,7 @@ final class FileRenameTemplateTests: XCTestCase {
         XCTAssertFalse(overlongName.canApply)
     }
 
+    @MainActor
     func testRenamePlanRejectsAFileWhoseIdentityCannotBeCaptured() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/missing-audiomator-file.mp3"),

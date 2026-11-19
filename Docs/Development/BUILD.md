@@ -135,9 +135,39 @@ The app-hosted test target launches the app as its test host. Always keep the se
 bash scripts/validate-release.sh
 ```
 
-This is the normal release gate. It runs the policy tests, the 88 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
+This is the normal release gate. It runs the policy tests, the 94 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
 
 The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate). The test-only form is `bash scripts/validate-release.sh --tests-only`, which skips the Release build and artifact phases.
+
+### Compile-clean diagnostic check (AM-19)
+
+The release gate proves behavior, not absence of concurrency warnings. For the AM-19 cleanup, a
+separate cold-build check compiles the app and app-hosted test target in both configurations from a
+disposable candidate checkout and requires zero actor-isolation, Swift 6 migration, `Sendable` and
+implicit-strong-capture diagnostics. Diagnostics are extracted from the full logs and keyed by
+target/file/line/category, de-duplicated by `(target, file, line, message)`; package, toolchain,
+linker and unrelated warnings are reported separately and never suppressed, and incremental builds
+are not valid evidence.
+
+```bash
+# from a clean disposable copy of the exact candidate
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
+  -configuration Debug -destination 'platform=macOS' \
+  -derivedDataPath .deriveddata-codex \
+  -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 \
+  CODE_SIGNING_ALLOWED=NO test
+xcodebuild -project AudioMator.xcodeproj -scheme AudioMator \
+  -configuration Release -destination 'generic/platform=macOS' \
+  -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build-for-testing
+```
+
+The Release `build-for-testing` phase is required so the app-hosted test target compiles under
+Release; a plain Release `build` compiles only the app. The settings the check must preserve are
+Swift 5 language mode, `SWIFT_STRICT_CONCURRENCY = complete`, `SWIFT_DEFAULT_ACTOR_ISOLATION =
+MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` for both targets and configurations. Dated
+evidence (source revision, Xcode version, commands, log paths, per-category counts and remaining
+non-campaign diagnostics) belongs in the matching Engineering acceptance record.
 
 ### Artifact compatibility check
 
@@ -161,7 +191,7 @@ It does not verify signing, notarization, entitlements, architectures, bundle ID
 - **App Sandbox + user-selected read/write.** File access depends on user-selected URLs and security-scoped bookmarks.
 - **Hardened Runtime.** Enabled in both configurations.
 - **No incoming network connections.** Outgoing client only.
-- **MainActor default isolation + complete strict concurrency.** New code must be isolation-clean; do not suppress warnings.
+- **MainActor default isolation + complete strict concurrency.** New code must be isolation-clean; do not suppress warnings. App-hosted `XCTestCase` subclasses are declared `nonisolated` with explicit `@MainActor` only on members that own app models/AppKit; pure value types and helpers stay `nonisolated`. The candidate must compile with zero actor-isolation, Swift 6 migration, `Sendable` and implicit-capture diagnostics in both targets and both configurations (see the compile-clean diagnostic check below).
 - **Swift 5 language mode.** The compiler is Swift 6.x, but the target language mode is 5.0.
 - **Synchronized source root.** `AudioMator/` is attached through Xcode's file-system synchronized group. New files under that root are picked up automatically; configuration inputs stay in `Config/`.
 - **No alternate derived-data roots.** Use `.deriveddata-codex` for Agent-triggered builds.

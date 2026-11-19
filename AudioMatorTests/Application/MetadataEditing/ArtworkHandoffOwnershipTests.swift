@@ -7,10 +7,10 @@ import XCTest
 /// (Finder / photo library / clipboard, single and batch). Each command captures
 /// its F3 Inspector draft authority before the first suspension; completion may
 /// only stage into that same live draft with the full captured target set.
-@MainActor
-final class ArtworkHandoffOwnershipTests: XCTestCase {
+nonisolated final class ArtworkHandoffOwnershipTests: XCTestCase {
     // MARK: - Positive single handoffs
 
+    @MainActor
     func testFinderSingleHandoffStagesIntoCapturedDraft() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -34,6 +34,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.recorder.writeInvocationCount, 0)
     }
 
+    @MainActor
     func testPhotoLibrarySingleHandoffStagesIntoCapturedDraft() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -51,6 +52,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: harness.audioFileURL), harness.audioBytes)
     }
 
+    @MainActor
     func testClipboardSingleHandoffStagesIntoCapturedDraft() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -70,6 +72,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
 
     // MARK: - Positive batch handoffs
 
+    @MainActor
     func testFinderBatchHandoffStagesIntoCapturedMultiDraft() async throws {
         let harness = try makeMultiHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -90,6 +93,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.recorder.writeInvocationCount, 0)
     }
 
+    @MainActor
     func testPhotoLibraryBatchHandoffStagesIntoCapturedMultiDraft() async throws {
         let harness = try makeMultiHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -106,6 +110,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.recorder.writeInvocationCount, 0)
     }
 
+    @MainActor
     func testClipboardBatchHandoffStagesIntoCapturedMultiDraft() async throws {
         let harness = try makeMultiHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -127,6 +132,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
 
     // MARK: - Guarded rejection: selection / draft ownership
 
+    @MainActor
     func testSelectionChangeDuringGatedNormalizationRejectsHandoff() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -170,6 +176,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.recorder.writeInvocationCount, 0)
     }
 
+    @MainActor
     func testSameIDReopenWhileGatedRejectsOlderHandoff() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -210,6 +217,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: harness.audioFileURL), harness.audioBytes)
     }
 
+    @MainActor
     func testRemovedCapturedTargetRejectsBatchHandoffWithoutSubsetStaging() async throws {
         let harness = try makeMultiHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -246,6 +254,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.recorder.writeInvocationCount, 0)
     }
 
+    @MainActor
     func testNewerClearSupersedesPendingLocalHandoff() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -292,6 +301,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.recorder.writeInvocationCount, 0)
     }
 
+    @MainActor
     func testDeferredObsoleteCompletionIsInert() async throws {
         let harness = try makeSingleHarness()
         defer { harness.removeTemporaryDirectory() }
@@ -321,6 +331,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: harness.audioFileURL), harness.audioBytes)
     }
 
+    @MainActor
     func testNoInspectorDraftCannotAuthorizeLocalHandoff() throws {
         let harness = try makeSingleHarness(createDraft: false)
         defer { harness.removeTemporaryDirectory() }
@@ -341,6 +352,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
     )!
 
+    @MainActor
     private func expectedNormalizedPNG() throws -> Data {
         try ArtworkImageNormalizer.normalizedPNGData(from: Self.tinyPNGData)
     }
@@ -383,6 +395,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func makeSingleHarness(createDraft: Bool = true) throws -> SingleHarness {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArtworkHandoffOwnershipTests-\(UUID().uuidString)", isDirectory: true)
@@ -423,6 +436,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeMultiHarness() throws -> MultiHarness {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ArtworkHandoffOwnershipTests-\(UUID().uuidString)", isDirectory: true)
@@ -469,6 +483,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
 
     // MARK: - Assertions
 
+    @MainActor
     private func assertSingleStaged(
         _ harness: SingleHarness,
         expectedPNG: Data,
@@ -490,6 +505,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func assertMultiStaged(
         _ harness: MultiHarness,
         expectedPNG: Data,
@@ -504,6 +520,7 @@ final class ArtworkHandoffOwnershipTests: XCTestCase {
         XCTAssertEqual(harness.viewModel.selectedAudioIDs, Set(harness.files.map(\.id)), file: file, line: line)
     }
 
+    @MainActor
     private func assertStaleHUD(
         _ viewModel: AudioViewModel,
         file: StaticString = #filePath,
@@ -548,7 +565,7 @@ private actor ArtworkNormalizationGate {
 
 // MARK: - Recording pipeline
 
-private final class ArtworkHandoffWriteRecorder: @unchecked Sendable {
+private nonisolated final class ArtworkHandoffWriteRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
 
@@ -561,7 +578,7 @@ private final class ArtworkHandoffWriteRecorder: @unchecked Sendable {
     }
 }
 
-private final class ArtworkHandoffMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class ArtworkHandoffMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let recorder: ArtworkHandoffWriteRecorder
     private let fileOverride: AudioFile?
 

@@ -4,8 +4,7 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class TrackRenumberExecutionTests: XCTestCase {
+nonisolated final class TrackRenumberExecutionTests: XCTestCase {
     // MARK: - Fixtures
 
     private struct ReviewedFixture {
@@ -13,6 +12,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         let url: URL
     }
 
+    @MainActor
     private func makeReviewedFixture(
         _ name: String,
         extension fileExtension: String = "mp3",
@@ -47,6 +47,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
     }
 
     /// The reloaded observation the fake pipeline returns after a committed write.
+    @MainActor
     private func reloadedFile(_ file: AudioFile, track: Int) -> AudioFile {
         AudioFileTestFactory.make(
             id: file.id,
@@ -62,6 +63,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makePlan(
         _ viewModel: AudioViewModel,
         files: [AudioFile],
@@ -91,6 +93,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
 
     // MARK: - Patch-level execution
 
+    @MainActor
     func testExecutionWritesOnlyTrackComponentAndForwardsReviewedRevision() async throws {
         let fixture = try makeReviewedFixture(
             "track-only",
@@ -127,6 +130,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.track, 7)
     }
 
+    @MainActor
     func testInvalidStartPlanIssuesZeroWritesAndLeavesPositiveTagUnchanged() async throws {
         let fixture = try makeReviewedFixture("invalid-start", track: 7, trackNumberText: "7")
         let pipeline = RenumberRecordingMetadataPipeline()
@@ -147,6 +151,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: fixture.url), beforeBytes)
     }
 
+    @MainActor
     func testUnsupportedLayoutPlanIssuesZeroWrites() async throws {
         let fixture = try makeReviewedFixture("unsupported-layout", extension: "xm")
         let pipeline = RenumberRecordingMetadataPipeline()
@@ -161,6 +166,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.writes.isEmpty)
     }
 
+    @MainActor
     func testRefreshRequiredTargetsDoNotConsumeNumbersAtFirstOrMiddlePosition() async throws {
         for blockedIndex in [0, 1] {
             let first = try makeReviewedFixture("refresh-first", track: 0)
@@ -192,6 +198,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testMixedOrderExecutionSkipsUnsupportedWithoutConsumingNumbers() async throws {
         let first = try makeReviewedFixture("mixed-first", extension: "mp3", track: 0)
         let unsupportedFile = try makeReviewedFixture("mixed-unsupported", extension: "xm", track: 4)
@@ -225,6 +232,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testAlreadyDesiredRowIsNotWrittenBesideChangedRow() async throws {
         let unchanged = try makeReviewedFixture(
             "noop",
@@ -261,6 +269,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRuntimeFailureKeepsReviewedSlotsForOtherFiles() async throws {
         let first = try makeReviewedFixture("slot-first", track: 0)
         let middle = try makeReviewedFixture("slot-middle", track: 0)
@@ -294,6 +303,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testDurabilityAndReloadWarningsAreRetainedWithoutReapply() async throws {
         let fixture = try makeReviewedFixture("warnings")
         let reloadError = NSError(
@@ -320,6 +330,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertTrue(messages.contains("Injected readback failure"), messages)
     }
 
+    @MainActor
     func testStaleFingerprintIsRejectedBeforeWriter() async throws {
         let fixture = try makeReviewedFixture("stale-fingerprint", track: 0)
         let pipeline = RenumberRecordingMetadataPipeline()
@@ -340,6 +351,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.writes.isEmpty)
     }
 
+    @MainActor
     func testStaleReviewedRevisionIsRejectedBeforeWriter() async throws {
         let fixture = try makeReviewedFixture("stale-revision", track: 0)
         let alternativeVersion = try await alternativeFileVersion()
@@ -374,6 +386,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.writes.isEmpty)
     }
 
+    @MainActor
     func testStaleIdentityIsRejectedBeforeWriter() async throws {
         let fixture = try makeReviewedFixture("stale-identity", track: 0)
         let pipeline = RenumberRecordingMetadataPipeline()
@@ -397,6 +410,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         XCTAssertTrue(pipeline.writes.isEmpty)
     }
 
+    @MainActor
     func testCancelledQueueStopsBeforeNextFile() async throws {
         let first = try makeReviewedFixture("cancel-first", track: 0)
         let second = try makeReviewedFixture("cancel-second", track: 0)
@@ -437,6 +451,7 @@ final class TrackRenumberExecutionTests: XCTestCase {
         })
     }
 
+    @MainActor
     private func alternativeFileVersion() async throws -> MetadataFileVersion {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(

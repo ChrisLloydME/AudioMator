@@ -4,8 +4,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class QuickImportCancellationTests: XCTestCase {
+nonisolated final class QuickImportCancellationTests: XCTestCase {
+    @MainActor
     func testRemovingFileRejectsLateReimportOfSameURL() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
@@ -33,6 +33,7 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.url, fileURL)
     }
 
+    @MainActor
     func testRemovingFileSuppressesLateFailureFromSameURL() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate, shouldFail: true)
@@ -57,6 +58,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testClearCancelsImportAndRejectsLateBatch() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
@@ -78,6 +80,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRemovingWatchedFolderCancelsInFlightMetadataLoads() async throws {
         let suiteName = "AudioMator.WatchedFolderCancellationTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -120,6 +123,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testQuickImportReportsUnreadableFilesAndKeepsSuccessfulSiblings() async throws {
         let unreadableURL = URL(fileURLWithPath: "/tmp/00-unreadable-import.mp3")
         let readableURL = URL(fileURLWithPath: "/tmp/01-readable-import.mp3")
@@ -143,6 +147,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testQuickImportRetriesTransientInitialReadFailure() async throws {
         let fileURL = URL(fileURLWithPath: "/tmp/transient-first-read-failure.mp3")
         let control = TransientQuickImportReadControl()
@@ -158,6 +163,7 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertNil(viewModel.metadataWriteHUD)
     }
 
+    @MainActor
     func testWatchedFolderRefreshRetainsLastKnownFileWhenMetadataReadFails() async throws {
         let suiteName = "AudioMator.WatchedFolderReadFailureTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -202,6 +208,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testWatchedFolderRefreshRetainsLastKnownFilesWhenRootScanFails() async throws {
         let suiteName = "AudioMator.WatchedFolderScanFailureTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -243,6 +250,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testWatchedFolderRefreshUsesScannedURLsWhenPipelineReturnsDuplicateURLs() async throws {
         let suiteName = "AudioMator.WatchedFolderDuplicateURLTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -290,6 +298,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testFailedFirstImportDoesNotBlockProgressivePublication() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ProgressiveImport-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -322,6 +331,7 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertFalse(viewModel.files.contains { $0.url == urls[0] })
     }
 
+    @MainActor
     func testOverlappingImportsShareFileAndParentScopesWithoutRestarting() async throws {
         try XCTSkipIf(
             AudioFileTestFactory.fixtureFileVersion == nil,
@@ -376,6 +386,7 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.count, 0)
     }
 
+    @MainActor
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,

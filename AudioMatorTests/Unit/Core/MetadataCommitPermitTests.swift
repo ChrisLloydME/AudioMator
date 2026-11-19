@@ -113,7 +113,7 @@ nonisolated final class MetadataCommitPermitTests: XCTestCase {
     }
 }
 
-private final class LockedAdmissionBox: @unchecked Sendable {
+private nonisolated final class LockedAdmissionBox: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: MetadataCommitPermit.AdmissionResult?
 

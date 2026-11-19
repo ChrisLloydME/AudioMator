@@ -7,7 +7,7 @@ import XCTest
 /// These are intentionally source scans rather than behavioral assertions: the
 /// removed symbols must not come back through an unversioned fallback, and the
 /// production metadata routes must never submit a nil expected package revision.
-final class LegacyWriteRouteRemovalPolicyTests: XCTestCase {
+nonisolated final class LegacyWriteRouteRemovalPolicyTests: XCTestCase {
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent() // MetadataEditing
@@ -67,6 +67,7 @@ final class LegacyWriteRouteRemovalPolicyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testExecutorAdmissionHasNoOptionalLegacyCase() throws {
         let path = "AudioMator/Features/Main/Application/MetadataFileMutationExecutor.swift"
         let url = repositoryRoot.appendingPathComponent(path)

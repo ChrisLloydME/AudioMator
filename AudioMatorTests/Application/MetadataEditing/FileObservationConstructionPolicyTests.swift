@@ -8,7 +8,7 @@ import XCTest
 /// token pair with retained display metadata would re-open AM-03. Production
 /// sources may construct `AudioFile.Observation` only in the allowlisted files;
 /// tests construct deliberate fake observations through `AudioFileTestFactory`.
-final class FileObservationConstructionPolicyTests: XCTestCase {
+nonisolated final class FileObservationConstructionPolicyTests: XCTestCase {
     private let allowedFilesCreatingObservations: Set<String> = [
         // Type/initializer definition and the projections that always clear it.
         "AudioFile.swift",
@@ -18,6 +18,7 @@ final class FileObservationConstructionPolicyTests: XCTestCase {
         "MetadataConflictResolver.swift",
     ]
 
+    @MainActor
     func testOnlyAuthorizedReadsConstructWriteAuthority() throws {
         let repositoryRoot = try locateRepositoryRoot()
         let sourceRoot = repositoryRoot.appendingPathComponent("AudioMator", isDirectory: true)
@@ -42,6 +43,7 @@ final class FileObservationConstructionPolicyTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testGeneralURLRewriteAPIStaysRemoved() throws {
         let repositoryRoot = try locateRepositoryRoot()
         let sourceRoot = repositoryRoot.appendingPathComponent("AudioMator", isDirectory: true)

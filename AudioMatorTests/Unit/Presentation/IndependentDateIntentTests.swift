@@ -3,8 +3,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 /// Presentation/state coverage for the four independent date intents.
-@MainActor
-final class IndependentDateIntentTests: XCTestCase {
+nonisolated final class IndependentDateIntentTests: XCTestCase {
+    @MainActor
     private func makeFile(
         id: UUID = UUID(),
         year: String = "",
@@ -21,6 +21,7 @@ final class IndependentDateIntentTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testSingleEditPayloadTracksUnchangedSetAndRemoveIndependently() throws {
         let file = makeFile(
             year: "2004",
@@ -72,6 +73,7 @@ final class IndependentDateIntentTests: XCTestCase {
         XCTAssertEqual(payload.changedFields, [.originalReleaseDate])
     }
 
+    @MainActor
     func testMultiEditTracksMixedStateAndAppliesOnlyTheEditedDate() {
         let first = makeFile(year: "2004", date: "2008-03-04", releaseDate: "2017-06-09")
         let second = makeFile(year: "2005", date: "2008-03-04", releaseDate: "2019-04-03")
@@ -95,6 +97,7 @@ final class IndependentDateIntentTests: XCTestCase {
         XCTAssertEqual(payload.date, "2009-01-02")
     }
 
+    @MainActor
     func testProviderReleaseDateApplyLeavesYearDateAndOriginalUntouched() {
         let file = makeFile(
             year: "2004",
@@ -121,6 +124,7 @@ final class IndependentDateIntentTests: XCTestCase {
         XCTAssertEqual(musicBrainzPayload.originalReleaseDate, "1999-11-12")
     }
 
+    @MainActor
     func testMultiEditContainerValueIsTrackedAndApplied() {
         let mp4 = URL(fileURLWithPath: "/tmp/multi-container.m4a")
         let first = AudioFileTestFactory.make(url: mp4)
@@ -137,6 +141,7 @@ final class IndependentDateIntentTests: XCTestCase {
         XCTAssertNil(applied.containerValues[.itunesGapless])
     }
 
+    @MainActor
     func testContainerFieldPresenceRoundTripsTypedValues() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/container.m4a"))
         var edit = SingleFileEditModel(from: file)

@@ -8,10 +8,10 @@ import XCTest
 /// Every case uses a real disposable fixture copy so the authoritative
 /// fingerprint/package-token checks run against disk. The recording pipeline plays
 /// the package writer/reloader and records the exact forwarded revision.
-@MainActor
-final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
+nonisolated final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
     // MARK: - Fixtures
 
+    @MainActor
     private func makeObservedFixture(
         title: String = "Original"
     ) throws -> (url: URL, file: AudioFile, version: MetadataFileVersion) {
@@ -28,6 +28,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         return (url, file, tokens.version)
     }
 
+    @MainActor
     private func makeInspectorViewModel(
         file: AudioFile,
         pipeline: AcceptanceReviewedPipeline,
@@ -43,6 +44,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         return viewModel
     }
 
+    @MainActor
     private func waitForSave(_ viewModel: AudioViewModel) async {
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         while viewModel.metadataSaveProgress != nil, ContinuousClock.now < deadline {
@@ -54,6 +56,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: - Inspector cases
 
+    @MainActor
     func testEqualObservationRefreshStillWritesAndForwardsCapturedRevision() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -82,6 +85,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertTrue(viewModel.metadataWriteHUD?.style == .success)
     }
 
+    @MainActor
     func testSameUUIDReplacementAfterReviewRejectsWithoutWritingOrChangingBytes() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -102,6 +106,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
     }
 
+    @MainActor
     func testMissingDiskTokensRejectBeforeAnyWriterCall() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -126,6 +131,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
     }
 
+    @MainActor
     func testPreExistingProtectionRejectsBeforeAnyWriterCall() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -142,6 +148,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
     }
 
+    @MainActor
     func testPostQueueInvalidationRevokesPermitBeforeAdmission() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -176,6 +183,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataCommitPermits.activePermitCount, 0)
     }
 
+    @MainActor
     func testEqualFingerprintChangedVersionRejectsWithUnchangedBytes() async throws {
         let fixture = try makeObservedFixture()
         let otherFixture = try makeObservedFixture(title: "Other")
@@ -198,6 +206,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
 
     // MARK: - Raw editor cases
 
+    @MainActor
     func testRawApplyForwardsCapturedRevisionAndExactDelta() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -221,6 +230,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRawApplyNoOpDoesNotReachWriter() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -241,6 +251,7 @@ final class InspectorReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertTrue(pipeline.rawWriteRecords.isEmpty)
     }
 
+    @MainActor
     func testRawApplyRejectsTargetWithoutReviewedAuthority() async throws {
         let fixture = try makeObservedFixture()
         let pipeline = AcceptanceReviewedPipeline(
@@ -289,7 +300,7 @@ private actor AsyncGate {
 
 /// Recording test double for the reviewed Inspector/raw routes. It never touches
 /// disk itself; the route's own resolver performs the authoritative checks.
-private final class AcceptanceReviewedPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class AcceptanceReviewedPipeline: AudioMetadataPipeline, @unchecked Sendable {
     struct MetadataRecord: Sendable {
         let url: URL
         let expectedVersion: MetadataFileVersion

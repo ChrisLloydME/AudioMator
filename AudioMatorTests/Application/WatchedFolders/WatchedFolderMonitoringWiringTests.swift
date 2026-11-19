@@ -10,10 +10,10 @@ import XCTest
 /// These tests use disposable temporary directories and the production monitor
 /// controller. Every wait is bounded; assertions about identity/status are
 /// values, not timing.
-@MainActor
-final class WatchedFolderMonitoringWiringTests: XCTestCase {
+nonisolated final class WatchedFolderMonitoringWiringTests: XCTestCase {
     // MARK: - Attach, follow-up scans and status
 
+    @MainActor
     func testFlatWatchedFolderAttachesMonitorBeforeScanWithoutFollowUpScan() async throws {
         let environment = try makeEnvironment(fileNames: ["track.mp3"])
         defer { environment.cleanup() }
@@ -46,6 +46,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         XCTAssertEqual(viewModel.directoryMonitoringStatuses[environment.folder.id]?.isDegraded, false)
     }
 
+    @MainActor
     func testNestedDirectoryAttachmentSchedulesExactlyOneFollowUpScan() async throws {
         let environment = try makeEnvironment(fileNames: ["Sub/nested.mp3"], nestedDirectoryNames: ["Sub"])
         defer { environment.cleanup() }
@@ -69,6 +70,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         XCTAssertEqual(pipeline.loadCount, 2, "a scan with unchanged attachments must schedule no further scan")
     }
 
+    @MainActor
     func testCapOmissionPublishesDegradedStatusWithoutDroppingRoot() async throws {
         let nestedNames = (0..<130).map { "nested-\(String(format: "%03d", $0))" }
         let environment = try makeEnvironment(fileNames: [], nestedDirectoryNames: nestedNames)
@@ -98,6 +100,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
 
     // MARK: - Same-key replacement and terminal events
 
+    @MainActor
     func testSameKeyRootReplacementRebindsMonitorAndKeepsStatusTruthful() async throws {
         let environment = try makeEnvironment(fileNames: ["old.mp3"])
         defer { environment.cleanup() }
@@ -143,6 +146,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         XCTAssertEqual(status.identityMismatchCount, 0)
     }
 
+    @MainActor
     func testStaleCallbacksCannotInvalidateReplacementOrScheduleStatusChange() async throws {
         let environment = try makeEnvironment(fileNames: ["track.mp3"])
         defer { environment.cleanup() }
@@ -182,6 +186,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         XCTAssertEqual(controller.binding(forKey: rootKey)?.instanceToken, binding.instanceToken)
     }
 
+    @MainActor
     func testRemovedNestedDirectoryTerminalEventRescansWithoutDegradingCurrentSet() async throws {
         let environment = try makeEnvironment(fileNames: ["Sub/nested.mp3"], nestedDirectoryNames: ["Sub"])
         defer { environment.cleanup() }
@@ -192,7 +197,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         let subURL = environment.rootURL.appendingPathComponent("Sub", isDirectory: true)
         let subKey = FileSystemPathSemantics.key(for: subURL.standardizedFileURL)
         let controller = try await waitForAttachedController(viewModel: viewModel, environment: environment)
-        let subBinding = try await waitUntilReturning { controller.binding(forKey: subKey) }
+        let subBinding = await waitUntilReturning { controller.binding(forKey: subKey) }
         XCTAssertNotNil(subBinding)
 
         let movedSubURL = environment.baseURL.appendingPathComponent("SubMoved", isDirectory: true)
@@ -213,6 +218,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
 
     // MARK: - Unavailable roots and manual refresh
 
+    @MainActor
     func testMissingRootPublishesDegradedStatusAndManualRefreshRecovers() async throws {
         let environment = try makeEnvironment(fileNames: ["track.mp3"])
         defer { environment.cleanup() }
@@ -246,6 +252,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         XCTAssertTrue(filesRecovered)
     }
 
+    @MainActor
     func testPermissionLossDegradesMonitoringAndRefreshRecoversAfterAccessRestored() async throws {
         let environment = try makeEnvironment(fileNames: ["track.mp3"])
         defer { environment.cleanup() }
@@ -286,6 +293,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRemovalStopsControllersAndReappearanceUsesFreshInstances() async throws {
         let environment = try makeEnvironment(fileNames: ["track.mp3"])
         defer { environment.cleanup() }
@@ -315,7 +323,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
             environment: environment
         )
         XCTAssertTrue(secondController !== firstController)
-        let secondBinding = try await waitUntilReturning { secondController.binding(forKey: rootKey) }
+        let secondBinding = await waitUntilReturning { secondController.binding(forKey: rootKey) }
         let reboundBinding = try XCTUnwrap(secondBinding)
         XCTAssertNotEqual(reboundBinding.instanceToken, firstBinding.instanceToken)
         XCTAssertEqual(
@@ -327,6 +335,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testCancelledScanDoesNotPublishAfterFolderRemoval() async throws {
         let environment = try makeEnvironment(fileNames: ["track.mp3"])
         defer { environment.cleanup() }
@@ -350,6 +359,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 
+    @MainActor
     func testUserRequestedRefreshWatchedFoldersUpdatesMonitorsAndFiles() async throws {
         let environment = try makeEnvironment(fileNames: ["first.mp3"])
         defer { environment.cleanup() }
@@ -376,6 +386,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func waitForAttachedController(
         viewModel: AudioViewModel,
         environment: MonitoringEnvironment
@@ -389,6 +400,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         return try XCTUnwrap(controller, "no attached controller")
     }
 
+    @MainActor
     private func waitForStatus(
         viewModel: AudioViewModel,
         folderID: UUID,
@@ -412,6 +424,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         return condition()
     }
 
+    @MainActor
     private func waitUntilReturning<T>(
         timeout: Duration = .seconds(8),
         _ condition: () -> T?
@@ -424,6 +437,7 @@ final class WatchedFolderMonitoringWiringTests: XCTestCase {
         return condition()
     }
 
+    @MainActor
     private func makeEnvironment(
         fileNames: [String],
         nestedDirectoryNames: [String] = []

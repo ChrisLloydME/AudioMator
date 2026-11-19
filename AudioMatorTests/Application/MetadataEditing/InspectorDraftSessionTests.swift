@@ -6,12 +6,13 @@ import TagLibAudioMetadata
 #if os(macOS)
 /// F3-b Inspector draft session lifecycle, passive prune pending review,
 /// save-delta completion and artwork generation tests.
-@MainActor
-final class InspectorDraftSessionTests: XCTestCase {
+nonisolated final class InspectorDraftSessionTests: XCTestCase {
+    @MainActor
     private func makeViewModel() -> AudioViewModel {
         AudioViewModelTestFactory.make(metadataPipeline: InspectorSessionTestPipeline())
     }
 
+    @MainActor
     private func file(
         id: UUID = UUID(),
         name: String = "track.mp3",
@@ -26,6 +27,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func fullFile(
         id: UUID,
         name: String = "track.mp3",
@@ -45,6 +47,7 @@ final class InspectorDraftSessionTests: XCTestCase {
 
     // MARK: - Identity and generations
 
+    @MainActor
     func testSelectionCreatesIdentityAndMutationsAdvanceEditGeneration() {
         let track = file()
         let vm = makeViewModel()
@@ -63,6 +66,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertEqual(afterEdit?.artworkGeneration, identity.artworkGeneration)
     }
 
+    @MainActor
     func testDirtyDraftAndOriginalBaselineSurvivePassiveRefresh() {
         let track = file()
         let vm = makeViewModel()
@@ -79,6 +83,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertTrue(vm.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testCleanDraftFollowsNewObservationOnPassiveRefresh() {
         let track = file()
         let vm = makeViewModel()
@@ -93,6 +98,7 @@ final class InspectorDraftSessionTests: XCTestCase {
 
     // MARK: - Passive prune and pending review
 
+    @MainActor
     func testDirtySingleSelectionPruneBecomesDetachedPendingReview() {
         let track = file()
         let vm = makeViewModel()
@@ -113,6 +119,7 @@ final class InspectorDraftSessionTests: XCTestCase {
                        track.url.lastPathComponent)
     }
 
+    @MainActor
     func testPendingReviewResumesWhenCapturedTargetReturns() {
         let track = file()
         let vm = makeViewModel()
@@ -132,6 +139,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertTrue(vm.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testMultiPruneRetainsCapturedValuesWithoutTransferringToSurvivors() {
         let first = file(name: "first.mp3")
         let second = file(name: "second.mp3")
@@ -155,6 +163,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertFalse(vm.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testExplicitSelectionTransitionReplacesSession() {
         let first = file(name: "first.mp3")
         let second = file(name: "second.mp3")
@@ -174,6 +183,7 @@ final class InspectorDraftSessionTests: XCTestCase {
 
     // MARK: - Own-save capture and per-field delta baseline
 
+    @MainActor
     func testCaptureFreezesIntentAndCompletionInheritsReadbackForUnchangedFields() {
         let id = UUID()
         let track = fullFile(id: id, title: "Original", artist: "Original Artist")
@@ -204,6 +214,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertNil(vm.inspectorDraft?.saveReceipt)
     }
 
+    @MainActor
     func testCompletionKeepsIntentionalRevertToPreSaveValueDirty() {
         let id = UUID()
         let track = fullFile(id: id, title: "Original")
@@ -226,6 +237,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertEqual(vm.inspectorDraft?.baselinesByID[id]?.title, "Saved")
     }
 
+    @MainActor
     func testSaveReceiptIsRejectedAfterSessionReplacement() {
         let id = UUID()
         let track = fullFile(id: id, title: "Original")
@@ -257,6 +269,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertNil(vm.inspectorDraft?.baselinesByID[id])
     }
 
+    @MainActor
     func testPartialBatchLedgerOnlyExcludesCompletedTargets() {
         let firstID = UUID()
         let secondID = UUID()
@@ -287,6 +300,7 @@ final class InspectorDraftSessionTests: XCTestCase {
         XCTAssertFalse(vm.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testUnverifiedReadbackDoesNotFabricateBaseline() {
         let id = UUID()
         let track = fullFile(id: id, title: "Original")
@@ -309,6 +323,7 @@ final class InspectorDraftSessionTests: XCTestCase {
 
     // MARK: - Artwork command generation
 
+    @MainActor
     func testArtworkCommandGenerationIsIndependentOfEditGeneration() {
         let track = file()
         let vm = makeViewModel()

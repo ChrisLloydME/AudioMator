@@ -3,16 +3,16 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class iTunesStorefrontScopingTests: XCTestCase {
+nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
     private static let collectionID = 77
     private static let trackID = 7_701
 
+    @MainActor
     func testStorefrontChangeCancelsDelayedSearchAndNeverPublishesStaleResults() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
-        await catalog.setSearchResults(.albums([StorefrontFixture.album(country: "jp")]), for: "jp")
-        let gate = await catalog.gateNextSearch(country: "us")
+        catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
+        catalog.setSearchResults(.albums([StorefrontFixture.album(country: "jp")]), for: "jp")
+        let gate = catalog.gateNextSearch(country: "us")
         let store = makeStore(catalog: catalog)
 
         store.mode = .album
@@ -36,13 +36,14 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         try await waitUntil { store.publication != nil }
         XCTAssertEqual(store.publication?.storefront, .jp)
         XCTAssertEqual(store.publication?.results, .albums([StorefrontFixture.album(country: "jp")]))
-        let searchRequests = await catalog.searchRequests
+        let searchRequests = catalog.searchRequests
         XCTAssertEqual(searchRequests.map(\.country), ["us", "jp"])
     }
 
+    @MainActor
     func testSuccessfulSearchPublishesResultsStorefrontSelectionAndGenerationTogether() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
+        catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
         let store = makeStore(catalog: catalog)
         store.mode = .album
         store.albumQuery = "Album"
@@ -68,16 +69,17 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         XCTAssertEqual(context.generation, publication.generation)
     }
 
+    @MainActor
     func testSameCollectionIDRegionalAlbumsDriveAlbumAndTrackEntryPaths() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
             StorefrontFixture.track(country: "us", index: 1)
         ])
-        await catalog.upsert(album: StorefrontFixture.album(country: "jp"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "jp"), tracks: [
             StorefrontFixture.track(country: "jp", index: 1)
         ])
-        await catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
-        await catalog.setSearchResults(.albums([StorefrontFixture.album(country: "jp")]), for: "jp")
+        catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
+        catalog.setSearchResults(.albums([StorefrontFixture.album(country: "jp")]), for: "jp")
 
         let store = makeStore(catalog: catalog)
         store.mode = .album
@@ -112,19 +114,20 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         let usViaJpScreen = try await store.albumDetail(for: usTrack, context: usContext)
         XCTAssertEqual(usViaJpScreen.album.collectionName, "US Album")
 
-        let detailRequests = await catalog.detailRequests
+        let detailRequests = catalog.detailRequests
         let requestedCountries = detailRequests.map(\.country)
         XCTAssertEqual(requestedCountries.sorted(), ["jp", "us"])
         XCTAssertEqual(requestedCountries.filter { $0 == "us" }.count, 1)
         XCTAssertEqual(requestedCountries.filter { $0 == "jp" }.count, 1)
     }
 
+    @MainActor
     func testAlbumDetailCacheIsKeyedByStorefrontWithAToBToACounts() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
             StorefrontFixture.track(country: "us", index: 1)
         ])
-        await catalog.upsert(album: StorefrontFixture.album(country: "jp"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "jp"), tracks: [
             StorefrontFixture.track(country: "jp", index: 1)
         ])
         let store = makeStore(catalog: catalog)
@@ -140,16 +143,17 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         XCTAssertEqual(firstUS.album.collectionName, "US Album")
         XCTAssertEqual(jp.album.collectionName, "JP Album")
         XCTAssertEqual(secondUS.album.collectionName, "US Album")
-        let requests = await catalog.detailRequests
+        let requests = catalog.detailRequests
         XCTAssertEqual(requests, [
             .init(collectionID: Self.collectionID, country: "us"),
             .init(collectionID: Self.collectionID, country: "jp")
         ])
     }
 
+    @MainActor
     func testTwoLocalSelectionsShareCachedRemoteDetailWithoutLeakingPreview() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
             StorefrontFixture.track(country: "us", index: 1),
             StorefrontFixture.track(country: "us", index: 2)
         ])
@@ -186,10 +190,11 @@ final class iTunesStorefrontScopingTests: XCTestCase {
             .matchedAssignments.map(\.file.id)
         XCTAssertEqual(secondFileIDs, [secondFile.id.uuidString])
 
-        let detailRequestCount = await catalog.detailRequests.count
+        let detailRequestCount = catalog.detailRequests.count
         XCTAssertEqual(detailRequestCount, 1, "Both selections must share the raw remote detail")
     }
 
+    @MainActor
     func testFallbackPreviewIsReusedOnlyForMatchingLineage() async throws {
         let catalog = RegionaliTunesCatalog()
         let firstFile = AudioFileTestFactory.make(
@@ -223,8 +228,8 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         )
         let fallback = iTunesAlbumMatcher.match(selection: firstSelection, detail: usDetail)
         let resultWithFallback = StorefrontFixture.album(country: "us", preview: fallback)
-        await catalog.setSearchResults(.albums([resultWithFallback]), for: "us")
-        await catalog.upsert(album: resultWithFallback, tracks: usDetail.tracks)
+        catalog.setSearchResults(.albums([resultWithFallback]), for: "us")
+        catalog.upsert(album: resultWithFallback, tracks: usDetail.tracks)
 
         store.mode = .album
         store.albumQuery = "US Album"
@@ -246,12 +251,13 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         XCTAssertEqual(counter.value, 1, "A different local selection must be matched against its own inputs")
     }
 
+    @MainActor
     func testDelayedDetailAcrossCloseReopenDoesNotRepopulateCache() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
             StorefrontFixture.track(country: "us", index: 1)
         ])
-        let gate = await catalog.gateNextDetail(country: "us", collectionID: Self.collectionID)
+        let gate = catalog.gateNextDetail(country: "us", collectionID: Self.collectionID)
         let store = makeStore(catalog: catalog)
         let album = StorefrontFixture.album(country: "us")
         let context = iTunesSearchContext(storefront: .us, generation: UUID(), submittedSelection: nil)
@@ -273,16 +279,17 @@ final class iTunesStorefrontScopingTests: XCTestCase {
 
         let reopened = try await store.albumDetail(for: album, context: context)
         XCTAssertEqual(reopened.album.collectionName, "US Album")
-        let requestCount = await catalog.detailRequests.count
+        let requestCount = catalog.detailRequests.count
         XCTAssertEqual(requestCount, 2, "A stale completion must not repopulate the closed session's cache")
     }
 
+    @MainActor
     func testRegionalLookupFailureDoesNotPoisonCacheAndRecovers() async throws {
         let catalog = RegionaliTunesCatalog()
-        await catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
+        catalog.upsert(album: StorefrontFixture.album(country: "us"), tracks: [
             StorefrontFixture.track(country: "us", index: 1)
         ])
-        await catalog.failDetail(for: "us")
+        catalog.failDetail(for: "us")
         let store = makeStore(catalog: catalog)
         let album = StorefrontFixture.album(country: "us")
         let context = iTunesSearchContext(storefront: .us, generation: UUID(), submittedSelection: nil)
@@ -295,18 +302,19 @@ final class iTunesStorefrontScopingTests: XCTestCase {
                 return XCTFail("Unexpected error: \(error)")
             }
         }
-        let failureCount = await catalog.detailRequests.count
+        let failureCount = catalog.detailRequests.count
         XCTAssertEqual(failureCount, 1)
 
-        await catalog.clearDetailFailure(for: "us")
+        catalog.clearDetailFailure(for: "us")
         let recovered = try await store.albumDetail(for: album, context: context)
         XCTAssertEqual(recovered.album.collectionName, "US Album")
-        let recoveredCount = await catalog.detailRequests.count
+        let recoveredCount = catalog.detailRequests.count
         XCTAssertEqual(recoveredCount, 2, "A failed detail must not be cached")
     }
 
     // MARK: - Helpers
 
+    @MainActor
     private func makeStore(
         catalog: RegionaliTunesCatalog,
         albumMatcher: @escaping @Sendable (iTunesFileSelectionSummary, iTunesAlbumDetail) -> iTunesAlbumMatchPreview = iTunesAlbumMatcher.match
@@ -323,6 +331,7 @@ final class iTunesStorefrontScopingTests: XCTestCase {
         return albums.first
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @escaping @MainActor () -> Bool

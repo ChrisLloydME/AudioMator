@@ -3,10 +3,10 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class MetadataEditorRawValueArrayTests: XCTestCase {
+nonisolated final class MetadataEditorRawValueArrayTests: XCTestCase {
     // MARK: - Entry context and commit
 
+    @MainActor
     func testEntryContextKeepsMultilineElementAndUnchangedConfirmationIsNoOp() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(),
@@ -38,6 +38,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["LYRICS"], ["line one\nline two"])
     }
 
+    @MainActor
     func testEntryExplicitEditStagesExactArrayAndDoneCapturesBeforeAfterValues() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(),
@@ -77,6 +78,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(pipeline.rawMapWriteCount, 0)
     }
 
+    @MainActor
     func testEntryCommitRejectsEmptyValueListAndStaleContextWithoutMutating() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(),
@@ -106,6 +108,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["Original"])
     }
 
+    @MainActor
     func testMixedSelectionStartsWithNoElementsAndRequiresExplicitReplacement() async throws {
         let first = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-mixed-01.mp3"),
@@ -143,6 +146,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testExistingEmptyArrayIsPreservedUntilExplicitValueOrDeleteField() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-empty-array.mp3"),
@@ -175,6 +179,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["CUSTOM"], ["Explicit"])
     }
 
+    @MainActor
     func testDeleteFieldRemainsTheOnlyKeyRemovalPath() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-delete.mp3"),
@@ -204,6 +209,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
 
     // MARK: - Utilities preview and apply
 
+    @MainActor
     func testWholeValueReplacementOnFirstOfTwoValuesPreviewsAndAppliesExactArrays() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-whole.mp3"),
@@ -241,6 +247,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["Changed", "Beta"])
     }
 
+    @MainActor
     func testPrefixSuffixCaseAndTrimTransformEveryValueIndependently() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-every-value.mp3"),
@@ -277,6 +284,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.applyTextUtilityPreview(uppercase), .applied(changeCount: 1))
     }
 
+    @MainActor
     func testUtilitiesKeepDuplicatesEmptyElementsAndOrder() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-duplicates.mp3"),
@@ -296,6 +304,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], ["[dup", "[dup", "["])
     }
 
+    @MainActor
     func testUtilitiesSkipMissingFieldsAndNeverInsertKeys() async throws {
         let first = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-missing-01.mp3"),
@@ -323,6 +332,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertNil(store.draftPropertyMaps[second.id]?["TITLE"])
     }
 
+    @MainActor
     func testUtilitiesApplyRejectsStaleGenerationAndKeepsMutatedDraft() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-stale.mp3"),
@@ -355,6 +365,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["P-Mutated directly"])
     }
 
+    @MainActor
     func testUtilitiesApplyRejectsStalePresentationAndTargetSet() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-stale-session.mp3"),
@@ -382,6 +393,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testUtilitiesPreviewUnavailableWithoutSelectionOrChanges() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-empty-preview.mp3"),
@@ -406,6 +418,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testUnsupportedArrayEditFailsClosedAndLeavesBytesUnchanged() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMator-E2-Unsupported-\(UUID().uuidString)", isDirectory: true)
@@ -446,6 +459,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
         XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
     }
 
+    @MainActor
     func testArrayRequestWithoutCapturedChangesFallsBackToReviewedBaseline() async throws {
         let file = AudioFileTestFactory.make(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/raw-baseline-fallback.mp3"),
@@ -476,6 +490,7 @@ final class MetadataEditorRawValueArrayTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func waitUntilLoaded(
         _ store: MetadataEditorStore,
         file: StaticString = #filePath,

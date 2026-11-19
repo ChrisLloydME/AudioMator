@@ -3,8 +3,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class OnlineMetadataRoutingTests: XCTestCase {
+nonisolated final class OnlineMetadataRoutingTests: XCTestCase {
+    @MainActor
     func testGenericOpenSeedsLocallyPresentsPickerAndContactsNoProvider() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -36,6 +36,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(lrclibClient.searchCount, 0)
     }
 
+    @MainActor
     func testExplicitFindSubmitsCapturedQueryExactlyOnceInNewWindow() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -71,6 +72,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(musicBrainzClient.searchCount, 1)
     }
 
+    @MainActor
     func testExplicitFindRetargetsAnAlreadyOpenWindowFromAnotherProviderOnce() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -94,6 +96,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(musicBrainzClient.searchCount, 1)
     }
 
+    @MainActor
     func testGenericOpenAfterFindReturnsToPickerWithoutResending() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -121,6 +124,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(windowRequests.value, 2)
     }
 
+    @MainActor
     func testSourceTileSelectionNeverCrossDispatches() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -139,6 +143,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(lrclibClient.searchCount, 0)
     }
 
+    @MainActor
     func testEmptySelectionFindIsInertAndGenericOpenStillPresentsPicker() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -164,6 +169,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(lrclibClient.searchCount, 0)
     }
 
+    @MainActor
     func testConsumedIntentCannotBeReplayedAfterWindowRecreation() async throws {
         let musicBrainzClient = RoutingMusicBrainzClient()
         let lrclibClient = RoutingLRCLIBClient()
@@ -180,6 +186,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(musicBrainzClient.searchCount, 1, "A reopened window must not resend a consumed intent")
     }
 
+    @MainActor
     func testReplacementFindCancelsPreviousSearchAndSubmitsLatestOnce() async throws {
         let gate = RoutingProviderGate()
         let musicBrainzClient = RoutingMusicBrainzClient(suspendFirstCallOn: gate)
@@ -210,6 +217,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(musicBrainzClient.searchCount, 2)
     }
 
+    @MainActor
     func testBackToSourcesCancelsTrackedSearchAndRetainsSeed() async throws {
         let gate = RoutingProviderGate()
         let musicBrainzClient = RoutingMusicBrainzClient(suspendFirstCallOn: gate)
@@ -229,6 +237,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         gate.release()
     }
 
+    @MainActor
     func testLRCLIBNavigationCancelsDepartingRowWithoutStartingSearch() async throws {
         let gate = RoutingProviderGate()
         let lrclibClient = RoutingLRCLIBClient(suspendFirstCallOn: gate)
@@ -267,6 +276,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         try await waitUntil { lrclibClient.searchCount == 2 }
     }
 
+    @MainActor
     func testLRCLIBQueryValuesComeFromParentAndGrandparentFoldersAndTags() throws {
         let syntheticFile = AudioFileTestFactory.make(
             id: UUID(),
@@ -305,6 +315,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         XCTAssertEqual(taggedInput.album, "Tagged Album")
     }
 
+    @MainActor
     func testDisclosureStatesActualLRCLIBFieldsAndFolderDerivation() {
         let summary = NetworkServiceDisclosure.LRCLIB.sentDataSummary
         XCTAssertTrue(summary.contains("track_name"))
@@ -345,6 +356,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func makeFixture(
         musicBrainzClient: RoutingMusicBrainzClient,
         lrclibClient: RoutingLRCLIBClient
@@ -379,6 +391,7 @@ final class OnlineMetadataRoutingTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @escaping @MainActor () -> Bool

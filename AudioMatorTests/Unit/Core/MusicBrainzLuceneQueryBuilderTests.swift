@@ -1,7 +1,7 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
+nonisolated final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
     func testCombinedSearchQueryPreservesPriorityDeduplicatesAndCapsClauses() throws {
         let combined = try XCTUnwrap(
             MusicBrainzProviderLuceneQueryBuilder.combinedSearchQuery(
@@ -14,6 +14,7 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
         XCTAssertFalse(combined.contains("unused"))
     }
 
+    @MainActor
     func testRecordingSearchQueriesEscapeReservedLuceneCharacters() {
         let query = MusicBrainzSearchQuery(
             mode: .track,
@@ -59,6 +60,7 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testReleaseSearchQueriesDeduplicateAndLimitPreferredClauses() {
         let query = MusicBrainzSearchQuery(
             mode: .album,
@@ -73,6 +75,7 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
         XCTAssertLessThanOrEqual(queries.count, 6)
     }
 
+    @MainActor
     func testFileClusterQueriesIncludeAlbumVariantWithoutTrailingReleaseType() {
         let files = (1...6).map { trackNumber in
             MusicBrainzFileSearchInput(
@@ -117,6 +120,7 @@ final class MusicBrainzLuceneQueryBuilderTests: XCTestCase {
         XCTAssertFalse(queries.contains { $0.contains("release:\"The\"") })
     }
 
+    @MainActor
     func testFileClusterBroadQueriesDoNotFallBackToArtistAloneWhenAlbumIsKnown() {
         let files = (1...6).map { trackNumber in
             MusicBrainzFileSearchInput(

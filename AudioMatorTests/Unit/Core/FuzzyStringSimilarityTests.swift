@@ -1,13 +1,15 @@
 import XCTest
 @testable import AudioMator
 
-final class FuzzyStringSimilarityTests: XCTestCase {
+nonisolated final class FuzzyStringSimilarityTests: XCTestCase {
+    @MainActor
     func testNormalizeFoldsCaseDiacriticsWidthAndPunctuation() {
         let normalized = FuzzyStringSimilarity.normalize("  Café / ＤＥＬ—Mar!  ")
 
         XCTAssertEqual(normalized, "cafe del mar")
     }
 
+    @MainActor
     func testScorePreservesProviderMatchingThresholdSemantics() {
         XCTAssertEqual(FuzzyStringSimilarity.score("Beyoncé / JAY-Z", "beyonce jay z"), 1)
         XCTAssertEqual(FuzzyStringSimilarity.score("Roygbiv", "Boards of Canada Roygbiv"), 0.92)
@@ -16,6 +18,7 @@ final class FuzzyStringSimilarityTests: XCTestCase {
         XCTAssertLessThan(FuzzyStringSimilarity.score("Roygbiv", "Telephasic Workshop"), 0.4)
     }
 
+    @MainActor
     func testTokenSequenceContainsOrderedTokenRunsOnly() {
         let value = FuzzyStringSimilarity.normalize("Track Title - 2026 Remaster")
         let sequence = FuzzyStringSimilarity.normalize("Title 2026")

@@ -5,7 +5,7 @@ import TagLibAudioMetadata
 
 /// AM-05: LRCLIB synced lyrics are bound to the reviewed file revision captured at
 /// seed, and every write flows through the shared strict reviewed-write route.
-final class LRCLIBLyricsTests: XCTestCase {
+nonisolated final class LRCLIBLyricsTests: XCTestCase {
     override func tearDown() {
         MockURLProtocol.requestHandler = nil
         super.tearDown()
@@ -13,6 +13,7 @@ final class LRCLIBLyricsTests: XCTestCase {
 
     // MARK: - Unchanged client/ranker coverage
 
+    @MainActor
     func testSearchRequestUsesExpectedQueryItemsAndHeaders() throws {
         let client = LRCLIBClient()
         let request = try client.makeSearchRequest(
@@ -40,6 +41,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertTrue(request.value(forHTTPHeaderField: "User-Agent")?.contains("AudioMator/") == true)
     }
 
+    @MainActor
     func testFileAndCandidateInputsRejectUnrepresentableDurations() {
         let file = AudioFileTestFactory.make(
             title: "Extreme Duration",
@@ -56,6 +58,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertNil(candidate.durationSeconds)
     }
 
+    @MainActor
     func testCandidateRankingHandlesExtremeDurationDistanceWithoutOverflow() {
         let query = LRCLIBSearchQuery(
             trackName: "Title",
@@ -74,6 +77,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertEqual(LRCLIBCandidateRanker.score(candidate: candidate, query: query), 80)
     }
 
+    @MainActor
     func testSearchDecodesSyncedPlainInstrumentalAndEmptyResults() async throws {
         let payload = """
         [
@@ -137,6 +141,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertEqual(results[2].lyricsAvailabilityLabel, "Instrumental")
     }
 
+    @MainActor
     func testRankingSortsExactSyncedDurationCloseCandidateFirst() {
         let query = LRCLIBSearchQuery(
             trackName: "Sweeter Than Fiction",
@@ -800,6 +805,7 @@ final class LRCLIBLyricsTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func makeMockSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -838,7 +844,7 @@ final class LRCLIBLyricsTests: XCTestCase {
 
 // MARK: - URL protocol fake
 
-private final class MockURLProtocol: URLProtocol {
+private nonisolated final class MockURLProtocol: URLProtocol {
     nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
     override class func canInit(with request: URLRequest) -> Bool {

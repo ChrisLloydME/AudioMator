@@ -2,11 +2,11 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-@MainActor
-final class MetadataExchangeProfileTests: XCTestCase {
+nonisolated final class MetadataExchangeProfileTests: XCTestCase {
     private let fourDateTemplate = "{{year}},{{date}},{{releaseDate}},{{originalReleaseDate}}"
     private let fourDateHeader = "Year,Date,Release Date,Original Release Date"
 
+    @MainActor
     private func file() -> AudioFile {
         AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/exchange-date.flac"),
@@ -17,6 +17,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testCSVExportCarriesProfileMarkerAndIndependentColumns() {
         let target = file()
         let plan = MetadataExchangePlanner.makeCSVExportPlan(
@@ -30,6 +31,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertTrue(plan.outputText.contains(fourDateHeader))
     }
 
+    @MainActor
     func testVersionedCSVRoundTripsFourDatesAndPreviewMatchesWriteEntry() {
         let target = file()
         let blankTarget = AudioFileTestFactory.make(url: target.url)
@@ -66,6 +68,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(edit.originalReleaseDate, "1999-11-12")
     }
 
+    @MainActor
     func testExplicitRemovalTokenIsDistinctFromOmittedAndLiteralText() throws {
         let target = file()
         let removalCSV = """
@@ -155,6 +158,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertNil(omittedEntry.previewValues[.releaseDate])
     }
 
+    @MainActor
     func testUnknownProfileVersionIsRejectedBeforeAnyWrite() {
         let target = file()
         let futureCSV = """
@@ -174,6 +178,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertTrue(plan.writeEntries.isEmpty)
     }
 
+    @MainActor
     func testLegacyDATEHeaderKeepsYearMeaningAndIsNotStandaloneDate() throws {
         let target = file()
         let legacyCSV = """
@@ -202,6 +207,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertTrue(datePlan.writeEntries.isEmpty)
     }
 
+    @MainActor
     func testCSVNumberRemovalResolvesOneComponentOnly() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac"),
@@ -235,6 +241,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testTextV2NumberRemovalIsRecognizedBeforeNumericValidation() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac"),
@@ -258,6 +265,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(plan.rows.first?.status, .ready)
     }
 
+    @MainActor
     func testUnknownAdvisoryRemovalRequestsExplicitUnset() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/advisory.m4a"),
@@ -281,6 +289,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(plan.rows.first?.changes.first?.displayImportedValue, "<remove>")
     }
 
+    @MainActor
     func testNumberZeroAndSlashPairResolvePerComponent() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac"),
@@ -314,6 +323,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(totalOnlyPlan.writeEntries.first).frozenPayload?.requestedFields, [.trackTotal])
     }
 
+    @MainActor
     func testTotalColumnWinsOverEmbeddedTotalEvenWhenEqual() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac"),
@@ -334,6 +344,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(entry.frozenPayload?.requestedFields, [.track], "Explicit total equal to the baseline must not write the embedded total")
     }
 
+    @MainActor
     func testInvalidNumberSpellingsRejectWholeRow() {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac")
@@ -360,6 +371,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(tooLarge.rows.first?.status, .parseError)
     }
 
+    @MainActor
     func testEscapedAndQuotedRemovalTokensRemainLiteral() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac"),
@@ -391,6 +403,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(csvPlan.writeEntries.first).previewValues[.title], "<remove>")
     }
 
+    @MainActor
     func testMalformedRawNumberRemovalUsesExplicitComponentOperation() throws {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/malformed.flac"),
@@ -420,6 +433,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testQuotedWhitespaceOnlyCellFollowsClearOption() throws {
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/numbers.flac"),
@@ -440,6 +454,7 @@ final class MetadataExchangeProfileTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(clear.writeEntries.first).previewValues[.title], "")
     }
 
+    @MainActor
     func testTextExportAndImportCarryProfileMarkerAndIndependentDates() {
         let target = file()
         let blankTarget = AudioFileTestFactory.make(url: target.url)

@@ -3,8 +3,8 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class MetadataConflictStrategyTests: XCTestCase {
+nonisolated final class MetadataConflictStrategyTests: XCTestCase {
+    @MainActor
     func testUnchangedRevisionSavesWithoutReadingConflictSnapshot() async throws {
         for policy in MetadataConflictPolicy.allCases {
             let file = try await loadedFixture(extra: ["ARTIST": ["A", "B"]])
@@ -25,6 +25,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testConflictWriteRejectsUnsupportedAdvisoryImportWithoutTouchingTheFile() async throws {
         let file = try await loadedFixture()
         let baseline = try XCTUnwrap(file.metadataConflictBaseline)
@@ -73,6 +74,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: file.url), version)
     }
 
+    @MainActor
     func testUnchangedRawRevisionWritesExactDeltaWithoutConflictSnapshot() async throws {
         let file = try await loadedFixture(extra: ["REMOVE-ME": ["old"], "KEEP-ME": ["one", "two"]])
         let reads = ConflictSnapshotReadCounter()
@@ -96,6 +98,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(values, draft)
     }
 
+    @MainActor
     func testUnchangedNoOpKeepsFileVersionWithoutConflictSnapshot() async throws {
         let file = try await loadedFixture()
         let reads = ConflictSnapshotReadCounter()
@@ -118,6 +121,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try pipeline.metadataFileVersion(at: file.url), version)
     }
 
+    @MainActor
     func testChangedRevisionStillReadsConflictSnapshot() async throws {
         let file = try await loadedFixture()
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
@@ -135,6 +139,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: file.url).title, draft.title)
     }
 
+    @MainActor
     func testFastPathFinalGuardRejectsConcurrentChangeForTypedAndRawWrites() async throws {
         for rawWrite in [false, true] {
             let file = try await loadedFixture()
@@ -165,6 +170,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testDefaultAndUnknownPreferenceUseSafeMerge() {
         let defaults = isolatedDefaults()
         XCTAssertEqual(MetadataConflictPolicy.load(from: defaults), .mergeNonConflicting)
@@ -176,6 +182,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testTotalOnlyInspectorEditPersists() async throws {
         let file = try await loadedFixture()
         let viewModel = selectedViewModel(file)
@@ -190,6 +197,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(result.trackTotal, 13)
     }
 
+    @MainActor
     func testResolverAllowsSaveWhenVolumeDoesNotReportDeviceOrInode() async throws {
         let file = try await loadedFixture()
         let baseline = try XCTUnwrap(file.metadataConflictBaseline)
@@ -221,6 +229,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testMissingIdentityRejectsChangedRevisionForEveryPolicyAndWriteKind() async throws {
         for policy in MetadataConflictPolicy.allCases {
             for rawWrite in [false, true] {
@@ -263,6 +272,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testMissingIdentityRejectsSamePathReplacement() async throws {
         let file = try await loadedFixture()
         let fingerprint = try XCTUnwrap(file.fileFingerprint)
@@ -291,6 +301,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file.url), replacement)
     }
 
+    @MainActor
     func testPermissionOnlyChangeAutomaticallySavesInspectorDraft() async throws {
         let file = try await loadedFixture()
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
@@ -305,6 +316,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "My title")
     }
 
+    @MainActor
     func testDisjointInspectorChangesKeepExternalMultiValues() async throws {
         let file = try await loadedFixture()
         try externalChange(["ARTIST": ["External A", "External B"]], at: file.url)
@@ -316,6 +328,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(values["ARTIST"], ["External A", "External B"])
     }
 
+    @MainActor
     func testOverlapStopsWriteAndRetainsInspectorDraft() async throws {
         let file = try await loadedFixture()
         let viewModel = selectedViewModel(file)
@@ -333,6 +346,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file.url), bytes)
     }
 
+    @MainActor
     func testSelectedPriorityPoliciesApplyToConflictingFieldsOnly() async throws {
         for policy in [MetadataConflictPolicy.preferUserChanges, .preferDiskChanges] {
             let file = try await loadedFixture()
@@ -356,6 +370,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSameFinalTitleDoesNotConflict() async throws {
         let file = try await loadedFixture()
         try externalChange(["TITLE": ["Same title"]], at: file.url)
@@ -368,6 +383,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(saved.album, "My album")
     }
 
+    @MainActor
     func testConvergedDraftAvoidsRedundantWrite() async throws {
         let file = try await loadedFixture()
         try externalChange(["TITLE": ["Same title"]], at: file.url)
@@ -388,6 +404,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try TagLibMetadataManager.fileVersion(at: file.url), before)
     }
 
+    @MainActor
     func testBasicProjectionDoesNotHideExternalExtraArtistValue() async throws {
         let file = try await loadedFixture()
         try externalChange(["ARTIST": ["My artist", "External second artist"]], at: file.url)
@@ -397,6 +414,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: file.url)["ARTIST"], ["My artist", "External second artist"])
     }
 
+    @MainActor
     func testManualReloadRejectsPermissionOnlyRevisionChange() async throws {
         let file = try await loadedFixture()
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
@@ -405,6 +423,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertThrowsError(try save(draft, original: file, policy: .requireReload))
     }
 
+    @MainActor
     func testEveryPolicyRejectsFileReplacement() async throws {
         for policy in MetadataConflictPolicy.allCases {
             let file = try await loadedFixture()
@@ -418,6 +437,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRawDeltaKeepsExternalAddedKeysAndExactValueArrays() async throws {
         let file = try await loadedFixture()
         var draft = try XCTUnwrap(file.metadataConflictBaseline).values
@@ -436,6 +456,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(saved["ARTIST"], ["A", "B"])
     }
 
+    @MainActor
     func testRawNumberAndTotalAreOneConflictGroup() async throws {
         let file = try await loadedFixture(extra: ["TRACKNUMBER": ["1"], "TRACKTOTAL": ["10"]])
         var draft = try XCTUnwrap(file.metadataConflictBaseline).values
@@ -448,6 +469,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(saved["TRACKTOTAL"], ["20"])
     }
 
+    @MainActor
     func testRawPriorityDeletionAndOverlap() async throws {
         for policy in [MetadataConflictPolicy.preferUserChanges, .preferDiskChanges] {
             let file = try await loadedFixture()
@@ -463,6 +485,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testEditorOpensWithCoherentNewBaselineBeforeDrafting() async throws {
         let file = try await loadedFixture()
         try externalChange(["TITLE": ["New before opening"]], at: file.url)
@@ -475,6 +498,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(store.targets.first?.metadataConflictBaseline?.values, store.originalPropertyMaps[file.id])
     }
 
+    @MainActor
     func testDiscOnlyDraftKeepsExternallyUpdatedTrackPair() async throws {
         let file = try await loadedFixture(extra: ["TRACKNUMBER": ["1"], "TRACKTOTAL": ["10"], "DISCNUMBER": ["1"], "DISCTOTAL": ["2"]])
         try externalChange(["TRACKNUMBER": ["5"], "TRACKTOTAL": ["20"]], at: file.url)
@@ -488,6 +512,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(saved.discTotal, 2)
     }
 
+    @MainActor
     func testArtworkSnapshotRoleChangeWithIdenticalFirstImageConflictsAsAGroup() async throws {
         let file = try await loadedFixture()
         var original = try TagLibMetadataManager.readSnapshot(from: file.url, includingAudioContent: true)
@@ -514,6 +539,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file.url), bytes)
     }
 
+    @MainActor
     func testFinalVersionGuardRejectsChangeAfterConflictRead() async throws {
         let file = try await loadedFixture()
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.url.path)
@@ -530,6 +556,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file.url), bytes)
     }
 
+    @MainActor
     func testPartialInspectorBatchRetryDoesNotResaveCompletedFile() async throws {
         let first = try await loadedFixture()
         let second = try await loadedFixture()
@@ -555,6 +582,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testPartialDiskPriorityRetryDoesNotReapplyDiscardedField() async throws {
         let first = try await loadedFixture()
         let second = try await loadedFixture()
@@ -585,6 +613,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testNewFieldAfterPartialBatchUsesReadbackAndKeepsLaterExternalChanges() async throws {
         let first = try await loadedFixture()
         let second = try await loadedFixture()
@@ -609,6 +638,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     private func waitForInspectorSave(_ viewModel: AudioViewModel) async throws {
         for _ in 0..<300 {
             if viewModel.metadataSaveProgress == nil { return }
@@ -617,6 +647,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         XCTFail("Inspector save did not finish")
     }
 
+    @MainActor
     private func rewriteInPlace(_ bytes: Data, at url: URL) throws {
         let handle = try FileHandle(forUpdating: url)
         defer { try? handle.close() }
@@ -625,6 +656,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         try handle.synchronize()
     }
 
+    @MainActor
     private func save(_ draft: SingleFileEditModel, original file: AudioFile, policy: MetadataConflictPolicy) throws -> AudioMetadataWriteResult {
         try MetadataConflictResolver.writeMetadata(
             MetadataEditPayload(draft, comparedTo: file),
@@ -635,6 +667,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func saveRaw(_ draft: RawMetadataValueMap, original file: AudioFile, policy: MetadataConflictPolicy) throws -> AudioMetadataWriteResult {
         try MetadataConflictResolver.writeRawMetadata(
             draft, original: try XCTUnwrap(file.metadataConflictBaseline),
@@ -644,6 +677,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func loadedFixture(extra: RawMetadataValueMap = [:]) async throws -> AudioFile {
         let bundle = Bundle(for: Self.self)
         let fixture = try XCTUnwrap(bundle.url(forResource: "testAudioFile.flac", withExtension: nil, subdirectory: "Fixtures/Audio")
@@ -661,6 +695,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
     }
 
     /// Simulates an external editor writing in place, without replacing identity.
+    @MainActor
     private func externalChange(_ values: RawMetadataValueMap, at url: URL) throws {
         let copy = url.deletingLastPathComponent().appendingPathComponent("external.flac")
         try FileManager.default.copyItem(at: url, to: copy)
@@ -674,6 +709,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         try handle.synchronize()
     }
 
+    @MainActor
     private func isolatedDefaults() -> UserDefaults {
         let name = "AudioMatorConflictTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -681,6 +717,7 @@ final class MetadataConflictStrategyTests: XCTestCase {
         return defaults
     }
 
+    @MainActor
     private func selectedViewModel(_ file: AudioFile, defaults: UserDefaults? = nil) -> AudioViewModel {
         let defaults = defaults ?? isolatedDefaults()
         let logURL = file.url.deletingLastPathComponent().appendingPathComponent("issues.json")

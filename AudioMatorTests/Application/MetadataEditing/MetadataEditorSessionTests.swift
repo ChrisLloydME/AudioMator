@@ -10,10 +10,10 @@ import TagLibAudioMetadata
 /// decisions, explicit close/cancel ownership, applying-close cancellation with
 /// a preserved app-owned outcome, partial-success application scoped to the
 /// captured session targets, and stale same-ID completion suppression.
-@MainActor
-final class MetadataEditorSessionTests: XCTestCase {
+nonisolated final class MetadataEditorSessionTests: XCTestCase {
     // MARK: - Repeated open decision matrix
 
+    @MainActor
     func testOpenDecisionFocusesLivePresentationAndOnlyConfirmsBeforeDiscard() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-01.mp3"), title: "First")
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-open-02.mp3"), title: "Second")
@@ -48,6 +48,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertEqual(try requiredPresentationID(of: store), presentationID)
     }
 
+    @MainActor
     func testRepeatedOpenDoesNotResetDirtyDraftEvenThoughPresentWould() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-reopen.mp3"), title: "Original")
         let store = MetadataEditorStore(metadataPipeline: SessionMockPipeline())
@@ -65,6 +66,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertEqual(store.targets.map(\.id), [file.id])
     }
 
+    @MainActor
     func testDiscardAndOpenRejectsStaleConfirmationAndStartsFreshSession() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-discard-01.mp3"))
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-discard-02.mp3"))
@@ -91,6 +93,7 @@ final class MetadataEditorSessionTests: XCTestCase {
 
     // MARK: - Apply capture and partial success
 
+    @MainActor
     func testApplyCapturesFrozenMapsAndRemovesOnlyCapturedSuccessfulTargets() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(
             id: UUID(), url: URL(fileURLWithPath: "/tmp/f3-apply-01.mp3"), title: "First"
@@ -135,6 +138,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testNewerDraftEditDuringApplyIsPreservedAndSuppressesAutoDismiss() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-newer.mp3"))
         let store = MetadataEditorStore(metadataPipeline: SessionMockPipeline())
@@ -163,6 +167,7 @@ final class MetadataEditorSessionTests: XCTestCase {
 
     // MARK: - Stale same-ID completion suppression
 
+    @MainActor
     func testStaleCompletionForSameIDsCannotMutateNewerPresentation() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-stale-01.mp3"), title: "First")
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-stale-02.mp3"), title: "Second")
@@ -200,6 +205,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertTrue(store.canStartApply)
     }
 
+    @MainActor
     func testCompletionFromSupersededPresentationIsCountedAndIgnored() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-superseded.mp3"))
         let store = MetadataEditorStore(metadataPipeline: SessionMockPipeline())
@@ -226,6 +232,7 @@ final class MetadataEditorSessionTests: XCTestCase {
 
     // MARK: - Explicit close/cancel ownership
 
+    @MainActor
     func testCloseDuringApplyCancelsTaskAndPreservesAppOwnedOutcome() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-apply-close.mp3"))
         let store = MetadataEditorStore(metadataPipeline: SessionMockPipeline())
@@ -262,6 +269,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertNil(store.currentPresentationID)
     }
 
+    @MainActor
     func testReopenWhileDrainingCanPrepareDataButCannotApplyUntilDrainCompletes() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-drain.mp3"))
         let store = MetadataEditorStore(metadataPipeline: SessionMockPipeline())
@@ -292,6 +300,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertTrue(store.canStartApply)
     }
 
+    @MainActor
     func testIdleCloseDiscardsDraftAndSupersededCloseCannotClearNewerSession() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-idle-01.mp3"))
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-idle-02.mp3"))
@@ -324,6 +333,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertTrue(store.targets.isEmpty)
     }
 
+    @MainActor
     func testCancelAndCloseIsExplicitDiscardAndIsRefusedWhileApplying() async throws {
         let file = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-cancel.mp3"))
         let store = MetadataEditorStore(metadataPipeline: SessionMockPipeline())
@@ -353,6 +363,7 @@ final class MetadataEditorSessionTests: XCTestCase {
 
     // MARK: - Load identity and generations
 
+    @MainActor
     func testStaleDetachedLoadCannotPublishAfterNewPresentation() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-load-01.mp3"), title: "First")
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-load-02.mp3"), title: "Second")
@@ -379,6 +390,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         XCTAssertTrue(store.originalPropertyMaps[first.id] == nil)
     }
 
+    @MainActor
     func testLoadAndDraftGenerationsAreMonotonic() async throws {
         let first = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-gen-01.mp3"))
         let second = AudioFileTestFactory.makeDisplayOnly(url: URL(fileURLWithPath: "/tmp/f3-gen-02.mp3"))
@@ -409,6 +421,7 @@ final class MetadataEditorSessionTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func requiredPresentationID(
         of store: MetadataEditorStore,
         file: StaticString = #filePath,
@@ -417,6 +430,7 @@ final class MetadataEditorSessionTests: XCTestCase {
         try XCTUnwrap(store.currentPresentationID, "Expected an active presentation", file: file, line: line)
     }
 
+    @MainActor
     private func waitUntilLoaded(
         _ store: MetadataEditorStore,
         file: StaticString = #filePath,
@@ -484,7 +498,7 @@ private final class SessionMockPipeline: AudioMetadataPipeline, @unchecked Senda
 /// The store loads display-only targets through `rawMetadataValueMap` on a
 /// detached worker, so the gate blocks that worker (never the main actor) and
 /// signals the test when the read has started.
-private final class SessionLoadGate: @unchecked Sendable {
+private nonisolated final class SessionLoadGate: @unchecked Sendable {
     private let started = DispatchSemaphore(value: 0)
     private let opened = DispatchSemaphore(value: 0)
 

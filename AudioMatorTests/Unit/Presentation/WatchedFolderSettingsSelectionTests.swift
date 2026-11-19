@@ -2,7 +2,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-final class WatchedFolderSettingsSelectionTests: XCTestCase {
+nonisolated final class WatchedFolderSettingsSelectionTests: XCTestCase {
+    @MainActor
     func testSelectNewFoldersSelectsOnlyFoldersAddedByLatestEdit() {
         let existingID = UUID()
         let firstAddedID = UUID()
@@ -17,6 +18,7 @@ final class WatchedFolderSettingsSelectionTests: XCTestCase {
         XCTAssertEqual(selection.ids, [firstAddedID, secondAddedID])
     }
 
+    @MainActor
     func testRetainAvailableFoldersDropsSelectionsRemovedElsewhere() {
         let retainedID = UUID()
         let removedID = UUID()
@@ -27,6 +29,7 @@ final class WatchedFolderSettingsSelectionTests: XCTestCase {
         XCTAssertEqual(selection.ids, [retainedID])
     }
 
+    @MainActor
     func testConsumeForRemovalReturnsAndClearsSelection() {
         let firstID = UUID()
         let secondID = UUID()

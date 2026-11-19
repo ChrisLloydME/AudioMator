@@ -7,8 +7,7 @@ import TagLibAudioMetadata
 /// window, returning to Sources, or reseeding cancels outstanding lookups and every
 /// write that has not crossed the commit boundary; an admitted commit completes and
 /// contributes its real outcome.
-@MainActor
-final class LRCLIBLyricsSessionTests: XCTestCase {
+nonisolated final class LRCLIBLyricsSessionTests: XCTestCase {
     private struct Queue {
         let directory: URL
         let files: [AudioFile]
@@ -18,6 +17,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
 
     // MARK: - Close / back / reseed while the provider is outstanding
 
+    @MainActor
     func testCloseCancelsOutstandingProviderCallWithoutWrites() async throws {
         let queue = try makeQueue(count: 2)
         let gate = LRCLIBTestGate()
@@ -46,6 +46,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testBackToSourcesRetainsQueueAndBindingsButClearsCandidates() async throws {
         let queue = try makeQueue(count: 2)
         let gate = LRCLIBTestGate()
@@ -79,6 +80,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertFalse(store.rankedCandidates.isEmpty)
     }
 
+    @MainActor
     func testReseedDuringProviderCallCannotMutateReplacementSession() async throws {
         let queue = try makeQueue(count: 2)
         let gate = LRCLIBTestGate()
@@ -112,6 +114,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertNil(store.operationProgress)
     }
 
+    @MainActor
     func testNonCooperativeManualSearchAfterReseedCannotPublish() async throws {
         let queue = try makeQueue(count: 1)
         let gate = LRCLIBTestGate()
@@ -141,6 +144,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertEqual(client.queryCount, 1)
     }
 
+    @MainActor
     func testDuplicateAutoApplyStartIsRejected() async throws {
         let queue = try makeQueue(count: 2)
         let gate = LRCLIBTestGate()
@@ -161,6 +165,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertEqual(client.queryCount, 2, "One operation searches each queued row exactly once")
     }
 
+    @MainActor
     func testCloseBeforeHandoffAfterSearchCompletesNeverCallsWriter() async throws {
         let queue = try makeQueue(count: 2)
         let firstCallGate = LRCLIBTestGate(isOpen: true)
@@ -190,6 +195,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
 
     // MARK: - Cancellation at the reservation / admission boundary
 
+    @MainActor
     func testCancellationWhileQueuedAtReservationWritesNothing() async throws {
         let queue = try makeQueue(count: 1)
         let client = LRCLIBGatedClient(
@@ -222,6 +228,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testCloseAfterFirstCommitReportsRealOutcomeAndCancelsRemaining() async throws {
         let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -312,6 +319,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testManualApplyAfterReseedDoesNotMarkNewSession() async throws {
         let queue = try makeQueue(count: 2)
         let client = LRCLIBGatedClient(
@@ -345,6 +353,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertNil(store.appliedCandidateID, "A stale completion must not mark the replacement session")
     }
 
+    @MainActor
     func testManualCompletionMarksCapturedRowNotCurrentRow() async throws {
         let queue = try makeQueue(count: 2)
         let client = LRCLIBGatedClient(
@@ -374,6 +383,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         XCTAssertEqual(store.appliedCandidateID, appliedCandidateID, "The captured row/candidate is marked, not the current row")
     }
 
+    @MainActor
     func testEndedOperationProgressCannotReplaceReplacementProgress() async throws {
         let queue = try makeQueue(count: 1)
         let oldGate = LRCLIBTestGate()
@@ -416,6 +426,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
 
     // MARK: - Navigation
 
+    @MainActor
     func testDepartingRowSearchPublishesCancelledState() async throws {
         let queue = try makeQueue(count: 2)
         let gate = LRCLIBTestGate()
@@ -440,6 +451,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
 
     // MARK: - Helpers
 
+    @MainActor
     private func makeQueue(count: Int) throws -> Queue {
         let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory(prefix: "LRCLIBSession")
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -474,6 +486,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func waitUntil(
         deadlineSeconds: TimeInterval = 5,
         _ condition: @MainActor () -> Bool
@@ -481,6 +494,7 @@ final class LRCLIBLyricsSessionTests: XCTestCase {
         try await LRCLIBLyricsTestSupport.waitUntil(deadlineSeconds: deadlineSeconds, condition)
     }
 
+    @MainActor
     private func waitForQueuedMutation(in viewModel: AudioViewModel) async throws {
         let deadline = ContinuousClock.now.advanced(by: .seconds(3))
         while ContinuousClock.now < deadline {

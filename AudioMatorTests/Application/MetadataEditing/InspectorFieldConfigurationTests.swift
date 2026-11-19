@@ -2,8 +2,8 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class InspectorFieldConfigurationTests: XCTestCase {
+nonisolated final class InspectorFieldConfigurationTests: XCTestCase {
+    @MainActor
     private func withPreferences(_ body: (UserDefaults) throws -> Void) rethrows {
         let name = "InspectorFieldConfigurationTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -11,6 +11,7 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         try body(defaults)
     }
 
+    @MainActor
     func testInspectorAndSettingsLabelsMatchTheSharedFieldNames() throws {
         for field in InspectorMetadataField.configurableFields {
             if let key = field.metadataFieldKey {
@@ -31,6 +32,7 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFreshInspectorUsesCuratedDefaultsAndOptionalDatesStayIndependent() {
         withPreferences { defaults in
             let state = SharedState(userDefaults: defaults)
@@ -47,6 +49,7 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testSettingsPersistExactChoicesWithoutReenablingHiddenFields() {
         withPreferences { defaults in
             defaults.set(["title", "date", "unknownFutureField"], forKey: "inspector.metadata.visibleFields")
@@ -58,6 +61,7 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testExistingExpandedPreferencesArePreservedAndEmptyPreferencesRecover() {
         withPreferences { defaults in
             defaults.set(InspectorMetadataField.allCases.map(\.rawValue), forKey: "inspector.metadata.visibleFields")
@@ -67,6 +71,7 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testVisibilityChangesPreserveSingleAndMultiSelectionDrafts() {
         withPreferences { defaults in
             let state = SharedState(userDefaults: defaults)
@@ -91,6 +96,7 @@ final class InspectorFieldConfigurationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInspectorAndSettingsHaveOneControlledFieldRoute() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

@@ -24,6 +24,38 @@ final class SyntheticQuickImportIdentityProvider: QuickImportPathIdentityProvidi
     private var parentKeyComputations = 0
     private var fileIdentityCaptures = 0
     private var parentIdentityCaptures = 0
+    private var fileIdentityOverrides: [String: QuickImportEntryIdentity] = [:]
+
+    /// Deterministic canonical comparison key used by this synthetic provider.
+    static func canonicalKey(for url: URL) -> String {
+        url.standardizedFileURL.resolvingSymlinksInPath().path
+            .precomposedStringWithCanonicalMapping
+    }
+
+    /// Deterministic parent key used by this synthetic provider.
+    static func parentKey(forFileURL url: URL) -> String {
+        "synthetic-parent:" + url.standardizedFileURL.deletingLastPathComponent().path
+    }
+
+    static func syntheticEntryIdentity(for url: URL) -> QuickImportEntryIdentity {
+        QuickImportEntryIdentity(
+            device: 1,
+            inode: UInt64(bitPattern: Int64(url.standardizedFileURL.path.hashValue))
+        )
+    }
+
+    /// Overrides the captured device/inode evidence for one standardized path so
+    /// journal/rename tests can present the same entry identity at two URLs.
+    func setFileIdentityOverride(_ identity: QuickImportEntryIdentity?, for url: URL) {
+        let path = url.standardizedFileURL.path
+        lock.withLock {
+            if let identity {
+                fileIdentityOverrides[path] = identity
+            } else {
+                fileIdentityOverrides.removeValue(forKey: path)
+            }
+        }
+    }
 
     func prepareIdentity(
         forFileURL url: URL,
@@ -40,8 +72,7 @@ final class SyntheticQuickImportIdentityProvider: QuickImportPathIdentityProvidi
             }
         }
 
-        let canonicalPath = standardizedURL.resolvingSymlinksInPath().path
-            .precomposedStringWithCanonicalMapping
+        let canonicalPath = Self.canonicalKey(for: standardizedURL)
         let parentURL = standardizedURL.deletingLastPathComponent()
         let parentEvidence = parent ?? QuickImportParentEvidence(
             parentURL: parentURL,
@@ -61,10 +92,10 @@ final class SyntheticQuickImportIdentityProvider: QuickImportPathIdentityProvidi
             directoryEntryKey: "entry:" + parentEvidence.parentCanonicalPath + "/"
                 + standardizedURL.lastPathComponent,
             parentEvidence: parentEvidence,
-            fileIdentity: QuickImportEntryIdentity(
-                device: 1,
-                inode: UInt64(bitPattern: Int64(standardizedURL.path.hashValue))
-            )
+            fileIdentity: lock.withLock {
+                fileIdentityOverrides[standardizedURL.path]
+                    ?? Self.syntheticEntryIdentity(for: standardizedURL)
+            }
         )
     }
 
@@ -214,6 +245,8 @@ final class ProgressiveQuickImportMetadataPipeline: AudioMetadataPipeline, @unch
     private let gate: QuickImportProgressiveGate?
     private let gatedURLs: Set<URL>?
     private let failingURLs: Set<URL>
+    private var failFirstAttemptsByURL: [URL: Int] = [:]
+    private var attemptCountsByURL: [URL: Int] = [:]
     private var loads = 0
     private var loadedURLs: [URL] = []
 
@@ -234,15 +267,30 @@ final class ProgressiveQuickImportMetadataPipeline: AudioMetadataPipeline, @unch
     var loadCount: Int { lock.withLock { loads } }
     var loadedURLList: [URL] { lock.withLock { loadedURLs } }
 
+    /// Scripted first-attempt failures for one URL. Used to drive an older
+    /// request into a read failure while a newer request succeeds for the same
+    /// key (D2 token-pruning race).
+    func setFailFirstAttempts(_ count: Int, for url: URL) {
+        lock.withLock { failFirstAttemptsByURL[url] = count }
+    }
+
+    func attemptCount(for url: URL) -> Int {
+        lock.withLock { attemptCountsByURL[url] ?? 0 }
+    }
+
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        lock.withLock {
+        let attempt = lock.withLock { () -> Int in
             loads += 1
             loadedURLs.append(url)
+            let next = (attemptCountsByURL[url] ?? 0) + 1
+            attemptCountsByURL[url] = next
+            return next
         }
         if let gate, gatedURLs?.contains(url) ?? true {
             await gate.enter()
         }
-        if failingURLs.contains(url) {
+        let failFirstAttempts = lock.withLock { failFirstAttemptsByURL[url] ?? 0 }
+        if failingURLs.contains(url) || attempt <= failFirstAttempts {
             throw CocoaError(.fileReadNoPermission)
         }
         switch mode {

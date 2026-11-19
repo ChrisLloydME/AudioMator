@@ -111,7 +111,10 @@ nonisolated final class LRCLIBGatedClient: LRCLIBLyricsSearching, @unchecked Sen
         let callGate = perCallGates.indices.contains(callIndex) ? perCallGates[callIndex] : gate
         // Deliberately not cancellation-aware.
         await callGate.wait()
-        return Array((candidatesByTrackName[query.trackName] ?? []).prefix(max(1, limit)))
+        // The query value is Sendable, but its stored fields keep app default
+        // MainActor isolation; read the fixture key through the owning actor.
+        let trackName = await MainActor.run { query.trackName }
+        return Array((candidatesByTrackName[trackName] ?? []).prefix(max(1, limit)))
     }
 }
 

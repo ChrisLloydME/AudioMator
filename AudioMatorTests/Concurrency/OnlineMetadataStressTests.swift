@@ -3,8 +3,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class OnlineMetadataStressTests: XCTestCase {
+nonisolated final class OnlineMetadataStressTests: XCTestCase {
+    @MainActor
     func testLargeMusicBrainzReleasePresentationRunsOffMainAndCompletesWithinDeadline() async throws {
         let fixture = makeMusicBrainzFixture(trackCount: 200)
         let startGate = StressOperationGate()
@@ -43,6 +43,7 @@ final class OnlineMetadataStressTests: XCTestCase {
         XCTAssertTrue(result.presentation.comparisonGroups.allSatisfy { !$0.rows.isEmpty })
     }
 
+    @MainActor
     private func makeMusicBrainzFixture(
         trackCount: Int
     ) -> (files: [MusicBrainzFileSearchInput], release: MusicBrainzReleaseDetail) {
@@ -110,6 +111,7 @@ final class OnlineMetadataStressTests: XCTestCase {
         return (files, release)
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
         condition: @escaping @MainActor () -> Bool

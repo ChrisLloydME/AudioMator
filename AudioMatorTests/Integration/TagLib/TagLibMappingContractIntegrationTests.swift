@@ -17,6 +17,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
     // MARK: - A07 number components
 
+    @MainActor
     func testNumberComponentEditsPreserveUntouchedComponents() async throws {
         for fixtureName in Self.audioFixtureNames {
             let url = try writableFixture(named: fixtureName)
@@ -41,10 +42,14 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
                 expectedVersion: file.metadataFileVersion
             )
             file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.track, 5, fixtureName)
-            XCTAssertEqual(file.trackTotal, 12, fixtureName)
-            XCTAssertEqual(file.disc, 2, fixtureName)
-            XCTAssertEqual(file.discTotal, 3, fixtureName)
+            let trackObserved1 = file.track
+            XCTAssertEqual(trackObserved1, 5, fixtureName)
+            let trackTotalObserved2 = file.trackTotal
+            XCTAssertEqual(trackTotalObserved2, 12, fixtureName)
+            let discObserved3 = file.disc
+            XCTAssertEqual(discObserved3, 2, fixtureName)
+            let discTotalObserved4 = file.discTotal
+            XCTAssertEqual(discTotalObserved4, 3, fixtureName)
 
             // Total-only edit preserves the number.
             edit = SingleFileEditModel(from: file)
@@ -55,8 +60,10 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
                 expectedVersion: file.metadataFileVersion
             )
             file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.track, 5, fixtureName)
-            XCTAssertEqual(file.trackTotal, 15, fixtureName)
+            let trackObserved5 = file.track
+            XCTAssertEqual(trackObserved5, 5, fixtureName)
+            let trackTotalObserved6 = file.trackTotal
+            XCTAssertEqual(trackTotalObserved6, 15, fixtureName)
 
             // Removing the number keeps the total-only representation.
             edit = SingleFileEditModel(from: file)
@@ -67,8 +74,10 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
                 expectedVersion: file.metadataFileVersion
             )
             file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.track, 0, fixtureName)
-            XCTAssertEqual(file.trackTotal, 15, fixtureName)
+            let trackObserved7 = file.track
+            XCTAssertEqual(trackObserved7, 0, fixtureName)
+            let trackTotalObserved8 = file.trackTotal
+            XCTAssertEqual(trackTotalObserved8, 15, fixtureName)
 
             // Disc-only edit preserves the entire track group.
             edit = SingleFileEditModel(from: file)
@@ -79,15 +88,20 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
                 expectedVersion: file.metadataFileVersion
             )
             file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.track, 0, fixtureName)
-            XCTAssertEqual(file.trackTotal, 15, fixtureName)
-            XCTAssertEqual(file.disc, 4, fixtureName)
-            XCTAssertEqual(file.discTotal, 3, fixtureName)
+            let trackObserved9 = file.track
+            XCTAssertEqual(trackObserved9, 0, fixtureName)
+            let trackTotalObserved10 = file.trackTotal
+            XCTAssertEqual(trackTotalObserved10, 15, fixtureName)
+            let discObserved11 = file.disc
+            XCTAssertEqual(discObserved11, 4, fixtureName)
+            let discTotalObserved12 = file.discTotal
+            XCTAssertEqual(discTotalObserved12, 3, fixtureName)
         }
     }
 
     // MARK: - A08/A09 inventory and captured cleanup plan
 
+    @MainActor
     func testLegacyTrackTotalRecoveryAndCapturedPlanCleanup() async throws {
         let url = try writableFixture(named: "testAudioFile.mp3")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -150,12 +164,15 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         let fresh = try TagLibMetadataManager.planNumberNormalization(at: url, policy: .useLegacy, groups: [.track])
         _ = try TagLibMetadataManager.applyNumberNormalization(fresh, to: url, expectedVersion: nil)
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.track, 3)
-        XCTAssertEqual(file.trackTotal, 12)
+        let trackObserved13 = file.track
+        XCTAssertEqual(trackObserved13, 3)
+        let trackTotalObserved14 = file.trackTotal
+        XCTAssertEqual(trackTotalObserved14, 12)
         valueMap = try pipeline.rawMetadataValueMap(for: url)
         XCTAssertFalse(valueMap.keys.contains { $0.uppercased() == "TRACKTOTAL" })
     }
 
+    @MainActor
     func testTrackCleanupPreservesDiscGroupAndPrivateLookalikes() async throws {
         let url = try writableFixture(named: "testAudioFile.mp3")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -183,15 +200,20 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         _ = try TagLibMetadataManager.applyNumberNormalization(preview, to: url, expectedVersion: nil)
 
         let file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.track, 3)
-        XCTAssertEqual(file.trackTotal, 12)
-        XCTAssertEqual(file.disc, 2)
-        XCTAssertEqual(file.discTotal, 3)
+        let trackObserved15 = file.track
+        XCTAssertEqual(trackObserved15, 3)
+        let trackTotalObserved16 = file.trackTotal
+        XCTAssertEqual(trackTotalObserved16, 12)
+        let discObserved17 = file.disc
+        XCTAssertEqual(discObserved17, 2)
+        let discTotalObserved18 = file.discTotal
+        XCTAssertEqual(discTotalObserved18, 3)
         let valueMap = try pipeline.rawMetadataValueMap(for: url)
         XCTAssertEqual(valueMap["DISC-TOTAL-LOOKALIKE"], ["keep"])
         XCTAssertEqual(valueMap["DISCNUMBER"], ["2/3"])
     }
 
+    @MainActor
     func testAmbiguousLegacyTotalsAreSurfacedAndBlockNumberEdits() async throws {
         let url = try writableFixture(named: "testAudioFile.mp3")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -248,6 +270,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
     // MARK: - A10 advisory
 
+    @MainActor
     func testAdvisoryStatesRoundTripAndUnknownCodeIsPreserved() async throws {
         let url = try writableFixture(named: "testAudioFile.m4a")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -268,11 +291,12 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             let atom = snapshot.structured.mp4Atoms.first { $0.key == "rtng" }
             XCTAssertEqual(atom?.first ?? atom.flatMap { Int($0.value) }, expectedCode)
             let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+            let contentAdvisoryObserved19 = file.contentAdvisory
             switch expectedCode {
-            case nil: XCTAssertNil(file.contentAdvisory)
-            case 0: XCTAssertEqual(file.contentAdvisory, .notExplicit)
-            case 1: XCTAssertEqual(file.contentAdvisory, .explicit)
-            case 2: XCTAssertEqual(file.contentAdvisory, .clean)
+            case nil: XCTAssertNil(contentAdvisoryObserved19)
+            case 0: XCTAssertEqual(contentAdvisoryObserved19, .notExplicit)
+            case 1: XCTAssertEqual(contentAdvisoryObserved19, .explicit)
+            case 2: XCTAssertEqual(contentAdvisoryObserved19, .clean)
             default: XCTFail("unexpected")
             }
         }
@@ -291,7 +315,8 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             expectedVersion: file.metadataFileVersion
         )
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.contentAdvisory, .notExplicit)
+        let contentAdvisoryObserved23 = file.contentAdvisory
+        XCTAssertEqual(contentAdvisoryObserved23, .notExplicit)
         XCTAssertEqual(
             try TagLibMetadataManager.readSnapshot(from: url).structured.mp4Atoms.first { $0.key == "rtng" }.flatMap { $0.first ?? Int($0.value) },
             0
@@ -303,8 +328,10 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             to: url
         )
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertNil(file.contentAdvisory)
-        XCTAssertEqual(file.advisoryRawValue, "4")
+        let contentAdvisoryObserved24 = file.contentAdvisory
+        XCTAssertNil(contentAdvisoryObserved24)
+        let advisoryRawValueObserved25 = file.advisoryRawValue
+        XCTAssertEqual(advisoryRawValueObserved25, "4")
         edit = SingleFileEditModel(from: file)
         edit.title = "Unknown Advisory Preservation"
         _ = try pipeline.writeMetadata(
@@ -313,18 +340,22 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             expectedVersion: file.metadataFileVersion
         )
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.advisoryRawValue, "4")
+        let advisoryRawValueObserved26 = file.advisoryRawValue
+        XCTAssertEqual(advisoryRawValueObserved26, "4")
         XCTAssertEqual(MetadataExchangeField.contentAdvisory.value(from: file, index: 0, relativeBasePath: nil), "4")
 
         // Explicit removal of the unknown code is a distinct user intent.
         edit = SingleFileEditModel(from: file)
         edit.clearsUnknownAdvisory = true
         let clearPayload = MetadataEditPayload(edit, comparedTo: file)
-        XCTAssertTrue(clearPayload.contentAdvisoryChanged)
+        let contentAdvisoryChangedObserved27 = clearPayload.contentAdvisoryChanged
+        XCTAssertTrue(contentAdvisoryChangedObserved27)
         _ = try pipeline.writeMetadata(clearPayload, to: url, expectedVersion: file.metadataFileVersion)
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertNil(file.advisoryRawValue)
-        XCTAssertNil(file.contentAdvisory)
+        let advisoryRawValueObserved28 = file.advisoryRawValue
+        XCTAssertNil(advisoryRawValueObserved28)
+        let contentAdvisoryObserved29 = file.contentAdvisory
+        XCTAssertNil(contentAdvisoryObserved29)
         XCTAssertNil(
             try TagLibMetadataManager.readSnapshot(from: url).structured.mp4Atoms.first { $0.key == "rtng" }
         )
@@ -332,6 +363,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
     // MARK: - A11 MP4 exclusive typed fields
 
+    @MainActor
     func testMP4ExclusiveTypedShapesAndReadOnlyRate() async throws {
         let url = try writableFixture(named: "testAudioFile.m4a")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -356,17 +388,19 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             from: debugSnapshot.basic,
             atoms: debugSnapshot.structured.mp4Atoms
         )
-        let atomDump = debugSnapshot.structured.mp4Atoms.map {
-            "\($0.key):first=\($0.first.map(String.init) ?? "nil"):value=\($0.value):remove=\($0.remove)"
-        }.joined(separator: ", ")
         XCTAssertEqual(debugValues[.tvSeason], .integer(0))
         XCTAssertTrue(ContainerMetadataFieldCatalog.readKeys.contains(.tvSeason))
         XCTAssertEqual(ContainerMetadataFieldCatalog.acceptedKinds(for: .tvSeason), [.integer])
-        XCTAssertEqual(file.containerValues[.tvSeason], .integer(0))
-        XCTAssertEqual(file.containerValues[.tvEpisode], .integer(7))
-        XCTAssertEqual(file.containerValues[.itunesGapless], .boolean(false))
-        XCTAssertEqual(file.containerValues[.itunesMediaType], .integer(4))
-        XCTAssertEqual(file.containerValues[.director], .text("Director One"))
+        let containerValuesObserved30 = file.containerValues
+        XCTAssertEqual(containerValuesObserved30[.tvSeason], .integer(0))
+        let containerValuesObserved31 = file.containerValues
+        XCTAssertEqual(containerValuesObserved31[.tvEpisode], .integer(7))
+        let itunesGaplessObserved = file.containerValues[.itunesGapless]
+        XCTAssertEqual(itunesGaplessObserved, .boolean(false))
+        let itunesMediaTypeObserved = file.containerValues[.itunesMediaType]
+        XCTAssertEqual(itunesMediaTypeObserved, .integer(4))
+        let directorObserved = file.containerValues[.director]
+        XCTAssertEqual(directorObserved, .text("Director One"))
 
         let atoms = try TagLibMetadataManager.readSnapshot(from: url).structured.mp4Atoms
         func atomInteger(_ key: String) -> Int? {
@@ -408,6 +442,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
     // MARK: - A12 independent grouping fields and raw DATE
 
+    @MainActor
     func testContentGroupGroupingWorkAreIndependent() async throws {
         let url = try writableFixture(named: "testAudioFile.m4a")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -425,13 +460,16 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
         let groupAtoms = try TagLibMetadataManager.readSnapshot(from: url).structured.mp4Atoms
+        let contentGroupObserved32 = file.contentGroup
         XCTAssertEqual(
-            file.contentGroup,
+            contentGroupObserved32,
             "Content Group",
             "atoms: " + groupAtoms.map { "\($0.key)=\($0.value)" }.joined(separator: ",")
         )
-        XCTAssertEqual(file.grouping, "Grouping")
-        XCTAssertEqual(file.work, "Work")
+        let groupingObserved33 = file.grouping
+        XCTAssertEqual(groupingObserved33, "Grouping")
+        let workObserved34 = file.work
+        XCTAssertEqual(workObserved34, "Work")
 
         let properties = try TagLibMetadataManager.readSnapshot(from: url).structured.properties
         func nativeValue(_ key: String) -> String? {
@@ -450,11 +488,15 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             expectedVersion: file.metadataFileVersion
         )
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.contentGroup, "Content Group")
-        XCTAssertEqual(file.grouping, "New Grouping")
-        XCTAssertEqual(file.work, "Work")
+        let contentGroupObserved35 = file.contentGroup
+        XCTAssertEqual(contentGroupObserved35, "Content Group")
+        let groupingObserved36 = file.grouping
+        XCTAssertEqual(groupingObserved36, "New Grouping")
+        let workObserved37 = file.work
+        XCTAssertEqual(workObserved37, "Work")
     }
 
+    @MainActor
     func testRawDateKeepsPropertyMapMeaningAndDoesNotBecomeStandaloneDate() async throws {
         // On MP4 the PropertyMap DATE key is the YEAR projection.
         let mp4 = try writableFixture(named: "testAudioFile.m4a")
@@ -464,8 +506,10 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             to: mp4
         )
         let mp4File = try await TagLibAudioMetadataPipeline().loadAudioFile(at: mp4, id: UUID())
-        XCTAssertEqual(mp4File.year, "2004-07-15")
-        XCTAssertEqual(mp4File.date, "")
+        let yearObserved38 = mp4File.year
+        XCTAssertEqual(yearObserved38, "2004-07-15")
+        let dateObserved39 = mp4File.date
+        XCTAssertEqual(dateObserved39, "")
 
         // On Xiph DATE is the independent native DATE key, not YEAR.
         let flac = try writableFixture(named: "testAudioFile.flac")
@@ -475,10 +519,13 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
             to: flac
         )
         let flacFile = try await TagLibAudioMetadataPipeline().loadAudioFile(at: flac, id: UUID())
-        XCTAssertEqual(flacFile.date, "2008-03-04")
-        XCTAssertEqual(flacFile.year, "")
+        let flacDateObserved = flacFile.date
+        XCTAssertEqual(flacDateObserved, "2008-03-04")
+        let yearObserved40 = flacFile.year
+        XCTAssertEqual(yearObserved40, "")
     }
 
+    @MainActor
     func testDateEditPreservesCustomArraysAndArtwork() async throws {
         let url = try writableFixture(named: "testAudioFile.flac")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -502,7 +549,8 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
 
         let pipeline = TagLibAudioMetadataPipeline()
         let baseline = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(baseline.artworkData, artwork)
+        let artworkDataObserved41 = baseline.artworkData
+        XCTAssertEqual(artworkDataObserved41, artwork)
         var edit = SingleFileEditModel(from: baseline)
         edit.year = "2005"
         _ = try pipeline.writeMetadata(
@@ -512,9 +560,12 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
 
         let readBack = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(readBack.year, "2005")
-        XCTAssertEqual(readBack.date, "2008-03-04")
-        XCTAssertEqual(readBack.artworkData, artwork)
+        let readBackYearObserved = readBack.year
+        XCTAssertEqual(readBackYearObserved, "2005")
+        let dateObserved43 = readBack.date
+        XCTAssertEqual(dateObserved43, "2008-03-04")
+        let artworkDataObserved44 = readBack.artworkData
+        XCTAssertEqual(artworkDataObserved44, artwork)
         let valueMap = try pipeline.rawMetadataValueMap(for: url)
         XCTAssertEqual(valueMap["X-AUDIOMATOR-DATE-PRESERVE"], customValues)
     }
@@ -549,6 +600,7 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         XCTAssertEqual(reloaded.originalReleaseDate, "1999-11-12")
     }
 
+    @MainActor
     func testExchangeDateEntryAppliesAndWritesOnlyThatDate() async throws {
         let url = try writableFixture(named: "testAudioFile.flac")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -570,14 +622,19 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: baseline.metadataFileVersion)
 
         let reloaded = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(reloaded.date, "2009-01-02")
-        XCTAssertEqual(reloaded.year, "2004")
-        XCTAssertEqual(reloaded.releaseDate, "2017-06-09")
-        XCTAssertEqual(reloaded.originalReleaseDate, "1999-11-12")
+        let dateObserved45 = reloaded.date
+        XCTAssertEqual(dateObserved45, "2009-01-02")
+        let yearObserved46 = reloaded.year
+        XCTAssertEqual(yearObserved46, "2004")
+        let releaseDateObserved47 = reloaded.releaseDate
+        XCTAssertEqual(releaseDateObserved47, "2017-06-09")
+        let originalReleaseDateObserved48 = reloaded.originalReleaseDate
+        XCTAssertEqual(originalReleaseDateObserved48, "1999-11-12")
     }
 
     // MARK: - Conflict groups
 
+    @MainActor
     func testIndependentDateConflictDoesNotBlockYearEdit() async throws {
         let url = try writableFixture(named: "testAudioFile.flac")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -617,11 +674,15 @@ nonisolated final class TagLibMappingContractIntegrationTests: XCTestCase {
         )
 
         let reloaded = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(reloaded.year, "2005")
-        XCTAssertEqual(reloaded.date, "2008-03-05", "A DATE-only disk edit must not block a YEAR draft")
-        XCTAssertEqual(reloaded.releaseDate, "2017-06-09")
+        let yearObserved49 = reloaded.year
+        XCTAssertEqual(yearObserved49, "2005")
+        let dateObserved50 = reloaded.date
+        XCTAssertEqual(dateObserved50, "2008-03-05", "A DATE-only disk edit must not block a YEAR draft")
+        let releaseDateObserved51 = reloaded.releaseDate
+        XCTAssertEqual(releaseDateObserved51, "2017-06-09")
     }
 
+    @MainActor
     func testSharedNumberPairConflictStillBlocksAComponentDraft() async throws {
         let url = try writableFixture(named: "testAudioFile.flac")
         defer { removeTemporaryFixtureDirectory(containing: url) }

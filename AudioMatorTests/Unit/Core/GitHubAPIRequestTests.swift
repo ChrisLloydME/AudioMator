@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class GitHubAPIRequestTests: XCTestCase {
+nonisolated final class GitHubAPIRequestTests: XCTestCase {
+    @MainActor
     func testMakeAppliesSharedGitHubHeadersWithoutChangingURL() throws {
         let url = try XCTUnwrap(URL(string: "https://api.github.com/repos/ChrisLloydME/AudioMator/releases"))
 

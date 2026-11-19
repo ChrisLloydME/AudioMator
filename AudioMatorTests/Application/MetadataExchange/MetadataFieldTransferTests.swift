@@ -2,7 +2,8 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-final class MetadataFieldTransferTests: XCTestCase {
+nonisolated final class MetadataFieldTransferTests: XCTestCase {
+    @MainActor
     func testCopyUsesEachFilesOwnValueAndDeduplicatesSelection() throws {
         let first = AudioFileTestFactory.make(title: "  曲名\nFirst  ", artist: "Old Artist")
         let second = AudioFileTestFactory.make(title: "Second", artist: "Another Artist")
@@ -18,6 +19,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first).frozenPayload?.requestedFields, [.artist])
     }
 
+    @MainActor
     func testCutStillClearsSourceWhenDestinationAlreadyMatches() {
         let file = AudioFileTestFactory.make(title: "Same", artist: "Same")
         let plan = MetadataFieldTransferPlanner.makePlan(
@@ -29,6 +31,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertEqual(plan.rows.first?.changes.map(\.willWrite), [false, true])
     }
 
+    @MainActor
     func testEmptySourcesAreSkippedAndEqualCopiesAreUnchanged() {
         let equal = AudioFileTestFactory.make(title: "Same", artist: "Same")
         for (sourceValue, operation) in ["", " \n "].flatMap({ value in
@@ -50,6 +53,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testSameAndNonMetadataFieldsCannotBeTransferred() {
         let file = AudioFileTestFactory.make(title: "Keep")
         let pairs: [(MetadataExchangeField, MetadataExchangeField)] = [
@@ -65,6 +69,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInvalidDestinationNeverProducesSourceClearAndValidFilesRemainReady() {
         for value in ["Not a number", "7/12", "-1", "2147483648", "Bad\0Text"] {
             let invalid = AudioFileTestFactory.make(title: value)
@@ -80,6 +85,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testUnavailableFileCannotBeCut() {
         let file = AudioFileTestFactory.make(title: "Keep", includeDefaultFileFingerprint: false)
         let plan = MetadataFieldTransferPlanner.makePlan(
@@ -90,6 +96,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertNil(plan.rows.first?.writeEntry)
     }
 
+    @MainActor
     func testContentAdvisoryIsValidatedAndCanonicalized() {
         let file = AudioFileTestFactory.make(title: "Explicit")
         let plan = MetadataFieldTransferPlanner.makePlan(
@@ -103,6 +110,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertFalse(invalid.canApply)
     }
 
+    @MainActor
     func testTrackAndDiscFieldsTransferIndependentlyAndPreserveTextIntent() throws {
         let file = AudioFileTestFactory.make(
             title: "004", track: 7, trackTotal: 12, disc: 2, discTotal: 3,
@@ -130,6 +138,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testTotalOnlyPairWritesAndUnrelatedTransfersAreAllowed() {
         let file = AudioFileTestFactory.make(title: "Keep", track: 7, trackTotal: 12, disc: 2, discTotal: 3)
         let totalOnlyPairs: [(MetadataExchangeField, MetadataExchangeField)] = [

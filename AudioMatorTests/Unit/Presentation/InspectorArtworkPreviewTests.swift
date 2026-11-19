@@ -5,8 +5,8 @@ import UniformTypeIdentifiers
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class InspectorArtworkPreviewTests: XCTestCase {
+nonisolated final class InspectorArtworkPreviewTests: XCTestCase {
+    @MainActor
     func testLargeSharedSelectionDoesNotThrashPairCacheWhenExtendedOrAnchorChanges() {
         var comparisons = 0
         let cache = InspectorArtworkComparisonCache {
@@ -33,6 +33,7 @@ final class InspectorArtworkPreviewTests: XCTestCase {
         XCTAssertEqual(comparisons, files.count)
     }
 
+    @MainActor
     func testExtendedMultiSelectionReusesExactArtworkComparisonsAndDetectsSameIDReload() {
         var comparisons = 0
         let cache = InspectorArtworkComparisonCache {
@@ -57,6 +58,7 @@ final class InspectorArtworkPreviewTests: XCTestCase {
         XCTAssertEqual(comparisons, 3)
     }
 
+    @MainActor
     func testPreviewIsBoundedAndReusesDecodedImageAcrossRefreshesAndReselection() async throws {
         let source = InspectorArtworkSource(id: UUID(), data: try makePNG(width: 1200, height: 800))
         let preview = InspectorArtworkPreview()
@@ -73,6 +75,7 @@ final class InspectorArtworkPreviewTests: XCTestCase {
         XCTAssertTrue(preview.image === image)
     }
 
+    @MainActor
     func testSlowDecodeDoesNotBlockMainActorOrPublishAfterSelectionChanges() async throws {
         let gate = PreviewDecodeGate()
         let preview = InspectorArtworkPreview { _ in
@@ -94,6 +97,7 @@ final class InspectorArtworkPreviewTests: XCTestCase {
         XCTAssertNil(preview.image)
     }
 
+    @MainActor
     func testNewSnapshotForSameFileInvalidatesPreview() async throws {
         let fileID = UUID()
         let original = AudioFileTestFactory.make(id: fileID, artworkData: try makePNG(width: 16, height: 16))
@@ -111,6 +115,7 @@ final class InspectorArtworkPreviewTests: XCTestCase {
         XCTAssertFalse(preview.image === previousImage)
     }
 
+    @MainActor
     func testInvalidAndOversizedInputDoesNotProducePreview() {
         XCTAssertNil(InspectorArtworkPreview.thumbnail(from: Data([1, 2, 3])))
         XCTAssertNil(InspectorArtworkPreview.thumbnail(
@@ -118,6 +123,7 @@ final class InspectorArtworkPreviewTests: XCTestCase {
         ))
     }
 
+    @MainActor
     private func makePNG(width: Int, height: Int) throws -> Data {
         let context = try XCTUnwrap(CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8,

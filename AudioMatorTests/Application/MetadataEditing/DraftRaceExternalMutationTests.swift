@@ -9,8 +9,7 @@ import TagLibAudioMetadata
 /// plan writes) must never reset or replace that draft. Drafts are created
 /// during the paused operation because the entry guards deliberately reject a
 /// dirty draft at start.
-@MainActor
-final class DraftRaceExternalMutationTests: XCTestCase {
+nonisolated final class DraftRaceExternalMutationTests: XCTestCase {
     private var temporaryDirectories: [URL] = []
     private var authorizedRoot: URL?
 
@@ -24,6 +23,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
 
     // MARK: - Raw Metadata Editor commit
 
+    @MainActor
     func testRawCommitDoesNotDiscardDraftCreatedDuringOperation() async throws {
         let rawURL = try makeTemporaryCopy(of: "testAudioFile.flac")
         let otherURL = try makeTemporaryCopy(of: "testAudioFile.mp3")
@@ -72,6 +72,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
 
     // MARK: - Rename transaction
 
+    @MainActor
     func testRenameDoesNotDiscardDraftCreatedDuringOperation() async throws {
         let renameURL = try makeTemporaryCopy(of: "testAudioFile.flac")
         let otherURL = try makeTemporaryCopy(of: "testAudioFile.mp3")
@@ -121,6 +122,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
 
     // MARK: - Filename / exchange plan writes
 
+    @MainActor
     func testFilenamePlanCompletionDoesNotDiscardDifferentFileDraft() async throws {
         let planURL = try makeTemporaryCopy(of: "testAudioFile.flac")
         let otherURL = try makeTemporaryCopy(of: "testAudioFile.mp3")
@@ -151,6 +153,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
         XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testExchangePlanCompletionDoesNotDiscardSameTargetDraftCreatedDuringOperation() async throws {
         let planURL = try makeTemporaryCopy(of: "testAudioFile.flac")
         let realPipeline = TagLibAudioMetadataPipeline()
@@ -184,6 +187,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
 
     // MARK: - Hidden Quick Import source rename publication
 
+    @MainActor
     func testRenameWhileQuickImportHiddenPublishesHiddenRowAndBinding() async throws {
         let quickImportURL = try makeTemporaryCopy(of: "testAudioFile.flac")
         let watchedDirectory = try makeTemporaryDirectory()
@@ -279,6 +283,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
 
 
 
+    @MainActor
     private func authorizedRootDirectory() throws -> URL {
         if let authorizedRoot { return authorizedRoot }
         let root = try makeTemporaryDirectory()
@@ -286,6 +291,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
         return root
     }
 
+    @MainActor
     private func makeAuthorizedViewModel(
         pipeline: any AudioMetadataPipeline
     ) throws -> AudioViewModel {
@@ -309,6 +315,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeTemporaryDirectory() throws -> URL {
         // Resolve the /var -> /private/var alias so every test URL, the rename
         // journal and the loader observe the same lexical directory entry.
@@ -319,6 +326,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
         return url
     }
 
+    @MainActor
     private func makeTemporaryCopy(of fixtureName: String) throws -> URL {
         let directory = try authorizedRootDirectory()
             .appendingPathComponent("copy-\(UUID().uuidString)", isDirectory: true)
@@ -330,12 +338,14 @@ final class DraftRaceExternalMutationTests: XCTestCase {
         return destination
     }
 
+    @MainActor
     private func fixtureSourceURL(named name: String) -> URL? {
         let bundle = Bundle(for: DraftRaceExternalMutationTests.self)
         return bundle.url(forResource: name, withExtension: nil, subdirectory: "Fixtures/Audio")
             ?? bundle.url(forResource: name, withExtension: nil)
     }
 
+    @MainActor
     private func makeFilenameEntry(
         for file: AudioFile,
         title: String
@@ -352,6 +362,7 @@ final class DraftRaceExternalMutationTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeExchangeEntry(
         for file: AudioFile,
         title: String

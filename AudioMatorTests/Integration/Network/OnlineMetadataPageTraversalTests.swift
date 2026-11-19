@@ -5,8 +5,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class OnlineMetadataPageTraversalTests: XCTestCase {
+nonisolated final class OnlineMetadataPageTraversalTests: XCTestCase {
+    @MainActor
     func testSearchPagesRenderAndRecoverAfterSuccessFailureTimeoutAndCancellation() async throws {
         let fixture = makeFixture()
         let viewModel = makeViewModel(file: fixture.file)
@@ -79,6 +79,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testAllReachableDetailWorkbenchComparisonAndArtworkSurfacesRender() async throws {
         let fixture = makeFixture()
         let viewModel = makeViewModel(file: fixture.file)
@@ -266,6 +267,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func render(
         _ view: AnyView,
         label: String,
@@ -303,6 +305,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         window.contentView = nil
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
         condition: @escaping @MainActor () -> Bool
@@ -316,6 +319,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         XCTAssertTrue(condition(), "Timed out waiting for traversal state")
     }
 
+    @MainActor
     private func makeViewModel(file: AudioFile) -> AudioViewModel {
         let viewModel = AudioViewModelTestFactory.make(
             metadataPipeline: TagLibAudioMetadataPipeline()
@@ -325,6 +329,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         return viewModel
     }
 
+    @MainActor
     private func makeFixture() -> TraversalFixture {
         let file = AudioFileTestFactory.make(
             title: "Traversal Track",

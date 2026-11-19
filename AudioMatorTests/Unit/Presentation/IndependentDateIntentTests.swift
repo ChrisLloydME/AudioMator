@@ -138,11 +138,7 @@ final class IndependentDateIntentTests: XCTestCase {
     }
 
     func testContainerFieldPresenceRoundTripsTypedValues() {
-        let file = makeFile().withUpdatedURL(
-            URL(fileURLWithPath: "/tmp/container.m4a"),
-            fileFingerprint: nil,
-            metadataFileVersion: nil
-        )
+        let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/container.m4a"))
         var edit = SingleFileEditModel(from: file)
         edit.containerValues[.tvSeason] = .integer(0)
         edit.containerValues[.itunesGapless] = .boolean(false)

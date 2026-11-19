@@ -76,7 +76,7 @@ Raw editor saves compare edited property keys and the native structures mapped t
 | App activation | Currently selected files | Clean drafts follow; dirty drafts keep their baseline |
 | **Reload from Disk** | Selected files | Asks before discarding a dirty inspector draft |
 | Post-write reload | The written file | Applied while the mutation reservation is held |
-| Rename completion | Moved files | Fingerprint and version recovered independently |
+| Rename completion | Moved files | Bounded full readback per verified move receipt; failure keeps the last labels read-only |
 
 Selected-file reload reads are serialized with writes via `FileMutationCoordinator` and have a 60-second deadline. Watched-folder scans use tokens and mutation epochs instead of reserving the whole folder, and their per-file loads have no independent deadline. A reload result is applied only if the file still has the same ID, URL, and snapshot identity; stale results are discarded.
 
@@ -128,7 +128,7 @@ Tests use temporary copies of committed fixtures. They do not establish behavior
 
 ## Refresh-Required Acceptance
 
-Automatic activation and folder observations retain refresh-required state. Explicit Reload from Disk may clear it only with a successfully read fingerprint and package revision; it means the user accepts the file currently at that URL, not that the original recording has been located automatically.
+Automatic activation and folder observations retain recovery decisions; they never clear them. A move whose bounded full readback fails stays read-only even when lightweight stat/version probes succeed, and a readback that observed a different directory entry is not accepted. Explicit Reload from Disk may clear a pending move decision or a resolved-path failure only when its full read observes the same entry identity (same device and inode); observing a successor requires explicit review before any new draft is authorized. Journal decisions (F2) survive normal reload until the journal identifies a verified location or the user resolves the operation. Reload means the user accepts the file currently at that URL, not that the original recording was located automatically.
 
 ## Related Documents
 

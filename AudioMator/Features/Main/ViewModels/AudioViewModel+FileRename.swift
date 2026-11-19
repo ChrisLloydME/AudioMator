@@ -24,9 +24,13 @@ struct FileRenameRecoveryItem: Equatable, Sendable {
     let intendedURL: URL
     let finalLocations: [URL]
     let rollbackErrors: [String]
+    /// Present only when exactly one observed location matched the expected file
+    /// entry. Carries the identity captured at that location so publication and
+    /// readback can verify it.
+    var verifiedLocation: VerifiedRenameLocation? = nil
 
     var finalURL: URL? {
-        finalLocations.count == 1 ? finalLocations[0] : nil
+        verifiedLocation?.url ?? (finalLocations.count == 1 ? finalLocations[0] : nil)
     }
 }
 
@@ -37,13 +41,14 @@ struct FileRenameTransactionFailure: Sendable {
 }
 
 enum FileRenameExecutionResult: Sendable {
-    case success([FileRenameOperation])
+    case success([FileRenameMoveReceipt])
     case failure(FileRenameTransactionFailure)
 }
 
 protocol FileRenameFileSystem: Sendable {
     nonisolated func fileExists(at url: URL) -> Bool
     nonisolated func fingerprint(at url: URL) throws -> AudioFileFingerprint
+    nonisolated func entryIdentity(at url: URL) throws -> RenameEntryIdentity
     nonisolated func moveItem(at sourceURL: URL, to destinationURL: URL) throws
 }
 
@@ -56,6 +61,10 @@ struct LocalFileRenameFileSystem: FileRenameFileSystem {
 
     nonisolated func fingerprint(at url: URL) throws -> AudioFileFingerprint {
         try AudioFileFingerprint.capture(at: url)
+    }
+
+    nonisolated func entryIdentity(at url: URL) throws -> RenameEntryIdentity {
+        try FileEntryIdentityCapture.capture(at: url)
     }
 
     nonisolated func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
@@ -93,6 +102,17 @@ extension AudioViewModel {
                 recoveryItems: []
             )
         }
+        guard !operations.contains(where: { hasRecoveryDecision(for: $0.id) }) else {
+            return FileRenameResult(
+                totalTargets: totalTargets,
+                renamed: 0,
+                unchanged: unchangedCount,
+                skippedIssues: skippedIssues,
+                warnings: issueWarnings,
+                failureMessage: String(localized: "A file in this preview needs to be reloaded before it can be renamed again. Choose Reload from Disk for that file, then reopen this tool."),
+                recoveryItems: []
+            )
+        }
 
         let scopedURLs = operations.map(\.sourceURL)
         if let accessFailure = ensureMutationDirectoryAccess(for: scopedURLs) {
@@ -115,9 +135,20 @@ extension AudioViewModel {
         do {
             execution = try await withSecurityScopedAccessForQuickImportURLs(scopedURLs) {
                 try await fileMutationCoordinator.withExclusiveAccess(to: mutationURLs) {
-                    await Task.detached(priority: .userInitiated) {
+                    let result = await Task.detached(priority: .userInitiated) {
                         executeFileRenameTransaction(operations)
                     }.value
+                    // Publish the verified move receipts (or block unresolved
+                    // recovery locations) before releasing the reservation. No
+                    // writer can start on a destination without observing the
+                    // pending recovery decision.
+                    switch result {
+                    case .success(let receipts):
+                        await self.publishMovePlaceholders(receipts)
+                    case .failure(let failure):
+                        await self.publishRecoveryBlocks(failure.recoveryItems)
+                    }
+                    return result
                 }
             }
         } catch is CancellationError {
@@ -149,21 +180,12 @@ extension AudioViewModel {
             presentFileRenameSummary(result)
             return result
 
-        case .success(let completedOperations):
-            registerMovedFiles(
-                completedOperations.map { (id: $0.id, oldURL: $0.sourceURL, newURL: $0.destinationURL) }
-            )
-            issueWarnings.append(contentsOf: await applyMovedFiles(
-                completedOperations.map { (id: $0.id, newURL: $0.destinationURL) }
-            ))
-
-            if !completedOperations.isEmpty {
-                updateEditForSelection()
-            }
+        case .success(let receipts):
+            issueWarnings.append(contentsOf: await readBackMovedFiles(receipts))
 
             let result = FileRenameResult(
                 totalTargets: totalTargets,
-                renamed: completedOperations.count,
+                renamed: receipts.count,
                 unchanged: unchangedCount,
                 skippedIssues: skippedIssues,
                 warnings: issueWarnings,
@@ -178,16 +200,56 @@ extension AudioViewModel {
     /// Applies verified recovery locations and makes unknown locations fail
     /// closed. Shared by the failure path and its orchestration regression.
     func reconcileRenameRecovery(_ items: [FileRenameRecoveryItem]) async -> [String] {
-        let changes = items.compactMap { item -> (id: UUID, oldURL: URL, newURL: URL)? in
-            guard let finalURL = item.finalURL else { return nil }
-            return (item.id, item.originalURL, finalURL)
+        guard !items.isEmpty else { return [] }
+
+        // A fresh short reservation covers classification-to-publication; the
+        // original move transaction has already ended.
+        let urls = items.flatMap { item in
+            [item.originalURL, item.intendedURL] + item.finalLocations
         }
-        registerMovedFiles(changes)
-        let warnings = await applyMovedFiles(changes.map { (id: $0.id, newURL: $0.newURL) })
-        for item in items where item.finalURL == nil {
+        let fileMutationCoordinator = self.fileMutationCoordinator
+        try? await fileMutationCoordinator.withExclusiveAccess(to: urls) {
+            await self.publishRecoveryBlocks(items)
+        }
+
+        let receipts = Self.moveReceipts(from: items)
+        // `publishRecoveryBlocks` normally records the unresolved decision while
+        // reserved. If the reservation could not be acquired, block the same
+        // identities here so publication never leaves a vanished path writable.
+        for item in items where item.verifiedLocation == nil && !hasRecoveryDecision(for: item.id) {
             markFileRequiresRefresh(id: item.id)
         }
-        return warnings
+        return await readBackMovedFiles(receipts)
+    }
+
+    /// Publishes placeholders for uniquely verified recovery locations and blocks
+    /// every ambiguous one. Caller holds the reserved affected paths.
+    func publishRecoveryBlocks(_ items: [FileRenameRecoveryItem]) async {
+        let receipts = Self.moveReceipts(from: items)
+        if !receipts.isEmpty {
+            publishMovePlaceholders(receipts)
+        }
+        for item in items where item.verifiedLocation == nil {
+            recordRecoveryDecision(
+                .recoveryLocationUnresolved(
+                    expectedIdentity: EntryIdentityKey(fingerprint: committedFile(withID: item.id)?.fileFingerprint)
+                ),
+                for: item.id
+            )
+        }
+    }
+
+    private static func moveReceipts(from items: [FileRenameRecoveryItem]) -> [FileRenameMoveReceipt] {
+        items.compactMap { item in
+            guard let verifiedLocation = item.verifiedLocation else { return nil }
+            return FileRenameMoveReceipt(
+                moveID: FileMoveID(),
+                fileID: item.id,
+                sourceURL: item.originalURL,
+                destinationURL: verifiedLocation.url,
+                entryIdentity: verifiedLocation.identity
+            )
+        }
     }
 
     private func presentFileRenameSummary(_ result: FileRenameResult) {
@@ -262,6 +324,10 @@ nonisolated func executeFileRenameTransaction(
         )
     }
 
+    let moveIDsByOperationID = Dictionary(
+        uniqueKeysWithValues: preparedOperations.map { ($0.operation.id, FileMoveID()) }
+    )
+
     var stagedOperations: [PreparedFileRenameOperation] = []
     stagedOperations.reserveCapacity(preparedOperations.count)
 
@@ -289,10 +355,22 @@ nonisolated func executeFileRenameTransaction(
 
     var finalizedOperations: [PreparedFileRenameOperation] = []
     finalizedOperations.reserveCapacity(preparedOperations.count)
+    var completedReceipts: [FileRenameMoveReceipt] = []
+    completedReceipts.reserveCapacity(preparedOperations.count)
 
     for prepared in preparedOperations {
         do {
             try fileSystem.moveItem(at: prepared.temporaryURL, to: prepared.operation.destinationURL)
+            let identity = try fileSystem.entryIdentity(at: prepared.operation.destinationURL)
+            completedReceipts.append(
+                FileRenameMoveReceipt(
+                    moveID: moveIDsByOperationID[prepared.operation.id] ?? FileMoveID(),
+                    fileID: prepared.operation.id,
+                    sourceURL: prepared.operation.sourceURL,
+                    destinationURL: prepared.operation.destinationURL,
+                    entryIdentity: identity
+                )
+            )
             finalizedOperations.append(prepared)
         } catch {
             var rollbackErrors = rollbackFinalizedRenameOperations(finalizedOperations, using: fileSystem)
@@ -311,7 +389,7 @@ nonisolated func executeFileRenameTransaction(
         }
     }
 
-    return .success(actionableOperations)
+    return .success(completedReceipts)
 }
 
 private enum FileRenameSourceValidationError: LocalizedError {
@@ -458,12 +536,19 @@ nonisolated private func makeRenameTransactionFailure(
             finalLocations.count == 1 && finalLocations[0] == prepared.operation.sourceURL
         guard !restoredOnlyToOriginal else { return nil }
 
+        var verifiedLocation: VerifiedRenameLocation?
+        if finalLocations.count == 1,
+           let identity = try? fileSystem.entryIdentity(at: finalLocations[0]) {
+            verifiedLocation = VerifiedRenameLocation(url: finalLocations[0], identity: identity)
+        }
+
         return FileRenameRecoveryItem(
             id: prepared.operation.id,
             originalURL: prepared.operation.sourceURL,
             intendedURL: prepared.operation.destinationURL,
             finalLocations: finalLocations,
-            rollbackErrors: rollbackErrors[prepared.operation.id] ?? []
+            rollbackErrors: rollbackErrors[prepared.operation.id] ?? [],
+            verifiedLocation: verifiedLocation
         )
     }
 

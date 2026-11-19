@@ -273,9 +273,21 @@ final class QuickImportCancellationTests: XCTestCase {
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
-        try await waitUntil(viewModel.files.count == 2)
+        // A loader result whose URL is not the requested scanned URL cannot
+        // donate its observation tokens to a different lexical path. The
+        // accepted file keeps its scanned identity; the mismatched result is
+        // reported as a read failure instead of being re-bound to the scanned
+        // URL (F1 coherent-observation contract).
+        try await waitUntil(
+            viewModel.files.count == 1 &&
+            viewModel.directoryMonitoringStatuses[folder.id]?.metadataReadFailureCount == 1
+        )
 
-        XCTAssertEqual(Set(viewModel.files.map(\.url)), Set([firstURL, secondURL]))
+        XCTAssertEqual(viewModel.files.map(\.url), [firstURL])
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: secondURL.path),
+            "The scanned file exists; only the mismatched loader result is rejected."
+        )
     }
 
     func testFailedFirstImportDoesNotBlockProgressivePublication() async throws {

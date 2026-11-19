@@ -14,6 +14,18 @@ struct AudioFile: Identifiable, Sendable {
     // A new token for each immutable load/transformation; copies retain it.
     let snapshotID = UUID()
 
+    /// The single coherent observation that authorizes metadata writes for this
+    /// snapshot. It is produced only by a validated full read; a display or move
+    /// projection carries `nil`. Version is nonoptional, so "write authority
+    /// without a revision" is unrepresentable.
+    nonisolated struct Observation: Sendable {
+        let fileID: UUID
+        let url: URL
+        let fingerprint: AudioFileFingerprint
+        let version: MetadataFileVersion
+        let conflictBaseline: MetadataConflictBaseline
+    }
+
     // MARK: – Basic Tags
     let url: URL
     let title: String
@@ -76,10 +88,21 @@ struct AudioFile: Identifiable, Sendable {
 
     // MARK: – Artwork
     let artworkData: Data?
-    let fileFingerprint: AudioFileFingerprint?
-    let metadataFileVersion: MetadataFileVersion?
-    let metadataConflictBaseline: MetadataConflictBaseline?
+    // The only write-authorizing value. Nil means this snapshot carries no
+    // authority (display projection, failed readback, or recovery block).
+    let observation: Observation?
+
+    // A recovery block is separate from "no write authority": display-only and
+    // preview projections have no authority but are not recovery-blocked. Move
+    // and recovery projections set this flag; a successful coherent reload
+    // produces a fresh observation with the flag false.
     let requiresMetadataRefreshBeforeWriting: Bool
+
+    // Read-only projections retained for display, previews and conflict-aware
+    // drafts. They cannot compose a new token pair with retained metadata.
+    nonisolated var fileFingerprint: AudioFileFingerprint? { observation?.fingerprint }
+    nonisolated var metadataFileVersion: MetadataFileVersion? { observation?.version }
+    nonisolated var metadataConflictBaseline: MetadataConflictBaseline? { observation?.conflictBaseline }
 
     // Stable content fingerprint for middle-list row refresh decisions.
     var middleListContentFingerprint: Int {
@@ -186,9 +209,7 @@ struct AudioFile: Identifiable, Sendable {
         grouping: String = "",
         work: String = "",
         containerValues: [MetadataFieldKey: ContainerFieldValue] = [:],
-        fileFingerprint: AudioFileFingerprint? = nil,
-        metadataFileVersion: MetadataFileVersion? = nil,
-        metadataConflictBaseline: MetadataConflictBaseline? = nil,
+        observation: Observation? = nil,
         requiresMetadataRefreshBeforeWriting: Bool = false
     ) {
         self.id = id
@@ -243,18 +264,13 @@ struct AudioFile: Identifiable, Sendable {
         self.channels = channels
         self.format = format
         self.artworkData = artworkData
-        self.fileFingerprint = fileFingerprint
-        self.metadataFileVersion = metadataFileVersion
-        self.metadataConflictBaseline = metadataConflictBaseline
+        self.observation = observation
         self.requiresMetadataRefreshBeforeWriting = requiresMetadataRefreshBeforeWriting
     }
 
-    nonisolated func withUpdatedURL(
-        _ url: URL,
-        fileFingerprint: AudioFileFingerprint?,
-        metadataFileVersion: MetadataFileVersion?,
-        requiresMetadataRefreshBeforeWriting: Bool? = nil
-    ) -> AudioFile {
+    /// Display-only projection to a new URL. Always clears write authority, so a
+    /// moved or recovery-projected snapshot can never authorize a metadata write.
+    nonisolated func projectingDisplay(to url: URL) -> AudioFile {
         AudioFile(
             id: id,
             url: url,
@@ -308,12 +324,15 @@ struct AudioFile: Identifiable, Sendable {
             grouping: grouping,
             work: work,
             containerValues: containerValues,
-            fileFingerprint: fileFingerprint,
-            metadataFileVersion: metadataFileVersion,
-            metadataConflictBaseline: metadataConflictBaseline,
-            requiresMetadataRefreshBeforeWriting:
-                requiresMetadataRefreshBeforeWriting ?? self.requiresMetadataRefreshBeforeWriting
+            observation: nil,
+            requiresMetadataRefreshBeforeWriting: true
         )
+    }
+
+    /// Display-only projection that keeps the URL. Used to apply a recovery
+    /// decision without discarding the last known labels.
+    nonisolated func projectingRecoveryState() -> AudioFile {
+        projectingDisplay(to: url)
     }
 
     // Shared helper for reading metadata values.

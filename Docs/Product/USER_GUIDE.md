@@ -216,7 +216,7 @@ AudioMator does not store copies of audio files.
 
 ## Recovery and Unusual Number Text
 
-After an uncertain rename recovery, automatic activation checks and watched-folder rescans keep metadata editing disabled. Resolve any pending Inspector draft and choose Reload from Disk to accept the file now at the displayed path. A normal background read does not establish that the original recording has been recovered.
+After a rename, a file becomes editable again automatically only when the app can read its metadata in full and confirm it is the same file entry at the new location. If that check fails, or a different file now has the name, metadata editing stays disabled even if the app can still read basic file details. Automatic activation checks and watched-folder rescans never re-enable editing. Resolve any pending Inspector draft and choose Reload from Disk to accept the file now at the displayed path; if a different file has replaced it, review that file deliberately. A renamed file with an unresolved recovery warning also cannot be renamed again until it is reloaded.
 
 Inspector number-text edits require numeric components with the current metadata engine. Existing values such as `A1/12` remain intact during unrelated edits; use Metadata Editor for raw textual values. Renumbering excludes refresh-required files before assigning numbers. Cancelling a provider, filename, CSV/text, raw-map, or renumber batch preserves an in-progress commit and stops before the next file; the summary accounts for unprocessed files.
 

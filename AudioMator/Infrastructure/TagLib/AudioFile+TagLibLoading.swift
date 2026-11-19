@@ -80,9 +80,6 @@ extension AudioFile {
         let fingerprint = try AudioFileFingerprint.capture(at: url)
         let snapshot = try TagLibMetadataManager.readSnapshot(from: url, includingAudioContent: true)
         let tag = snapshot.basic
-        self.metadataConflictBaseline = MetadataConflictBaseline(snapshot)
-        self.metadataFileVersion = snapshot.fileVersion
-        self.requiresMetadataRefreshBeforeWriting = false
 
         let numberingInventory = try? TagLibMetadataManager.numberingInventory(at: url)
         if let version = numberingInventory?.fileVersion, version != snapshot.fileVersion {
@@ -236,10 +233,18 @@ extension AudioFile {
         // AVFoundation reads above can suspend. Never publish metadata from one
         // revision paired with the fingerprint of a later revision.
         guard fingerprint == (try AudioFileFingerprint.capture(at: url)),
+              let version = snapshot.fileVersion,
               snapshot.fileVersion == (try TagLibMetadataManager.fileVersion(at: url)) else {
             throw TagLibManagerError.fileChanged
         }
-        self.fileFingerprint = fingerprint
+        self.observation = AudioFile.Observation(
+            fileID: id,
+            url: url,
+            fingerprint: fingerprint,
+            version: version,
+            conflictBaseline: MetadataConflictBaseline(snapshot)
+        )
+        self.requiresMetadataRefreshBeforeWriting = false
     }
 
     /// Reads typed container-exclusive values. Absence is represented by a

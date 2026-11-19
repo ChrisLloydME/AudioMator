@@ -38,9 +38,9 @@ then trims surrounding whitespace. An empty result is rejected. Unicode scalars 
 1. Filter out operations whose source equals destination.
 2. Choose a unique temporary name in the source directory.
 3. For each operation, revalidate the source fingerprint and move the source to its temporary name.
-4. Move each temporary name to its destination.
+4. Move each temporary name to its destination and capture the destination directory-entry identity.
 5. On any failure, roll back finalized operations in reverse order, then staged operations.
-6. If rollback is incomplete, return recovery items.
+6. If rollback is incomplete, return recovery items; a unique observed location carries the entry identity captured there.
 
 ```mermaid
 flowchart TD
@@ -61,26 +61,47 @@ flowchart TD
 - the original URL,
 - the intended URL,
 - every observed final location,
+- one verified location plus its directory-entry identity when exactly one candidate matched,
 - rollback errors.
 
 Rollback checks that a candidate at the destination still matches the expected file before moving it back. It never overwrites a file that appeared during rollback.
 
 ### After a rename
 
-Successful moves:
+Successful moves are published in two reservation phases:
 
-1. update the file IDs' URL mapping,
-2. reload each new path while retaining the reservation,
-3. recover the fingerprint and metadata revision independently,
-4. mark the snapshot refresh-required if either cannot be recovered,
-5. block version-checked metadata writes until a successful reload.
+1. **Move and placeholder publication.** The transaction returns a receipt for every
+   successful move containing the claimed file ID, the lexical old URL, the actual
+   destination URL, and the directory-entry identity captured at the end of the move.
+   While the source/destination reservation and directory access are still held, the
+   app clears the old path keys and records the new ones as one mapping update (so
+   swaps cannot transiently alias), rotates the affected quick-import URL tokens,
+   advances the affected file-model generations, invalidates in-flight watched-folder
+   scans, and publishes an authority-free display projection with a named pending
+   recovery decision. No writer can start on a destination without observing that
+   decision.
+2. **Bounded full readback.** After the union reservation is released, each
+   destination is reacquired under the coordinator and read in full with a 60-second
+   deadline (at most the existing four concurrent metadata reads). The destination
+   entry identity is checked before the read and again before the result is accepted.
+   Only a successful, same-entry full read produces a new coherent observation and
+   clears that move's pending decision. A failed or timed-out read, or a replaced
+   entry, keeps the display projection read-only and directs the user to Reload from
+   Disk; no lightweight fingerprint/version probe can restore write authority.
+
+The coordinator serializes app-owned operations only. An external program can change
+the destination between the move and the readback; the before/after entry-identity
+checks and the loader's own post-await fingerprint/version guard are the protections
+against publishing a different entry. It is an app transaction, not a filesystem-wide
+lock.
 
 ### Constraints
 
 - Existing destination files are not overwritten.
-- Sources changed after preview are rejected before any move.
+- Each source fingerprint is validated immediately before that source is staged. A stale later source can therefore fail after earlier sources have moved, so rollback may be required.
 - A rename is not a group commit: failure triggers rollback, but an incomplete rollback requires manual recovery.
 - The transaction cannot overlap metadata writes to any source or destination.
+- A file with an unresolved recovery decision cannot be renamed until a coherent reload or the recovery flow clears it; the planner only accepts a coherent observation fingerprint, never a fresh stat probe.
 
 ## Track Renumbering
 
@@ -141,7 +162,7 @@ Interactive preview UI is not covered by automated UI tests.
 
 ## Recovery Publication Ordering
 
-Incomplete rollback reconciles each recovery item by file ID. A single verified location is rebound and refreshed; an unknown or ambiguous location disables writes. Marking a file refresh-required also discards queued reloads, advances its publication generation, and invalidates in-flight watched-folder scans so older observations cannot undo that safety state.
+Incomplete rollback reconciles each recovery item by file ID. A single verified location is rebound through the same two-phase receipt/readback path; an unknown, ambiguous, or replaced location disables writes. Recording a recovery decision also discards queued reloads, advances the file's publication generation, and invalidates in-flight watched-folder scans and old-URL import tokens so older observations cannot undo that safety state. Recovery decisions are named reasons (pending move readback, unresolved recovery location, F2 journal) and are cleared only by their matching transition; automatic activation, watched-folder reads, and quick reimport clear none.
 
 Renumbering treats a committed-but-durability-uncertain outcome as a successful write with a warning, matching other metadata writers. It reports the directory-sync detail and advises against retrying the committed save.
 

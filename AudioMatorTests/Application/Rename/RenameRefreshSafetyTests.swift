@@ -5,51 +5,78 @@ import XCTest
 
 @MainActor
 final class RenameRefreshSafetyTests: XCTestCase {
+    // MARK: - Move publication and in-flight invalidation
+
     func testMoveSupersedesPendingOldURLAndLateReadCannotOverwriteNewerObservation() async throws {
-        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/pending-original.mp3"))
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameRefreshFailurePipeline(recoveredVersion: nil))
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameReadbackPipeline(mode: .fail))
         viewModel.mergeQuickImportFiles([original])
         viewModel.flushPendingMetadataReloads()
-        viewModel.replaceLoadedFile(original, refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
-                                   deferVisibleRefresh: true)
-        let newURL = URL(fileURLWithPath: "/tmp/pending-moved.mp3")
-        _ = await viewModel.applyMovedFiles([(id: original.id, newURL: newURL)])
+        viewModel.replaceLoadedFile(
+            original,
+            refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+            deferVisibleRefresh: true
+        )
+
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
         viewModel.flushPendingMetadataReloads()
-        XCTAssertEqual(viewModel.files.first?.url, newURL)
-        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+
+        XCTAssertEqual(viewModel.files.first?.url, environment.destinationURL)
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertNil(moved.observation)
+        XCTAssertNil(moved.fileFingerprint)
+        XCTAssertNil(moved.metadataFileVersion)
+        XCTAssertNil(moved.metadataConflictBaseline)
     }
 
     func testLateMoveReadbackCannotReplaceNewerGeneratedObservation() async throws {
-        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/rename-late-source.mp3"))
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
         let started = RenameReadGate()
         let release = RenameReadGate()
-        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil, beforeLoad: {
-            await started.open()
-            await release.wait()
-        })
+        let pipeline = RenameReadbackPipeline(mode: .real, started: started, release: release)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
-        let newURL = URL(fileURLWithPath: "/tmp/rename-late-destination.mp3")
-        let move = Task { await viewModel.applyMovedFiles([(id: original.id, newURL: newURL)]) }
-        let didStart = (try? await withAsyncTimeout(.seconds(3), operationName: "Test rename gate") {
-            await started.wait()
-            return true
-        }) ?? false
-        XCTAssertTrue(didStart)
-        let newer = AudioFileTestFactory.make(id: original.id, url: newURL, title: "Newer observation")
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+
+        let move = Task { await viewModel.readBackMovedFiles([receipt]) }
+        await started.wait()
+        let newer = AudioFileTestFactory.makeObserved(
+            id: original.id,
+            url: environment.destinationURL,
+            title: "Newer observation",
+            fileFingerprint: try AudioFileFingerprint.capture(at: environment.destinationURL),
+            metadataFileVersion: try MetadataTestTokens.mintedVersion(at: environment.destinationURL)
+        )
         viewModel.replaceLoadedFile(newer, refreshGeneration: viewModel.makeFileModelRefreshGeneration())
         await release.open()
         _ = await move.value
-        XCTAssertEqual(viewModel.files.first?.url, newURL)
+
+        XCTAssertEqual(viewModel.files.first?.url, environment.destinationURL)
         XCTAssertEqual(viewModel.files.first?.title, "Newer observation")
+        // A newer automatic observation wins the generation race but cannot clear
+        // the pending move decision.
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
     }
 
+    // MARK: - Queued writers observe the recovery decision
+
     func testRecoveryDecisionBlocksStaleDraftsAndAlreadyQueuedWriters() async throws {
-        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/recovery-stale-target.mp3"),
-                                                includeDefaultFileFingerprint: false)
-        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil)
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let pipeline = RenameReadbackPipeline(mode: .fail)
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
+
         let reserved = RenameReadGate()
         let release = RenameReadGate()
         let holder = Task {
@@ -69,51 +96,182 @@ final class RenameRefreshSafetyTests: XCTestCase {
         }
         let queuedCount = await viewModel.fileMutationCoordinator.queuedMutationCount
         XCTAssertEqual(queuedCount, 1)
-        viewModel.markFileRequiresRefresh(id: original.id)
+
+        viewModel.recordRecoveryDecision(
+            .recoveryLocationUnresolved(
+                expectedIdentity: EntryIdentityKey(fingerprint: original.fileFingerprint)
+            ),
+            for: original.id
+        )
         await release.open()
         try await holder.value
         guard case .failure(let reason) = await save.value else {
             return XCTFail("Queued stale intent must observe the newer recovery decision")
         }
         XCTAssertTrue(reason.contains("Reload from Disk"))
-        let rawResult = await viewModel.applyRawMetadataPropertyMaps([original.id: ["TITLE": ["Stale raw edit"]]],
-            to: [MetadataEditorTarget(file: original)])
+
+        let blocked = try XCTUnwrap(viewModel.files.first)
+        let rawResult = await viewModel.applyRawMetadataPropertyMaps(
+            [original.id: ["TITLE": ["Stale raw edit"]]],
+            to: [MetadataEditorTarget(file: blocked)]
+        )
         XCTAssertEqual(rawResult.failedTargetIDs, [original.id])
         XCTAssertEqual(pipeline.writeCount, 0)
     }
 
-    func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async {
-        let id = UUID()
-        let original = AudioFileTestFactory.make(
-            id: id,
-            url: URL(fileURLWithPath: "/tmp/original.mp3")
-        )
-        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: nil)
+    // MARK: - Failed readback is fail closed regardless of lightweight probes
+
+    func testFailedFullReadbackKeepsMovedProjectionReadOnlyEvenWhenLightweightProbesSucceed() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let pipeline = RenameReadbackPipeline(mode: .fail)
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
 
-        let warnings = await viewModel.applyMovedFiles([
-            (id: id, newURL: URL(fileURLWithPath: "/tmp/missing-renamed.mp3"))
-        ])
+        let destinationBytes = try Data(contentsOf: environment.destinationURL)
+        let warnings = await viewModel.readBackMovedFiles([receipt])
 
-        let moved = try! XCTUnwrap(viewModel.files.first)
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertEqual(moved.url, environment.destinationURL)
         XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
-        XCTAssertTrue(warnings.first?.contains("editing is paused") == true)
+        XCTAssertNil(moved.observation)
+        XCTAssertNil(moved.fileFingerprint)
+        XCTAssertNil(moved.metadataFileVersion)
+        XCTAssertNil(moved.metadataConflictBaseline)
+        XCTAssertTrue(warnings.first?.contains("Reload from Disk") == true || warnings.first?.contains("couldn’t be reloaded") == true)
 
         var edit = SingleFileEditModel(from: moved)
         edit.title = "Must not write"
-        let result = await viewModel.persistMetadataEdit(edit, to: moved)
+        guard case .failure = await viewModel.persistMetadataEdit(edit, to: moved) else {
+            return XCTFail("Inspector save must fail closed after a failed full readback")
+        }
+        let rawResult = await viewModel.applyRawMetadataPropertyMaps(
+            [moved.id: ["TITLE": ["Must not write"]]],
+            to: [MetadataEditorTarget(file: moved)]
+        )
+        XCTAssertEqual(rawResult.failedTargetIDs, [moved.id])
+        XCTAssertEqual(pipeline.writeCount, 0)
+        XCTAssertEqual(try Data(contentsOf: environment.destinationURL), destinationBytes)
+    }
 
-        guard case .failure(let reason) = result else {
+    func testFailedRenameRefreshDisablesMetadataWritesWhenRevisionCannotBeRecovered() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let pipeline = RenameReadbackPipeline(mode: .fail)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+
+        let warnings = await viewModel.readBackMovedFiles([receipt])
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertFalse(warnings.isEmpty)
+
+        var edit = SingleFileEditModel(from: moved)
+        edit.title = "Must not write"
+        guard case .failure(let reason) = await viewModel.persistMetadataEdit(edit, to: moved) else {
             return XCTFail("Expected a refresh-required failure")
         }
         XCTAssertTrue(reason.contains("Reload from Disk"))
         XCTAssertEqual(pipeline.writeCount, 0)
     }
 
+    func testReceiptMatchedReadbackRestoresAuthorityOnlyForItsMove() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let pipeline = RenameReadbackPipeline(mode: .real)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+
+        let warnings = await viewModel.readBackMovedFiles([receipt])
+        XCTAssertTrue(warnings.isEmpty)
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertEqual(moved.url, environment.destinationURL)
+        XCTAssertFalse(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertNotNil(moved.observation)
+        XCTAssertFalse(viewModel.hasRecoveryDecision(for: moved.id))
+
+        var edit = SingleFileEditModel(from: moved)
+        edit.title = "Verified move write"
+        guard case .success = await viewModel.persistMetadataEdit(edit, to: moved, comparedTo: moved) else {
+            return XCTFail("A receipt-matched readback must restore metadata write authority")
+        }
+        XCTAssertEqual(pipeline.writeCount, 1)
+        XCTAssertNotNil(pipeline.lastExpectedVersion)
+    }
+
+    func testReadbackAcrossSamePathReplacementStaysBlocked() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let started = RenameReadGate()
+        let release = RenameReadGate()
+        let pipeline = RenameReadbackPipeline(mode: .real, started: started, release: release)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+
+        let readback = Task { await viewModel.readBackMovedFiles([receipt]) }
+        await started.wait()
+        // Replace the directory entry while the read is in flight.
+        try FileManager.default.removeItem(at: environment.destinationURL)
+        try Data("different entry".utf8).write(to: environment.destinationURL)
+        let replacementBytes = try Data(contentsOf: environment.destinationURL)
+        await release.open()
+        _ = await readback.value
+
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertNil(moved.observation)
+        XCTAssertEqual(try Data(contentsOf: environment.destinationURL), replacementBytes)
+    }
+
+    func testReadbackTimeoutKeepsBlockedAndLateLoadCannotPublish() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let started = RenameReadGate()
+        let release = RenameReadGate()
+        let pipeline = RenameReadbackPipeline(mode: .real, started: started, release: release)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let viewModel = AudioViewModelTestFactory.make(
+            metadataPipeline: pipeline,
+            moveReadbackTimeout: .milliseconds(100)
+        )
+        viewModel.mergeQuickImportFiles([original])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+
+        let warnings = await viewModel.readBackMovedFiles([receipt])
+        XCTAssertFalse(warnings.isEmpty)
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+
+        await release.open()
+        try await Task.sleep(for: .milliseconds(300))
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertNil(moved.observation)
+        XCTAssertTrue(viewModel.hasRecoveryDecision(for: moved.id))
+    }
+
+    // MARK: - Recovery decisions survive automatic observations
+
     func testRefreshRequiredRecoveryCannotBeUndoneByQueuedOrOlderReload() throws {
-        let original = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/recovery.mp3"))
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameRefreshFailurePipeline(recoveredVersion: nil))
+        let original = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/recovery.mp3"))
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameReadbackPipeline(mode: .fail))
         viewModel.mergeQuickImportFiles([original])
         viewModel.flushPendingMetadataReloads()
         let generation = viewModel.makeFileModelRefreshGeneration()
@@ -128,68 +286,161 @@ final class RenameRefreshSafetyTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
     }
 
-    func testFailedFullRefreshRetainsWriteSafetyWhenLightweightRevisionRecovers() async throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorRenameRefresh-\(UUID().uuidString)", isDirectory: true)
-        let destination = directory.appendingPathComponent("renamed.mp3")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data("renamed payload".utf8).write(to: destination)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let version = try TagLibMetadataManager.fileVersion(at: destination)
-        let id = UUID()
-        let original = AudioFileTestFactory.make(
-            id: id,
-            url: directory.appendingPathComponent("original.mp3")
-        )
-        let pipeline = RenameRefreshFailurePipeline(recoveredVersion: version)
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+    func testMoveReadbackDoesNotClearOlderRecoveryDecision() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RenameReadbackPipeline(mode: .real))
         viewModel.mergeQuickImportFiles([original])
+        viewModel.markFileRequiresRefresh(id: original.id)
 
-        let warnings = await viewModel.applyMovedFiles([(id: id, newURL: destination)])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+        _ = await viewModel.readBackMovedFiles([receipt])
 
         let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertTrue(moved.requiresMetadataRefreshBeforeWriting)
+        XCTAssertTrue(viewModel.hasRecoveryDecision(for: moved.id))
+    }
+
+    func testExplicitReloadAfterMoveReadbackFailureRestoresWritableObservation() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let original = try observedFile(at: environment.sourceURL, title: "Original")
+        let pipeline = RenameReadbackPipeline(mode: .fail)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.setSelectedAudioIDs([original.id])
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.publishMovePlaceholders([receipt])
+        _ = await viewModel.readBackMovedFiles([receipt])
+        XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+
+        pipeline.setMode(.real)
+        await viewModel.reloadSelectedFilesFromDisk()
+
+        let moved = try XCTUnwrap(viewModel.files.first)
+        XCTAssertEqual(moved.url, environment.destinationURL)
+        XCTAssertNotNil(moved.observation)
         XCTAssertFalse(moved.requiresMetadataRefreshBeforeWriting)
-        XCTAssertNotNil(moved.fileFingerprint)
-        XCTAssertEqual(moved.metadataFileVersion, version)
-        XCTAssertTrue(warnings.first?.contains("metadata couldn’t be reloaded") == true)
+        XCTAssertFalse(viewModel.hasRecoveryDecision(for: moved.id))
+    }
+
+    // MARK: - Planner and preflight
+
+    func testBlockedSourceIsSourceUnavailableAndCannotBePlanned() throws {
+        let displayOnly = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/blocked-source.flac"),
+            title: "Blocked",
+            includeDefaultFileFingerprint: false
+        )
+        let plan = makeFileRenamePlan(template: "{{title}}", targetFiles: [displayOnly])
+        XCTAssertEqual(plan.rows.first?.status, .sourceUnavailable)
+        XCTAssertTrue(plan.operations.isEmpty)
+        XCTAssertFalse(plan.canApply)
+    }
+
+    // MARK: - Helpers
+
+    private struct Environment {
+        let sourceURL: URL
+        let destinationURL: URL
+    }
+
+    private func makeEnvironment() throws -> Environment {
+        let source = try MetadataTestTokens.makeFixtureCopy()
+        let destination = source.deletingLastPathComponent()
+            .appendingPathComponent("renamed-\(UUID().uuidString.prefix(8)).flac")
+        return Environment(sourceURL: source, destinationURL: destination)
+    }
+
+    private func observedFile(at url: URL, title: String) throws -> AudioFile {
+        AudioFileTestFactory.makeObserved(
+            url: url,
+            title: title,
+            fileFingerprint: try AudioFileFingerprint.capture(at: url),
+            metadataFileVersion: try MetadataTestTokens.mintedVersion(at: url)
+        )
+    }
+
+    private func makeReceipt(
+        for file: AudioFile,
+        from sourceURL: URL,
+        to destinationURL: URL
+    ) throws -> FileRenameMoveReceipt {
+        // The receipt carries the directory-entry identity observed at the end
+        // of the move, which is the destination entry. Test fixtures simulate a
+        // completed move by copying the source to the destination first.
+        FileRenameMoveReceipt(
+            moveID: FileMoveID(),
+            fileID: file.id,
+            sourceURL: sourceURL,
+            destinationURL: destinationURL,
+            entryIdentity: try FileEntryIdentityCapture.capture(at: destinationURL)
+        )
     }
 }
 
-private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchecked Sendable {
-    private let recoveredVersion: MetadataFileVersion?
-    private let beforeLoad: (@Sendable () async -> Void)?
+// MARK: - Recording pipeline
+
+private final class RenameReadbackPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    enum LoadMode {
+        case fail
+        case real
+    }
+
     private let lock = NSLock()
+    private var mode: LoadMode
     private var recordedWriteCount = 0
+    private var recordedExpectedVersions: [MetadataFileVersion?] = []
+    private let started: RenameReadGate?
+    private let release: RenameReadGate?
 
-    init(recoveredVersion: MetadataFileVersion?, beforeLoad: (@Sendable () async -> Void)? = nil) {
-        self.recoveredVersion = recoveredVersion
-        self.beforeLoad = beforeLoad
+    init(mode: LoadMode, started: RenameReadGate? = nil, release: RenameReadGate? = nil) {
+        self.mode = mode
+        self.started = started
+        self.release = release
     }
 
-    var writeCount: Int {
-        lock.withLock { recordedWriteCount }
-    }
+    var writeCount: Int { lock.withLock { recordedWriteCount } }
+    var lastExpectedVersion: MetadataFileVersion? { lock.withLock { recordedExpectedVersions.last ?? nil } }
+
+    func setMode(_ mode: LoadMode) { lock.withLock { self.mode = mode } }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        await beforeLoad?()
-        throw CocoaError(.fileReadCorruptFile)
+        if let started { await started.open() }
+        if let release { await release.wait() }
+        let mode = lock.withLock { self.mode }
+        switch mode {
+        case .fail:
+            throw CocoaError(.fileReadCorruptFile)
+        case .real:
+            return try await TagLibAudioMetadataPipeline().loadAudioFile(at: url, id: id)
+        }
+    }
+
+    nonisolated func conflictSnapshot(for url: URL) throws -> MetadataSnapshot {
+        try TagLibMetadataManager.readSnapshot(from: url, includingAudioContent: true)
     }
 
     nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
-        guard let recoveredVersion else { throw CocoaError(.fileReadUnknown) }
-        return recoveredVersion
+        try TagLibMetadataManager.fileVersion(at: url)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }
-    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap { [:] }
+
+    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
+        try TagLibAudioMetadataPipeline().rawMetadataValueMap(for: url)
+    }
 
     nonisolated func writeMetadata(
         _ edit: MetadataEditPayload,
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        lock.withLock { recordedWriteCount += 1 }
+        recordWrite(expectedVersion)
         return AudioMetadataWriteResult(warnings: [])
     }
 
@@ -198,7 +449,7 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        lock.withLock { recordedWriteCount += 1 }
+        recordWrite(expectedVersion)
         return AudioMetadataWriteResult(warnings: [])
     }
 
@@ -206,17 +457,27 @@ private final class RenameRefreshFailurePipeline: AudioMetadataPipeline, @unchec
         at url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
+        recordWrite(expectedVersion)
+        return AudioMetadataWriteResult(warnings: [])
+    }
+
+    private nonisolated func recordWrite(_ version: MetadataFileVersion?) {
+        lock.withLock {
+            recordedWriteCount += 1
+            recordedExpectedVersions.append(version)
+        }
     }
 }
 
 private actor RenameReadGate {
     private var opened = false
     private var pending: [CheckedContinuation<Void, Never>] = []
+
     func wait() async {
         guard !opened else { return }
         await withCheckedContinuation { pending.append($0) }
     }
+
     func open() {
         opened = true
         let waiters = pending

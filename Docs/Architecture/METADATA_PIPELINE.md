@@ -61,6 +61,7 @@ Key rules:
 - Technical values fall back to AVFoundation only when the TagLib value is non-positive or missing.
 - Artwork bytes come from the snapshot's editable projection.
 - The loader captures a fingerprint before the read and revalidates the fingerprint and the package file version after all awaits. A mismatch throws `fileChanged`; the adapter retries a **read** once, never a write.
+- On success the loader is the only production route that constructs the write-authorizing observation (`AudioFile.Observation`): requested ID, lexical URL, nonoptional package version, conflict baseline, and the verified fingerprint, all from that one read. A display or rename/recovery projection carries no observation; metadata writes require a coherent observation plus a clear recovery decision.
 - The snapshot also stores a `MetadataConflictBaseline` containing the raw value map, structured ID3/MP4/ASF/artwork/comment/lyrics projections, and optional package audio-content identity. `TagLibNumberingProjection` converts the package number inventory into displayed number/total/text.
 
 ### Missing, unsupported, and malformed metadata
@@ -146,7 +147,7 @@ The dedicated Inspector/provider/exchange models retain Album, Artist and Catalo
 
 ## Conflict Resolution
 
-`MetadataConflictResolver.writeMetadata` runs inside the file mutation reservation:
+`MetadataConflictResolver.writeMetadata` runs inside the file mutation reservation and consumes one observation, so the conflict baseline, fingerprint, and package version always share provenance. The equal-version fast path is safe for that reason; a changed revision still requires verified audio identity before rebasing:
 
 1. Validate that the path, device, and inode still match the expected snapshot.
 2. Read the current package file version.

@@ -126,6 +126,7 @@ Existing protections:
 - All writes go through the package's expected-version and atomic-commit path.
 - Semantic writes preflight exact field capabilities.
 - File identity (path/device/inode) and revision are revalidated inside the mutation reservation.
+- Write authority is a single coherent observation from a validated full read. A rename publishes an authority-free display projection while reserved; only a same-entry bounded full readback restores editing. A failed full readback is fail closed even if stat/version probes succeed, so a changed destination cannot be written from an old preview.
 - Conflict policies never clear the expected version; filesystem-identity-changing replacements are refused. Changed revisions also require verified package audio continuity before automatic rebasing.
 - A failed write leaves the snapshot and draft unchanged.
 - A successful write with a failed reload is reported as committed-with-warning.
@@ -217,7 +218,7 @@ Issue-log persistence is best effort and never traps on an I/O failure. Each unr
 
 ## Audio-Content Identity Limits
 
-A session recovery decision is sticky across automatic reads and is rechecked by the shared executor after reservation acquisition, including writes submitted with stale editor targets. Explicit Reload from Disk is the recovery path after resolving pending drafts.
+Session recovery decisions are sticky named reasons across automatic reads and are rechecked by the shared executor after reservation acquisition, including writes submitted with stale editor targets. Explicit Reload from Disk is the recovery path after resolving pending drafts: it clears a pending move decision for the same URL and a resolved-path failure only when the full read observed the same device/inode; a successor entry requires explicit review. Automatic activation, watched-folder reads, and quick reimport clear nothing, and the F2 journal decision survives normal reload.
 
 Path/device/inode continuity does not establish unchanged audio content. The loader requests the package's optional audio-content identity. When a revision changes, automatic typed/raw conflict resolution and Metadata Editor baseline refresh require matching non-nil audio identities; the final write retains the original audio token and exact current revision. Different PCM at the same inode is rejected under every policy. Formats or layouts without package audio-identity support require explicit reload after a revision change. Unchanged exact revisions remain writable. Tokens are session-only and hashing adds streaming I/O; optimistic checks do not eliminate the filesystem check/rename race.
 

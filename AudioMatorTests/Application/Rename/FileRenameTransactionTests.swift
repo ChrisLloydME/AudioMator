@@ -280,6 +280,18 @@ private final class DestinationReplacingRenameFileSystem: FileRenameFileSystem, 
         }
     }
 
+    func entryIdentity(at url: URL) throws -> RenameEntryIdentity {
+        let fingerprint = try fingerprint(at: url)
+        return RenameEntryIdentity(
+            device: fingerprint.fileSystemNumber,
+            inode: fingerprint.fileNumber,
+            kind: .regular,
+            size: fingerprint.fileSize,
+            modificationDate: fingerprint.contentModificationDate,
+            creationDate: nil
+        )
+    }
+
     func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
         try lock.withLock {
             if destinationURL == secondDestinationURL {
@@ -367,6 +379,18 @@ private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unche
             }
             return try XCTUnwrap(fingerprintsByPath[url.path])
         }
+    }
+
+    func entryIdentity(at url: URL) throws -> RenameEntryIdentity {
+        let fingerprint = try fingerprint(at: url)
+        return RenameEntryIdentity(
+            device: fingerprint.fileSystemNumber,
+            inode: fingerprint.fileNumber,
+            kind: .regular,
+            size: fingerprint.fileSize,
+            modificationDate: fingerprint.contentModificationDate,
+            creationDate: nil
+        )
     }
 
     func moveItem(at sourceURL: URL, to destinationURL: URL) throws {

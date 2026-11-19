@@ -46,6 +46,7 @@ extension AudioViewModel {
                 updateMetadataSaveProgress(subtitle: target.url.lastPathComponent, completedUnitCount: index)
             }
             do {
+                let initialGeneration = fileModelRefreshGeneration(for: target.id)
                 try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) {
                     let refreshed = try await withAsyncTimeout(
                         .seconds(60), operationName: String(localized: "Reloading the file"), priority: .utility
@@ -63,12 +64,12 @@ extension AudioViewModel {
                     // Apply while still reserved, and reject a late read if the
                     // source was removed, moved or independently refreshed.
                     await MainActor.run {
-                        guard let current = self.files.first(where: { $0.id == target.id }),
+                        guard let current = self.committedFile(withID: target.id),
                               current.url == target.url,
-                              current.snapshotID == target.snapshotID else { return }
+                              self.fileModelRefreshGeneration(for: target.id) == initialGeneration else { return }
                         self.replaceLoadedFile(
                             refreshed, refreshGeneration: self.makeFileModelRefreshGeneration(),
-                            explicitlyRecover: forceReload
+                            clearing: forceReload ? .explicitAuthorizedReload : nil
                         )
                     }
                 }

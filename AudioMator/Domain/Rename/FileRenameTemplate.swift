@@ -296,7 +296,9 @@ private struct FileRenamePlanBuilder {
             let sourceKey = fileRenameCollisionKey(for: file.url)
             let destinationKey = fileRenameCollisionKey(for: destinationURL)
             let destinationExists = fileManager.fileExists(atPath: destinationURL.path)
-            let expectedFileFingerprint = file.fileFingerprint ?? (try? AudioFileFingerprint.capture(at: file.url))
+            // A coherent observation is the only source of move authority. The
+            // planner never revives a blocked or display-only source with a stat probe.
+            let expectedFileFingerprint = file.fileFingerprint
 
             let status: FileRenamePreviewStatus
             if sourcePath == destinationPath {

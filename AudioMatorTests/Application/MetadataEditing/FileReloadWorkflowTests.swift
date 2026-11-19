@@ -11,10 +11,19 @@ final class FileReloadWorkflowTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("recovery.mp3")
         try Data("controlled revision".utf8).write(to: url)
-        let original = AudioFileTestFactory.make(url: url, title: "Original")
-        let refreshed = AudioFileTestFactory.make(id: original.id, url: url, title: "Disk",
+        let original = AudioFileTestFactory.makeObserved(
+            url: url,
+            title: "Original",
             fileFingerprint: try AudioFileFingerprint.capture(at: url),
-            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url))
+            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url)
+        )
+        let refreshed = AudioFileTestFactory.makeObserved(
+            id: original.id,
+            url: url,
+            title: "Disk",
+            fileFingerprint: try AudioFileFingerprint.capture(at: url),
+            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url)
+        )
         let pipeline = FileReloadTestPipeline(files: [refreshed])
         let viewModel = selectedViewModel(original, pipeline: pipeline)
         viewModel.markFileRequiresRefresh(id: original.id)
@@ -64,7 +73,10 @@ final class FileReloadWorkflowTests: XCTestCase {
     }
 
     func testActivationReloadPreservesDirtyDraftAndItsOriginalRevision() async {
-        let original = AudioFileTestFactory.make(title: "Original")
+        let original = AudioFileTestFactory.make(
+            title: "Original",
+            includeDefaultFileFingerprint: false
+        )
         let refreshed = AudioFileTestFactory.make(id: original.id, url: original.url, title: "External")
         let pipeline = FileReloadTestPipeline(files: [refreshed])
         let viewModel = selectedViewModel(original, pipeline: pipeline)
@@ -85,8 +97,9 @@ final class FileReloadWorkflowTests: XCTestCase {
         let url = directory.appendingPathComponent("revision.mp3")
         try Data("revision fixture".utf8).write(to: url)
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
-        let original = AudioFileTestFactory.make(url: url, title: "Original").withUpdatedURL(
-            url,
+        let original = AudioFileTestFactory.makeObserved(
+            url: url,
+            title: "Original",
             fileFingerprint: try AudioFileFingerprint.capture(at: url),
             metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url)
         )

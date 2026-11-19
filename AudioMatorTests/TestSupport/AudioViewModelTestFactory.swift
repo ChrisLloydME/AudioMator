@@ -12,7 +12,8 @@ enum AudioViewModelTestFactory {
         metadataPipeline: any AudioMetadataPipeline,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
         artworkLookupOperationTimeout: Duration = .seconds(30),
-        saveIssueLogStore: SaveIssueLogStore? = nil
+        saveIssueLogStore: SaveIssueLogStore? = nil,
+        moveReadbackTimeout: Duration = .seconds(60)
     ) -> AudioViewModel {
         let suiteName = "AudioMatorTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -23,7 +24,8 @@ enum AudioViewModelTestFactory {
             saveIssueLogStore: saveIssueLogStore ?? makeIssueLogStore(),
             artworkLookupService: artworkLookupService,
             artworkLookupOperationTimeout: artworkLookupOperationTimeout,
-            conflictPolicyDefaults: defaults
+            conflictPolicyDefaults: defaults,
+            moveReadbackTimeout: moveReadbackTimeout
         )
     }
 

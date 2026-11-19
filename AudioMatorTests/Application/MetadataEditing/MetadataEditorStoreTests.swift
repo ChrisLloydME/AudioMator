@@ -6,7 +6,9 @@ import TagLibAudioMetadata
 @MainActor
 final class MetadataEditorStoreTests: XCTestCase {
     func testFriendlyNamesNeverRedirectExistingRawDateOrAliasKeys() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/aliases.m4a"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/aliases.m4a"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
             file.url: ["DATE": "2004", "YEAR": "Keep", "ALBUM ARTIST": "Original"]
         ]))
@@ -28,10 +30,14 @@ final class MetadataEditorStoreTests: XCTestCase {
         let firstFile = AudioFileTestFactory.make(
             id: firstID,
             url: URL(fileURLWithPath: "/tmp/01 - First.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let secondFile = AudioFileTestFactory.make(
             id: secondID,
             url: URL(fileURLWithPath: "/tmp/02 - Second.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let pipeline = MockMetadataEditorPipeline(propertyMapsByURL: [
             firstFile.url: ["TITLE": "First", "ALBUM": "Shared Album"],
@@ -52,8 +58,12 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testUpsertFieldPreservesExactValuesAndAppliesToEveryTarget() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["TITLE": "First"],
@@ -72,7 +82,9 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testUpsertFieldIgnoresEmptyKeysButPreservesWhitespaceAndEmptyValueBoundaries() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let initialMap = ["TITLE": "Original"]
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [file.url: initialMap])
@@ -89,8 +101,12 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testDeleteSelectedFieldRemovesFieldFromEveryTargetAndRealignsSelection() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["ALBUM": "Album", "TITLE": "First"],
@@ -111,7 +127,9 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testDeleteSelectedFieldRemovesMultipleSelectedFields() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 file.url: ["ALBUM": "Album", "ARTIST": "Artist", "TITLE": "Title"]
@@ -130,8 +148,12 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testTextUtilityPreviewAndApplySupportMultipleFilesAndFields() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["TITLE": " first ", "ARTIST": " artist "],
@@ -160,7 +182,9 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testTextUtilityApplyPreservesInsertedLeadingAndTrailingSpaces() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 file.url: ["TITLE": "Title", "ARTIST": "Artist"]
@@ -184,7 +208,9 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testDiscardChangesRestoresOriginalMaps() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let originalMap = ["TITLE": "Original"]
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [file.url: originalMap])
@@ -203,8 +229,12 @@ final class MetadataEditorStoreTests: XCTestCase {
     }
 
     func testRecordingPartialApplyLeavesOnlyFailedTargetsPending() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["TITLE": "First"],
@@ -296,10 +326,14 @@ final class MetadataEditorStoreTests: XCTestCase {
         let readableFile = AudioFileTestFactory.make(
             id: UUID(),
             url: URL(fileURLWithPath: "/tmp/readable.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let unreadableFile = AudioFileTestFactory.make(
             id: UUID(),
             url: URL(fileURLWithPath: "/tmp/unreadable.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(
@@ -362,7 +396,9 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        await AudioFileTestFactory.make(id: id, url: url)
+        await AudioFileTestFactory.make(id: id, url: url,
+            includeDefaultFileFingerprint: false
+        )
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {

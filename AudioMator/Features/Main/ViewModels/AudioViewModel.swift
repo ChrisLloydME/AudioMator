@@ -193,8 +193,10 @@ final class AudioViewModel: ObservableObject {
     private var nextFileModelRefreshGeneration: UInt64 = 0
     private var appliedFileModelRefreshGenerations: [AudioFile.ID: UInt64] = [:]
     private var pendingMetadataReloadsByID: [AudioFile.ID: (file: AudioFile, generation: UInt64)] = [:]
-    // Recovery decisions outlive individual metadata observations.
-    private var refreshRequiredFileIDs: Set<AudioFile.ID> = []
+    // Recovery decisions outlive individual metadata observations. They are
+    // cleared only through named FileRecoveryClearance transitions.
+    private var recoveryDecisionsByID: [AudioFile.ID: Set<FileRecoveryDecision>] = [:]
+    let moveReadbackTimeout: Duration
     private var lastMetadataReloadPublication = ContinuousClock.now
     var lastMetadataProgressPublication = ContinuousClock.now
 
@@ -214,7 +216,8 @@ final class AudioViewModel: ObservableObject {
         saveIssueLogStore: SaveIssueLogStore,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
         artworkLookupOperationTimeout: Duration = .seconds(30),
-        conflictPolicyDefaults: UserDefaults = .standard
+        conflictPolicyDefaults: UserDefaults = .standard,
+        moveReadbackTimeout: Duration = .seconds(60)
     ) {
         self.watchedFolderStore = watchedFolderStore
         self.fileAccessGrantStore = fileAccessGrantStore
@@ -223,6 +226,7 @@ final class AudioViewModel: ObservableObject {
         self.saveIssueLogStore = saveIssueLogStore
         self.artworkLookupService = artworkLookupService
         self.artworkLookupOperationTimeout = artworkLookupOperationTimeout
+        self.moveReadbackTimeout = moveReadbackTimeout
 
         let restoredFolders = watchedFolderStore.loadFolders()
         self.watchedFolders = restoredFolders
@@ -707,33 +711,44 @@ final class AudioViewModel: ObservableObject {
         replaceLoadedFile(reloaded, refreshGeneration: makeFileModelRefreshGeneration())
     }
 
-    private func preservingRecoveryState(_ file: AudioFile) -> AudioFile {
-        if file.requiresMetadataRefreshBeforeWriting { refreshRequiredFileIDs.insert(file.id) }
-        guard refreshRequiredFileIDs.contains(file.id) else { return file }
-        if file.requiresMetadataRefreshBeforeWriting, file.fileFingerprint == nil, file.metadataFileVersion == nil {
-            return file
-        }
-        return file.withUpdatedURL(file.url, fileFingerprint: nil, metadataFileVersion: nil,
-                                   requiresMetadataRefreshBeforeWriting: true)
+    private func applyingRecoveryProjection(_ file: AudioFile) -> AudioFile {
+        guard hasRecoveryDecision(for: file.id) else { return file }
+        return file.projectingRecoveryState()
+    }
+
+    func hasRecoveryDecision(for id: AudioFile.ID) -> Bool {
+        !(recoveryDecisionsByID[id]?.isEmpty ?? true)
+    }
+
+    func recoveryDecision(for id: AudioFile.ID) -> FileRecoveryDecision? {
+        recoveryDecisionsByID[id]?.first
     }
 
     /// All observations, including scans, must be accepted before publication.
     private func acceptFileObservation(
-        _ file: AudioFile, generation: UInt64, explicitlyRecover: Bool = false
+        _ file: AudioFile, generation: UInt64, clearing: FileRecoveryClearance? = nil
     ) -> AudioFile? {
         guard generation > (appliedFileModelRefreshGenerations[file.id] ?? 0) else { return nil }
         appliedFileModelRefreshGenerations[file.id] = generation
         pendingMetadataReloadsByID.removeValue(forKey: file.id)
-        if explicitlyRecover, file.fileFingerprint != nil, file.metadataFileVersion != nil,
-           !file.requiresMetadataRefreshBeforeWriting {
-            refreshRequiredFileIDs.remove(file.id)
+        if let clearing, let observation = file.observation {
+            clearRecoveryDecisions(for: file.id, clearing: clearing, observation: observation)
         }
-        return preservingRecoveryState(file)
+        return applyingRecoveryProjection(file)
     }
 
     func makeFileModelRefreshGeneration() -> UInt64 {
         nextFileModelRefreshGeneration &+= 1
         return nextFileModelRefreshGeneration
+    }
+
+    /// Accepted-observation generation for one file.
+    ///
+    /// Display and recovery projections create a new `snapshotID`, so a late
+    /// reload cannot compare snapshot tokens to decide whether a newer
+    /// observation landed. This monotonic generation is the stable comparison.
+    func fileModelRefreshGeneration(for id: AudioFile.ID) -> UInt64 {
+        appliedFileModelRefreshGenerations[id] ?? 0
     }
 
     /// Applies mutation reloads monotonically. An older mutation can finish its
@@ -743,10 +758,10 @@ final class AudioViewModel: ObservableObject {
         _ reloaded: AudioFile,
         refreshGeneration: UInt64,
         deferVisibleRefresh: Bool = false,
-        explicitlyRecover: Bool = false
+        clearing: FileRecoveryClearance? = nil
     ) -> Bool {
         guard let accepted = acceptFileObservation(
-            reloaded, generation: refreshGeneration, explicitlyRecover: explicitlyRecover
+            reloaded, generation: refreshGeneration, clearing: clearing
         ) else { return false }
         invalidateWatchedFolderScans(containingFileID: accepted.id)
         if deferVisibleRefresh {
@@ -765,39 +780,73 @@ final class AudioViewModel: ObservableObject {
     /// could not establish a single verified location. The HUD lists the
     /// observed locations for manual recovery.
     func markFileRequiresRefresh(id: AudioFile.ID) {
-        refreshRequiredFileIDs.insert(id)
+        let expectedIdentity = EntryIdentityKey(
+            fingerprint: committedFile(withID: id)?.fileFingerprint
+        )
+        recordRecoveryDecision(
+            .recoveryLocationUnresolved(expectedIdentity: expectedIdentity),
+            for: id
+        )
+    }
+
+    /// Records a named recovery reason, invalidates in-flight work for the file and
+    /// publishes an authority-free projection to every source membership.
+    func recordRecoveryDecision(_ decision: FileRecoveryDecision, for id: AudioFile.ID) {
+        recoveryDecisionsByID[id, default: []].insert(decision)
         invalidateWatchedFolderScans(containingFileID: id)
         pendingMetadataReloadsByID.removeValue(forKey: id)
         appliedFileModelRefreshGenerations[id] = makeFileModelRefreshGeneration()
-        func refresh(_ file: AudioFile) -> AudioFile {
-            file.withUpdatedURL(
-                file.url,
-                fileFingerprint: nil,
-                metadataFileVersion: nil,
-                requiresMetadataRefreshBeforeWriting: true
-            )
-        }
-
-        if let index = quickImportFiles.firstIndex(where: { $0.id == id }) {
-            quickImportFiles[index] = refresh(quickImportFiles[index])
-        }
-        for folderID in watchedFolderFiles.keys {
-            guard var folderFiles = watchedFolderFiles[folderID],
-                  let index = folderFiles.firstIndex(where: { $0.id == id }) else { continue }
-            folderFiles[index] = refresh(folderFiles[index])
-            watchedFolderFiles[folderID] = folderFiles
+        if let current = committedFile(withID: id) {
+            replaceSourceMembershipEntry(current.projectingRecoveryState())
         }
         rebuildVisibleFiles()
     }
 
     func validateMetadataWriteRecovery(id: AudioFile.ID, url: URL) throws {
-        guard !refreshRequiredFileIDs.contains(id) else {
+        // A recovery decision blocks every route, including a queued writer that
+        // acquires the reservation after the decision was recorded. Display
+        // projections are published together with a decision, so this is the
+        // single production guard.
+        guard !hasRecoveryDecision(for: id) else {
             throw AudioFileFingerprintValidationError.recoveryRequired(fileName: url.lastPathComponent)
         }
     }
 
     func loadedFile(withID id: AudioFile.ID) -> AudioFile? {
-        pendingMetadataReloadsByID[id]?.file ?? visibleFilesByID[id]
+        committedFile(withID: id) ?? visibleFilesByID[id]
+    }
+
+    /// Source-membership lookup independent of the visible sidebar projection.
+    /// Minimal F3-a seam; F3 replaces the linear scans with its membership index.
+    func committedFile(withID id: AudioFile.ID) -> AudioFile? {
+        if let pending = pendingMetadataReloadsByID[id]?.file { return pending }
+        if let file = quickImportFiles.first(where: { $0.id == id }) { return file }
+        for folderID in watchedFolderFiles.keys {
+            if let file = watchedFolderFiles[folderID]?.first(where: { $0.id == id }) {
+                return file
+            }
+        }
+        return nil
+    }
+
+    /// Updates every source membership that already contains the ID. Never adds a
+    /// missing ID (no resurrection).
+    @discardableResult
+    func replaceSourceMembershipEntry(_ replacement: AudioFile) -> Bool {
+        var updated = false
+        if let index = quickImportFiles.firstIndex(where: { $0.id == replacement.id }) {
+            quickImportFiles[index] = replacement
+            updated = true
+        }
+        for folderID in watchedFolderFiles.keys {
+            guard var folderFiles = watchedFolderFiles[folderID],
+                  let index = folderFiles.firstIndex(where: { $0.id == replacement.id })
+            else { continue }
+            folderFiles[index] = replacement
+            watchedFolderFiles[folderID] = folderFiles
+            updated = true
+        }
+        return updated
     }
 
     func flushPendingMetadataReloads() {
@@ -805,7 +854,7 @@ final class AudioViewModel: ObservableObject {
         guard !pendingMetadataReloadsByID.isEmpty else { return }
         let reloadedFiles = pendingMetadataReloadsByID.values.compactMap { pending in
             appliedFileModelRefreshGenerations[pending.file.id] == pending.generation
-                ? preservingRecoveryState(pending.file) : nil
+                ? applyingRecoveryProjection(pending.file) : nil
         }
         pendingMetadataReloadsByID.removeAll(keepingCapacity: true)
         publishAcceptedFiles(reloadedFiles)
@@ -827,67 +876,6 @@ final class AudioViewModel: ObservableObject {
     var lastAutomaticReloadFailures: [SelectedFileReloadFailure] = []
 
     var artworkImportTask: Task<Void, Never>?
-
-    func applyMovedFiles(_ changes: [(id: UUID, newURL: URL)]) async -> [String] {
-        guard !changes.isEmpty else { return [] }
-
-        let loadedFilesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        var refreshGenerations: [UUID: UInt64] = [:]
-        let previouslyBlocked = refreshRequiredFileIDs
-        for change in changes {
-            guard let file = loadedFilesByID[change.id] else { continue }
-            replaceLoadedFile(file.withUpdatedURL(change.newURL, fileFingerprint: nil,
-                metadataFileVersion: nil, requiresMetadataRefreshBeforeWriting: true))
-            refreshGenerations[change.id] = makeFileModelRefreshGeneration()
-        }
-        var refreshedByID: [UUID: AudioFile] = [:]
-        var fallbackFilesByID: [UUID: AudioFile] = [:]
-        var warnings: [String] = []
-        for change in changes {
-            do {
-                let pipeline = metadataPipeline
-                refreshedByID[change.id] = try await Task.detached(priority: .userInitiated) {
-                    try await pipeline.loadAudioFile(at: change.newURL, id: change.id)
-                }.value
-            } catch {
-                let metadataPipeline = self.metadataPipeline
-                let safetyState = await Task.detached(priority: .userInitiated) {
-                    let fingerprint = try? AudioFileFingerprint.capture(at: change.newURL)
-                    let metadataVersion = try? metadataPipeline.metadataFileVersion(at: change.newURL)
-                    return (fingerprint, metadataVersion)
-                }.value
-                if let loadedFile = loadedFilesByID[change.id] {
-                    fallbackFilesByID[change.id] = loadedFile.withUpdatedURL(
-                        change.newURL,
-                        fileFingerprint: safetyState.0,
-                        metadataFileVersion: safetyState.1,
-                        requiresMetadataRefreshBeforeWriting:
-                            safetyState.0 == nil || safetyState.1 == nil
-                    )
-                }
-
-                let detail = (error as NSError).localizedDescription
-                if safetyState.0 != nil, safetyState.1 != nil {
-                    warnings.append(
-                        String(localized: "“\(change.newURL.lastPathComponent)” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: \(detail)")
-                    )
-                } else {
-                    warnings.append(
-                        String(localized: "“\(change.newURL.lastPathComponent)” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: \(detail)")
-                    )
-                }
-            }
-        }
-
-        for change in changes {
-            guard let generation = refreshGenerations[change.id],
-                  let file = refreshedByID[change.id] ?? fallbackFilesByID[change.id] else { continue }
-            replaceLoadedFile(file, refreshGeneration: generation,
-                              explicitlyRecover: !previouslyBlocked.contains(change.id))
-        }
-        syncQuickImportSecurityScopedResources()
-        return warnings
-    }
 
     func withSecurityScopedAccessForQuickImportURLs<T>(
         _ urls: [URL],
@@ -1136,7 +1124,7 @@ final class AudioViewModel: ObservableObject {
             sourceFiles = watchedFolderFiles[id] ?? []
         }
 
-        files = sourceFiles.map { preservingRecoveryState($0) }
+        files = sourceFiles.map { applyingRecoveryProjection($0) }
         let validIDs = Set(files.map(\.id))
         let prunedSelection = selectedAudioIDs.intersection(validIDs)
         if prunedSelection != selectedAudioIDs {
@@ -1501,16 +1489,13 @@ final class AudioViewModel: ObservableObject {
                             metadataPipeline: metadataPipeline,
                             retryTransientFailures: retryTransientFailures
                         )
-                        return (
-                            input.index,
-                            input.url,
-                            file.url == input.url ? file : file.withUpdatedURL(
-                                input.url,
-                                fileFingerprint: file.fileFingerprint,
-                                metadataFileVersion: file.metadataFileVersion
-                            ),
-                            nil
-                        )
+                        // The loader must preserve the exact user-selected lexical
+                        // URL; authority may never be re-associated with another URL.
+                        guard file.url == input.url, file.observation != nil else {
+                            return (input.index, input.url, nil,
+                                    String(localized: "The file changed while it was being read. Select it again to reload it."))
+                        }
+                        return (input.index, input.url, file, nil)
                     } catch is CancellationError {
                         return (input.index, input.url, nil, nil)
                     } catch {
@@ -1588,16 +1573,13 @@ final class AudioViewModel: ObservableObject {
                             metadataPipeline: metadataPipeline,
                             retryTransientFailures: retryTransientFailures
                         )
-                        return (
-                            input.index,
-                            input.url,
-                            file.url == input.url ? file : file.withUpdatedURL(
-                                input.url,
-                                fileFingerprint: file.fileFingerprint,
-                                metadataFileVersion: file.metadataFileVersion
-                            ),
-                            nil
-                        )
+                        // The loader must preserve the exact user-selected lexical
+                        // URL; authority may never be re-associated with another URL.
+                        guard file.url == input.url, file.observation != nil else {
+                            return (input.index, input.url, nil,
+                                    String(localized: "The file changed while it was being read. Select it again to reload it."))
+                        }
+                        return (input.index, input.url, file, nil)
                     } catch is CancellationError {
                         return (input.index, input.url, nil, nil)
                     } catch {
@@ -1773,4 +1755,216 @@ private struct AudioFileLoadFailure: Sendable {
 private struct AudioFileLoadResult: Sendable {
     let files: [AudioFile]
     let failures: [AudioFileLoadFailure]
+}
+
+
+// MARK: – F1 move publication and bounded readback
+
+extension AudioViewModel {
+    /// Publishes verified move receipts while the rename transaction's union
+    /// reservation is still held. Old path keys are cleared before new keys are
+    /// set so swaps cannot transiently alias. Every affected identity receives an
+    /// authority-free display projection and a named pending decision.
+    func publishMovePlaceholders(_ receipts: [FileRenameMoveReceipt]) {
+        guard !receipts.isEmpty else { return }
+
+        let oldKeys = Set(receipts.map { Self.urlKey(for: $0.sourceURL) })
+        for oldKey in oldKeys {
+            fileIDsByKey.removeValue(forKey: oldKey)
+        }
+        for receipt in receipts {
+            fileIDsByKey[Self.urlKey(for: receipt.destinationURL)] = receipt.fileID
+        }
+
+        for receipt in receipts {
+            quickImportTokensByURLKey[Self.urlKey(for: receipt.sourceURL)] = UUID()
+            quickImportTokensByURLKey[Self.urlKey(for: receipt.destinationURL)] = UUID()
+            recoveryDecisionsByID[receipt.fileID, default: []].insert(
+                .moveReadbackPending(
+                    moveID: receipt.moveID,
+                    destinationURL: receipt.destinationURL,
+                    entryIdentity: EntryIdentityKey(receipt.entryIdentity)
+                )
+            )
+            pendingMetadataReloadsByID.removeValue(forKey: receipt.fileID)
+            appliedFileModelRefreshGenerations[receipt.fileID] = makeFileModelRefreshGeneration()
+            if let current = committedFile(withID: receipt.fileID) {
+                replaceSourceMembershipEntry(current.projectingDisplay(to: receipt.destinationURL))
+            }
+            invalidateWatchedFolderScans(containingFileID: receipt.fileID)
+            lastAutomaticReloadFailures = []
+        }
+
+        rebuildVisibleFiles()
+        syncQuickImportSecurityScopedResources()
+    }
+
+    /// Phase B: reacquire each destination for one bounded full read. A read that
+    /// times out, fails, or observes a different directory entry cannot publish;
+    /// the projection and pending decision stay in place.
+    func readBackMovedFiles(_ receipts: [FileRenameMoveReceipt]) async -> [String] {
+        guard !receipts.isEmpty else { return [] }
+        let limiter = MoveReadbackLaneLimiter()
+        var warnings: [String] = []
+        await withTaskGroup(of: String?.self) { group in
+            for receipt in receipts {
+                group.addTask { [weak self] in
+                    guard let self else { return nil }
+                    return await self.readBackMovedFile(receipt, limiter: limiter)
+                }
+            }
+            for await warning in group {
+                if let warning { warnings.append(warning) }
+            }
+        }
+        return warnings
+    }
+
+    private func readBackMovedFile(
+        _ receipt: FileRenameMoveReceipt,
+        limiter: MoveReadbackLaneLimiter
+    ) async -> String? {
+        guard await limiter.acquire() else {
+            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed but hasn’t been checked at its new location yet. Choose Reload from Disk from its context menu.")
+        }
+
+        let generation = makeFileModelRefreshGeneration()
+        let pipeline = metadataPipeline
+        let coordinator = fileMutationCoordinator
+        let timeout = moveReadbackTimeout
+
+        // The worker owns the lane and the destination reservation until the
+        // underlying read actually unwinds. The orchestration below may time out
+        // first and return a warning; the late result can never publish.
+        let worker = Task.detached(priority: .userInitiated) { [limiter, receipt, pipeline, coordinator, timeout] () async -> Result<AudioFile, MoveReadbackFailure> in
+            defer { Task { await limiter.release() } }
+            do {
+                return try await coordinator.withExclusiveAccess(to: [receipt.destinationURL]) {
+                    let before = try? FileEntryIdentityCapture.capture(at: receipt.destinationURL)
+                    guard before == receipt.entryIdentity else {
+                        return Result<AudioFile, MoveReadbackFailure>.failure(.destinationChanged)
+                    }
+                    let loaded: AudioFile
+                    do {
+                        loaded = try await withAsyncTimeout(
+                            timeout,
+                            operationName: String(localized: "Reloading the renamed file"),
+                            priority: .userInitiated
+                        ) {
+                            try await pipeline.loadAudioFile(at: receipt.destinationURL, id: receipt.fileID)
+                        }
+                    } catch is AsyncOperationTimedOutError {
+                        return .failure(.timedOut)
+                    } catch {
+                        return .failure(.readFailed((error as NSError).localizedDescription))
+                    }
+                    let after = try? FileEntryIdentityCapture.capture(at: receipt.destinationURL)
+                    guard loaded.url == receipt.destinationURL,
+                          loaded.observation != nil,
+                          after == receipt.entryIdentity else {
+                        return .failure(.destinationChanged)
+                    }
+                    return .success(loaded)
+                }
+            } catch is CancellationError {
+                return .failure(.readFailed(String(localized: "Reading the renamed file was cancelled.")))
+            } catch {
+                return .failure(.readFailed((error as NSError).localizedDescription))
+            }
+        }
+
+        guard let outcome = await Self.waitForMoveReadback(worker, timeout: timeout + .seconds(2)) else {
+            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but checking its metadata timed out. Choose Reload from Disk from its context menu before editing.")
+        }
+
+        switch outcome {
+        case .success(let loaded):
+            _ = replaceLoadedFile(
+                loaded,
+                refreshGeneration: generation,
+                clearing: .receiptMatchedReadback(moveID: receipt.moveID)
+            )
+            return nil
+        case .failure(.destinationChanged):
+            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but a different file now has that name. Metadata editing stays paused until you choose Reload from Disk and review that file.")
+        case .failure(.timedOut):
+            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but checking its metadata timed out. Choose Reload from Disk from its context menu before editing.")
+        case .failure(.readFailed(let detail)):
+            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: \(detail)")
+        }
+    }
+
+    nonisolated private static func waitForMoveReadback(
+        _ task: Task<Result<AudioFile, MoveReadbackFailure>, Never>,
+        timeout: Duration
+    ) async -> Result<AudioFile, MoveReadbackFailure>? {
+        await withTaskGroup(of: Result<AudioFile, MoveReadbackFailure>?.self) { group in
+            group.addTask {
+                await task.value
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// Applies one named clearance transition. Automatic observations pass `nil`
+    /// and never reach this function.
+    private func clearRecoveryDecisions(
+        for id: AudioFile.ID,
+        clearing: FileRecoveryClearance,
+        observation: AudioFile.Observation
+    ) {
+        guard var decisions = recoveryDecisionsByID[id], !decisions.isEmpty else { return }
+        let observedIdentity = EntryIdentityKey(fingerprint: observation.fingerprint)
+
+        switch clearing {
+        case .receiptMatchedReadback(let moveID):
+            decisions = decisions.filter { decision in
+                if case .moveReadbackPending(let pendingMoveID, _, _) = decision {
+                    return pendingMoveID != moveID
+                }
+                return true
+            }
+
+        case .explicitAuthorizedReload:
+            decisions = decisions.filter { decision in
+                switch decision {
+                case .moveReadbackPending(_, let destinationURL, let expectedIdentity):
+                    let sameLocation = FileSystemPathSemantics.key(for: destinationURL)
+                        == FileSystemPathSemantics.key(for: observation.url)
+                    return !(sameLocation && expectedIdentity.matches(observedIdentity))
+                case .recoveryLocationUnresolved(let expectedIdentity):
+                    guard let expectedIdentity else { return true }
+                    return !expectedIdentity.matches(observedIdentity)
+                case .journalPending:
+                    return true
+                }
+            }
+
+        case .verifiedJournalLocation(let operationID):
+            decisions.remove(.journalPending(operationID))
+        }
+
+        recoveryDecisionsByID[id] = decisions.isEmpty ? nil : decisions
+    }
+}
+
+private actor MoveReadbackLaneLimiter {
+    private var inUse = 0
+    private let maximum = MetadataBatchExecutor.maximumConcurrentMutations
+
+    func acquire() -> Bool {
+        guard inUse < maximum else { return false }
+        inUse += 1
+        return true
+    }
+
+    func release() {
+        inUse = max(0, inUse - 1)
+    }
 }

@@ -47,7 +47,7 @@ nonisolated final class MetadataWriteHUDDismissalDecisionTests: XCTestCase {
             orderedOut = true
         }
 
-        weak var weakOwner = owner
+        weak let weakOwner = owner
         owner = nil
         XCTAssertNil(weakOwner, "The probe must deallocate before the completion fires")
         completion?()

@@ -348,7 +348,7 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
 
 // MARK: - Fake regional catalog
 
-@MainActor private final class RegionaliTunesCatalog: iTunesBrowserClient, @unchecked Sendable {
+@MainActor private final class RegionaliTunesCatalog: iTunesBrowserClient {
     struct DetailRequest: Equatable, Sendable {
         let collectionID: Int
         let country: String

@@ -153,6 +153,7 @@ nonisolated final class QuickImportProgressivePerformanceTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorF5Decode-\(count)-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
         let fixtureURL = try fixtureSourceURL()
         var paths: [URL] = []
         paths.reserveCapacity(count)

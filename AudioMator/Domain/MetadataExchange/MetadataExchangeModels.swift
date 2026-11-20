@@ -690,21 +690,10 @@ nonisolated enum MetadataExchangeField: CaseIterable, Hashable, Identifiable, Se
                 (Int(value).map { (0...255).contains($0) } == true) else {
                 return String(localized: "For Content Advisory, enter a supported advisory label or a whole-number code from 0 to 255.")
             }
-        case .year:
-            guard MetadataDateText.isPlausibleYear(value) else {
-                return String(localized: "Enter a supported Year value before importing.")
-            }
-        case .date:
-            guard MetadataDateText.isPlausibleStandaloneDate(value) else {
-                return String(localized: "Enter a supported Date value before importing.")
-            }
-        case .releaseDate, .originalReleaseDate:
-            guard MetadataDateText.isPlausibleDate(value) else {
-                return String(localized: "Enter a supported value for \(displayName) before importing.")
-            }
         case .fileName, .baseName, .path, .relativePath, .index, .title, .artist,
                 .album, .albumArtist, .composer, .lyricist, .producer, .engineer,
-                .remixer, .genre, .comment, .publisher,
+                .remixer, .genre, .year, .date, .releaseDate, .originalReleaseDate,
+                .comment, .publisher,
                 .copyright, .isrc, .barcode, .language, .mediaType, .releaseType,
                 .catalogNumber, .releaseCountry, .itunesAlbumID, .itunesArtistID,
                 .itunesCatalogID, .musicBrainzAlbumID, .musicBrainzTrackID,

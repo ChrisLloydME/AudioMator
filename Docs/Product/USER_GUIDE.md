@@ -62,6 +62,10 @@ Saves write only the fields that changed from the draft's baseline. Before writi
 
 For multiple files, Inspector, MusicBrainz/iTunes plans, filename/CSV imports and related batch work process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records save warnings and failures, plus per-file outcomes for incomplete batches (Settings → Logs). A single operation cancelled before writing does not create a save issue entry; an incomplete batch retains the unprocessed files as warning records so each selected file is accounted for.
 
+### Date and time editing
+
+Direct typing and pasting remain available in every text field. AudioMator does not run app-side date-format checks or rewrite directly typed, pasted, CSV/text-imported, or filename-extracted date values; it passes them straight to the metadata writer, preserves existing clear semantics and format-capability checks, and identifies the affected file and field while retaining the draft for correction if the writer rejects a value.
+
 ### Numbering compatibility
 
 Older numbering values are handled internally and can appear in the normal Track Number, Total Tracks, Disc Number and Total Discs fields. Opening or importing files does not rewrite them. Saving a number change uses the intended field values and preserves the other pair; there is no separate Restore/Cleanup operation. If a number or total cannot be determined safely, enter its intended value in that ordinary field and save again. Unrelated edits preserve existing numbering data. Numeric components are required for semantic edits; text such as `A1` is preserved during unrelated edits but must be changed in Metadata Editor.

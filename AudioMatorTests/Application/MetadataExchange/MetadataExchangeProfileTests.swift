@@ -118,10 +118,12 @@ nonisolated final class MetadataExchangeProfileTests: XCTestCase {
             targetFiles: [target],
             clearBlankImportedValues: false
         )
-        // A quoted token is literal data, not a removal; as DATE text it is
-        // invalid and must be rejected rather than clearing the field.
-        XCTAssertTrue(literalPlan.writeEntries.isEmpty)
-        XCTAssertNotNil(literalPlan.rows.first?.issueMessage)
+        // A quoted token is literal data, not a removal; because user-supplied
+        // date text bypasses AudioMator date-format checks, it passes through as
+        // literal "<remove>" rather than clearing the field.
+        let literalDateEntry = try XCTUnwrap(literalPlan.writeEntries.first)
+        XCTAssertEqual(literalDateEntry.previewValues[.date], "<remove>")
+        XCTAssertNil(literalDateEntry.previewValues[.year])
 
         // The same quoted token is valid literal text for a text field.
         let literalTextCSV = """

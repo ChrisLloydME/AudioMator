@@ -132,7 +132,7 @@ The package's `numberingInventory` states (`native`, `recoveredLegacy`, `ambiguo
 
 No value is inferred, synchronized, completed or truncated; `2004-07-15` remains complete YEAR text.
 
-**Independent-date behavior.** No companion date writes are synthesized. Conflict comparison for the four date identities uses exact native frames/atoms through `TagLibDateNativeProjection` rather than the legacy PropertyMap `DATE` projection, which can alias YEAR and DATE. Existing ID3v2.3 separate date fields are treated as unverified for export, file transfer and filename extraction: those routes reject separate date fields for ID3v2.3 tags instead of inferring native values. `MetadataEditPayload.dateValidationMessage` validates only the explicitly edited date field against its own shape.
+**Independent-date behavior.** No companion date writes are synthesized. Conflict comparison for the four date identities uses exact native frames/atoms through `TagLibDateNativeProjection` rather than the legacy PropertyMap `DATE` projection, which can alias YEAR and DATE. Existing ID3v2.3 separate date fields are treated as unverified for export, file transfer and filename extraction: those routes reject separate date fields for ID3v2.3 tags instead of inferring native values. Direct user-entered date text (typed, pasted, CSV/text-imported, or filename-extracted) passes through without AudioMator date-format checks, date-specific rewriting, or time-zone inference; format-capability preflight and clear semantics still apply, and writer rejections identify the affected file and field while retaining the draft for correction.
 
 ### Content advisory
 

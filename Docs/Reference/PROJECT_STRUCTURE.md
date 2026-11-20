@@ -46,7 +46,7 @@ Shared, mostly UI-independent support.
 
 | Folder | Responsibility |
 | --- | --- |
-| `Audio/` | Tag-number parsing/text, numeric conversion, format-support core, independent date text parsing and validation |
+| `Audio/` | Tag-number parsing/text, numeric conversion, and format-support core |
 | `Artwork/` | Artwork image validation and PNG normalization |
 | `Concurrency/` | `withAsyncTimeout` deadline wrapper |
 | `FileSystem/` | Normalized path semantics |
@@ -135,7 +135,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 97 test functions in six `XCTestCase` classes across five source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 97 test functions in six `XCTestCase` classes across five source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 32-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 

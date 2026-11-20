@@ -194,3 +194,36 @@ enum MetadataCommitWarning {
         String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: \(detail)")
     }
 }
+
+/// Annotates a writer rejection with the affected field display name(s) when
+/// the underlying writer error does not already name them and the failure is
+/// not a file-level revision, recovery, membership, or access error.
+nonisolated func annotatingWriteFailureWithFields(
+    _ reason: String,
+    fieldLabels: [String]
+) -> String {
+    let uniqueLabels = Array(Set(fieldLabels.filter { !$0.isEmpty })).sorted {
+        $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+    }
+    guard !uniqueLabels.isEmpty else { return reason }
+    guard !uniqueLabels.contains(where: { reason.localizedCaseInsensitiveContains($0) }) else {
+        return reason
+    }
+    let fileLevelMarkers = [
+        "Reload from Disk",
+        "changed since",
+        "no longer loaded",
+        "Allow access",
+        "removed from its source",
+        "reloaded before",
+    ]
+    guard !fileLevelMarkers.contains(where: { reason.localizedCaseInsensitiveContains($0) }) else {
+        return reason
+    }
+
+    let joined = ListFormatter.localizedString(byJoining: uniqueLabels)
+    if uniqueLabels.count == 1 {
+        return "\(reason)\n\(String(localized: "Affected field: \(joined)"))"
+    }
+    return "\(reason)\n\(String(localized: "Affected fields: \(joined)"))"
+}

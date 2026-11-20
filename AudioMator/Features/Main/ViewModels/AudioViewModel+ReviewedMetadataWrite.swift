@@ -111,6 +111,7 @@ extension AudioViewModel {
 
         return publishReviewedWriteResult(
             result,
+            write: write,
             target: target,
             refreshGeneration: refreshGeneration,
             publication: publication
@@ -270,6 +271,7 @@ extension AudioViewModel {
 
     private func publishReviewedWriteResult(
         _ result: MetadataFileMutationResult,
+        write: ReviewedMetadataWrite,
         target: ReviewedMetadataTarget,
         refreshGeneration: UInt64,
         publication: MetadataPublicationPolicy
@@ -301,7 +303,22 @@ extension AudioViewModel {
             )
 
         case .failure(let reason):
-            return .failure(reason)
+            let affectedLabels: [String]
+            switch write.intent {
+            case .semantic(let payload):
+                affectedLabels = payload.requestedFields.map { MetadataFieldGuide.displayName(for: $0) }
+            case .raw(let patch):
+                let keys = Array(Set(patch.valuesToSet.keys).union(patch.removingKeys))
+                affectedLabels = keys.map {
+                    MetadataFieldGuide.displayName(
+                        forRawKey: $0,
+                        fileExtensions: [target.url.pathExtension]
+                    )
+                }
+            case .eraseAll:
+                affectedLabels = []
+            }
+            return .failure(annotatingWriteFailureWithFields(reason, fieldLabels: affectedLabels))
 
         case .cancelled:
             return .cancelled

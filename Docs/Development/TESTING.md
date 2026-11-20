@@ -65,9 +65,9 @@ Performance tests are part of the same scheme and run in CI. See [Performance te
 
 ## SwiftPM Fast Target
 
-`Package.swift` compiles exactly 33 Foundation-only production files:
+`Package.swift` compiles exactly 32 Foundation-only production files:
 
-- Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, Quick Import path index and refcounted scope leases, fuzzy similarity, independent date text.
+- Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, Quick Import path index and refcounted scope leases, and fuzzy similarity.
 - Domain: metadata model core, fingerprint, mutation directory plan, conflict policy, text edit pipeline, mutation coordinator, CSV and template syntax, MuseAmp IDs, rename plan/template/sanitizer, filename extraction, track renumber.
 - Infrastructure pure cores: iTunes artwork/provider, LRCLIB models/ranker/request builder, MusicBrainz provider core/Lucene builder/request scheduling, online selection core.
 

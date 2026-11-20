@@ -161,6 +161,10 @@ nonisolated final class MetadataEditorSessionTests: XCTestCase {
             .remainReady,
             "A completion must not dismiss when the live draft changed after capture"
         )
+        XCTAssertEqual(store.targets.map(\.id), [file.id], "Target with newer edits must not be deleted on apply completion")
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["COMMENT"], ["Newer edit"], "Newer draft edit must survive apply completion")
+        XCTAssertEqual(store.originalPropertyMaps[file.id]?["TITLE"], ["Submitted"], "Baseline must advance to submitted values")
+        XCTAssertTrue(store.hasUnsavedChanges)
         XCTAssertEqual(store.lastApplyOutcome?.presentationID, request.presentationID)
         XCTAssertEqual(store.suppressedStaleCompletionCount, 0)
     }

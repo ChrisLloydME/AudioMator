@@ -23,6 +23,9 @@ struct WatchedFolderSettingsSelection {
 struct FileAccessSettingsTab: View {
     @ObservedObject var viewModel: AudioViewModel
 
+    @AppStorage("suppressesUnsavedInspectorDiscardWarning", store: AudioMatorTestHost.preferences)
+    private var suppressesUnsavedInspectorDiscardWarning: Bool = false
+
     @State private var selectedFileAccessGrantIDs: Set<FileAccessGrant.ID> = []
     @State private var watchedFolderSelection = WatchedFolderSettingsSelection()
     @State private var authorizationError: String?
@@ -51,6 +54,9 @@ struct FileAccessSettingsTab: View {
         .scrollIndicators(.automatic, axes: .vertical)
         .scrollBounceBehavior(.basedOnSize)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .task {
+            await viewModel.refreshRenameJournalRecoveryForSettings()
+        }
         .onChange(of: viewModel.fileAccessGrants.map(\.id)) { _, grantIDs in
             selectedFileAccessGrantIDs.formIntersection(grantIDs)
         }
@@ -270,7 +276,7 @@ struct FileAccessSettingsTab: View {
                 if watchedFolderSelection.ids.contains(folder.id) {
                     removeSelectedWatchedFolders()
                 } else {
-                    viewModel.removeWatchedFolder(id: folder.id)
+                    confirmAndRemoveWatchedFolders(ids: [folder.id])
                 }
             }
         }
@@ -422,9 +428,52 @@ struct FileAccessSettingsTab: View {
     }
 
     private func removeSelectedWatchedFolders() {
-        let selectedIDs = watchedFolderSelection.consumeForRemoval()
+        let selectedIDs = watchedFolderSelection.ids
         guard !selectedIDs.isEmpty else { return }
-        viewModel.removeWatchedFolders(ids: selectedIDs)
+        confirmAndRemoveWatchedFolders(ids: selectedIDs) {
+            _ = watchedFolderSelection.consumeForRemoval()
+        }
+    }
+
+    private func confirmAndRemoveWatchedFolders(
+        ids: Set<UUID>,
+        afterRemoval: (() -> Void)? = nil
+    ) {
+        guard !ids.isEmpty else { return }
+        let performRemoval = {
+            if viewModel.removingWatchedFoldersAffectsUnsavedInspectorEdits(ids: ids) {
+                viewModel.cancelEditing()
+            }
+            viewModel.removeWatchedFolders(ids: ids)
+            afterRemoval?()
+        }
+        guard viewModel.removingWatchedFoldersAffectsUnsavedInspectorEdits(ids: ids) else {
+            performRemoval()
+            return
+        }
+        if suppressesUnsavedInspectorDiscardWarning {
+            performRemoval()
+            return
+        }
+        let capturedToken = viewModel.captureInspectorDiscardConfirmationToken()
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "Discard Inspector Edits?")
+        alert.informativeText = String(localized: "Removing this watched folder affects files with unsaved inspector edits. Discard those edits to continue.")
+        alert.addButton(withTitle: String(localized: "Discard Edits"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = String(localized: "Don't ask again")
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return }
+        if alert.suppressionButton?.state == .on {
+            suppressesUnsavedInspectorDiscardWarning = true
+        }
+        if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
+            confirmAndRemoveWatchedFolders(ids: ids, afterRemoval: afterRemoval)
+            return
+        }
+        performRemoval()
     }
     // MARK: - Rename Recovery (F2 journal)
 
@@ -506,9 +555,6 @@ struct FileAccessSettingsTab: View {
                 systemImage: "arrow.uturn.backward.circle"
             )
         }
-        .task {
-            await viewModel.refreshRenameJournalRecoveryForSettings()
-        }
         .alert(item: $pendingRenameRecoveryAction) { action in
             switch action {
             case .restore:
@@ -554,9 +600,17 @@ struct FileAccessSettingsTab: View {
             }
 
             if !operation.missingDirectoryURLs.isEmpty {
-                Text(String(localized: "Some recorded folders are unavailable. Restoring will ask for access to those folders first."))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Some recorded folders are unavailable. Restoring will ask for access to those folders first:"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    ForEach(operation.missingDirectoryURLs, id: \.absoluteString) { folderURL in
+                        Text(folderURL.path)
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                }
             }
 
             if let detailText = operation.detailText {
@@ -568,6 +622,10 @@ struct FileAccessSettingsTab: View {
             HStack(spacing: 12) {
                 if operation.canRestore {
                     Button(String(localized: "Restore Original Names…")) {
+                        pendingRenameRecoveryAction = .restore(operation.id)
+                    }
+                } else if operation.canAuthorizeAndRestore {
+                    Button(String(localized: "Authorize & Restore…")) {
                         pendingRenameRecoveryAction = .restore(operation.id)
                     }
                 }

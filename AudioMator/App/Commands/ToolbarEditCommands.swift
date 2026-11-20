@@ -83,14 +83,18 @@ struct ToolbarEditCommands: Commands {
             } label: {
                 Label("Cancel Edits", systemImage: ToolbarButtonOption.cancelEdits.systemImage)
             }
-            .disabled(viewModel.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty && !viewModel.hasInspectorPendingReview)
 
             Button {
                 Self.performSaveEdits(using: viewModel)
             } label: {
                 Label("Save Edits", systemImage: ToolbarButtonOption.saveEdits.systemImage)
             }
-            .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+            .disabled(
+                viewModel.selectedAudioIDs.isEmpty ||
+                viewModel.metadataSaveProgress != nil ||
+                viewModel.isInspectorSaveSuspended
+            )
         }
     }
 

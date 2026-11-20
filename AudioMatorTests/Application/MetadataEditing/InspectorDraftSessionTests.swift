@@ -262,11 +262,194 @@ nonisolated final class InspectorDraftSessionTests: XCTestCase {
         )
         vm.finishInspectorSave()
 
-        XCTAssertEqual(staleReceipt.identity.sessionID,
-                       staleReceipt.identity.sessionID)
+        XCTAssertNotEqual(staleReceipt.identity.sessionID, newSessionID)
         XCTAssertEqual(vm.inspectorDraftIdentity?.sessionID, newSessionID)
         XCTAssertEqual(vm.inspectorDraft?.baselinesByID[other.id]?.snapshotID, newBaseline)
         XCTAssertNil(vm.inspectorDraft?.baselinesByID[id])
+    }
+
+    @MainActor
+    func testResumePendingReviewPreservesOriginalConflictBaselineAcrossSamePathReplacement() throws {
+        let v1 = try XCTUnwrap(AudioFileTestFactory.fixtureFileVersion)
+        let v2 = try XCTUnwrap(AudioFileTestFactory.secondaryFixtureFileVersion)
+        XCTAssertNotEqual(v1, v2)
+
+        let id = UUID()
+        let url = URL(fileURLWithPath: "/tmp/f3-replacement.mp3")
+        let original = AudioFileTestFactory.makeObserved(
+            id: id,
+            url: url,
+            title: "Original V1",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: url, fileSize: 100),
+            metadataFileVersion: v1
+        )
+        let vm = makeViewModel()
+        vm.mergeQuickImportFiles([original])
+        vm.setSelectedAudioIDs([id])
+        vm.edit?.title = "User Edit"
+        XCTAssertEqual(vm.inspectorDraft?.baselinesByID[id]?.metadataFileVersion, v1)
+
+        // Passive prune moves the dirty draft into pending review.
+        vm.removeQuickImportFile(id: id)
+        XCTAssertTrue(vm.hasInspectorPendingReview)
+
+        // A different replacement file appears at the same path with the same
+        // logical ID and a newer disk version V2.
+        let replacement = AudioFileTestFactory.makeObserved(
+            id: id,
+            url: url,
+            title: "Replacement V2",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: url, fileSize: 200),
+            metadataFileVersion: v2
+        )
+        vm.mergeQuickImportFiles([replacement])
+        XCTAssertTrue(vm.isInspectorPendingReviewResumable)
+        XCTAssertTrue(vm.resumeInspectorPendingReview())
+
+        // Original V1 conflict baseline MUST remain intact so Save routes
+        // through MetadataConflictResolver rather than silently overwriting V2.
+        XCTAssertEqual(vm.inspectorDraft?.baselinesByID[id]?.metadataFileVersion, v1)
+        XCTAssertEqual(vm.inspectorEditSourceFilesByID[id]?.metadataFileVersion, v1)
+        XCTAssertEqual(vm.edit?.title, "User Edit")
+    }
+
+    @MainActor
+    func testSingleFileSavePreservesIntentionalRevertAcrossImmediateReload() {
+        let id = UUID()
+        let original = fullFile(id: id, title: "Original")
+        let vm = makeViewModel()
+        vm.mergeQuickImportFiles([original])
+        vm.setSelectedAudioIDs([id])
+        vm.edit?.title = "Submitted"
+        guard vm.captureInspectorSaveReceipt() != nil else {
+            return XCTFail("Expected a captured single-file save receipt")
+        }
+
+        // User intentionally reverts to the pre-save value while save is in flight.
+        vm.edit?.title = "Original"
+
+        // Immediate reload publication runs rebuildVisibleFiles() BEFORE
+        // recordInspectorSaveTargetCompletion; it must NOT wipe the revert.
+        let reloaded = fullFile(id: id, title: "Submitted")
+        _ = vm.replaceLoadedFile(
+            reloaded,
+            refreshGeneration: vm.makeFileModelRefreshGeneration(),
+            deferVisibleRefresh: false
+        )
+        XCTAssertEqual(vm.edit?.title, "Original", "Immediate reload during in-flight save must not overwrite a post-submit revert")
+
+        vm.recordInspectorSaveTargetCompletion(
+            InspectorSavedTargetOutcome(targetID: id, didRefreshFileModel: true, readback: reloaded)
+        )
+        vm.finishInspectorSave()
+
+        XCTAssertEqual(vm.edit?.title, "Original")
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+        XCTAssertEqual(vm.inspectorDraft?.baselinesByID[id]?.title, "Submitted")
+    }
+
+    @MainActor
+    func testMultiFileSaveCancelledDirectoryPromptReleasesSaveReceipt() throws {
+        let version = try XCTUnwrap(AudioFileTestFactory.fixtureFileVersion)
+        let firstURL = URL(fileURLWithPath: "/tmp/f3-cancel-prompt/m1.mp3")
+        let secondURL = URL(fileURLWithPath: "/tmp/f3-cancel-prompt/m2.mp3")
+        let first = AudioFileTestFactory.makeObserved(
+            id: UUID(),
+            url: firstURL,
+            title: "First",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: firstURL, fileSize: 100),
+            metadataFileVersion: version
+        )
+        let second = AudioFileTestFactory.makeObserved(
+            id: UUID(),
+            url: secondURL,
+            title: "Second",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: secondURL, fileSize: 100),
+            metadataFileVersion: version
+        )
+        let suiteName = "AudioMatorTests.CancelPrompt.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let journalDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("InspectorDraftJournal-\(UUID().uuidString)", isDirectory: true)
+        let vm = AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: InspectorSessionTestPipeline(requiresTransactionalDirectoryAccess: true),
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: defaults,
+            renameJournalStore: LocalRenameJournalStore(directoryURL: journalDirectory),
+            renameJournalAutoClassification: false,
+            quickImportEnvironment: QuickImportEnvironment(
+                identityProvider: FileSystemQuickImportPathIdentityProvider(),
+                scopeAccess: DeniedQuickImportScopeAccess(),
+                loadPolicy: .production
+            )
+        )
+        vm.mergeQuickImportFiles([first, second])
+        vm.setSelectedAudioIDs([first.id, second.id])
+        vm.multiEdit?.setText("Updated Album", for: .album)
+        var promptCount = 0
+        vm.mutationDirectoryAccessRequester = { _ in
+            promptCount += 1
+            return "Access denied."
+        }
+
+        vm.saveMultiFileEdits()
+
+        XCTAssertEqual(promptCount, 1, "Multi-file save should have reached the directory access prompt")
+        XCTAssertEqual(vm.inspectorDraft?.isSaveInFlight, false, "Cancelled folder prompt must clear saveReceipt via finishInspectorSave")
+        XCTAssertFalse(vm.isInspectorSaveSuspended)
+        XCTAssertNotNil(vm.beginArtworkCommand(for: [first.id, second.id]))
+    }
+
+    @MainActor
+    func testMultiFileSaveFullCompletionReappliesReadbackAndResetsArtworkAction() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let first = fullFile(id: firstID, name: "b1.mp3", title: "First")
+        let second = fullFile(id: secondID, name: "b2.mp3", title: "Second")
+        let vm = makeViewModel()
+        vm.mergeQuickImportFiles([first, second])
+        vm.setSelectedAudioIDs([firstID, secondID])
+        vm.multiEdit?.setText("Saved Album", for: .album)
+        vm.multiEdit?.artworkEditAction = .remove
+        guard vm.captureInspectorSaveReceipt() != nil else {
+            return XCTFail("Expected a captured multi receipt")
+        }
+
+        let firstReadback = fullFile(id: firstID, name: "b1.mp3", title: "First", album: "Saved Album")
+        let secondReadback = fullFile(id: secondID, name: "b2.mp3", title: "Second", album: "Saved Album")
+        vm.recordInspectorSaveTargetCompletion(
+            InspectorSavedTargetOutcome(targetID: firstID, didRefreshFileModel: true, readback: firstReadback)
+        )
+        vm.recordInspectorSaveTargetCompletion(
+            InspectorSavedTargetOutcome(targetID: secondID, didRefreshFileModel: true, readback: secondReadback)
+        )
+        vm.finishInspectorSave(didCompleteAllMultiTargets: true)
+
+        XCTAssertEqual(vm.multiEdit?.artworkEditAction, .unchanged, "Completed multi-file save must reset staged artwork action")
+        XCTAssertTrue(vm.completedInspectorEditsByID.isEmpty)
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+    }
+
+    @MainActor
+    func testPassiveCleanRefreshPreservesInFlightArtworkCommandGeneration() {
+        let id = UUID()
+        let original = fullFile(id: id, title: "Original")
+        let vm = makeViewModel()
+        vm.mergeQuickImportFiles([original])
+        vm.setSelectedAudioIDs([id])
+
+        guard let artworkToken = vm.beginArtworkCommand(for: [id]) else {
+            return XCTFail("Expected an artwork command token")
+        }
+        // A clean passive refresh (e.g., watched-folder reload) updates display
+        // baselines without invalidating an in-flight artwork handoff.
+        vm.refreshInspectorDraftAfterAcceptedPublication()
+        XCTAssertTrue(
+            vm.isCurrentArtworkCommand(artworkToken),
+            "Passive clean refresh must not bump artworkGeneration and kill an in-flight artwork handoff"
+        )
     }
 
     @MainActor
@@ -346,9 +529,27 @@ nonisolated final class InspectorDraftSessionTests: XCTestCase {
     }
 }
 
+private nonisolated struct DeniedQuickImportScopeAccess: QuickImportScopeAccessing {
+    nonisolated func startAccessingScope(for url: URL) -> Bool { false }
+    nonisolated func stopAccessingScope(for url: URL) {}
+}
+
 private final class InspectorSessionTestPipeline: AudioMetadataPipeline, @unchecked Sendable {
+    nonisolated let requiresTransactionalDirectoryAccess: Bool
+
+    nonisolated init(requiresTransactionalDirectoryAccess: Bool = false) {
+        self.requiresTransactionalDirectoryAccess = requiresTransactionalDirectoryAccess
+    }
+
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         await AudioFileTestFactory.make(id: id, url: url, includeDefaultFileFingerprint: false)
+    }
+
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        try TagLibAudioMetadataPipeline().projectMetadataWrite(intent, fileExtension: fileExtension)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? { nil }

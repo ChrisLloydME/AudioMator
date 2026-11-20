@@ -21,6 +21,8 @@ struct ContentPane: View {
     @State private var isMuseAmpIDConfirmPresented: Bool = false
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isReloadDiscardConfirmPresented: Bool = false
+    @State private var reloadDiscardToken: InspectorDiscardConfirmationToken?
+    @State private var clearListDiscardToken: InspectorDiscardConfirmationToken?
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -99,10 +101,21 @@ struct ContentPane: View {
                 titleVisibility: .visible
             ) {
                 Button(String(localized: "Discard and Reload"), role: .destructive) {
-                    viewModel.updateEditForSelection()
+                    let capturedToken = reloadDiscardToken
+                    reloadDiscardToken = nil
+                    if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
+                        if viewModel.hasUnsavedInspectorChanges {
+                            reloadDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
+                            isReloadDiscardConfirmPresented = true
+                        }
+                        return
+                    }
+                    viewModel.cancelEditing()
                     Task { await viewModel.reloadSelectedFilesFromDisk() }
                 }
-                Button(String(localized: "Cancel"), role: .cancel) {}
+                Button(String(localized: "Cancel"), role: .cancel) {
+                    reloadDiscardToken = nil
+                }
             } message: {
                 Text(String(localized: "Unsaved inspector edits will be discarded. The files will be read again from disk."))
             }
@@ -112,14 +125,35 @@ struct ContentPane: View {
                 titleVisibility: .visible
             ) {
                 Button("Clear List", role: .destructive) {
+                    let capturedToken = clearListDiscardToken
+                    clearListDiscardToken = nil
+                    if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
+                        if viewModel.hasUnsavedInspectorChanges {
+                            clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
+                            isClearListConfirmPresented = true
+                        }
+                        return
+                    }
+                    if viewModel.hasUnsavedInspectorChanges {
+                        viewModel.cancelEditing()
+                    }
                     clearFileList()
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("Cancel", role: .cancel) {
+                    clearListDiscardToken = nil
+                }
             } message: {
-                Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
+                if viewModel.hasUnsavedInspectorChanges {
+                    Text(String(localized: "Unsaved inspector edits will be discarded, and the loaded tracks will be removed from AudioMator only. Files on disk stay unchanged."))
+                } else {
+                    Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }
+                clearListDiscardToken = viewModel.hasUnsavedInspectorChanges
+                    ? viewModel.captureInspectorDiscardConfirmationToken()
+                    : nil
                 isClearListConfirmPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataFilenameRename)) { _ in
@@ -159,6 +193,7 @@ struct ContentPane: View {
                     onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true },
                     onReloadSelectedFiles: {
                         if viewModel.hasUnsavedInspectorChanges {
+                            reloadDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                             isReloadDiscardConfirmPresented = true
                         } else {
                             Task { await viewModel.reloadSelectedFilesFromDisk() }
@@ -214,6 +249,9 @@ struct ContentPane: View {
 
             if visibleToolbarButtons.contains(.clearList) {
                 Button(role: .destructive) {
+                    clearListDiscardToken = viewModel.hasUnsavedInspectorChanges
+                        ? viewModel.captureInspectorDiscardConfirmationToken()
+                        : nil
                     isClearListConfirmPresented = true
                 } label: {
                     toolbarIconLabel(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)

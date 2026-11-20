@@ -482,7 +482,8 @@ final class MetadataEditorStore: ObservableObject {
         lastApplyOutcome = outcome
         removeCapturedSuccessfulTargets(
             outcome.succeededTargetIDs,
-            capturedTargets: request.pendingTargets
+            capturedTargets: request.pendingTargets,
+            submittedDraftPropertyMaps: request.submittedPropertyMaps
         )
         let hasNewerDraftEdits = draftGeneration != request.draftGeneration
         currentApplyID = nil
@@ -498,7 +499,8 @@ final class MetadataEditorStore: ObservableObject {
 
     private func removeCapturedSuccessfulTargets(
         _ succeededTargetIDs: Set<AudioFile.ID>,
-        capturedTargets: [MetadataEditorTarget]
+        capturedTargets: [MetadataEditorTarget],
+        submittedDraftPropertyMaps: [AudioFile.ID: RawMetadataValueMap]
     ) {
         var capturedByID: [AudioFile.ID: MetadataEditorTarget] = [:]
         for target in capturedTargets where capturedByID[target.id] == nil {
@@ -510,6 +512,13 @@ final class MetadataEditorStore: ObservableObject {
             guard let capturedTarget = capturedByID[targetID],
                   let index = targets.firstIndex(where: { $0.id == targetID }),
                   targets[index] == capturedTarget else { continue }
+            if let submittedMap = submittedDraftPropertyMaps[targetID],
+               draftPropertyMaps[targetID] != submittedMap {
+                // Newer draft edits were staged after capture: preserve the target
+                // and live draft, advancing only the baseline for what was written.
+                originalPropertyMaps[targetID] = submittedMap
+                continue
+            }
             targets.remove(at: index)
             originalPropertyMaps.removeValue(forKey: targetID)
             draftPropertyMaps.removeValue(forKey: targetID)
@@ -595,7 +604,7 @@ final class MetadataEditorStore: ObservableObject {
     /// Exact array set for one raw key on every target. Unlike the removed
     /// `String` route this never derives element boundaries by splitting text.
     func setFieldValues(_ values: [String], forKey key: String) {
-        guard isEditable, !key.isEmpty else { return }
+        guard isEditable, !key.isEmpty, !values.isEmpty else { return }
         _ = applyValues(values, toAllTargetsForKey: key, selectKey: false)
     }
 
@@ -884,8 +893,10 @@ struct MetadataEditorWindowView: View {
             }
         }
         .background(
-            MetadataEditorWindowCloseObserver {
-                store.windowWillClose(presentationID: store.currentPresentationID)
+            MetadataEditorWindowCloseObserver(
+                presentationID: store.currentPresentationID
+            ) { departingPresentationID in
+                store.windowWillClose(presentationID: departingPresentationID)
             }
         )
         .sheet(item: $editorContext) { context in
@@ -958,12 +969,15 @@ struct MetadataEditorWindowView: View {
                 rows: store.rows,
                 selectedFieldKeys: $store.selectedFieldKeys,
                 onEditField: {
+                    guard !store.isApplying else { return }
                     editorContext = store.makeEditFieldContext()
                 },
                 onDeleteField: { key in
+                    guard !store.isApplying else { return }
                     store.deleteField(named: key)
                 }
             )
+            .disabled(store.isApplying)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(nsColor: .controlBackgroundColor))
@@ -1048,25 +1062,32 @@ struct MetadataEditorWindowView: View {
 
 /// Window-close ownership for the Metadata Editor.
 ///
-/// The close is reported to `MetadataEditorStore` with the presentation identity
-/// captured at notification time; the store ignores a superseded identity and
-/// never relies on a generic `onDisappear` reset.
+/// Each observer captures the presentation identity rendered into its window;
+/// when that window closes, it reports the captured departing presentation ID
+/// rather than reading `store.currentPresentationID` live, so a delayed close
+/// notification cannot clear a newer session.
 private struct MetadataEditorWindowCloseObserver: NSViewRepresentable {
-    let onWindowWillClose: () -> Void
+    let presentationID: MetadataEditorPresentationID?
+    let onWindowWillClose: (MetadataEditorPresentationID?) -> Void
 
     func makeNSView(context: Context) -> MetadataEditorWindowCloseObserverView {
         let view = MetadataEditorWindowCloseObserverView()
+        view.capturedPresentationID = presentationID
         view.onWindowWillClose = onWindowWillClose
         return view
     }
 
     func updateNSView(_ nsView: MetadataEditorWindowCloseObserverView, context: Context) {
+        if let presentationID {
+            nsView.capturedPresentationID = presentationID
+        }
         nsView.onWindowWillClose = onWindowWillClose
     }
 }
 
 private final class MetadataEditorWindowCloseObserverView: NSView {
-    var onWindowWillClose: (() -> Void)?
+    var capturedPresentationID: MetadataEditorPresentationID?
+    var onWindowWillClose: ((MetadataEditorPresentationID?) -> Void)?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -1081,7 +1102,8 @@ private final class MetadataEditorWindowCloseObserverView: NSView {
     }
 
     @objc private func handleWindowWillClose(_ notification: Notification) {
-        onWindowWillClose?()
+        let departingID = capturedPresentationID
+        onWindowWillClose?(departingID)
     }
 
     private func detach() {

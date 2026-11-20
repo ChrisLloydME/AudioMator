@@ -372,7 +372,15 @@ struct ContentView: View {
             return
         }
 
+        let capturedToken = viewModel.captureInspectorDiscardConfirmationToken()
         let continueAction = {
+            if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
+                // Another draft replaced the one this alert represented; repeat
+                // the confirmation against the current draft instead of silently
+                // discarding newer edits.
+                confirmDiscardUnsavedInspectorEditsIfNeeded(action)
+                return
+            }
             discardInspectorEditsIfNeeded()
             action()
         }

@@ -82,7 +82,13 @@ Successful moves are published in two reservation phases:
    Only a successful, same-entry full read produces a new coherent observation and
    clears that move's pending decision. A failed or timed-out read, or a replaced
    entry, keeps the display projection read-only and directs the user to Reload from
-   Disk; no lightweight fingerprint/version probe can restore write authority.
+   Disk; no lightweight fingerprint/version probe can restore write authority. When
+   Reload from Disk decodes a different valid file at a non-journal recovery path,
+   the move/unresolved decision remains blocked and AudioMator presents an explicit
+   **Accept Replacement** confirmation (`PendingReplacementFileReview`); accepting
+   re-reads the file under reservation, verifies that its device/inode still matches
+   the reviewed replacement, and clears matching-path move/unresolved decisions via
+   `.explicitReplacementAcceptance` without ever clearing `.journalPending`.
 
 The coordinator serializes app-owned operations only. An external program can change
 the destination between the move and the readback; the before/after entry-identity
@@ -136,7 +142,7 @@ The UI supplies the current list order and selection:
 
 ### Write behavior
 
-For each ready row, in order:
+Before writing, Track Renumber pre-authorizes only currently eligible executable rows (`prePromptDirectoryAccessURLs`) so stale, removed, or recovery-blocked rows never trigger a folder prompt. For each ready row, in order:
 
 1. Revalidate the captured reviewed target against current membership, path identity and recovery state.
 2. Submit the frozen track-number component intent through the reviewed executor with the captured nonoptional metadata revision. The existing total, the complete disc group and unrelated fields are carried as untouched values and are not removed.

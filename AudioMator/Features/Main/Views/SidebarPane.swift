@@ -5,6 +5,8 @@ struct SidebarPane: View {
     @ObservedObject var state: SharedState
     let onSelectSidebarItem: (SidebarSelection?) -> Void
     let onRemoveWatchedFolder: (WatchedFolder) -> Void
+    let onRefreshWatchedFolder: (WatchedFolder) -> Void
+    let onRefreshWatchedLibrary: () -> Void
 
     var body: some View {
         List(selection: sidebarSelection) {
@@ -24,6 +26,11 @@ struct SidebarPane: View {
                     title: "All Watched Files",
                     systemImage: "folder.badge.gearshape"
                 )
+                .contextMenu {
+                    Button("Refresh Watched Folders", systemImage: "arrow.clockwise") {
+                        onRefreshWatchedLibrary()
+                    }
+                }
                 .tag(SidebarSelection.watchedLibrary)
                 .help("Watched folders stay in the sidebar across launches.")
 
@@ -34,6 +41,10 @@ struct SidebarPane: View {
                     ForEach(viewModel.watchedFolders) { folder in
                         watchedFolderRow(folder)
                             .contextMenu {
+                                Button("Refresh Folder", systemImage: "arrow.clockwise") {
+                                    onRefreshWatchedFolder(folder)
+                                }
+                                Divider()
                                 Button("Remove Folder", role: .destructive) {
                                     removeWatchedFolder(folder)
                                 }

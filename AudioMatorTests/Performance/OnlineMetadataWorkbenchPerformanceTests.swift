@@ -5,8 +5,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
+nonisolated final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
+    @MainActor
     func testDeterministicScenarioMatrixCoversProviderEdgeCases() {
         for trackCount in OnlineMetadataWorkbenchPerformanceScenarioFactory.supportedTrackCounts {
             let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: trackCount)
@@ -36,6 +36,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testPlanGenerationUsesWarmMedianSamplesAcrossScenarioMatrix() {
         var report: [String] = []
 
@@ -64,6 +65,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         recordPerformanceReport(named: "Plan generation medians", lines: report)
     }
 
+    @MainActor
     func testInitialReviewLayoutUsesWarmMedianSamplesForTwoHundredTracks() {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
 
@@ -102,6 +104,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testPageAndAssignmentUpdateBoundariesPreventLazyLayoutCycles() {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 10)
         let viewModel = makeViewModel(files: scenario.files)
@@ -141,6 +144,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testTwoHundredTrackAssignmentsUseNativeVirtualizedRows() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         let viewModel = makeViewModel(files: scenario.files)
@@ -230,6 +234,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testiTunesFieldChangesDoNotInvalidateNativeAssignments() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 50)
         let viewModel = makeViewModel(files: scenario.files)
@@ -280,6 +285,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         hosted.tearDown()
     }
 
+    @MainActor
     func testSelectAllThenPreDiffScrollUsesWarmMedianSamples() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(
             trackCount: 21,
@@ -391,6 +397,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testFieldToggleUpdateUsesWarmMedianSamplesForTwoHundredTracks() {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         let viewModel = makeViewModel(files: scenario.files)
@@ -446,6 +453,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testTrackAssignmentUpdateUsesWarmMedianSamplesForTwoHundredTracks() throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         let viewModel = makeViewModel(files: scenario.files)
@@ -504,6 +512,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testPlanCacheInvalidatesOnlyAffectedAssignmentRows() throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
 
@@ -540,6 +549,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         musicBrainzStore.cancelPendingRecordingLoads()
     }
 
+    @MainActor
     func testMusicBrainzRecordingDetailBatchUsesWarmMedianSamplesForTwoHundredTracks() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         var samples: [Double] = []
@@ -587,6 +597,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testMusicBrainzLargeWorkbenchDoesNotStartUnboundedRecordingFanOut() async throws {
         let scenario = OnlineMetadataWorkbenchPerformanceScenarioFactory.make(trackCount: 200)
         let client = SuspendedWorkbenchMusicBrainzClient()
@@ -600,6 +611,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         XCTAssertTrue(store.recordingStates.values.allSatisfy { $0 == .idle })
     }
 
+    @MainActor
     func testAppKitTrackSelectionValuesStayAlignedWithSeparatorMenuItem() {
         let popUp = NSPopUpButton(frame: .zero, pullsDown: false)
         popUp.addItem(withTitle: "Unassigned")
@@ -616,6 +628,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         XCTAssertEqual(values[3], 202)
     }
 
+    @MainActor
     func testDeferredSelectionMenuDoesNotBuildOptionsBeforeOpening() {
         let options = (0..<100).map(Option.init(id:))
         let deferredCounter = InvocationCounter()
@@ -646,6 +659,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(pickerCounter.count, options.count)
     }
 
+    @MainActor
     private func makeMusicBrainzStore(
         scenario: OnlineMetadataWorkbenchPerformanceScenario,
         client: some MusicBrainzBrowserClient,
@@ -661,6 +675,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeiTunesStore(
         scenario: OnlineMetadataWorkbenchPerformanceScenario,
         performanceProbe: iTunesTaggingWorkbenchStore.PerformanceProbe? = nil
@@ -673,6 +688,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeViewModel(files: [AudioFile]) -> AudioViewModel {
         let suiteName = "AudioMator.OnlineMetadataWorkbenchPerformanceTests.\(UUID().uuidString)"
         let userDefaults = UserDefaults(suiteName: suiteName)!
@@ -692,6 +708,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         return viewModel
     }
 
+    @MainActor
     private func render<Content: View>(_ content: Content) {
         let hosted = HostedWorkbench(rootView: content.frame(width: 400, height: 100))
         hosted.stabilize()
@@ -743,10 +760,12 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
 
     }
 
+    @MainActor
     private func consume(_ value: Int) {
         XCTAssertGreaterThanOrEqual(value, 0)
     }
 
+    @MainActor
     private func containsLazyVStack(in value: Any, depth: Int = 0) -> Bool {
         guard depth < 24 else { return false }
         if String(reflecting: type(of: value)).hasPrefix("SwiftUI.LazyVStack<") {
@@ -760,6 +779,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func assertVirtualizedAssignmentList<Content: View>(
         in hosted: HostedWorkbench<Content>,
         expectedRowCount: Int,
@@ -785,6 +805,7 @@ final class OnlineMetadataWorkbenchPerformanceTests: XCTestCase {
         return (materializedRowCount, list.totalRowHeightMeasurementCount)
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration,
         condition: @escaping @MainActor () -> Bool

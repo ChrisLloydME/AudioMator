@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MetadataEditorDraftRowsTests: XCTestCase {
+nonisolated final class MetadataEditorDraftRowsTests: XCTestCase {
+    @MainActor
     func testMakeRowsSortsKeysAndMarksMixedValues() {
         let first = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.flac"))
         let second = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.flac"))
@@ -25,6 +26,7 @@ final class MetadataEditorDraftRowsTests: XCTestCase {
         XCTAssertTrue(rows[2].isMixed)
     }
 
+    @MainActor
     func testFieldLabelsKeepRawKeysAndIndependentDateMeanings() throws {
         for ext in ["m4a", "flac"] {
             let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/example.\(ext)"))
@@ -44,6 +46,7 @@ final class MetadataEditorDraftRowsTests: XCTestCase {
         XCTAssertEqual(MetadataFieldGuide.displayName(forRawKey: "PERFORMER:GUITAR"), "Performer (GUITAR)")
     }
 
+    @MainActor
     func testSuggestionsUseSharedNamesPurposesAndSeparateDisplayFromStorage() throws {
         let suggestions = MetadataFieldSuggestion.allSupported
         let total = try XCTUnwrap(suggestions.first { $0.canonicalKey == "TRACKTOTAL" })
@@ -60,6 +63,7 @@ final class MetadataEditorDraftRowsTests: XCTestCase {
         XCTAssertEqual(MetadataFieldSuggestion.resolvedKey(for: "  "), "")
     }
 
+    @MainActor
     func testRealignedSelectionKeepsValidSelectionBeforePreferredOrFirstRow() {
         let rows = [
             MetadataEditorRow(key: "ALBUM", value: "Album", isMixed: false),

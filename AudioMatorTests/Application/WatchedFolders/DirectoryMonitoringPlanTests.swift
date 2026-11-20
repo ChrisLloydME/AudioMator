@@ -2,7 +2,8 @@ import Foundation
 import XCTest
 @testable import AudioMator
 
-final class DirectoryMonitoringPlanTests: XCTestCase {
+nonisolated final class DirectoryMonitoringPlanTests: XCTestCase {
+    @MainActor
     func testCorruptWatchedFolderCollectionIsQuarantinedAndCannotBeSilentlyOverwritten() throws {
         let suiteName = "AudioMator.WatchedFolderCorruptionTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -19,6 +20,7 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertEqual(defaults.data(forKey: "watchedFolderRecords"), corruptData)
     }
 
+    @MainActor
     func testWatchedFolderAccessFailureMessagesAvoidFullPaths() {
         let single = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music"])
         let multiple = AudioViewModel.watchedFolderAccessFailureMessage(for: ["Music", "Archive"])
@@ -29,6 +31,7 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertFalse(multiple.contains("Music"))
     }
 
+    @MainActor
     func testWatchedFolderRestoreKeepsValidRecordsWhenOneBookmarkIsInvalid() throws {
         let suiteName = "AudioMator.WatchedFolderStoreTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -65,6 +68,7 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertEqual(restoredFolders.first?.url.standardizedFileURL, directoryURL.standardizedFileURL)
     }
 
+    @MainActor
     func testWatchedFolderSavePreservesUnresolvedRecordsForRecovery() throws {
         let suiteName = "AudioMator.WatchedFolderSaveRecoveryTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -104,6 +108,7 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertEqual(Set(persistedRecords.map(\.id)), Set([unresolvedID, validFolder.id]))
     }
 
+    @MainActor
     func testStaleWatchedFolderBookmarkIsRefreshedAndPersisted() throws {
         let suiteName = "AudioMator.WatchedFolderStaleBookmarkTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -208,6 +213,7 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testPlanIsBoundedAndAlwaysPrioritizesRootDirectory() {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMatorMonitorRoot", isDirectory: true)
@@ -227,6 +233,7 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertEqual(plan.omittedByLimitCount, 173)
     }
 
+    @MainActor
     func testDegradedStatusIsObservableAndExplainsBothFailureModes() {
         let status = DirectoryMonitoringStatus(
             totalDirectoryCount: 301,
@@ -245,6 +252,57 @@ final class DirectoryMonitoringPlanTests: XCTestCase {
         XCTAssertTrue(status.message.contains("1 audio file couldn’t be read"))
         XCTAssertTrue(status.message.contains("Previously loaded metadata is still shown"))
         XCTAssertTrue(status.message.contains("previous file list will stay visible"))
+        // The status explains the directory-entry/in-place distinction.
+        XCTAssertTrue(status.message.contains("edits inside an already loaded file may need Refresh"))
+    }
+
+    @MainActor
+    func testStatusDistinguishesIdentityMismatchFromFailedOpenAndExplainsEventCoverage() {
+        let status = DirectoryMonitoringStatus(
+            totalDirectoryCount: 2,
+            monitoredDirectoryCount: 1,
+            omittedByLimitCount: 0,
+            failedToOpenCount: 0,
+            identityMismatchCount: 1,
+            scanFailureCount: 0,
+            metadataReadFailureCount: 0
+        )
+
+        XCTAssertTrue(status.isDegraded)
+        XCTAssertTrue(status.message.contains("1 of 2"))
+        XCTAssertTrue(status.message.contains("1 folder now refers to a different directory"))
+        XCTAssertFalse(status.message.contains("couldn’t be opened"))
+        XCTAssertTrue(status.message.contains("edits inside an already loaded file may need Refresh"))
+
+        let healthy = DirectoryMonitoringStatus(
+            totalDirectoryCount: 2,
+            monitoredDirectoryCount: 2,
+            omittedByLimitCount: 0,
+            failedToOpenCount: 0,
+            scanFailureCount: 0,
+            metadataReadFailureCount: 0
+        )
+        XCTAssertFalse(healthy.isDegraded)
+        XCTAssertTrue(healthy.message.contains("monitoring all 2 folders"))
+        XCTAssertTrue(healthy.message.contains("added, removed and renamed entries"))
+    }
+
+    @MainActor
+    func testStatusReportsUnaccountedPlannedDirectoriesAsDegraded() {
+        let status = DirectoryMonitoringStatus(
+            totalDirectoryCount: 3,
+            monitoredDirectoryCount: 1,
+            omittedByLimitCount: 0,
+            failedToOpenCount: 0,
+            scanFailureCount: 0,
+            metadataReadFailureCount: 0
+        )
+
+        XCTAssertEqual(status.plannedDirectoryCount, 3)
+        XCTAssertEqual(status.unaccountedDirectoryCount, 2)
+        XCTAssertTrue(status.isDegraded)
+        XCTAssertTrue(status.message.contains("2 folders are not actively monitored"))
+        XCTAssertTrue(status.message.contains("Changes in unmonitored subfolders"))
     }
 
     private func resolveBookmark(_ bookmarkData: Data) throws -> (url: URL, isStale: Bool) {

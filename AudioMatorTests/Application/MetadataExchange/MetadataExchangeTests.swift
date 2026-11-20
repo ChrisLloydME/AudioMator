@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MetadataExchangeTests: XCTestCase {
+nonisolated final class MetadataExchangeTests: XCTestCase {
+    @MainActor
     func testTextImportSkipsBlankLinesAndPreservesRecordWhitespaceForMatching() throws {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/track.mp3")
@@ -18,10 +19,11 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows.count, 1)
         XCTAssertEqual(plan.rows[0].status, .ready)
 
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "Quiet Storm")
     }
 
+    @MainActor
     func testTextImportRejectsAdjacentFields() {
         let file = AudioFileTestFactory.make()
 
@@ -40,6 +42,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testTextImportRejectsWritesWhenFileVersionIsUnavailable() {
         let file = AudioFileTestFactory.make(includeDefaultFileFingerprint: false)
 
@@ -55,6 +58,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testTextImportMarksConflictingRepeatedCapturesAsParseError() {
         let file = AudioFileTestFactory.make()
 
@@ -82,6 +86,7 @@ final class MetadataExchangeTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testDelimitedParserHandlesTabSeparatedMusicStyleExport() throws {
         let source = [
             "Name\tArtist\tComposer\tAlbum\tGrouping\tGenre\tDisc Number\tDisc Count\tTrack Number\tTrack Count\tYear\tComments",
@@ -106,6 +111,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(MetadataExchangeCSV.detectDelimiter(in: "{{title}}"), ",")
     }
 
+    @MainActor
     func testCSVColumnTemplateRejectsOversizedInputBeforeParsing() {
         let internalPadding = String(repeating: " ", count: 16_385)
         let result = MetadataExchangePlanner.parseCSVColumnTemplate(
@@ -151,6 +157,7 @@ final class MetadataExchangeTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testCSVImportStillRejectsMalformedCommaCSVQuotes() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
 
@@ -167,6 +174,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testPlainDelimitedImportsAllowLiteralQuotesInUnquotedFields() throws {
         for delimiter in ["\t", "|"] {
             let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
@@ -180,11 +188,12 @@ final class MetadataExchangeTests: XCTestCase {
 
             XCTAssertNil(plan.validationMessage, delimiter)
             XCTAssertEqual(plan.rows.first?.status, .ready, delimiter)
-            let values = try XCTUnwrap(plan.rows.first?.writeEntry?.values, delimiter)
+            let values = try XCTUnwrap(plan.rows.first?.writeEntry?.previewValues, delimiter)
             XCTAssertEqual(values[.title], "Room 404: \"Do Not Wake\"", delimiter)
         }
     }
 
+    @MainActor
     func testCSVSerializeEscapesSpecialValues() {
         XCTAssertEqual(
             MetadataExchangeCSV.serialize([["Plain", "A, B", "C\"D", "Line\nBreak"]]),
@@ -197,6 +206,7 @@ final class MetadataExchangeTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testCSVExportProtectsSpreadsheetFormulasAndRoundTripsOriginalValues() throws {
         let values = [
             "=HYPERLINK(\"https://example.invalid\")",
@@ -215,13 +225,20 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(serialized.hasPrefix("="))
         XCTAssertTrue(serialized.contains("'=HYPERLINK"))
         XCTAssertTrue(serialized.contains("''=literal"))
-        XCTAssertEqual(try MetadataExchangeCSV.parse(serialized), [values])
+        // Lexical parsing keeps the protection bytes; the marked-profile codec
+        // reverses AudioMator's own export protection.
+        let lexical = try MetadataExchangeCSV.parse(serialized)
+        XCTAssertEqual(lexical.count, 1)
+        XCTAssertEqual(lexical[0].count, values.count)
+        XCTAssertEqual(lexical[0].first, "'=HYPERLINK(\"https://example.invalid\")")
+        let codec = MetadataExchangeCSVCodec(profileVersion: 2)
         XCTAssertEqual(
-            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(codec.importedValue) },
             [values]
         )
     }
 
+    @MainActor
     func testCSVImportRejectsEmptyAndHeaderOnlySources() {
         let file = AudioFileTestFactory.make()
 
@@ -246,6 +263,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(headerOnlyPlan.canApply)
     }
 
+    @MainActor
     func testCSVImportMarksMissingAndExtraColumnsAsParseErrors() {
         let file = AudioFileTestFactory.make()
 
@@ -272,6 +290,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertNil(extraPlan.rows[0].writeEntry)
     }
 
+    @MainActor
     func testCSVImportSupportsTabDelimitedTemplatesWithIgnoredColumns() throws {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/example.m4a")
@@ -305,7 +324,7 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows[0].status, .ready)
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "Example Song")
         XCTAssertEqual(values[.artist], "Example Artist")
         XCTAssertEqual(values[.composer], "Example Composer")
@@ -319,6 +338,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(values[.comment], "Example Comment")
     }
 
+    @MainActor
     func testCSVImportRejectsReorderedHeaderNames() throws {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
         let plan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -333,6 +353,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertTrue(plan.rows.isEmpty)
     }
 
+    @MainActor
     func testCSVImportAcceptsCommonExternalHeaderAliasesWithoutRelaxingOrder() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
         let plan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -341,9 +362,9 @@ final class MetadataExchangeTests: XCTestCase {
             firstRowIsHeader: true, targetFiles: [file], clearBlankImportedValues: false)
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.writeEntries.count, 1)
-        XCTAssertEqual(plan.writeEntries.first?.values[.comment], "Keep this")
-        XCTAssertEqual(plan.writeEntries.first?.values[.trackNumber], "3")
-        XCTAssertEqual(plan.writeEntries.first?.values[.discNumber], "2")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.comment], "Keep this")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.trackNumber], "3")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.discNumber], "2")
         let reordered = MetadataExchangePlanner.makeCSVImportPlan(
             template: "{{comment}},{{trackNumber}}", sourceText: "Track #,Comments\n3,Keep this",
             firstRowIsHeader: true, targetFiles: [file], clearBlankImportedValues: false)
@@ -351,6 +372,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertTrue(reordered.writeEntries.isEmpty)
     }
 
+    @MainActor
     func testCSVImportAcceptsFieldKeysAsHeaders() throws {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
         let plan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -362,10 +384,11 @@ final class MetadataExchangeTests: XCTestCase {
         )
 
         XCTAssertNil(plan.validationMessage)
-        XCTAssertEqual(plan.writeEntries.first?.values[.artist], "Performer")
-        XCTAssertEqual(plan.writeEntries.first?.values[.title], "Song")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.artist], "Performer")
+        XCTAssertEqual(plan.writeEntries.first?.previewValues[.title], "Song")
     }
 
+    @MainActor
     func testCSVImportBlankCellsOnlyClearWhenEnabled() throws {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/song.mp3"),
@@ -390,10 +413,11 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: true
         )
         XCTAssertEqual(clearPlan.rows[0].status, .ready)
-        let values = try XCTUnwrap(clearPlan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(clearPlan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "")
     }
 
+    @MainActor
     func testCSVImportMatchesFilenamesWithTrimCaseAndDiacriticNormalization() throws {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/Café.mp3")
@@ -409,10 +433,11 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows[0].status, .ready)
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.title], "Quiet Storm")
     }
 
+    @MainActor
     func testCSVImportMarksAmbiguousSelectedMatches() {
         let files = [
             AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/Song.mp3")),
@@ -432,6 +457,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertNil(plan.rows[0].writeEntry)
     }
 
+    @MainActor
     func testCSVImportMarksNoMatchAndDuplicateExternalMatches() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.mp3"))
 
@@ -458,6 +484,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(duplicatePlan.rows.last?.status, .missingExternalRecord)
     }
 
+    @MainActor
     func testTextImportPreservesInternalBlankRecordsWhenClearingIsEnabled() throws {
         let files = [
             AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A"),
@@ -474,9 +501,10 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.map(\.status), [.ready, .ready, .ready])
-        XCTAssertEqual(plan.writeEntries.map { $0.values[.title] }, ["New A", "", "New C"])
+        XCTAssertEqual(plan.writeEntries.map { $0.previewValues[.title] }, ["New A", "", "New C"])
     }
 
+    @MainActor
     func testTextImportRejectsAmbiguousAndPathologicalSeparatorMatches() {
         let file = AudioFileTestFactory.make()
         let ambiguous = MetadataExchangePlanner.makeTextImportPlan(
@@ -498,6 +526,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertTrue(pathological.writeEntries.isEmpty)
     }
 
+    @MainActor
     func testTextImportStripsByteOrderMarkBeforeFilenameMatching() throws {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
         let plan = MetadataExchangePlanner.makeTextImportPlan(
@@ -509,9 +538,10 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.first?.status, .ready)
-        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.values[.title]), "Imported")
+        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.previewValues[.title]), "Imported")
     }
 
+    @MainActor
     func testTextTemplatesRejectUnknownUnterminatedAndMultilineFields() {
         let file = AudioFileTestFactory.make()
 
@@ -537,6 +567,7 @@ final class MetadataExchangeTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testTextExportBlocksMetadataValuesContainingLineBreaks() {
         let file = AudioFileTestFactory.make(title: "Line One\r\nLine Two")
         let plan = MetadataExchangePlanner.makeTextExportPlan(
@@ -552,6 +583,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows.first?.output, "Line One\r\nLine Two")
     }
 
+    @MainActor
     func testTextExportUsesSelectionIndexesAndRelativePathsOnProductionPlanner() {
         let files = [
             AudioFileTestFactory.make(
@@ -572,6 +604,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows.map(\.output), ["1|01.flac|One", "2|02.flac|Two"])
     }
 
+    @MainActor
     func testTextExportRejectsAnOversizedRenderedRecord() {
         let file = AudioFileTestFactory.make(
             title: String(
@@ -592,6 +625,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(plan.canExport)
     }
 
+    @MainActor
     func testCSVImportMatchesReorderedRowsByIndex() throws {
         let first = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A")
         let second = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"), title: "Old B")
@@ -605,9 +639,10 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.map(\.fileID), [second.id, first.id])
-        XCTAssertEqual(plan.writeEntries.map { $0.values[.title] }, ["New B", "New A"])
+        XCTAssertEqual(plan.writeEntries.map { $0.previewValues[.title] }, ["New B", "New A"])
     }
 
+    @MainActor
     func testCSVImportIndexesLargeReorderedSelections() {
         let count = 1_000
         let files = (0..<count).map { index in
@@ -630,6 +665,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows.last?.fileID, files.first?.id)
     }
 
+    @MainActor
     func testCSVImportIntersectsRelativePathToDisambiguateDuplicateNames() throws {
         let first = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/Library/Album/Disc 1/Song.flac"))
         let second = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/Library/Album/Disc 2/Song.flac"))
@@ -643,11 +679,12 @@ final class MetadataExchangeTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.rows.first?.fileID, second.id)
-        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.values[.title]), "New Two")
+        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first?.previewValues[.title]), "New Two")
         XCTAssertEqual(plan.rows.last?.fileID, first.id)
         XCTAssertEqual(plan.rows.last?.status, .missingExternalRecord)
     }
 
+    @MainActor
     func testPathLocatorsAreExactAndRelativePathsSurviveSubsetImports() throws {
         let upper = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/Library/Album/Disc 1/Song.flac")
@@ -681,9 +718,10 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: false
         )
         XCTAssertEqual(subset.rows.first?.status, .ready)
-        XCTAssertEqual(try XCTUnwrap(subset.writeEntries.first?.values[.title]), "Right")
+        XCTAssertEqual(try XCTUnwrap(subset.writeEntries.first?.previewValues[.title]), "Right")
     }
 
+    @MainActor
     func testCSVImportRejectsContradictoryMultipleLocators() {
         let files = [
             AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac")),
@@ -701,6 +739,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertTrue(plan.writeEntries.isEmpty)
     }
 
+    @MainActor
     func testCSVImportSupportsStructuredTotalsAndExpandedMetadataFields() throws {
         let fingerprint = AudioFileFingerprint(
             normalizedPath: "/tmp/song.flac",
@@ -732,16 +771,17 @@ final class MetadataExchangeTests: XCTestCase {
         )
 
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        XCTAssertEqual(entry.values[.trackNumber], "2")
-        XCTAssertEqual(entry.values[.trackTotal], "10")
-        XCTAssertEqual(entry.values[.discNumber], "1")
-        XCTAssertEqual(entry.values[.discTotal], "2")
-        XCTAssertEqual(entry.values[.isrc], "USABC1234567")
-        XCTAssertEqual(entry.values[.lyricist], "Writer")
-        XCTAssertEqual(entry.values[.contentAdvisory], "1")
-        XCTAssertEqual(entry.expectedFileFingerprint, fingerprint)
+        XCTAssertEqual(entry.previewValues[.trackNumber], "2")
+        XCTAssertEqual(entry.previewValues[.trackTotal], "10")
+        XCTAssertEqual(entry.previewValues[.discNumber], "1")
+        XCTAssertEqual(entry.previewValues[.discTotal], "2")
+        XCTAssertEqual(entry.previewValues[.isrc], "USABC1234567")
+        XCTAssertEqual(entry.previewValues[.lyricist], "Writer")
+        XCTAssertEqual(entry.previewValues[.contentAdvisory], "1")
+        XCTAssertEqual(entry.write.target.fingerprint, fingerprint)
     }
 
+    @MainActor
     func testStructuredNumberAndContentAdvisoryExportsAreRoundTripStable() {
         let file = AudioFileTestFactory.make(
             track: 9,
@@ -762,6 +802,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertEqual(plan.rows, [["09", "12", "02", "03", "1"]])
     }
 
+    @MainActor
     func testCSVExportRejectsAFieldThatOwnImportLimitCouldNotRead() {
         let title = "=" + String(
             repeating: "a",
@@ -782,6 +823,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertFalse(plan.canExport)
     }
 
+    @MainActor
     func testCSVImportRejectsInvalidStructuredNumbersAndHeaderWidth() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/song.flac"))
         let invalidNumber = MetadataExchangePlanner.makeCSVImportPlan(
@@ -807,6 +849,7 @@ final class MetadataExchangeTests: XCTestCase {
         XCTAssertTrue(invalidHeader.rows.isEmpty)
     }
 
+    @MainActor
     func testCSVImportCanClearAnExplicitlyBlankRow() throws {
         let file = AudioFileTestFactory.make(title: "Existing", artist: "Artist")
         let plan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -817,11 +860,281 @@ final class MetadataExchangeTests: XCTestCase {
             clearBlankImportedValues: true
         )
 
-        let values = try XCTUnwrap(plan.writeEntries.first?.values)
+        let values = try XCTUnwrap(plan.writeEntries.first?.previewValues)
         XCTAssertEqual(values[.title], "")
         XCTAssertEqual(values[.artist], "")
     }
 
+    @MainActor
+    func testTextMarkedV2PreservesLeadingInteriorAndFinalEmptyRecords() {
+        let files = [
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: ""),
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"), title: "Old B"),
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/C.flac"), title: "")
+        ]
+        let export = MetadataExchangePlanner.makeTextExportPlan(
+            template: "{{title}}",
+            targetFiles: files
+        )
+        XCTAssertEqual(export.outputText, "# AudioMator-Metadata-Profile: 2\n\nOld B\n")
+
+        let plan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: export.outputText,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertNil(plan.blockingMessage)
+        XCTAssertEqual(plan.rows.map(\.fileID), files.map(\.id))
+        XCTAssertEqual(plan.rows.map(\.status), [.unchanged, .unchanged, .unchanged])
+        XCTAssertTrue(plan.writeEntries.isEmpty)
+    }
+
+    @MainActor
+    func testTextUnmarkedLeadingBlankRecordDoesNotShiftLaterValues() {
+        let files = [
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A"),
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"), title: "Old B")
+        ]
+        let plan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "\nOld B",
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertNil(plan.blockingMessage)
+        XCTAssertEqual(plan.rows.map(\.fileID), files.map(\.id))
+        XCTAssertEqual(plan.rows.map(\.status), [.unchanged, .unchanged])
+        XCTAssertTrue(plan.writeEntries.isEmpty)
+    }
+
+    @MainActor
+    func testTextPositionalCountMismatchBlocksApplyBeforeAnyWrite() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/A.flac"),
+            title: "Old A"
+        )
+        let marked = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "# AudioMator-Metadata-Profile: 2\nNew A\n",
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        XCTAssertNotNil(marked.blockingMessage)
+        XCTAssertTrue(marked.writeEntries.isEmpty)
+        XCTAssertFalse(marked.canApply)
+        XCTAssertEqual(marked.rows.first?.fileID, file.id)
+        XCTAssertNil(marked.rows.first?.writeEntry)
+        XCTAssertTrue(marked.rows.contains { $0.status == .extraExternalRecord })
+
+        let tooManyLegacy = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "A-tag\n\n\n",
+            targetFiles: [
+                AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac")),
+                AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"))
+            ],
+            clearBlankImportedValues: false
+        )
+        XCTAssertNotNil(tooManyLegacy.blockingMessage)
+        XCTAssertTrue(tooManyLegacy.writeEntries.isEmpty)
+
+        let incompleteMarker = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "# AudioMator-Metadata-Profile: 2",
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        XCTAssertNotNil(incompleteMarker.validationMessage)
+        XCTAssertTrue(incompleteMarker.rows.isEmpty)
+    }
+
+    @MainActor
+    func testTextLegacyTerminatorAndOneFilePaddingRules() {
+        let files = [
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A"),
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"), title: "Old B")
+        ]
+        let terminalBlank = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "A-tag\n",
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(terminalBlank.blockingMessage)
+        XCTAssertEqual(terminalBlank.rows.map(\.status), [.ready, .unchanged])
+        XCTAssertEqual(terminalBlank.writeEntries.map { $0.previewValues[.title] }, ["A-tag"])
+
+        let trailingTerminator = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "A-tag\nB-tag\n",
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(trailingTerminator.blockingMessage)
+        XCTAssertEqual(trailingTerminator.writeEntries.map { $0.previewValues[.title] }, ["A-tag", "B-tag"])
+
+        let single = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "Old A")
+        let padded = MetadataExchangePlanner.makeTextImportPlan(
+            template: "  {{title}}  ",
+            sourceText: "\n  Quiet Storm  \n\n",
+            targetFiles: [single],
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(padded.blockingMessage)
+        XCTAssertEqual(padded.writeEntries.map { $0.previewValues[.title] }, ["Quiet Storm"])
+
+        let blankSlot = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "\n",
+            targetFiles: [single],
+            clearBlankImportedValues: true
+        )
+        XCTAssertNil(blankSlot.blockingMessage)
+        XCTAssertEqual(blankSlot.writeEntries.map { $0.previewValues[.title] }, [""])
+    }
+
+    @MainActor
+    func testTextBlankWithClearEnabledOnlyClearsCapturedFields() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/A.flac"),
+            title: "Existing",
+            artist: "Keep Artist"
+        )
+        let plan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "",
+            targetFiles: [file],
+            clearBlankImportedValues: true
+        )
+        // Empty unmarked input still has no records.
+        XCTAssertNotNil(plan.validationMessage)
+
+        let blankRecord = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "\n",
+            targetFiles: [file],
+            clearBlankImportedValues: true
+        )
+        let entry = blankRecord.writeEntries.first
+        XCTAssertEqual(entry?.previewValues[.title], "")
+        XCTAssertNil(entry?.previewValues[.artist])
+    }
+
+    @MainActor
+    func testCSVSoleEmptyCellRoundTrips() {
+        let files = [
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: ""),
+            AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"), title: "Old B")
+        ]
+        let export = MetadataExchangePlanner.makeCSVExportPlan(
+            template: "{{title}}",
+            includeHeaderRow: false,
+            targetFiles: files
+        )
+        XCTAssertNil(export.validationMessage)
+        XCTAssertEqual(export.outputText, "# AudioMator-Metadata-Profile: 2\r\n\"\"\r\nOld B")
+
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}",
+            sourceText: export.outputText,
+            firstRowIsHeader: false,
+            targetFiles: files,
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertNil(plan.blockingMessage)
+        XCTAssertEqual(plan.rows.map(\.fileID), files.map(\.id))
+        XCTAssertEqual(plan.rows.map(\.status), [.unchanged, .unchanged])
+        XCTAssertTrue(plan.writeEntries.isEmpty)
+
+        let single = [AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/A.flac"), title: "")]
+        let singleExport = MetadataExchangePlanner.makeCSVExportPlan(
+            template: "{{title}}", includeHeaderRow: false, targetFiles: single
+        )
+        XCTAssertEqual(singleExport.outputText, "# AudioMator-Metadata-Profile: 2\r\n\"\"")
+        let singleImport = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}", sourceText: singleExport.outputText, firstRowIsHeader: false,
+            targetFiles: single, clearBlankImportedValues: false
+        )
+        XCTAssertNil(singleImport.validationMessage)
+        XCTAssertEqual(singleImport.rows.map(\.status), [.unchanged])
+    }
+
+    @MainActor
+    func testCSVPositionalCountMismatchBlocksApply() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/A.flac"),
+            title: "Old A"
+        )
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}",
+            sourceText: "New A\nNew B",
+            firstRowIsHeader: false,
+            targetFiles: [file],
+            clearBlankImportedValues: false
+        )
+        XCTAssertNil(plan.validationMessage)
+        XCTAssertNotNil(plan.blockingMessage)
+        XCTAssertTrue(plan.writeEntries.isEmpty)
+        XCTAssertFalse(plan.canApply)
+        XCTAssertEqual(plan.rows.first?.fileID, file.id)
+        XCTAssertNil(plan.rows.first?.writeEntry)
+    }
+
+    @MainActor
+    func testUnmarkedExternalCSVCellsKeepLiteralApostrophesAndLeadingEmptyCells() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/A.flac"),
+            title: "Old",
+            artist: "Old Artist"
+        )
+        let literalApostrophe = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}",
+            sourceText: "'+44",
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(try XCTUnwrap(literalApostrophe.writeEntries.first).previewValues[.title], "'+44")
+
+        let leadingEmpty = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}},{{artist}}",
+            sourceText: ",New Artist",
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        let entry = try XCTUnwrap(leadingEmpty.writeEntries.first)
+        XCTAssertEqual(entry.previewValues[.artist], "New Artist")
+        XCTAssertNil(entry.previewValues[.title], "A leading empty cell stays an unchanged field, not a shifted one")
+    }
+
+    @MainActor
+    func testMarkedCSVReversesItsOwnSpreadsheetProtection() throws {
+        let original = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/A.flac"),
+            title: "=1+1"
+        )
+        let export = MetadataExchangePlanner.makeCSVExportPlan(
+            template: "{{title}}",
+            includeHeaderRow: false,
+            targetFiles: [original]
+        )
+        XCTAssertTrue(export.outputText.contains("'=1+1"))
+        let imported = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}",
+            sourceText: export.outputText,
+            firstRowIsHeader: false,
+            targetFiles: [AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/B.flac"))],
+            clearBlankImportedValues: false
+        )
+        XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).previewValues[.title], "=1+1")
+    }
+
+    @MainActor
     func testExchangePlansDeduplicateRepeatedTargetIDs() {
         let file = AudioFileTestFactory.make(title: "Title")
         let exportPlan = MetadataExchangePlanner.makeTextExportPlan(

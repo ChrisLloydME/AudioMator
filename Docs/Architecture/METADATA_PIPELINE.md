@@ -61,7 +61,40 @@ Key rules:
 - Technical values fall back to AVFoundation only when the TagLib value is non-positive or missing.
 - Artwork bytes come from the snapshot's editable projection.
 - The loader captures a fingerprint before the read and revalidates the fingerprint and the package file version after all awaits. A mismatch throws `fileChanged`; the adapter retries a **read** once, never a write.
+- On success the loader is the only production route that constructs the write-authorizing observation (`AudioFile.Observation`): requested ID, lexical URL, nonoptional package version, conflict baseline, and the verified fingerprint, all from that one read. A display or rename/recovery projection carries no observation; metadata writes require a coherent observation plus a clear recovery decision.
 - The snapshot also stores a `MetadataConflictBaseline` containing the raw value map, structured ID3/MP4/ASF/artwork/comment/lyrics projections, and optional package audio-content identity. `TagLibNumberingProjection` converts the package number inventory into displayed number/total/text.
+
+### Reviewed writes and commit admission
+
+Strict metadata workflows (`Domain/MetadataEditing/ReviewedMetadataWrite.swift`,
+`AudioViewModel+ReviewedMetadataWrite.swift`, `MetadataFileMutationExecutor.swift`)
+do not write from a live editor model:
+
+- `ReviewedMetadataTarget` captures the logical file ID, operational URL,
+  fingerprint and nonoptional package revision from one coherent observation.
+  A display or recovery projection cannot produce a target.
+- `ReviewedMetadataWrite` freezes a semantic payload, a raw patch or erase-all.
+  `MetadataWriteProjection` is the adapter-owned, I/O-free summary of the exact
+  field and number-component operations the same deterministic encoder will
+  commit; missing capability information marks every requested field
+  unsupported, and an empty request is a no-op that never reaches a writer.
+- Plan-time eligibility rejects stale, recovery-blocked, unsupported or missing
+  targets before any authorization prompt. Under the captured path reservation
+  the owner revalidates membership, URL and recovery state, then registers a
+  per-file `MetadataCommitPermit`.
+- Cancellation synchronously revokes a pending permit. The detached worker
+  verifies the captured fingerprint and admits the permit immediately before the
+  synchronous package write; a revoked permit performs zero package calls. An
+  admitted commit cannot be interrupted, so it reports its real outcome,
+  warnings included, and is never retried. A cancelled queued write is reported
+  as a cancelled outcome, not as a failure.
+- Inspector and Raw Metadata Editor drafts use a distinct draft-aware route that
+  keeps their conflict baseline, policy validation and audio-identity checks;
+  the strict route passes the captured nonoptional revision to the package.
+  The documented boundary is enforced by unit, execution and full-gate tests.
+  After the final family migration the mixed optional-version entry point was
+  removed: no production metadata write forwards an optional expected revision,
+  and `ReviewedMetadataTarget` is the only write-authorization value.
 
 ### Missing, unsupported, and malformed metadata
 
@@ -111,18 +144,35 @@ No value is inferred, synchronized, completed or truncated; `2004-07-15` remains
 
 Artwork selection, photo-library import and clipboard PNG/TIFF import normalize with ImageIO on the concurrent executor, then publish the draft on the main actor. `ArtworkImageNormalizer` bounds input at 50 MiB, 4096 px output dimension, and 4096×4096 source pixels. Post-rename reloads also use a detached worker. Visible-file rebuilding publishes the recovered list once.
 
+Every asynchronous artwork handoff — online lookup/download and the Finder, photo-library and clipboard single and batch imports — captures the Inspector destination before its first suspension: the F3 draft session ID, the independent artwork command generation, the ordered captured target IDs and the source context. Data is staged only through the guarded commit, which revalidates the same draft session/command generation, the full ordered target set, source membership, artwork write support and recovery state immediately before the draft mutation. A stale destination is rejected with a localized message; the commit never creates or steals a draft, never substitutes the current selection, and never stages a surviving subset. The online lookup's search and per-candidate download fault channels live in the lookup sheet, so a failed download leaves the result grid and selected candidate available for retry or alternate selection without creating or altering a draft. Nothing reaches disk until the separate Inspector Save, which still uses the normal reviewed-write route, conflict checks, and per-field format preflight.
+
 ## Write Preflight
 
-Before any semantic write, `persistMetadataEdit`:
+Every production semantic write is planned before any authorization prompt and
+runs through either the strict reviewed route or the draft-aware
+Inspector/Raw Editor route. The removed mixed helper (`persistMetadataEdit`) and
+its optional expected-version/expected-fingerprint forwarding no longer exist in
+production source.
 
-1. refuses if the snapshot is marked refresh-required,
-2. checks `isTagWriteSupportedExtension` against the runtime writable extensions,
-3. builds `MetadataEditPayload` compared to the baseline snapshot,
-4. expands the requested fields with advisory and number-component companions,
-5. looks up `AudioFormatSupport.writableMetadataFields(for:)`,
-6. refuses the write if any requested field is unsupported, naming the fields.
+1. capture a failable `ReviewedMetadataTarget` from the reviewed observation
+   (missing fingerprint or package version, or a recovery block, means the file
+   is not writable),
+2. build `MetadataEditPayload` compared to the reviewed baseline snapshot,
+3. obtain the adapter-owned `MetadataWriteProjection` from the same deterministic
+   encoder the commit uses; malformed number/date text and unsupported fields are
+   rejected here, and a no-op projection never reaches a writer,
+4. look up `AudioFormatSupport.writableMetadataFields(for:)`. Missing capability
+   information marks every requested field unsupported (fail closed); an unknown
+   format is never treated as permission to write,
+5. revalidate current membership, URL, recovery state and the captured tokens
+   under the path reservation before the package writer runs.
 
-`nil` capability information means the format is not known to the app's snapshot; the write is left to the package's own validation. This is a deliberate fail-open for unknown capability data, offset by package verification and error reporting.
+The draft-aware route keeps the Inspector/Raw Editor conflict baseline, conflict
+policy and audio-continuity validation; the strict route passes the captured
+nonoptional package revision and never selects a merge policy or substitutes a
+newer version. The raw editor keeps its documented low-level exception from
+semantic field preflight, but it still requires a reviewed target and a captured
+nonoptional revision; there is no unversioned fallback.
 
 ## Payload Construction
 
@@ -146,7 +196,7 @@ The dedicated Inspector/provider/exchange models retain Album, Artist and Catalo
 
 ## Conflict Resolution
 
-`MetadataConflictResolver.writeMetadata` runs inside the file mutation reservation:
+`MetadataConflictResolver.writeMetadata` runs inside the file mutation reservation and consumes one observation, so the conflict baseline, fingerprint, and package version always share provenance. The equal-version fast path is safe for that reason; a changed revision still requires verified audio identity before rebasing:
 
 1. Validate that the path, device, and inode still match the expected snapshot.
 2. Read the current package file version.
@@ -207,13 +257,14 @@ The late reload result is discarded if its refresh generation is stale. See [Sta
 
 ## Raw Metadata Editing
 
-`RawMetadataValueMap` is `[String: [String]]` keyed by uppercase property key.
+`RawMetadataValueMap` is `[String: [String]]` keyed by uppercase property key. A value list is ordered data: duplicates, an empty element, and a line break embedded inside one element are distinct and preserved.
 
-- Loading uses `rawMetadataValueMap`, which preserves value order.
+- Loading uses `rawMetadataValueMap`, which preserves value order. A missing key is represented only by absence; it is not the same as an existing empty array, and neither is the same as one blank element.
 - Metadata Editor presents shared AudioMator field names and purposes; raw keys remain the row IDs and write identities. Selected suggestion keys are kept separately from their visible labels. Uppercase raw aliases are not canonicalised as a side effect of editing. See [field guide](../Product/METADATA_FIELD_GUIDE.md#shared-field-names-in-metadata-editor).
-- Saving computes an exact delta from the original map: `writeRawMetadataValueMap` sets keys whose values changed, removes keys absent from the draft, and leaves all other keys untouched.
-- The raw editor deliberately bypasses semantic field preflight because it is a low-level tool; it still uses the shared reservation, expected version, and conflict policy when a baseline is available.
-- If no conflict baseline exists, the older strict path uses the expected version without rebasing.
+- The field editor works on an ordered element list. Its commit path accepts an array and never derives element boundaries by splitting text; an existing raw key keeps its exact identity. An empty list is never a key deletion: the last element cannot be removed from the list and key removal is the separate Delete Field command. A mixed selection requires an explicit replacement list.
+- A text-utility preview captures per-file/key before/after arrays for the current presentation, target set and draft generation. `TextEditPipeline` transforms each element independently; Apply stages exactly the captured after-arrays and never inserts a missing key. A preview whose generation, targets, session or before-values changed is rejected with no mutation.
+- Done captures the per-file/key before/after arrays for pending targets at apply start. The reviewed raw route requires a coherent reviewed target and captured conflict baseline and fails closed otherwise; it freezes the exact patch from the captured original map (never the current disk) and never writes an unchanged target. Unrelated keys and value arrays are preserved by the package's exact raw patch. See [ADR 0006](Decisions/0006-reviewed-operation-boundary.md).
+- A container may reject a blank, duplicate or multiline element. The raw editor keeps its low-level exception from semantic field preflight, so there is no per-key capability preflight; the pipeline reports the failure and the app does not retry with a different write.
 
 ## Erase All Metadata
 

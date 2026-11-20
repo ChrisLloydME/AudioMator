@@ -1,11 +1,11 @@
 import Foundation
 
-enum MetadataExchangeTemplateSegment: Equatable {
+nonisolated enum MetadataExchangeTemplateSegment: Equatable, Sendable {
     case literal(String)
     case field(MetadataExchangeField)
 }
 
-struct MetadataExchangeTemplateDocument: Equatable {
+nonisolated struct MetadataExchangeTemplateDocument: Equatable, Sendable {
     let rawValue: String
     let segments: [MetadataExchangeTemplateSegment]
     let unknownPlaceholderNames: [String]
@@ -35,13 +35,13 @@ struct MetadataExchangeTemplateDocument: Equatable {
     }
 }
 
-struct MetadataExchangeTemplateParseResult: Equatable {
+nonisolated struct MetadataExchangeTemplateParseResult: Equatable, Sendable {
     let segments: [MetadataExchangeTemplateSegment]
     let unknownPlaceholderNames: [String]
     let hasUnterminatedPlaceholder: Bool
 }
 
-enum MetadataExchangeTemplateParser {
+nonisolated enum MetadataExchangeTemplateParser {
     static func parse(_ rawValue: String) -> MetadataExchangeTemplateParseResult {
         let syntax = MetadataExchangeTemplateSyntaxParser.parse(rawValue)
         var segments: [MetadataExchangeTemplateSegment] = []

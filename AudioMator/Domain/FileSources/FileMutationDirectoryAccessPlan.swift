@@ -5,6 +5,12 @@ enum FileMutationDirectoryAccessPlan {
         for fileURLs: [URL],
         activeDirectoryURLs: [URL]
     ) -> [URL] {
+        directories(for: fileURLs).filter { directory in
+            !activeDirectoryURLs.contains { FileSystemPathSemantics.isSameOrDescendant(directory, of: $0) }
+        }
+    }
+
+    nonisolated static func directories(for fileURLs: [URL]) -> [URL] {
         var directoriesByPath: [String: URL] = [:]
 
         for fileURL in fileURLs {
@@ -12,13 +18,9 @@ enum FileMutationDirectoryAccessPlan {
             directoriesByPath[normalizedPath(for: directoryURL)] = directoryURL
         }
 
-        return directoriesByPath.values
-            .filter { directoryURL in
-                !activeDirectoryURLs.contains { activeDirectoryURL in
-                    FileSystemPathSemantics.isSameOrDescendant(directoryURL, of: activeDirectoryURL)
-                }
-            }
-            .sorted { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
+        return directoriesByPath.values.sorted {
+            $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending
+        }
     }
 
     nonisolated private static func normalizedPath(for url: URL) -> String {

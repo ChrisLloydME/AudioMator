@@ -6,23 +6,26 @@ struct OnlineMetadataBrowserView: View {
     @ObservedObject var store: MusicBrainzBrowserStore
     @ObservedObject var lrclibStore: LRCLIBLyricsBrowserStore
     @ObservedObject var viewModel: AudioViewModel
+    @ObservedObject var activationStore: OnlineMetadataActivationStore
     private let iTunesStore: iTunesBrowserStore
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedMetadataSource: MetadataBrowserSource?
+    @StateObject private var session: OnlineMetadataBrowserSessionModel
     @State private var navigationPath: [MusicBrainzBrowserDestination] = []
     @State private var isShowingFilters = false
 
     init(
         store: MusicBrainzBrowserStore,
         lrclibStore: LRCLIBLyricsBrowserStore,
-        viewModel: AudioViewModel
+        viewModel: AudioViewModel,
+        activationStore: OnlineMetadataActivationStore = OnlineMetadataActivationStore()
     ) {
         self.init(
             store: store,
             lrclibStore: lrclibStore,
             viewModel: viewModel,
             iTunesStore: iTunesBrowserStore(),
-            initialSource: nil
+            initialSource: nil,
+            activationStore: activationStore
         )
     }
 
@@ -31,38 +34,48 @@ struct OnlineMetadataBrowserView: View {
         lrclibStore: LRCLIBLyricsBrowserStore,
         viewModel: AudioViewModel,
         iTunesStore: iTunesBrowserStore,
-        initialSource: MetadataBrowserSource?
+        initialSource: MetadataBrowserSource?,
+        activationStore: OnlineMetadataActivationStore = OnlineMetadataActivationStore()
     ) {
         self.store = store
         self.lrclibStore = lrclibStore
         self.viewModel = viewModel
+        self.activationStore = activationStore
         self.iTunesStore = iTunesStore
-        _selectedMetadataSource = State(initialValue: initialSource)
+        _session = StateObject(wrappedValue: OnlineMetadataBrowserSessionModel(
+            initialSource: initialSource,
+            activationStore: activationStore,
+            musicBrainzStore: store,
+            lrclibStore: lrclibStore,
+            selectedFilesProvider: {
+                viewModel.files.filter { viewModel.selectedAudioIDs.contains($0.id) }
+            }
+        ))
     }
 
     var body: some View {
         Group {
-            if let selectedMetadataSource {
-                switch selectedMetadataSource {
+            if let selectedSource = session.selectedSource {
+                switch selectedSource {
                 case .musicBrainz:
                     musicBrainzContent
                 case .iTunes:
                     iTunesBrowserView(
                         store: iTunesStore,
                         viewModel: viewModel,
-                        onBackToSources: { self.selectedMetadataSource = nil }
+                        onBackToSources: { session.backToSources() }
                     )
                 case .lrclib:
                     LRCLIBLyricsBrowserView(
                         store: lrclibStore,
                         viewModel: viewModel,
-                        onBackToSources: { self.selectedMetadataSource = nil }
+                        onBackToSources: { session.backToSources() }
                     )
                 }
             } else {
                 NavigationStack {
                     MetadataSourcePickerView { source in
-                        selectMetadataSource(source)
+                        session.select(source)
                     }
                     .navigationTitle(AppWindowTitle.onlineMetadata)
                     .toolbar {
@@ -78,11 +91,18 @@ struct OnlineMetadataBrowserView: View {
                 .background(Color(nsColor: .audiomatorWindowBackground))
             }
         }
-        .onDisappear {
-            selectedMetadataSource = nil
+        .onAppear {
+            session.consumePendingIntent()
+        }
+        .onChange(of: activationStore.pendingIntentID) { _, _ in
+            session.consumePendingIntent()
+        }
+        .onChange(of: session.selectedSource) { _, _ in
             navigationPath.removeAll()
-            store.closeWindowSession()
-            lrclibStore.closeWindowSession()
+        }
+        .onDisappear {
+            navigationPath.removeAll()
+            session.closeWindowSession()
         }
     }
 
@@ -145,20 +165,9 @@ struct OnlineMetadataBrowserView: View {
         }
     }
 
-    private func selectMetadataSource(_ source: MetadataBrowserSource) {
-        selectedMetadataSource = source
-        switch source {
-        case .musicBrainz where store.hasSearchText:
-            store.search()
-        default:
-            break
-        }
-    }
-
     private func leaveMusicBrainzSource() {
         navigationPath.removeAll()
-        store.closeWindowSession()
-        selectedMetadataSource = nil
+        session.backToSources()
     }
 
     private var searchHeader: some View {

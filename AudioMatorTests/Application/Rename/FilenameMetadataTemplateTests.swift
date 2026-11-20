@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class FilenameMetadataTemplateTests: XCTestCase {
+nonisolated final class FilenameMetadataTemplateTests: XCTestCase {
+    @MainActor
     func testFilenameMetadataPlanExtractsWritableFields() throws {
         let fingerprint = AudioFileFingerprint(
             normalizedPath: "/tmp/07 - Boards_of_Canada - Roygbiv.mp3",
@@ -25,13 +26,14 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertEqual(plan.readyCount, 1)
         XCTAssertEqual(plan.rows[0].status, .ready)
 
-        let values = try XCTUnwrap(plan.rows[0].writeEntry?.values)
+        let values = try XCTUnwrap(plan.rows[0].writeEntry?.previewValues)
         XCTAssertEqual(values[.trackNumberText], "07")
         XCTAssertEqual(values[.artist], "Boards of Canada")
         XCTAssertEqual(values[.title], "Roygbiv")
-        XCTAssertEqual(plan.rows[0].writeEntry?.expectedFileFingerprint, fingerprint)
+        XCTAssertEqual(plan.rows[0].writeEntry?.write.target.fingerprint, fingerprint)
     }
 
+    @MainActor
     func testFilenameMetadataPlanMarksUnchangedRows() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/01 - Artist - Existing Title.mp3"),
@@ -52,6 +54,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertNil(plan.rows[0].writeEntry)
     }
 
+    @MainActor
     func testFilenameMetadataPlanRejectsWritesWhenFileVersionIsUnavailable() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/unverified.mp3"),
@@ -69,6 +72,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testFilenameMetadataPlanRejectsAdjacentFields() {
         let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/ArtistTitle.mp3"))
 
@@ -86,6 +90,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testFilenameMetadataPlanRejectsInvalidTemplates() {
         let file = AudioFileTestFactory.make()
 
@@ -104,6 +109,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFilenameMetadataPlanRejectsOversizedTemplateForSizeReason() {
         let plan = makeFilenameMetadataPlan(
             template: String(repeating: "x", count: maximumFileRenameTemplateUTF8ByteCount + 1),
@@ -116,6 +122,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testFilenameMetadataPlanRejectsAmbiguousFieldSplits() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/Boards - Aquarius - Version.mp3")
@@ -142,6 +149,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
     /// pair. This is an intentional conservative raw-text comparison, not
     /// display parity; do not "fix" one side to mirror the other without a
     /// product decision.
+    @MainActor
     func testFilenameComparisonUsesStoredRawNumberTextWhileRenameRenderingUsesNumericPair() throws {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/07 - Song.mp3"),
@@ -166,7 +174,7 @@ final class FilenameMetadataTemplateTests: XCTestCase {
         XCTAssertEqual(numberChange.extractedValue, "07")
         XCTAssertEqual(numberChange.status, .different)
         XCTAssertTrue(numberChange.willWrite)
-        XCTAssertEqual(extractionPlan.rows.first?.writeEntry?.values[.trackNumberText], "07")
+        XCTAssertEqual(extractionPlan.rows.first?.writeEntry?.previewValues[.trackNumberText], "07")
 
         let renamePlan = makeFileRenamePlan(
             template: "{{trackNumber}} - {{title}}",

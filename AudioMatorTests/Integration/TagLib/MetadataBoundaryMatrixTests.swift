@@ -191,15 +191,15 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
                 sourceText: "\(field.placeholderName)\n\(sample.1)", firstRowIsHeader: true,
                 targetFiles: [file], clearBlankImportedValues: false)
             let entry = try XCTUnwrap(plan.writeEntries.first, "CSV \(field) \(plan.rows)")
-            var edit = SingleFileEditModel(from: file)
-            for (key, value) in entry.values {
-                key.applyImportedValue(value, to: &edit, preservingNumberPairComponents: true)
-            }
-            let payload = MetadataEditPayload(edit, comparedTo: file)
+            let payload = try XCTUnwrap(entry.frozenPayload, "CSV \(field)")
             XCTAssertTrue(payload.requestedFields.contains(sample.0), "CSV \(field)")
             let bytesBeforeWrite = try Data(contentsOf: url)
             do {
-                _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
+                _ = try pipeline.writeReviewedMetadata(
+                    payload,
+                    to: url,
+                    expectedVersion: entry.write.target.version
+                )
             } catch {
                 XCTAssertEqual(try Data(contentsOf: url), bytesBeforeWrite, "Rejected CSV write must not commit")
                 XCTFail("CSV \(field.placeholderName), requested=\(payload.requestedFields), before YEAR=\(file.year), DATE=\(file.date), RELEASEDATE=\(file.releaseDate): \(error)")
@@ -257,7 +257,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
         viewModel.mergeQuickImportFiles(files)
         viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
         await viewModel.applyiTunesTaggingPlan(files.map {
-            iTunesTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
+            iTunesTaggingWriteEntry(file: $0,
                 values: [.title: "Provider title", .itunesAlbumID: "12345", .itunesArtistID: "67890",
                          .itunesCatalogID: "54321", .releaseDate: "2017-06-09"])
         })
@@ -269,10 +269,21 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
             XCTAssertEqual(reloaded.itunesCatalogID, "54321")
             XCTAssertEqual(viewModel.files.first { $0.id == original.id }?.itunesArtistID, "67890")
         }
-        await viewModel.applyMusicBrainzTaggingPlan(files.map {
-            MusicBrainzTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                values: [.title: "MusicBrainz title", .musicBrainzAlbumID: "00000000-0000-0000-0000-000000000001"])
-        })
+        // The strict route freezes the reviewed observation per entry. The iTunes
+        // commit advanced every file's package revision, so the MusicBrainz entries
+        // must be built from the refreshed observations rather than the pre-iTunes
+        // snapshots captured above.
+        let refreshedFilesByID = Dictionary(uniqueKeysWithValues: viewModel.files.map { ($0.id, $0) })
+        let musicBrainzEntries = files.compactMap { original -> MusicBrainzTaggingWriteEntry? in
+            guard let refreshed = refreshedFilesByID[original.id] else { return nil }
+            return MusicBrainzTaggingWriteEntry(
+                file: refreshed,
+                values: [.title: "MusicBrainz title",
+                         .musicBrainzAlbumID: "00000000-0000-0000-0000-000000000001"]
+            )
+        }
+        XCTAssertEqual(musicBrainzEntries.count, files.count)
+        await viewModel.applyMusicBrainzTaggingPlan(musicBrainzEntries)
         for original in files {
             let reloaded = try await pipeline.loadAudioFile(at: original.url, id: original.id)
             XCTAssertEqual(reloaded.title, "MusicBrainz title")

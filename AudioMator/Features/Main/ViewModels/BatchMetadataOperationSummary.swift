@@ -1,8 +1,24 @@
 import Foundation
 
 struct BatchMetadataWriteIssue: Equatable {
+    enum Classification: Equatable {
+        case failure
+        case cancellation
+    }
+
     let fileName: String
     let messages: [String]
+    let classification: Classification
+
+    init(
+        fileName: String,
+        messages: [String],
+        classification: Classification = .failure
+    ) {
+        self.fileName = fileName
+        self.messages = messages
+        self.classification = classification
+    }
 }
 
 enum BatchMetadataOperationKind: String, Codable, Equatable {
@@ -60,9 +76,7 @@ struct BatchMetadataOperationSummary: Equatable {
     let operation: BatchMetadataOperationKind
     var succeeded: Int = 0
     var cancelledCount: Int {
-        failureIssues.filter { issue in
-            issue.messages.count == 1 && MetadataCancellation.isMessage(issue.messages[0])
-        }.count
+        failureIssues.filter { $0.classification == .cancellation }.count
     }
     var warningIssues: [BatchMetadataWriteIssue] = []
     var failureIssues: [BatchMetadataWriteIssue] = []
@@ -76,9 +90,11 @@ struct BatchMetadataOperationSummary: Equatable {
 
     mutating func recordCancelledFiles(_ fileNames: [String]) {
         failureIssues.append(contentsOf: fileNames.map {
-            BatchMetadataWriteIssue(fileName: $0, messages: [
-                MetadataCancellation.beforeFileMessage
-            ])
+            BatchMetadataWriteIssue(
+                fileName: $0,
+                messages: [MetadataCancellation.beforeFileMessage],
+                classification: .cancellation
+            )
         })
     }
 

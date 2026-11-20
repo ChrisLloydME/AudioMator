@@ -1,7 +1,7 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzLinkParserTests: XCTestCase {
+nonisolated final class MusicBrainzLinkParserTests: XCTestCase {
     func testParseSupportsRecordingAndReleaseLinksWithOrWithoutScheme() throws {
         let recordingID = "6f1ed5f8-8bf7-4a4c-a6c9-4bb5a8f6d001"
         let releaseID = "bb30c6f5-0f9d-41f1-8e61-a9a8150419b8"

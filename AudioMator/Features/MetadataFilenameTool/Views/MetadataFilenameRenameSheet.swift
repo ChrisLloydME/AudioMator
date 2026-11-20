@@ -65,23 +65,6 @@ private enum MetadataFilenameToolMode: String, CaseIterable, Identifiable {
     }
 }
 
-@MainActor
-final class MetadataFilenameToolStore: ObservableObject {
-    @Published private(set) var targetFileIDs: [AudioFile.ID] = []
-    @Published private(set) var presentationID = UUID()
-
-    func present(targetFileIDs: [AudioFile.ID]) {
-        var seenIDs: Set<AudioFile.ID> = []
-        self.targetFileIDs = targetFileIDs.filter { seenIDs.insert($0).inserted }
-        self.presentationID = UUID()
-    }
-}
-
-private struct MetadataFilenameTargetResolution {
-    let files: [AudioFile]
-    let isComplete: Bool
-}
-
 enum MetadataExchangeExternalTextFileLoader {
     nonisolated static let maximumByteCount = MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
 
@@ -242,129 +225,59 @@ struct MetadataFilenameWindowView: View {
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var fieldTransferStore = MetadataFieldTransferStore()
-    @State private var selectedConverterMode: MetadataConverterMode?
-    @State private var mode: MetadataFilenameToolMode = .metadataToFilename
-    @State private var metadataToFilenameTemplate: String = ""
-    @State private var filenameToMetadataTemplate: String = ""
-    @State private var metadataToTextTemplate: String = "{{trackNumber}}. {{artist}} - {{title}}"
-    @State private var textToMetadataTemplate: String = "{{fileName}} | {{title}} | {{artist}} | {{album}}"
-    @State private var metadataToCSVTemplate: String = "{{fileName}},{{trackNumber}},{{title}},{{artist}},{{album}}"
-    @State private var csvToMetadataTemplate: String = "{{fileName}},{{trackNumber}},{{title}},{{artist}},{{album}}"
-    @State private var textImportSource: String = ""
-    @State private var csvImportSource: String = ""
-    @State private var selectedTextImportURL: URL?
-    @State private var selectedCSVImportURL: URL?
-    @State private var externalFileError: String?
-    @State private var includeCSVHeaderRow: Bool = true
-    @State private var firstCSVRowIsHeader: Bool = true
-    @State private var clearBlankTextImportedValues: Bool = false
-    @State private var clearBlankCSVImportedValues: Bool = false
-    @State private var replaceUnderscoresWithSpaces: Bool = false
-    @State private var isApplying: Bool = false
-    @State private var externalFileLoadID: UUID?
     @State private var pendingFieldInsertion: FileRenameTemplateEditorInsertion?
     @State private var pendingExchangeFieldInsertion: MetadataExchangeTemplateEditorInsertion?
     @State private var renameFailureMessage: String?
+
+    private var selectedConverterMode: MetadataConverterMode? { store.selectedMode }
+    private var isApplying: Bool { store.isApplying }
+    private var externalFileError: String? { store.externalFileError }
+
+    private var filenameMode: MetadataFilenameToolMode {
+        selectedConverterMode == .filenameToMetadata ? .filenameToMetadata : .metadataToFilename
+    }
+
+    private var activeConverterMode: MetadataConverterMode {
+        filenameMode == .filenameToMetadata ? .filenameToMetadata : .metadataToFilename
+    }
 
     private let sectionInset: CGFloat = 12
     private let sectionRadius: CGFloat = 18
     private let controlRadius: CGFloat = 12
     private let contentInset: CGFloat = 20
 
-    private var targetResolution: MetadataFilenameTargetResolution {
-        let filesByID = Dictionary(grouping: viewModel.files, by: \.id)
-        var resolvedFiles: [AudioFile] = []
-        resolvedFiles.reserveCapacity(store.targetFileIDs.count)
+    // MARK: – Stored plan reads
+    //
+    // Every preview value below reads the single plan the store published for
+    // the active mode. No planner call runs while laying out a window, and the
+    // counts, rows, gating, export and write all share that one value.
 
-        for id in store.targetFileIDs {
-            guard let matches = filesByID[id], matches.count == 1, let file = matches.first else {
-                return MetadataFilenameTargetResolution(files: [], isComplete: false)
-            }
-            resolvedFiles.append(file)
-        }
-
-        return MetadataFilenameTargetResolution(files: resolvedFiles, isComplete: true)
-    }
-
-    private var targetFiles: [AudioFile] {
-        targetResolution.files
-    }
-
-    private var renamePlan: FileRenamePlan {
-        makeFileRenamePlan(template: metadataToFilenameTemplate, targetFiles: targetFiles)
-    }
-
-    private var filenameMetadataPlan: FilenameMetadataPlan {
-        makeFilenameMetadataPlan(
-            template: filenameToMetadataTemplate,
-            targetFiles: targetFiles,
-            replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces
-        )
-    }
-
-    private var metadataTextExportPlan: MetadataTextExportPlan {
-        MetadataExchangePlanner.makeTextExportPlan(
-            template: metadataToTextTemplate,
-            targetFiles: targetFiles
-        )
-    }
-
+    private var renamePlan: FileRenamePlan { store.displayRenamePlan() }
+    private var filenameMetadataPlan: FilenameMetadataPlan { store.displayFilenameMetadataPlan() }
+    private var metadataTextExportPlan: MetadataTextExportPlan { store.displayTextExportPlan() }
     private var textMetadataImportPlan: MetadataExchangeImportPlan {
-        MetadataExchangePlanner.makeTextImportPlan(
-            template: textToMetadataTemplate,
-            sourceText: textImportSource,
-            targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankTextImportedValues
-        )
+        store.displayImportPlan(for: .textToMetadata)
     }
-
-    private var metadataCSVExportPlan: MetadataCSVExportPlan {
-        MetadataExchangePlanner.makeCSVExportPlan(
-            template: metadataToCSVTemplate,
-            includeHeaderRow: includeCSVHeaderRow,
-            targetFiles: targetFiles
-        )
-    }
-
+    private var metadataCSVExportPlan: MetadataCSVExportPlan { store.displayCSVExportPlan() }
     private var csvMetadataImportPlan: MetadataExchangeImportPlan {
-        MetadataExchangePlanner.makeCSVImportPlan(
-            template: csvToMetadataTemplate,
-            sourceText: csvImportSource,
-            firstRowIsHeader: firstCSVRowIsHeader,
-            targetFiles: targetFiles,
-            clearBlankImportedValues: clearBlankCSVImportedValues
-        )
+        store.displayImportPlan(for: .csvToMetadata)
     }
-
     private var fieldTransferPlan: MetadataExchangeImportPlan {
-        fieldTransferStore.makePlan(targetFiles: targetFiles)
+        store.displayImportPlan(for: .metadataFieldTransfer)
     }
+    private var previewPhaseMessage: String? { store.previewPhaseMessage() }
 
-    private var activeTemplate: String {
-        switch mode {
-        case .metadataToFilename:
-            return metadataToFilenameTemplate
-        case .filenameToMetadata:
-            return filenameToMetadataTemplate
-        }
-    }
+    private var activeTemplate: String { store.template(for: activeConverterMode) }
 
     private var activeTemplateBinding: Binding<String> {
         Binding(
-            get: { activeTemplate },
-            set: { newValue in
-                switch mode {
-                case .metadataToFilename:
-                    metadataToFilenameTemplate = newValue
-                case .filenameToMetadata:
-                    filenameToMetadataTemplate = newValue
-                }
-            }
+            get: { store.template(for: activeConverterMode) },
+            set: { store.updateTemplate($0, for: activeConverterMode) }
         )
     }
 
     private var activeFieldPalette: [FileRenameMetadataField] {
-        switch mode {
+        switch filenameMode {
         case .metadataToFilename:
             return FileRenameMetadataField.metadataToFilenameFields
         case .filenameToMetadata:
@@ -372,14 +285,11 @@ struct MetadataFilenameWindowView: View {
         }
     }
 
-    private var selectionSummaryText: String {
-        targetFiles.count == 1
-            ? "1 selected file"
-            : "\(targetFiles.count) selected files"
-    }
+    private var selectionSummaryText: String { store.selectionSummaryText }
 
     private var previewStatusMessage: String {
-        switch mode {
+        if let previewPhaseMessage { return previewPhaseMessage }
+        switch filenameMode {
         case .metadataToFilename:
             return metadataToFilenameStatusMessage
         case .filenameToMetadata:
@@ -388,6 +298,13 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var previewStatusSymbolName: String {
+        if store.isPlanning {
+            return "info.circle.fill"
+        }
+        if previewPhaseMessage != nil {
+            return "exclamationmark.triangle.fill"
+        }
+
         if previewHasIssues {
             return "exclamationmark.triangle.fill"
         }
@@ -400,6 +317,13 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var previewStatusTint: Color {
+        if store.isPlanning {
+            return .secondary
+        }
+        if previewPhaseMessage != nil {
+            return .orange
+        }
+
         if previewHasIssues {
             return .orange
         }
@@ -412,7 +336,7 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var previewHasIssues: Bool {
-        switch mode {
+        switch filenameMode {
         case .metadataToFilename:
             return renamePlan.hasIssues
         case .filenameToMetadata:
@@ -421,7 +345,7 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var previewReadyCount: Int {
-        switch mode {
+        switch filenameMode {
         case .metadataToFilename:
             return renamePlan.readyCount
         case .filenameToMetadata:
@@ -432,7 +356,7 @@ struct MetadataFilenameWindowView: View {
     private var canApply: Bool {
         guard
             let selectedConverterMode,
-            targetResolution.isComplete,
+            store.isTargetResolutionComplete,
             !isApplying,
             viewModel.metadataSaveProgress == nil,
             !viewModel.hasUnsavedInspectorChanges
@@ -460,16 +384,16 @@ struct MetadataFilenameWindowView: View {
 
     private var metadataToFilenameStatusMessage: String {
         MetadataFilenameStatusPresentation.renameMessage(
-            targetCount: targetFiles.count,
-            template: metadataToFilenameTemplate,
+            targetCount: store.targetCount,
+            template: store.template(for: .metadataToFilename),
             plan: renamePlan
         )
     }
 
     private var filenameToMetadataStatusMessage: String {
         MetadataFilenameStatusPresentation.filenameMetadataMessage(
-            targetCount: targetFiles.count,
-            template: filenameToMetadataTemplate,
+            targetCount: store.targetCount,
+            template: store.template(for: .filenameToMetadata),
             plan: filenameMetadataPlan
         )
     }
@@ -498,7 +422,7 @@ struct MetadataFilenameWindowView: View {
                 if selectedConverterMode != nil {
                     ToolbarItem(placement: .navigation) {
                         Button {
-                            selectedConverterMode = nil
+                            store.selectMode(nil)
                             pendingFieldInsertion = nil
                         } label: {
                             Label("Modes", systemImage: "chevron.left")
@@ -508,14 +432,56 @@ struct MetadataFilenameWindowView: View {
                 }
             }
         }
-        .onChange(of: selectedConverterMode) { _, _ in
+        .onChange(of: store.selectedMode) { _, _ in
             pendingFieldInsertion = nil
             pendingExchangeFieldInsertion = nil
-            externalFileLoadID = nil
-            externalFileError = nil
         }
         .onChange(of: store.presentationID) { _, _ in
             resetForNewPresentation()
+        }
+        .onChange(of: viewModel.filesRevision) { _, _ in
+            refreshConversionInput()
+        }
+        .onChange(of: fieldTransferStore.source) { _, _ in
+            store.setFieldTransferOptions(
+                source: fieldTransferStore.source,
+                destination: fieldTransferStore.destination,
+                operation: fieldTransferStore.operation
+            )
+        }
+        .onChange(of: fieldTransferStore.destination) { _, _ in
+            store.setFieldTransferOptions(
+                source: fieldTransferStore.source,
+                destination: fieldTransferStore.destination,
+                operation: fieldTransferStore.operation
+            )
+        }
+        .onChange(of: fieldTransferStore.operation) { _, _ in
+            store.setFieldTransferOptions(
+                source: fieldTransferStore.source,
+                destination: fieldTransferStore.destination,
+                operation: fieldTransferStore.operation
+            )
+        }
+        .task {
+            // The converter may request mutation scope only for the executable
+            // targets captured by an Apply; opening, previewing and exporting
+            // never prompt.
+            let viewModel = self.viewModel
+            store.setScopeRequester { result, isCurrent in
+                if result.renamePlan != nil {
+                    return viewModel.ensureMutationDirectoryAccess(
+                        for: result.executableTargetURLs, whileCurrent: isCurrent
+                    )
+                }
+                return viewModel.ensureReviewedMetadataDirectoryAccess(
+                    for: result.executableMetadataWrites, whileCurrent: isCurrent
+                )
+            }
+            refreshConversionInput()
+        }
+        .onDisappear {
+            store.cancelPresentation()
         }
         .alert(
             String(localized: "Files Couldn’t Be Renamed"),
@@ -543,7 +509,9 @@ struct MetadataFilenameWindowView: View {
             MetadataFieldTransferDetailView(
                 store: fieldTransferStore,
                 plan: fieldTransferPlan,
-                targetCount: targetFiles.count,
+                isPlanning: store.isPlanning,
+                phaseMessage: previewPhaseMessage,
+                targetCount: store.targetCount,
                 selectionSummaryText: selectionSummaryText,
                 isApplying: isApplying
             )
@@ -570,23 +538,27 @@ struct MetadataFilenameWindowView: View {
         .scrollBounceBehavior(.basedOnSize)
     }
 
+    private func refreshConversionInput() {
+        store.refresh(
+            files: viewModel.files,
+            filesRevision: viewModel.filesRevision,
+            projector: viewModel.metadataPipeline
+        )
+    }
+
     private func selectConverterMode(_ selectedMode: MetadataConverterMode) {
-        switch selectedMode {
-        case .metadataToFilename:
-            mode = .metadataToFilename
-        case .filenameToMetadata:
-            mode = .filenameToMetadata
-        case .metadataToText, .textToMetadata, .metadataToCSV, .csvToMetadata, .metadataFieldTransfer:
-            break
-        }
-        selectedConverterMode = selectedMode
-        externalFileError = nil
+        store.setFieldTransferOptions(
+            source: fieldTransferStore.source,
+            destination: fieldTransferStore.destination,
+            operation: fieldTransferStore.operation
+        )
+        store.selectMode(selectedMode)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text(mode.pickerTitle)
+                Text(filenameMode.pickerTitle)
                     .font(.title3)
                     .fontWeight(.semibold)
 
@@ -598,7 +570,7 @@ struct MetadataFilenameWindowView: View {
                 }
             }
 
-            Text(mode.headerDescription)
+            Text(filenameMode.headerDescription)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -624,8 +596,14 @@ struct MetadataFilenameWindowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if mode == .filenameToMetadata {
-                    Toggle("Replace underscores with spaces in extracted values", isOn: $replaceUnderscoresWithSpaces)
+                if filenameMode == .filenameToMetadata {
+                    Toggle(
+                        "Replace underscores with spaces in extracted values",
+                        isOn: Binding(
+                            get: { store.replaceUnderscoresWithSpaces },
+                            set: { store.setReplaceUnderscoresWithSpaces($0) }
+                        )
+                    )
                         .toggleStyle(.checkbox)
                         .disabled(isApplying)
                 }
@@ -641,12 +619,12 @@ struct MetadataFilenameWindowView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(mode.templateTitle)
+                    Text(filenameMode.templateTitle)
                         .font(.headline)
 
                     ZStack(alignment: .topLeading) {
                         if activeTemplate.isEmpty {
-                            Text(mode.placeholderText)
+                            Text(filenameMode.placeholderText)
                                 .foregroundStyle(.tertiary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 14)
@@ -682,7 +660,7 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var setupDescription: String {
-        switch mode {
+        switch filenameMode {
         case .metadataToFilename:
             return L10n.string("AudioMator keeps each file's current extension. The template changes only the filename.")
         case .filenameToMetadata:
@@ -701,15 +679,19 @@ struct MetadataFilenameWindowView: View {
                     .font(.subheadline)
                     .foregroundStyle(previewStatusTint)
 
-                if activeTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if store.isPlanning {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity, minHeight: 300)
+                } else if activeTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ContentUnavailableView(
                         "Add a Template",
                         systemImage: "text.cursor",
-                        description: Text(mode.emptyPreviewDescription)
+                        description: Text(filenameMode.emptyPreviewDescription)
                     )
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
-                    switch mode {
+                    switch filenameMode {
                     case .metadataToFilename:
                         MetadataFilenameRenamePreviewList(rows: renamePlan.rows)
                             .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
@@ -731,21 +713,26 @@ struct MetadataFilenameWindowView: View {
     private func metadataExchangeDetail(for selectedMode: MetadataConverterMode) -> some View {
         MetadataExchangeDetailView(
             selectedMode: selectedMode,
-            targetCount: targetFiles.count,
+            targetCount: store.targetCount,
             selectionSummaryText: selectionSummaryText,
             isApplying: isApplying,
+            isPlanning: store.isPlanning,
+            phaseMessage: previewPhaseMessage,
             template: metadataExchangeTemplateBinding(for: selectedMode),
             pendingInsertion: $pendingExchangeFieldInsertion,
             externalSource: externalSourceBinding(for: selectedMode),
             externalSourceURL: externalSourceURL(for: selectedMode),
             externalFileError: externalFileError,
-            includeCSVHeaderRow: $includeCSVHeaderRow,
-            firstCSVRowIsHeader: $firstCSVRowIsHeader,
+            includeCSVHeaderRow: Binding(
+                get: { store.includeCSVHeaderRow },
+                set: { store.setIncludeCSVHeaderRow($0) }
+            ),
+            firstCSVRowIsHeader: Binding(
+                get: { store.firstCSVRowIsHeader },
+                set: { store.setFirstCSVRowIsHeader($0) }
+            ),
             clearBlankImportedValues: clearBlankImportedValuesBinding(for: selectedMode),
-            metadataTextExportPlan: metadataTextExportPlan,
-            textMetadataImportPlan: textMetadataImportPlan,
-            metadataCSVExportPlan: metadataCSVExportPlan,
-            csvMetadataImportPlan: csvMetadataImportPlan,
+            result: store.displayResult(for: selectedMode),
             chooseExternalFile: {
                 chooseExternalTextFile(for: selectedMode)
             }
@@ -758,73 +745,27 @@ struct MetadataFilenameWindowView: View {
 
     private func metadataExchangeTemplateBinding(for selectedMode: MetadataConverterMode) -> Binding<String> {
         Binding(
-            get: {
-                switch selectedMode {
-                case .metadataToText:
-                    return metadataToTextTemplate
-                case .textToMetadata:
-                    return textToMetadataTemplate
-                case .metadataToCSV:
-                    return metadataToCSVTemplate
-                case .csvToMetadata:
-                    return csvToMetadataTemplate
-                case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
-                    return ""
-                }
-            },
-            set: { newValue in
-                switch selectedMode {
-                case .metadataToText:
-                    metadataToTextTemplate = newValue
-                case .textToMetadata:
-                    textToMetadataTemplate = newValue
-                case .metadataToCSV:
-                    metadataToCSVTemplate = newValue
-                case .csvToMetadata:
-                    csvToMetadataTemplate = newValue
-                case .metadataToFilename, .filenameToMetadata, .metadataFieldTransfer:
-                    break
-                }
-            }
+            get: { store.template(for: selectedMode) },
+            set: { store.updateTemplate($0, for: selectedMode) }
         )
     }
 
     private func externalSourceBinding(for selectedMode: MetadataConverterMode) -> Binding<String> {
         Binding(
-            get: { selectedMode == .csvToMetadata ? csvImportSource : textImportSource },
-            set: { newValue in
-                if selectedMode == .csvToMetadata {
-                    csvImportSource = newValue
-                    selectedCSVImportURL = nil
-                } else {
-                    textImportSource = newValue
-                    selectedTextImportURL = nil
-                }
-                externalFileLoadID = nil
-                externalFileError = nil
-            }
+            get: { store.externalSource(for: selectedMode) },
+            set: { store.setExternalSource($0, for: selectedMode) }
         )
     }
 
     private func clearBlankImportedValuesBinding(for selectedMode: MetadataConverterMode) -> Binding<Bool> {
         Binding(
-            get: {
-                selectedMode == .csvToMetadata
-                    ? clearBlankCSVImportedValues
-                    : clearBlankTextImportedValues
-            },
-            set: { newValue in
-                if selectedMode == .csvToMetadata {
-                    clearBlankCSVImportedValues = newValue
-                } else if selectedMode == .textToMetadata {
-                    clearBlankTextImportedValues = newValue
-                }
-            }
+            get: { store.clearBlankImportedValues(for: selectedMode) },
+            set: { store.setClearBlankImportedValues($0, for: selectedMode) }
         )
     }
 
     private func externalSourceURL(for selectedMode: MetadataConverterMode) -> URL? {
-        selectedMode == .csvToMetadata ? selectedCSVImportURL : selectedTextImportURL
+        store.externalSourceURL(for: selectedMode)
     }
 
     private var footer: some View {
@@ -832,6 +773,7 @@ struct MetadataFilenameWindowView: View {
             Spacer()
 
             Button("Close") {
+                store.cancelPresentation()
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
@@ -839,7 +781,7 @@ struct MetadataFilenameWindowView: View {
 
             Button(selectedConverterMode == .metadataFieldTransfer
                 ? fieldTransferStore.operation.title
-                : selectedConverterMode?.actionTitle ?? mode.actionTitle) {
+                : selectedConverterMode?.actionTitle ?? filenameMode.actionTitle) {
                 applyCurrentMode()
             }
             .keyboardShortcut(.defaultAction)
@@ -884,38 +826,50 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyCurrentMode() {
-        guard let selectedConverterMode else { return }
+        guard let selectedConverterMode, canApply else { return }
+        // Capture the exact displayed plan once. A pending or superseded plan
+        // cannot dispatch, and completion is scoped to this presentation.
+        guard let dispatch = store.beginDispatch(for: selectedConverterMode) else {
+            if let scopeError = store.lastScopeRequestError {
+                viewModel.presentMetadataWriteHUD(
+                    style: .warning,
+                    title: String(localized: "Allow Folder Access"),
+                    subtitle: scopeError
+                )
+            }
+            return
+        }
 
-        switch selectedConverterMode {
+        switch dispatch.mode {
         case .metadataToFilename:
-            applyRename()
+            applyRename(dispatch: dispatch)
         case .filenameToMetadata:
-            applyFilenameMetadata()
+            applyFilenameMetadata(dispatch: dispatch)
         case .metadataToText:
-            exportMetadataText()
+            defer { _ = store.finishDispatch(dispatch) }
+            exportMetadataText(dispatch: dispatch)
         case .textToMetadata:
-            applyTextMetadata()
+            applyTextMetadata(dispatch: dispatch)
         case .metadataToCSV:
-            exportMetadataCSV()
+            defer { _ = store.finishDispatch(dispatch) }
+            exportMetadataCSV(dispatch: dispatch)
         case .csvToMetadata:
-            applyCSVMetadata()
+            applyCSVMetadata(dispatch: dispatch)
         case .metadataFieldTransfer:
-            applyFieldTransfer()
+            applyFieldTransfer(dispatch: dispatch)
         }
     }
 
-    private func applyRename() {
-        let plan = renamePlan
-        guard canApply, plan.canApply else { return }
-        let presentationID = store.presentationID
-
-        isApplying = true
+    private func applyRename(dispatch: MetadataFilenameConverterDispatch) {
+        guard let plan = dispatch.result.renamePlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             let result = await viewModel.renameFiles(using: plan)
-            isApplying = false
-
-            guard store.presentationID == presentationID else { return }
+            guard store.finishDispatch(dispatch) else { return }
             if result.wasCancelled { return }
             if let failureMessage = result.failureMessage {
                 renameFailureMessage = failureMessage
@@ -925,14 +879,14 @@ struct MetadataFilenameWindowView: View {
         }
     }
 
-    private func applyFilenameMetadata() {
-        let plan = filenameMetadataPlan
-        guard canApply, plan.canApply else { return }
-        let presentationID = store.presentationID
-
-        isApplying = true
+    private func applyFilenameMetadata(dispatch: MetadataFilenameConverterDispatch) {
+        guard let plan = dispatch.result.filenameMetadataPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             let skipped = plan.rows.compactMap { row -> BatchMetadataWriteIssue? in
                 guard row.writeEntry == nil, row.status != .unchanged else { return nil }
                 return BatchMetadataWriteIssue(
@@ -944,73 +898,71 @@ struct MetadataFilenameWindowView: View {
                 plan.writeEntries,
                 skippedIssues: skipped
             )
-            isApplying = false
-
-            guard store.presentationID == presentationID else { return }
+            guard store.finishDispatch(dispatch) else { return }
             if let summary, summary.failureIssues.isEmpty, !plan.hasIssues {
                 dismiss()
             }
         }
     }
 
-    private func applyTextMetadata() {
-        let plan = textMetadataImportPlan
-        guard canApply, plan.canApply else { return }
-        let presentationID = store.presentationID
+    private func applyTextMetadata(dispatch: MetadataFilenameConverterDispatch) {
+        guard let plan = dispatch.result.textImportPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
-        isApplying = true
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             _ = await viewModel.applyMetadataExchangeWriteEntries(
                 plan.writeEntries,
                 skippedIssues: Self.skippedExchangeIssues(for: plan)
             )
-            isApplying = false
-            guard store.presentationID == presentationID else { return }
+            _ = store.finishDispatch(dispatch)
         }
     }
 
-    private func applyCSVMetadata() {
-        let plan = csvMetadataImportPlan
-        guard canApply, plan.canApply else { return }
-        let presentationID = store.presentationID
+    private func applyCSVMetadata(dispatch: MetadataFilenameConverterDispatch) {
+        guard let plan = dispatch.result.csvImportPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
-        isApplying = true
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             _ = await viewModel.applyMetadataExchangeWriteEntries(
                 plan.writeEntries,
                 skippedIssues: Self.skippedExchangeIssues(for: plan)
             )
-            isApplying = false
-            guard store.presentationID == presentationID else { return }
+            _ = store.finishDispatch(dispatch)
         }
     }
 
-    private func applyFieldTransfer() {
-        let plan = fieldTransferPlan
-        guard canApply, plan.canApply else { return }
+    private func applyFieldTransfer(dispatch: MetadataFilenameConverterDispatch) {
+        guard let plan = dispatch.result.fieldTransferPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         let progressTitle = fieldTransferStore.operation.progressTitle
-        isApplying = true
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             _ = await viewModel.applyMetadataExchangeWriteEntries(
                 plan.writeEntries,
                 skippedIssues: Self.skippedExchangeIssues(for: plan),
                 progressTitle: progressTitle
             )
-            isApplying = false
+            _ = store.finishDispatch(dispatch)
         }
     }
 
-    private func exportMetadataText() {
-        let plan = metadataTextExportPlan
-        guard canApply, plan.canExport else { return }
-        saveText(plan.outputText, defaultFileName: "AudioMator Metadata.txt", fileExtension: "txt")
+    private func exportMetadataText(dispatch: MetadataFilenameConverterDispatch) {
+        guard let text = dispatch.encodedExportText else { return }
+        saveText(text, defaultFileName: "AudioMator Metadata.txt", fileExtension: "txt")
     }
 
-    private func exportMetadataCSV() {
-        let plan = metadataCSVExportPlan
-        guard canApply, plan.canExport else { return }
-        saveText(plan.outputText, defaultFileName: "AudioMator Metadata.csv", fileExtension: "csv")
+    private func exportMetadataCSV(dispatch: MetadataFilenameConverterDispatch) {
+        guard let text = dispatch.encodedExportText else { return }
+        saveText(text, defaultFileName: "AudioMator Metadata.csv", fileExtension: "csv")
     }
 
     private func chooseExternalTextFile(for selectedMode: MetadataConverterMode) {
@@ -1018,59 +970,14 @@ struct MetadataFilenameWindowView: View {
             guard let url else { return }
             guard selectedMode == .textToMetadata || selectedMode == .csvToMetadata else { return }
 
-            let presentationID = store.presentationID
-            let loadID = UUID()
-            externalFileLoadID = loadID
-
-            Task { @MainActor in
-                do {
-                    let text = try await MetadataExchangeExternalTextFileLoader.load(from: url)
-                    guard
-                        store.presentationID == presentationID,
-                        selectedConverterMode == selectedMode,
-                        externalFileLoadID == loadID
-                    else { return }
-
-                    switch selectedMode {
-                    case .textToMetadata:
-                        textImportSource = text
-                        selectedTextImportURL = url
-                    case .csvToMetadata:
-                        csvImportSource = text
-                        selectedCSVImportURL = url
-                    case .metadataToFilename, .filenameToMetadata, .metadataToText, .metadataToCSV, .metadataFieldTransfer:
-                        break
-                    }
-                    externalFileLoadID = nil
-                    externalFileError = nil
-                } catch {
-                    guard
-                        store.presentationID == presentationID,
-                        selectedConverterMode == selectedMode,
-                        externalFileLoadID == loadID
-                    else { return }
-                    externalFileLoadID = nil
-                    externalFileError = (error as NSError).localizedDescription
-                }
+            store.loadExternalTextFile(from: url, for: selectedMode) { url in
+                try await MetadataExchangeExternalTextFileLoader.load(from: url)
             }
         }
     }
 
     private func resetForNewPresentation() {
-        selectedConverterMode = nil
         fieldTransferStore.reset()
-        mode = .metadataToFilename
-        textImportSource = ""
-        csvImportSource = ""
-        selectedTextImportURL = nil
-        selectedCSVImportURL = nil
-        externalFileLoadID = nil
-        externalFileError = nil
-        includeCSVHeaderRow = true
-        firstCSVRowIsHeader = true
-        clearBlankTextImportedValues = false
-        clearBlankCSVImportedValues = false
-        replaceUnderscoresWithSpaces = false
         pendingFieldInsertion = nil
         pendingExchangeFieldInsertion = nil
         renameFailureMessage = nil

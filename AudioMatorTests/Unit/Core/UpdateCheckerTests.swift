@@ -2,12 +2,13 @@ import Foundation
 import XCTest
 @testable import AudioMator
 
-final class UpdateCheckerTests: XCTestCase {
+nonisolated final class UpdateCheckerTests: XCTestCase {
     override func tearDown() {
         UpdateMockURLProtocol.requestHandler = nil
         super.tearDown()
     }
 
+    @MainActor
     func testSemanticVersionComparisonHandlesAudioMatorVersions() throws {
         XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion("2.4")), try XCTUnwrap(SemanticVersion("2.3")))
         XCTAssertGreaterThan(try XCTUnwrap(SemanticVersion("2.3.1")), try XCTUnwrap(SemanticVersion("2.3")))
@@ -17,6 +18,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertNil(SemanticVersion("V2.3B26512"))
     }
 
+    @MainActor
     func testReleaseVersionComparisonIncludesBuildNumber() throws {
         let installed = try XCTUnwrap(ReleaseVersion(marketingVersion: "2.6", buildNumber: "2691"))
         XCTAssertGreaterThan(try XCTUnwrap(ReleaseVersion(releaseTag: "V2.6B2692")), installed)
@@ -29,6 +31,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertNil(ReleaseVersion(releaseTag: "V2.6b2692"))
     }
 
+    @MainActor
     func testUpdateCheckerDetectsNewerRelease() async throws {
         let release = try makeRelease(tagName: "V2.4B26001")
         let checker = UpdateChecker(
@@ -41,6 +44,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(result, .updateAvailable(release, currentVersion: "2.3 (26512)"))
     }
 
+    @MainActor
     func testUpdateCheckerDetectsNewerBuildOfSameMarketingVersion() async throws {
         let release = try makeRelease(tagName: "V2.6B2692")
         let checker = UpdateChecker(
@@ -52,6 +56,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(result, .updateAvailable(release, currentVersion: "2.6 (2691)"))
     }
 
+    @MainActor
     func testUpdateCheckerReportsUpToDateWhenVersionsMatch() async throws {
         let checker = UpdateChecker(
             releaseProvider: MockUpdateReleaseProvider(release: try makeRelease(tagName: "V2.3B26512")),
@@ -63,6 +68,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(result, .upToDate(currentVersion: "2.3 (26512)", latestVersion: "V2.3B26512"))
     }
 
+    @MainActor
     func testUpdateCheckerDistinguishesInstalledVersionAheadOfLatestRelease() async throws {
         let checker = UpdateChecker(
             releaseProvider: MockUpdateReleaseProvider(release: try makeRelease(tagName: "V2.3B26512")),
@@ -77,6 +83,7 @@ final class UpdateCheckerTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testUpdateCheckerThrowsForMissingCurrentVersion() async throws {
         let checker = UpdateChecker(
             releaseProvider: MockUpdateReleaseProvider(release: try makeRelease(tagName: "V2.4B26001")),
@@ -91,6 +98,7 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testGitHubClientBuildsReleaseMetadata() async throws {
         let payload = """
         {
@@ -124,6 +132,7 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(release.tagName, "V2.4B26001")
     }
 
+    @MainActor
     func testGitHubClientMapsRateLimitAndMissingVersionResponses() async throws {
         UpdateMockURLProtocol.requestHandler = { request in
             (
@@ -164,6 +173,7 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testGitHubClientMapsTooManyRequestsAsRateLimited() async throws {
         do {
             _ = try await fetchLatestRelease(statusCode: 429, body: "")
@@ -173,6 +183,7 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testGitHubClientSurfacesAPIErrorMessageForServiceFailure() async throws {
         do {
             _ = try await fetchLatestRelease(
@@ -185,6 +196,7 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testGitHubClientRejectsMalformedJSON() async throws {
         do {
             _ = try await fetchLatestRelease(statusCode: 200, body: "not-json")
@@ -194,6 +206,7 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testGitHubClientRejectsResponseWithoutTagName() async throws {
         do {
             _ = try await fetchLatestRelease(
@@ -206,6 +219,7 @@ final class UpdateCheckerTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func fetchLatestRelease(
         statusCode: Int,
         body: String
@@ -224,6 +238,7 @@ final class UpdateCheckerTests: XCTestCase {
         return try await GitHubUpdateReleaseClient(session: makeMockSession()).fetchLatestRelease()
     }
 
+    @MainActor
     private func makeRelease(tagName: String) throws -> UpdateReleaseMetadata {
         UpdateReleaseMetadata(
             version: try XCTUnwrap(ReleaseVersion(releaseTag: tagName)),
@@ -231,6 +246,7 @@ final class UpdateCheckerTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeMockSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [UpdateMockURLProtocol.self]
@@ -246,7 +262,7 @@ private struct MockUpdateReleaseProvider: UpdateReleaseProviding {
     }
 }
 
-private final class UpdateMockURLProtocol: URLProtocol {
+private nonisolated final class UpdateMockURLProtocol: URLProtocol {
     nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
     override class func canInit(with request: URLRequest) -> Bool {

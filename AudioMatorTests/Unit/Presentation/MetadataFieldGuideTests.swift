@@ -2,8 +2,7 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-@MainActor
-final class MetadataFieldGuideTests: XCTestCase {
+nonisolated final class MetadataFieldGuideTests: XCTestCase {
     func testEveryPackageFieldHasOneExplanationAndAnOfficialSource() {
         let entries = MetadataFieldGuide.entries
         XCTAssertEqual(entries.count, MetadataFieldKey.allCases.count + 6)
@@ -23,12 +22,14 @@ final class MetadataFieldGuideTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testReferenceLinksMatchThePrivacyDisclosure() {
         let domains = Set(MetadataFieldGuide.sources.compactMap { $0.url.host })
         let disclosure = NetworkServiceDisclosure.allDisclosures.first { $0.id == .metadataHelpReferences }
         XCTAssertEqual(domains, Set(disclosure?.domains ?? []))
     }
 
+    @MainActor
     func testSearchFindsDisplayNamesNativeKeysAndIndependentDates() throws {
         func matches(_ query: String) -> Set<MetadataFieldKey> {
             Set(MetadataFieldGuide.entries.filter { $0.matches(query) }.compactMap(\.key))

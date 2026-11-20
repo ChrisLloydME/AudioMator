@@ -1,6 +1,6 @@
 import Foundation
 
-extension FileRenameMetadataField {
+nonisolated extension FileRenameMetadataField {
     func currentMetadataValue(from file: AudioFile) -> String {
         switch self {
         case .title:
@@ -78,12 +78,12 @@ extension FileRenameMetadataField {
     }
 }
 
-enum FilenameMetadataFieldChangeStatus: Equatable {
+nonisolated enum FilenameMetadataFieldChangeStatus: Equatable, Sendable {
     case same
     case different
 }
 
-struct FilenameMetadataFieldChange: Identifiable {
+nonisolated struct FilenameMetadataFieldChange: Identifiable, Sendable {
     let field: FileRenameMetadataField
     let currentValue: String
     let extractedValue: String
@@ -93,12 +93,15 @@ struct FilenameMetadataFieldChange: Identifiable {
     var id: String { field.placeholderName }
 }
 
-enum FilenameMetadataPreviewStatus: Equatable {
+nonisolated enum FilenameMetadataPreviewStatus: Equatable, Sendable {
     case ready
     case unchanged
     case noMatch
     case sourceUnavailable
     case noWritableFields
+    /// The extracted values are valid, but the destination format cannot save one
+    /// or more of them. The row is rejected before any write.
+    case unsupported
 
     var title: String {
         switch self {
@@ -112,6 +115,8 @@ enum FilenameMetadataPreviewStatus: Equatable {
             return L10n.string("Couldn't Check File")
         case .noWritableFields:
             return L10n.string("No Editable Fields")
+        case .unsupported:
+            return L10n.string("Can’t Save Here")
         }
     }
 
@@ -127,36 +132,42 @@ enum FilenameMetadataPreviewStatus: Equatable {
             return L10n.string("The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
         case .noWritableFields:
             return L10n.string("The filename matches, but the template didn't extract any editable metadata. Add an editable field to the template.")
+        case .unsupported:
+            return L10n.string("This file format can’t save some of the fields extracted from the filename. Choose a different template or convert the file.")
         }
     }
 
     var isError: Bool {
-        self == .noMatch || self == .sourceUnavailable
+        switch self {
+        case .noMatch, .sourceUnavailable, .unsupported:
+            return true
+        case .ready, .unchanged, .noWritableFields:
+            return false
+        }
     }
 }
 
-struct FilenameMetadataWriteEntry: Identifiable {
-    let fileID: UUID
+nonisolated struct FilenameMetadataWriteEntry: Identifiable, Sendable {
     let fileName: String
-    let values: [FileRenameMetadataField: String]
-    let expectedFileFingerprint: AudioFileFingerprint?
+    /// Frozen reviewed write captured from the reviewed file during planning.
+    let write: ReviewedMetadataWrite
+    /// Presentation-only extracted values for previews/tests. Never used to build
+    /// a commit.
+    let previewValues: [FileRenameMetadataField: String]
 
-    init(
-        fileID: UUID,
-        fileName: String,
-        values: [FileRenameMetadataField: String],
-        expectedFileFingerprint: AudioFileFingerprint? = nil
-    ) {
-        self.fileID = fileID
-        self.fileName = fileName
-        self.values = values
-        self.expectedFileFingerprint = expectedFileFingerprint
+    var id: UUID { write.target.id }
+    var fileID: UUID { write.target.id }
+
+    var frozenPayload: MetadataEditPayload? {
+        guard case .semantic(let payload) = write.intent else { return nil }
+        return payload
     }
 
-    var id: UUID { fileID }
+    var frozenProjection: MetadataWriteProjection { write.projection }
+    var frozenTarget: ReviewedMetadataTarget { write.target }
 }
 
-struct FilenameMetadataPreviewRow: Identifiable {
+nonisolated struct FilenameMetadataPreviewRow: Identifiable, Sendable {
     let id: AudioFile.ID
     let currentName: String
     let sourceBaseName: String
@@ -166,7 +177,7 @@ struct FilenameMetadataPreviewRow: Identifiable {
     let writeEntry: FilenameMetadataWriteEntry?
 }
 
-struct FilenameMetadataPlan {
+nonisolated struct FilenameMetadataPlan: Sendable {
     let template: String
     let replaceUnderscoresWithSpaces: Bool
     let validationMessage: String?
@@ -206,10 +217,11 @@ struct FilenameMetadataPlan {
     }
 }
 
-func makeFilenameMetadataPlan(
+nonisolated func makeFilenameMetadataPlan(
     template: String,
     targetFiles: [AudioFile],
-    replaceUnderscoresWithSpaces: Bool
+    replaceUnderscoresWithSpaces: Bool,
+    projector: (any AudioMetadataPipeline)? = nil
 ) -> FilenameMetadataPlan {
     guard template.utf8.count <= maximumFileRenameTemplateUTF8ByteCount else {
         return FilenameMetadataPlan(
@@ -232,13 +244,15 @@ func makeFilenameMetadataPlan(
     }
 
     let builder = FilenameMetadataPlanBuilder(
-        replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces
+        replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
+        projector: projector
     )
     return builder.makePlan(document: document, targetFiles: targetFiles)
 }
 
-private struct FilenameMetadataPlanBuilder {
+nonisolated private struct FilenameMetadataPlanBuilder: Sendable {
     let replaceUnderscoresWithSpaces: Bool
+    let projector: (any AudioMetadataPipeline)?
 
     func makePlan(
         document: FileRenameTemplateDocument,
@@ -258,8 +272,19 @@ private struct FilenameMetadataPlanBuilder {
             replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces
         )
 
-        let rows = targetFiles.map { file in
-            makeRow(for: file, matcher: matcher, document: document)
+        var rows: [FilenameMetadataPreviewRow] = []
+        rows.reserveCapacity(targetFiles.count)
+        for file in targetFiles {
+            // Cancellation propagates into the filename match/frozen-write loop.
+            if Task.isCancelled {
+                return FilenameMetadataPlan(
+                    template: document.rawValue,
+                    replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
+                    validationMessage: nil,
+                    rows: []
+                )
+            }
+            rows.append(makeRow(for: file, matcher: matcher, document: document))
         }
 
         return FilenameMetadataPlan(
@@ -337,8 +362,8 @@ private struct FilenameMetadataPlanBuilder {
         )
 
         let capturedWritableFieldCount = changes.filter { $0.field.supportsFilenameToMetadataWriting }.count
-        let status: FilenameMetadataPreviewStatus
-        let issueMessage: String?
+        var status: FilenameMetadataPreviewStatus
+        var issueMessage: String?
 
         if capturedWritableFieldCount == 0 {
             status = .noWritableFields
@@ -354,16 +379,36 @@ private struct FilenameMetadataPlanBuilder {
             issueMessage = nil
         }
 
-        let writeEntry: FilenameMetadataWriteEntry?
-        if status == .ready, let expectedFileFingerprint = file.fileFingerprint {
-            writeEntry = FilenameMetadataWriteEntry(
-                fileID: file.id,
-                fileName: file.url.lastPathComponent,
-                values: writeValues,
-                expectedFileFingerprint: expectedFileFingerprint
-            )
-        } else {
-            writeEntry = nil
+        var writeEntry: FilenameMetadataWriteEntry?
+        if status == .ready, file.fileFingerprint != nil {
+            var edit = SingleFileEditModel(from: file)
+            for field in FileRenameMetadataField.allCases {
+                guard let value = writeValues[field] else { continue }
+                field.applyExtractedValue(value, to: &edit)
+            }
+            switch ExchangeWriteTranslator.makeFrozenWrite(
+                from: file,
+                edit: edit,
+                projector: projector
+            ) {
+            case .executable(let frozen):
+                writeEntry = FilenameMetadataWriteEntry(
+                    fileName: file.url.lastPathComponent,
+                    write: frozen.reviewedWrite,
+                    previewValues: writeValues
+                )
+            case .unchanged:
+                status = .unchanged
+                writeEntry = nil
+            case .rejected(let message):
+                status = .unsupported
+                issueMessage = message
+                writeEntry = nil
+            case .unavailable(let message):
+                status = .sourceUnavailable
+                issueMessage = message
+                writeEntry = nil
+            }
         }
 
         return FilenameMetadataPreviewRow(

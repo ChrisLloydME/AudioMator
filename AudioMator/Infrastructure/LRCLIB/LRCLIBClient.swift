@@ -1,6 +1,9 @@
 import Foundation
 
-struct LRCLIBFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
+/// Pure query snapshot. Nonisolated ownership so its `Equatable`/`Hashable`
+/// conformances can be used by synthesized conformances outside the main actor;
+/// the `AudioFile` projection and derived UI text stay main-actor isolated.
+nonisolated struct LRCLIBFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
     let id: AudioFile.ID
     let fileName: String
     let title: String
@@ -8,6 +11,7 @@ struct LRCLIBFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
     let album: String
     let durationSeconds: Int?
 
+    @MainActor
     init(file: AudioFile) {
         let fallback = MusicBrainzFilenameFallbackResolver.makeSearchInput(for: file)
         self.id = file.id
@@ -21,11 +25,13 @@ struct LRCLIBFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
             }
     }
 
+    @MainActor
     var displayTitle: String {
         if !title.isEmpty { return title }
         return fileName
     }
 
+    @MainActor
     var query: LRCLIBSearchQuery {
         LRCLIBSearchQuery(
             trackName: title,

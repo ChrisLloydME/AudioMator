@@ -122,4 +122,44 @@ nonisolated final class InspectorDirtyStateTests: XCTestCase {
         XCTAssertEqual(vm.edit?.title, "Draft")
         XCTAssertTrue(vm.hasUnsavedInspectorChanges)
     }
+    @MainActor
+    func testDirtyDraftRetainsCapturedBaselineAcrossPassivePublication() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/f3b-passive.m4a"),
+            title: "Original"
+        )
+        let vm = model([file])
+        vm.edit?.title = "Dirty"
+        let capturedSnapshotID = vm.inspectorDraft?.baselinesByID[file.id]?.snapshotID
+
+        vm.mergeQuickImportFiles([
+            AudioFileTestFactory.make(id: file.id, url: file.url, title: "External")
+        ])
+
+        XCTAssertEqual(vm.edit?.title, "Dirty")
+        XCTAssertEqual(vm.inspectorDraft?.baselinesByID[file.id]?.snapshotID, capturedSnapshotID)
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+    }
+
+    @MainActor
+    func testDirtyDraftPruneCreatesPendingReviewAndSuspendsSave() {
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/f3b-prune.m4a"),
+            title: "Original"
+        )
+        let vm = model([file])
+        vm.edit?.title = "Dirty"
+
+        vm.removeQuickImportFile(id: file.id)
+
+        XCTAssertTrue(vm.selectedAudioIDs.isEmpty)
+        XCTAssertNotNil(vm.inspectorPendingReview)
+        XCTAssertTrue(vm.isInspectorSaveSuspended)
+        XCTAssertEqual(vm.edit?.title, "Dirty")
+
+        vm.discardInspectorPendingReview()
+        XCTAssertNil(vm.inspectorPendingReview)
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+    }
+
 }

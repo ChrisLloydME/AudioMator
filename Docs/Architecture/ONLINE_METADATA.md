@@ -32,7 +32,19 @@ flowchart TB
 - The shared window shell and source picker live in `Features/OnlineMetadataBrowser`.
 - Provider-specific UI and main-actor stores live in `Features/MusicBrainzBrowser`, `Features/iTunesBrowser`, and `Features/LRCLIBLyricsBrowser`.
 - URL construction, decoding, throttling, caching, and error translation live in `Infrastructure`.
-- Apply actions construct a write plan with the source snapshot's expected fingerprint and go through the normal metadata mutation path.
+- Apply actions construct a reviewed write plan carrying the captured source observation's fingerprint and nonoptional package version (`ReviewedMetadataTarget`) and go through the reviewed metadata mutation path.
+
+### Activation and request triggers
+
+The generic **Online Metadata** command seeds local query state and presents the provider picker; it never invokes a provider client. Choosing a source tile is also local: the MusicBrainz form, iTunes fields, and LRCLIB queue display the seeded inputs (or cached results) without starting a request. Returning to Sources, reopening the window, and LRCLIB Previous/Next do not start requests either.
+
+Network requests begin only from provider-specific user actions:
+
+- MusicBrainz: the Search button or Return submission in the MusicBrainz form; the explicit **Find in MusicBrainz** command from the file list, which activates MusicBrainz in a new or reused window and submits the captured query exactly once.
+- iTunes: the Search button or Return submission in the iTunes form; detail loads follow explicit result navigation; artwork previews follow the explicit artwork lookup.
+- LRCLIB: the Search button, Return submission, or **Auto Apply Best Matches**.
+
+The main window hands the explicit Find action to the singleton window through a consume-once presentation intent (`OnlineMetadataActivationStore`). The window session (`OnlineMetadataBrowserSessionModel`) consumes that intent exactly once and is the only place that applies the captured MusicBrainz seed and submits the search; presentation, `onAppear`, and source selection cannot both resend it. A replacement activation follows the same session-end ownership as AM-08: MusicBrainz search cancellation and LRCLIB's store-owned session invalidation happen before the new local seed is applied.
 
 ## MusicBrainz
 
@@ -68,6 +80,8 @@ Each `MusicBrainzClient` owns an in-memory response cache:
 - 30-minute TTL for searches,
 - 7-day TTL for lookups with an ID.
 
+Before a successful body is admitted, the coalesced loader decodes it with the exact expected response shape for that request: recording search, release search, recording lookup, or release lookup. A non-2xx status, transport timeout or cancellation, or a body that does not decode to the expected shape throws and leaves no cache entry, so retrying the same URL performs a new rate-limited request and can recover without opening a new window or client. Admission is part of the shared load rather than the first caller: cancelling one waiter neither drops a successful shared response from the cache nor starts a second fetch while the load is in flight. The cache remains byte-based; the caller decodes the returned bytes again with the same deterministic decoder configuration. Search and lookup numeric fields that the provider may send as a JSON number or a numeric string are decoded by a field-level helper: absent/null keeps the documented default, while malformed, overflowing or nonfinite values fail the whole response with an error naming the field. The release-detail verification gap check compares `candidate.score - 8` against the next score without subtracting two unbounded provider values.
+
 The cache is not persisted. The rate limiter is shared across clients.
 
 ### UI limits
@@ -90,7 +104,7 @@ The client limits release-detail fan-out to the first three candidates and bound
 
 Search parameters: `term`, `country`, `media=music`, `entity`, `limit` (clamped 1…200). Lookup parameters: `id` (album or track) or `upc`, `country`, optional `entity=song`, `limit=200`.
 
-No custom `User-Agent` is set. Request timeout: 15 seconds. There is no retry, rate limiter, or response cache.
+No custom `User-Agent` is set. Request timeout: 15 seconds. There is no retry, rate limiter, or HTTP response cache; the browser store keeps an in-memory remote-detail cache keyed by storefront and collection ID.
 
 A multi-file album search can make up to roughly 18 sequential album-detail requests plus representative track searches. Cancellation is checked between requests.
 
@@ -99,6 +113,12 @@ A multi-file album search can make up to roughly 18 sequential album-detail requ
 Only the request parameters above are sent. In particular, duration, track number, disc number, iTunes artist ID, and catalog ID are **not** URL parameters; they are used for local matching or tag writing only.
 
 Queries can be derived from tags **or from filename/parent-directory fallback** when tags are missing.
+
+### Storefront-scoped results and details
+
+A completed search publishes one snapshot: results, the submitted storefront country, the submitted selection input, and a request generation. A previous publication is cleared before submit, and the completion is discarded unless it still belongs to the current storefront, search operation and session. Changing the selected storefront cancels the pending search, invalidates the publication generation, clears results and the submitted query, and resets result navigation; a delayed old response cannot appear under the new storefront. Each result destination carries the submitted context, so both album-result and track-result entries request the intended catalog region. The raw iTunes `country` field on an album/track is display data, not the request region.
+
+Remote album detail is cached by `(storefront, collectionID)` and stores only the raw album/tracks. Selection-match previews are resolved per read from the captured submitted selection (or a result fallback preview only when its storefront, album and local selection lineage match the current publication); two local selections can therefore share one cached remote detail without inheriting the first selection's assignments. A session generation prevents a detail completing after close/reopen from repopulating the closed session's cache.
 
 ### Provider tag application
 
@@ -117,6 +137,10 @@ Downloads try the preferred URLs in order and stop on the first success. There i
 
 Downloaded bytes are normalized locally before preview/application. Full payload comparison is used for equality; sampled hashes are not.
 
+The lookup sheet keeps search faults and candidate download faults separate. A failed or cancelled search is terminal for that result set until **Search Again** starts a new search attempt in the same sheet. A failed, timed-out, or cancelled candidate download keeps the settled result grid and the selected candidate, reports the reason inline next to the preview, and turns the primary action into **Try Again** for that candidate; selecting another candidate clears the candidate fault without repeating the search. Only one download/apply attempt runs at a time: Apply and candidate selection are disabled while it runs, **Stop Download** cancels it, and a duplicate Apply does not start a second attempt. Every completion is checked against the session and attempt identity before it may publish an image, fault, or progress state, so a superseded attempt cannot clear a newer one. The selected preview is keyed by candidate identity, so a candidate change starts the preferred-preview URL fallback at the first URL, delayed failures from a previous candidate are ignored, and the URL order is preserved.
+
+The lookup also captures its Inspector destination before starting any network work: the F3 draft session ID, artwork command generation and full ordered target set travel with the session. Applying a downloaded candidate stages only into that still-live draft while every captured target remains available; a changed selection, a new draft for the same IDs, a removed target, or a newer artwork command rejects the handoff with a localized stale-selection/superseded message and keeps the sheet and its results open for reference. No draft is created for the captured files and no surviving subset is applied. A lookup started without an editable Inspector draft is preview-only: results can be inspected, but Apply stays disabled. The same capture/commit boundary backs the Finder, photo-library and clipboard artwork handoffs.
+
 ## LRCLIB
 
 ### Endpoint
@@ -132,7 +156,7 @@ Query items:
 
 Headers: `Accept: application/json` and the same `AudioMator/<version> (...)` `User-Agent` template. Timeout: 15 seconds. No retry, rate limiter, or cache.
 
-Queries can use tags or filename fallback. Candidate ranking prefers exact synced-lyrics duration matches and uses synced availability as a tie-breaker. The store searches per file with a limit of 20 candidates. Auto-apply requires normalized exact title and artist matches, synced lyrics, a score of at least 80, and duration within 10 seconds when both sides provide one. High-confidence auto-apply still replaces existing lyrics; it has no separate overwrite opt-in or review step.
+Queries use the title, artist, and album fields plus duration. Each value comes from tags when present; missing values can be derived from the file name (title/track number) and from parent or grandparent folder names (artist and album, including an “Artist - Album” folder split). The actual HTTP query items are `track_name`, `artist_name`, `album_name`, and `duration` (duration omitted when unknown); a full file path and audio bytes are never sent. Candidate ranking prefers exact synced-lyrics duration matches and uses synced availability as a tie-breaker. The store searches per file with a limit of 20 candidates. Auto-apply requires normalized exact title and artist matches, synced lyrics, a score of at least 80, and duration within 10 seconds when both sides provide one. High-confidence auto-apply still replaces existing lyrics; it has no separate overwrite opt-in or review step.
 
 ### Applying lyrics
 
@@ -142,7 +166,13 @@ Applying synced lyrics writes a raw `LYRICS` patch only:
 RawMetadataPatch(valuesToSet: ["LYRICS": [normalizedLyrics]])
 ```
 
-It does not rewrite the whole PropertyMap. The target format must support the `lyrics` field; otherwise the operation is rejected before writing.
+It does not rewrite the whole PropertyMap. The target format must support the `lyrics` field; otherwise the operation is rejected before writing. The package's raw-intent projection only checks that the container is tag-writable, not that a specific raw key is supported, so AudioMator performs the `.lyrics` field capability preflight itself before any authorization prompt or disk handoff.
+
+### Reviewed binding and session ownership
+
+Each queued LRCLIB row keeps the metadata-only query input beside a reviewed target captured from the exact `AudioFile` observation that seeded the query: logical ID, operational URL, app fingerprint and package metadata version. Manual Apply and Auto Apply build those targets once at seed; selecting a candidate, navigating between rows, or a refreshed file observation never changes them. Both apply entry points accept only the frozen intents (reviewed target plus candidate identity and synced lyrics), never a file UUID plus lyrics text. Every file write is one scoped raw `LYRICS` patch through the shared strict reviewed-write route: path reservation, live-target membership/path/recovery/version recheck, the captured package version, the commit permit and a bounded reload. Inspector and Metadata Editor conflict policies do not apply to this strict operation. A file whose reviewed revision changed (including a reload or replacement that reuses the stable ID and path) is rejected with a close/reopen-and-review instruction; a mixed batch continues with the eligible files and reports the rejected ones per file.
+
+`LRCLIBLyricsBrowserStore` owns the search-to-write lifecycle: one session ID plus a monotonic generation, and at most one operation (manual apply or auto apply) with its own identity and task. Closing the window, returning to Sources, or reseeding invalidates the generation, cancels outstanding lookups and every write that has not crossed the admission boundary, and clears candidates/results. Back to Sources retains the queued rows and their seed bindings so a fresh Search can resume; a changed file still requires a reseed (close/reopen LRCLIB or rerun the Online Metadata command) before it can be applied. A commit that already crossed the admission boundary is never interrupted: it completes and reports its real outcome, including reload or durability warnings, to the existing HUD or save issue log, while later queued files are recorded as cancelled exactly once. Provider calls that ignore cancellation may finish remotely, but late results have no authority to publish state, start another request, or start a write.
 
 ## GitHub Release Notes and Updates
 
@@ -190,8 +220,8 @@ This is documented as a privacy consideration, not as a guarantee.
 | Invalid country code | iTunes client error |
 | Non-2xx | Typed request failure; GitHub 403/429 maps to rate limited |
 | Timeout | `URLError(.timedOut)` mapped to a timeout message |
-| Cancellation | Search task cancelled; no late result published |
-| Malformed payload | Decoding/response-body error |
+| Cancellation | Session end invalidates the generation and cancels the operation; a precommit write is never attempted and is recorded cancelled, a commit already admitted completes and reports its real outcome |
+| Malformed payload | Decoding/response-body error; a MusicBrainz response that fails its exact-shape validation is not cached and the same URL may be retried successfully |
 | Restarted search | Previous task cancelled; stale results discarded by operation ID |
 
 Provider stores are main-actor isolated. Network work runs in detached tasks or async client calls bounded by `withAsyncTimeout`. Large parsing/matching work is kept off the main actor where implemented.
@@ -217,15 +247,20 @@ App-hosted tests use injected clients and `URLProtocol` fakes. They assert:
 - decoding and error mapping, including 429/5xx and timeouts,
 - rate-limit spacing with a deterministic clock,
 - cache coalescing and eviction,
+- MusicBrainz invalid-200-then-valid recovery for every request shape (invalid JSON and wrong-schema valid JSON), no cached entry on HTTP failure/timeout/transport cancellation, one shared fetch for coalesced waiters including one cancelled, and field-level alternate integer/numeric-string/default and finite-Double cases,
+- iTunes storefront-scoped publication and a `(storefront, collectionID)` remote-detail cache, with both album and track entry paths using the submitted region, delayed search/detail completions suppressed, and per-selection previews resolved from the captured selection,
+- consume-once provider activation with fake clients: generic entry, tile selection, back/reappearance, empty selection and LRCLIB Previous/Next make zero provider calls; explicit Find in MusicBrainz submits exactly once in a new and a reused window; iTunes/LRCLIB actions never contact MusicBrainz; LRCLIB request query values are derived from synthetic paths and tagged input; disclosure strings are asserted independently,
 - cancellation/restart races,
 - bounded fan-out and off-main presentation,
-- lyrics ranking and raw write behavior.
+- lyrics ranking, reviewed-target binding, strict raw `LYRICS` writes, session close/back/reseed cancellation (including a gated non-cooperative provider), mixed bulk accounting, and real FLAC/M4A fixture readback.
 
 No automated test contacts a live service. Live API behavior, remote rate limits, Apple host selection, and WebKit subresource behavior are unverified by the test suite.
 
 ## Provider Apply Cancellation
 
 MusicBrainz and iTunes apply stop before the next file when cancelled. A started commit is observed to completion and included in the summary, including warnings. Unprocessed entries are recorded as cancelled failures so successful, failed, and cancelled counts reconcile with the captured plan. Cancellation does not discard an already committed file's outcome.
+
+LRCLIB apply follows the same rule with one additional owner: the browser store owns the session generation and the single operation identity. Closing the window, returning to Sources to the provider picker, or reseeding invalidates that owner before it touches task cancellation, so a non-cooperative provider completion cannot republish queue state, start a later request, or reach the write handoff. The library-browser window close is the teardown path; Back retires the operation but intentionally retains the queued rows and seed bindings for a fresh explicit Search.
 
 ## Related Documents
 

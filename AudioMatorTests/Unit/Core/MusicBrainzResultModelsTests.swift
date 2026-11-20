@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzResultModelsTests: XCTestCase {
+nonisolated final class MusicBrainzResultModelsTests: XCTestCase {
+    @MainActor
     func testRecordingReleaseConversionPreservesSearchResultIdentity() throws {
         let release = MusicBrainzRecordingResult.Release(
             id: "release-id",
@@ -22,6 +23,7 @@ final class MusicBrainzResultModelsTests: XCTestCase {
         XCTAssertTrue(result.mediaFormats.isEmpty)
     }
 
+    @MainActor
     func testSearchResultsCountsBothResultKinds() {
         let recording = MusicBrainzRecordingResult(
             id: "recording-id",
@@ -40,6 +42,7 @@ final class MusicBrainzResultModelsTests: XCTestCase {
         XCTAssertTrue(MusicBrainzSearchResults.releases([]).isEmpty)
     }
 
+    @MainActor
     func testClientErrorsPreserveUserVisibleDescriptions() {
         XCTAssertEqual(
             MusicBrainzClientError.requestFailed(statusCode: 503).errorDescription,

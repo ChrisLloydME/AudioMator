@@ -18,51 +18,29 @@ extension AudioViewModel {
             return nil
         }
 
-        let filesByID = Dictionary(grouping: files, by: \.id)
-        let targetURLs = entries.compactMap { entry in
-            let matchingFiles = filesByID[entry.fileID]
-            return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
-        }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
-
-        beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: String(localized: "Writing Filename Metadata"),
             subtitle: String(localized: "Preparing \(entries.count) files..."),
             totalUnitCount: entries.count
-        )
-        defer { endMetadataSaveProgress() }
+        ) else { return nil }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
-        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+        guard prepareMetadataMutationDirectoryAccess(for: entries.map(\.write)) else { return nil }
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
+
+        // Each entry carries the frozen reviewed write captured from the reviewed
+        // file. The strict executor revalidates the captured target/revision inside
+        // the reservation; no draft field is read at Apply.
+        let outcomes = await executeBoundedMetadataPlan(
+            fileNames: entries.map(\.fileName),
+            progressToken: progressToken
+        ) { index in
             let entry = entries[index]
-            guard let matchingFiles = filesByID[entry.fileID], matchingFiles.count == 1,
-                  let file = matchingFiles.first else {
-                return (entry.fileName, .failure(metadataPlanFileLookupFailureMessage(matchingFiles: filesByID[entry.fileID])))
-            }
-
-            guard entry.values.allSatisfy({ field, value in
-                field.supportsFilenameToMetadataWriting && field.acceptsExtractedValue(value)
-            }) else {
-                return (entry.fileName, .failure(String(localized: "Some values in this filename preview can’t be applied. Close and reopen this tool, then check the template and preview.")))
-            }
-
-            guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
-                return (entry.fileName, .failure(String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")))
-            }
-
-            var edit = SingleFileEditModel(from: file)
-            for field in FileRenameMetadataField.allCases {
-                guard let value = entry.values[field] else { continue }
-                field.applyExtractedValue(value, to: &edit)
-            }
-
-            let result = await self.persistMetadataEdit(
-                edit,
-                to: file,
-                syncInspectorAfterReload: false,
-                expectedFileFingerprint: expectedFileFingerprint
+            let result = await self.executeReviewedMetadataWrite(
+                entry.write,
+                publication: .batched
             )
-            return (file.url.lastPathComponent, result)
+            return (entry.fileName, result)
         }
         for (index, entry) in entries.enumerated() {
             guard let outcome = outcomes[index] else {
@@ -89,18 +67,22 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([outcome.fileName])
             }
         }
 
         summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: String(localized: "Finishing..."),
             completedUnitCount: entries.count
         )
+        endMetadataSaveProgress(token: progressToken)
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set(entries.map(\.fileID)))
         }
 
         presentBatchMetadataOperationSummary(summary)
@@ -125,60 +107,29 @@ extension AudioViewModel {
             return nil
         }
 
-        let filesByID = Dictionary(grouping: files, by: \.id)
-        let targetURLs = entries.compactMap { entry in
-            let matchingFiles = filesByID[entry.fileID]
-            return matchingFiles?.count == 1 ? matchingFiles?.first?.url : nil
-        }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
-
-        beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: progressTitle,
             subtitle: String(localized: "Preparing \(entries.count) files..."),
             totalUnitCount: entries.count
-        )
-        defer { endMetadataSaveProgress() }
+        ) else { return nil }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
-        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+        guard prepareMetadataMutationDirectoryAccess(for: entries.map(\.write)) else { return nil }
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
+
+        // Exchange text/CSV and field-transfer entries both carry a frozen
+        // ReviewedMetadataWrite. The strict executor validates the captured target
+        // and revision inside the coordinator and reports per-row outcomes.
+        let outcomes = await executeBoundedMetadataPlan(
+            fileNames: entries.map(\.fileName),
+            progressToken: progressToken
+        ) { index in
             let entry = entries[index]
-            guard let matchingFiles = filesByID[entry.fileID], matchingFiles.count == 1,
-                  let file = matchingFiles.first else {
-                return (entry.fileName, .failure(metadataPlanFileLookupFailureMessage(matchingFiles: filesByID[entry.fileID])))
-            }
-
-            guard entry.values.allSatisfy({ field, value in
-                field.isWritableMetadataField && (
-                    value == MetadataExchangeProfile.removalSentinel ||
-                    (entry.preservingNumberPairComponents
-                        ? field.fieldTransferValidationMessage(value)
-                        : field.importedValueValidationMessage(value)) == nil
-                )
-            }) else {
-                return (entry.fileName, .failure(String(localized: "Some values in this import preview can’t be applied. Close and reopen this tool, then check the template and imported values.")))
-            }
-
-            guard let expectedFileFingerprint = entry.expectedFileFingerprint else {
-                return (entry.fileName, .failure(String(localized: "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")))
-            }
-
-            var edit = SingleFileEditModel(from: file)
-            for field in MetadataExchangeField.allCases {
-                guard let value = entry.values[field] else { continue }
-                field.applyImportedValue(
-                    value,
-                    to: &edit,
-                    preservingNumberPairComponents: entry.preservingNumberPairComponents
-                )
-            }
-
-            let result = await self.persistMetadataEdit(
-                edit,
-                to: file,
-                syncInspectorAfterReload: false,
-                expectedFileFingerprint: expectedFileFingerprint
+            let result = await self.executeReviewedMetadataWrite(
+                entry.write,
+                publication: .batched
             )
-            return (file.url.lastPathComponent, result)
+            return (entry.fileName, result)
         }
         for (index, entry) in entries.enumerated() {
             guard let outcome = outcomes[index] else {
@@ -205,22 +156,42 @@ extension AudioViewModel {
                         messages: [reason]
                     )
                 )
+            case .cancelled:
+                summary.recordCancelledFiles([outcome.fileName])
             }
         }
 
         summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: String(localized: "Finishing..."),
             completedUnitCount: entries.count
         )
+        endMetadataSaveProgress(token: progressToken)
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set(entries.map(\.fileID)))
         }
 
         presentBatchMetadataOperationSummary(summary)
         return summary
+    }
+
+    /// Completion-side draft publication for a plan batch.
+    ///
+    /// A batch may write files the Inspector does not currently show, and an
+    /// Inspector draft can be created or edited while it runs. Only the captured
+    /// batch targets may trigger the F3 clean-refresh path; a dirty, pending-review
+    /// or different live draft is left untouched. The F3 operation itself also
+    /// refuses to replace a dirty draft.
+    private func refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set<AudioFile.ID>) {
+        guard !capturedTargetIDs.isEmpty else { return }
+        let liveDraftTargetIDs = Set(inspectorDraftIdentity?.targetIDs ?? [])
+        guard !liveDraftTargetIDs.isEmpty,
+              liveDraftTargetIDs.isSubset(of: capturedTargetIDs),
+              selectedAudioIDs == liveDraftTargetIDs else { return }
+        refreshInspectorDraftAfterAcceptedPublication()
     }
 
     private func presentDuplicateMetadataPlanFailure() {
@@ -238,12 +209,4 @@ extension AudioViewModel {
             subtitle: String(localized: "Save or discard the pending inspector edits before writing a metadata exchange plan.")
         )
     }
-}
-
-private func metadataPlanFileLookupFailureMessage(matchingFiles: [AudioFile]?) -> String {
-    guard matchingFiles != nil else {
-        return String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
-    }
-
-    return String(localized: "These loaded files couldn’t be uniquely identified. Remove them from AudioMator and import them again.")
 }

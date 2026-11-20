@@ -1,45 +1,6 @@
 import Foundation
 import AppKit
 
-enum ArtworkLookupSource: String {
-    case iTunesAlbumID = "iTunes Album ID"
-    case album = "Album"
-    case trackTitle = "Track Title"
-}
-
-struct ArtworkLookupRequestDescriptor {
-    let query: String
-    let entity: iTunesArtworkSearchEntity
-    let source: ArtworkLookupSource
-
-    var summary: String {
-        "\(source.rawValue): \(query)"
-    }
-}
-
-struct ArtworkLookupSession: Identifiable {
-    let id = UUID()
-    let fileIDs: [AudioFile.ID]
-    let selectionTitle: String
-    let request: ArtworkLookupRequestDescriptor
-    var isLoading: Bool = true
-    var isApplying: Bool = false
-    var results: [iTunesArtworkSearchResult] = []
-    var selectedResultID: iTunesArtworkSearchResult.ID?
-    var errorMessage: String?
-    var emptyMessage: String?
-    var cancellationMessage: String?
-
-    var isMultiSelection: Bool {
-        fileIDs.count > 1
-    }
-
-    var selectedResult: iTunesArtworkSearchResult? {
-        guard let selectedResultID else { return nil }
-        return results.first { $0.id == selectedResultID }
-    }
-}
-
 extension AudioViewModel {
     func artworkLookupDisabledReason(for file: AudioFile) -> String? {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
@@ -125,81 +86,85 @@ extension AudioViewModel {
     }
 
     func selectArtworkLookupResult(id: iTunesArtworkSearchResult.ID) {
-        guard var session = artworkLookupSession else { return }
+        guard var session = artworkLookupSession,
+              session.canSelectCandidate,
+              session.results.contains(where: { $0.id == id }) else {
+            return
+        }
+
         session.selectedResultID = id
+        if let fault = session.downloadFault,
+           fault.isRetryable,
+           fault.candidateID != id {
+            // A retryable candidate fault is replaced by choosing another
+            // candidate; search and destination-draft faults are never cleared
+            // by selecting.
+            session.downloadFault = nil
+        }
         artworkLookupSession = session
     }
 
     func applySelectedArtworkLookupResult() {
         guard var session = artworkLookupSession,
+              session.canApplySelectedResult,
               let selectedResult = session.selectedResult else {
             return
         }
 
-        session.isApplying = true
-        session.errorMessage = nil
-        session.cancellationMessage = nil
+        let attempt = ArtworkLookupDownloadAttempt(id: UUID(), candidateID: selectedResult.id)
+        session.download = attempt
+        session.downloadFault = nil
         artworkLookupSession = session
 
-        let sessionID = session.id
-        let targetFileIDs = session.fileIDs
-        let service = artworkLookupService
-        let operationTimeout = artworkLookupOperationTimeout
+        startArtworkDownload(
+            sessionID: session.id,
+            searchAttemptID: session.searchAttemptID,
+            attempt: attempt,
+            candidate: selectedResult
+        )
+    }
+
+    /// Explicit Stop for the one in-flight download. The attempt identity is
+    /// removed before the task is cancelled, so its late cancellation handler
+    /// cannot publish state or clear a newer attempt.
+    func cancelSelectedArtworkDownload() {
+        guard var session = artworkLookupSession, let attempt = session.download else { return }
+
+        session.download = nil
+        session.downloadFault = .cancelled(
+            candidateID: attempt.candidateID,
+            message: String(localized: "Artwork download cancelled.")
+        )
+        artworkLookupSession = session
 
         artworkLookupTask?.cancel()
-        artworkLookupTask = Task { [weak self, service] in
-            do {
-                let downloadedArtwork = try await withAsyncTimeout(
-                    operationTimeout,
-                    operationName: String(localized: "Downloading artwork from iTunes")
-                ) {
-                    try await service.downloadArtworkData(for: selectedResult)
-                }
-                try Task.checkCancellation()
+        artworkLookupTask = nil
+    }
 
-                let pendingArtwork = PendingArtwork(
-                    data: downloadedArtwork.pngData,
-                    mimeType: "image/png"
-                )
-                guard let self else { return }
-
-                let targetFiles = files.filter { targetFileIDs.contains($0.id) }
-                guard !targetFiles.isEmpty else {
-                    throw NSError(
-                        domain: "AudioMator.ArtworkLookup",
-                        code: 1,
-                        userInfo: [
-                            NSLocalizedDescriptionKey: String(localized: "The files selected for this artwork lookup are no longer available. Select the files again.")
-                        ]
-                    )
-                }
-
-                if targetFiles.count == 1, let targetFile = targetFiles.first {
-                    applyArtworkEditAction(.replace(pendingArtwork), to: targetFile)
-                } else {
-                    applyArtworkEditAction(.replace(pendingArtwork), to: targetFiles)
-                }
-
-                guard artworkLookupSession?.id == sessionID else { return }
-                artworkLookupSession = nil
-                artworkLookupTask = nil
-            } catch is CancellationError {
-                guard let self else { return }
-                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
-                currentSession.isApplying = false
-                currentSession.errorMessage = nil
-                currentSession.cancellationMessage = String(localized: "Artwork download cancelled.")
-                artworkLookupSession = currentSession
-                artworkLookupTask = nil
-            } catch {
-                guard let self else { return }
-                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
-                currentSession.isApplying = false
-                currentSession.errorMessage = (error as NSError).localizedDescription
-                artworkLookupSession = currentSession
-                artworkLookupTask = nil
-            }
+    /// Search-level retry inside the same sheet session, preserving the captured
+    /// target/request context. Only a failed search is retryable.
+    func retryArtworkSearch() {
+        guard var session = artworkLookupSession,
+              session.showsSearchRetry,
+              session.download == nil else {
+            return
         }
+
+        let searchAttemptID = UUID()
+        session.searchAttemptID = searchAttemptID
+        session.searchState = .searching
+        session.results = []
+        session.selectedResultID = nil
+        session.download = nil
+        session.downloadFault = nil
+        session.emptyMessage = nil
+        artworkLookupSession = session
+
+        startArtworkSearch(
+            sessionID: session.id,
+            searchAttemptID: searchAttemptID,
+            request: session.request
+        )
     }
 
     private func startArtworkLookup(
@@ -209,18 +174,44 @@ extension AudioViewModel {
     ) {
         artworkLookupTask?.cancel()
 
-        let session = ArtworkLookupSession(
-            fileIDs: fileIDs,
+        // Capture destination-draft authority before the first suspension. The
+        // resolved ordered target set is the draft's captured target set, not
+        // the visible projection passed by the caller.
+        let command = beginArtworkCommand(for: fileIDs)
+        let resolvedFileIDs = command?.targetIDs ?? fileIDs
+        let searchAttemptID = UUID()
+        var session = ArtworkLookupSession(
+            fileIDs: resolvedFileIDs,
             selectionTitle: selectionTitle,
-            request: request
+            request: request,
+            searchAttemptID: searchAttemptID
         )
+        if let command {
+            session.transfer = makeArtworkTransferIntent(
+                command: command,
+                source: .onlineLookup(sessionID: session.id)
+            )
+        }
         artworkLookupSession = session
 
-        let sessionID = session.id
+        startArtworkSearch(
+            sessionID: session.id,
+            searchAttemptID: searchAttemptID,
+            request: request
+        )
+    }
+
+    private func startArtworkSearch(
+        sessionID: UUID,
+        searchAttemptID: UUID,
+        request: ArtworkLookupRequestDescriptor
+    ) {
         let service = artworkLookupService
         let operationTimeout = artworkLookupOperationTimeout
 
+        artworkLookupTask?.cancel()
         artworkLookupTask = Task { [weak self, service] in
+            let outcome: Result<[iTunesArtworkSearchResult], Error>
             do {
                 let searchRequest = iTunesArtworkSearchRequest(
                     query: request.query,
@@ -233,33 +224,121 @@ extension AudioViewModel {
                     try await service.search(searchRequest)
                 }
                 try Task.checkCancellation()
-                guard let self else { return }
-                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
+                outcome = .success(results)
+            } catch is CancellationError {
+                outcome = .failure(CancellationError())
+            } catch {
+                outcome = .failure(error)
+            }
 
-                currentSession.isLoading = false
+            guard let self else { return }
+            guard var currentSession = self.artworkLookupSession,
+                  currentSession.id == sessionID,
+                  currentSession.searchAttemptID == searchAttemptID else {
+                return
+            }
+
+            switch outcome {
+            case .success(let results):
+                currentSession.searchState = .results
                 currentSession.results = results
                 currentSession.selectedResultID = results.first?.id
-                currentSession.emptyMessage = results.isEmpty ? String(localized: "No artwork matches this search. Try a different album or artist name.") : nil
-                currentSession.errorMessage = nil
-                artworkLookupSession = currentSession
-                artworkLookupTask = nil
+                currentSession.emptyMessage = results.isEmpty
+                    ? String(localized: "No artwork matches this search. Try a different album or artist name.")
+                    : nil
+            case .failure(let error):
+                if error is CancellationError {
+                    currentSession.searchState = .cancelled(message: String(localized: "Artwork search cancelled."))
+                } else {
+                    currentSession.searchState = .failed(message: (error as NSError).localizedDescription)
+                }
+                currentSession.emptyMessage = nil
+            }
+
+            self.artworkLookupSession = currentSession
+            self.artworkLookupTask = nil
+        }
+    }
+
+    private func startArtworkDownload(
+        sessionID: UUID,
+        searchAttemptID: UUID?,
+        attempt: ArtworkLookupDownloadAttempt,
+        candidate: iTunesArtworkSearchResult
+    ) {
+        let service = artworkLookupService
+        let operationTimeout = artworkLookupOperationTimeout
+
+        artworkLookupTask?.cancel()
+        artworkLookupTask = Task { [weak self, service] in
+            let outcome: Result<Data, Error>
+            do {
+                let downloadedArtwork = try await withAsyncTimeout(
+                    operationTimeout,
+                    operationName: String(localized: "Downloading artwork from iTunes")
+                ) {
+                    try await service.downloadArtworkData(for: candidate)
+                }
+                try Task.checkCancellation()
+                outcome = .success(downloadedArtwork.pngData)
             } catch is CancellationError {
-                guard let self else { return }
-                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
-                currentSession.isLoading = false
-                currentSession.errorMessage = nil
-                currentSession.cancellationMessage = String(localized: "Artwork search cancelled.")
-                currentSession.emptyMessage = nil
-                artworkLookupSession = currentSession
-                artworkLookupTask = nil
+                outcome = .failure(CancellationError())
             } catch {
-                guard let self else { return }
-                guard var currentSession = artworkLookupSession, currentSession.id == sessionID else { return }
-                currentSession.isLoading = false
-                currentSession.errorMessage = (error as NSError).localizedDescription
-                currentSession.emptyMessage = nil
-                artworkLookupSession = currentSession
-                artworkLookupTask = nil
+                outcome = .failure(error)
+            }
+
+            guard let self else { return }
+            // This single check owns publication for the attempt: a stale
+            // search/download handler must not publish an image, fault, or
+            // progress state, nor clear the task handle of a newer attempt.
+            guard var currentSession = self.artworkLookupSession,
+                  currentSession.id == sessionID,
+                  currentSession.searchAttemptID == searchAttemptID,
+                  currentSession.download?.id == attempt.id else {
+                return
+            }
+
+            switch outcome {
+            case .success(let pngData):
+                guard let intent = currentSession.transfer else {
+                    currentSession.download = nil
+                    currentSession.downloadFault = .staleSelection(
+                        message: String(localized: "This artwork lookup isn’t connected to an editable Inspector draft, so the artwork wasn’t applied. Nothing was written. Select the intended files in the Inspector and use Fetch Online… again.")
+                    )
+                    self.artworkLookupSession = currentSession
+                    self.artworkLookupTask = nil
+                    return
+                }
+
+                // The guarded commit revalidates the captured draft session,
+                // command generation and full ordered target set before staging.
+                // A failure keeps the sheet open with results for reference.
+                let pendingArtwork = PendingArtwork(data: pngData, mimeType: "image/png")
+                switch self.commitArtworkTransfer(intent, action: .replace(pendingArtwork)) {
+                case .staged:
+                    self.artworkLookupSession = nil
+                    self.artworkLookupTask = nil
+                case .rejected(let rejection):
+                    currentSession.download = nil
+                    currentSession.downloadFault = self.artworkTransferRejectionForLookup(rejection)
+                    self.artworkLookupSession = currentSession
+                    self.artworkLookupTask = nil
+                }
+            case .failure(let error):
+                currentSession.download = nil
+                if error is CancellationError {
+                    currentSession.downloadFault = .cancelled(
+                        candidateID: attempt.candidateID,
+                        message: String(localized: "Artwork download cancelled.")
+                    )
+                } else {
+                    currentSession.downloadFault = .failed(
+                        candidateID: attempt.candidateID,
+                        message: (error as NSError).localizedDescription
+                    )
+                }
+                self.artworkLookupSession = currentSession
+                self.artworkLookupTask = nil
             }
         }
     }

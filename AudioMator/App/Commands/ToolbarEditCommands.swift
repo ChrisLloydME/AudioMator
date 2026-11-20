@@ -28,6 +28,13 @@ struct ToolbarEditCommands: Commands {
             }
 
             Button {
+                NotificationCenter.default.post(name: .requestRefreshWatchedFolders, object: nil)
+            } label: {
+                Label("Refresh Watched Folders", systemImage: "arrow.clockwise")
+            }
+            .disabled(viewModel.watchedFolders.isEmpty)
+
+            Button {
                 NotificationCenter.default.post(name: .requestMetadataDump, object: nil)
             } label: {
                 Label(ToolbarButtonOption.tagInspector.displayName, systemImage: ToolbarButtonOption.tagInspector.systemImage)
@@ -76,14 +83,18 @@ struct ToolbarEditCommands: Commands {
             } label: {
                 Label("Cancel Edits", systemImage: ToolbarButtonOption.cancelEdits.systemImage)
             }
-            .disabled(viewModel.selectedAudioIDs.isEmpty)
+            .disabled(viewModel.selectedAudioIDs.isEmpty && !viewModel.hasInspectorPendingReview)
 
             Button {
                 Self.performSaveEdits(using: viewModel)
             } label: {
                 Label("Save Edits", systemImage: ToolbarButtonOption.saveEdits.systemImage)
             }
-            .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+            .disabled(
+                viewModel.selectedAudioIDs.isEmpty ||
+                viewModel.metadataSaveProgress != nil ||
+                viewModel.isInspectorSaveSuspended
+            )
         }
     }
 

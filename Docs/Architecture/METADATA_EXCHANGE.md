@@ -134,13 +134,16 @@ The exporter also uses a byte budget that counts separators and fails closed rat
 
 ## Applying a Plan
 
-Apply paths construct a `SingleFileEditModel` per target, apply the planned values, and call the shared `persistMetadataEdit` path. Therefore:
+The planner freezes a reviewed target and a `ReviewedMetadataWrite` for each
+target; Apply consumes that captured write through the shared strict reviewed
+route and never rebuilds the payload from the model loaded at Apply. Therefore:
 
-- format-capability preflight runs,
-- conflict policy and expected versions apply,
-- the file mutation reservation serializes with other operations,
+- the adapter projection and format-capability preflight ran at plan time and
+  the captured nonoptional package revision is the only expected version,
+- the file mutation reservation and commit permit serialize with other
+  operations,
 - a post-write reload updates the snapshot,
-- results are reported per file.
+- results are reported per file, and an unchanged plan produces no write.
 
 Writes are **not** a group transaction. A summary may contain successes and failures.
 

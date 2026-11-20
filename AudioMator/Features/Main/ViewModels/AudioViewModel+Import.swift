@@ -25,63 +25,54 @@ extension AudioViewModel {
         )
     }
 
+    // MARK: - Finder artwork handoffs
+
     func pickArtwork(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
-        MacDocumentPicker.pickImage { [weak self] url in
-            guard let self, let url else { return }
-
-            self.artworkImportTask?.cancel()
-            self.artworkImportTask = Task { @MainActor in
-                do {
-                    let pendingArtwork = try await Self.loadPendingArtwork(from: url)
-                    try Task.checkCancellation()
-                    self.applyArtworkEditAction(.replace(pendingArtwork), to: file)
-                } catch is CancellationError {
-                    return
-                } catch {
-                    guard !Task.isCancelled else { return }
-                    self.presentArtworkPreparationFailure(
-                        for: file.url.lastPathComponent,
-                        reason: (error as NSError).localizedDescription
-                    )
-                }
-            }
-        }
-    }
-
-    func importArtworkFromPhotoLibrary(_ data: Data?, for file: AudioFile) {
-        guard validateArtworkEditingSupport(for: file) else { return }
-
-        guard let data else {
-            presentArtworkPreparationFailure(
-                for: file.url.lastPathComponent,
-                reason: String(localized: "AudioMator couldn't load this photo. Choose another photo or import an image file.")
-            )
+        guard let intent = beginArtworkImport(for: file, source: .finder) else {
+            presentArtworkTransferNoDestination(for: [file])
             return
         }
 
-        artworkImportTask?.cancel()
-        artworkImportTask = Task { @MainActor in
-            do {
-                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
-                try Task.checkCancellation()
-                applyArtworkEditAction(.replace(pendingArtwork), to: file)
-            } catch is CancellationError {
-                return
-            } catch {
-                guard !Task.isCancelled else { return }
-                presentArtworkPreparationFailure(
-                    for: file.url.lastPathComponent,
-                    reason: (error as NSError).localizedDescription
-                )
+        MacDocumentPicker.pickImage { [weak self] url in
+            guard let self, let url else { return }
+            guard self.isArtworkTransferCurrent(intent) else { return }
+            self.artworkImportTask?.cancel()
+            self.artworkImportTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.finishPickedArtworkImport(url: url, intent: intent)
             }
         }
     }
 
+    func pickArtwork(for files: [AudioFile]) {
+        guard validateArtworkEditingSupport(for: files) else { return }
+        guard let intent = beginArtworkImport(for: files, source: .finder) else {
+            presentArtworkTransferNoDestination(for: files)
+            return
+        }
+
+        MacDocumentPicker.pickImage { [weak self] url in
+            guard let self, let url else { return }
+            guard self.isArtworkTransferCurrent(intent) else { return }
+            self.artworkImportTask?.cancel()
+            self.artworkImportTask = Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.finishPickedArtworkImport(url: url, intent: intent)
+            }
+        }
+    }
+
+    // MARK: - Clipboard artwork handoffs
+
     func importArtworkFromClipboard(for file: AudioFile) {
         guard validateArtworkEditingSupport(for: file) else { return }
-
+        guard let intent = beginArtworkImport(for: file, source: .clipboard) else {
+            presentArtworkTransferNoDestination(for: [file])
+            return
+        }
         guard let data = MacPasteboard.imageData else {
+            guard isArtworkTransferCurrent(intent) else { return }
             presentArtworkPreparationFailure(
                 for: file.url.lastPathComponent,
                 reason: String(localized: "The clipboard doesn't contain an image. Copy an image, then paste again.")
@@ -90,89 +81,20 @@ extension AudioViewModel {
         }
 
         artworkImportTask?.cancel()
-        artworkImportTask = Task { @MainActor in
-            do {
-                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
-                try Task.checkCancellation()
-                applyArtworkEditAction(.replace(pendingArtwork), to: file)
-            } catch is CancellationError {
-                return
-            } catch {
-                guard !Task.isCancelled else { return }
-                presentArtworkPreparationFailure(
-                    for: file.url.lastPathComponent,
-                    reason: (error as NSError).localizedDescription
-                )
-            }
-        }
-    }
-
-    func clearArtwork(for file: AudioFile) {
-        artworkImportTask?.cancel()
-        guard validateArtworkEditingSupport(for: file) else { return }
-        applyArtworkEditAction(.remove, to: file)
-    }
-
-    func pickArtwork(for files: [AudioFile]) {
-        guard validateArtworkEditingSupport(for: files) else { return }
-        MacDocumentPicker.pickImage { [weak self] url in
-            guard let self, let url else { return }
-
-            self.artworkImportTask?.cancel()
-            self.artworkImportTask = Task { @MainActor in
-                do {
-                    let pendingArtwork = try await Self.loadPendingArtwork(from: url)
-                    try Task.checkCancellation()
-                    self.applyArtworkEditAction(.replace(pendingArtwork), to: files)
-                } catch is CancellationError {
-                    return
-                } catch {
-                    guard !Task.isCancelled else { return }
-                    self.presentMetadataWriteHUD(
-                        style: .failure,
-                        title: String(localized: "Artwork Couldn’t Be Updated"),
-                        subtitle: (error as NSError).localizedDescription
-                    )
-                }
-            }
-        }
-    }
-
-    func importArtworkFromPhotoLibrary(_ data: Data?, for files: [AudioFile]) {
-        guard validateArtworkEditingSupport(for: files) else { return }
-
-        guard let data else {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Artwork Couldn’t Be Updated"),
-                subtitle: String(localized: "AudioMator couldn't load this photo. Choose another photo or import an image file.")
-            )
-            return
-        }
-
-        artworkImportTask?.cancel()
-        artworkImportTask = Task { @MainActor in
-            do {
-                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
-                try Task.checkCancellation()
-                applyArtworkEditAction(.replace(pendingArtwork), to: files)
-            } catch is CancellationError {
-                return
-            } catch {
-                guard !Task.isCancelled else { return }
-                presentMetadataWriteHUD(
-                    style: .failure,
-                    title: String(localized: "Artwork Couldn’t Be Updated"),
-                    subtitle: (error as NSError).localizedDescription
-                )
-            }
+        artworkImportTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.finishArtworkImport(imageData: data, intent: intent)
         }
     }
 
     func importArtworkFromClipboard(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
-
+        guard let intent = beginArtworkImport(for: files, source: .clipboard) else {
+            presentArtworkTransferNoDestination(for: files)
+            return
+        }
         guard let data = MacPasteboard.imageData else {
+            guard isArtworkTransferCurrent(intent) else { return }
             presentMetadataWriteHUD(
                 style: .failure,
                 title: String(localized: "Artwork Couldn’t Be Updated"),
@@ -182,37 +104,59 @@ extension AudioViewModel {
         }
 
         artworkImportTask?.cancel()
-        artworkImportTask = Task { @MainActor in
-            do {
-                let pendingArtwork = try await Self.loadPendingArtwork(fromImageData: data)
-                try Task.checkCancellation()
-                applyArtworkEditAction(.replace(pendingArtwork), to: files)
-            } catch is CancellationError {
-                return
-            } catch {
-                guard !Task.isCancelled else { return }
-                presentMetadataWriteHUD(
-                    style: .failure,
-                    title: String(localized: "Artwork Couldn’t Be Updated"),
-                    subtitle: (error as NSError).localizedDescription
-                )
-            }
+        artworkImportTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.finishArtworkImport(imageData: data, intent: intent)
         }
     }
 
-    func clearArtwork(for files: [AudioFile]) {
+    // MARK: - Synchronous artwork commands
+
+    func clearArtwork(for file: AudioFile) {
+        guard validateArtworkEditingSupport(for: file) else { return }
+        guard let intent = captureArtworkTransfer(targetIDs: [file.id], source: .clear) else {
+            presentArtworkTransferNoDestination(for: [file])
+            return
+        }
         artworkImportTask?.cancel()
+        commitSynchronousArtworkTransfer(intent, action: .remove)
+    }
+
+    func clearArtwork(for files: [AudioFile]) {
         guard validateArtworkEditingSupport(for: files) else { return }
-        applyArtworkEditAction(.remove, to: files)
+        guard let intent = captureArtworkTransfer(targetIDs: files.map(\.id), source: .clear) else {
+            presentArtworkTransferNoDestination(for: files)
+            return
+        }
+        artworkImportTask?.cancel()
+        commitSynchronousArtworkTransfer(intent, action: .remove)
     }
 
     func keepArtwork(for files: [AudioFile]) {
-        artworkImportTask?.cancel()
         guard !files.isEmpty else { return }
-        applyArtworkEditAction(.unchanged, to: files)
+        guard let intent = captureArtworkTransfer(targetIDs: files.map(\.id), source: .keep) else {
+            presentArtworkTransferNoDestination(for: files)
+            return
+        }
+        artworkImportTask?.cancel()
+        commitSynchronousArtworkTransfer(intent, action: .unchanged)
     }
 
-    private func validateArtworkEditingSupport(for file: AudioFile) -> Bool {
+    private func commitSynchronousArtworkTransfer(
+        _ intent: ArtworkTransferIntent,
+        action: ArtworkEditAction
+    ) {
+        // Clear/Keep run in one MainActor turn; the live draft always passes.
+        // A rejection means the command was superseded immediately and the user
+        // still sees why nothing changed.
+        if case .rejected(let rejection) = commitArtworkTransfer(intent, action: action) {
+            presentArtworkTransferRejection(rejection)
+        }
+    }
+
+    // MARK: - Validation
+
+    func validateArtworkEditingSupport(for file: AudioFile) -> Bool {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
             presentArtworkPreparationFailure(
                 for: file.url.lastPathComponent,
@@ -224,7 +168,7 @@ extension AudioViewModel {
         return true
     }
 
-    private func validateArtworkEditingSupport(for files: [AudioFile]) -> Bool {
+    func validateArtworkEditingSupport(for files: [AudioFile]) -> Bool {
         let unsupportedFiles = files.filter { !isArtworkWriteSupportedExtension($0.url.pathExtension) }
         guard unsupportedFiles.isEmpty else {
             let fileNames = unsupportedFiles.prefix(3).map(\.url.lastPathComponent)
@@ -243,42 +187,5 @@ extension AudioViewModel {
         }
 
         return true
-    }
-
-    func applyArtworkEditAction(_ action: ArtworkEditAction, to file: AudioFile) {
-        if editSourceFileID == file.id, var current = edit {
-            current.artworkEditAction = action
-            edit = current
-        } else {
-            var model = SingleFileEditModel(from: file)
-            model.artworkEditAction = action
-            edit = model
-            editSourceFileID = file.id
-        }
-    }
-
-    func applyArtworkEditAction(_ action: ArtworkEditAction, to files: [AudioFile]) {
-        guard !files.isEmpty else { return }
-
-        if var current = multiEdit {
-            current.setArtworkEditAction(action)
-            multiEdit = current
-        } else {
-            var model = MultiFileEditModel(files: files)
-            model.setArtworkEditAction(action)
-            multiEdit = model
-        }
-    }
-
-    @concurrent
-    private static func loadPendingArtwork(from url: URL) async throws -> PendingArtwork {
-        try SecurityScopedResourceAccess.withAccess(to: url) {
-            PendingArtwork(data: try ArtworkImageNormalizer.normalizedPNGData(from: url), mimeType: "image/png")
-        }
-    }
-
-    @concurrent
-    private static func loadPendingArtwork(fromImageData data: Data) async throws -> PendingArtwork {
-        PendingArtwork(data: try await ArtworkImageNormalizer.normalizedPNGDataInBackground(from: data), mimeType: "image/png")
     }
 }

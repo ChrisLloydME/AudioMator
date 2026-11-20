@@ -12,7 +12,7 @@ This document lists the supported diagnostic tools and the boundaries that prote
 .deriveddata-codex/xcodebuild.log
 ```
 
-Inspect it for compiler errors even when the script reports a known AppIcon tooling false positive. The script only treats a specific `actool`/`ibtoold` crash while compiling `AudioMator/AppIcon.icon` as an environment false positive; other compiler output is still real.
+The helper records the `xcodebuild` and log-capture statuses independently. A failed build keeps the Xcode exit status and prints no completed marker; the specific `actool`/`ibtoold` crash while compiling `AudioMator/AppIcon.icon` only adds diagnostic advice and is not reported as success. Only a `CODEX_BUILD_COMPLETED` line means the helper compiled and captured its log. A `CODEX_BUILD_SKIPPED` line means Git discovery succeeded and found no build-relevant paths; nothing was compiled.
 
 ### Validation evidence
 

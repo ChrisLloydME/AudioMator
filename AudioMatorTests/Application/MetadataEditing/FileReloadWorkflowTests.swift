@@ -3,18 +3,27 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-@MainActor
-final class FileReloadWorkflowTests: XCTestCase {
+nonisolated final class FileReloadWorkflowTests: XCTestCase {
+    @MainActor
     func testRecoveryMarkerSurvivesActivationAndOnlyExplicitVerifiedReloadClearsIt() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("recovery.mp3")
         try Data("controlled revision".utf8).write(to: url)
-        let original = AudioFileTestFactory.make(url: url, title: "Original")
-        let refreshed = AudioFileTestFactory.make(id: original.id, url: url, title: "Disk",
+        let original = AudioFileTestFactory.makeObserved(
+            url: url,
+            title: "Original",
             fileFingerprint: try AudioFileFingerprint.capture(at: url),
-            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url))
+            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url)
+        )
+        let refreshed = AudioFileTestFactory.makeObserved(
+            id: original.id,
+            url: url,
+            title: "Disk",
+            fileFingerprint: try AudioFileFingerprint.capture(at: url),
+            metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url)
+        )
         let pipeline = FileReloadTestPipeline(files: [refreshed])
         let viewModel = selectedViewModel(original, pipeline: pipeline)
         viewModel.markFileRequiresRefresh(id: original.id)
@@ -25,7 +34,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertTrue(blocked.requiresMetadataRefreshBeforeWriting)
         var edit = SingleFileEditModel(from: blocked)
         edit.title = "Must refuse"
-        guard case .failure = await viewModel.persistMetadataEdit(edit, to: blocked) else {
+        guard case .failure = await viewModel.persistReviewedEditForTest(edit, to: blocked) else {
             return XCTFail("Automatic refresh must leave writes disabled")
         }
 
@@ -35,6 +44,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.metadataFileVersion, refreshed.metadataFileVersion)
     }
 
+    @MainActor
     func testExplicitReloadUpdatesCleanInspectorAndKeepsSelection() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let refreshed = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Disk")
@@ -50,6 +60,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(pipeline.loadCount, 1)
     }
 
+    @MainActor
     func testExplicitReloadRequiresDirtyDraftToBeResolved() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let pipeline = FileReloadTestPipeline()
@@ -63,8 +74,12 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(pipeline.loadCount, 0)
     }
 
+    @MainActor
     func testActivationReloadPreservesDirtyDraftAndItsOriginalRevision() async {
-        let original = AudioFileTestFactory.make(title: "Original")
+        let original = AudioFileTestFactory.make(
+            title: "Original",
+            includeDefaultFileFingerprint: false
+        )
         let refreshed = AudioFileTestFactory.make(id: original.id, url: original.url, title: "External")
         let pipeline = FileReloadTestPipeline(files: [refreshed])
         let viewModel = selectedViewModel(original, pipeline: pipeline)
@@ -78,6 +93,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
     }
 
+    @MainActor
     func testActivationSkipsUnchangedRevisionButDetectsPermissionOnlyChange() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -85,8 +101,9 @@ final class FileReloadWorkflowTests: XCTestCase {
         let url = directory.appendingPathComponent("revision.mp3")
         try Data("revision fixture".utf8).write(to: url)
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
-        let original = AudioFileTestFactory.make(url: url, title: "Original").withUpdatedURL(
-            url,
+        let original = AudioFileTestFactory.makeObserved(
+            url: url,
+            title: "Original",
             fileFingerprint: try AudioFileFingerprint.capture(at: url),
             metadataFileVersion: try TagLibMetadataManager.fileVersion(at: url)
         )
@@ -103,6 +120,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Disk")
     }
 
+    @MainActor
     func testReloadFailureRetainsLastSnapshotAndReportsManualFailure() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let viewModel = selectedViewModel(original, pipeline: FileReloadTestPipeline())
@@ -116,6 +134,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.isReloadingSelectedFiles)
     }
 
+    @MainActor
     func testReloadWaitsForOutstandingMutationReservation() async throws {
         let original = AudioFileTestFactory.make(title: "Original")
         let pipeline = FileReloadTestPipeline(files: [original])
@@ -139,6 +158,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(pipeline.loadCount, 1)
     }
 
+    @MainActor
     func testLateReloadDoesNotReviveRemovedFile() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let started = FileReloadLatch()
@@ -158,6 +178,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.selectedAudioIDs.isEmpty)
     }
 
+    @MainActor
     func testLateReloadCannotReplaceAnIndependentlyRefreshedSnapshot() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let started = FileReloadLatch()
@@ -179,6 +200,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.title, "Newer")
     }
 
+    @MainActor
     func testEditsMadeDuringReloadArePreservedAndDuplicateReloadIsIgnored() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let refreshed = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Disk")
@@ -202,6 +224,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.inspectorEditSourceFilesByID[original.id]?.snapshotID, original.snapshotID)
     }
 
+    @MainActor
     func testManualSuccessAndSelectionChangeResetAutomaticFailureDeduplication() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let pipeline = FileReloadTestPipeline(files: [original])
@@ -219,12 +242,14 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.lastAutomaticReloadFailures.isEmpty)
     }
 
+    @MainActor
     func testIdenticallyNamedFilesHaveDistinctRefreshFailureIdentities() {
         let first = SelectedFileReloadFailure(fileID: UUID(), url: URL(fileURLWithPath: "/a/song.flac"), reason: "Denied")
         let second = SelectedFileReloadFailure(fileID: UUID(), url: URL(fileURLWithPath: "/b/song.flac"), reason: "Denied")
         XCTAssertNotEqual(first, second)
     }
 
+    @MainActor
     func testEditingAndReadbackDoNotRearmTheSameAutomaticFailure() async {
         let original = AudioFileTestFactory.make(title: "Original")
         let pipeline = FileReloadTestPipeline(files: [original])
@@ -246,6 +271,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.lastAutomaticReloadFailures.isEmpty)
     }
 
+    @MainActor
     private func selectedViewModel(_ file: AudioFile, pipeline: FileReloadTestPipeline) -> AudioViewModel {
         // Restored watched folders would otherwise use the injected pipeline
         // concurrently and make these selected-file read counts nondeterministic.
@@ -268,6 +294,7 @@ final class FileReloadWorkflowTests: XCTestCase {
         return viewModel
     }
 
+    @MainActor
     private func waitForQueuedReload(_ viewModel: AudioViewModel) async -> Bool {
         for _ in 0..<200 {
             if await viewModel.fileMutationCoordinator.queuedMutationCount == 1 { return true }

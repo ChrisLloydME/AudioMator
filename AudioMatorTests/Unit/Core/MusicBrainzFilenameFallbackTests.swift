@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzFilenameFallbackTests: XCTestCase {
+nonisolated final class MusicBrainzFilenameFallbackTests: XCTestCase {
+    @MainActor
     func testFallbackUsesFilenameAndDirectoriesWhenMetadataIsMissing() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/Boards of Canada - Music Has the Right to Children/CD 02/03 - Olson.mp3")
@@ -17,6 +18,7 @@ final class MusicBrainzFilenameFallbackTests: XCTestCase {
         XCTAssertEqual(fallback.discNumber, "2")
     }
 
+    @MainActor
     func testFallbackPrefersExistingMetadataOverFilenameGuesses() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/Guessed Artist - Guessed Album/CD 01/04 - Guessed Title.mp3"),
@@ -38,6 +40,7 @@ final class MusicBrainzFilenameFallbackTests: XCTestCase {
         XCTAssertEqual(fallback.discNumber, "01/02")
     }
 
+    @MainActor
     func testSearchInputRejectsUnrepresentableFileDuration() {
         let file = AudioFileTestFactory.make(
             title: "Extreme Duration",
@@ -49,6 +52,7 @@ final class MusicBrainzFilenameFallbackTests: XCTestCase {
         XCTAssertNil(input.durationMilliseconds)
     }
 
+    @MainActor
     func testResultRankingHandlesExtremeDurationDistanceWithoutOverflow() {
         let query = MusicBrainzSearchQuery(
             mode: .track,

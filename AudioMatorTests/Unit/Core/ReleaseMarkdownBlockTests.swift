@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class ReleaseMarkdownBlockTests: XCTestCase {
+nonisolated final class ReleaseMarkdownBlockTests: XCTestCase {
+    @MainActor
     func testGitHubReleaseNoteAcceptsNullBody() throws {
         let json = """
         {
@@ -19,6 +20,7 @@ final class ReleaseMarkdownBlockTests: XCTestCase {
         XCTAssertEqual(note.displayTitle, "Release")
     }
 
+    @MainActor
     func testParseEmptyMarkdownPreservesExistingSpacerBlockBehavior() {
         XCTAssertEqual(
             ReleaseMarkdownBlock.parse(""),
@@ -26,6 +28,7 @@ final class ReleaseMarkdownBlockTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testParseHeadingsBulletsIndentedParagraphsAndCollapsedSpacers() {
         let blocks = ReleaseMarkdownBlock.parse(
             """
@@ -54,6 +57,7 @@ final class ReleaseMarkdownBlockTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testParseNormalizesWindowsLineEndings() {
         XCTAssertEqual(
             ReleaseMarkdownBlock.parse("Title\r\n\r\n+ Fixed\rSubsection"),

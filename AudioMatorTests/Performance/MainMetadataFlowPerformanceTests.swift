@@ -9,14 +9,14 @@ import XCTest
 nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
     @MainActor
     func testInspectorBatchOverlapsFourTransactionsAndBoundsQueuedWork() async throws {
-        let files = (0..<13).map { index in
-            AudioFileTestFactory.make(
-                url: URL(fileURLWithPath: "/synthetic/concurrent/\(index).mp3"),
-                title: "Track \(index)", includeDefaultFileFingerprint: false
-            )
-        }
+        let (version, versionFixture) = try makeSyntheticVersion()
+        defer { MetadataTestTokens.removeFixtureCopy(at: versionFixture) }
+        let (files, directory) = try makeObservedSyntheticFiles(
+            count: 13, prefix: "AudioMatorConcurrent", version: version
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
         let gate = SyntheticReloadGate()
-        let pipeline = SyntheticMetadataFlowPipeline(files: files, reloadGate: gate)
+        let pipeline = SyntheticMetadataFlowPipeline(files: files, version: version, reloadGate: gate)
         let name = "AudioMatorConcurrentFlow-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
@@ -61,13 +61,15 @@ nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
                 artworkData: Data(repeating: 0x42, count: bytesPerCover), includeDefaultFileFingerprint: false
             )
         }
+        let (version, versionFixture) = try makeSyntheticVersion()
+        defer { MetadataTestTokens.removeFixtureCopy(at: versionFixture) }
         let name = "AudioMatorArtworkFlow-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let viewModel = AudioViewModel(
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
-            metadataPipeline: SyntheticMetadataFlowPipeline(files: files),
+            metadataPipeline: SyntheticMetadataFlowPipeline(files: files, version: version),
             saveIssueLogStore: SaveIssueLogStore(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("\(name).json")),
             conflictPolicyDefaults: defaults
         )
@@ -89,15 +91,15 @@ nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
 
     @MainActor
     func testSyntheticLibrarySelectionAndBatchSaveFlow() async throws {
+        let (version, versionFixture) = try makeSyntheticVersion()
+        defer { MetadataTestTokens.removeFixtureCopy(at: versionFixture) }
         for count in [1_000, 4_000] {
-            let files = (0..<count).map { index in
-                AudioFileTestFactory.make(
-                    url: URL(fileURLWithPath: "/synthetic/\(index).mp3"),
-                    title: "Track \(index)", artist: "Artist", album: "Album",
-                    includeDefaultFileFingerprint: false
-                )
-            }
-            let pipeline = SyntheticMetadataFlowPipeline(files: files)
+            let (files, directory) = try makeObservedSyntheticFiles(
+                count: count, prefix: "AudioMatorFlow-\(count)",
+                version: version, artist: "Artist", album: "Album"
+            )
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let pipeline = SyntheticMetadataFlowPipeline(files: files, version: version)
             let defaultsName = "AudioMatorFlow-\(UUID().uuidString)"
             let defaults = try XCTUnwrap(UserDefaults(suiteName: defaultsName))
             defer { defaults.removePersistentDomain(forName: defaultsName) }
@@ -188,8 +190,44 @@ nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
 
 /// Exercises the real reservation, write/reload executor and inspector orchestration
 /// while removing disk latency. It cannot contact the network or change user files.
+private func makeSyntheticVersion() throws -> (MetadataFileVersion, URL) {
+    let fixture = try MetadataTestTokens.makeFixtureCopy()
+    return (try MetadataTestTokens.mintedVersion(at: fixture), fixture)
+}
+
+private func makeObservedSyntheticFiles(
+    count: Int,
+    prefix: String,
+    version: MetadataFileVersion,
+    titlePrefix: String = "Track",
+    artist: String = "",
+    album: String = ""
+) throws -> ([AudioFile], URL) {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    var files: [AudioFile] = []
+    files.reserveCapacity(count)
+    for index in 0..<count {
+        let url = directory.appendingPathComponent("\(index).mp3")
+        try Data().write(to: url)
+        files.append(
+            AudioFileTestFactory.makeObserved(
+                url: url,
+                title: "\(titlePrefix) \(index)",
+                artist: artist,
+                album: album,
+                fileFingerprint: try AudioFileFingerprint.capture(at: url),
+                metadataFileVersion: version
+            )
+        )
+    }
+    return (files, directory)
+}
+
 private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let lock = NSLock()
+    private let version: MetadataFileVersion
     nonisolated(unsafe) private var filesByURL: [URL: AudioFile]
     nonisolated(unsafe) private var titlesByURL: [URL: String] = [:]
     nonisolated(unsafe) private var writes = 0
@@ -198,9 +236,19 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
     nonisolated(unsafe) private var maximumActive = 0
     private let reloadGate: SyntheticReloadGate?
 
-    init(files: [AudioFile], reloadGate: SyntheticReloadGate? = nil) {
+    init(files: [AudioFile], version: MetadataFileVersion, reloadGate: SyntheticReloadGate? = nil) {
         filesByURL = Dictionary(uniqueKeysWithValues: files.map { ($0.url, $0) })
+        self.version = version
         self.reloadGate = reloadGate
+    }
+
+    nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion { version }
+
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        try TagLibAudioMetadataPipeline().projectMetadataWrite(intent, fileExtension: fileExtension)
     }
     nonisolated var maximumActiveTransactions: Int { lock.withLock { maximumActive } }
     nonisolated var writeCount: Int { lock.withLock { writes } }
@@ -213,10 +261,16 @@ private final class SyntheticMetadataFlowPipeline: AudioMetadataPipeline, @unche
         }
         if let reloadGate { await reloadGate.wait() }
         defer { lock.withLock { activeTransactions -= 1 } }
+        let fileVersion = version
         return await MainActor.run {
-            AudioFileTestFactory.make(
-                id: previous.id, url: url, title: title ?? previous.title,
-                artist: previous.artist, album: previous.album, includeDefaultFileFingerprint: false
+            AudioFileTestFactory.makeObserved(
+                id: previous.id,
+                url: url,
+                title: title ?? previous.title,
+                artist: previous.artist,
+                album: previous.album,
+                fileFingerprint: previous.fileFingerprint ?? AudioFileTestFactory.fingerprint(for: url),
+                metadataFileVersion: fileVersion
             )
         }
     }

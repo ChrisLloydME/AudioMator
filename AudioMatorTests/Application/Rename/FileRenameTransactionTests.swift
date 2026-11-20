@@ -3,419 +3,336 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-final class FileRenameTransactionTests: XCTestCase {
+/// Rename transaction coverage after the F2 journal extraction. The service is
+/// exercised with real disposable directories and injected filesystem faults; the
+/// view-model recovery state is read-only and must never move files by itself.
+nonisolated final class FileRenameTransactionTests: XCTestCase {
+    private var baseURL: URL!
+    private var rootURL: URL!
+    private var journalURL: URL!
+    private let fileSystem = LocalRenameFileSystem()
+    private var store: LocalRenameJournalStore!
+
+    override func setUpWithError() throws {
+        baseURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorRenameTransactionTests-\(UUID().uuidString)", isDirectory: true)
+        rootURL = baseURL.appendingPathComponent("Files", isDirectory: true)
+        journalURL = baseURL.appendingPathComponent("RenameJournal", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        store = LocalRenameJournalStore(directoryURL: journalURL)
+    }
+
+    override func tearDownWithError() throws {
+        store = nil
+        if let baseURL {
+            try? FileManager.default.removeItem(at: baseURL)
+        }
+    }
+
     @MainActor
     func testRollbackFailureReportsHiddenTemporaryFileAndRecoveryItem() async throws {
-        let rootURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorRenameTransactionTests-\(UUID().uuidString)", isDirectory: true)
-        let firstSourceURL = rootURL.appendingPathComponent("first.mp3")
-        let firstDestinationURL = rootURL.appendingPathComponent("renamed-first.mp3")
-        let secondSourceURL = rootURL.appendingPathComponent("second.mp3")
-        let secondDestinationURL = rootURL.appendingPathComponent("renamed-second.mp3")
-        let fileSystem = FaultInjectingRenameFileSystem(
-            existingURLs: [firstSourceURL, secondSourceURL],
-            shouldFailMove: { sourceURL, destinationURL in
-                if sourceURL == secondSourceURL {
-                    return TestMoveError.primaryFailure
-                }
-
-                if
-                    destinationURL == firstSourceURL,
-                    sourceURL.lastPathComponent.hasPrefix(".audiomator-rename-")
-                {
-                    return TestMoveError.rollbackFailure
-                }
-
-                return nil
-            }
+        let fault = FaultInjectingRenameFileSystem(mode: .failSecondStageAndRollback)
+        let service = RenameTransactionService(fileSystem: fault, journal: store)
+        let operationID = UUID()
+        let prepared = try makePrepared(
+            names: [("first.mp3", "renamed-first.mp3"), ("second.mp3", "renamed-second.mp3")],
+            operationID: operationID
         )
 
-        let firstOperationID = UUID()
-        let result = executeFileRenameTransaction(
-            [
-                FileRenameOperation(
-                    id: firstOperationID,
-                    sourceURL: firstSourceURL,
-                    destinationURL: firstDestinationURL,
-                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: firstSourceURL)
-                ),
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: secondSourceURL,
-                    destinationURL: secondDestinationURL,
-                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: secondSourceURL)
-                )
-            ],
-            fileSystem: fileSystem
-        )
-
-        guard case .failure(let failure) = result else {
-            return XCTFail("Expected the injected staging failure to abort the transaction.")
+        var stagedObservedURL: URL?
+        switch service.execute(prepared) {
+        case .unresolved(let unresolvedID, let classification, _):
+            XCTAssertEqual(unresolvedID, operationID)
+            let first = try XCTUnwrap(classification.entries.first)
+            XCTAssertEqual(first.role, .staged)
+            let observedURL = try XCTUnwrap(first.observedURL)
+            stagedObservedURL = observedURL
+            XCTAssertTrue(observedURL.lastPathComponent.hasPrefix(RenameStagingName.prefix))
+            XCTAssertEqual(observedURL.pathExtension, "mp3")
+        default:
+            return XCTFail("Expected an unresolved journal outcome after rollback failure")
         }
 
-        let recoveryItem = try XCTUnwrap(failure.recoveryItems.first)
-        XCTAssertEqual(failure.recoveryItems.count, 1)
-        XCTAssertEqual(recoveryItem.id, firstOperationID)
-        XCTAssertEqual(recoveryItem.originalURL, firstSourceURL)
-        XCTAssertEqual(recoveryItem.intendedURL, firstDestinationURL)
-        XCTAssertTrue(
-            try XCTUnwrap(recoveryItem.finalURL).lastPathComponent.hasPrefix(".audiomator-rename-")
-        )
-        XCTAssertFalse(recoveryItem.rollbackErrors.isEmpty)
-        XCTAssertTrue(failure.message.contains("Check the file locations"))
+        let retainedManifest = try XCTUnwrap(store.loadManifests().manifests.first)
+        XCTAssertEqual(retainedManifest.phase, .prepared)
+        XCTAssertEqual(retainedManifest.operationID, operationID)
 
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
-        viewModel.mergeQuickImportFiles([
-            AudioFileTestFactory.make(id: firstOperationID, url: firstSourceURL)
+        let viewModel = AudioViewModelTestFactory.make(
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            renameFileSystem: fileSystem,
+            renameJournalStore: store
+        )
+        await viewModel.refreshRenameJournalRecovery()
+        let operation = try XCTUnwrap(viewModel.renameJournalRecovery.operations.first)
+        XCTAssertTrue(operation.canRestore)
+        XCTAssertEqual(operation.entries.count, 2)
+        XCTAssertEqual(operation.entries.first?.roleText, String(localized: "At a temporary name"))
+
+        // Read-only bootstrap: the hidden stage file is untouched and the original
+        // path remains absent until an explicit restore.
+        let stagedURL = try XCTUnwrap(stagedObservedURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stagedURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: prepared.entries[0].originalURL.path))
+        XCTAssertTrue(viewModel.isRenameJournalBlocked(url: prepared.entries[0].originalURL))
+    }
+
+    func testFinalizationRollbackFailureReportsFileAtDestination() async throws {
+        let fault = FaultInjectingRenameFileSystem(mode: .failSecondFinalAndRollback)
+        let service = RenameTransactionService(fileSystem: fault, journal: store)
+        let prepared = try makePrepared(names: [
+            ("first.mp3", "renamed-first.mp3"),
+            ("second.mp3", "renamed-second.mp3")
         ])
-        _ = await viewModel.reconcileRenameRecovery(failure.recoveryItems)
-        let recovered = try XCTUnwrap(viewModel.files.first)
-        XCTAssertEqual(recovered.id, firstOperationID)
-        XCTAssertEqual(recovered.url, recoveryItem.finalURL)
-        // The simulated filesystem has no readable metadata revision.
-        XCTAssertTrue(recovered.requiresMetadataRefreshBeforeWriting)
-    }
 
-    func testFinalizationRollbackFailureReportsFileAtDestination() throws {
-        let rootURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorRenameFinalizationTests-\(UUID().uuidString)", isDirectory: true)
-        let firstSourceURL = rootURL.appendingPathComponent("first.mp3")
-        let firstDestinationURL = rootURL.appendingPathComponent("renamed-first.mp3")
-        let secondSourceURL = rootURL.appendingPathComponent("second.mp3")
-        let secondDestinationURL = rootURL.appendingPathComponent("renamed-second.mp3")
-        let fileSystem = FaultInjectingRenameFileSystem(
-            existingURLs: [firstSourceURL, secondSourceURL],
-            shouldFailMove: { sourceURL, destinationURL in
-                if destinationURL == secondDestinationURL {
-                    return TestMoveError.primaryFailure
-                }
-
-                if
-                    sourceURL == firstDestinationURL,
-                    destinationURL.lastPathComponent.hasPrefix(".audiomator-rename-")
-                {
-                    return TestMoveError.rollbackFailure
-                }
-
-                return nil
-            }
-        )
-
-        let result = executeFileRenameTransaction(
-            [
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: firstSourceURL,
-                    destinationURL: firstDestinationURL,
-                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: firstSourceURL)
-                ),
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: secondSourceURL,
-                    destinationURL: secondDestinationURL,
-                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: secondSourceURL)
-                )
-            ],
-            fileSystem: fileSystem
-        )
-
-        guard case .failure(let failure) = result else {
-            return XCTFail("Expected the injected finalization failure to abort the transaction.")
-        }
-
-        let recoveryItem = try XCTUnwrap(failure.recoveryItems.first)
-        XCTAssertEqual(failure.recoveryItems.count, 1)
-        XCTAssertEqual(recoveryItem.originalURL, firstSourceURL)
-        XCTAssertEqual(recoveryItem.finalURL, firstDestinationURL)
-        XCTAssertFalse(recoveryItem.rollbackErrors.isEmpty)
-        XCTAssertTrue(failure.message.contains(firstDestinationURL.path))
-    }
-
-    func testRollbackDoesNotMoveAReplacementFileIntoTheOriginalPath() throws {
-        let rootURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorRenameReplacementTests-\(UUID().uuidString)", isDirectory: true)
-        let firstSourceURL = rootURL.appendingPathComponent("first.mp3")
-        let firstDestinationURL = rootURL.appendingPathComponent("renamed-first.mp3")
-        let secondSourceURL = rootURL.appendingPathComponent("second.mp3")
-        let secondDestinationURL = rootURL.appendingPathComponent("renamed-second.mp3")
-        let fileSystem = DestinationReplacingRenameFileSystem(
-            firstSourceURL: firstSourceURL,
-            firstDestinationURL: firstDestinationURL,
-            secondSourceURL: secondSourceURL,
-            secondDestinationURL: secondDestinationURL
-        )
-
-        let result = executeFileRenameTransaction(
-            [
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: firstSourceURL,
-                    destinationURL: firstDestinationURL,
-                    expectedFileFingerprint: fileSystem.firstExpectedFingerprint
-                ),
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: secondSourceURL,
-                    destinationURL: secondDestinationURL,
-                    expectedFileFingerprint: fileSystem.secondExpectedFingerprint
-                )
-            ],
-            fileSystem: fileSystem
-        )
-
-        guard case .failure(let failure) = result else {
-            return XCTFail("Expected the second finalization failure to start rollback.")
-        }
-
-        XCTAssertFalse(fileSystem.fileExists(at: firstSourceURL))
-        XCTAssertTrue(fileSystem.replacementRemains(at: firstDestinationURL))
-        XCTAssertEqual(failure.recoveryItems.count, 1)
-        XCTAssertEqual(failure.recoveryItems.first?.originalURL, firstSourceURL)
-        XCTAssertTrue(failure.recoveryItems.first?.finalLocations.isEmpty == true)
-        XCTAssertTrue(failure.message.contains("Check the file locations"))
-    }
-
-    func testChangedSourceIsRejectedBeforeAnyFileIsMoved() {
-        let rootURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorRenameIdentityTests-\(UUID().uuidString)", isDirectory: true)
-        let sourceURL = rootURL.appendingPathComponent("source.mp3")
-        let destinationURL = rootURL.appendingPathComponent("renamed.mp3")
-        let previewFingerprint = AudioFileTestFactory.fingerprint(for: sourceURL, fileSize: 100)
-        let changedFingerprint = AudioFileTestFactory.fingerprint(for: sourceURL, fileSize: 200)
-        let fileSystem = FaultInjectingRenameFileSystem(
-            existingURLs: [sourceURL],
-            fingerprints: [sourceURL: changedFingerprint],
-            shouldFailMove: { _, _ in nil }
-        )
-
-        let result = executeFileRenameTransaction(
-            [
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: sourceURL,
-                    destinationURL: destinationURL,
-                    expectedFileFingerprint: previewFingerprint
-                )
-            ],
-            fileSystem: fileSystem
-        )
-
-        guard case .failure(let failure) = result else {
-            return XCTFail("Expected a source changed after preview to be rejected.")
-        }
-        XCTAssertTrue(failure.message.contains("has changed since this preview was created"))
-        XCTAssertTrue(fileSystem.fileExists(at: sourceURL))
-        XCTAssertFalse(fileSystem.fileExists(at: destinationURL))
-        XCTAssertEqual(fileSystem.moveCount, 0)
-    }
-
-    func testDeletedSourceIsRejectedBeforeAnyFileIsMoved() {
-        let rootURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorRenameDeletedSourceTests-\(UUID().uuidString)", isDirectory: true)
-        let sourceURL = rootURL.appendingPathComponent("deleted.mp3")
-        let destinationURL = rootURL.appendingPathComponent("renamed.mp3")
-        let fileSystem = FaultInjectingRenameFileSystem(
-            existingURLs: [],
-            shouldFailMove: { _, _ in nil }
-        )
-
-        let result = executeFileRenameTransaction(
-            [
-                FileRenameOperation(
-                    id: UUID(),
-                    sourceURL: sourceURL,
-                    destinationURL: destinationURL,
-                    expectedFileFingerprint: AudioFileTestFactory.fingerprint(for: sourceURL)
-                )
-            ],
-            fileSystem: fileSystem
-        )
-
-        guard case .failure(let failure) = result else {
-            return XCTFail("Expected a deleted source to abort the transaction.")
-        }
-        XCTAssertTrue(failure.message.contains("source missing"))
-        XCTAssertEqual(failure.recoveryItems.count, 1)
-        XCTAssertTrue(failure.recoveryItems[0].finalLocations.isEmpty)
-        XCTAssertTrue(failure.message.contains("current location couldn’t be determined."))
-        XCTAssertEqual(fileSystem.moveCount, 0)
-    }
-}
-
-private final class DestinationReplacingRenameFileSystem: FileRenameFileSystem, @unchecked Sendable {
-    private let lock = NSLock()
-    private let firstDestinationURL: URL
-    private let secondDestinationURL: URL
-    private var fingerprintsByPath: [String: AudioFileFingerprint]
-
-    let firstExpectedFingerprint: AudioFileFingerprint
-    let secondExpectedFingerprint: AudioFileFingerprint
-
-    init(
-        firstSourceURL: URL,
-        firstDestinationURL: URL,
-        secondSourceURL: URL,
-        secondDestinationURL: URL
-    ) {
-        self.firstDestinationURL = firstDestinationURL
-        self.secondDestinationURL = secondDestinationURL
-        firstExpectedFingerprint = Self.fingerprint(for: firstSourceURL, fileNumber: 101)
-        secondExpectedFingerprint = Self.fingerprint(for: secondSourceURL, fileNumber: 202)
-        fingerprintsByPath = [
-            firstSourceURL.path: firstExpectedFingerprint,
-            secondSourceURL.path: secondExpectedFingerprint
-        ]
-    }
-
-    func fileExists(at url: URL) -> Bool {
-        lock.withLock { fingerprintsByPath[url.path] != nil }
-    }
-
-    func fingerprint(at url: URL) throws -> AudioFileFingerprint {
-        try lock.withLock {
-            guard let fingerprint = fingerprintsByPath[url.path] else {
-                throw TestMoveError.sourceMissing
-            }
-            return fingerprint
-        }
-    }
-
-    func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
-        try lock.withLock {
-            if destinationURL == secondDestinationURL {
-                throw TestMoveError.primaryFailure
-            }
-            guard let sourceFingerprint = fingerprintsByPath[sourceURL.path] else {
-                throw TestMoveError.sourceMissing
-            }
-            guard fingerprintsByPath[destinationURL.path] == nil else {
-                throw TestMoveError.destinationExists
-            }
-
-            fingerprintsByPath[sourceURL.path] = nil
-            fingerprintsByPath[destinationURL.path] = Self.moving(
-                sourceFingerprint,
-                to: destinationURL
+        switch service.execute(prepared) {
+        case .unresolved(_, let classification, _):
+            let first = try XCTUnwrap(classification.entries.first)
+            XCTAssertEqual(first.role, .intended)
+            XCTAssertEqual(first.observedURL, prepared.entries[0].intendedURL)
+            XCTAssertEqual(
+                try String(contentsOf: prepared.entries[0].intendedURL, encoding: .utf8),
+                "entry-0"
             )
-
-            if destinationURL == firstDestinationURL {
-                fingerprintsByPath[destinationURL.path] = Self.fingerprint(
-                    for: destinationURL,
-                    fileNumber: 999
-                )
-            }
+        default:
+            return XCTFail("Expected an unresolved journal outcome after finalization rollback failure")
         }
-    }
 
-    func replacementRemains(at url: URL) -> Bool {
-        lock.withLock { fingerprintsByPath[url.path]?.fileNumber == 999 }
-    }
-
-    private static func moving(_ fingerprint: AudioFileFingerprint, to url: URL) -> AudioFileFingerprint {
-        AudioFileFingerprint(
-            normalizedPath: url.standardizedFileURL.path,
-            fileSize: fingerprint.fileSize,
-            contentModificationDate: fingerprint.contentModificationDate,
-            fileSystemNumber: fingerprint.fileSystemNumber,
-            fileNumber: fingerprint.fileNumber
+        XCTAssertEqual(store.loadManifests().manifests.first?.phase, .prepared)
+        XCTAssertEqual(
+            try String(contentsOf: prepared.entries[0].intendedURL, encoding: .utf8),
+            "entry-0"
         )
+        XCTAssertEqual(store.loadManifests().manifests.count, 1)
     }
 
-    private static func fingerprint(for url: URL, fileNumber: UInt64) -> AudioFileFingerprint {
-        AudioFileFingerprint(
-            normalizedPath: url.standardizedFileURL.path,
-            fileSize: 64,
-            contentModificationDate: Date(timeIntervalSince1970: 1_700_000_000),
-            fileSystemNumber: 1,
-            fileNumber: fileNumber
+    func testRollbackDoesNotMoveAReplacementFileIntoTheOriginalPath() async throws {
+        let fault = FaultInjectingRenameFileSystem(mode: .replaceAfterFirstFinal)
+        let service = RenameTransactionService(fileSystem: fault, journal: store)
+        let prepared = try makePrepared(names: [
+            ("first.mp3", "renamed-first.mp3"),
+            ("second.mp3", "renamed-second.mp3")
+        ])
+
+        switch service.execute(prepared) {
+        case .unresolved:
+            break
+        default:
+            return XCTFail("Expected an unresolved journal outcome after a replaced destination")
+        }
+
+        let replacementURL = prepared.entries[0].intendedURL
+        XCTAssertEqual(try String(contentsOf: replacementURL, encoding: .utf8), "replacement")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: prepared.entries[0].originalURL.path))
+        XCTAssertNotEqual(try String(contentsOf: replacementURL, encoding: .utf8), "entry-0")
+        XCTAssertEqual(store.loadManifests().manifests.first?.phase, .prepared)
+    }
+
+    func testChangedSourceIsRejectedBeforeAnyFileIsMoved() throws {
+        let sourceURL = rootURL.appendingPathComponent("source.mp3")
+        try Data(repeating: 1, count: 128).write(to: sourceURL)
+        let previewFingerprint = try AudioFileFingerprint.capture(at: sourceURL)
+        try Data(repeating: 2, count: 4096).write(to: sourceURL)
+        let operationID = UUID()
+        let prepared = PreparedRenameTransaction(
+            operationID: operationID,
+            entries: [
+                PreparedRenameEntry(
+                    index: 0,
+                    fileID: UUID(),
+                    originalURL: sourceURL,
+                    temporaryURL: RenameStagingName.url(
+                        for: sourceURL,
+                        operationID: operationID,
+                        index: 0
+                    ),
+                    intendedURL: rootURL.appendingPathComponent("renamed.mp3"),
+                    expectedSourceFingerprint: previewFingerprint
+                )
+            ]
         )
+        let service = RenameTransactionService(fileSystem: fileSystem, journal: store)
+
+        switch service.execute(prepared) {
+        case .rejected(.sourceChanged(let index)):
+            XCTAssertEqual(index, 0)
+        default:
+            return XCTFail("Expected sourceChanged rejection")
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sourceURL.path))
+        XCTAssertEqual(try visibleEntries(), ["source.mp3"])
+        XCTAssertTrue(store.loadManifests().manifests.isEmpty)
+    }
+
+    func testDeletedSourceIsRejectedBeforeAnyFileIsMoved() throws {
+        let sourceURL = rootURL.appendingPathComponent("deleted.mp3")
+        try Data("deleted".utf8).write(to: sourceURL)
+        let fingerprint = try AudioFileFingerprint.capture(at: sourceURL)
+        try FileManager.default.removeItem(at: sourceURL)
+        let operationID = UUID()
+        let prepared = PreparedRenameTransaction(
+            operationID: operationID,
+            entries: [
+                PreparedRenameEntry(
+                    index: 0,
+                    fileID: UUID(),
+                    originalURL: sourceURL,
+                    temporaryURL: RenameStagingName.url(
+                        for: sourceURL,
+                        operationID: operationID,
+                        index: 0
+                    ),
+                    intendedURL: rootURL.appendingPathComponent("renamed.mp3"),
+                    expectedSourceFingerprint: fingerprint
+                )
+            ]
+        )
+        let service = RenameTransactionService(fileSystem: fileSystem, journal: store)
+
+        switch service.execute(prepared) {
+        case .rejected(.sourceMissing(let index)):
+            XCTAssertEqual(index, 0)
+        default:
+            return XCTFail("Expected sourceMissing rejection")
+        }
+        XCTAssertTrue(try visibleEntries().isEmpty)
+        XCTAssertTrue(store.loadManifests().manifests.isEmpty)
+    }
+
+    // MARK: - Helpers
+
+    private func makePrepared(
+        names: [(sourceName: String, intendedName: String)],
+        operationID: UUID = UUID()
+    ) throws -> PreparedRenameTransaction {
+        var entries: [PreparedRenameEntry] = []
+        for (index, names) in names.enumerated() {
+            let sourceURL = rootURL.appendingPathComponent(names.sourceName)
+            let intendedURL = rootURL.appendingPathComponent(names.intendedName)
+            try Data("entry-\(index)".utf8).write(to: sourceURL)
+            entries.append(
+                PreparedRenameEntry(
+                    index: index,
+                    fileID: UUID(),
+                    originalURL: sourceURL,
+                    temporaryURL: RenameStagingName.url(
+                        for: sourceURL,
+                        operationID: operationID,
+                        index: index
+                    ),
+                    intendedURL: intendedURL,
+                    expectedSourceFingerprint: try AudioFileFingerprint.capture(at: sourceURL)
+                )
+            )
+        }
+        return PreparedRenameTransaction(operationID: operationID, entries: entries)
+    }
+
+    private func visibleEntries() throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: rootURL.path)
+            .filter { !$0.hasPrefix(RenameStagingName.prefix) }
+            .sorted()
     }
 }
 
-private final class FaultInjectingRenameFileSystem: FileRenameFileSystem, @unchecked Sendable {
-    typealias FailureRule = @Sendable (URL, URL) -> Error?
+/// Fault filesystem for journal-service tests. All non-move operations forward to
+/// the real local implementation so entry identity, stage names and journal
+/// evidence stay consistent with production behaviour.
+private nonisolated final class FaultInjectingRenameFileSystem: RenameFileSystem, @unchecked Sendable {
+    enum Mode {
+        case failSecondStageAndRollback
+        case failSecondFinalAndRollback
+        case replaceAfterFirstFinal
+    }
 
+    private let base = LocalRenameFileSystem()
+    private let mode: Mode
     private let lock = NSLock()
-    private var existingPaths: Set<String>
-    private var fingerprintsByPath: [String: AudioFileFingerprint]
-    private let shouldFailMove: FailureRule
-    private(set) var moveCount = 0
+    private var stageMoveCount = 0
+    private var finalMoveCount = 0
+    private var primaryFailureRaised = false
 
-    init(
-        existingURLs: [URL],
-        fingerprints: [URL: AudioFileFingerprint] = [:],
-        shouldFailMove: @escaping FailureRule
-    ) {
-        existingPaths = Set(existingURLs.map(\.path))
-        fingerprintsByPath = Dictionary(uniqueKeysWithValues: existingURLs.map {
-            ($0.path, AudioFileTestFactory.fingerprint(for: $0))
-        })
-        for (url, fingerprint) in fingerprints {
-            fingerprintsByPath[url.path] = fingerprint
-        }
-        self.shouldFailMove = shouldFailMove
+    init(mode: Mode) {
+        self.mode = mode
     }
 
-    func fileExists(at url: URL) -> Bool {
-        lock.withLock { existingPaths.contains(url.path) }
+    func fileExists(at url: URL) -> Bool { base.fileExists(at: url) }
+    func fingerprint(at url: URL) throws -> AudioFileFingerprint { try base.fingerprint(at: url) }
+    func entryIdentity(at url: URL) throws -> RenameEntryIdentity { try base.entryIdentity(at: url) }
+    func entryIdentityIfPresent(at url: URL) throws -> RenameEntryIdentity? {
+        try base.entryIdentityIfPresent(at: url)
+    }
+    func linkTarget(at url: URL) -> String? { base.linkTarget(at: url) }
+    func volumeIdentifier(forDirectoryAt url: URL) -> String? {
+        base.volumeIdentifier(forDirectoryAt: url)
+    }
+    func volumeSupportsExclusiveRename(forDirectoryAt url: URL) throws -> Bool {
+        try base.volumeSupportsExclusiveRename(forDirectoryAt: url)
+    }
+    func openDirectory(at url: URL) throws -> RenameDirectoryHandle {
+        try base.openDirectory(at: url)
+    }
+    func directoryIdentity(_ handle: RenameDirectoryHandle) throws -> RenameDirectoryIdentity {
+        try base.directoryIdentity(handle)
+    }
+    func authorizedPathStillIdentifiesDirectory(_ handle: RenameDirectoryHandle) -> Bool {
+        base.authorizedPathStillIdentifiesDirectory(handle)
+    }
+    func entryIdentity(named name: String, in handle: RenameDirectoryHandle) throws -> RenameEntryIdentity? {
+        try base.entryIdentity(named: name, in: handle)
+    }
+    func actualEntryName(inDirectoryAt url: URL, matching name: String) throws -> String? {
+        try base.actualEntryName(inDirectoryAt: url, matching: name)
+    }
+    func syncDirectory(_ handle: RenameDirectoryHandle) throws {
+        try base.syncDirectory(handle)
     }
 
-    func fingerprint(at url: URL) throws -> AudioFileFingerprint {
-        try lock.withLock {
-            guard existingPaths.contains(url.path) else {
-                throw TestMoveError.sourceMissing
-            }
-            return try XCTUnwrap(fingerprintsByPath[url.path])
+    func exclusiveMove(
+        named sourceName: String,
+        to destinationName: String,
+        in handle: RenameDirectoryHandle
+    ) throws {
+        let isStageSource = sourceName.hasPrefix(RenameStagingName.prefix)
+        let isStageDestination = destinationName.hasPrefix(RenameStagingName.prefix)
+
+        lock.lock()
+        let isFinalMove = !isStageDestination
+        if isStageDestination {
+            stageMoveCount += 1
+        } else {
+            finalMoveCount += 1
         }
-    }
+        let stageCount = stageMoveCount
+        let finalCount = finalMoveCount
+        lock.unlock()
 
-    func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
-        try lock.withLock {
-            moveCount += 1
-            if let error = shouldFailMove(sourceURL, destinationURL) {
-                throw error
+        switch mode {
+        case .failSecondStageAndRollback:
+            if isStageDestination, stageCount == 2 {
+                throw RenameFileSystemError.io(code: 5)
             }
-
-            guard existingPaths.contains(sourceURL.path) else {
-                throw TestMoveError.sourceMissing
+            if isStageSource, !isStageDestination {
+                throw RenameFileSystemError.io(code: 5)
             }
-            guard !existingPaths.contains(destinationURL.path) else {
-                throw TestMoveError.destinationExists
+        case .failSecondFinalAndRollback:
+            if isFinalMove, finalCount == 2 {
+                primaryFailureRaised = true
+                throw RenameFileSystemError.io(code: 5)
             }
-
-            existingPaths.remove(sourceURL.path)
-            existingPaths.insert(destinationURL.path)
-            let sourceFingerprint = fingerprintsByPath.removeValue(forKey: sourceURL.path)
-            if let sourceFingerprint {
-                fingerprintsByPath[destinationURL.path] = AudioFileFingerprint(
-                    normalizedPath: destinationURL.standardizedFileURL.path,
-                    fileSize: sourceFingerprint.fileSize,
-                    contentModificationDate: sourceFingerprint.contentModificationDate,
-                    fileSystemNumber: sourceFingerprint.fileSystemNumber,
-                    fileNumber: sourceFingerprint.fileNumber
-                )
+            if primaryFailureRaised, !isStageSource, isStageDestination {
+                throw RenameFileSystemError.io(code: 5)
+            }
+        case .replaceAfterFirstFinal:
+            if isFinalMove, finalCount == 1 {
+                try base.exclusiveMove(named: sourceName, to: destinationName, in: handle)
+                let destinationURL = handle.url.appendingPathComponent(destinationName, isDirectory: false)
+                try? FileManager.default.removeItem(at: destinationURL)
+                try Data("replacement".utf8).write(to: destinationURL)
+                return
             }
         }
-    }
-}
 
-private enum TestMoveError: LocalizedError {
-    case primaryFailure
-    case rollbackFailure
-    case sourceMissing
-    case destinationExists
-
-    var errorDescription: String? {
-        switch self {
-        case .primaryFailure:
-            return "Injected primary move failure"
-        case .rollbackFailure:
-            return "Injected rollback move failure"
-        case .sourceMissing:
-            return "Injected source missing"
-        case .destinationExists:
-            return "Injected destination exists"
-        }
+        try base.exclusiveMove(named: sourceName, to: destinationName, in: handle)
     }
 }
 #endif

@@ -2,8 +2,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class ProviderSearchRestartTests: XCTestCase {
+nonisolated final class ProviderSearchRestartTests: XCTestCase {
+    @MainActor
     func testMusicBrainzSeededModeNotificationDoesNotCancelInitialSearch() {
         let gate = NonCooperativeProviderSearchGate()
         let store = MusicBrainzBrowserStore(
@@ -38,6 +38,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         store.closeWindowSession()
     }
 
+    @MainActor
     func testiTunesAlbumMatchingDoesNotBlockMainActor() async throws {
         let matchingGate = BlockingSynchronousGate()
         let detail = makeAlbumDetail()
@@ -58,8 +59,13 @@ final class ProviderSearchRestartTests: XCTestCase {
             AudioFileTestFactory.make(title: "Track", artist: "Artist", album: "Album")
         ])
 
+        let context = iTunesSearchContext(
+            storefront: store.storefront,
+            generation: UUID(),
+            submittedSelection: store.fileSelectionSummary
+        )
         let detailTask = Task {
-            try await store.albumDetail(for: detail.album)
+            try await store.albumDetail(for: detail.album, context: context)
         }
         let matcherStarted = try await waitUntil { matchingGate.didStart }
 
@@ -74,6 +80,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         XCTAssertEqual(resolved.selectionMatchPreview?.totalSelectedFiles, 1)
     }
 
+    @MainActor
     func testiTunesCancelledNonCooperativeSearchReleasesStoreAndLoadingState() async {
         let gate = NonCooperativeProviderSearchGate()
         var store: iTunesBrowserStore? = iTunesBrowserStore(
@@ -96,6 +103,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    @MainActor
     func testiTunesNonCooperativeSearchReachesTimeoutState() async throws {
         let gate = NonCooperativeProviderSearchGate()
         let store = iTunesBrowserStore(
@@ -113,6 +121,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    @MainActor
     func testMusicBrainzCancelledNonCooperativeSearchReleasesStoreAndLoadingState() async {
         let gate = NonCooperativeProviderSearchGate()
         var store: MusicBrainzBrowserStore? = MusicBrainzBrowserStore(
@@ -135,6 +144,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    @MainActor
     func testMusicBrainzNonCooperativeSearchReachesTimeoutState() async throws {
         let gate = NonCooperativeProviderSearchGate()
         let store = MusicBrainzBrowserStore(
@@ -152,6 +162,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    @MainActor
     func testMusicBrainzPreloadReturnsAfterNonCooperativeDetailTimeout() async throws {
         let gate = NonCooperativeProviderSearchGate()
         let store = MusicBrainzBrowserStore(
@@ -177,6 +188,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    @MainActor
     func testCancelledMusicBrainzPreloadDoesNotPublishProgressAfterCancellation() async throws {
         let gate = NonCooperativeProviderSearchGate()
         let store = MusicBrainzBrowserStore(
@@ -202,6 +214,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         await gate.finish()
     }
 
+    @MainActor
     func testiTunesRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
         let gate = RestartableProviderSearchGate()
         let store = iTunesBrowserStore(client: RestartableiTunesBrowserClient(gate: gate))
@@ -225,6 +238,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         XCTAssertNil(store.errorMessage)
     }
 
+    @MainActor
     func testMusicBrainzRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
         let gate = RestartableProviderSearchGate()
         let store = MusicBrainzBrowserStore(client: RestartableMusicBrainzBrowserClient(gate: gate))
@@ -306,6 +320,7 @@ final class ProviderSearchRestartTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeMusicBrainzRelease(recordingID: String) -> MusicBrainzReleaseDetail {
         MusicBrainzReleaseDetail(
             id: "release-id",

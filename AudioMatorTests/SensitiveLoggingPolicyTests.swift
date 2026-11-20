@@ -1,7 +1,8 @@
 import Foundation
 import XCTest
 
-final class SensitiveLoggingPolicyTests: XCTestCase {
+nonisolated final class SensitiveLoggingPolicyTests: XCTestCase {
+    @MainActor
     func testMetadataPipelineContainsNoUnconditionalMetadataValueLogger() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)
         let repositoryURL = testFileURL
@@ -15,6 +16,7 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
         XCTAssertFalse(source.contains("[AudioMator] Will write metadata"))
     }
 
+    @MainActor
     func testMetadataWriteViewModelDoesNotPrintWarningPayloads() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)
         let repositoryURL = testFileURL
@@ -28,6 +30,7 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
         XCTAssertFalse(source.contains("NSLog("))
     }
 
+    @MainActor
     func testAppSourceDoesNotUseDiagnosticConsoleLogging() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)
         let repositoryURL = testFileURL
@@ -56,6 +59,7 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
         XCTAssertTrue(offenders.isEmpty, "Diagnostic console logging found in app source: \(offenders.sorted())")
     }
 
+    @MainActor
     func testDiagnosticLoggerDetectorFailsClosedAndCoversLoggerAPIs() {
         XCTAssertTrue(Self.containsDiagnosticConsoleLogging(in: "print(\"value\")"))
         XCTAssertTrue(Self.containsDiagnosticConsoleLogging(in: "Logger(subsystem: \"x\", category: \"y\")"))
@@ -63,6 +67,7 @@ final class SensitiveLoggingPolicyTests: XCTestCase {
         XCTAssertFalse(Self.containsDiagnosticConsoleLogging(in: "let sprint = 1"))
     }
 
+    @MainActor
     private static func containsDiagnosticConsoleLogging(in source: String) -> Bool {
         let pattern = #"(?<![A-Za-z0-9_])(print|debugPrint|NSLog|os_log|Logger)\s*\("#
         let range = NSRange(source.startIndex..<source.endIndex, in: source)

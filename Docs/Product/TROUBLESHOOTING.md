@@ -45,7 +45,7 @@ and runs on the `xcode-27` runner label. This is a CI-specific path, not the nor
 
 ### `scripts/codex-build.sh` reports an AppIcon tool crash
 
-The script recognizes a known environment-specific failure when the build log contains both `The file "AppIcon.icon" couldn't be opened.` and `Exception while running actool`. When those markers are present, the script reports a known false positive and exits 0. It does not check for other errors in that case, so always inspect `.deriveddata-codex/xcodebuild.log` for real failures.
+The script prints extra diagnostic advice when the build log contains `The file "AppIcon.icon" couldn't be opened.`, `Exception while running actool` and `CompileAssetCatalogVariant`. The run still fails: the helper exits with the Xcode status and does not print `CODEX_BUILD_COMPLETED`, so it is not valid build evidence. Inspect `.deriveddata-codex/xcodebuild.log` for other errors, then validate the icon asset with Xcode on the desktop or retry on a host whose asset tooling works.
 
 ### The build succeeds but the app cannot be launched for testing
 
@@ -59,7 +59,7 @@ The file changed since the draft baseline. Automatic refresh keeps unsaved draft
 
 ### The file could not be checked for changes
 
-The file is missing, unreadable, replaced, or on a volume that cannot provide the needed attributes. Restore access and reload. If a rename left the snapshot refresh-required, reload before editing.
+The file is missing, unreadable, replaced, or on a volume that cannot provide the needed attributes. Restore access and reload. If a rename left the file read-only, choose **Reload from Disk**. For a replacement, review the displayed file and choose **Accept Replacement**. If it changes before acceptance, reload and review it again.
 
 ### Changes cannot be saved in this file format
 
@@ -119,6 +119,14 @@ AudioMator does not continuously monitor every open file. Directory events can m
 
 MusicBrainz requests are spaced at one per 1.1 seconds; the client retries HTTP 503 up to two times. GitHub update checks report rate limiting explicitly. Wait and retry. There is no offline cache for new queries beyond the in-memory response cache.
 
+### The Online Metadata window opened but no search ran
+
+Opening Online Metadata, choosing a source tile, returning to Sources, reopening the window, and LRCLIB Previous/Next deliberately prepare local fields without contacting a provider. Press the provider's **Search** button (or Return) to run the query, use **Find in MusicBrainz** from the file list for that explicit lookup, or use **Auto Apply Best Matches** in LRCLIB. Results remain cached per row while navigating, so returning to a row does not send another request unless you press Search.
+
+### A provider response is rejected as malformed
+
+MusicBrainz validates the exact response shape before caching it. A successful HTTP response with an unexpected schema, an unrepresentable number, or a malformed numeric field is not cached; retrying the same search or lookup performs a fresh request and can succeed without reopening the window. The error names the field or shape that could not be read. Other providers report malformed responses the same way as before and are not cached by MusicBrainz's response cache.
+
 ### No result for a correct-looking query
 
 Try a simpler query or filename fallback. Provider matching is heuristic and may reject ambiguous results. Check the query fields shown in the UI.
@@ -126,6 +134,26 @@ Try a simpler query or filename fallback. Provider matching is heuristic and may
 ### Artwork will not apply
 
 Artwork write support depends on the container and is checked before writing. The downloaded image may also fail validation or normalization. Check the reported error and try another candidate.
+
+### Online artwork download failed or was cancelled
+
+A failed online artwork search and a failed candidate download are reported separately. **Search Again** retries only a failed search; it never repeats a download. After a failed, timed-out or cancelled download the result grid and selected candidate stay available: press **Try Again** for the same candidate, or select another candidate and apply it without searching again. While a download runs, applying and switching candidates are disabled; **Stop Download** cancels it without closing the sheet. A failed download does not change the file or the Inspector draft.
+
+### Artwork wasn't applied because the selection changed
+
+An artwork command is tied to the Inspector draft that was active when you chose the image or online result. If you change the selection, reopen a draft for the same files, remove one of the captured files, or issue a newer artwork command (another image, another online result, **Clear Artwork** or **Keep Current Artwork**) before the image finishes loading, the handoff is rejected and nothing is written to the draft or to disk. The message names the affected selection; a stale **Fetch Online…** sheet stays open with its results for reference only. Select the intended files again and choose the artwork again. Artwork is never transferred to a different selection or to a surviving subset of a batch implicitly.
+
+### Lyrics will not apply because the file changed
+
+LRCLIB applies synced lyrics only to the file revision that was reviewed when the browser queued it. Close and reopen LRCLIB (or rerun Online Metadata) so the current title/artist/album values are reviewed and a new search is issued, then apply the result. If you returned to Sources, choose LRCLIB and press Search first. Do not expect Reload from Disk alone to authorize an old lyrics result.
+
+### Lyrics search or apply stopped when I left LRCLIB
+
+Returning to Sources, closing the Online Metadata window, or starting a new LRCLIB session cancels outstanding lookups and any lyrics write that has not started saving. If a save had already started, it finishes and its real result, including any reload warning, appears in the HUD and Settings → Logs; files later in the queue are reported as not processed. Late provider responses cannot start another request or write.
+
+### Another save is still in progress
+
+Lyrics application uses the shared save progress. If a previous save is still finishing its bounded reload, wait for it to complete and try again. This is reported rather than writing concurrently with another folder mutation.
 
 ## Updates
 

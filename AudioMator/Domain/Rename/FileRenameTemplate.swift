@@ -1,6 +1,6 @@
 import Foundation
 
-extension FileRenameMetadataField {
+nonisolated extension FileRenameMetadataField {
     var displayName: String {
         switch self {
         case .title:
@@ -42,7 +42,7 @@ extension FileRenameMetadataField {
 }
 
 /// Raw values map one-to-one to `FileRenameCoreStatus`; keep them aligned.
-enum FileRenamePreviewStatus: String, Equatable {
+nonisolated enum FileRenamePreviewStatus: String, Equatable, Sendable {
     case ready
     case unchanged
     case emptyName
@@ -99,7 +99,7 @@ enum FileRenamePreviewStatus: String, Equatable {
     }
 }
 
-struct FileRenamePreviewRow: Identifiable {
+nonisolated struct FileRenamePreviewRow: Identifiable, Sendable {
     let id: AudioFile.ID
     let currentName: String
     let previewName: String
@@ -109,14 +109,14 @@ struct FileRenamePreviewRow: Identifiable {
     let status: FileRenamePreviewStatus
 }
 
-struct FileRenameOperation: Identifiable, Sendable {
+nonisolated struct FileRenameOperation: Identifiable, Sendable {
     let id: UUID
     let sourceURL: URL
     let destinationURL: URL
     let expectedFileFingerprint: AudioFileFingerprint
 }
 
-struct FileRenamePlan {
+nonisolated struct FileRenamePlan: Sendable {
     let template: String
     let validationMessage: String?
     let rows: [FileRenamePreviewRow]
@@ -147,7 +147,7 @@ struct FileRenamePlan {
     }
 }
 
-func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenamePlan {
+nonisolated func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenamePlan {
     guard template.utf8.count <= maximumFileRenameTemplateUTF8ByteCount else {
         return FileRenamePlan(
             template: template,
@@ -186,7 +186,7 @@ func makeFileRenamePlan(template: String, targetFiles: [AudioFile]) -> FileRenam
     return builder.makePlan(document: document, targetFiles: targetFiles)
 }
 
-private struct FileRenameFieldValueResolver {
+nonisolated private struct FileRenameFieldValueResolver: Sendable {
     func resolve(_ field: FileRenameMetadataField, for file: AudioFile) -> String {
         switch field {
         case .title:
@@ -231,7 +231,7 @@ private struct FileRenameFieldValueResolver {
     }
 }
 
-private struct FileRenameRenderer {
+nonisolated private struct FileRenameRenderer: Sendable {
     let resolver = FileRenameFieldValueResolver()
 
     func render(document: FileRenameTemplateDocument, for file: AudioFile) -> String {
@@ -251,14 +251,14 @@ private struct FileRenameRenderer {
     }
 }
 
-private struct FileRenameDraftRow {
+nonisolated private struct FileRenameDraftRow: Sendable {
     let row: FileRenamePreviewRow
     let sourceKey: String?
     let destinationKey: String?
     let destinationExists: Bool
 }
 
-private struct FileRenamePlanBuilder {
+nonisolated private struct FileRenamePlanBuilder: Sendable {
     let renderer = FileRenameRenderer()
     let sanitizer = FileRenameSanitizer()
 
@@ -268,6 +268,15 @@ private struct FileRenamePlanBuilder {
         drafts.reserveCapacity(targetFiles.count)
 
         for file in targetFiles {
+            // Cancellation propagates into the per-file render/collision loop.
+            if Task.isCancelled {
+                return FileRenamePlan(
+                    template: document.rawValue,
+                    validationMessage: nil,
+                    rows: [],
+                    operations: []
+                )
+            }
             let renderedBaseName = renderer.render(document: document, for: file)
 
             guard let sanitizedBaseName = sanitizer.sanitizeBaseName(renderedBaseName) else {
@@ -296,7 +305,9 @@ private struct FileRenamePlanBuilder {
             let sourceKey = fileRenameCollisionKey(for: file.url)
             let destinationKey = fileRenameCollisionKey(for: destinationURL)
             let destinationExists = fileManager.fileExists(atPath: destinationURL.path)
-            let expectedFileFingerprint = file.fileFingerprint ?? (try? AudioFileFingerprint.capture(at: file.url))
+            // A coherent observation is the only source of move authority. The
+            // planner never revives a blocked or display-only source with a stat probe.
+            let expectedFileFingerprint = file.fileFingerprint
 
             let status: FileRenamePreviewStatus
             if sourcePath == destinationPath {
@@ -388,7 +399,7 @@ private struct FileRenamePlanBuilder {
     }
 }
 
-private extension FileRenameCoreStatus {
+nonisolated private extension FileRenameCoreStatus {
     init(status: FileRenamePreviewStatus) {
         // Both status types keep their raw values in lockstep. If a future case
         // ever lacked a core counterpart, fail closed to an issue status so no
@@ -397,15 +408,15 @@ private extension FileRenameCoreStatus {
     }
 }
 
-private extension FileRenamePreviewStatus {
+nonisolated private extension FileRenamePreviewStatus {
     init?(coreStatus: FileRenameCoreStatus) {
         self.init(rawValue: coreStatus.rawValue)
     }
 }
 
-let maximumFileRenameTemplateUTF8ByteCount = 16_384
+nonisolated let maximumFileRenameTemplateUTF8ByteCount = 16_384
 
-func fileRenameTemplateSyntaxValidationMessage(_ document: FileRenameTemplateDocument) -> String? {
+nonisolated func fileRenameTemplateSyntaxValidationMessage(_ document: FileRenameTemplateDocument) -> String? {
     if document.hasUnterminatedPlaceholder {
         return L10n.string("A field is missing its closing }}. Complete it, for example {{title}}.")
     }
@@ -422,7 +433,7 @@ func fileRenameTemplateSyntaxValidationMessage(_ document: FileRenameTemplateDoc
     return nil
 }
 
-private func makeRenamedFileURL(from sourceURL: URL, baseName: String) -> URL {
+nonisolated private func makeRenamedFileURL(from sourceURL: URL, baseName: String) -> URL {
     let directoryURL = sourceURL.deletingLastPathComponent()
     let extensionText = sourceURL.pathExtension
 
@@ -435,6 +446,6 @@ private func makeRenamedFileURL(from sourceURL: URL, baseName: String) -> URL {
         .appendingPathExtension(extensionText)
 }
 
-private func fileRenameCollisionKey(for url: URL) -> String {
+nonisolated private func fileRenameCollisionKey(for url: URL) -> String {
     FileSystemPathSemantics.key(for: url)
 }

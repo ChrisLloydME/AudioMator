@@ -17,10 +17,43 @@ struct ContentPane: View {
 
     @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
 
-    @State private var isEraseAllTagsConfirmPresented: Bool = false
-    @State private var isMuseAmpIDConfirmPresented: Bool = false
+    @State private var pendingEraseAllCapture: ConfirmedSelectionActionCapture?
+    @State private var pendingMuseAmpIDCapture: ConfirmedSelectionActionCapture?
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isReloadDiscardConfirmPresented: Bool = false
+    @State private var reloadDiscardToken: InspectorDiscardConfirmationToken?
+    @State private var clearListDiscardToken: InspectorDiscardConfirmationToken?
+    @State private var isReplacementFileAcceptConfirmPresented = false
+    @State private var presentedReplacementReviews: [PendingReplacementFileReview] = []
+
+    private var isEraseAllTagsConfirmPresented: Binding<Bool> {
+        Binding(
+            get: { pendingEraseAllCapture != nil },
+            set: { if !$0 { pendingEraseAllCapture = nil } }
+        )
+    }
+
+    private var isMuseAmpIDConfirmPresented: Binding<Bool> {
+        Binding(
+            get: { pendingMuseAmpIDCapture != nil },
+            set: { if !$0 { pendingMuseAmpIDCapture = nil } }
+        )
+    }
+
+    private func replacementFileReviewMessage(_ reviews: [PendingReplacementFileReview]) -> String {
+        if reviews.count == 1, let review = reviews.first {
+            let details = [review.title, review.artist]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " — ")
+            if details.isEmpty {
+                return String(localized: "“\(review.fileName)” is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused.")
+            }
+            return String(localized: "“\(review.fileName)” (\(details)) is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused.")
+        }
+        let previewNames = reviews.prefix(3).map(\.fileName).joined(separator: ", ")
+        return String(localized: "\(reviews.count) reloaded paths (\(previewNames)) now contain different files on disk than the ones AudioMator renamed. Accept these replacement files to resume editing them, or keep editing paused.")
+    }
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -99,10 +132,21 @@ struct ContentPane: View {
                 titleVisibility: .visible
             ) {
                 Button(String(localized: "Discard and Reload"), role: .destructive) {
-                    viewModel.updateEditForSelection()
+                    let capturedToken = reloadDiscardToken
+                    reloadDiscardToken = nil
+                    guard let capturedToken, viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) else {
+                        if viewModel.hasUnsavedInspectorChanges {
+                            reloadDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
+                            isReloadDiscardConfirmPresented = true
+                        }
+                        return
+                    }
+                    viewModel.cancelEditing()
                     Task { await viewModel.reloadSelectedFilesFromDisk() }
                 }
-                Button(String(localized: "Cancel"), role: .cancel) {}
+                Button(String(localized: "Cancel"), role: .cancel) {
+                    reloadDiscardToken = nil
+                }
             } message: {
                 Text(String(localized: "Unsaved inspector edits will be discarded. The files will be read again from disk."))
             }
@@ -112,14 +156,56 @@ struct ContentPane: View {
                 titleVisibility: .visible
             ) {
                 Button("Clear List", role: .destructive) {
+                    let capturedToken = clearListDiscardToken
+                    clearListDiscardToken = nil
+                    guard let capturedToken, viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) else {
+                        clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
+                        isClearListConfirmPresented = true
+                        return
+                    }
+                    if viewModel.hasUnsavedInspectorChanges {
+                        viewModel.cancelEditing()
+                    }
                     clearFileList()
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("Cancel", role: .cancel) {
+                    clearListDiscardToken = nil
+                }
             } message: {
-                Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
+                if viewModel.hasUnsavedInspectorChanges {
+                    Text(String(localized: "Unsaved inspector edits will be discarded, and the loaded tracks will be removed from AudioMator only. Files on disk stay unchanged."))
+                } else {
+                    Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
+                }
+            }
+            .confirmationDialog(
+                presentedReplacementReviews.count == 1
+                    ? String(localized: "Accept replacement file?")
+                    : String(localized: "Accept replacement files?"),
+                isPresented: $isReplacementFileAcceptConfirmPresented,
+                titleVisibility: .visible,
+                presenting: presentedReplacementReviews
+            ) { reviews in
+                Button(String(localized: "Accept Replacement")) {
+                    Task { await viewModel.acceptPendingReplacementFiles(reviews) }
+                }
+                Button(String(localized: "Keep Editing Paused"), role: .cancel) {
+                    viewModel.dismissPendingReplacementFileReviews(reviews)
+                }
+            } message: { reviews in
+                Text(replacementFileReviewMessage(reviews))
+            }
+            .onChange(of: viewModel.pendingReplacementFileReviews, initial: true) { _, reviews in
+                if reviews.isEmpty {
+                    isReplacementFileAcceptConfirmPresented = false
+                } else if !isReplacementFileAcceptConfirmPresented {
+                    presentedReplacementReviews = reviews
+                    isReplacementFileAcceptConfirmPresented = true
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }
+                clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                 isClearListConfirmPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataFilenameRename)) { _ in
@@ -155,10 +241,19 @@ struct ContentPane: View {
                     onCopySelectedFilePaths: copySelectedFilePaths,
                     onCopySelectedFileNames: copySelectedFileNames,
                     onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
-                    onRequestCreateMuseAmpIDs: { isMuseAmpIDConfirmPresented = true },
-                    onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true },
+                    onRequestCreateMuseAmpIDs: {
+                        let capture = viewModel.captureConfirmedSelectionAction()
+                        guard !capture.isEmpty else { return }
+                        pendingMuseAmpIDCapture = capture
+                    },
+                    onRequestEraseAllTags: {
+                        let capture = viewModel.captureConfirmedSelectionAction()
+                        guard !capture.isEmpty else { return }
+                        pendingEraseAllCapture = capture
+                    },
                     onReloadSelectedFiles: {
                         if viewModel.hasUnsavedInspectorChanges {
+                            reloadDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                             isReloadDiscardConfirmPresented = true
                         } else {
                             Task { await viewModel.reloadSelectedFilesFromDisk() }
@@ -176,25 +271,33 @@ struct ContentPane: View {
                 }
                 .confirmationDialog(
                     "Create MuseAmp IDs?",
-                    isPresented: $isMuseAmpIDConfirmPresented,
+                    isPresented: isMuseAmpIDConfirmPresented,
                     titleVisibility: .visible
                 ) {
                     Button("Create IDs", role: .destructive) {
-                        createMuseAmpIDsForSelectedFiles()
+                        guard let capture = pendingMuseAmpIDCapture else { return }
+                        pendingMuseAmpIDCapture = nil
+                        viewModel.executeConfirmedCreateMuseAmpIDs(capture)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button("Cancel", role: .cancel) {
+                        pendingMuseAmpIDCapture = nil
+                    }
                 } message: {
                     Text("This replaces the Comment field on the selected files with MuseAmp ID data, then saves the files.")
                 }
                 .confirmationDialog(
                     "Erase all metadata tags?",
-                    isPresented: $isEraseAllTagsConfirmPresented,
+                    isPresented: isEraseAllTagsConfirmPresented,
                     titleVisibility: .visible
                 ) {
                     Button("Erase", role: .destructive) {
-                        clearAllMetadataForSelectedFiles()
+                        guard let capture = pendingEraseAllCapture else { return }
+                        pendingEraseAllCapture = nil
+                        viewModel.executeConfirmedEraseAllMetadata(capture)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button("Cancel", role: .cancel) {
+                        pendingEraseAllCapture = nil
+                    }
                 } message: {
                     Text("Removes metadata from the selected files. This can't be undone.")
                 }
@@ -214,6 +317,7 @@ struct ContentPane: View {
 
             if visibleToolbarButtons.contains(.clearList) {
                 Button(role: .destructive) {
+                    clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                     isClearListConfirmPresented = true
                 } label: {
                     toolbarIconLabel(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
@@ -350,15 +454,9 @@ struct ContentPane: View {
         let targets = orderedFiles.filter { viewModel.selectedAudioIDs.contains($0.id) }
 
         guard !targets.isEmpty else { return }
-        if let failure = viewModel.ensureMutationDirectoryAccess(for: targets.map(\.url)) {
-            viewModel.presentMetadataWriteHUD(
-                style: .warning,
-                title: String(localized: "Allow Folder Access"),
-                subtitle: failure
-            )
-            return
-        }
-
+        // Opening the converter, typing a template and exporting text/CSV need
+        // no mutation grant. The only scope request happens at Apply, for the
+        // executable targets captured by that plan.
         onOpenMetadataFilenameTool(targets.map(\.id))
     }
 
@@ -388,14 +486,6 @@ struct ContentPane: View {
     private func copySelectedFileNames() {
         let text = selectedFiles.map { $0.url.lastPathComponent }.joined(separator: "\n")
         MacPasteboard.copy(text)
-    }
-
-    private func clearAllMetadataForSelectedFiles() {
-        viewModel.eraseAllMetadata(selectedFiles)
-    }
-
-    private func createMuseAmpIDsForSelectedFiles() {
-        viewModel.createMuseAmpIDs(for: selectedFiles)
     }
 
     private func clearFileList() {

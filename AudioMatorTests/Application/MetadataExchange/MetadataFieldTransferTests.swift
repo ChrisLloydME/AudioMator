@@ -1,7 +1,9 @@
 import XCTest
+import TagLibAudioMetadata
 @testable import AudioMator
 
-final class MetadataFieldTransferTests: XCTestCase {
+nonisolated final class MetadataFieldTransferTests: XCTestCase {
+    @MainActor
     func testCopyUsesEachFilesOwnValueAndDeduplicatesSelection() throws {
         let first = AudioFileTestFactory.make(title: "  曲名\nFirst  ", artist: "Old Artist")
         let second = AudioFileTestFactory.make(title: "Second", artist: "Another Artist")
@@ -11,12 +13,13 @@ final class MetadataFieldTransferTests: XCTestCase {
 
         XCTAssertNil(plan.validationMessage)
         XCTAssertEqual(plan.writeEntries.map(\.fileID), [first.id, second.id])
-        XCTAssertEqual(plan.writeEntries.map(\.values), [[.artist: "曲名\nFirst"], [.artist: second.title]])
-        XCTAssertEqual(plan.writeEntries.first?.expectedFileFingerprint, first.fileFingerprint)
+        XCTAssertEqual(plan.writeEntries.map(\.previewValues), [[.artist: "曲名\nFirst"], [.artist: second.title]])
+        XCTAssertEqual(plan.writeEntries.first?.write.target.fingerprint, first.fileFingerprint)
         XCTAssertEqual(plan.rows.first?.changes.first?.currentValue, "Old Artist")
-        XCTAssertTrue(try XCTUnwrap(plan.writeEntries.first).preservingNumberPairComponents)
+        XCTAssertEqual(try XCTUnwrap(plan.writeEntries.first).frozenPayload?.requestedFields, [.artist])
     }
 
+    @MainActor
     func testCutStillClearsSourceWhenDestinationAlreadyMatches() {
         let file = AudioFileTestFactory.make(title: "Same", artist: "Same")
         let plan = MetadataFieldTransferPlanner.makePlan(
@@ -24,10 +27,11 @@ final class MetadataFieldTransferTests: XCTestCase {
         )
 
         XCTAssertTrue(plan.canApply)
-        XCTAssertEqual(plan.writeEntries.first?.values, [.title: ""])
+        XCTAssertEqual(plan.writeEntries.first?.previewValues, [.title: ""])
         XCTAssertEqual(plan.rows.first?.changes.map(\.willWrite), [false, true])
     }
 
+    @MainActor
     func testEmptySourcesAreSkippedAndEqualCopiesAreUnchanged() {
         let equal = AudioFileTestFactory.make(title: "Same", artist: "Same")
         for (sourceValue, operation) in ["", " \n "].flatMap({ value in
@@ -49,6 +53,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertFalse(plan.canApply)
     }
 
+    @MainActor
     func testSameAndNonMetadataFieldsCannotBeTransferred() {
         let file = AudioFileTestFactory.make(title: "Keep")
         let pairs: [(MetadataExchangeField, MetadataExchangeField)] = [
@@ -64,6 +69,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInvalidDestinationNeverProducesSourceClearAndValidFilesRemainReady() {
         for value in ["Not a number", "7/12", "-1", "2147483648", "Bad\0Text"] {
             let invalid = AudioFileTestFactory.make(title: value)
@@ -74,11 +80,12 @@ final class MetadataFieldTransferTests: XCTestCase {
             XCTAssertEqual(plan.rows.first?.status, .parseError, value)
             XCTAssertNil(plan.rows.first?.writeEntry, value)
             XCTAssertEqual(plan.writeEntries.map(\.fileID), [valid.id], value)
-            XCTAssertEqual(plan.writeEntries.first?.values, [.title: "", .trackNumber: "007"], value)
+            XCTAssertEqual(plan.writeEntries.first?.previewValues, [.title: "", .trackNumber: "007"], value)
             XCTAssertEqual(plan.issueCount, 1)
         }
     }
 
+    @MainActor
     func testUnavailableFileCannotBeCut() {
         let file = AudioFileTestFactory.make(title: "Keep", includeDefaultFileFingerprint: false)
         let plan = MetadataFieldTransferPlanner.makePlan(
@@ -89,12 +96,13 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertNil(plan.rows.first?.writeEntry)
     }
 
+    @MainActor
     func testContentAdvisoryIsValidatedAndCanonicalized() {
         let file = AudioFileTestFactory.make(title: "Explicit")
         let plan = MetadataFieldTransferPlanner.makePlan(
             source: .title, destination: .contentAdvisory, operation: .cut, targetFiles: [file]
         )
-        XCTAssertEqual(plan.writeEntries.first?.values, [.title: "", .contentAdvisory: "1"])
+        XCTAssertEqual(plan.writeEntries.first?.previewValues, [.title: "", .contentAdvisory: "1"])
         let invalid = MetadataFieldTransferPlanner.makePlan(
             source: .title, destination: .contentAdvisory, operation: .cut,
             targetFiles: [AudioFileTestFactory.make(title: "Unrecognized")]
@@ -102,6 +110,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         XCTAssertFalse(invalid.canApply)
     }
 
+    @MainActor
     func testTrackAndDiscFieldsTransferIndependentlyAndPreserveTextIntent() throws {
         let file = AudioFileTestFactory.make(
             title: "004", track: 7, trackTotal: 12, disc: 2, discTotal: 3,
@@ -118,9 +127,8 @@ final class MetadataFieldTransferTests: XCTestCase {
             )
             let entry = try XCTUnwrap(plan.writeEntries.first)
             var edit = SingleFileEditModel(from: file)
-            for field in MetadataExchangeField.allCases {
-                guard let value = entry.values[field] else { continue }
-                field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: entry.preservingNumberPairComponents)
+            for operation in try XCTUnwrap(entry.resolvedIntent?.operations) {
+                ExchangeWriteTranslator.apply(operation, to: &edit, reviewedFile: file)
             }
             XCTAssertEqual(edit.trackNumberFieldText + "/" + edit.trackTotalFieldText, expectedTrack.contains("/") ? expectedTrack : expectedTrack + "/")
             XCTAssertEqual(edit.discNumberFieldText + "/" + edit.discTotalFieldText, expectedDisc.contains("/") ? expectedDisc : expectedDisc + "/")
@@ -130,6 +138,7 @@ final class MetadataFieldTransferTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testTotalOnlyPairWritesAndUnrelatedTransfersAreAllowed() {
         let file = AudioFileTestFactory.make(title: "Keep", track: 7, trackTotal: 12, disc: 2, discTotal: 3)
         let totalOnlyPairs: [(MetadataExchangeField, MetadataExchangeField)] = [

@@ -1,12 +1,43 @@
 #!/usr/bin/env bash
 
+# Local Debug build helper.
+#
+# This helper fails closed:
+# - It only skips after both Git discovery commands succeed and report no
+#   build-relevant paths.
+# - It only prints the build-completed marker after xcodebuild and log capture
+#   both succeed.
+# - It never prunes artifacts. Explicit pruning is a separate maintainer action
+#   through scripts/prune-app-bundles.sh.
+
 set -u
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || {
+  echo "Unable to resolve the build helper directory." >&2
+  exit 1
+}
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)" || {
+  echo "Unable to resolve the repository root." >&2
+  exit 1
+}
 DERIVED_DATA_PATH="${ROOT_DIR}/.deriveddata-codex"
 LOG_PATH="${DERIVED_DATA_PATH}/xcodebuild.log"
-PRUNE_APP_BUNDLES="${ROOT_DIR}/scripts/prune-app-bundles.sh"
 FORCE_BUILD=0
+BUILD_COMPLETED_MARKER="CODEX_BUILD_COMPLETED"
+BUILD_RELEVANT_COUNT=0
+
+TRACKED_CHANGES_FILE=""
+UNTRACKED_PATHS_FILE=""
+
+cleanup_temp_files() {
+  if [[ -n "${TRACKED_CHANGES_FILE}" ]]; then
+    rm -f "${TRACKED_CHANGES_FILE}"
+  fi
+  if [[ -n "${UNTRACKED_PATHS_FILE}" ]]; then
+    rm -f "${UNTRACKED_PATHS_FILE}"
+  fi
+}
+trap cleanup_temp_files EXIT INT TERM
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -22,68 +53,99 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-mkdir -p "${DERIVED_DATA_PATH}"
-
-prune_app_bundles() {
-  if ! "${PRUNE_APP_BUNDLES}"; then
-    echo "Failed to prune extra .app bundles." >&2
-    exit 1
-  fi
+fail_discovery() {
+  echo "error: $1" >&2
+  echo "Build discovery failed, so this helper cannot claim the project is unchanged." >&2
+  echo "Fix the Git checkout or run 'bash scripts/codex-build.sh --force' to build without Git discovery." >&2
 }
-
-prune_app_bundles
 
 is_build_relevant_file() {
   local path="$1"
 
   case "${path}" in
-    AudioMator.xcodeproj/*|AudioMator/*.xcconfig|Config/*|scripts/codex-build.sh)
+    AudioMator/*|AudioMatorTests/*|AudioMator.xcodeproj/*|Config/*|scripts/codex-build.sh)
       return 0
-      ;;
-    AudioMator/*)
-      case "${path}" in
-        *.swift|*.m|*.mm|*.c|*.cc|*.cpp|*.h|*.hpp|*.plist|*.strings|*.xcassets/*|*.icon/*|*.entitlements)
-          return 0
-          ;;
-      esac
-      ;;
-    AudioMatorTests/*)
-      case "${path}" in
-        *.swift|*.m|*.mm|*.c|*.cc|*.cpp|*.h|*.hpp|*.plist|*.strings)
-          return 0
-          ;;
-      esac
       ;;
   esac
 
   return 1
 }
 
-collect_changed_files() {
-  (
-    cd "${ROOT_DIR}" || exit 1
-    git diff --name-only --relative HEAD
-    git ls-files --others --exclude-standard
-  ) | awk 'NF && !seen[$0]++'
+record_relevant_file() {
+  local path="$1"
+
+  if [[ ${BUILD_RELEVANT_COUNT} -eq 0 ]]; then
+    echo "Build-relevant changes detected:"
+  fi
+  BUILD_RELEVANT_COUNT=$((BUILD_RELEVANT_COUNT + 1))
+  echo "  ${path}"
+}
+
+collect_build_relevant_changes() {
+  local path
+
+  if ! git --no-optional-locks -C "${ROOT_DIR}" rev-parse --verify --quiet HEAD >/dev/null; then
+    fail_discovery "the checkout has no readable HEAD commit."
+    return 1
+  fi
+
+  TRACKED_CHANGES_FILE="$(mktemp "${TMPDIR:-/tmp}/audiomator-build-tracked.XXXXXX")" || {
+    fail_discovery "unable to create a temporary file for tracked changes."
+    return 1
+  }
+  UNTRACKED_PATHS_FILE="$(mktemp "${TMPDIR:-/tmp}/audiomator-build-untracked.XXXXXX")" || {
+    fail_discovery "unable to create a temporary file for untracked paths."
+    return 1
+  }
+
+  # Tracked changes (staged and unstaged) against HEAD. Rename detection is
+  # disabled so both sides of a cross-root rename are evaluated separately.
+  if ! git --no-optional-locks -C "${ROOT_DIR}" diff --name-only -z --no-renames HEAD -- \
+    > "${TRACKED_CHANGES_FILE}"; then
+    fail_discovery "unable to read tracked changes from Git."
+    return 1
+  fi
+
+  if ! git --no-optional-locks -C "${ROOT_DIR}" ls-files --others --exclude-standard -z -- \
+    > "${UNTRACKED_PATHS_FILE}"; then
+    fail_discovery "unable to read untracked paths from Git."
+    return 1
+  fi
+
+  # NUL-delimited iteration preserves newlines, leading dashes and trailing
+  # spaces in file names on macOS Bash 3.
+  while IFS= read -r -d '' path; do
+    if is_build_relevant_file "${path}"; then
+      record_relevant_file "${path}"
+    fi
+  done < "${TRACKED_CHANGES_FILE}"
+
+  while IFS= read -r -d '' path; do
+    if is_build_relevant_file "${path}"; then
+      record_relevant_file "${path}"
+    fi
+  done < "${UNTRACKED_PATHS_FILE}"
+
+  return 0
 }
 
 if [[ ${FORCE_BUILD} -ne 1 ]]; then
-  BUILD_RELEVANT_CHANGES=()
-  while IFS= read -r path; do
-    [[ -z "${path}" ]] && continue
-    if is_build_relevant_file "${path}"; then
-      BUILD_RELEVANT_CHANGES+=("${path}")
-    fi
-  done < <(collect_changed_files)
-
-  if [[ ${#BUILD_RELEVANT_CHANGES[@]} -eq 0 ]]; then
-    echo "No build-relevant changes detected; skipping xcodebuild."
-    echo "Pass --force to run a full validation build anyway."
-    exit 0
+  if ! collect_build_relevant_changes; then
+    exit 1
   fi
 
-  echo "Build-relevant changes detected:"
-  printf '  %s\n' "${BUILD_RELEVANT_CHANGES[@]}"
+  if [[ ${BUILD_RELEVANT_COUNT} -eq 0 ]]; then
+    echo "CODEX_BUILD_SKIPPED: Git discovery succeeded and found no build-relevant changes; xcodebuild was not run."
+    echo "Nothing was compiled. Pass --force to run a full validation build anyway."
+    exit 0
+  fi
+else
+  echo "Forced build requested; Git discovery was not run."
+fi
+
+if ! mkdir -p "${DERIVED_DATA_PATH}"; then
+  echo "error: unable to create the derived data directory: ${DERIVED_DATA_PATH}" >&2
+  exit 1
 fi
 
 COMMAND=(
@@ -103,29 +165,41 @@ for arg in "${COMMAND[@]}"; do
 done
 printf '\n'
 
+# Record both pipeline statuses immediately: a failed log capture must not be
+# hidden by a successful compilation, and vice versa.
 "${COMMAND[@]}" 2>&1 | tee "${LOG_PATH}"
-BUILD_EXIT=${PIPESTATUS[0]}
+BUILD_EXIT=${PIPESTATUS[0]} TEE_EXIT=${PIPESTATUS[1]}
 
-if [[ ${BUILD_EXIT} -eq 0 ]]; then
-  prune_app_bundles
-  echo "Build succeeded."
-  exit 0
+has_appicon_crash_signature() {
+  [[ -f "${LOG_PATH}" ]] || return 1
+  grep -Fq 'The file “AppIcon.icon” couldn’t be opened.' "${LOG_PATH}" \
+    && grep -Fq 'Exception while running actool' "${LOG_PATH}" \
+    && grep -Fq 'CompileAssetCatalogVariant' "${LOG_PATH}"
+}
+
+if [[ ${BUILD_EXIT} -ne 0 ]]; then
+  echo
+  if [[ ${TEE_EXIT} -eq 0 ]] && has_appicon_crash_signature; then
+    echo "Known Codex CLI limitation detected:"
+    echo "  actool/ibtoold crashed while compiling AudioMator/AppIcon.icon."
+    echo "  This may be an environment-specific false positive, but the build still failed,"
+    echo "  so this run is not valid build evidence. Inspect the log for other errors."
+    echo
+    echo "Use Xcode on the local desktop to validate the .icon asset itself."
+  fi
+  if [[ ${TEE_EXIT} -ne 0 ]]; then
+    echo "The build log could not be written completely (tee exit ${TEE_EXIT})." >&2
+  fi
+  echo "Build failed (xcodebuild exit ${BUILD_EXIT}). See ${LOG_PATH}." >&2
+  exit "${BUILD_EXIT}"
 fi
 
-if grep -Fq 'The file “AppIcon.icon” couldn’t be opened.' "${LOG_PATH}" \
-  && grep -Fq 'Exception while running actool' "${LOG_PATH}" \
-  && grep -Fq 'CompileAssetCatalogVariant' "${LOG_PATH}"; then
-  prune_app_bundles
-  echo
-  echo "Known Codex CLI limitation detected:"
-  echo "  actool/ibtoold crashed while compiling AudioMator/AppIcon.icon."
-  echo "  This is treated as an environment-specific false positive, not a project AppIcon error."
-  echo
-  echo "Use Xcode on the local desktop to validate the .icon asset itself."
-  echo "Other compiler output above is still real; inspect it if you suspect additional failures."
-  exit 0
+if [[ ${TEE_EXIT} -ne 0 ]]; then
+  echo "error: xcodebuild succeeded but the build log could not be written (tee exit ${TEE_EXIT})." >&2
+  echo "This run is not valid build evidence. Fix the log destination and retry." >&2
+  exit 1
 fi
 
-echo
-echo "Build failed with a real non-AppIcon error. See ${LOG_PATH}."
-exit "${BUILD_EXIT}"
+echo "${BUILD_COMPLETED_MARKER}: xcodebuild succeeded and the build log was captured."
+echo "Build succeeded. Log: ${LOG_PATH}"
+exit 0

@@ -128,8 +128,31 @@ struct iTunesTaggingWriteEntry: Identifiable {
     let fileID: UUID
     let fileName: String
     let values: [iTunesTagWriteField: String]
-    let expectedFileFingerprint: AudioFileFingerprint?
+    /// Frozen from the reviewed observation at plan time. Nil means the plan row
+    /// had no coherent observation and the entry cannot authorize a write.
+    let reviewedWrite: ReviewedMetadataWrite?
 
+    @MainActor
+    init(
+        file: AudioFile,
+        fileName: String? = nil,
+        values: [iTunesTagWriteField: String]
+    ) {
+        var edit = SingleFileEditModel(from: file)
+        for (field, value) in values.sorted(by: { $0.key.writeOrderIndex < $1.key.writeOrderIndex }) {
+            field.apply(value, to: &edit)
+        }
+        self.fileID = file.id
+        self.fileName = fileName ?? file.url.lastPathComponent
+        self.values = values
+        self.reviewedWrite = ReviewedMetadataWriteFactory.semanticWrite(
+            edit: edit,
+            comparedTo: file
+        )
+    }
+
+    /// Legacy display/ineligibility initializer. Entries built here carry no
+    /// reviewed authority and are rejected by the strict apply route.
     init(
         fileID: UUID,
         fileName: String,
@@ -139,7 +162,12 @@ struct iTunesTaggingWriteEntry: Identifiable {
         self.fileID = fileID
         self.fileName = fileName
         self.values = values
-        self.expectedFileFingerprint = expectedFileFingerprint
+        self.reviewedWrite = nil
+        _ = expectedFileFingerprint
+    }
+
+    var expectedFileFingerprint: AudioFileFingerprint? {
+        reviewedWrite?.target.fingerprint
     }
 
     var id: UUID { fileID }
@@ -171,16 +199,14 @@ struct iTunesTaggingPlanRow: Identifiable {
 
     var id: String { fileInput.id }
 
+    @MainActor
     var writeEntry: iTunesTaggingWriteEntry? {
-        guard let file, let fileFingerprint = file.fileFingerprint else { return nil }
+        guard let file else { return nil }
         let values = Dictionary(uniqueKeysWithValues: changes.filter(\.willWrite).map { ($0.field, $0.remoteValue) })
         guard !values.isEmpty else { return nil }
-        return iTunesTaggingWriteEntry(
-            fileID: file.id,
-            fileName: file.url.lastPathComponent,
-            values: values,
-            expectedFileFingerprint: fileFingerprint
-        )
+        let entry = iTunesTaggingWriteEntry(file: file, values: values)
+        guard entry.reviewedWrite != nil else { return nil }
+        return entry
     }
 }
 
@@ -402,14 +428,16 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         let file = loadedFilesByInputID[assignment.fileInput.id]
 
         let issueMessage: String?
-        if file == nil {
-            issueMessage = String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
-        } else if file?.fileFingerprint == nil {
-            issueMessage = String(localized: "This file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying metadata.")
-        } else if selectedTrack == nil {
-            issueMessage = "No iTunes track is assigned."
+        if let file {
+            if ReviewedMetadataTarget(verified: file) == nil {
+                issueMessage = String(localized: "This file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying metadata.")
+            } else if selectedTrack == nil {
+                issueMessage = "No iTunes track is assigned."
+            } else {
+                issueMessage = nil
+            }
         } else {
-            issueMessage = nil
+            issueMessage = String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
         }
 
         let changes: [iTunesTaggingFieldChange] = selectedFields.compactMap { field in

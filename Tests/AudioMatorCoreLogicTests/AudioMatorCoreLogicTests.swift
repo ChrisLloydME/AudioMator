@@ -166,6 +166,21 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(pair.replacingNumberText("").canonicalRawText, "/11")
     }
 
+    func testTextEditPipelineTransformsValueArraysPerElement() {
+        let pipeline = TextEditPipeline(steps: [
+            .trimEdges(.whitespacesAndNewlines),
+            .transformCase(.uppercase)
+        ])
+
+        XCTAssertEqual(
+            pipeline.applying(
+                to: [" alpha ", "", "beta"],
+                context: TextEditPipelineContext(locale: Locale(identifier: "en_US_POSIX"))
+            ),
+            ["ALPHA", "", "BETA"]
+        )
+    }
+
     func testTextEditPipelineAppliesDeterministicOrderedTransforms() {
         let pipeline = TextEditPipeline(steps: [
             .trimEdges(.whitespacesAndNewlines),
@@ -303,9 +318,10 @@ final class AudioMatorCoreLogicTests: XCTestCase {
 
     func testMetadataExchangeCSVTrimsUnquotedImportsButPreservesQuotedBlanks() throws {
         let rows = try MetadataExchangeCSV.parseFields(" title ,\"  quoted  \",\"\",   ", delimiter: ",")
+        let codec = MetadataExchangeCSVCodec(profileVersion: nil)
 
-        XCTAssertEqual(rows[0].map(\.importedValue), ["title", "  quoted  ", "", ""])
-        XCTAssertEqual(rows[0].map(\.hasImportContent), [true, true, false, false])
+        XCTAssertEqual(rows[0].map(codec.importedValue), ["title", "  quoted  ", "", ""])
+        XCTAssertEqual(rows[0].map(codec.hasImportContent), [true, true, false, false])
     }
 
     func testMetadataExchangeCSVRejectsMalformedCommaQuotesButCanAllowPlainDelimitedQuotes() throws {
@@ -336,8 +352,9 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         let roundTripRows = [["  Leading and trailing  ", "Line\r\nBreak"]]
         let serialized = MetadataExchangeCSV.serialize(roundTripRows)
         XCTAssertEqual(serialized, "\"  Leading and trailing  \",\"Line\r\nBreak\"")
+        let codec = MetadataExchangeCSVCodec(profileVersion: 2)
         XCTAssertEqual(
-            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
+            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(codec.importedValue) },
             roundTripRows
         )
     }
@@ -348,11 +365,15 @@ final class AudioMatorCoreLogicTests: XCTestCase {
 
         XCTAssertTrue(serialized.hasPrefix("'=1+1"))
         XCTAssertTrue(serialized.contains("''=literal"))
-        XCTAssertEqual(try MetadataExchangeCSV.parse(serialized), rows)
-        XCTAssertEqual(
-            try MetadataExchangeCSV.parseFields(serialized).map { row in row.map(\.importedValue) },
-            rows
-        )
+        // Lexical parsing keeps the export protection bytes...
+        let lexical = try MetadataExchangeCSV.parse(serialized)
+        XCTAssertEqual(lexical.count, 1)
+        XCTAssertEqual(lexical[0].first, "'=1+1")
+        XCTAssertEqual(lexical[0][1], "'+2")
+        XCTAssertEqual(lexical[0].last, "plain")
+        // ...and the marked profile codec is what reverses them.
+        let codec = MetadataExchangeCSVCodec(profileVersion: 2)
+        XCTAssertEqual(try MetadataExchangeCSV.parseFields(serialized).map { $0.map(codec.importedValue) }, rows)
     }
 
     func testFixedSeedCSVSerializationRoundTripsUnicodeEscapingAndFormulaPrefixes() throws {
@@ -369,21 +390,226 @@ final class AudioMatorCoreLogicTests: XCTestCase {
                 var rows: [[String]] = []
                 for _ in 0..<rowCount {
                     var row: [String] = []
-                    for fieldIndex in 0..<fieldCount {
+                    for _ in 0..<fieldCount {
                         let length = generator.int(in: 0...24)
-                        var value = String((0..<length).map { _ in alphabet[generator.int(in: 0...(alphabet.count - 1))] })
-                        if fieldIndex == 0, value.isEmpty {
-                            value = "seed"
-                        }
+                        let value = String((0..<length).map { _ in alphabet[generator.int(in: 0...(alphabet.count - 1))] })
                         row.append(value)
                     }
                     rows.append(row)
                 }
 
                 let serialized = MetadataExchangeCSV.serialize(rows, delimiter: delimiter)
-                XCTAssertEqual(try MetadataExchangeCSV.parse(serialized, delimiter: delimiter), rows)
+                let codec = MetadataExchangeCSVCodec(profileVersion: 2)
+                XCTAssertEqual(
+                    try MetadataExchangeCSV.parseFields(serialized, delimiter: delimiter)
+                        .map { row in row.map(codec.importedValue) },
+                    rows,
+                    "delimiter=\(delimiter)"
+                )
             }
         }
+    }
+
+    func testMetadataExchangeCSVCodecKeepsUnmarkedExternalCellsLiteral() throws {
+        let rows = try MetadataExchangeCSV.parseFields("'+44,\"'=literal\",\"''=A1\",\" '=B2\"")
+        let literal = MetadataExchangeCSVCodec(profileVersion: nil)
+
+        XCTAssertEqual(rows[0].map(\.value), ["'+44", "'=literal", "''=A1", " '=B2"])
+        XCTAssertEqual(
+            rows[0].map(literal.importedValue),
+            ["'+44", "'=literal", "''=A1", " '=B2"]
+        )
+
+        // A recognized AudioMator profile still reverses its own protection.
+        let profile = MetadataExchangeCSVCodec(profileVersion: 2)
+        XCTAssertEqual(profile.importedValue(MetadataExchangeCSVField(value: "'+44", wasQuoted: false)), "+44")
+        XCTAssertEqual(profile.importedValue(MetadataExchangeCSVField(value: "'=1+1", wasQuoted: false)), "=1+1")
+        XCTAssertEqual(
+            profile.importedValue(MetadataExchangeCSVField(value: "''=literal", wasQuoted: false)),
+            "'=literal"
+        )
+    }
+
+    func testMetadataExchangeCSVParsePreservesLeadingEmptyColumn() throws {
+        // The audit's parser mutant dropped this leading empty cell and survived.
+        XCTAssertEqual(try MetadataExchangeCSV.parse(",New Title"), [["", "New Title"]])
+        XCTAssertEqual(try MetadataExchangeCSV.parse(","), [["", ""]])
+    }
+
+    func testMetadataExchangeCSVSoleEmptyCellRoundTrips() throws {
+        let serialized = MetadataExchangeCSV.serialize([[""], ["Old B"]])
+        XCTAssertEqual(serialized, "\"\"\r\nOld B")
+
+        let fields = try MetadataExchangeCSV.parseFields(serialized)
+        XCTAssertEqual(fields.count, 2)
+        XCTAssertEqual(fields[0].count, 1)
+        XCTAssertEqual(fields[0][0].value, "")
+        XCTAssertTrue(fields[0][0].wasQuoted)
+        XCTAssertEqual(fields[1][0].value, "Old B")
+
+        XCTAssertEqual(MetadataExchangeCSV.serialize([[""]]), "\"\"")
+        XCTAssertEqual(
+            try MetadataExchangeCSV.parseFields("\"\"").map { $0.map(\.value) },
+            [[""]]
+        )
+    }
+
+    func testMetadataExchangeTextFramingPreservesPhysicalSlots() {
+        func frame(_ source: String) -> MetadataExchangeFraming {
+            MetadataExchangeTextFramer.frame(source, extraction: MetadataExchangeProfile.extract(from: source))
+        }
+
+        XCTAssertEqual(frame("").records.map(\.rawText), [])
+        XCTAssertEqual(frame("\n").records.map(\.rawText), ["", ""])
+        XCTAssertEqual(frame("\n\nA\n").records.map(\.rawText), ["", "", "A", ""])
+        XCTAssertEqual(frame("A\r\nB\rC").records.map(\.rawText), ["A", "B", "C"])
+        XCTAssertTrue(frame("A\n").sourceEndedWithLineBreak)
+        XCTAssertFalse(frame("A").sourceEndedWithLineBreak)
+    }
+
+    func testMetadataExchangeTextFramingHonorsMarkerAndBOMRules() {
+        let marker = MetadataExchangeProfile.markerLine()
+        let singleEmpty = MetadataExchangeTextFramer.frame(
+            marker + "\n",
+            extraction: MetadataExchangeProfile.extract(from: marker + "\n")
+        )
+        XCTAssertEqual(singleEmpty.records.map(\.rawText), [""])
+        XCTAssertEqual(singleEmpty.profileVersion, 2)
+        XCTAssertTrue(singleEmpty.hadMarker)
+        XCTAssertTrue(singleEmpty.markerLineTerminated)
+
+        let twoEmpty = MetadataExchangeTextFramer.frame(
+            marker + "\n\n",
+            extraction: MetadataExchangeProfile.extract(from: marker + "\n\n")
+        )
+        XCTAssertEqual(twoEmpty.records.map(\.rawText), ["", ""])
+
+        let trailingEmptyKept = MetadataExchangeTextFramer.frame(
+            marker + "\nA\n",
+            extraction: MetadataExchangeProfile.extract(from: marker + "\nA\n")
+        )
+        XCTAssertEqual(trailingEmptyKept.records.map(\.rawText), ["A", ""])
+
+        let bomSource = "\u{FEFF}" + marker + "\n\nA"
+        let bom = MetadataExchangeTextFramer.frame(
+            bomSource,
+            extraction: MetadataExchangeProfile.extract(from: bomSource)
+        )
+        XCTAssertEqual(bom.records.map(\.rawText), ["", "A"])
+
+        let incomplete = MetadataExchangeTextFramer.frame(
+            marker,
+            extraction: MetadataExchangeProfile.extract(from: marker)
+        )
+        XCTAssertNotNil(incomplete.validationMessage)
+        XCTAssertTrue(incomplete.records.isEmpty)
+    }
+
+    func testMetadataExchangePositionalBindingUsesCountDrivenRules() {
+        func framing(_ source: String) -> MetadataExchangeFraming {
+            MetadataExchangeTextFramer.frame(source, extraction: MetadataExchangeProfile.extract(from: source))
+        }
+        let marker = MetadataExchangeProfile.markerLine()
+
+        // Marked v2 is strict: no implicit terminator, no compaction.
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing(marker + "\n\nOld B"),
+                targetCount: 2,
+                clearBlankImportedValues: false
+            ),
+            .aligned([
+                MetadataExchangeFramedRecord(sourceIndex: 0, rawText: ""),
+                MetadataExchangeFramedRecord(sourceIndex: 1, rawText: "Old B")
+            ])
+        )
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing(marker + "\nA\n"),
+                targetCount: 1,
+                clearBlankImportedValues: false
+            ),
+            .countMismatch(records: 2, targets: 1)
+        )
+
+        // Legacy two-target terminator tolerance.
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing("A-tag\nB-tag\n"),
+                targetCount: 2,
+                clearBlankImportedValues: false
+            ),
+            .aligned([
+                MetadataExchangeFramedRecord(sourceIndex: 0, rawText: "A-tag"),
+                MetadataExchangeFramedRecord(sourceIndex: 1, rawText: "B-tag")
+            ])
+        )
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing("A-tag\n"),
+                targetCount: 2,
+                clearBlankImportedValues: false
+            ),
+            .aligned([
+                MetadataExchangeFramedRecord(sourceIndex: 0, rawText: "A-tag"),
+                MetadataExchangeFramedRecord(sourceIndex: 1, rawText: "")
+            ])
+        )
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing("A-tag\n\n\n"),
+                targetCount: 2,
+                clearBlankImportedValues: false
+            ),
+            .countMismatch(records: 4, targets: 2)
+        )
+
+        // Legacy one-file padding tolerance only with clearing disabled.
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing("\n  Quiet Storm  \n\n"),
+                targetCount: 1,
+                clearBlankImportedValues: false
+            ),
+            .legacyOneRecordPadding(targetIndex: 0, recordIndex: 1)
+        )
+        XCTAssertEqual(
+            MetadataExchangePositionalBinder.bind(
+                framing: framing("\n  Quiet Storm  \n\n"),
+                targetCount: 1,
+                clearBlankImportedValues: true
+            ),
+            .countMismatch(records: 4, targets: 1)
+        )
+    }
+
+    func testMetadataExchangeNumberSpellingValidatesCompleteComponents() {
+        typealias Spelling = MetadataExchangeNumberSpelling
+
+        XCTAssertEqual(Spelling.parseComponent("3", maximum: 65535), .success(.value(text: "3", value: 3)))
+        XCTAssertEqual(Spelling.parseComponent("007", maximum: 65535), .success(.value(text: "007", value: 7)))
+        XCTAssertEqual(Spelling.parseComponent("+7", maximum: 65535), .success(.value(text: "+7", value: 7)))
+        XCTAssertEqual(Spelling.parseComponent("0", maximum: 65535), .success(.removal))
+        XCTAssertEqual(Spelling.parseComponent("00", maximum: 65535), .success(.removal))
+        XCTAssertEqual(Spelling.parseComponent("+0", maximum: 65535), .success(.removal))
+        XCTAssertEqual(Spelling.parseComponent("-1", maximum: 65535), .failure(.negativeMagnitude))
+        XCTAssertEqual(Spelling.parseComponent("abc", maximum: 65535), .failure(.notAnInteger))
+        XCTAssertEqual(Spelling.parseComponent("2147483648", maximum: Int(Int32.max)), .failure(.overflowsDeclaredMaximum))
+        XCTAssertEqual(Spelling.parseComponent("65536", maximum: 65535), .failure(.overflowsDeclaredMaximum))
+        XCTAssertEqual(Spelling.parseComponent("65535", maximum: 65535), .success(.value(text: "65535", value: 65535)))
+
+        XCTAssertEqual(
+            Spelling.parseNumberColumn("3/12", maximum: 65535),
+            .success(.number(.value(text: "3", value: 3), embeddedTotal: .value(text: "12", value: 12)))
+        )
+        XCTAssertEqual(
+            Spelling.parseNumberColumn("1/0", maximum: 65535),
+            .success(.number(.value(text: "1", value: 1), embeddedTotal: .removal))
+        )
+        XCTAssertEqual(Spelling.parseNumberColumn("/12", maximum: 65535), .failure(.emptySlashComponent))
+        XCTAssertEqual(Spelling.parseNumberColumn("3/", maximum: 65535), .failure(.emptySlashComponent))
+        XCTAssertEqual(Spelling.parseNumberColumn("1/2/3", maximum: 65535), .failure(.multipleSlashes))
+        XCTAssertEqual(Spelling.parseTotalColumn("3/12", maximum: 65535), .failure(.pairInTotalColumn))
     }
 
     func testFixedSeedTemplateSyntaxPreservesEveryGeneratedCodePoint() {
@@ -622,16 +848,20 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(ranked.map(\.id), [2, 1])
     }
 
-    func testTrackRenumberPadWidthIsFastPurePolicy() {
-        XCTAssertEqual(trackRenumberPadWidth(maxNumber: 9, padWithZeros: true), 2)
-        XCTAssertEqual(trackRenumberPadWidth(maxNumber: 100, padWithZeros: true), 3)
-        XCTAssertEqual(trackRenumberPadWidth(maxNumber: 100, padWithZeros: false), 0)
-        XCTAssertEqual(normalizedTrackRenumberStartNumber(Int.min), 0)
-        XCTAssertEqual(normalizedTrackRenumberStartNumber(Int.max), 9_999)
-        XCTAssertEqual(
-            trackRenumberPadWidth(maxNumber: Int.min, padWithZeros: true),
-            String(Int.min.magnitude).count
-        )
+    func testTrackRenumberStartNumberPolicyIsFastPureState() {
+        XCTAssertEqual(trackRenumberStartNumberInput("1"), .valid(1))
+        XCTAssertEqual(trackRenumberStartNumberInput(" 007 "), .valid(7))
+        XCTAssertEqual(trackRenumberStartNumberInput("9999"), .valid(9_999))
+        XCTAssertEqual(trackRenumberStartNumberInput(""), .invalid(.blank))
+        XCTAssertEqual(trackRenumberStartNumberInput("0"), .invalid(.outOfRange))
+        XCTAssertEqual(trackRenumberStartNumberInput("10000"), .invalid(.outOfRange))
+        XCTAssertEqual(trackRenumberStartNumberInput("999999999999999999999999"), .invalid(.outOfRange))
+        XCTAssertEqual(trackRenumberStartNumberInput("-1"), .invalid(.malformed))
+        XCTAssertEqual(trackRenumberStartNumberInput("+7"), .invalid(.malformed))
+        XCTAssertEqual(trackRenumberStartNumberInput("1.5"), .invalid(.malformed))
+        XCTAssertEqual(trackRenumberStartNumberInput("1/12"), .invalid(.malformed))
+        XCTAssertEqual(trackRenumberStartNumberInput("７"), .invalid(.malformed))
+        XCTAssertEqual(trackRenumberStartNumberInput("٠٧"), .invalid(.malformed))
     }
 
     func testFuzzyStringSimilarityNormalizesProviderMetadataNoise() {

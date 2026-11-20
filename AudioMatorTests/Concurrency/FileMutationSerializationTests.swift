@@ -4,8 +4,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class FileMutationSerializationTests: XCTestCase {
+nonisolated final class FileMutationSerializationTests: XCTestCase {
+    @MainActor
     func testOlderImportObservationCannotReplaceNewerDeferredCommit() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
@@ -20,6 +20,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Committed")
     }
 
+    @MainActor
     func testQueuedBatchReloadPublishesOnCompletionAndKeepsDirtyDraft() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
@@ -27,23 +28,24 @@ final class FileMutationSerializationTests: XCTestCase {
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([original.id])
         viewModel.edit?.title = "New draft typed while saving"
-        viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
+        let token = viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
         XCTAssertTrue(viewModel.replaceLoadedFile(
             refreshed, refreshGeneration: viewModel.makeFileModelRefreshGeneration(), deferVisibleRefresh: true
         ))
         XCTAssertEqual(viewModel.loadedFile(withID: original.id)?.snapshotID, refreshed.snapshotID)
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
         XCTAssertEqual(viewModel.files.first?.snapshotID, refreshed.snapshotID)
         XCTAssertEqual(viewModel.edit?.title, "New draft typed while saving")
         XCTAssertEqual(viewModel.inspectorEditSourceFilesByID[original.id]?.snapshotID, original.snapshotID)
         XCTAssertNil(viewModel.metadataSaveProgress)
     }
 
+    @MainActor
     func testNewerImmediateReloadSupersedesQueuedBatchReload() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         viewModel.mergeQuickImportFiles([original])
-        viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
+        let token = viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
         let older = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Older")
         let newer = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Newer")
         XCTAssertTrue(viewModel.replaceLoadedFile(
@@ -52,24 +54,26 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(viewModel.replaceLoadedFile(
             newer, refreshGeneration: viewModel.makeFileModelRefreshGeneration()
         ))
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
         XCTAssertEqual(viewModel.files.first?.snapshotID, newer.snapshotID)
     }
 
+    @MainActor
     func testQueuedReloadDoesNotRestoreRemovedFile() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         viewModel.mergeQuickImportFiles([original])
-        viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
+        let token = viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
         XCTAssertTrue(viewModel.replaceLoadedFile(
             AudioFileTestFactory.make(id: original.id, url: original.url, title: "Saved"),
             refreshGeneration: viewModel.makeFileModelRefreshGeneration(), deferVisibleRefresh: true
         ))
         viewModel.removeQuickImportFile(id: original.id)
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 
+    @MainActor
     func testOlderMutationReloadCannotReplaceNewerAppliedFileModel() {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let fileID = UUID()
@@ -95,6 +99,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.title, "Newer")
     }
 
+    @MainActor
     func testMetadataMutationKeepsReservationUntilPersistedSnapshotReloads() async throws {
         let pipeline = ReloadGatedMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -102,16 +107,22 @@ final class FileMutationSerializationTests: XCTestCase {
             metadataPipeline: pipeline,
             fileMutationCoordinator: coordinator
         )
-        let fileID = UUID()
-        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorAtomicWriteReload.mp3")
+        let reviewed = try ReviewedTestAdmission(name: "AtomicWriteReload.mp3")
+        defer { reviewed.removeDirectory() }
+        let fileID = reviewed.id
+        let fileURL = reviewed.url
 
         let firstTask = Task {
             await executor.execute(
                 at: fileURL,
                 id: fileID,
-                expectedFileFingerprint: nil
+                admission: reviewed.admission
             ) { pipeline, url in
-                try pipeline.writeRawMetadataValueMap(["TITLE": ["First"]], to: url, expectedVersion: nil)
+                try pipeline.writeRawMetadataValueMap(
+                    ["TITLE": ["First"]],
+                    to: url,
+                    expectedVersion: reviewed.version
+                )
             }
         }
         await pipeline.reloadStarted.wait()
@@ -143,20 +154,22 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(didEnterAfterReloadFinished)
     }
 
-    func testMetadataMutationDistinguishesPersistedWriteFromReloadFailure() async {
+    @MainActor
+    func testMetadataMutationDistinguishesPersistedWriteFromReloadFailure() async throws {
         let pipeline = ReloadFailingMutationPipeline()
         let executor = MetadataFileMutationExecutor(
             metadataPipeline: pipeline,
             fileMutationCoordinator: FileMutationCoordinator()
         )
-        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorReloadFailure.mp3")
+        let reviewed = try ReviewedTestAdmission(name: "AudioMatorReloadFailure.mp3")
+        defer { reviewed.removeDirectory() }
 
         let result = await executor.execute(
-            at: fileURL,
-            id: UUID(),
-            expectedFileFingerprint: nil
+            at: reviewed.url,
+            id: reviewed.id,
+            admission: reviewed.admission
         ) { pipeline, url in
-            try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
+            try pipeline.eraseAllMetadata(at: url, expectedVersion: reviewed.version)
         }
 
         guard case .success(let success) = result else {
@@ -167,6 +180,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(success.reloadErrorDescription, "Injected reload failure")
     }
 
+    @MainActor
     func testTimedOutReloadReportsPersistedWriteAsSuccessAndReleasesReservation() async throws {
         let pipeline = ReloadGatedMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -175,15 +189,17 @@ final class FileMutationSerializationTests: XCTestCase {
             fileMutationCoordinator: coordinator,
             mutationTimeout: .milliseconds(30)
         )
-        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorTimedOutReload.mp3")
+        let reviewed = try ReviewedTestAdmission(name: "AudioMatorTimedOutReload.mp3")
+        defer { reviewed.removeDirectory() }
+        let fileURL = reviewed.url
 
         let mutationTask = Task {
             await executor.execute(
                 at: fileURL,
-                id: UUID(),
-                expectedFileFingerprint: nil
+                id: reviewed.id,
+                admission: reviewed.admission
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: reviewed.version)
             }
         }
         await pipeline.reloadStarted.wait()
@@ -210,6 +226,7 @@ final class FileMutationSerializationTests: XCTestCase {
         try await followUpTask.value
     }
 
+    @MainActor
     func testSynchronousWriteIsNotReportedTimedOutWhileItCanStillCommit() async throws {
         let pipeline = BlockingMutationPipeline()
         let executor = MetadataFileMutationExecutor(
@@ -217,15 +234,16 @@ final class FileMutationSerializationTests: XCTestCase {
             fileMutationCoordinator: FileMutationCoordinator(),
             mutationTimeout: .milliseconds(30)
         )
-        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorSlowWrite.mp3")
+        let reviewed = try ReviewedTestAdmission(name: "AudioMatorSlowWrite.mp3")
+        defer { reviewed.removeDirectory() }
 
         let task = Task {
             await executor.execute(
-                at: fileURL,
-                id: UUID(),
-                expectedFileFingerprint: nil
+                at: reviewed.url,
+                id: reviewed.id,
+                admission: reviewed.admission
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: reviewed.version)
             }
         }
         let didStart = try await waitUntil { pipeline.totalMutationCount == 1 }
@@ -238,6 +256,7 @@ final class FileMutationSerializationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testCancellationAfterReservationStillObservesCommitAndHoldsReservation() async throws {
         let pipeline = BlockingMutationPipeline()
         let coordinator = FileMutationCoordinator()
@@ -245,15 +264,17 @@ final class FileMutationSerializationTests: XCTestCase {
             metadataPipeline: pipeline,
             fileMutationCoordinator: coordinator
         )
-        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorCancelledCommit.mp3")
+        let reviewed = try ReviewedTestAdmission(name: "AudioMatorCancelledCommit.mp3")
+        defer { reviewed.removeDirectory() }
+        let fileURL = reviewed.url
 
         let commitTask = Task {
             await executor.execute(
                 at: fileURL,
-                id: UUID(),
-                expectedFileFingerprint: nil
+                id: reviewed.id,
+                admission: reviewed.admission
             ) { pipeline, url in
-                try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
+                try pipeline.eraseAllMetadata(at: url, expectedVersion: reviewed.version)
             }
         }
         let didStartCommit = try await waitUntil { pipeline.totalMutationCount == 1 }
@@ -280,17 +301,28 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(didEnterAfterCommit)
     }
 
+    @MainActor
     func testMetadataMutationHelpersSerializeNormalizedURLAliases() async throws {
         let pipeline = BlockingMutationPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let directoryURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AudioMatorMutationSerialization", isDirectory: true)
+            .appendingPathComponent("AudioMatorMutationSerialization-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directoryURL) }
         let canonicalURL = directoryURL.appendingPathComponent("track.mp3")
+        try Data(repeating: 0x41, count: 32).write(to: canonicalURL)
         let aliasURL = directoryURL
             .appendingPathComponent("unused", isDirectory: true)
             .appendingPathComponent("..", isDirectory: true)
             .appendingPathComponent("track.mp3")
-        let file = AudioFileTestFactory.make(url: canonicalURL)
+        let canonicalAdmission = try ReviewedTestAdmission(existingURL: canonicalURL)
+        let aliasAdmission = try ReviewedTestAdmission(existingURL: aliasURL)
+        let file = AudioFileTestFactory.make(
+            id: canonicalAdmission.id,
+            url: canonicalURL,
+            fileFingerprint: try AudioFileFingerprint.capture(at: canonicalURL),
+            metadataFileVersion: canonicalAdmission.version
+        )
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
         let executor = MetadataFileMutationExecutor(
             metadataPipeline: pipeline,
@@ -300,9 +332,9 @@ final class FileMutationSerializationTests: XCTestCase {
         async let metadataWrite = executor.execute(
             at: canonicalURL,
             id: file.id,
-            expectedFileFingerprint: nil
+            admission: canonicalAdmission.admission
         ) { pipeline, url in
-            try pipeline.writeMetadata(payload, to: url, expectedVersion: nil)
+            try pipeline.writeMetadata(payload, to: url, expectedVersion: canonicalAdmission.version)
         }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
@@ -310,9 +342,9 @@ final class FileMutationSerializationTests: XCTestCase {
         async let rawMapWrite = executor.execute(
             at: aliasURL,
             id: file.id,
-            expectedFileFingerprint: nil
+            admission: aliasAdmission.admission
         ) { pipeline, url in
-            try pipeline.writeRawMetadataValueMap([:], to: url, expectedVersion: nil)
+            try pipeline.writeRawMetadataValueMap([:], to: url, expectedVersion: aliasAdmission.version)
         }
         let didQueueAliasMutation = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 1
@@ -327,29 +359,48 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(pipeline.mutationCount(for: .rawMapWrite), 1)
     }
 
+    @MainActor
     func testMetadataWriteEraseAndTrackRenumberShareOneFileReservation() async throws {
-        let pipeline = BlockingMutationPipeline()
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let fileID = UUID()
-        let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorSharedMutation.mp3")
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorSharedMutation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directoryURL) }
+        let fileURL = directoryURL.appendingPathComponent("shared.mp3")
+        try Data(repeating: 0x41, count: 32).write(to: fileURL)
+        let fileFingerprint = try AudioFileFingerprint.capture(at: fileURL)
+        let fileVersion = try XCTUnwrap(AudioFileTestFactory.fixtureFileVersion)
         let file = AudioFileTestFactory.make(
             id: fileID,
             url: fileURL,
-            includeDefaultFileFingerprint: false
+            fileFingerprint: fileFingerprint,
+            metadataFileVersion: fileVersion
         )
+        // The real executor reloads a coherent observation after the earlier commit;
+        // the strict renumber route must see an equal reviewed revision.
+        let coherentReload = AudioFileTestFactory.makeObserved(
+            id: fileID,
+            url: fileURL,
+            fileFingerprint: fileFingerprint,
+            metadataFileVersion: fileVersion
+        )
+        let pipeline = BlockingMutationPipeline(reloadFile: coherentReload)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         let payload = MetadataEditPayload(SingleFileEditModel(from: file))
         viewModel.mergeQuickImportFiles([file])
         let executor = MetadataFileMutationExecutor(
             metadataPipeline: pipeline,
             fileMutationCoordinator: viewModel.fileMutationCoordinator
         )
+        let metadataAdmission = try ReviewedTestAdmission(existingURL: fileURL, id: fileID)
+        let eraseAdmission = try ReviewedTestAdmission(existingURL: fileURL, id: fileID)
 
         async let metadataWrite = executor.execute(
             at: fileURL,
             id: fileID,
-            expectedFileFingerprint: nil
+            admission: metadataAdmission.admission
         ) { pipeline, url in
-            try pipeline.writeMetadata(payload, to: url, expectedVersion: nil)
+            try pipeline.writeMetadata(payload, to: url, expectedVersion: metadataAdmission.version)
         }
         let didStartMetadataWrite = try await waitUntil { pipeline.totalMutationCount == 1 }
         XCTAssertTrue(didStartMetadataWrite)
@@ -357,19 +408,17 @@ final class FileMutationSerializationTests: XCTestCase {
         async let metadataErase = executor.execute(
             at: fileURL,
             id: fileID,
-            expectedFileFingerprint: nil
+            admission: eraseAdmission.admission
         ) { pipeline, url in
-            try pipeline.eraseAllMetadata(at: url, expectedVersion: nil)
+            try pipeline.eraseAllMetadata(at: url, expectedVersion: eraseAdmission.version)
         }
-        async let renumberResult = viewModel.renumberTrackNumbers(
-            orderedIDs: [fileID],
+        let renumberPlan = viewModel.makeTrackRenumberPlan(
+            orderedFiles: [file],
             selectedIDs: [],
-            options: TrackRenumberOptions(
-                direction: .ascending,
-                startNumber: 1,
-                padWithZeros: false
-            )
+            direction: .ascending,
+            startNumberText: "1"
         )
+        async let renumberResult = viewModel.renumberTrackNumbers(using: renumberPlan)
 
         let didQueueBothMutations = try await waitUntil {
             await viewModel.fileMutationCoordinator.queuedMutationCount == 2
@@ -388,6 +437,7 @@ final class FileMutationSerializationTests: XCTestCase {
         XCTAssertEqual(result.succeeded, 1)
     }
 
+    @MainActor
     func testCancelledWaiterDoesNotExecuteQueuedMutation() async throws {
         let coordinator = FileMutationCoordinator()
         let fileURL = URL(fileURLWithPath: "/tmp/AudioMatorCancelledMutation.mp3")
@@ -443,6 +493,7 @@ final class FileMutationSerializationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testOlderBroadWaiterCannotBeStarvedByLaterOverlappingTraffic() async throws {
         let coordinator = FileMutationCoordinator()
         let firstURL = URL(fileURLWithPath: "/tmp/AudioMatorFairness-A.mp3")
@@ -627,7 +678,7 @@ nonisolated private enum RecordedMutationKind: Hashable {
     case trackRenumber
 }
 
-private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let condition = NSCondition()
     private var recordedMutationCounts: [RecordedMutationKind: Int] = [:]
     private var recordedTotalMutationCount = 0
@@ -648,8 +699,15 @@ private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked 
         }
     }
 
+    private let reloadFile: AudioFile?
+
+    init(reloadFile: AudioFile? = nil) {
+        self.reloadFile = reloadFile
+    }
+
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        await AudioFileTestFactory.make(id: id, url: url, includeDefaultFileFingerprint: false)
+        if let reloadFile { return reloadFile }
+        return await AudioFileTestFactory.make(id: id, url: url, includeDefaultFileFingerprint: false)
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
@@ -681,6 +739,13 @@ private final class BlockingMutationPipeline: AudioMetadataPipeline, @unchecked 
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         recordMutation(.erase)
         return AudioMetadataWriteResult(warnings: [])
+    }
+
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        try TagLibAudioMetadataPipeline().projectMetadataWrite(intent, fileExtension: fileExtension)
     }
 
     private func recordMutation(_ kind: RecordedMutationKind) {

@@ -10,6 +10,12 @@ struct TrackRenumberSheet: View {
     @Binding var isTrackRenumberRunning: Bool
     @Binding var trackRenumberResult: TrackRenumberResult
 
+    /// The exact reviewed plan the preview displays and Apply submits. It is
+    /// rebuilt when the resolved order, selection, direction or start entry
+    /// changes; Apply never reconstructs a sequence from the live file collection.
+    @State private var plan: TrackRenumberPlan = .empty
+    @State private var planNotice: String?
+
     private let cardInset: CGFloat = 16
     private let previewInnerRadius: CGFloat = 12
     private let setupSectionInset: CGFloat = 10
@@ -19,71 +25,72 @@ struct TrackRenumberSheet: View {
         previewInnerRadius + setupSectionInset
     }
 
-    private var orderedIDs: [AudioFile.ID] {
-        state.orderedMiddleListIDs(from: viewModel.files)
+    /// Middle-list order resolved exactly as the center list displays it.
+    private var currentOrderedFiles: [AudioFile] {
+        state.orderedMiddleListFiles(from: viewModel.files)
     }
 
-    private var targetIDs: [AudioFile.ID] {
-        if viewModel.selectedAudioIDs.isEmpty {
-            return orderedIDs
-        }
-        return orderedIDs.filter { viewModel.selectedAudioIDs.contains($0) }
-    }
-
-    private var targetCount: Int {
-        targetIDs.count
-    }
-
-    private var sanitizedStartNumber: Int {
-        let parsed = Int(trackRenumberStartText.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 1
-        return normalizedTrackRenumberStartNumber(parsed)
+    private var executableNumbers: [Int] {
+        plan.executableRows.compactMap(\.assignedNumber)
     }
 
     private var startNumberBinding: Binding<Int> {
         Binding(
-            get: { sanitizedStartNumber },
+            get: { plan.startNumber ?? defaultTrackRenumberStartNumber },
             set: { newValue in
-                let value = normalizedTrackRenumberStartNumber(newValue)
+                let value = min(max(newValue, minimumTrackRenumberStartNumber), maximumTrackRenumberStartNumber)
                 trackRenumberStartText = String(value)
             }
         )
     }
 
-    private var previewNumbers: [Int] {
-        guard targetCount > 0 else { return [] }
-
-        let start = sanitizedStartNumber
-        switch trackRenumberOptions.direction {
-        case .ascending:
-            return (0..<targetCount).map { start + $0 }
-        case .descending:
-            return (0..<targetCount).map { start + (targetCount - 1 - $0) }
-        }
-    }
-
-    private var previewPadWidth: Int {
-        let maxValue = previewNumbers.max() ?? sanitizedStartNumber
-        return trackRenumberPadWidth(maxNumber: maxValue, padWithZeros: trackRenumberOptions.padWithZeros)
-    }
-
     private var previewSequenceText: String {
-        guard !previewNumbers.isEmpty else { return L10n.string("No tracks selected") }
+        guard !plan.rows.isEmpty else { return L10n.string("No tracks selected") }
+        guard !executableNumbers.isEmpty else {
+            return plan.unchangedCount > 0
+                ? L10n.string("Already numbered")
+                : L10n.string("No changes")
+        }
 
-        let visibleNumbers = previewNumbers.prefix(3).map(formattedNumber)
-        if previewNumbers.count <= 3 {
+        let visibleNumbers = executableNumbers.prefix(3).map(String.init)
+        if executableNumbers.count <= 3 {
             return visibleNumbers.joined(separator: ", ")
         }
-
         return "\(visibleNumbers.joined(separator: ", "))..."
     }
 
     private var previewRangeText: String {
-        guard let first = previewNumbers.first, let last = previewNumbers.last else {
+        if let validationMessage = plan.validationMessage {
+            return validationMessage
+        }
+        guard let first = executableNumbers.first, let last = executableNumbers.last else {
+            if plan.unchangedCount > 0, plan.executableCount == 0 {
+                return L10n.string("Every numbered track already has the previewed number.")
+            }
             return L10n.string("Add files to preview the new numbers.")
         }
-
         let scope = viewModel.selectedAudioIDs.isEmpty ? "current list" : "selection"
-        return "\(targetCount) tracks in the \(scope) will be renumbered from \(formattedNumber(first)) to \(formattedNumber(last))."
+        return "\(plan.executableCount) tracks in the \(scope) will be renumbered from \(first) to \(last)."
+    }
+
+    private var planSummaryText: String {
+        var parts: [String] = []
+        if plan.executableCount > 0 {
+            parts.append(String(localized: "\(plan.executableCount) to update"))
+        }
+        if plan.unchangedCount > 0 {
+            parts.append(String(localized: "\(plan.unchangedCount) already correct"))
+        }
+        if plan.skippedUnsupportedCount > 0 {
+            parts.append(String(localized: "\(plan.skippedUnsupportedCount) skipped"))
+        }
+        if plan.skippedDuplicateCount > 0 {
+            parts.append(String(localized: "\(plan.skippedDuplicateCount) duplicate"))
+        }
+        if plan.failedRowCount > 0 {
+            parts.append(String(localized: "\(plan.failedRowCount) blocked"))
+        }
+        return parts.isEmpty ? L10n.string("No tracks selected") : parts.joined(separator: " · ")
     }
 
     private var selectionSummaryText: String {
@@ -91,7 +98,7 @@ struct TrackRenumberSheet: View {
             return L10n.string("Current list")
         }
 
-        return "\(targetCount) selected tracks"
+        return "\(plan.totalTargets) selected tracks"
     }
 
     private var selectionDetailText: String {
@@ -100,10 +107,31 @@ struct TrackRenumberSheet: View {
             : "Uses the selected rows in center-list order."
     }
 
+    private var canApply: Bool {
+        !isTrackRenumberRunning && plan.isStartValid && plan.executableCount > 0
+    }
+
+    private var footerStatusText: String? {
+        if plan.isStartValid == false {
+            return plan.validationMessage
+        }
+        guard plan.executableCount == 0 else { return nil }
+        if plan.totalTargets == 0 {
+            return L10n.string("Add files to renumber track numbers.")
+        }
+        if plan.unchangedCount > 0 {
+            return L10n.string("Every numbered track already has the previewed number.")
+        }
+        return L10n.string("No selected track can be renumbered.")
+    }
+
     private var hasResult: Bool {
         trackRenumberResult.totalTargets > 0 ||
             trackRenumberResult.failed > 0 ||
+            trackRenumberResult.unchanged > 0 ||
             trackRenumberResult.skippedUnsupported > 0 ||
+            trackRenumberResult.skippedDuplicate > 0 ||
+            trackRenumberResult.validationMessage != nil ||
             !trackRenumberResult.warnings.isEmpty
     }
 
@@ -112,6 +140,20 @@ struct TrackRenumberSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 configurationSection
+
+                if !plan.isStartValid {
+                    invalidStartNotice
+                }
+
+                if !plan.issueRows.isEmpty {
+                    planIssuesSection
+                }
+
+                if let planNotice, !isTrackRenumberRunning {
+                    Text(planNotice)
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                }
 
                 if hasResult {
                     resultSection
@@ -122,6 +164,11 @@ struct TrackRenumberSheet: View {
             .padding(.top, contentInset)
             .padding(.bottom, contentInset)
         }
+        .onAppear { rebuildPlan() }
+        .onChange(of: trackRenumberOptions.direction) { _, _ in rebuildPlan() }
+        .onChange(of: trackRenumberStartText) { _, _ in rebuildPlan() }
+        .onChange(of: viewModel.selectedAudioIDs) { _, _ in rebuildPlan() }
+        .onChange(of: viewModel.files.map(\.snapshotID)) { _, _ in rebuildPlan() }
         .audiomatorSafeAreaBar(edge: .bottom, spacing: 0) {
             footer
         }
@@ -149,14 +196,19 @@ struct TrackRenumberSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Label(selectionSummaryText, systemImage: viewModel.selectedAudioIDs.isEmpty ? "music.note.list" : "checkmark.circle")
-                .font(.subheadline.weight(.medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(Color.secondary.opacity(0.12))
-                )
+            HStack(spacing: 8) {
+                Label(selectionSummaryText, systemImage: viewModel.selectedAudioIDs.isEmpty ? "music.note.list" : "checkmark.circle")
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.12))
+                    )
+                Text(planSummaryText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -212,35 +264,35 @@ struct TrackRenumberSheet: View {
 
             Divider()
 
-            configurationRow(
-                title: "Start number",
-                caption: "Set the first number in the sequence."
-            ) {
-                HStack(spacing: 8) {
-                    TextField("1", text: $trackRenumberStartText)
-                        .textFieldStyle(.roundedBorder)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 72)
-                        .disabled(isTrackRenumberRunning)
+            VStack(alignment: .leading, spacing: 4) {
+                configurationRow(
+                    title: "Start number",
+                    caption: "A whole number from 1 to 9,999. Numbers are stored as shown."
+                ) {
+                    HStack(spacing: 8) {
+                        TextField(String(defaultTrackRenumberStartNumber), text: $trackRenumberStartText)
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 72)
+                            .disabled(isTrackRenumberRunning)
 
-                    Stepper("", value: startNumberBinding, in: 0...maximumTrackRenumberStartNumber)
+                        Stepper(
+                            "",
+                            value: startNumberBinding,
+                            in: minimumTrackRenumberStartNumber...maximumTrackRenumberStartNumber
+                        )
                         .labelsHidden()
                         .disabled(isTrackRenumberRunning)
+                    }
                 }
-            }
 
-            Divider()
-
-            Toggle(isOn: $trackRenumberOptions.padWithZeros) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Pad with leading zeros")
-                    Text("Keeps the same width as numbers grow.")
+                if let issue = plan.startInput.issue {
+                    Text(issue.message)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.red)
+                        .padding(.leading, 160)
                 }
             }
-            .toggleStyle(.checkbox)
-            .disabled(isTrackRenumberRunning)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -268,7 +320,7 @@ struct TrackRenumberSheet: View {
 
             Spacer(minLength: 0)
 
-            Text(trackRenumberOptions.direction == .ascending ? "First row gets the lowest number." : "First row gets the highest number.")
+            Text(plan.direction == .ascending ? "First row gets the lowest number." : "First row gets the highest number.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -280,6 +332,49 @@ struct TrackRenumberSheet: View {
         )
     }
 
+    private var invalidStartNotice: some View {
+        Label(
+            plan.validationMessage ?? String(localized: "Enter a start number from 1 to 9,999."),
+            systemImage: "exclamationmark.triangle.fill"
+        )
+        .font(.callout)
+        .foregroundStyle(.orange)
+    }
+
+    private var planIssuesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Not Written", systemImage: "arrowshape.turn.up.right.circle")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(plan.issueRows.prefix(8).enumerated()), id: \.offset) { _, row in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(row.fileName)
+                            .font(.system(.body, design: .monospaced))
+                        if let message = row.issueMessage {
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if plan.issueRows.count > 8 {
+                    Text("\(plan.issueRows.count - 8) more rows won’t be written.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(setupSectionInset)
+            .background(
+                RoundedRectangle(cornerRadius: setupSectionRadius)
+                    .fill(Color.secondary.opacity(0.06))
+            )
+        }
+    }
+
     private var resultSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Results", systemImage: "checkmark.circle")
@@ -287,6 +382,12 @@ struct TrackRenumberSheet: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 14) {
+                if let validationMessage = trackRenumberResult.validationMessage {
+                    Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                }
+
                 LazyVGrid(
                     columns: [
                         GridItem(.flexible(), spacing: 10),
@@ -296,7 +397,11 @@ struct TrackRenumberSheet: View {
                 ) {
                     resultMetric(title: "Targets", value: trackRenumberResult.totalTargets, tint: .primary)
                     resultMetric(title: "Succeeded", value: trackRenumberResult.succeeded, tint: .green)
+                    resultMetric(title: "Unchanged", value: trackRenumberResult.unchanged, tint: .blue)
                     resultMetric(title: "Skipped", value: trackRenumberResult.skippedUnsupported, tint: .orange)
+                    if trackRenumberResult.skippedDuplicate > 0 {
+                        resultMetric(title: "Duplicates", value: trackRenumberResult.skippedDuplicate, tint: .orange)
+                    }
                     resultMetric(title: "Failed", value: trackRenumberResult.failed, tint: .red)
                     if !trackRenumberResult.cancelled.isEmpty {
                         resultMetric(title: "Cancelled", value: trackRenumberResult.cancelled.count, tint: .secondary)
@@ -384,7 +489,14 @@ struct TrackRenumberSheet: View {
     }
 
     private var footer: some View {
-        HStack {
+        HStack(alignment: .center, spacing: 12) {
+            if let footerStatusText {
+                Text(footerStatusText)
+                    .font(.caption)
+                    .foregroundStyle(plan.isStartValid ? Color.secondary : Color.red)
+                    .lineLimit(2)
+            }
+
             Spacer()
 
             Button("Close") {
@@ -397,7 +509,7 @@ struct TrackRenumberSheet: View {
                 applyTrackRenumber()
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(isTrackRenumberRunning || targetCount == 0)
+            .disabled(!canApply)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, contentInset)
@@ -461,7 +573,9 @@ struct TrackRenumberSheet: View {
         switch title {
         case "Succeeded":
             return "checkmark.circle.fill"
-        case "Skipped":
+        case "Unchanged":
+            return "equal.circle.fill"
+        case "Skipped", "Duplicates":
             return "arrowshape.turn.up.right.circle.fill"
         case "Failed":
             return "xmark.octagon.fill"
@@ -470,31 +584,55 @@ struct TrackRenumberSheet: View {
         }
     }
 
-    private func formattedNumber(_ number: Int) -> String {
-        guard previewPadWidth > 0 else { return String(number) }
-        return String(format: "%0*d", previewPadWidth, number)
+    // MARK: - Reviewed plan and Apply
+
+    private func rebuildPlan() {
+        plan = viewModel.makeTrackRenumberPlan(
+            orderedFiles: currentOrderedFiles,
+            selectedIDs: viewModel.selectedAudioIDs,
+            direction: trackRenumberOptions.direction,
+            startNumberText: trackRenumberStartText
+        )
+    }
+
+    private func resolvedTargetIDs() -> [AudioFile.ID] {
+        let orderedFiles = currentOrderedFiles
+        if viewModel.selectedAudioIDs.isEmpty {
+            return orderedFiles.map(\.id)
+        }
+        return orderedFiles
+            .filter { viewModel.selectedAudioIDs.contains($0.id) }
+            .map(\.id)
     }
 
     private func applyTrackRenumber() {
-        let parsed = Int(trackRenumberStartText.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 1
-        trackRenumberOptions.startNumber = normalizedTrackRenumberStartNumber(parsed)
-        trackRenumberStartText = String(trackRenumberOptions.startNumber)
+        guard plan.isStartValid, let startNumber = plan.startNumber else { return }
 
-        let selected = viewModel.selectedAudioIDs
+        // Apply the reviewed plan the sheet showed. If the resolved scope or order
+        // changed while the sheet was open, refresh the preview and require a new
+        // review instead of dispatching a mismatched plan.
+        guard plan.matchesOrderedTargets(resolvedTargetIDs()) else {
+            rebuildPlan()
+            planNotice = String(localized: "The file list order or selection changed. Review the updated preview before applying.")
+            return
+        }
 
-        isTrackRenumberRunning = true
+        let appliedPlan = plan
+        trackRenumberOptions.startNumber = startNumber
+        trackRenumberOptions.direction = appliedPlan.direction
+        planNotice = nil
         trackRenumberResult = .empty
 
+        isTrackRenumberRunning = true
         Task {
-            let result = await viewModel.renumberTrackNumbers(
-                orderedIDs: state.orderedMiddleListIDs(from: viewModel.files),
-                selectedIDs: selected,
-                options: trackRenumberOptions
-            )
+            let result = await viewModel.renumberTrackNumbers(using: appliedPlan)
 
             await MainActor.run {
                 trackRenumberResult = result
                 isTrackRenumberRunning = false
+                // Committed files now carry refreshed observations; rebuild the
+                // reviewed plan so a second Apply is based on the current preview.
+                rebuildPlan()
             }
         }
     }

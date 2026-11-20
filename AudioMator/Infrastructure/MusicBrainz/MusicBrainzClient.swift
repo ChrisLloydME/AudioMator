@@ -21,8 +21,14 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private static let multiFileFallbackQueryLimit = 3
     private static let maximumReleaseDetailCandidates = 3
 
+    /// One deterministic decoder configuration for both cache admission validation and
+    /// caller decoding. Creating a decoder per use keeps the value type `Sendable` and
+    /// prevents shared mutable decoder state across concurrent requests.
+    fileprivate static func makeDecoder() -> JSONDecoder {
+        JSONDecoder()
+    }
+
     private let session: URLSession
-    private let decoder: JSONDecoder
     private let rateLimiter: MusicBrainzRateLimiter
     private let responseCache: MusicBrainzResponseCache
     private let retryPolicy: MusicBrainzRetryPolicy
@@ -38,9 +44,6 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         self.rateLimiter = rateLimiter
         self.responseCache = responseCache
         self.retryPolicy = retryPolicy
-
-        let decoder = JSONDecoder()
-        self.decoder = decoder
 
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.chrislloydme.AudioMator"
@@ -401,12 +404,13 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                     name: "inc",
                     value: "artist-credits+isrcs+genres+tags+ratings+annotation+releases+artist-rels+label-rels+place-rels+recording-rels+release-rels+release-group-rels+series-rels+url-rels+work-rels+work-level-rels"
                 )
-            ]
+            ],
+            responseShape: .recordingLookup
         )
 
         let payload: MusicBrainzRecordingLookupDTO
         do {
-            payload = try decoder.decode(MusicBrainzRecordingLookupDTO.self, from: data)
+            payload = try MusicBrainzClient.makeDecoder().decode(MusicBrainzRecordingLookupDTO.self, from: data)
         } catch let error as DecodingError {
             throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
         }
@@ -421,12 +425,13 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
             queryItems: [
                 URLQueryItem(name: "fmt", value: "json"),
                 URLQueryItem(name: "inc", value: "artist-credits+genres+tags+annotation+labels+recordings+release-groups+media+discids+isrcs")
-            ]
+            ],
+            responseShape: .releaseLookup
         )
 
         let payload: MusicBrainzReleaseLookupDTO
         do {
-            payload = try decoder.decode(MusicBrainzReleaseLookupDTO.self, from: data)
+            payload = try MusicBrainzClient.makeDecoder().decode(MusicBrainzReleaseLookupDTO.self, from: data)
         } catch let error as DecodingError {
             throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
         }
@@ -489,12 +494,13 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                 URLQueryItem(name: "query", value: luceneQuery),
                 URLQueryItem(name: "fmt", value: "json"),
                 URLQueryItem(name: "limit", value: String(max(1, min(limit, 100))))
-            ]
+            ],
+            responseShape: .recordingSearch
         )
 
         let payload: MusicBrainzRecordingSearchResponse
         do {
-            payload = try decoder.decode(MusicBrainzRecordingSearchResponse.self, from: data)
+            payload = try MusicBrainzClient.makeDecoder().decode(MusicBrainzRecordingSearchResponse.self, from: data)
         } catch let error as DecodingError {
             throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
         }
@@ -556,12 +562,13 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
                 URLQueryItem(name: "query", value: luceneQuery),
                 URLQueryItem(name: "fmt", value: "json"),
                 URLQueryItem(name: "limit", value: String(max(1, min(limit, 100))))
-            ]
+            ],
+            responseShape: .releaseSearch
         )
 
         let payload: MusicBrainzReleaseSearchResponse
         do {
-            payload = try decoder.decode(MusicBrainzReleaseSearchResponse.self, from: data)
+            payload = try MusicBrainzClient.makeDecoder().decode(MusicBrainzReleaseSearchResponse.self, from: data)
         } catch let error as DecodingError {
             throw MusicBrainzClientError.decodingFailed(Self.describeDecodingError(error))
         }
@@ -688,7 +695,9 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 
         guard candidate.score >= 90 else { return false }
         guard let nextCandidate else { return true }
-        return candidate.score - nextCandidate.score >= 8
+        // Compare without subtracting two unvalidated provider scores; Int.min would otherwise
+        // overflow the subtraction. Preserves the 7-point continue / 8-point stop decision.
+        return candidate.score - 8 >= nextCandidate.score
     }
 
     private static func representativeInformationScore(
@@ -719,7 +728,8 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
     private func performRequest(
         resource: String,
         id: String? = nil,
-        queryItems: [URLQueryItem]
+        queryItems: [URLQueryItem],
+        responseShape: MusicBrainzResponseShape
     ) async throws -> Data {
         let baseURL: URL
         if let id {
@@ -744,12 +754,16 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
 
         let cacheTimeToLive: TimeInterval = id == nil ? 30 * 60 : 7 * 24 * 60 * 60
         return try await responseCache.data(for: url, timeToLive: cacheTimeToLive) {
-            try await Self.execute(
+            let data = try await Self.execute(
                 preparedRequest,
                 session: session,
                 rateLimiter: rateLimiter,
                 retryPolicy: retryPolicy
             )
+            // Validation runs inside the coalesced loader: a failed or malformed response
+            // throws before the cache can admit its bytes, so the same URL can be retried.
+            try responseShape.validate(data)
+            return data
         }
     }
 
@@ -784,7 +798,7 @@ nonisolated struct MusicBrainzClient: MusicBrainzBrowserClient, Sendable {
         }
     }
 
-    private static func describeDecodingError(_ error: DecodingError) -> String {
+    fileprivate static func describeDecodingError(_ error: DecodingError) -> String {
         func codingPathDescription(_ path: [CodingKey]) -> String {
             let parts = path.map(\.stringValue).filter { !$0.isEmpty }
             return parts.isEmpty ? "(root)" : parts.joined(separator: ".")
@@ -810,6 +824,179 @@ extension String {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         guard UUID(uuidString: trimmed) != nil else { return nil }
         return trimmed
+    }
+}
+
+/// Field-level decoding for provider numbers that may arrive as either the JSON number
+/// or a numeric string form. Absent/null uses the documented default; present but
+/// malformed, overflowing or nonfinite values throw at the field instead of defaulting.
+private nonisolated enum MusicBrainzNumericDecoding {
+    static func integer<K: CodingKey>(
+        from container: KeyedDecodingContainer<K>,
+        forKey key: K,
+        default defaultValue: Int
+    ) throws -> Int {
+        guard try isPresent(key, in: container) else { return defaultValue }
+        return try requiredInteger(from: container, forKey: key)
+    }
+
+    static func optionalInteger<K: CodingKey>(
+        from container: KeyedDecodingContainer<K>,
+        forKey key: K
+    ) throws -> Int? {
+        guard try isPresent(key, in: container) else { return nil }
+        return try requiredInteger(from: container, forKey: key)
+    }
+
+    private static func requiredInteger<K: CodingKey>(
+        from container: KeyedDecodingContainer<K>,
+        forKey key: K
+    ) throws -> Int {
+        do {
+            return try container.decode(Int.self, forKey: key)
+        } catch let error as DecodingError {
+            switch error {
+            case .typeMismatch:
+                return try integerFromString(container.decode(String.self, forKey: key), key: key, in: container)
+            case .dataCorrupted:
+                throw fieldError("Expected an integer or numeric string.", key: key, in: container)
+            default:
+                throw error
+            }
+        } catch {
+            // Foundation reports a JSON number it cannot represent in Swift as an internal
+            // JSON parse error instead of a DecodingError. Re-read the value as a string so
+            // the failure can still be attributed to this field.
+            return try integerFromFallbackString(key: key, in: container)
+        }
+    }
+
+    static func finiteDouble<K: CodingKey>(
+        from container: KeyedDecodingContainer<K>,
+        forKey key: K
+    ) throws -> Double? {
+        guard try isPresent(key, in: container) else { return nil }
+
+        let value: Double
+        do {
+            value = try container.decode(Double.self, forKey: key)
+        } catch let error as DecodingError {
+            switch error {
+            case .typeMismatch:
+                value = try doubleFromFallbackString(key: key, in: container)
+            case .dataCorrupted:
+                throw fieldError("Expected a finite decimal number.", key: key, in: container)
+            default:
+                throw error
+            }
+        } catch {
+            // Foundation reports a JSON number it cannot represent in Swift as an internal
+            // JSON parse error instead of a DecodingError. Re-read the value as a string so
+            // the failure can still be attributed to this field.
+            value = try doubleFromFallbackString(key: key, in: container)
+        }
+
+        guard value.isFinite else {
+            throw fieldError("Expected a finite decimal number.", key: key, in: container)
+        }
+        return value
+    }
+
+    private static func integerFromFallbackString<K: CodingKey>(
+        key: K,
+        in container: KeyedDecodingContainer<K>
+    ) throws -> Int {
+        do {
+            return try integerFromString(container.decode(String.self, forKey: key), key: key, in: container)
+        } catch {
+            throw fieldError("Expected an integer or numeric string.", key: key, in: container)
+        }
+    }
+
+    private static func doubleFromFallbackString<K: CodingKey>(
+        key: K,
+        in container: KeyedDecodingContainer<K>
+    ) throws -> Double {
+        do {
+            let rawValue = try container.decode(String.self, forKey: key)
+            guard let parsed = Double(rawValue.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+                throw fieldError("Expected a finite decimal number or numeric string.", key: key, in: container)
+            }
+            guard parsed.isFinite else {
+                throw fieldError("Expected a finite decimal number.", key: key, in: container)
+            }
+            return parsed
+        } catch let error as DecodingError {
+            if case .typeMismatch = error {
+                throw fieldError("Expected a finite decimal number.", key: key, in: container)
+            }
+            throw error
+        } catch {
+            throw fieldError("Expected a finite decimal number.", key: key, in: container)
+        }
+    }
+
+    private static func fieldError<K: CodingKey>(
+        _ description: String,
+        key: K,
+        in container: KeyedDecodingContainer<K>
+    ) -> DecodingError {
+        DecodingError.dataCorruptedError(
+            forKey: key,
+            in: container,
+            debugDescription: description
+        )
+    }
+
+    private static func isPresent<K: CodingKey>(
+        _ key: K,
+        in container: KeyedDecodingContainer<K>
+    ) throws -> Bool {
+        guard container.contains(key) else { return false }
+        return try !container.decodeNil(forKey: key)
+    }
+
+    private static func integerFromString<K: CodingKey>(
+        _ rawValue: String,
+        key: K,
+        in container: KeyedDecodingContainer<K>
+    ) throws -> Int {
+        guard let value = Int(rawValue.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw fieldError("Expected an integer or numeric string.", key: key, in: container)
+        }
+        return value
+    }
+}
+
+/// The exact expected response DTO for each MusicBrainz request shape. Validation
+/// happens inside the coalesced cache loader so invalid bytes are never admitted.
+private nonisolated enum MusicBrainzResponseShape {
+    case recordingSearch
+    case releaseSearch
+    case recordingLookup
+    case releaseLookup
+
+    func validate(_ data: Data) throws {
+        let decoder = MusicBrainzClient.makeDecoder()
+        do {
+            switch self {
+            case .recordingSearch:
+                _ = try decoder.decode(MusicBrainzRecordingSearchResponse.self, from: data)
+            case .releaseSearch:
+                _ = try decoder.decode(MusicBrainzReleaseSearchResponse.self, from: data)
+            case .recordingLookup:
+                _ = try decoder.decode(MusicBrainzRecordingLookupDTO.self, from: data)
+            case .releaseLookup:
+                _ = try decoder.decode(MusicBrainzReleaseLookupDTO.self, from: data)
+            }
+        } catch let error as DecodingError {
+            throw MusicBrainzClientError.decodingFailed(MusicBrainzClient.describeDecodingError(error))
+        } catch {
+            // Foundation can surface an internal JSON error for values it cannot represent.
+            throw MusicBrainzClientError.decodingFailed(
+                String(localized: "The response couldn't be read.")
+            )
+        }
     }
 }
 
@@ -852,16 +1039,7 @@ private nonisolated struct MusicBrainzRecordingDTO: Decodable {
         artistCredit = try container.decodeIfPresent([MusicBrainzArtistCreditDTO].self, forKey: .artistCredit) ?? []
         releases = try container.decodeIfPresent([MusicBrainzReleaseDTO].self, forKey: .releases) ?? []
 
-        if let score = try container.decodeIfPresent(Int.self, forKey: .score) {
-            self.score = score
-        } else if
-            let scoreString = try container.decodeIfPresent(String.self, forKey: .score),
-            let score = Int(scoreString)
-        {
-            self.score = score
-        } else {
-            self.score = 0
-        }
+        score = try MusicBrainzNumericDecoding.integer(from: container, forKey: .score, default: 0)
     }
 }
 
@@ -957,16 +1135,7 @@ private nonisolated struct MusicBrainzReleaseSearchDTO: Decodable {
         artistCredit = try container.decodeIfPresent([MusicBrainzArtistCreditDTO].self, forKey: .artistCredit) ?? []
         releaseGroup = try container.decodeIfPresent(MusicBrainzReleaseGroupDTO.self, forKey: .releaseGroup)
 
-        if let score = try container.decodeIfPresent(Int.self, forKey: .score) {
-            self.score = score
-        } else if
-            let scoreString = try container.decodeIfPresent(String.self, forKey: .score),
-            let score = Int(scoreString)
-        {
-            self.score = score
-        } else {
-            self.score = 0
-        }
+        score = try MusicBrainzNumericDecoding.integer(from: container, forKey: .score, default: 0)
     }
 }
 
@@ -1003,16 +1172,7 @@ private nonisolated struct MusicBrainzTermDTO: Decodable {
 
         let keyed = try decoder.container(keyedBy: CodingKeys.self)
         name = try keyed.decodeIfPresent(String.self, forKey: .name) ?? ""
-        if let count = try keyed.decodeIfPresent(Int.self, forKey: .count) {
-            self.count = count
-        } else if
-            let countString = try keyed.decodeIfPresent(String.self, forKey: .count),
-            let count = Int(countString)
-        {
-            self.count = count
-        } else {
-            self.count = nil
-        }
+        count = try MusicBrainzNumericDecoding.optionalInteger(from: keyed, forKey: .count)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1032,28 +1192,8 @@ private nonisolated struct MusicBrainzRatingDTO: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
-        if let value = try container.decodeIfPresent(Double.self, forKey: .value) {
-            self.value = value
-        } else if
-            let valueString = try container.decodeIfPresent(String.self, forKey: .value),
-            let value = Double(valueString)
-        {
-            self.value = value
-        } else {
-            self.value = nil
-        }
-
-        if let voteCount = try container.decodeIfPresent(Int.self, forKey: .voteCount) {
-            self.voteCount = voteCount
-        } else if
-            let voteCountString = try container.decodeIfPresent(String.self, forKey: .voteCount),
-            let voteCount = Int(voteCountString)
-        {
-            self.voteCount = voteCount
-        } else {
-            self.voteCount = 0
-        }
+        value = try MusicBrainzNumericDecoding.finiteDouble(from: container, forKey: .value)
+        voteCount = try MusicBrainzNumericDecoding.integer(from: container, forKey: .voteCount, default: 0)
     }
 }
 

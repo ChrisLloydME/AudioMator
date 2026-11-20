@@ -77,9 +77,6 @@ struct AlbumArtworkLookupSheet: View {
                 }
             }
 
-            if let message = session.cancellationMessage, !session.results.isEmpty {
-                Text(message).foregroundStyle(.secondary)
-            }
             Group {
                 if session.isLoading {
                     ContentUnavailableView(
@@ -87,17 +84,27 @@ struct AlbumArtworkLookupSheet: View {
                         systemImage: "icloud.and.arrow.down",
                         description: Text("Results will appear here when the search completes.")
                     )
-                } else if let message = session.cancellationMessage, session.results.isEmpty {
+                } else if !session.results.isEmpty {
+                    // A download fault never replaces the settled result grid.
+                    resultGrid(session: session)
+                } else if let message = session.searchFailureMessage {
+                    VStack(spacing: 12) {
+                        ContentUnavailableView(
+                            String(localized: "Artwork Lookup Couldn’t Be Completed"),
+                            systemImage: "exclamationmark.triangle",
+                            description: Text(message)
+                        )
+
+                        Button(String(localized: "Search Again")) {
+                            viewModel.retryArtworkSearch()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                } else if let message = session.searchCancellationMessage {
                     ContentUnavailableView(
                         String(localized: "Search Was Cancelled"),
                         systemImage: "magnifyingglass",
                         description: Text(message)
-                    )
-                } else if let errorMessage = session.errorMessage {
-                    ContentUnavailableView(
-                        String(localized: "Artwork Lookup Couldn’t Be Completed"),
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(errorMessage)
                     )
                 } else if let emptyMessage = session.emptyMessage {
                     ContentUnavailableView(
@@ -106,25 +113,30 @@ struct AlbumArtworkLookupSheet: View {
                         description: Text(emptyMessage)
                     )
                 } else {
-                    ScrollView {
-                        LazyVGrid(columns: gridColumns, spacing: 14) {
-                            ForEach(session.results) { result in
-                                ArtworkLookupResultTile(
-                                    result: result,
-                                    isSelected: result.id == session.selectedResultID
-                                ) {
-                                    viewModel.selectArtworkLookupResult(id: result.id)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .audiomatorScrollEdgeEffect(.soft, for: .vertical)
+                    resultGrid(session: session)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func resultGrid(session: ArtworkLookupSession) -> some View {
+        ScrollView {
+            LazyVGrid(columns: gridColumns, spacing: 14) {
+                ForEach(session.results) { result in
+                    ArtworkLookupResultTile(
+                        result: result,
+                        isSelected: result.id == session.selectedResultID
+                    ) {
+                        viewModel.selectArtworkLookupResult(id: result.id)
+                    }
+                    .disabled(!session.canSelectCandidate)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     private func previewPane(session: ArtworkLookupSession) -> some View {
@@ -137,10 +149,14 @@ struct AlbumArtworkLookupSheet: View {
                     .fill(Color.secondary.opacity(0.08))
 
                 if let selectedResult {
+                    // The preview state is owned by the candidate identity:
+                    // switching candidates recreates the fallback at URL 0.
                     RemoteArtworkImage(
                         urls: selectedResult.preferredPreviewURLs,
+                        identity: selectedResult.id,
                         padding: 14
                     )
+                    .id(selectedResult.id)
                 } else {
                     VStack(spacing: 10) {
                         Image(systemName: "photo")
@@ -181,10 +197,48 @@ struct AlbumArtworkLookupSheet: View {
                 }
             }
 
+            if session.isPreviewOnly, !session.results.isEmpty {
+                Text(String(localized: "This lookup isn’t connected to an editable Inspector draft, so the artwork can’t be applied. Select the files in the Inspector and use Fetch Online… again."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let fault = session.downloadFault {
+                downloadFaultView(fault: fault, session: session)
+            }
+
             Spacer(minLength: 0)
         }
         .frame(width: 250)
         .frame(maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func downloadFaultView(
+        fault: ArtworkLookupDownloadFault,
+        session: ArtworkLookupSession
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(
+                fault.inlineTitle,
+                systemImage: fault.isTransferFault
+                    ? "exclamationmark.shield"
+                    : (fault.isCancellation ? "stop.circle" : "exclamationmark.triangle")
+            )
+            .font(.subheadline)
+            .fontWeight(.medium)
+
+            if let candidateTitle = session.downloadFaultCandidateTitle {
+                Text(candidateTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(fault.message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func footer(session: ArtworkLookupSession) -> some View {
@@ -199,18 +253,17 @@ struct AlbumArtworkLookupSheet: View {
             if session.isApplying {
                 ProgressView()
                     .controlSize(.small)
+
+                Button(String(localized: "Stop Download")) {
+                    viewModel.cancelSelectedArtworkDownload()
+                }
             }
 
-            Button(session.isMultiSelection ? "Apply to Selected Files" : "Use Selected Artwork") {
+            Button(session.applyActionTitle) {
                 viewModel.applySelectedArtworkLookupResult()
             }
             .keyboardShortcut(.defaultAction)
-            .disabled(
-                session.isLoading ||
-                session.isApplying ||
-                session.selectedResult == nil ||
-                session.errorMessage != nil
-            )
+            .disabled(!session.canApplySelectedResult)
         }
     }
 }
@@ -232,6 +285,7 @@ private struct ArtworkLookupResultTile: View {
 
                     RemoteArtworkImage(
                         urls: result.preferredPreviewURLs,
+                        identity: result.id,
                         padding: 10
                     )
                 }
@@ -267,18 +321,21 @@ private struct ArtworkLookupResultTile: View {
 
 private struct RemoteArtworkImage: View {
     let urls: [URL]
+    let identity: String?
     let padding: CGFloat
 
-    @State private var currentIndex: Int = 0
+    @State private var fallback: ArtworkPreviewFallback
 
-    private var currentURL: URL? {
-        guard currentIndex >= 0, currentIndex < urls.count else { return nil }
-        return urls[currentIndex]
+    init(urls: [URL], identity: String? = nil, padding: CGFloat) {
+        self.urls = urls
+        self.identity = identity
+        self.padding = padding
+        _fallback = State(initialValue: ArtworkPreviewFallback(urls: urls))
     }
 
     var body: some View {
         Group {
-            if let currentURL {
+            if let currentURL = fallback.currentURL {
                 AsyncImage(url: currentURL) { phase in
                     switch phase {
                     case .success(let image):
@@ -287,15 +344,16 @@ private struct RemoteArtworkImage: View {
                             .scaledToFit()
                             .padding(padding)
                     case .failure:
-                        if currentIndex < urls.count - 1 {
+                        if fallback.hasSuccessor {
                             Color.clear
                                 .onAppear {
-                                    currentIndex += 1
+                                    // Only the URL that is actually showing may
+                                    // advance the fallback; delayed failures of a
+                                    // previous candidate are ignored.
+                                    fallback.advance(afterFailedURL: currentURL)
                                 }
                         } else {
-                            Image(systemName: "photo.badge.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.secondary)
+                            failurePlaceholder
                         }
                     case .empty:
                         ProgressView()
@@ -304,10 +362,20 @@ private struct RemoteArtworkImage: View {
                     }
                 }
             } else {
-                Image(systemName: "photo.badge.exclamationmark")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.secondary)
+                failurePlaceholder
             }
         }
+        .onChange(of: identity) { _, _ in
+            fallback = ArtworkPreviewFallback(urls: urls)
+        }
+        .onChange(of: urls) { _, newURLs in
+            fallback = ArtworkPreviewFallback(urls: newURLs)
+        }
+    }
+
+    private var failurePlaceholder: some View {
+        Image(systemName: "photo.badge.exclamationmark")
+            .font(.system(size: 40))
+            .foregroundStyle(.secondary)
     }
 }

@@ -1,7 +1,7 @@
 import XCTest
 @testable import AudioMator
 
-final class MetadataFilenameStatusPresentationTests: XCTestCase {
+nonisolated final class MetadataFilenameStatusPresentationTests: XCTestCase {
     @MainActor
     func testToolStoreDeduplicatesTargetIdentifiersAndStartsANewPresentation() {
         let store = MetadataFilenameToolStore()
@@ -15,6 +15,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         XCTAssertNotEqual(store.presentationID, originalPresentationID)
     }
 
+    @MainActor
     func testExternalTextLoaderDecodesUTF8AndUTF16ByteOrderMarks() throws {
         let utf8 = Data([0xEF, 0xBB, 0xBF]) + Data("Track – Title".utf8)
         XCTAssertEqual(try MetadataExchangeExternalTextFileLoader.decode(utf8), "Track – Title")
@@ -28,6 +29,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         XCTAssertEqual(try MetadataExchangeExternalTextFileLoader.decode(utf16BigEndian), "曲名")
     }
 
+    @MainActor
     func testExternalTextLoaderDetectsUTF16WithoutAByteOrderMark() throws {
         let littleEndian = try XCTUnwrap("Artist | Title".data(using: .utf16LittleEndian))
         XCTAssertEqual(try MetadataExchangeExternalTextFileLoader.decode(littleEndian), "Artist | Title")
@@ -36,12 +38,14 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         XCTAssertEqual(try MetadataExchangeExternalTextFileLoader.decode(bigEndian), "Artist | Title")
     }
 
+    @MainActor
     func testExternalTextLoaderSupportsLegacySingleByteText() throws {
         let windowsText = "Beyoncé | Déjà Vu"
         let windowsData = try XCTUnwrap(windowsText.data(using: .windowsCP1252))
         XCTAssertEqual(try MetadataExchangeExternalTextFileLoader.decode(windowsData), windowsText)
     }
 
+    @MainActor
     func testExternalTextLoaderRejectsBinaryControlData() {
         XCTAssertThrowsError(
             try MetadataExchangeExternalTextFileLoader.decode(Data([0x00]))
@@ -53,6 +57,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testExternalTextLoaderEnforcesItsReadLimit() async throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -76,6 +81,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testExternalTextLoaderHandlesAnUnboundedCallerLimitWithoutOverflow() async throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -96,6 +102,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         XCTAssertEqual(text, "small")
     }
 
+    @MainActor
     func testRenameMessagesPreserveReadyAndDuplicateTargetSummaries() {
         let readyURL = URL(fileURLWithPath: "/tmp/source.mp3")
         let readyFile = AudioFileTestFactory.make(
@@ -144,6 +151,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testFilenameMetadataMessagesPreserveReadyAndNoMatchSummaries() {
         let matchingFile = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/07 - Artist - Title.mp3")
@@ -179,6 +187,7 @@ final class MetadataFilenameStatusPresentationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testExchangeMessagesPreserveExportAndImportCounts() {
         let file = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/song.flac"),

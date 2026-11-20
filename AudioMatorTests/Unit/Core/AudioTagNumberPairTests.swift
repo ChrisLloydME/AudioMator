@@ -1,7 +1,7 @@
 import XCTest
 @testable import AudioMator
 
-final class AudioTagNumberPairTests: XCTestCase {
+nonisolated final class AudioTagNumberPairTests: XCTestCase {
     func testDisplayTextPrefersRawComponentsAndPreservesPadding() {
         let pair = AudioTagNumberPair(rawText: "  03 / 12  ", number: 3, total: 12)
 
@@ -26,6 +26,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(pair.rawText, "08/10")
     }
 
+    @MainActor
     func testSharedNumberTextParserPreservesLegacyPairSemantics() {
         let components = AudioTagNumberText.components(from: " 03 / 12 ")
         let clampedComponents = AudioTagNumberText.components(from: "-1/9")
@@ -53,6 +54,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(totalOnly.rawText, "/12")
     }
 
+    @MainActor
     func testReplacingNumberWithBlankPreservesTotal() {
         let pair = AudioTagNumberPair(rawText: "05/11", number: 5, total: 11)
             .replacingNumberText("")
@@ -62,6 +64,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(pair.canonicalRawText, "/11")
     }
 
+    @MainActor
     func testWriteExpectationWithoutTotalAcceptsPreservedTotal() {
         XCTAssertTrue(
             AudioTagNumberText.writeExpectationMatches(
@@ -86,6 +89,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testSingleFileEditNumberTextWithSlashReplacesNumberAndTotal() {
         var edit = SingleFileEditModel(
             track: 9,
@@ -107,6 +111,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(edit.discNumberText, "2/3")
     }
 
+    @MainActor
     func testSingleFileEditBlankNumberTextClearsNumberAndTotal() {
         var edit = SingleFileEditModel(
             track: 9,
@@ -128,6 +133,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(edit.discNumberText, "")
     }
 
+    @MainActor
     func testSingleFileEditCombinedFieldTextReplacesBothComponents() {
         var edit = SingleFileEditModel(
             track: 9,
@@ -149,6 +155,7 @@ final class AudioTagNumberPairTests: XCTestCase {
         XCTAssertEqual(edit.discNumberText, "2/3")
     }
 
+    @MainActor
     func testSingleFileEditNumberOnlyTextPreservesTotalAndFormatting() {
         var edit = SingleFileEditModel(
             track: 9,
@@ -175,6 +182,7 @@ final class AudioTagNumberPairTests: XCTestCase {
     /// (`AudioTagNumberPair.canonicalRawText`). Both canonicalize pair text but
     /// with different rules; these exact current values must survive any future
     /// consolidation attempt (DOM-22 investigation).
+    @MainActor
     func testSnapshotNumberTextDiffersFromCanonicalPairText() {
         // Total-only layout: the snapshot helper drops the empty number text,
         // while the pair canonicalizes it to "/12".

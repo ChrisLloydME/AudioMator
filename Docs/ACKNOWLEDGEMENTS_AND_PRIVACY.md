@@ -2,7 +2,7 @@
 
 AudioMator is a local-first metadata editor. It reads and writes the audio files you choose on your Mac and uses the network only when you explicitly start an online feature.
 
-This disclosure describes the current implementation, verified by source inspection on 2026-11-18. The in-app Privacy sheet (Settings → About → Privacy…) is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
+This disclosure describes the current implementation, verified by source inspection on 2026-11-20. The in-app Privacy sheet (Settings → About → Privacy…) is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
 
 ## Third-Party Foundations
 
@@ -110,13 +110,13 @@ AudioMator expects release tags in the form `V<version>B<build>`, for example `V
 
 ## Network Activity
 
-Network requests occur only for features you explicitly invoke. All requests are HTTP GETs with no request body, authentication header, or credential; no audio file bytes are uploaded.
+Network requests occur only for features you explicitly invoke. Opening the Online Metadata window or choosing a source only seeds local query fields and shows the provider picker; MusicBrainz, iTunes, and LRCLIB each start requests only from their own explicit Search/Return action, LRCLIB Auto Apply, or the explicit Find in MusicBrainz command. All requests are HTTP GETs with no request body, authentication header, or credential; no audio file bytes or full file paths are uploaded.
 
 ### MusicBrainz
 
 - Host: `musicbrainz.org`
 - Purpose: search, metadata reference, release/recording lookup, relationship lookup, and tag-assist workflows.
-- Data sent: query terms and identifiers derived from tags, filenames, or parent directory names, such as title, artist, album, album artist, track number, duration, release identifiers, ISRC, barcode, MusicBrainz IDs, or manually entered search text.
+- Data sent: a search query or MusicBrainz ID. Query terms can be derived from tags, file names, parent or grandparent directory names, or typed input, and may include title, artist, album, album artist, track number, track total, duration, release date/year, release country, release status, media format, release MBID, recording MBID, ISRC, barcode, or user-entered search text/filters. Lookups send a recording or release MBID with a fixed request-option list. No full file path or audio bytes are sent.
 - Data received: recordings, releases, release groups, media/track listings, credits, identifiers, dates, labels, catalog numbers, countries, genres, tags, ratings, and relationship metadata.
 - The app sends a descriptive `User-Agent` and spaces requests at roughly one per 1.1 seconds.
 
@@ -127,7 +127,7 @@ Network requests occur only for features you explicitly invoke. All requests are
   - `is5-ssl.mzstatic.com` and `a5.mzstatic.com` for rewritten artwork URLs,
   - the host in Apple's returned `artworkUrl100` for thumbnail/standard artwork.
 - Purpose: Apple catalog metadata search, UPC/link/store-ID lookup, selected tag writing, and artwork candidate discovery/download.
-- Data sent: search terms derived from tags or filename/path fallback, storefront country, media/entity/limit, an iTunes album or track ID, or a UPC. Track number, disc number, duration, artist ID, and catalog ID are used locally and are not URL parameters.
+- Data sent: a search term (derived from tags, file names, or parent/grandparent folder names, or typed manually), the selected storefront country, the media/entity/limit parameters, or a lookup by an iTunes album/track ID, a UPC, or a pasted Apple Music or iTunes link. Track number, disc number, duration, iTunes artist ID, and catalog ID are used locally and are not URL parameters; no full file path or audio bytes are sent.
 - Data received: album and track metadata, dates, genres, explicit flags, copyright, Apple IDs, artwork URLs, and image files selected for preview.
 - The app does not restrict artwork downloads to a fixed host list; Apple-returned URLs can reference other Apple artwork hosts.
 
@@ -135,7 +135,7 @@ Network requests occur only for features you explicitly invoke. All requests are
 
 - Host: `lrclib.net`
 - Purpose: search and preview synced lyrics for a selected track.
-- Data sent: track name, artist name, album name, and duration derived from tags or filename fallback.
+- Data sent: the `track_name`, `artist_name`, `album_name`, and, when known, `duration` query parameters. Values come from tags when present; missing values can be derived from the file name (title) and from parent or grandparent (or higher ancestor) folder names (artist and album, including an “Artist - Album” folder split and skipping disc folders such as “CD1”). No full file path or audio bytes are sent.
 - Data received: candidate track/artist/album/duration, synced/plain lyrics availability, and lyrics text selected for preview or application.
 
 ### Release notes and updates
@@ -155,7 +155,7 @@ MusicBrainz release/recording pages and Apple-provided track/collection pages ca
 - Embedded artwork from your files as part of routine reading/writing.
 - Telemetry, analytics, or crash reports.
 - Credentials or API tokens (the app stores none).
-- Automatic background queries. Online features require an explicit search or lookup action.
+- Automatic background queries. Opening Online Metadata, choosing a source tile, returning to Sources, or reopening the window does not start a provider request; an explicit Search/Return, Auto Apply, or Find in MusicBrainz action is required.
 
 ## Update Checks
 

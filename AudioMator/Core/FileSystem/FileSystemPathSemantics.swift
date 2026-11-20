@@ -5,11 +5,60 @@ import Foundation
 /// Existing symlink aliases are resolved before comparison. Case is folded only
 /// when the containing volume reports case-insensitive filename semantics, which
 /// also makes the rule usable for destinations that do not exist yet.
+/// One path resolution that keeps the intermediate evidence so callers can
+/// reuse it instead of resolving the same path again.
+///
+/// `Quick Import` prepares one resolution for a candidate file and one for its
+/// parent directory. The comparison key and the canonical path must come from
+/// the same volume-semantics query; computing them separately would repeat the
+/// filesystem probes that made progressive indexing quadratic.
+nonisolated struct FileSystemURLResolution: Hashable, Sendable {
+    let canonicalURL: URL
+    let canonicalPath: String
+    let key: String
+    let isCaseSensitive: Bool
+}
+
 enum FileSystemPathSemantics {
     nonisolated static func key(for url: URL) -> String {
+        identityResolution(for: url).key
+    }
+
+    /// Canonical resolution plus comparison key with a single volume-semantics
+    /// query. `canonicalPath` is precomposed but not case-folded; `key` applies
+    /// the volume's filename rules.
+    nonisolated static func identityResolution(for url: URL) -> FileSystemURLResolution {
         let canonicalURL = canonicalURL(for: url)
         let isCaseSensitive = volumeSupportsCaseSensitiveNames(for: canonicalURL) ?? true
-        return comparisonKey(forCanonicalPath: canonicalURL.path, isCaseSensitive: isCaseSensitive)
+        let canonicalPath = canonicalURL.path
+        return FileSystemURLResolution(
+            canonicalURL: canonicalURL,
+            canonicalPath: canonicalPath,
+            key: comparisonKey(forCanonicalPath: canonicalPath, isCaseSensitive: isCaseSensitive),
+            isCaseSensitive: isCaseSensitive
+        )
+    }
+
+    /// Reservation identities for one lexical path: the symlink-resolved
+    /// comparison identity plus the directory-entry location identity. Writers
+    /// reserve both so a symlink object and its target cannot be mutated as if
+    /// they were independent entries.
+    nonisolated static func reservationKeys(for url: URL) -> Set<String> {
+        [key(for: url), directoryEntryKey(for: url)]
+    }
+
+    /// Identity of the directory entry formed by resolving only the parent path
+    /// and folding parent and basename using the parent volume's filename semantics.
+    nonisolated static func directoryEntryKey(for url: URL) -> String {
+        let standardizedURL = url.standardizedFileURL
+        let parentURL = standardizedURL.deletingLastPathComponent().resolvingSymlinksInPath()
+        let basename = standardizedURL.lastPathComponent
+        let isCaseSensitive = volumeSupportsCaseSensitiveNames(for: parentURL) ?? true
+        return directoryEntryKey(
+            lexicalBasename: basename,
+            parentCanonicalPath: parentURL.path,
+            parentIsCaseSensitive: isCaseSensitive
+        )
     }
 
     nonisolated static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
@@ -31,6 +80,37 @@ enum FileSystemPathSemantics {
         let normalizedPath = path.precomposedStringWithCanonicalMapping
         guard !isCaseSensitive else { return normalizedPath }
         return normalizedPath.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
+
+    /// Directory-entry location identity computed from evidence that was already
+    /// resolved. Preserves the lexical basename (even when the entry is a symlink)
+    /// and folds parent + basename according to the parent volume's case rules.
+    nonisolated static func directoryEntryKey(
+        lexicalBasename: String,
+        parentCanonicalPath: String,
+        parentIsCaseSensitive: Bool
+    ) -> String {
+        let normalizedParent = comparisonKey(
+            forCanonicalPath: parentCanonicalPath,
+            isCaseSensitive: parentIsCaseSensitive
+        )
+        let normalizedBasename = lexicalBasename.precomposedStringWithCanonicalMapping
+        let foldedBasename = parentIsCaseSensitive
+            ? normalizedBasename
+            : normalizedBasename.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        return "entry:" + normalizedParent + "/" + foldedBasename
+    }
+
+    nonisolated static func directoryEntryKey(
+        canonicalPath: String,
+        parentCanonicalPath: String,
+        parentIsCaseSensitive: Bool
+    ) -> String {
+        directoryEntryKey(
+            lexicalBasename: URL(fileURLWithPath: canonicalPath).lastPathComponent,
+            parentCanonicalPath: parentCanonicalPath,
+            parentIsCaseSensitive: parentIsCaseSensitive
+        )
     }
 
     nonisolated private static func canonicalURL(for url: URL) -> URL {

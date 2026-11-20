@@ -2,7 +2,8 @@ import Foundation
 import XCTest
 @testable import AudioMator
 
-final class SecurityScopedResourceAccessTests: XCTestCase {
+nonisolated final class SecurityScopedResourceAccessTests: XCTestCase {
+    @MainActor
     func testGrantedAccessIsStoppedAfterSuccessfulRead() {
         let url = URL(fileURLWithPath: "/tmp/security-scoped-artwork.png")
         var events: [String] = []
@@ -26,6 +27,7 @@ final class SecurityScopedResourceAccessTests: XCTestCase {
         XCTAssertEqual(events, ["start:\(url.path)", "read", "stop:\(url.path)"])
     }
 
+    @MainActor
     func testOrdinaryLocalURLDoesNotReceiveUnbalancedStop() {
         let url = URL(fileURLWithPath: "/tmp/local-artwork.png")
         var stopCount = 0

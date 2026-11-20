@@ -3,12 +3,17 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-final class LRCLIBLyricsTests: XCTestCase {
+/// AM-05: LRCLIB synced lyrics are bound to the reviewed file revision captured at
+/// seed, and every write flows through the shared strict reviewed-write route.
+nonisolated final class LRCLIBLyricsTests: XCTestCase {
     override func tearDown() {
         MockURLProtocol.requestHandler = nil
         super.tearDown()
     }
 
+    // MARK: - Unchanged client/ranker coverage
+
+    @MainActor
     func testSearchRequestUsesExpectedQueryItemsAndHeaders() throws {
         let client = LRCLIBClient()
         let request = try client.makeSearchRequest(
@@ -36,16 +41,16 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertTrue(request.value(forHTTPHeaderField: "User-Agent")?.contains("AudioMator/") == true)
     }
 
+    @MainActor
     func testFileAndCandidateInputsRejectUnrepresentableDurations() {
         let file = AudioFileTestFactory.make(
             title: "Extreme Duration",
             duration: .greatestFiniteMagnitude
         )
-        let candidate = makeCandidate(
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
             id: 1,
             track: "Extreme Duration",
             artist: "Artist",
-            album: "Album",
             duration: .greatestFiniteMagnitude
         )
 
@@ -53,6 +58,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertNil(candidate.durationSeconds)
     }
 
+    @MainActor
     func testCandidateRankingHandlesExtremeDurationDistanceWithoutOverflow() {
         let query = LRCLIBSearchQuery(
             trackName: "Title",
@@ -60,7 +66,7 @@ final class LRCLIBLyricsTests: XCTestCase {
             albumName: "Album",
             durationSeconds: .min
         )
-        let candidate = makeCandidate(
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
             id: 1,
             track: "Title",
             artist: "Artist",
@@ -71,6 +77,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertEqual(LRCLIBCandidateRanker.score(candidate: candidate, query: query), 80)
     }
 
+    @MainActor
     func testSearchDecodesSyncedPlainInstrumentalAndEmptyResults() async throws {
         let payload = """
         [
@@ -134,6 +141,7 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertEqual(results[2].lyricsAvailabilityLabel, "Instrumental")
     }
 
+    @MainActor
     func testRankingSortsExactSyncedDurationCloseCandidateFirst() {
         let query = LRCLIBSearchQuery(
             trackName: "Sweeter Than Fiction",
@@ -142,9 +150,9 @@ final class LRCLIBLyricsTests: XCTestCase {
             durationSeconds: 235
         )
         let candidates = [
-            makeCandidate(id: 1, track: "Sweeter Than Fiction", artist: "Taylor Swift", album: "Single", duration: 235, syncedLyrics: "[00:01.00]Line"),
-            makeCandidate(id: 2, track: "Sweeter Than Fiction", artist: "Taylor Swift", album: "Single", duration: 260, plainLyrics: "Line"),
-            makeCandidate(id: 3, track: "Sweeter", artist: "Other Artist", album: "Other", duration: 235, syncedLyrics: "[00:01.00]Line")
+            LRCLIBLyricsTestSupport.makeCandidate(id: 1, track: "Sweeter Than Fiction", artist: "Taylor Swift", album: "Single", duration: 235, syncedLyrics: "[00:01.00]Line"),
+            LRCLIBLyricsTestSupport.makeCandidate(id: 2, track: "Sweeter Than Fiction", artist: "Taylor Swift", album: "Single", duration: 260, plainLyrics: "Line"),
+            LRCLIBLyricsTestSupport.makeCandidate(id: 3, track: "Sweeter", artist: "Other Artist", album: "Other", duration: 235, syncedLyrics: "[00:01.00]Line")
         ]
 
         let ranked = LRCLIBCandidateRanker.rankedCandidates(candidates, for: query)
@@ -153,222 +161,800 @@ final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertGreaterThan(ranked[0].score, ranked[1].score)
     }
 
+    // MARK: - Seed binding (AM-05)
+
     @MainActor
-    func testStoreHandlesNoResultsNoSyncedLyricsCancellationAndQueueNavigation() async throws {
-        let firstFile = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/01 - First.m4a"),
-            title: "First",
-            artist: "Artist"
-        )
-        let secondFile = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/02 - Second.m4a"),
-            title: "Second",
-            artist: "Artist"
-        )
-        let client = MockLRCLIBSearchClient(results: [
-            firstFile.id: [],
-            secondFile.id: [
-                makeCandidate(id: 10, track: "Second", artist: "Artist", album: "", duration: nil, plainLyrics: "Plain only")
-            ]
-        ])
-        let store = LRCLIBLyricsBrowserStore(client: client)
+    func testSeedCapturesReviewedTargetBesideMetadataOnlyQuery() throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let file = try LRCLIBLyricsTestSupport.makeObservedFile(named: "seed.mp3", directory: directory)
+        let store = LRCLIBLyricsBrowserStore(client: LRCLIBGatedClient())
 
-        store.seed(from: [firstFile, secondFile])
-        store.searchCurrentFile()
-        try await waitForSearchToFinish(store)
-        XCTAssertEqual(store.searchState, .loaded)
-        XCTAssertTrue(store.rankedCandidates.isEmpty)
+        store.seed(from: [file])
 
-        store.moveNext()
-        store.searchCurrentFile()
-        try await waitForSearchToFinish(store)
-        XCTAssertEqual(store.queuePositionText, "2 of 2")
-        XCTAssertFalse(store.hasSyncedCandidate)
-        XCTAssertFalse(store.canApplySelectedCandidate)
-        XCTAssertEqual(store.selectedCandidate?.lyricsAvailabilityLabel, "Plain only")
-
-        store.movePrevious()
-        XCTAssertEqual(store.queuePositionText, "1 of 2")
-
-        let slowStore = LRCLIBLyricsBrowserStore(client: MockLRCLIBSearchClient(delayNanoseconds: 2_000_000_000))
-        slowStore.seed(from: [firstFile])
-        slowStore.searchCurrentFile()
-        slowStore.cancelSearch()
-        XCTAssertEqual(slowStore.searchState, .cancelled)
+        let row = try XCTUnwrap(store.rows.first)
+        XCTAssertEqual(row.input.fileName, file.url.lastPathComponent)
+        XCTAssertEqual(row.input.title, file.title)
+        let target = try XCTUnwrap(row.target)
+        XCTAssertEqual(target.id, file.id)
+        XCTAssertEqual(target.url, file.url)
+        XCTAssertEqual(target.fingerprint, file.fileFingerprint)
+        XCTAssertEqual(target.version, file.metadataFileVersion)
+        // The HTTP query DTO stays metadata-only.
+        XCTAssertEqual(store.currentFile?.query.trackName, LRCLIBFileSearchInput(file: file).title)
     }
 
     @MainActor
-    func testAutoApplyRequiresHighConfidenceMatch() async {
-        let file = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/lyrics-auto.mp3"),
-            title: "Correct Song",
-            artist: "Correct Artist",
-            duration: 180
+    func testSeedWithoutAuthorityStillSearchesAndPreviews() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let observed = try LRCLIBLyricsTestSupport.makeObservedFile(named: "recovery.mp3", directory: directory)
+        let recoveryProjection = observed.projectingRecoveryState()
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 7,
+            track: observed.title,
+            artist: observed.artist,
+            syncedLyrics: "[00:01.00]Line"
         )
-        let pipeline = RecordingRawMetadataPipeline(file: file, initialPropertyMap: [:])
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: recoveryProjection).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: recoveryProjection)
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        viewModel.files = [file]
+        viewModel.mergeQuickImportFiles([recoveryProjection])
+        let store = LRCLIBLyricsBrowserStore(client: client)
 
-        let wrongArtist = makeCandidate(
+        store.seed(from: [recoveryProjection])
+        XCTAssertNil(store.rows.first?.target)
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+        XCTAssertEqual(store.searchState, .loaded)
+        XCTAssertEqual(store.selectedCandidate?.id, candidate.id)
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+        XCTAssertEqual(pipeline.rawWriteCount, 0)
+        XCTAssertNil(store.appliedCandidateID)
+    }
+
+    @MainActor
+    func testManualIntentCarriesTargetCandidateAndLyrics() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let file = try LRCLIBLyricsTestSupport.makeObservedFile(named: "manual-intent.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 11,
+            track: file.title,
+            artist: file.artist,
+            syncedLyrics: "  [00:01.00]Line\n"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: file).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: file)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [file])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        let record = try XCTUnwrap(pipeline.rawWrites.first)
+        XCTAssertEqual(record.url, file.url)
+        XCTAssertEqual(record.version, file.metadataFileVersion)
+        XCTAssertEqual(record.patch.valuesToSet["LYRICS"], ["[00:01.00]Line"])
+        XCTAssertEqual(record.patch.removingKeys, [])
+        XCTAssertEqual(record.patch.valuesToSet.count, 1)
+        XCTAssertEqual(store.appliedCandidateID, candidate.id)
+    }
+
+    @MainActor
+    func testBulkEntryCarriesSeedTargetPerMatch() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let file = try LRCLIBLyricsTestSupport.makeObservedFile(named: "bulk-intent.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 21,
+            track: file.title,
+            artist: file.artist,
+            syncedLyrics: "[00:01.00]Bulk"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: file).title: [candidate]]
+        )
+        let writer = LRCLIBRecordingWriter()
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [file])
+
+        XCTAssertTrue(store.startAutoApply(writer: writer))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        let intent = try XCTUnwrap(writer.autoIntents.first)
+        let entry = try XCTUnwrap(intent.entries.first)
+        XCTAssertEqual(entry.fileID, file.id)
+        XCTAssertEqual(entry.fileName, file.url.lastPathComponent)
+        XCTAssertEqual(entry.candidateID, candidate.id)
+        XCTAssertEqual(entry.lyrics, "[00:01.00]Bulk")
+        XCTAssertEqual(entry.write?.target.id, file.id)
+        XCTAssertEqual(entry.write?.target.fingerprint, file.fileFingerprint)
+        XCTAssertEqual(entry.write?.target.version, file.metadataFileVersion)
+    }
+
+    // MARK: - Strict manual application (AM-05)
+
+    @MainActor
+    func testManualApplyRejectsChangedRevisionAfterSamePathReload() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "reload.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 31,
+            track: fixture.title,
+            artist: fixture.artist,
+            syncedLyrics: "[00:01.00]Old"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: fixture).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: fixture)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([fixture])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [fixture])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        // The app observes a reload of the same path under the same stable UUID.
+        try Data(repeating: 0x42, count: 128).write(to: fixture.url)
+        let reloaded = AudioFileTestFactory.makeObserved(
+            id: fixture.id,
+            url: fixture.url,
+            title: "Edited on disk",
+            fileFingerprint: try AudioFileFingerprint.capture(at: fixture.url),
+            metadataFileVersion: try XCTUnwrap(fixture.metadataFileVersion)
+        )
+        viewModel.mergeQuickImportFiles([reloaded])
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 0)
+        XCTAssertNil(store.appliedCandidateID)
+        XCTAssertEqual(viewModel.metadataWriteHUD?.style, .failure)
+    }
+
+    @MainActor
+    func testManualApplyRejectsReplacedFileWithReusedUUID() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "replace.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 41,
+            track: fixture.title,
+            artist: fixture.artist,
+            syncedLyrics: "[00:01.00]Old"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: fixture).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: fixture)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([fixture])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [fixture])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        // Replace the file at the same path; the app reuses the stable UUID.
+        try FileManager.default.removeItem(at: fixture.url)
+        try Data(repeating: 0x43, count: 96).write(to: fixture.url)
+        let replaced = AudioFileTestFactory.makeObserved(
+            id: fixture.id,
+            url: fixture.url,
+            title: "Replacement",
+            fileFingerprint: try AudioFileFingerprint.capture(at: fixture.url),
+            metadataFileVersion: try XCTUnwrap(fixture.metadataFileVersion)
+        )
+        viewModel.mergeQuickImportFiles([replaced])
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 0)
+        XCTAssertNil(store.appliedCandidateID)
+    }
+
+    @MainActor
+    func testManualApplyRejectsEqualFingerprintDifferentPackageVersion() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "version.mp3", directory: directory)
+        let otherFixture = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: otherFixture) }
+        let otherVersion = try MetadataTestTokens.mintedVersion(at: otherFixture)
+        let capturedVersion = try XCTUnwrap(fixture.metadataFileVersion)
+        XCTAssertNotEqual(otherVersion, capturedVersion, "Two real package tokens must differ for this control")
+
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 51,
+            track: fixture.title,
+            artist: fixture.artist,
+            syncedLyrics: "[00:01.00]Old"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: fixture).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: fixture)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([fixture])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [fixture])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        let sameFingerprintDifferentVersion = AudioFileTestFactory.makeObserved(
+            id: fixture.id,
+            url: fixture.url,
+            title: fixture.title,
+            fileFingerprint: try XCTUnwrap(fixture.fileFingerprint),
+            metadataFileVersion: otherVersion
+        )
+        viewModel.mergeQuickImportFiles([sameFingerprintDifferentVersion])
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 0)
+        XCTAssertNil(store.appliedCandidateID)
+    }
+
+    @MainActor
+    func testManualApplyAcceptsEqualObservationRefresh() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "equal.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 61,
+            track: fixture.title,
+            artist: fixture.artist,
+            syncedLyrics: "[00:01.00]Equal"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: fixture).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: fixture)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([fixture])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [fixture])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        // Republishing the same coherent observation is not a false conflict.
+        viewModel.mergeQuickImportFiles([fixture])
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 1)
+        XCTAssertEqual(pipeline.rawWrites.first?.version, fixture.metadataFileVersion)
+        XCTAssertEqual(store.appliedCandidateID, candidate.id)
+    }
+
+    @MainActor
+    func testManualApplyRejectsChangedFileWhileQueuedOnReservation() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "queued.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 71,
+            track: fixture.title,
+            artist: fixture.artist,
+            syncedLyrics: "[00:01.00]Queued"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: fixture).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: fixture)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([fixture])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [fixture])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        let release = LRCLIBTestGate()
+        let holder = Task {
+            try? await viewModel.fileMutationCoordinator.withExclusiveAccess(to: [fixture.url]) {
+                await release.wait()
+            }
+        }
+        store.startManualApply(writer: viewModel)
+        try await waitForQueuedMutation(in: viewModel)
+
+        // The file changes while the strict write waits for its reservation.
+        try Data(repeating: 0x44, count: 128).write(to: fixture.url)
+        let changed = AudioFileTestFactory.makeObserved(
+            id: fixture.id,
+            url: fixture.url,
+            title: "Changed while queued",
+            fileFingerprint: try AudioFileFingerprint.capture(at: fixture.url),
+            metadataFileVersion: try XCTUnwrap(fixture.metadataFileVersion)
+        )
+        viewModel.mergeQuickImportFiles([changed])
+
+        release.open()
+        await holder.value
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 0)
+        XCTAssertNil(store.appliedCandidateID)
+    }
+
+    @MainActor
+    func testManualApplyRejectsUnsupportedCapabilityAndFormatWithoutWriterCalls() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        for (name, expectedRejection) in [
+            ("unsupported.xm", LRCLIBLyricsWriteRejection.unsupportedLyricsCapability),
+            ("unsupported.txt", LRCLIBLyricsWriteRejection.unsupportedFormat)
+        ] {
+            let file = try LRCLIBLyricsTestSupport.makeObservedFile(named: name, directory: directory)
+            let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+                id: name.hashValue,
+                track: file.title,
+                artist: file.artist,
+                syncedLyrics: "[00:01.00]Line"
+            )
+            let client = LRCLIBGatedClient(
+                candidatesByTrackName: [LRCLIBFileSearchInput(file: file).title: [candidate]]
+            )
+            let pipeline = LRCLIBRecordingPipeline(reloadFile: file)
+            let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            viewModel.mergeQuickImportFiles([file])
+            let store = LRCLIBLyricsBrowserStore(client: client)
+            store.seed(from: [file])
+            store.searchCurrentFile()
+            try await waitForSearchToFinish(store)
+
+            store.startManualApply(writer: viewModel)
+            try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+            XCTAssertEqual(pipeline.rawWriteCount, 0, name)
+            XCTAssertNil(store.appliedCandidateID, name)
+
+            let direct = LRCLIBLyricsWriteIntentBuilder.reviewedLyricsWrite(
+                lyrics: "[00:01.00]Line",
+                target: store.rows.first?.target
+            )
+            guard case .failure(let rejection) = direct else {
+                return XCTFail("Expected \(expectedRejection) for \(name)")
+            }
+            XCTAssertEqual(rejection, expectedRejection, name)
+        }
+    }
+
+    @MainActor
+    func testManualApplyReportsRealWarnings() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "warnings.mp3", directory: directory)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 81,
+            track: fixture.title,
+            artist: fixture.artist,
+            syncedLyrics: "[00:01.00]Warned"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: fixture).title: [candidate]]
+        )
+        let warning = "Your changes were saved, but the file couldn’t be reloaded."
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: fixture, warnings: [warning])
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([fixture])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [fixture])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 1)
+        XCTAssertEqual(store.appliedCandidateID, candidate.id)
+        let entry = try XCTUnwrap(viewModel.saveIssueLogStore.entries.first)
+        XCTAssertEqual(entry.title, "Lyrics Saved with Warnings")
+        XCTAssertTrue(entry.issues.contains { $0.messages.contains(warning) })
+    }
+
+    @MainActor
+    func testManualApplyRejectsRefreshRequiredSeed() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let fixture = try LRCLIBLyricsTestSupport.makeObservedFile(named: "recovery-required.mp3", directory: directory)
+        let projected = fixture.projectingRecoveryState()
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 91,
+            track: projected.title,
+            artist: projected.artist,
+            syncedLyrics: "[00:01.00]Line"
+        )
+        let client = LRCLIBGatedClient(
+            candidatesByTrackName: [LRCLIBFileSearchInput(file: projected).title: [candidate]]
+        )
+        let pipeline = LRCLIBRecordingPipeline(reloadFile: nil)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([projected])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [projected])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        store.startManualApply(writer: viewModel)
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWriteCount, 0)
+        XCTAssertNil(store.appliedCandidateID)
+    }
+
+    @MainActor
+    func testManualApplyWritesLyricsAndPreservesUnrelatedTagsOnRealFixtures() async throws {
+        for fileExtension in ["flac", "m4a"] {
+            let fixtureURL = try MetadataTestTokens.makeFixtureCopy(fileExtension: fileExtension)
+            addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: fixtureURL) }
+            let base = TagLibAudioMetadataPipeline()
+            _ = try? base.writeRawMetadataPatch(
+                RawMetadataPatch(valuesToSet: [
+                    "TITLE": ["Reviewed Title"],
+                    "ARTIST": ["Reviewed Artist"],
+                    "CUSTOM-KEEP": ["untouched"]
+                ]),
+                to: fixtureURL,
+                expectedVersion: nil
+            )
+            let file = try await MetadataTestTokens.makeVerifiedAudioFile(at: fixtureURL)
+            let input = LRCLIBFileSearchInput(file: file)
+            let syncedLyrics = "[00:01.00]\(fileExtension) line"
+            let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+                id: fileExtension == "flac" ? 101 : 102,
+                track: input.title,
+                artist: input.artist,
+                syncedLyrics: syncedLyrics
+            )
+            let client = LRCLIBGatedClient(candidatesByTrackName: [input.title: [candidate]])
+            let pipeline = LRCLIBRealReadbackPipeline()
+            let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            viewModel.mergeQuickImportFiles([file])
+            let store = LRCLIBLyricsBrowserStore(client: client)
+            store.seed(from: [file])
+            store.searchCurrentFile()
+            try await waitForSearchToFinish(store)
+
+            let beforeMap = try base.rawMetadataValueMap(for: fixtureURL)
+            store.startManualApply(writer: viewModel)
+            try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+            XCTAssertEqual(pipeline.rawWriteCount, 1, fileExtension)
+            XCTAssertEqual(pipeline.rawWrites.first?.version, file.metadataFileVersion, fileExtension)
+            XCTAssertEqual(store.appliedCandidateID, candidate.id, fileExtension)
+
+            let afterMap = try base.rawMetadataValueMap(for: fixtureURL)
+            XCTAssertEqual(afterMap["LYRICS"], [syncedLyrics], fileExtension)
+            XCTAssertEqual(afterMap["TITLE"], beforeMap["TITLE"], fileExtension)
+            XCTAssertEqual(afterMap["ARTIST"], beforeMap["ARTIST"], fileExtension)
+            XCTAssertEqual(afterMap["CUSTOM-KEEP"], ["untouched"], fileExtension)
+            if fileExtension == "flac" {
+                // The package exposes an audio-content identity for FLAC; M4A does
+                // not in this pinned 0.8.1 surface, so that check is flac-only and
+                // the tag-map readback above remains the independent disk evidence.
+                let snapshot = try TagLibMetadataManager.readSnapshot(from: fixtureURL, includingAudioContent: true)
+                XCTAssertNotNil(snapshot.audioContentIdentity, fileExtension)
+            }
+        }
+    }
+
+    // MARK: - Bulk application (AM-05 mixed queue)
+
+    @MainActor
+    func testAutoApplyUsesOnlyHighConfidenceSyncedMatches() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let file = try LRCLIBLyricsTestSupport.makeObservedFile(
+            named: "confidence.mp3",
+            directory: directory,
+            title: "Correct Song",
+            artist: "Correct Artist"
+        )
+        let input = LRCLIBFileSearchInput(file: file)
+        let wrongArtist = LRCLIBLyricsTestSupport.makeCandidate(
             id: 1,
             track: "Correct Song",
             artist: "Different Artist",
-            album: "",
-            duration: 180,
             syncedLyrics: "[00:01.00]Wrong"
         )
-        let exact = makeCandidate(
+        let plainOnly = LRCLIBLyricsTestSupport.makeCandidate(
             id: 2,
             track: "Correct Song",
             artist: "Correct Artist",
-            album: "",
-            duration: 181,
+            plainLyrics: "plain"
+        )
+        let exact = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 3,
+            track: "Correct Song",
+            artist: "Correct Artist",
             syncedLyrics: "[00:01.00]Right"
         )
+        let client = LRCLIBGatedClient(candidatesByTrackName: [input.title: [wrongArtist, plainOnly, exact]])
+        let writer = LRCLIBRecordingWriter()
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [file])
 
-        let wrongStore = LRCLIBLyricsBrowserStore(
-            client: MockLRCLIBSearchClient(results: [file.id: [wrongArtist]])
-        )
-        wrongStore.seed(from: [file])
-        let wrongMatches = await wrongStore.autoSyncedLyricsMatchesForAllFiles { _, _, _ in }
-        XCTAssertTrue(wrongMatches.isEmpty)
-        XCTAssertTrue(pipeline.writtenPropertyMap?.isEmpty ?? true)
+        XCTAssertTrue(store.startAutoApply(writer: writer))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
 
-        let exactStore = LRCLIBLyricsBrowserStore(
-            client: MockLRCLIBSearchClient(results: [file.id: [wrongArtist, exact]])
-        )
-        exactStore.seed(from: [file])
-        let exactMatches = await exactStore.autoSyncedLyricsMatchesForAllFiles { _, _, _ in }
-        XCTAssertEqual(exactMatches.count, 1)
-        XCTAssertEqual(exactMatches.first?.candidateID, exact.id)
+        let intent = try XCTUnwrap(writer.autoIntents.first)
+        XCTAssertEqual(intent.entries.count, 1)
+        XCTAssertEqual(intent.entries.first?.candidateID, exact.id)
+        XCTAssertEqual(intent.entries.first?.lyrics, "[00:01.00]Right")
+        XCTAssertNotNil(intent.entries.first?.write)
     }
 
     @MainActor
-    func testApplyingSyncedLyricsWritesOnlyLyricsPropertyThroughRawMetadataPath() async throws {
-        let file = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/lyrics-target.m4a"),
-            title: "Title",
-            artist: "Artist",
-            includeDefaultFileFingerprint: false
+    func testBulkMixedSuccessStaleUnsupportedAccountsEveryEntryOnce() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        let base = TagLibAudioMetadataPipeline()
+        let fixtureURL = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: fixtureURL) }
+        let eligibleURL = directory.appendingPathComponent("eligible.flac")
+        let staleURL = directory.appendingPathComponent("stale.flac")
+        try FileManager.default.copyItem(at: fixtureURL, to: eligibleURL)
+        try FileManager.default.copyItem(at: fixtureURL, to: staleURL)
+        _ = try? base.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: [
+                "TITLE": ["Eligible Song"],
+                "ARTIST": ["Eligible Artist"]
+            ]),
+            to: eligibleURL,
+            expectedVersion: nil
         )
-        let pipeline = RecordingRawMetadataPipeline(
-            file: file,
-            initialPropertyMap: [
-                "TITLE": "Title",
-                "ARTIST": "Artist"
-            ]
+        _ = try? base.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: [
+                "TITLE": ["Stale Song"],
+                "ARTIST": ["Stale Artist"]
+            ]),
+            to: staleURL,
+            expectedVersion: nil
         )
+        let eligible = try await MetadataTestTokens.makeVerifiedAudioFile(at: eligibleURL)
+        let stale = try await MetadataTestTokens.makeVerifiedAudioFile(at: staleURL)
+
+        let unsupported = try LRCLIBLyricsTestSupport.makeObservedFile(
+            named: "unsupported.xm",
+            directory: directory,
+            title: "Unsupported Song",
+            artist: "Unsupported Artist"
+        )
+
+        let eligibleInput = LRCLIBFileSearchInput(file: eligible)
+        let staleInput = LRCLIBFileSearchInput(file: stale)
+        let unsupportedInput = LRCLIBFileSearchInput(file: unsupported)
+        let eligibleCandidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 201,
+            track: eligibleInput.title,
+            artist: eligibleInput.artist,
+            duration: eligibleInput.durationSeconds.map(Double.init),
+            syncedLyrics: "[00:01.00]Eligible"
+        )
+        let staleCandidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 202,
+            track: staleInput.title,
+            artist: staleInput.artist,
+            duration: staleInput.durationSeconds.map(Double.init),
+            syncedLyrics: "[00:01.00]Stale"
+        )
+        let unsupportedCandidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 203,
+            track: unsupportedInput.title,
+            artist: unsupportedInput.artist,
+            duration: unsupportedInput.durationSeconds.map(Double.init),
+            syncedLyrics: "[00:01.00]Unsupported"
+        )
+        let client = LRCLIBGatedClient(candidatesByTrackName: [
+            eligibleInput.title: [eligibleCandidate],
+            staleInput.title: [staleCandidate],
+            unsupportedInput.title: [unsupportedCandidate]
+        ])
+        let pipeline = LRCLIBRealReadbackPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        viewModel.files = [file]
+        viewModel.mergeQuickImportFiles([eligible, stale, unsupported])
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [eligible, stale, unsupported])
 
-        let didApply = await viewModel.applyLRCLIBSyncedLyrics("  [00:01.00]Synced line\n", to: file.id)
+        // Invalidate the second target after review without publishing a reload:
+        // the captured observation is now stale for the strict route.
+        let unsupportedBytesBefore = try Data(contentsOf: unsupported.url)
+        try Data(repeating: 0x55, count: 128).write(to: staleURL)
+        let staleBytesAfterChange = try Data(contentsOf: staleURL)
 
-        XCTAssertTrue(didApply)
-        XCTAssertEqual(pipeline.writtenPropertyMap?["TITLE"], "Title")
-        XCTAssertEqual(pipeline.writtenPropertyMap?["ARTIST"], "Artist")
-        XCTAssertEqual(pipeline.writtenPropertyMap?["LYRICS"], "[00:01.00]Synced line")
-        XCTAssertEqual(pipeline.writtenPropertyMap?.count, 3)
+        XCTAssertTrue(store.startAutoApply(writer: viewModel))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWrites.count, 1)
+        XCTAssertEqual(pipeline.rawWrites.first?.url, eligibleURL)
+        let afterMap = try base.rawMetadataValueMap(for: eligibleURL)
+        XCTAssertEqual(afterMap["LYRICS"], ["[00:01.00]Eligible"])
+        XCTAssertEqual(try Data(contentsOf: staleURL), staleBytesAfterChange)
+        // The unsupported fixture is not a parseable audio container, so its
+        // independent evidence is bytes-unchanged rather than a package read.
+        XCTAssertEqual(try Data(contentsOf: unsupported.url), unsupportedBytesBefore)
+
+        let entry = try XCTUnwrap(viewModel.saveIssueLogStore.entries.first)
+        XCTAssertTrue(entry.summary.contains("1 of 3"), entry.summary)
+        XCTAssertEqual(Set(entry.issues.map(\.fileName)), ["stale.flac", "unsupported.xm"])
+        // The store marks the committed row's original candidate once; the current
+        // row is still the first (eligible) row because the bulk job never navigates.
+        XCTAssertEqual(store.currentIndex, 0)
+        XCTAssertEqual(store.appliedCandidateID, eligibleCandidate.id)
     }
 
     @MainActor
-    func testApplyingSyncedLyricsRejectsWritableFormatWithoutLyricsCapability() async {
-        let file = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/lyrics-target.xm"),
-            includeDefaultFileFingerprint: false
-        )
-        let pipeline = RecordingRawMetadataPipeline(file: file, initialPropertyMap: [:])
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        viewModel.files = [file]
-
-        let didApply = await viewModel.applyLRCLIBSyncedLyrics(
-            "[00:01.00]Synced line",
-            to: file.id
-        )
-
-        XCTAssertFalse(didApply)
-        XCTAssertNil(pipeline.writtenPropertyMap)
-    }
-
-    @MainActor
-    func testRestartedSearchIgnoresCancellationCompletionFromPreviousRequest() async throws {
-        let file = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/restarted-search.m4a"),
-            title: "Restarted Search",
+    func testCancelSearchAndRestartedSearchIgnoreSupersededCompletion() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = try LRCLIBLyricsTestSupport.makeObservedFile(
+            named: "cancel-search.mp3",
+            directory: directory,
+            title: "Cancel Me",
             artist: "Artist"
         )
-        let gate = RestartableLRCLIBSearchGate()
-        let store = LRCLIBLyricsBrowserStore(client: RestartableLRCLIBSearchClient(gate: gate))
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 401,
+            track: "Cancel Me",
+            artist: "Artist",
+            duration: nil,
+            syncedLyrics: "[00:01.00]Late result"
+        )
+        let firstSearchGate = LRCLIBTestGate(isOpen: false)
+        let client = LRCLIBGatedClient(
+            perCallGates: [firstSearchGate, LRCLIBTestGate(isOpen: true)],
+            candidatesByTrackName: ["Cancel Me": [candidate]]
+        )
+        let store = LRCLIBLyricsBrowserStore(client: client)
         store.seed(from: [file])
 
         store.searchCurrentFile()
-        await gate.waitUntilCallCount(1)
-        store.searchCurrentFile()
-        await gate.waitUntilCallCount(2)
-        await gate.waitUntilCancellationCount(1)
-        for _ in 0..<10 {
-            await Task.yield()
+        try await LRCLIBLyricsTestSupport.waitUntil(deadlineSeconds: 3) {
+            client.queryCount >= 1
         }
+        XCTAssertEqual(store.searchState, .searching)
 
-        XCTAssertEqual(
-            store.searchState,
-            .searching,
-            "A cancelled request must not overwrite the state of its replacement search."
-        )
+        // Explicit cancelSearch() cancels the active search and marks the row cancelled.
+        store.cancelSearch()
+        XCTAssertEqual(store.searchState, .cancelled)
+        firstSearchGate.open()
+        try await Task.sleep(for: .milliseconds(30))
+        XCTAssertEqual(store.searchState, .cancelled, "Superseded search completion must not overwrite cancelled state")
 
-        await gate.releaseSecondCall()
+        // Restarting search on the same row succeeds after cancellation.
+        store.searchCurrentFile()
         try await waitForSearchToFinish(store)
         XCTAssertEqual(store.searchState, .loaded)
+        XCTAssertEqual(store.rankedCandidates.first?.candidate.id, candidate.id)
     }
 
+    @MainActor
+    func testExplicitReseedAfterRevisionChangeSucceedsAndPreservesInspectorDraftSession() async throws {
+        let flacURL = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        defer { MetadataTestTokens.removeFixtureCopy(at: flacURL) }
+        let base = TagLibAudioMetadataPipeline()
+        _ = try base.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["TITLE": ["Reseed Track"], "ARTIST": ["Reseed Artist"]]),
+            to: flacURL,
+            expectedVersion: nil
+        )
+        let original = try await MetadataTestTokens.makeVerifiedAudioFile(at: flacURL)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 501,
+            track: "Reseed Track",
+            artist: "Reseed Artist",
+            duration: original.duration > 0 ? original.duration : nil,
+            syncedLyrics: "[00:02.00]Fresh lyrics"
+        )
+        let client = LRCLIBGatedClient(candidatesByTrackName: ["Reseed Track": [candidate]])
+        let pipeline = LRCLIBRealReadbackPipeline()
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.setSelectedAudioIDs([original.id])
+        let draftSessionBefore = viewModel.inspectorDraftIdentity?.sessionID
+
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [original])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        // Modify the file on disk and publish the reloaded revision.
+        _ = try base.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["ALBUM": ["Updated Album"]]),
+            to: flacURL,
+            expectedVersion: nil
+        )
+        let updated = try await MetadataTestTokens.makeVerifiedAudioFile(at: flacURL, id: original.id)
+        _ = viewModel.replaceLoadedFile(
+            updated,
+            refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+            deferVisibleRefresh: false
+        )
+
+        // Old intent from pre-edit seed must fail closed; explicit reseed succeeds.
+        XCTAssertTrue(store.startManualApply(writer: viewModel))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+        XCTAssertEqual(pipeline.rawWrites.count, 0, "Stale seed must not write after revision changed")
+
+        store.seed(from: [updated])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+        XCTAssertTrue(store.startManualApply(writer: viewModel))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWrites.count, 1)
+        let persisted = try base.rawMetadataValueMap(for: flacURL)
+        XCTAssertEqual(persisted["LYRICS"], ["[00:02.00]Fresh lyrics"])
+        XCTAssertEqual(persisted["ALBUM"], ["Updated Album"])
+        XCTAssertEqual(
+            viewModel.inspectorDraftIdentity?.sessionID,
+            draftSessionBefore,
+            "Clean post-commit refresh must preserve the Inspector draft session instead of rotating it via updateEditForSelection()"
+        )
+    }
+
+    // MARK: - Helpers
+
+    @MainActor
     private func makeMockSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
         return URLSession(configuration: configuration)
     }
 
+    @MainActor
     private func waitForSearchToFinish(
         _ store: LRCLIBLyricsBrowserStore,
         file: StaticString = #filePath,
         line: UInt = #line
     ) async throws {
-        let deadline = Date().addingTimeInterval(2)
-        while store.searchState == .searching && Date() < deadline {
-            try await Task.sleep(nanoseconds: 20_000_000)
+        try await LRCLIBLyricsTestSupport.waitUntil(deadlineSeconds: 3) {
+            store.searchState != .searching
         }
         XCTAssertNotEqual(store.searchState, .searching, "Timed out waiting for LRCLIB search", file: file, line: line)
     }
+
+    @MainActor
+    private func waitForQueuedMutation(
+        in viewModel: AudioViewModel,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            let count = await viewModel.fileMutationCoordinator.queuedMutationCount
+            if count > 0 {
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Expected the strict write to queue behind the reservation", file: file, line: line)
+    }
 }
 
-private func makeCandidate(
-    id: Int,
-    track: String,
-    artist: String,
-    album: String,
-    duration: Double?,
-    plainLyrics: String? = nil,
-    syncedLyrics: String? = nil,
-    instrumental: Bool = false
-) -> LRCLIBLyricsCandidate {
-    LRCLIBLyricsCandidate(
-        id: id,
-        name: track,
-        trackName: track,
-        artistName: artist,
-        albumName: album,
-        duration: duration,
-        instrumental: instrumental,
-        plainLyrics: plainLyrics,
-        syncedLyrics: syncedLyrics
-    )
-}
+// MARK: - URL protocol fake
 
-private final class MockURLProtocol: URLProtocol {
+private nonisolated final class MockURLProtocol: URLProtocol {
     nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
     override class func canInit(with request: URLRequest) -> Bool {
@@ -396,169 +982,4 @@ private final class MockURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
-}
-
-private final class MockLRCLIBSearchClient: LRCLIBLyricsSearching, @unchecked Sendable {
-    private let results: [AudioFile.ID: [LRCLIBLyricsCandidate]]
-    private let delayNanoseconds: UInt64
-
-    init(
-        results: [AudioFile.ID: [LRCLIBLyricsCandidate]] = [:],
-        delayNanoseconds: UInt64 = 0
-    ) {
-        self.results = results
-        self.delayNanoseconds = delayNanoseconds
-    }
-
-    func search(matching query: LRCLIBSearchQuery, limit: Int) async throws -> [LRCLIBLyricsCandidate] {
-        if delayNanoseconds > 0 {
-            try await Task.sleep(nanoseconds: delayNanoseconds)
-        }
-
-        let queryTrackName = await MainActor.run { query.trackName }
-        for (_, candidates) in results {
-            for candidate in candidates {
-                let candidateTrackName = await MainActor.run { candidate.trackName }
-                if candidateTrackName == queryTrackName {
-                    return candidates
-                }
-            }
-        }
-
-        return []
-    }
-}
-
-private actor RestartableLRCLIBSearchGate {
-    private var callCount = 0
-    private var cancellationCount = 0
-    private var callCountWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
-    private var cancellationWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
-    private var secondCallContinuation: CheckedContinuation<Void, Never>?
-    private var isSecondCallReleased = false
-
-    func beginCall() -> Int {
-        callCount += 1
-        let readyWaiters = callCountWaiters.filter { callCount >= $0.count }
-        callCountWaiters.removeAll { callCount >= $0.count }
-        readyWaiters.forEach { $0.continuation.resume() }
-        return callCount
-    }
-
-    func waitUntilCallCount(_ expectedCount: Int) async {
-        guard callCount < expectedCount else { return }
-        await withCheckedContinuation { continuation in
-            callCountWaiters.append((expectedCount, continuation))
-        }
-    }
-
-    func recordCancellation() {
-        cancellationCount += 1
-        let readyWaiters = cancellationWaiters.filter { cancellationCount >= $0.count }
-        cancellationWaiters.removeAll { cancellationCount >= $0.count }
-        readyWaiters.forEach { $0.continuation.resume() }
-    }
-
-    func waitUntilCancellationCount(_ expectedCount: Int) async {
-        guard cancellationCount < expectedCount else { return }
-        await withCheckedContinuation { continuation in
-            cancellationWaiters.append((expectedCount, continuation))
-        }
-    }
-
-    func waitForSecondCallRelease() async {
-        guard !isSecondCallReleased else { return }
-        await withCheckedContinuation { secondCallContinuation = $0 }
-    }
-
-    func releaseSecondCall() {
-        isSecondCallReleased = true
-        secondCallContinuation?.resume()
-        secondCallContinuation = nil
-    }
-}
-
-private final class RestartableLRCLIBSearchClient: LRCLIBLyricsSearching, @unchecked Sendable {
-    private let gate: RestartableLRCLIBSearchGate
-
-    init(gate: RestartableLRCLIBSearchGate) {
-        self.gate = gate
-    }
-
-    func search(matching query: LRCLIBSearchQuery, limit: Int) async throws -> [LRCLIBLyricsCandidate] {
-        let callIndex = await gate.beginCall()
-        if callIndex == 1 {
-            do {
-                try await Task.sleep(for: .seconds(60))
-                return []
-            } catch {
-                await gate.recordCancellation()
-                throw error
-            }
-        }
-
-        await gate.waitForSecondCallRelease()
-        return []
-    }
-}
-
-private final class RecordingRawMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
-    private let file: AudioFile
-    private let initialPropertyMap: [String: String]
-    private let lock = NSLock()
-    private var _writtenPropertyMap: [String: String]?
-
-    init(file: AudioFile, initialPropertyMap: [String: String]) {
-        self.file = file
-        self.initialPropertyMap = initialPropertyMap
-    }
-
-    var writtenPropertyMap: [String: String]? {
-        lock.withLock { _writtenPropertyMap }
-    }
-
-    nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        file
-    }
-
-    nonisolated func rawMetadataDumpText(for url: URL) -> String? {
-        nil
-    }
-
-    nonisolated func rawMetadataValueMap(for url: URL) throws -> RawMetadataValueMap {
-        initialPropertyMap.mapValues { [$0] }
-    }
-
-    nonisolated func writeMetadata(
-        _ edit: MetadataEditPayload,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
-
-    nonisolated func writeRawMetadataPatch(
-        _ patch: RawMetadataPatch,
-        to url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        lock.withLock {
-            var updatedMap = initialPropertyMap.mapValues { [$0] }
-            for key in patch.removingKeys {
-                updatedMap.removeValue(forKey: key)
-            }
-            for (key, values) in patch.valuesToSet {
-                updatedMap[key] = values
-            }
-            _writtenPropertyMap = updatedMap.mapValues { $0.joined(separator: "; ") }
-        }
-        return AudioMetadataWriteResult(warnings: [])
-    }
-
-    nonisolated func eraseAllMetadata(
-        at url: URL,
-        expectedVersion: MetadataFileVersion?
-    ) throws -> AudioMetadataWriteResult {
-        AudioMetadataWriteResult(warnings: [])
-    }
 }

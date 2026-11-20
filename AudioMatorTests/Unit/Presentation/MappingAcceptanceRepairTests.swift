@@ -2,8 +2,7 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-@MainActor
-final class MappingAcceptanceRepairTests: XCTestCase {
+nonisolated final class MappingAcceptanceRepairTests: XCTestCase {
     func testPurchaseDateAndRateHaveRealVisibleRoutes() {
         XCTAssertTrue(ContainerMetadataFieldCatalog.editableKeys.contains(.itunesPurchaseDate))
         XCTAssertTrue(ContainerMetadataFieldCatalog.readKeys.contains(.itunesPurchaseDate))
@@ -11,6 +10,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         XCTAssertFalse(ContainerMetadataFieldCatalog.editableKeys.contains(.rate))
     }
 
+    @MainActor
     func testUnknownAdvisoryImportIsNotConvertedToUnset() throws {
         XCTAssertNil(MetadataExchangeField.contentAdvisory.importedValueValidationMessage("4"))
         var edit = SingleFileEditModel()
@@ -22,6 +22,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         XCTAssertThrowsError(try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload))
     }
 
+    @MainActor
     func testUnknownAdvisoryRoundTripsOnOriginalFileAndRejectsUnsupportedAssignment() async throws {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile", withExtension: "m4a", subdirectory: "Fixtures/Audio")
@@ -54,6 +55,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         XCTAssertEqual(after.containerValues[.itunesPurchaseDate], .text("2017-06-09T10:00:00Z"))
     }
 
+    @MainActor
     func testStorageResolutionControlsAreAbsentFromInspector() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -63,6 +65,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         XCTAssertFalse(source.contains("Restore or Clean Up Numbers"))
     }
 
+    @MainActor
     func testExportedRemovalTokenIsLiteralOnReimport() throws {
         let original = AudioFileTestFactory.make(title: "<remove>")
         let target = AudioFileTestFactory.make(title: "Keep me")
@@ -75,19 +78,20 @@ final class MappingAcceptanceRepairTests: XCTestCase {
             targetFiles: [target], clearBlankImportedValues: false
         )
         let entry = try XCTUnwrap(imported.writeEntries.first)
-        XCTAssertEqual(entry.values[.title], "<remove>")
+        XCTAssertEqual(entry.previewValues[.title], "<remove>")
         var edit = SingleFileEditModel(from: target)
-        MetadataExchangeField.title.applyImportedValue(entry.values[.title]!, to: &edit, preservingNumberPairComponents: true)
+        MetadataExchangeField.title.applyImportedValue(entry.previewValues[.title]!, to: &edit, preservingNumberPairComponents: true)
         XCTAssertEqual(edit.title, "<remove>")
     }
 
+    @MainActor
     func testLegacyRemovalTextStaysLiteralAndVersionedTextEscapesRoundTrip() throws {
         let target = AudioFileTestFactory.make(title: "Keep me")
         let legacy = MetadataExchangePlanner.makeCSVImportPlan(
             template: "{{title}}", sourceText: "Title\n<remove>", firstRowIsHeader: true,
             targetFiles: [target], clearBlankImportedValues: false
         )
-        XCTAssertEqual(try XCTUnwrap(legacy.writeEntries.first).values[.title], "<remove>")
+        XCTAssertEqual(try XCTUnwrap(legacy.writeEntries.first).previewValues[.title], "<remove>")
         for literal in ["<remove>", "\\<remove>", "\\\\<remove>"] {
             let original = AudioFileTestFactory.make(title: literal)
             let exported = MetadataExchangePlanner.makeTextExportPlan(template: "{{title}}", targetFiles: [original])
@@ -95,7 +99,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
                 template: "{{title}}", sourceText: exported.outputText,
                 targetFiles: [target], clearBlankImportedValues: false
             )
-            XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).values[.title], literal)
+            XCTAssertEqual(try XCTUnwrap(imported.writeEntries.first).previewValues[.title], literal)
         }
     }
 
@@ -109,6 +113,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         ), ["2008-03-04"])
     }
 
+    @MainActor
     func testPrivatePairsCanBeSeededAndCleanedThroughCapturedAppPlan() throws {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile.m4a", withExtension: nil, subdirectory: "Fixtures/Audio")
@@ -127,7 +132,6 @@ final class MappingAcceptanceRepairTests: XCTestCase {
                 .init(key: disc, type: "stringList", values: ["01/02"]),
                 .init(key: foreign, type: "stringList", values: ["99/99"])
             ]), to: url)
-            let pipeline = TagLibAudioMetadataPipeline()
             let preview = try TagLibMetadataManager.planNumberNormalization(at: url, policy: .useLegacy, groups: [.track])
             XCTAssertEqual(preview.trackNumber, 3)
             XCTAssertEqual(preview.trackTotal, 12)
@@ -141,6 +145,7 @@ final class MappingAcceptanceRepairTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testNumberingMaintenanceIsNotPublishedApplicationState() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

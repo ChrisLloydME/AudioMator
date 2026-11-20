@@ -24,7 +24,7 @@ The original ADR did not record rejected alternatives. The decision text above e
 
 ## Consequences
 
-Domain no longer imports AVFoundation, CoreMedia, or AppKit for `AudioFile` or the pipeline contract. It does import `TagLibAudioMetadata` for the shared semantic types named above; this is a controlled package-contract dependency, not an isolated app-owned domain module. Concrete TagLib I/O remains in Infrastructure and adapter construction remains at the app composition root. Real format behavior still requires app-hosted TagLib tests; SwiftPM remains a selected-source fast sensor rather than pretending to compile the production app module.
+Domain no longer imports AVFoundation, CoreMedia, or AppKit for `AudioFile` or the pipeline contract. It does import `TagLibAudioMetadata` for the shared semantic types named above; this is a controlled package-contract dependency, not an isolated app-owned domain module. Concrete TagLib I/O remains in Infrastructure and adapter construction remains at the app composition root. Write authorization and commit admission are defined separately in [ADR 0006](0006-reviewed-operation-boundary.md): the adapter contract exposes the nonoptional package revision that reviewed writes capture. Real format behavior still requires app-hosted TagLib tests; SwiftPM remains a selected-source fast sensor rather than pretending to compile the production app module.
 
 ## Verification
 

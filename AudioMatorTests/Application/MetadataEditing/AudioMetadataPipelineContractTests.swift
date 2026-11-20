@@ -3,7 +3,8 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-final class AudioMetadataPipelineContractTests: XCTestCase {
+nonisolated final class AudioMetadataPipelineContractTests: XCTestCase {
+    @MainActor
     func testTagLibAdapterTreatsPostCommitDurabilityUncertaintyAsCommitted() throws {
         let result = try TagLibAudioMetadataPipeline.interpretingWrite {
             throw TagLibManagerError.committedButDurabilityUncertain("Injected directory sync failure")
@@ -16,6 +17,7 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertTrue(result.warnings.isEmpty)
     }
 
+    @MainActor
     func testTagLibAdapterPreservesReturnedCommitStatusAndWarnings() throws {
         let uncertain = try TagLibAudioMetadataPipeline.interpretingWrite {
             TagLibMetadataManager.MetadataWriteResult(warnings: ["Keep this warning"],
@@ -30,6 +32,7 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         XCTAssertEqual(durable.warnings, ["Container normalized padding"])
     }
 
+    @MainActor
     func testArtworkIntentMapsToTheDependencyPatch() throws {
         var edit = SingleFileEditModel()
         let artworkData = Data([0x89, 0x50, 0x4E, 0x47])
@@ -86,6 +89,7 @@ final class AudioMetadataPipelineContractTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testWholeValueMapConvenienceBuildsExactDeltaAndForwardsVersion() throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)

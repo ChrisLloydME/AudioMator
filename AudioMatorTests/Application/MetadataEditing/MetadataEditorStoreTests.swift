@@ -3,10 +3,12 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class MetadataEditorStoreTests: XCTestCase {
+nonisolated final class MetadataEditorStoreTests: XCTestCase {
+    @MainActor
     func testFriendlyNamesNeverRedirectExistingRawDateOrAliasKeys() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/aliases.m4a"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/aliases.m4a"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
             file.url: ["DATE": "2004", "YEAR": "Keep", "ALBUM ARTIST": "Original"]
         ]))
@@ -22,16 +24,21 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["STANDALONEDATE"], ["2017-06-09"])
     }
 
+    @MainActor
     func testPresentLoadsDraftMapsAndSelectsFirstField() async throws {
         let firstID = UUID()
         let secondID = UUID()
         let firstFile = AudioFileTestFactory.make(
             id: firstID,
             url: URL(fileURLWithPath: "/tmp/01 - First.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let secondFile = AudioFileTestFactory.make(
             id: secondID,
             url: URL(fileURLWithPath: "/tmp/02 - Second.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let pipeline = MockMetadataEditorPipeline(propertyMapsByURL: [
             firstFile.url: ["TITLE": "First", "ALBUM": "Shared Album"],
@@ -51,9 +58,14 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(store.selectionSummaryText, "2 selected files")
     }
 
+    @MainActor
     func testUpsertFieldPreservesExactValuesAndAppliesToEveryTarget() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["TITLE": "First"],
@@ -63,16 +75,23 @@ final class MetadataEditorStoreTests: XCTestCase {
 
         store.present(targetFiles: [firstFile, secondFile])
         try await waitUntilLoaded(store)
-        store.upsertField(key: " CUSTOMFIELD ", value: "  Shared Value\n")
+        store.upsertField(key: " CUSTOMFIELD ", values: ["  Shared Value", ""])
 
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["CUSTOMFIELD"], ["  Shared Value", ""])
         XCTAssertEqual(store.draftPropertyMaps[secondFile.id]?["CUSTOMFIELD"], ["  Shared Value", ""])
         XCTAssertEqual(store.selectedFieldKey, "CUSTOMFIELD")
         XCTAssertTrue(store.hasUnsavedChanges)
+
+        // A line break inside one element is data, not an element boundary.
+        store.upsertField(key: "MULTILINE", values: ["line one\nline two"])
+        XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["MULTILINE"], ["line one\nline two"])
     }
 
+    @MainActor
     func testUpsertFieldIgnoresEmptyKeysButPreservesWhitespaceAndEmptyValueBoundaries() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let initialMap = ["TITLE": "Original"]
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [file.url: initialMap])
@@ -81,16 +100,21 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.present(targetFiles: [file])
         try await waitUntilLoaded(store)
         store.upsertField(key: "   ", value: "Ignored")
-        store.upsertField(key: "CUSTOMFIELD", value: " \n ")
+        store.upsertField(key: "CUSTOMFIELD", values: [" ", " "])
 
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["Original"])
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["CUSTOMFIELD"], [" ", " "])
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testDeleteSelectedFieldRemovesFieldFromEveryTargetAndRealignsSelection() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["ALBUM": "Album", "TITLE": "First"],
@@ -110,8 +134,11 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testDeleteSelectedFieldRemovesMultipleSelectedFields() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 file.url: ["ALBUM": "Album", "ARTIST": "Artist", "TITLE": "Title"]
@@ -129,9 +156,14 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testTextUtilityPreviewAndApplySupportMultipleFilesAndFields() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["TITLE": " first ", "ARTIST": " artist "],
@@ -146,11 +178,18 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.present(targetFiles: [firstFile, secondFile])
         try await waitUntilLoaded(store)
 
-        let preview = store.previewTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
-        XCTAssertEqual(preview.count, 4)
-        XCTAssertTrue(preview.contains { $0.fieldKey == "TITLE" && $0.currentValue == " first " && $0.previewValue == "First" })
+        let preview = try XCTUnwrap(
+            store.makeTextUtilityPreview(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
+        )
+        XCTAssertEqual(preview.rows.count, 4)
+        let firstTitle = try XCTUnwrap(
+            preview.rows.first { $0.targetID == firstFile.id && $0.fieldKey == "TITLE" }
+        )
+        XCTAssertEqual(firstTitle.beforeValues, [" first "])
+        XCTAssertEqual(firstTitle.afterValues, ["First"])
+        XCTAssertTrue(firstTitle.changed)
 
-        store.applyTextUtility(pipeline: pipeline, fieldKeys: ["TITLE", "ARTIST"])
+        XCTAssertEqual(store.applyTextUtilityPreview(preview), .applied(changeCount: 4))
 
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["TITLE"], ["First"])
         XCTAssertEqual(store.draftPropertyMaps[firstFile.id]?["ARTIST"], ["Artist"])
@@ -159,8 +198,11 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testTextUtilityApplyPreservesInsertedLeadingAndTrailingSpaces() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 file.url: ["TITLE": "Title", "ARTIST": "Artist"]
@@ -170,21 +212,27 @@ final class MetadataEditorStoreTests: XCTestCase {
         store.present(targetFiles: [file])
         try await waitUntilLoaded(store)
 
-        store.applyTextUtility(
+        let prefixPreview = try XCTUnwrap(store.makeTextUtilityPreview(
             pipeline: TextEditPipeline(steps: [.insertText("  ", position: .prefix)]),
             fieldKeys: ["TITLE"]
-        )
-        store.applyTextUtility(
+        ))
+        XCTAssertEqual(store.applyTextUtilityPreview(prefixPreview), .applied(changeCount: 1))
+
+        let suffixPreview = try XCTUnwrap(store.makeTextUtilityPreview(
             pipeline: TextEditPipeline(steps: [.insertText("  ", position: .suffix)]),
             fieldKeys: ["ARTIST"]
-        )
+        ))
+        XCTAssertEqual(store.applyTextUtilityPreview(suffixPreview), .applied(changeCount: 1))
 
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["TITLE"], ["  Title"])
         XCTAssertEqual(store.draftPropertyMaps[file.id]?["ARTIST"], ["Artist  "])
     }
 
+    @MainActor
     func testDiscardChangesRestoresOriginalMaps() async throws {
-        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
+        let file = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let originalMap = ["TITLE": "Original"]
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [file.url: originalMap])
@@ -202,9 +250,14 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testRecordingPartialApplyLeavesOnlyFailedTargetsPending() async throws {
-        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"))
-        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"))
+        let firstFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/01.mp3"),
+            includeDefaultFileFingerprint: false
+        )
+        let secondFile = AudioFileTestFactory.make(id: UUID(), url: URL(fileURLWithPath: "/tmp/02.mp3"),
+            includeDefaultFileFingerprint: false
+        )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(propertyMapsByURL: [
                 firstFile.url: ["TITLE": "First"],
@@ -232,23 +285,56 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertFalse(store.hasUnsavedChanges)
     }
 
+    @MainActor
     func testPartialApplyRetriesOnlyFailedTargetThroughProductionWritePath() async throws {
+        let firstURL = try MetadataTestTokens.makeFixtureCopy()
+        let secondURL = try MetadataTestTokens.makeFixtureCopy()
+        addTeardownBlock {
+            MetadataTestTokens.removeFixtureCopy(at: firstURL)
+            MetadataTestTokens.removeFixtureCopy(at: secondURL)
+        }
+        let firstTokens = try MetadataTestTokens.mintedTokens(at: firstURL)
+        let secondTokens = try MetadataTestTokens.mintedTokens(at: secondURL)
+        let firstID = UUID()
+        let secondID = UUID()
+        // Reviewed observations authorize the production raw apply route.
+        let firstObserved = AudioFileTestFactory.make(
+            id: firstID,
+            url: firstURL,
+            title: "First",
+            fileFingerprint: firstTokens.fingerprint,
+            metadataFileVersion: firstTokens.version
+        )
+        let secondObserved = AudioFileTestFactory.make(
+            id: secondID,
+            url: secondURL,
+            title: "Second",
+            fileFingerprint: secondTokens.fingerprint,
+            metadataFileVersion: secondTokens.version
+        )
+        // Display compatibility projections feed the store's raw-map load seam.
         let firstFile = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/01-retry.mp3"),
+            id: firstID,
+            url: firstURL,
+            title: "First",
             includeDefaultFileFingerprint: false
         )
         let secondFile = AudioFileTestFactory.make(
-            id: UUID(),
-            url: URL(fileURLWithPath: "/tmp/02-retry.mp3"),
+            id: secondID,
+            url: secondURL,
+            title: "Second",
             includeDefaultFileFingerprint: false
         )
         let pipeline = RetryableMetadataEditorPipeline(
             propertyMapsByURL: [
-                firstFile.url: ["TITLE": "First"],
-                secondFile.url: ["TITLE": "Second"]
+                firstFile.url: firstObserved.metadataConflictBaseline?.values.compactMapValues(\.first) ?? [:],
+                secondFile.url: secondObserved.metadataConflictBaseline?.values.compactMapValues(\.first) ?? [:]
             ],
-            initiallyFailingURL: secondFile.url
+            initiallyFailingURL: secondFile.url,
+            fileVersionsByURL: [
+                firstURL: firstTokens.version,
+                secondURL: secondTokens.version
+            ]
         )
         let store = MetadataEditorStore(metadataPipeline: pipeline)
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
@@ -258,9 +344,10 @@ final class MetadataEditorStoreTests: XCTestCase {
         try await waitUntilLoaded(store)
         store.upsertField(key: "ALBUM", value: "Shared Draft")
 
+        let observedTargets = [MetadataEditorTarget(file: firstObserved), MetadataEditorTarget(file: secondObserved)]
         let firstResult = await viewModel.applyRawMetadataPropertyMaps(
             store.draftPropertyMaps,
-            to: store.pendingTargets
+            to: observedTargets
         )
         store.recordAppliedTargets(firstResult.succeededTargetIDs)
 
@@ -274,9 +361,12 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertEqual(pipeline.writeAttemptCount(for: secondFile.url), 1)
 
         pipeline.allowWrites(to: secondFile.url)
+        let retryTargets = observedTargets.filter { target in
+            store.pendingTargets.contains { $0.id == target.id }
+        }
         let retryResult = await viewModel.applyRawMetadataPropertyMaps(
             store.draftPropertyMaps,
-            to: store.pendingTargets
+            to: retryTargets
         )
         store.recordAppliedTargets(retryResult.succeededTargetIDs)
 
@@ -292,14 +382,19 @@ final class MetadataEditorStoreTests: XCTestCase {
         XCTAssertTrue(retryPatch.removingKeys.isEmpty)
     }
 
+    @MainActor
     func testPresentFailsClosedWhenAnySelectedFileCannotBeRead() async throws {
         let readableFile = AudioFileTestFactory.make(
             id: UUID(),
             url: URL(fileURLWithPath: "/tmp/readable.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let unreadableFile = AudioFileTestFactory.make(
             id: UUID(),
             url: URL(fileURLWithPath: "/tmp/unreadable.mp3")
+        ,
+            includeDefaultFileFingerprint: false
         )
         let store = MetadataEditorStore(
             metadataPipeline: MockMetadataEditorPipeline(
@@ -323,6 +418,7 @@ final class MetadataEditorStoreTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func waitUntilLoaded(
         _ store: MetadataEditorStore,
         file: StaticString = #filePath,
@@ -362,7 +458,9 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
-        await AudioFileTestFactory.make(id: id, url: url)
+        await AudioFileTestFactory.make(id: id, url: url,
+            includeDefaultFileFingerprint: false
+        )
     }
 
     nonisolated func rawMetadataDumpText(for url: URL) -> String? {
@@ -401,7 +499,7 @@ private final class MockMetadataEditorPipeline: AudioMetadataPipeline, @unchecke
     }
 }
 
-private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private enum WriteError: LocalizedError {
         case injectedFailure
 
@@ -414,9 +512,23 @@ private final class RetryableMetadataEditorPipeline: AudioMetadataPipeline, @unc
     private var writeAttemptsByURL: [URL: Int] = [:]
     private var recordedPatchesByURL: [URL: [RawMetadataPatch]] = [:]
 
-    init(propertyMapsByURL: [URL: [String: String]], initiallyFailingURL: URL) {
+    private let fileVersionsByURL: [URL: MetadataFileVersion]
+
+    init(
+        propertyMapsByURL: [URL: [String: String]],
+        initiallyFailingURL: URL,
+        fileVersionsByURL: [URL: MetadataFileVersion] = [:]
+    ) {
         self.propertyMapsByURL = propertyMapsByURL
         self.failingURLs = [initiallyFailingURL]
+        self.fileVersionsByURL = fileVersionsByURL
+    }
+
+    nonisolated func metadataFileVersion(at url: URL) throws -> MetadataFileVersion {
+        guard let version = lock.withLock({ fileVersionsByURL[url] }) else {
+            throw CocoaError(.featureUnsupported)
+        }
+        return version
     }
 
     func allowWrites(to url: URL) {

@@ -24,29 +24,39 @@ extension AudioViewModel {
         guard !isReloadingSelectedFiles, metadataSaveProgress == nil else { return }
         let targets = selectedFiles
         guard !targets.isEmpty else { return }
-        isReloadingSelectedFiles = true
+        let progressToken: UUID?
         if forceReload {
-            beginMetadataSaveProgress(
+            guard let claimed = tryBeginMetadataSaveProgress(
                 title: String(localized: "Reloading Files"),
                 subtitle: String(localized: "Reading from disk…"),
                 totalUnitCount: targets.count
-            )
+            ) else { return }
+            progressToken = claimed
+        } else {
+            progressToken = nil
         }
+        isReloadingSelectedFiles = true
         defer {
             isReloadingSelectedFiles = false
-            if forceReload { endMetadataSaveProgress() }
+            if let progressToken { endMetadataSaveProgress(token: progressToken) }
         }
 
         let pipeline = metadataPipeline
         var failures: [String] = []
         var failureIdentities: [SelectedFileReloadFailure] = []
+        var replacementReviews: [PendingReplacementFileReview] = []
         for (index, target) in targets.enumerated() {
             guard !Task.isCancelled else { break }
-            if forceReload {
-                updateMetadataSaveProgress(subtitle: target.url.lastPathComponent, completedUnitCount: index)
+            if let progressToken {
+                updateMetadataSaveProgress(
+                    token: progressToken,
+                    subtitle: target.url.lastPathComponent,
+                    completedUnitCount: index
+                )
             }
             do {
-                try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) {
+                let initialGeneration = fileModelRefreshGeneration(for: target.id)
+                let pendingReview = try await fileMutationCoordinator.withExclusiveAccess(to: [target.url]) { () async throws -> PendingReplacementFileReview? in
                     let refreshed = try await withAsyncTimeout(
                         .seconds(60), operationName: String(localized: "Reloading the file"), priority: .utility
                     ) {
@@ -59,18 +69,25 @@ extension AudioViewModel {
                         }
                         return try await pipeline.loadAudioFile(at: target.url, id: target.id)
                     }
-                    guard let refreshed else { return }
+                    guard let refreshed else { return nil }
                     // Apply while still reserved, and reject a late read if the
                     // source was removed, moved or independently refreshed.
-                    await MainActor.run {
-                        guard let current = self.files.first(where: { $0.id == target.id }),
+                    return await MainActor.run {
+                        guard let current = self.committedFile(withID: target.id),
                               current.url == target.url,
-                              current.snapshotID == target.snapshotID else { return }
-                        self.replaceLoadedFile(
+                              self.fileModelRefreshGeneration(for: target.id) == initialGeneration else {
+                            return nil
+                        }
+                        let accepted = self.replaceLoadedFile(
                             refreshed, refreshGeneration: self.makeFileModelRefreshGeneration(),
-                            explicitlyRecover: forceReload
+                            clearing: forceReload ? .explicitAuthorizedReload : nil
                         )
+                        guard forceReload, accepted else { return nil }
+                        return self.makePendingReplacementFileReviewIfNeeded(for: refreshed)
                     }
+                }
+                if let pendingReview {
+                    replacementReviews.append(pendingReview)
                 }
             } catch is CancellationError {
                 break
@@ -78,6 +95,10 @@ extension AudioViewModel {
                 failureIdentities.append(.init(fileID: target.id, url: target.url, reason: error.localizedDescription))
                 failures.append(String(localized: "“\(target.url.lastPathComponent)” couldn’t be reloaded.\nDetails: \((error as NSError).localizedDescription)"))
             }
+        }
+
+        if forceReload, !Task.isCancelled {
+            setPendingReplacementFileReviews(replacementReviews.filter { isReplacementFileReviewCurrent($0) })
         }
 
         guard !Task.isCancelled, Set(targets.map(\.id)) == selectedAudioIDs else { return }
@@ -90,6 +111,96 @@ extension AudioViewModel {
                     : String(localized: "Automatic Refresh Couldn’t Be Completed"),
                 subtitle: failures.joined(separator: "\n"),
                 summary: String(localized: "Files that couldn’t be reloaded: \(failures.count)."),
+                details: failures.joined(separator: "\n\n")
+            )
+        }
+    }
+
+    /// Completes explicit user acceptance of replacement files surfaced by
+    /// Reload from Disk. Each file is re-read under its path reservation and
+    /// accepted only if its entry and revision still match the displayed review;
+    /// `.journalPending` decisions are never cleared here.
+    func acceptPendingReplacementFiles(_ reviews: [PendingReplacementFileReview]) async {
+        guard !hasUnsavedInspectorChanges else {
+            presentMetadataWriteHUD(
+                style: .warning,
+                title: String(localized: "Unsaved Changes"),
+                subtitle: String(localized: "Save or discard the pending inspector edits before accepting a replacement file.")
+            )
+            return
+        }
+        guard !isReloadingSelectedFiles else { return }
+        guard !reviews.isEmpty, pendingReplacementFileReviews == reviews else { return }
+        guard let progressToken = tryBeginMetadataSaveProgress(
+            title: String(localized: "Accepting Replacement Files"),
+            subtitle: String(localized: "Verifying on disk…"),
+            totalUnitCount: reviews.count
+        ) else { return }
+        dismissPendingReplacementFileReviews(reviews)
+
+        isReloadingSelectedFiles = true
+        defer {
+            isReloadingSelectedFiles = false
+            endMetadataSaveProgress(token: progressToken)
+        }
+
+        let pipeline = metadataPipeline
+        var failures: [String] = []
+        for (index, review) in reviews.enumerated() {
+            guard !Task.isCancelled else { break }
+            updateMetadataSaveProgress(
+                token: progressToken,
+                subtitle: review.fileName,
+                completedUnitCount: index
+            )
+            guard isReplacementFileReviewCurrent(review) else {
+                failures.append(String(localized: "“\(review.fileName)” couldn’t be accepted because its state changed. Choose Reload from Disk to review it again."))
+                continue
+            }
+            let generation = fileModelRefreshGeneration(for: review.fileID)
+            do {
+                let failureMessage = try await fileMutationCoordinator.withExclusiveAccess(to: [review.url]) { () async throws -> String? in
+                    let fresh = try await withAsyncTimeout(
+                        .seconds(60),
+                        operationName: String(localized: "Verifying replacement file"),
+                        priority: .utility
+                    ) {
+                        try await pipeline.loadAudioFile(at: review.url, id: review.fileID)
+                    }
+                    guard review.target.matches(observation: fresh) else {
+                        return String(localized: "“\(review.fileName)” changed again before it was accepted. Choose Reload from Disk to review the current file.")
+                    }
+                    return await MainActor.run {
+                        guard !Task.isCancelled,
+                              !self.hasUnsavedInspectorChanges,
+                              self.isReplacementFileReviewCurrent(review),
+                              self.fileModelRefreshGeneration(for: review.fileID) == generation else {
+                            return String(localized: "“\(review.fileName)” couldn’t be accepted because its state changed. Choose Reload from Disk to review it again.")
+                        }
+                        self.replaceLoadedFile(
+                            fresh,
+                            refreshGeneration: self.makeFileModelRefreshGeneration(),
+                            clearing: .explicitReplacementAcceptance(review.target)
+                        )
+                        return nil
+                    }
+                }
+                if let failureMessage {
+                    failures.append(failureMessage)
+                }
+            } catch is CancellationError {
+                break
+            } catch {
+                failures.append(String(localized: "“\(review.fileName)” couldn’t be verified.\nDetails: \((error as NSError).localizedDescription)"))
+            }
+        }
+
+        if !Task.isCancelled, !failures.isEmpty {
+            presentMetadataWriteHUD(
+                style: failures.count == reviews.count ? .failure : .warning,
+                title: String(localized: "Replacement File Couldn’t Be Accepted"),
+                subtitle: failures.joined(separator: "\n"),
+                summary: String(localized: "Files that couldn’t be accepted: \(failures.count)."),
                 details: failures.joined(separator: "\n\n")
             )
         }

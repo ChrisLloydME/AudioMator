@@ -14,6 +14,7 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
         "testAudioFile.wav",
     ]
 
+    @MainActor
     func testFullExampleAndIndependentSetClearUseNativeStorage() async throws {
         let expectedYear = "2004"
         let expectedDate = "2008-03-04"
@@ -43,43 +44,60 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
 
             let pipeline = TagLibAudioMetadataPipeline()
             var file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.year, expectedYear, fixtureName)
-            XCTAssertEqual(file.date, expectedDate, fixtureName)
-            XCTAssertEqual(file.releaseDate, expectedRelease, fixtureName)
-            XCTAssertEqual(file.originalReleaseDate, expectedOriginal, fixtureName)
-            XCTAssertNotEqual(file.year, file.releaseDate, fixtureName)
+            let yearObserved1 = file.year
+            XCTAssertEqual(yearObserved1, expectedYear, fixtureName)
+            let dateObserved2 = file.date
+            XCTAssertEqual(dateObserved2, expectedDate, fixtureName)
+            let releaseDateObserved3 = file.releaseDate
+            XCTAssertEqual(releaseDateObserved3, expectedRelease, fixtureName)
+            let originalReleaseDateObserved108 = file.originalReleaseDate
+            XCTAssertEqual(originalReleaseDateObserved108, expectedOriginal, fixtureName)
+            let yearObserved107 = file.year
+            let releaseDateObserved106 = file.releaseDate
+            XCTAssertNotEqual(yearObserved107, releaseDateObserved106, fixtureName)
 
             // Change only YEAR.
             var edit = SingleFileEditModel(from: file)
             edit.year = "2005"
             let payload = MetadataEditPayload(edit, comparedTo: file)
-            XCTAssertEqual(payload.changedFields, [.year], fixtureName)
+            let changedFieldsObserved4 = payload.changedFields
+            XCTAssertEqual(changedFieldsObserved4, [.year], fixtureName)
             let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: payload)
             XCTAssertEqual(patch.fields, [.year: .text("2005")], fixtureName)
             _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
 
             file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.year, "2005", fixtureName)
-            XCTAssertEqual(file.date, expectedDate, fixtureName)
-            XCTAssertEqual(file.releaseDate, expectedRelease, fixtureName)
-            XCTAssertEqual(file.originalReleaseDate, expectedOriginal, fixtureName)
+            let yearObserved105 = file.year
+            XCTAssertEqual(yearObserved105, "2005", fixtureName)
+            let dateObserved5 = file.date
+            XCTAssertEqual(dateObserved5, expectedDate, fixtureName)
+            let releaseDateObserved6 = file.releaseDate
+            XCTAssertEqual(releaseDateObserved6, expectedRelease, fixtureName)
+            let originalReleaseDateObserved7 = file.originalReleaseDate
+            XCTAssertEqual(originalReleaseDateObserved7, expectedOriginal, fixtureName)
 
             // Clear only DATE. YEAR and both other date owners must remain
             // independent through the published package's native verification.
             edit = SingleFileEditModel(from: file)
             edit.date = ""
             let clearPayload = MetadataEditPayload(edit, comparedTo: file)
-            XCTAssertEqual(clearPayload.changedFields, [.standaloneDate], fixtureName)
+            let changedFieldsObserved8 = clearPayload.changedFields
+            XCTAssertEqual(changedFieldsObserved8, [.standaloneDate], fixtureName)
             _ = try pipeline.writeMetadata(clearPayload, to: url, expectedVersion: file.metadataFileVersion)
 
             file = try await pipeline.loadAudioFile(at: url, id: UUID())
-            XCTAssertEqual(file.date, "", fixtureName)
-            XCTAssertEqual(file.year, "2005", fixtureName)
-            XCTAssertEqual(file.releaseDate, expectedRelease, fixtureName)
-            XCTAssertEqual(file.originalReleaseDate, expectedOriginal, fixtureName)
+            let dateObserved9 = file.date
+            XCTAssertEqual(dateObserved9, "", fixtureName)
+            let yearObserved10 = file.year
+            XCTAssertEqual(yearObserved10, "2005", fixtureName)
+            let releaseDateObserved11 = file.releaseDate
+            XCTAssertEqual(releaseDateObserved11, expectedRelease, fixtureName)
+            let originalReleaseDateObserved12 = file.originalReleaseDate
+            XCTAssertEqual(originalReleaseDateObserved12, expectedOriginal, fixtureName)
         }
     }
 
+    @MainActor
     func testFullYearTextSurvivesCopyUnrelatedEditExportAndReload() async throws {
         let url = try writableFixture(extension: "testAudioFile.flac")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -90,8 +108,10 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
         )
         let pipeline = TagLibAudioMetadataPipeline()
         var file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.year, "2004-07-15")
-        XCTAssertEqual(file.date, "")
+        let yearObserved13 = file.year
+        XCTAssertEqual(yearObserved13, "2004-07-15")
+        let dateObserved14 = file.date
+        XCTAssertEqual(dateObserved14, "")
         XCTAssertEqual(MetadataExchangeField.year.value(from: file, index: 0, relativeBasePath: nil), "2004-07-15")
 
         var edit = SingleFileEditModel(from: file)
@@ -104,8 +124,10 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
         )
 
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.year, "2004-07-15")
-        XCTAssertEqual(file.title, "Unrelated Title Edit")
+        let yearObserved15 = file.year
+        XCTAssertEqual(yearObserved15, "2004-07-15")
+        let titleObserved16 = file.title
+        XCTAssertEqual(titleObserved16, "Unrelated Title Edit")
         XCTAssertEqual(
             try TagLibMetadataManager.readSnapshot(from: url).raw
                 .properties.first { $0.key == "YEAR" }?.values,
@@ -125,10 +147,12 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
             pipeline: pipeline,
             url: url
         )
-        XCTAssertTrue(result.warnings.isEmpty)
+        let warningsObserved17 = result.warnings
+        XCTAssertTrue(warningsObserved17.isEmpty)
         XCTAssertEqual(try Data(contentsOf: url), bytes)
     }
 
+    @MainActor
     func testMP4YearIsEditableAndDoesNotTouchReleaseDate() async throws {
         let url = try writableFixture(extension: "testAudioFile.m4a")
         defer { removeTemporaryFixtureDirectory(containing: url) }
@@ -148,14 +172,19 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
         var edit = SingleFileEditModel(from: file)
         edit.year = "2004"
         let payload = MetadataEditPayload(edit, comparedTo: file)
-        XCTAssertEqual(payload.changedFields, [.year])
+        let changedFieldsObserved18 = payload.changedFields
+        XCTAssertEqual(changedFieldsObserved18, [.year])
         _ = try pipeline.writeMetadata(payload, to: url, expectedVersion: file.metadataFileVersion)
 
         file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(file.year, "2004")
-        XCTAssertEqual(file.date, "2008-03-04")
-        XCTAssertEqual(file.releaseDate, "2017-06-09")
-        XCTAssertEqual(file.originalReleaseDate, "1999-11-12")
+        let yearObserved104 = file.year
+        XCTAssertEqual(yearObserved104, "2004")
+        let dateObserved19 = file.date
+        XCTAssertEqual(dateObserved19, "2008-03-04")
+        let releaseDateObserved20 = file.releaseDate
+        XCTAssertEqual(releaseDateObserved20, "2017-06-09")
+        let originalReleaseDateObserved21 = file.originalReleaseDate
+        XCTAssertEqual(originalReleaseDateObserved21, "1999-11-12")
 
         let snapshot = try TagLibMetadataManager.readSnapshot(from: url)
         XCTAssertEqual(nativeValues(.year, snapshot: snapshot, extension: "m4a"), ["2004"])
@@ -170,9 +199,12 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
             expectedVersion: file.metadataFileVersion
         )
         let cleared = try await pipeline.loadAudioFile(at: url, id: UUID())
-        XCTAssertEqual(cleared.year, "")
-        XCTAssertEqual(cleared.releaseDate, "2017-06-09")
-        XCTAssertEqual(cleared.date, "2008-03-04")
+        let yearObserved103 = cleared.year
+        XCTAssertEqual(yearObserved103, "")
+        let releaseDateObserved23 = cleared.releaseDate
+        XCTAssertEqual(releaseDateObserved23, "2017-06-09")
+        let dateObserved24 = cleared.date
+        XCTAssertEqual(dateObserved24, "2008-03-04")
     }
 
     @MainActor
@@ -190,8 +222,10 @@ nonisolated final class TagLibDateMappingIntegrationTests: XCTestCase {
         // Literal v2.3 owners remain independent even though TagLib's engine
         // synthesizes a TDRC projection internally. The package now reads the
         // native evidence; concrete v2.3 date writes remain read-only.
-        XCTAssertEqual(file.year, "2004")
-        XCTAssertEqual(file.date, "0304")
+        let yearObserved102 = file.year
+        XCTAssertEqual(yearObserved102, "2004")
+        let dateObserved101 = file.date
+        XCTAssertEqual(dateObserved101, "0304")
 
         for candidate in ["2008-03-04", "0403"] {
             let before = try Data(contentsOf: url)

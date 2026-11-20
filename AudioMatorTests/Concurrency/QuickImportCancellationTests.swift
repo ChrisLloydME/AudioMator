@@ -4,8 +4,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class QuickImportCancellationTests: XCTestCase {
+nonisolated final class QuickImportCancellationTests: XCTestCase {
+    @MainActor
     func testRemovingFileRejectsLateReimportOfSameURL() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
@@ -33,6 +33,7 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertEqual(viewModel.files.first?.url, fileURL)
     }
 
+    @MainActor
     func testRemovingFileSuppressesLateFailureFromSameURL() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate, shouldFail: true)
@@ -57,6 +58,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testClearCancelsImportAndRejectsLateBatch() async throws {
         let gate = QuickImportLoadGate()
         let pipeline = DelayedQuickImportMetadataPipeline(gate: gate)
@@ -78,6 +80,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRemovingWatchedFolderCancelsInFlightMetadataLoads() async throws {
         let suiteName = "AudioMator.WatchedFolderCancellationTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -120,6 +123,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testQuickImportReportsUnreadableFilesAndKeepsSuccessfulSiblings() async throws {
         let unreadableURL = URL(fileURLWithPath: "/tmp/00-unreadable-import.mp3")
         let readableURL = URL(fileURLWithPath: "/tmp/01-readable-import.mp3")
@@ -143,6 +147,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testQuickImportRetriesTransientInitialReadFailure() async throws {
         let fileURL = URL(fileURLWithPath: "/tmp/transient-first-read-failure.mp3")
         let control = TransientQuickImportReadControl()
@@ -158,6 +163,7 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertNil(viewModel.metadataWriteHUD)
     }
 
+    @MainActor
     func testWatchedFolderRefreshRetainsLastKnownFileWhenMetadataReadFails() async throws {
         let suiteName = "AudioMator.WatchedFolderReadFailureTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -202,6 +208,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testWatchedFolderRefreshRetainsLastKnownFilesWhenRootScanFails() async throws {
         let suiteName = "AudioMator.WatchedFolderScanFailureTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -243,6 +250,7 @@ final class QuickImportCancellationTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testWatchedFolderRefreshUsesScannedURLsWhenPipelineReturnsDuplicateURLs() async throws {
         let suiteName = "AudioMator.WatchedFolderDuplicateURLTests.\(UUID().uuidString)"
         let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -273,11 +281,24 @@ final class QuickImportCancellationTests: XCTestCase {
         )
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
 
-        try await waitUntil(viewModel.files.count == 2)
+        // A loader result whose URL is not the requested scanned URL cannot
+        // donate its observation tokens to a different lexical path. The
+        // accepted file keeps its scanned identity; the mismatched result is
+        // reported as a read failure instead of being re-bound to the scanned
+        // URL (F1 coherent-observation contract).
+        try await waitUntil(
+            viewModel.files.count == 1 &&
+            viewModel.directoryMonitoringStatuses[folder.id]?.metadataReadFailureCount == 1
+        )
 
-        XCTAssertEqual(Set(viewModel.files.map(\.url)), Set([firstURL, secondURL]))
+        XCTAssertEqual(viewModel.files.map(\.url), [firstURL])
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: secondURL.path),
+            "The scanned file exists; only the mismatched loader result is rejected."
+        )
     }
 
+    @MainActor
     func testFailedFirstImportDoesNotBlockProgressivePublication() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ProgressiveImport-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -289,7 +310,19 @@ final class QuickImportCancellationTests: XCTestCase {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.importQuickFiles(from: urls)
         try await gate.waitUntilStarted()
-        try await waitUntil(viewModel.files.count >= 24)
+        let deadline = Date().addingTimeInterval(2)
+        while viewModel.files.count < 24, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let firstDiagnostics = viewModel.quickImportDiagnostics()
+        XCTAssertGreaterThanOrEqual(
+            viewModel.files.count,
+            24,
+            "Progressive publication stalled before the gated final read: loads=\(pipeline.loadCount) "
+                + "active=\(viewModel.activeQuickImportTaskCount) files=\(viewModel.files.count) "
+                + "metrics=\(firstDiagnostics.metrics) requests=\(firstDiagnostics.activeRequestCount) "
+                + "pending=\(firstDiagnostics.pendingFailureCount)"
+        )
         XCTAssertEqual(viewModel.activeQuickImportTaskCount, 1, "The final load is still gated")
         XCTAssertLessThan(viewModel.files.count, 49)
         await gate.release()
@@ -298,6 +331,62 @@ final class QuickImportCancellationTests: XCTestCase {
         XCTAssertFalse(viewModel.files.contains { $0.url == urls[0] })
     }
 
+    @MainActor
+    func testOverlappingImportsShareFileAndParentScopesWithoutRestarting() async throws {
+        try XCTSkipIf(
+            AudioFileTestFactory.fixtureFileVersion == nil,
+            "App-hosted fixture snapshot is unavailable in this runner"
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportOverlap-\(UUID().uuidString)", isDirectory: true)
+        let urls = [root.appendingPathComponent("01.mp3"), root.appendingPathComponent("02.mp3")]
+        let suiteName = "AudioMator.QuickImportOverlap.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let journalDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportOverlapJournal-\(UUID().uuidString)", isDirectory: true)
+        let issueLog = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorQuickImportOverlap-\(UUID().uuidString).json")
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: journalDirectory)
+            try? FileManager.default.removeItem(at: issueLog)
+        }
+        let scopeAccess = CountingQuickImportScopeAccess()
+        let provider = SyntheticQuickImportIdentityProvider()
+        let environment = QuickImportEnvironment(
+            identityProvider: provider,
+            scopeAccess: scopeAccess,
+            loadPolicy: .forced48
+        )
+        let viewModel = AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: ProgressiveQuickImportMetadataPipeline(),
+            saveIssueLogStore: SaveIssueLogStore(fileURL: issueLog),
+            conflictPolicyDefaults: defaults,
+            renameJournalStore: LocalRenameJournalStore(directoryURL: journalDirectory),
+            renameJournalAutoClassification: false,
+            quickImportEnvironment: environment
+        )
+
+        // Two requests overlap on the same selected URLs and parent directory.
+        viewModel.importQuickFiles(from: urls)
+        viewModel.importQuickFiles(from: urls)
+        try await waitUntil(viewModel.activeQuickImportTaskCount == 0)
+        try await waitUntil(viewModel.files.count == 2)
+
+        XCTAssertEqual(Set(viewModel.files.map(\.id)).count, 2, "One row per selected file")
+        let scopeSnapshot = scopeAccess.snapshot
+        XCTAssertEqual(scopeSnapshot.startCount, 3, "Two file scopes and one shared parent start once each")
+        XCTAssertEqual(scopeSnapshot.repeatedStartAttempts, 0, "A live scope is never started twice by a second job")
+
+        viewModel.clearQuickImportFiles()
+        let finalSnapshot = scopeAccess.snapshot
+        XCTAssertEqual(finalSnapshot.stopCount, finalSnapshot.startCount, "Every started scope stops exactly once")
+        XCTAssertEqual(viewModel.files.count, 0)
+    }
+
+    @MainActor
     private func waitUntil(
         _ condition: @autoclosure @escaping @MainActor () -> Bool,
         file: StaticString = #filePath,
@@ -358,7 +447,7 @@ private actor QuickImportLoadGate {
     }
 }
 
-private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let gate: QuickImportLoadGate
     private let shouldFail: Bool
 
@@ -401,21 +490,45 @@ private final class DelayedQuickImportMetadataPipeline: AudioMetadataPipeline, @
     }
 }
 
-private final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class PartiallyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let unreadableURL: URL
     private let heldURL: URL?
     private let gate: QuickImportLoadGate?
+    private let version: MetadataFileVersion?
+    private let loadLock = NSLock()
+    private var loads = 0
 
+    nonisolated var loadCount: Int {
+        loadLock.withLock { loads }
+    }
+
+    @MainActor
     init(unreadableURL: URL, heldURL: URL? = nil, gate: QuickImportLoadGate? = nil) {
         self.unreadableURL = unreadableURL
         self.heldURL = heldURL
         self.gate = gate
+        self.version = AudioFileTestFactory.fixtureFileVersion
     }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
+        loadLock.withLock { loads += 1 }
         if url == heldURL, let gate { await gate.suspendLoad() }
         if url == unreadableURL {
             throw CocoaError(.fileReadNoPermission)
+        }
+        // A real file is read through its actual fingerprint so the progressive
+        // canonical-location verification can accept it; synthetic paths keep the
+        // factory's deterministic fingerprint.
+        if FileManager.default.fileExists(atPath: url.path), let version {
+            let fingerprint = try AudioFileFingerprint.capture(at: url)
+            return await MainActor.run {
+                AudioFileTestFactory.make(
+                    id: id,
+                    url: url,
+                    fileFingerprint: fingerprint,
+                    metadataFileVersion: version
+                )
+            }
         }
         return await AudioFileTestFactory.make(id: id, url: url)
     }
@@ -454,7 +567,7 @@ private actor TransientQuickImportReadControl {
     }
 }
 
-private final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class TransientlyFailingQuickImportMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let control: TransientQuickImportReadControl
 
     init(control: TransientQuickImportReadControl) {
@@ -502,7 +615,7 @@ private actor WatchedFolderReadControl {
     }
 }
 
-private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let control = WatchedFolderReadControl()
 
     func setUnreadableURLs(_ urls: Set<URL>) async {
@@ -537,7 +650,7 @@ private final class ControllableWatchedFolderMetadataPipeline: AudioMetadataPipe
     }
 }
 
-private final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class DuplicateURLWatchedFolderMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let returnedURL: URL
 
     init(returnedURL: URL) {

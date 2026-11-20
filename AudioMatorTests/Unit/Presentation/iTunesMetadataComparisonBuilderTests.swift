@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class iTunesMetadataComparisonBuilderTests: XCTestCase {
+nonisolated final class iTunesMetadataComparisonBuilderTests: XCTestCase {
+    @MainActor
     func testRowClassifiesTrimmedAndNormalizedValues() {
         XCTAssertEqual(
             iTunesMetadataComparisonBuilder.row(
@@ -54,6 +55,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRemoteValuesPreserveAlbumFallbackRules() {
         let detail = makeAlbumDetail(
             albumArtistName: "Album Artist",
@@ -97,6 +99,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRemoteExplicitValuePrefersTrackExplicitnessOverAlbumExplicitness() {
         let track = Self.makeTrack(trackExplicitness: "notExplicit")
         let assignment = makeAssignment(track: track)
@@ -108,6 +111,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRemoteExplicitValueMapsCleanTrackExplicitness() {
         let track = Self.makeTrack(trackExplicitness: "cleaned")
         let assignment = makeAssignment(track: track)
@@ -119,6 +123,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRemoteExplicitValueFallsBackToAlbumOnlyWhenTrackExplicitnessIsMissing() {
         let track = Self.makeTrack(trackExplicitness: "")
         let assignment = makeAssignment(track: track)
@@ -130,6 +135,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     func testRowsPreferLoadedFileValuesOverSearchFallbackValues() {
         let fileID = UUID()
         let loadedFile = AudioFileTestFactory.make(
@@ -171,6 +177,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         XCTAssertEqual(rows.first { $0.id == iTunesTagWriteField.trackTotal.id }?.localValue, "9")
     }
 
+    @MainActor
     func testBrowserSeedRejectsUnrepresentableFileDuration() {
         let store = iTunesBrowserStore()
         let file = AudioFileTestFactory.make(
@@ -183,6 +190,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         XCTAssertNil(store.seededFileInputs.first?.durationMilliseconds)
     }
 
+    @MainActor
     func testTrackRankingHandlesExtremeDurationDistanceWithoutOverflow() {
         let file = makeFileInput(durationMilliseconds: .max)
         let extreme = Self.makeTrack(trackID: 1, durationMilliseconds: .min)
@@ -193,6 +201,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         XCTAssertEqual(ranked.map(\.trackID), [2, 1])
     }
 
+    @MainActor
     private func makeAssignment(track: iTunesTrackResult) -> iTunesAlbumMatchAssignment {
         iTunesAlbumMatchAssignment(
             id: "assignment",
@@ -231,6 +240,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeAlbumDetail(
         albumArtistName: String = "Album Artist",
         albumGenre: String = "Album Genre",
@@ -265,6 +275,7 @@ final class iTunesMetadataComparisonBuilderTests: XCTestCase {
         )
     }
 
+    @MainActor
     private static func makeTrack(
         trackID: Int = 300,
         trackName: String = "Remote Title",

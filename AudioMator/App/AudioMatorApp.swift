@@ -17,6 +17,8 @@ struct AudioMatorApp: App {
     @StateObject private var saveIssueLogStore: SaveIssueLogStore
     @StateObject private var onlineMetadataBrowserStore: MusicBrainzBrowserStore
     @StateObject private var lrclibLyricsBrowserStore: LRCLIBLyricsBrowserStore
+    @StateObject private var onlineMetadataActivationStore: OnlineMetadataActivationStore
+    private let onlineMetadataRouter: OnlineMetadataRoutingController
     @StateObject private var metadataFilenameToolStore: MetadataFilenameToolStore
     @StateObject private var metadataEditorStore: MetadataEditorStore
 
@@ -45,8 +47,17 @@ struct AudioMatorApp: App {
             AudioMatorTestHost.launchedSharedState = sharedState
         }
         _saveIssueLogStore = StateObject(wrappedValue: saveIssueLogStore)
-        _onlineMetadataBrowserStore = StateObject(wrappedValue: MusicBrainzBrowserStore())
-        _lrclibLyricsBrowserStore = StateObject(wrappedValue: LRCLIBLyricsBrowserStore())
+        let onlineMetadataBrowserStore = MusicBrainzBrowserStore()
+        let lrclibLyricsBrowserStore = LRCLIBLyricsBrowserStore()
+        let onlineMetadataActivationStore = OnlineMetadataActivationStore()
+        _onlineMetadataBrowserStore = StateObject(wrappedValue: onlineMetadataBrowserStore)
+        _lrclibLyricsBrowserStore = StateObject(wrappedValue: lrclibLyricsBrowserStore)
+        _onlineMetadataActivationStore = StateObject(wrappedValue: onlineMetadataActivationStore)
+        onlineMetadataRouter = OnlineMetadataRoutingController(
+            musicBrainzStore: onlineMetadataBrowserStore,
+            lrclibStore: lrclibLyricsBrowserStore,
+            activationStore: onlineMetadataActivationStore
+        )
         _metadataFilenameToolStore = StateObject(wrappedValue: MetadataFilenameToolStore())
         _metadataEditorStore = StateObject(
             wrappedValue: MetadataEditorStore(metadataPipeline: metadataPipeline)
@@ -65,7 +76,8 @@ struct AudioMatorApp: App {
                     lrclibLyricsBrowserStore: lrclibLyricsBrowserStore,
                     metadataFilenameToolStore: metadataFilenameToolStore,
                     metadataEditorStore: metadataEditorStore,
-                    metadataPipeline: metadataPipeline
+                    metadataPipeline: metadataPipeline,
+                    onlineMetadataRouter: onlineMetadataRouter
                 )
                 .frame(minWidth: 900, minHeight: 600)
             }
@@ -106,7 +118,8 @@ struct AudioMatorApp: App {
             OnlineMetadataBrowserView(
                 store: onlineMetadataBrowserStore,
                 lrclibStore: lrclibLyricsBrowserStore,
-                viewModel: viewModel
+                viewModel: viewModel,
+                activationStore: onlineMetadataActivationStore
             )
             .audiomatorMacWindowChrome()
         }

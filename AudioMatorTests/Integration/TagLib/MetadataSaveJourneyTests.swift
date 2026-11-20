@@ -206,18 +206,28 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
         store.present(targetFiles: files)
         try await loaded(store)
         XCTAssertTrue(store.isEditable)
-        store.upsertField(key: "TITLE", value: "Editor title")
-        store.upsertField(key: "X-JOURNEY", value: "A; B\nduplicate\nduplicate\n  padded  ")
+        store.upsertField(key: "TITLE", values: ["Editor title"])
+        store.upsertField(key: "X-JOURNEY", values: ["A; B", "duplicate", "duplicate", "  padded  "])
+        store.upsertField(key: "X-MULTILINE", values: ["line one\nline two"])
         store.deleteField(named: "COMMENT")
-        let result = await vm.applyRawMetadataPropertyMaps(store.draftPropertyMaps, to: store.pendingTargets)
-        XCTAssertTrue(result.didApplyAllChanges)
-        XCTAssertEqual(result.succeededTargetIDs, Set(files.map(\.id)))
-        store.recordAppliedTargets(result.succeededTargetIDs)
+        let request = try XCTUnwrap(store.startApply())
+        XCTAssertTrue(request.hasCapturedChanges)
+        for target in request.pendingTargets {
+            XCTAssertTrue(
+                request.changes(for: target.id).contains { $0.key == "TITLE" && $0.afterValues == ["Editor title"] },
+                "Every pending target must capture the exact edited array"
+            )
+        }
+        let outcome = await vm.applyRawMetadataApplyRequest(request)
+        XCTAssertTrue(outcome.didApplyAllChanges)
+        XCTAssertEqual(outcome.succeededTargetIDs, Set(files.map(\.id)))
+        XCTAssertEqual(store.completeApply(outcome), .dismiss)
         XCTAssertFalse(store.hasUnsavedChanges)
         for file in files {
             let raw = try pipeline.rawMetadataValueMap(for: file.url)
             XCTAssertEqual(raw["TITLE"], ["Editor title"])
             XCTAssertEqual(raw["X-JOURNEY"], ["A; B", "duplicate", "duplicate", "  padded  "])
+            XCTAssertEqual(raw["X-MULTILINE"], ["line one\nline two"])
             XCTAssertNil(raw["COMMENT"])
             let saved = try await pipeline.loadAudioFile(at: file.url, id: file.id)
             XCTAssertEqual(saved.itunesArtistID, file.itunesArtistID)

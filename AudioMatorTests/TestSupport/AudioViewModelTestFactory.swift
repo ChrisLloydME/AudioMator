@@ -12,10 +12,17 @@ enum AudioViewModelTestFactory {
         metadataPipeline: any AudioMetadataPipeline,
         artworkLookupService: any iTunesArtworkServicing = iTunesArtworkService(),
         artworkLookupOperationTimeout: Duration = .seconds(30),
-        saveIssueLogStore: SaveIssueLogStore? = nil
+        saveIssueLogStore: SaveIssueLogStore? = nil,
+        moveReadbackTimeout: Duration = .seconds(60),
+        renameFileSystem: any RenameFileSystem = LocalRenameFileSystem(),
+        renameJournalStore: (any RenameJournalStoring)? = nil
     ) -> AudioViewModel {
         let suiteName = "AudioMatorTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
+        let journalStore = renameJournalStore ?? LocalRenameJournalStore(
+            directoryURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("AudioMatorTestsRenameJournal-\(UUID().uuidString)", isDirectory: true)
+        )
         return AudioViewModel(
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
@@ -23,7 +30,11 @@ enum AudioViewModelTestFactory {
             saveIssueLogStore: saveIssueLogStore ?? makeIssueLogStore(),
             artworkLookupService: artworkLookupService,
             artworkLookupOperationTimeout: artworkLookupOperationTimeout,
-            conflictPolicyDefaults: defaults
+            conflictPolicyDefaults: defaults,
+            moveReadbackTimeout: moveReadbackTimeout,
+            renameFileSystem: renameFileSystem,
+            renameJournalStore: journalStore,
+            renameJournalAutoClassification: false
         )
     }
 

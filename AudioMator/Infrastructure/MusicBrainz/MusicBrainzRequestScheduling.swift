@@ -154,17 +154,23 @@ actor MusicBrainzResponseCache {
             return try await inFlightTask.value
         }
 
-        let task = Task { try await loader() }
-        inFlightTasksByURL[url] = task
-        do {
-            let data = try await task.value
-            insert(data, for: url, expiresAt: Date().addingTimeInterval(max(0, timeToLive)))
-            inFlightTasksByURL[url] = nil
-            return data
-        } catch {
-            inFlightTasksByURL[url] = nil
-            throw error
+        // Admission belongs to the shared load, not to whichever waiter created it: a
+        // cancelled waiter must neither drop a successful response from the cache nor
+        // cause a second rate-limited fetch while the shared load is still running.
+        let expiresAt = Date().addingTimeInterval(max(0, timeToLive))
+        let task = Task {
+            do {
+                let data = try await loader()
+                self.insert(data, for: url, expiresAt: expiresAt)
+                self.inFlightTasksByURL[url] = nil
+                return data
+            } catch {
+                self.inFlightTasksByURL[url] = nil
+                throw error
+            }
         }
+        inFlightTasksByURL[url] = task
+        return try await task.value
     }
 
     func statistics() -> (entryCount: Int, totalBytes: Int) {

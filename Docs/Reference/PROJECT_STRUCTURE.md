@@ -70,7 +70,7 @@ Business rules and value models that do not own UI or concrete file transactions
 | `MetadataExchange/` | Converter modes/fields, exchange profile, template syntax, CSV, import/export planning, field transfer |
 | `MuseAmp/` | Deterministic MuseAmp ID generation |
 | `Rename/` | Filename templates, extraction, rename plan, collision policy |
-| `TrackRenumber/` | Renumber options, padding, result models |
+| `TrackRenumber/` | Renumber start policy, shared plan/row dispositions, result models |
 
 There is no `Domain/UIState` folder. UI state lives under `Features/Main/State`.
 
@@ -117,7 +117,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 630 test functions and 80 `XCTestCase` classes in 83 Swift files, plus 23 fixtures and three test-support files.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 1056 test functions and 115 `XCTestCase` classes across 115 test files plus 7 `TestSupport` files (122 Swift files total), alongside fixtures.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -135,20 +135,22 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 62 test functions in four `XCTestCase` classes across three source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 30-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 97 test functions in six `XCTestCase` classes across five source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 
 | Script | Purpose |
 | --- | --- |
-| `codex-build.sh` | Incremental or forced Debug generic macOS build; prunes extra derived data/app bundles |
-| `prune-app-bundles.sh` | Removes non-canonical `.deriveddata*` directories and app bundles |
+| `codex-build.sh` | Fail-closed Debug generic macOS build: checked Git discovery, explicit skip or `CODEX_BUILD_COMPLETED` marker, no implicit pruning |
+| `prune-app-bundles.sh` | Explicit maintainer cleanup that removes non-canonical `.deriveddata*` directories and app bundles (not run by the build helper) |
 | `validate-release.sh` | Unified release gate: policy tests, core tests, full serial app tests, unsigned Release build, artifact validation, and recorded evidence |
 | `check-core-evidence.py` | Requires every source-declared core test identity to pass in the core log |
 | `check-test-evidence.py` | Requires exact source-to-`xcresult` test identity equality, critical regressions, and no skips/failures |
 | `check-commit-messages.py` | Advisory commit-subject checker for the commit-message contract |
 | `check-doc-links.py` | Checks relative links and heading anchors in tracked Markdown documentation |
 | `tests/test_test_evidence.py` | Policy tests for the evidence gates |
+| `tests/test_codex_build_policy.py` | Shell policy tests for the build helper: disposable trees, Git/Xcode/`tee` stubs, call counts, exit statuses, markers and artifact preservation |
+| `tests/test_rename_crash_recovery.py` | Real child-process `SIGKILL` crash-gate recovery tests compiling production rename journal and exclusive-move sources across 7 crash gates |
 | `validate-macos-artifact.sh` | Checks bundle minimum OS and every Mach-O platform/minimum |
 | `build-taglib-bridge-smoke.sh` | Builds the bridge smoke executable from package/bridge sources (maintainer-run; agents must not run it) |
 | `taglib_bridge_smoke.mm` | Smoke tool source |

@@ -13,7 +13,7 @@ private func zeroPadded(_ value: Int) -> String {
     return text.count >= 2 ? text : "0\(text)"
 }
 
-func formatTrackIndex(_ number: Int, total: Int) -> String {
+nonisolated func formatTrackIndex(_ number: Int, total: Int) -> String {
     guard number > 0 else { return "" }
 
     if total > 0 {

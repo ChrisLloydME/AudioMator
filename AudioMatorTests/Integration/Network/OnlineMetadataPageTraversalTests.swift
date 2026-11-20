@@ -5,8 +5,8 @@ import XCTest
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class OnlineMetadataPageTraversalTests: XCTestCase {
+nonisolated final class OnlineMetadataPageTraversalTests: XCTestCase {
+    @MainActor
     func testSearchPagesRenderAndRecoverAfterSuccessFailureTimeoutAndCancellation() async throws {
         let fixture = makeFixture()
         let viewModel = makeViewModel(file: fixture.file)
@@ -79,6 +79,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testAllReachableDetailWorkbenchComparisonAndArtworkSurfacesRender() async throws {
         let fixture = makeFixture()
         let viewModel = makeViewModel(file: fixture.file)
@@ -90,6 +91,11 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
             client: TraversaliTunesClient(fixture: fixture.iTunes, behavior: .success)
         )
         iTunesStore.seed(from: [fixture.file])
+        let iTunesContext = iTunesSearchContext(
+            storefront: iTunesStore.storefront,
+            generation: UUID(),
+            submittedSelection: iTunesStore.fileSelectionSummary
+        )
 
         await render(
             AnyView(
@@ -154,6 +160,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
             AnyView(
                 iTunesTrackDetailView(
                     track: fixture.iTunes.track,
+                    context: iTunesContext,
                     store: iTunesStore,
                     viewModel: viewModel
                 )
@@ -164,6 +171,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
             AnyView(
                 iTunesAlbumDetailView(
                     album: fixture.iTunes.album,
+                    context: iTunesContext,
                     store: iTunesStore,
                     viewModel: viewModel
                 )
@@ -206,7 +214,8 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
-                isLoading: true
+                searchAttemptID: UUID(),
+                searchState: .searching
             ),
             ArtworkLookupSession(
                 fileIDs: [fixture.file.id],
@@ -216,8 +225,8 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
-                isLoading: false,
-                errorMessage: "Synthetic artwork failure"
+                searchAttemptID: UUID(),
+                searchState: .failed(message: "Synthetic artwork failure")
             ),
             ArtworkLookupSession(
                 fileIDs: [fixture.file.id],
@@ -227,7 +236,8 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
-                isLoading: false,
+                searchAttemptID: UUID(),
+                searchState: .results,
                 results: [artworkResult],
                 selectedResultID: artworkResult.id
             )
@@ -257,6 +267,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func render(
         _ view: AnyView,
         label: String,
@@ -294,6 +305,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         window.contentView = nil
     }
 
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(2),
         condition: @escaping @MainActor () -> Bool
@@ -307,6 +319,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         XCTAssertTrue(condition(), "Timed out waiting for traversal state")
     }
 
+    @MainActor
     private func makeViewModel(file: AudioFile) -> AudioViewModel {
         let viewModel = AudioViewModelTestFactory.make(
             metadataPipeline: TagLibAudioMetadataPipeline()
@@ -316,6 +329,7 @@ final class OnlineMetadataPageTraversalTests: XCTestCase {
         return viewModel
     }
 
+    @MainActor
     private func makeFixture() -> TraversalFixture {
         let file = AudioFileTestFactory.make(
             title: "Traversal Track",

@@ -4,8 +4,8 @@ import TagLibAudioMetadata
 @testable import AudioMator
 
 #if os(macOS)
-@MainActor
-final class OnlineMetadataPlanSnapshotTests: XCTestCase {
+nonisolated final class OnlineMetadataPlanSnapshotTests: XCTestCase {
+    @MainActor
     func testMusicBrainzDetailBuildsPresentationOutsideTheSwiftUIBody() throws {
         let repositoryURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -24,6 +24,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertFalse(source.contains("recordingPreloadProgress"))
     }
 
+    @MainActor
     func testMusicBrainzNetworkParsingAndRankingStayOffTheMainActor() throws {
         let repositoryURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -63,6 +64,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testWorkbenchViewsApplyTheDisplayedPlanInsteadOfReadingStorePlanAgain() throws {
         let repositoryURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -82,6 +84,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testITunesLinkParserAcceptsCanonicalAndLegacyAlbumLinks() throws {
         XCTAssertEqual(
             try iTunesLinkParser.parse("https://music.apple.com/us/album/album-name/1440833098"),
@@ -98,6 +101,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertEqual(try iTunesLinkParser.parse("1440833098"), .album(1440833098))
     }
 
+    @MainActor
     func testiTunesWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/itunes-store.mp3")
@@ -139,6 +143,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertNil(store.plan.writeEntries.first?.values[.title])
     }
 
+    @MainActor
     func testiTunesMissingExplicitnessDoesNotScheduleAdvisoryClear() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/itunes-explicit.mp3")
@@ -183,6 +188,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertNil(store.plan.writeEntries.first?.values[.isExplicit])
     }
 
+    @MainActor
     func testMusicBrainzWorkbenchStoreKeepsCapturedPlanIndependentFromLaterSelections() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/musicbrainz-store.flac")
@@ -240,6 +246,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertNil(store.plan.writeEntries.first?.values[.title])
     }
 
+    @MainActor
     func testMusicBrainzSingleRecordingPreviewCreatesApplyPlanForTrackModeResult() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/musicbrainz-track-mode.flac")
@@ -275,6 +282,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertEqual(entry.expectedFileFingerprint, fingerprint)
     }
 
+    @MainActor
     func testMusicBrainzSingleRecordingPreviewCanMatchReleaseTrackByRecordingID() throws {
         let input = makeMusicBrainzInput(id: UUID().uuidString)
         let release = makeMusicBrainzRelease(recordingID: "recording-id")
@@ -291,6 +299,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertEqual(preview.matchedAssignments.first?.reason, "selected MusicBrainz track")
     }
 
+    @MainActor
     func testMusicBrainzSingleRecordingPreviewCanApplyRecordingOnlyFieldsWithoutReleasePosition() throws {
         let fileID = UUID()
         let fingerprint = syntheticFingerprint(path: "/tmp/musicbrainz-recording-only.flac")
@@ -331,6 +340,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertNil(entry.values[.trackNumber])
     }
 
+    @MainActor
     func testProviderPlansCaptureDisplayedValuesAndFileFingerprint() throws {
         let fixture = try TemporaryFingerprintFixture()
         defer { fixture.remove() }
@@ -387,6 +397,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         XCTAssertEqual(displayedMusicBrainzEntry.expectedFileFingerprint, fixture.fingerprint)
     }
 
+    @MainActor
     func testProviderApplyRejectsFileChangedAfterDisplayedPlan() async throws {
         let fixture = try TemporaryFingerprintFixture()
         defer { fixture.remove() }
@@ -406,10 +417,8 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
 
         await viewModel.applyiTunesTaggingPlan([
             iTunesTaggingWriteEntry(
-                fileID: fileID,
-                fileName: fixture.fileURL.lastPathComponent,
-                values: [.title: "Displayed iTunes Value"],
-                expectedFileFingerprint: fixture.fingerprint
+                file: file,
+                values: [.title: "Displayed iTunes Value"]
             )
         ])
 
@@ -449,6 +458,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeiTunesTrack(
         title: String,
         trackExplicitness: String = "notExplicit",
@@ -483,6 +493,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeiTunesDetail(
         track: iTunesTrackResult,
         collectionExplicitness: String = "notExplicit"
@@ -512,6 +523,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeMusicBrainzRelease(
         id: String = "release-id",
         title: String = "Album",
@@ -565,6 +577,7 @@ final class OnlineMetadataPlanSnapshotTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func syntheticFingerprint(path: String) -> AudioFileFingerprint {
         AudioFileFingerprint(
             normalizedPath: path,
@@ -590,12 +603,13 @@ private struct TemporaryFingerprintFixture {
         fingerprint = try AudioFileFingerprint.capture(at: fileURL)
     }
 
+    @MainActor
     func remove() {
         try? FileManager.default.removeItem(at: directoryURL)
     }
 }
 
-private final class FingerprintRecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
+private nonisolated final class FingerprintRecordingMetadataPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let lock = NSLock()
     private let reloadedFile: AudioFile
     private var recordedMetadataWriteCount = 0

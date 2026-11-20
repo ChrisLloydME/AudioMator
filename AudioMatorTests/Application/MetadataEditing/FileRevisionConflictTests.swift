@@ -3,7 +3,8 @@ import TagLibAudioMetadata
 import XCTest
 @testable import AudioMator
 
-final class FileRevisionConflictTests: XCTestCase {
+nonisolated final class FileRevisionConflictTests: XCTestCase {
+    @MainActor
     func testPermissionOnlyChangeRejectsOldVersionDespiteIdenticalContents() throws {
         let url = try fixtureCopy()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
@@ -30,6 +31,7 @@ final class FileRevisionConflictTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), bytes)
     }
 
+    @MainActor
     func testTimestampOnlyChangeRejectsFingerprintDespiteIdenticalContents() throws {
         let url = try fixtureCopy()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
@@ -45,6 +47,7 @@ final class FileRevisionConflictTests: XCTestCase {
         XCTAssertThrowsError(try validateExpectedFileFingerprint(fingerprint, at: url))
     }
 
+    @MainActor
     func testContentChangeWithRestoredModificationTimeStillRejectsPackageVersion() throws {
         let url = try fixtureCopy()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
@@ -71,6 +74,7 @@ final class FileRevisionConflictTests: XCTestCase {
         XCTAssertNotEqual(try TagLibMetadataManager.fileVersion(at: url), version)
     }
 
+    @MainActor
     func testUnchangedSnapshotCanCommitWithExpectedVersion() throws {
         let url = try fixtureCopy()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }

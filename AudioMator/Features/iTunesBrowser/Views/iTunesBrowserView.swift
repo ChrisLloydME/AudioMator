@@ -29,10 +29,20 @@ struct iTunesBrowserView: View {
             .navigationTitle("iTunes")
             .navigationDestination(for: iTunesBrowserDestination.self) { destination in
                 switch destination {
-                case .track(let track):
-                    iTunesTrackDetailView(track: track, store: store, viewModel: viewModel)
-                case .album(let album):
-                    iTunesAlbumDetailView(album: album, store: store, viewModel: viewModel)
+                case .track(let track, let context):
+                    iTunesTrackDetailView(
+                        track: track,
+                        context: context,
+                        store: store,
+                        viewModel: viewModel
+                    )
+                case .album(let album, let context):
+                    iTunesAlbumDetailView(
+                        album: album,
+                        context: context,
+                        store: store,
+                        viewModel: viewModel
+                    )
                 }
             }
             .toolbar {
@@ -133,7 +143,7 @@ struct iTunesBrowserView: View {
             Menu {
                 ForEach(iTunesStorefront.allCases) { storefront in
                     Button {
-                        store.storefront = storefront
+                        store.selectStorefront(storefront)
                     } label: {
                         if store.storefront == storefront {
                             Label(storefront.menuTitle, systemImage: "checkmark")
@@ -222,14 +232,14 @@ struct iTunesBrowserView: View {
         switch store.results {
         case .tracks(let tracks):
             ForEach(tracks) { track in
-                NavigationLink(value: iTunesBrowserDestination.track(track)) {
+                NavigationLink(value: store.detailDestination(for: track)) {
                     iTunesTrackRow(track: track)
                         .padding(.vertical, 6)
                 }
             }
         case .albums(let albums):
             ForEach(albums) { album in
-                NavigationLink(value: iTunesBrowserDestination.album(album)) {
+                NavigationLink(value: store.detailDestination(for: album)) {
                     iTunesAlbumRow(album: album)
                         .padding(.vertical, 6)
                 }
@@ -282,9 +292,8 @@ struct iTunesBrowserView: View {
     }
 
     private func seedSelection() {
+        // Local query preparation only. Selecting the provider must not start a request;
+        // the explicit Search button or Return submission is the network action (N2/AM-09).
         store.seed(from: selectedFiles)
-        if store.hasSearchText {
-            store.search()
-        }
     }
 }

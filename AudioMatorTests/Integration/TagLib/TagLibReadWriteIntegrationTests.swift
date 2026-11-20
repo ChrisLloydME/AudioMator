@@ -3,7 +3,8 @@ import XCTest
 import TagLibAudioMetadata
 @testable import AudioMator
 
-final class TagLibReadWriteIntegrationTests: XCTestCase {
+nonisolated final class TagLibReadWriteIntegrationTests: XCTestCase {
+    @MainActor
     func testCreditsOptimizationPreservesAVFoundationValuesAcrossFixtures() async throws {
         for fixtureName in Self.audioFixtureNames {
             let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
@@ -63,6 +64,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         "testAudioFile.flac"
     ]
 
+    @MainActor
     func testTotalOnlyTrackAndDiscPairsRoundTripAcrossFixtures() async throws {
         for fixtureName in Self.audioFixtureNames {
             let url = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
@@ -87,6 +89,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFieldTransferTextMatchesPreviewOnDisk() async throws {
         for fixtureName in Self.audioFixtureNames {
             let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
@@ -114,6 +117,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFieldTransferCutNumberWithoutTotalRoundTripsOrPreservesFileOnFailure() async throws {
         for fixtureName in Self.audioFixtureNames {
             let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
@@ -139,6 +143,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFieldTransferPaddedTextAndWhitespaceOnlySourceOnDisk() async throws {
         let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: "testAudioFile.flac"))
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -170,6 +175,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testFieldTransferNumberCombinationsRoundTripOrFailWithoutChangingFile() async throws {
         let fields: [MetadataExchangeField] = [.trackNumber, .trackTotal, .discNumber, .discTotal]
         for fixtureName in Self.audioFixtureNames {
@@ -203,6 +209,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func fieldTransferPayload(
         from file: AudioFile,
         source: MetadataExchangeField,
@@ -213,14 +220,10 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
             source: source, destination: destination, operation: operation, targetFiles: [file]
         )
         let entry = try XCTUnwrap(plan.writeEntries.first)
-        var edit = SingleFileEditModel(from: file)
-        for field in MetadataExchangeField.allCases {
-            guard let value = entry.values[field] else { continue }
-            field.applyImportedValue(value, to: &edit, preservingNumberPairComponents: entry.preservingNumberPairComponents)
-        }
-        return MetadataEditPayload(edit, comparedTo: file)
+        return try XCTUnwrap(entry.frozenPayload)
     }
 
+    @MainActor
     func testFieldTransferRejectedWritesLeaveSourceAndFileIntact() async throws {
         let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: "testAudioFile.m4a"))
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
@@ -241,6 +244,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack.comment, "External change")
     }
 
+    @MainActor
     func testMetadataPatchConstructionContainsOnlyChangedIntent() throws {
         let file = AudioFileTestFactory.make(
             title: "Old Title",
@@ -261,6 +265,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(patch.artwork, .unchanged)
     }
 
+    @MainActor
     func testDiscOnlyInspectorPatchLeavesTrackPairUnspecified() throws {
         let file = AudioFileTestFactory.make(trackNumberText: "07/12", discNumberText: "1/3")
         var edit = SingleFileEditModel(from: file)
@@ -273,6 +278,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertNil(patch.numberText)
     }
 
+    @MainActor
     func testTitleOnlyInspectorWritePreservesUntouchedRawValueStructure() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -317,6 +323,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInspectorYearSetAndClearRoundTripsAcrossIndependentDateFixtures() async throws {
         for fixtureName in Self.audioFixtureNames where fixtureName != "testAudioFile.m4a" {
             let url = try makeWritableCopy(of: bundledAudioFixtureURL(named: fixtureName))
@@ -341,6 +348,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testInspectorYearAndReleaseDateEditsRemainIndependentOnFLAC() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -380,6 +388,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertNil(snapshot.raw.properties.first { $0.key == "RELEASEDATE" })
     }
 
+    @MainActor
     func testInspectorYearEditIsEditableOnMP4AndIndependentOfReleaseDate() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -411,6 +420,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(reloaded.releaseDate, "2020-05-31")
     }
 
+    @MainActor
     func testAudioFileLoadingRejectsMissingSourceFile() async {
         let missingURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("AudioMator-Missing-Load-\(UUID().uuidString).mp3")
@@ -426,6 +436,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testAudioFixturesAreReadableByTagLib() throws {
         for fixtureName in Self.audioFixtureNames {
             let fixtureURL = try bundledAudioFixtureURL(named: fixtureName)
@@ -447,6 +458,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testConcurrentM4AReadsRemainStable() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let temporaryDirectory = FileManager.default.temporaryDirectory
@@ -477,6 +489,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testRawMetadataInspectionLoadsAcrossAudioFixtures() throws {
         let pipeline = TagLibAudioMetadataPipeline()
 
@@ -528,6 +541,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     private static func sectionHeaders(after precedingHeader: String, in text: String) -> [String] {
         var hasSeenPrecedingHeader = false
         var headers: [String] = []
@@ -547,6 +561,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         return headers
     }
 
+    @MainActor
     func testCoreMetadataRoundTripsForWritableAudioFixtures() throws {
         var executedFixtureCount = 0
         for fixtureName in Self.audioFixtureNames {
@@ -592,6 +607,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
+    @MainActor
     func testTrackAndDiscNumberIntentWritesRoundTripNumericValuesAcrossWritableAudioFixtures() async throws {
         let pipeline = TagLibAudioMetadataPipeline()
         var executedFixtureCount = 0
@@ -667,8 +683,8 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
+    @MainActor
     func testEraseAllMetadataClearsCommonFieldsAcrossWritableAudioFixtures() async throws {
-        let pipeline = TagLibAudioMetadataPipeline()
         var executedFixtureCount = 0
 
         for fixtureName in Self.audioFixtureNames {
@@ -757,6 +773,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(executedFixtureCount, Self.audioFixtureNames.count, "Every pinned writable audio fixture must execute")
     }
 
+    @MainActor
     func testInspectorArtworkIntentRoundTripsOnDisk() async throws {
         let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
         for fixtureName in Self.artworkFixtureNames {
@@ -791,6 +808,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testArtworkCanBeWrittenAndClearedForPrimaryFormats() throws {
         let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
         XCTAssertGreaterThan(artworkData.count, 0)
@@ -828,6 +846,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(executedFixtureCount, Self.artworkFixtureNames.count, "Every pinned artwork fixture must execute")
     }
 
+    @MainActor
     func testRawPropertyMapWriteRemovesDeletedMP4FreeformFields() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -864,6 +883,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack["TITLE"], ["Raw Delete Regression"], "Removing one freeform key must keep the unrelated edited value.")
     }
 
+    @MainActor
     func testLosslessRawValueMapPreservesArraysDuplicatesWhitespaceAndLiteralSemicolons() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -905,6 +925,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(try pipeline.conflictSnapshot(for: workingURL).structured.artwork, artwork)
     }
 
+    @MainActor
     func testInspectorSaveRejectsSnapshotVersionThatPredatesExternalMetadataEdit() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.flac")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -932,6 +953,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(try TagLibMetadataManager.readMetadataResult(from: workingURL).title, "External Edit")
     }
 
+    @MainActor
     func testRawPropertyMapWriteRemovesTrackTotalWithoutDroppingTrackNumber() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -979,6 +1001,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(reloaded.trackTotal, 0)
     }
 
+    @MainActor
     func testInspectorStyleMetadataWriteClearsTrackTotalWithoutDroppingTrackNumber() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1003,6 +1026,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(readBack.trackNumberText, "7")
     }
 
+    @MainActor
     func testInspectorStyleAdvisoryWriteDoesNotReplaceTheWholePropertyMap() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1037,6 +1061,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(rawMap["ALBUM"], [edit.album])
     }
 
+    @MainActor
     func testInspectorStyleExplicitAdvisoryWritesiTunesExplicitValue() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1053,6 +1078,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(snapshot.basic.explicitAdvisory, .explicit)
     }
 
+    @MainActor
     func testInspectorStyleNotExplicitAdvisoryDoesNotBecomeExplicitAfterSave() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1073,6 +1099,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(reloaded.contentAdvisory?.isExplicit ?? false, false)
     }
 
+    @MainActor
     func testInspectorStyleUnsetAdvisoryClearsAnExistingAdvisory() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1102,6 +1129,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(reloaded.contentAdvisory?.isExplicit ?? false, false)
     }
 
+    @MainActor
     func testAudioFileReadsiTunesExplicitAdvisoryValue() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1124,6 +1152,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(try pipeline.rawMetadataValueMap(for: workingURL)["ITUNESADVISORY"], ["1"])
     }
 
+    @MainActor
     func testAudioFileIgnoresNonAdvisoryRawValuesWhenReadingContentAdvisory() async throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)
@@ -1148,6 +1177,7 @@ final class TagLibReadWriteIntegrationTests: XCTestCase {
         XCTAssertEqual(file.contentAdvisory?.isExplicit ?? false, false)
     }
 
+    @MainActor
     func testInspectorStyleMetadataWriteClearsEditableTextFields() throws {
         let fixtureURL = try bundledAudioFixtureURL(named: "testAudioFile.m4a")
         let workingURL = try makeWritableCopy(of: fixtureURL)

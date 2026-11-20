@@ -21,9 +21,15 @@ struct MetadataWriteSuccessOutcome: Sendable {
 enum MetadataWriteExecutionResult: Sendable {
     case success(MetadataWriteSuccessOutcome)
     case failure(String)
+    /// Precommit cancellation only. A commit that crossed the admission boundary
+    /// always reports `.success`/`.failure` with its real disk outcome.
+    case cancelled
 }
 
-func fileCountLabel(_ count: Int) -> String {
+/// Pure localized count label shared by failure reporting. Nonisolated because
+/// it only formats localized text and is also used while composing detached
+/// failure output.
+nonisolated func fileCountLabel(_ count: Int) -> String {
     count == 1 ? String(localized: "1 file") : String(localized: "\(count) files")
 }
 
@@ -62,10 +68,13 @@ extension AudioViewModel {
 
 extension AudioViewModel {
     func prepareMetadataMutationDirectoryAccess(
-        for urls: [URL],
+        for writes: [ReviewedMetadataWrite],
+        conflictAwareWrites: [ReviewedMetadataWrite] = [],
         failureTitle: String = String(localized: "Allow Folder Access")
     ) -> Bool {
-        guard let failure = ensureMetadataMutationDirectoryAccess(for: urls) else { return true }
+        guard let failure = ensureReviewedMetadataDirectoryAccess(
+            for: writes, conflictAwareWrites: conflictAwareWrites
+        ) else { return true }
 
         presentMetadataWriteHUD(
             style: .warning,
@@ -86,12 +95,28 @@ extension AudioViewModel {
         return false
     }
 
+    func tryBeginMetadataSaveProgress(
+        title: String,
+        subtitle: String,
+        totalUnitCount: Int
+    ) -> UUID? {
+        guard metadataSaveProgress == nil else { return nil }
+        return beginMetadataSaveProgress(
+            title: title,
+            subtitle: subtitle,
+            totalUnitCount: totalUnitCount
+        )
+    }
+
+    @discardableResult
     func beginMetadataSaveProgress(
         title: String,
         subtitle: String,
         totalUnitCount: Int
-    ) {
+    ) -> UUID {
         flushPendingMetadataReloads()
+        let token = UUID()
+        metadataSaveProgressToken = token
         lastMetadataProgressPublication = .now
         metadataSaveProgress = MetadataSaveProgress(
             title: title,
@@ -99,12 +124,15 @@ extension AudioViewModel {
             completedUnitCount: 0,
             totalUnitCount: max(totalUnitCount, 1)
         )
+        return token
     }
 
     func updateMetadataSaveProgress(
+        token: UUID,
         subtitle: String,
         completedUnitCount: Int
     ) {
+        guard metadataSaveProgressToken == token else { return }
         guard let current = metadataSaveProgress else { return }
         // Each progress publication invalidates the window. Bound that work for
         // fast batch writes while always publishing the final completed count.
@@ -119,80 +147,14 @@ extension AudioViewModel {
         )
     }
 
-    func endMetadataSaveProgress() {
+    func endMetadataSaveProgress(token: UUID) {
+        guard metadataSaveProgressToken == token else { return }
         // Publish every accepted reload before reporting batch completion,
         // including partial failures and cancellation.
         flushPendingMetadataReloads()
         metadataSaveProgress = nil
+        metadataSaveProgressToken = nil
     }
-
-    func executeMetadataFileMutation(
-        at url: URL,
-        id: AudioFile.ID,
-        expectedFileFingerprint: AudioFileFingerprint?,
-        syncInspectorAfterReload: Bool,
-        write: @escaping @Sendable (any AudioMetadataPipeline, URL) throws -> AudioMetadataWriteResult
-    ) async -> MetadataWriteExecutionResult {
-        do { try validateMetadataWriteRecovery(id: id, url: url) }
-        catch { return .failure(error.localizedDescription) }
-        if let accessFailure = ensureMetadataMutationDirectoryAccess(for: [url]) {
-            return .failure(accessFailure)
-        }
-
-        let executor = MetadataFileMutationExecutor(
-            metadataPipeline: metadataPipeline,
-            fileMutationCoordinator: fileMutationCoordinator
-        )
-        let refreshGeneration = makeFileModelRefreshGeneration()
-        let result = await executor.execute(
-            at: url,
-            id: id,
-            expectedFileFingerprint: expectedFileFingerprint,
-            validateBeforeWrite: { try await self.validateMetadataWriteRecovery(id: id, url: url) },
-            write: write
-        )
-
-        switch result {
-        case .success(let success):
-            var didApplyReloadedFile = false
-            if let reloadedFile = success.reloadedFile {
-                didApplyReloadedFile = replaceLoadedFile(
-                    reloadedFile,
-                    refreshGeneration: refreshGeneration,
-                    deferVisibleRefresh: metadataSaveProgress != nil && !syncInspectorAfterReload
-                )
-                if didApplyReloadedFile, syncInspectorAfterReload, selectedAudioIDs.contains(id) {
-                    updateEditForSelection()
-                }
-            }
-
-            var warnings = success.writeResult.warnings
-            if case .durabilityUncertain(let detail) = success.writeResult.commitStatus {
-                warnings.append(
-                    MetadataCommitWarning.durability(detail)
-                )
-            }
-            if let reloadErrorDescription = success.reloadErrorDescription {
-                warnings.append(
-                    MetadataCommitWarning.reload(reloadErrorDescription)
-                )
-            }
-
-            return .success(
-                MetadataWriteSuccessOutcome(
-                    warnings: warnings,
-                    didRefreshFileModel: didApplyReloadedFile
-                )
-            )
-
-        case .failure(let reason):
-            return .failure(reason)
-
-        case .cancelled:
-            return .failure(MetadataCancellation.message)
-        }
-    }
-
 }
 
 
@@ -201,6 +163,7 @@ extension AudioViewModel {
     /// bound. Results remain in plan order; nil means cancelled before entry.
     func executeBoundedMetadataPlan(
         fileNames: [String],
+        progressToken: UUID,
         operation: @escaping @MainActor @Sendable (Int) async -> (fileName: String, result: MetadataWriteExecutionResult)
     ) async -> [(fileName: String, result: MetadataWriteExecutionResult)?] {
         var results = Array<(fileName: String, result: MetadataWriteExecutionResult)?>(repeating: nil, count: fileNames.count)
@@ -211,7 +174,11 @@ extension AudioViewModel {
         } onCompletion: { index, result in
             results[index] = result
             completed += 1
-            self.updateMetadataSaveProgress(subtitle: fileNames[index], completedUnitCount: completed)
+            self.updateMetadataSaveProgress(
+                token: progressToken,
+                subtitle: fileNames[index],
+                completedUnitCount: completed
+            )
         }
         return results
     }

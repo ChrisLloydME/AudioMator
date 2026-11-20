@@ -18,6 +18,12 @@ Version 0.8.1 supplies automatic edited-group numbering recovery and retirement.
 
 Loading opts into the package's optional `audioContentIdentity`. Automatic conflict rebases require equal, non-nil baseline and current tokens and commit with both the baseline token and exact current version. An unchanged exact version may still save normally; two absent tokens never establish continuity. The token is package-owned and opaque to the app; its derivation, cost and layout coverage are package responsibilities.
 
+Reviewed write authorization requires a nonoptional `MetadataFileVersion`; a
+load that cannot supply one produces no writable target. The app no longer has
+any nil-revision write path: the removed mixed helper and its optional expected
+version forwarding are gone. Such a file stays readable and must be reviewed
+again after a coherent reread.
+
 `MetadataFileVersion` remains an opaque revision token. Package support is limited by format and layout, so automatic rebases are unavailable whenever either snapshot lacks a token. Whole-file hashes are not used as a fallback. Current app integration coverage includes the same-inode content-replacement regression; it does not prove continuity for every container. WAV, AIFF/AIFF-C and native FLAC have been reported for the current pin, but the app treats continuity as optional and format-dependent rather than assumed.
 
 ## Number Text and Normalization
@@ -25,6 +31,10 @@ Loading opts into the package's optional `audioContentIdentity`. Automatic confl
 The semantic adapter rejects non-numeric track/disc number text. The accepted semantic components are unsigned decimal values at most 2147483647; an empty number can accompany a positive total. Thus `A1/12`, `A1` plus an edited total, and `B2` plus an edited disc total are not supported semantic number-text edits. The app distinguishes this limitation from a missing number, refuses before mutation with a clear message, and directs the user to Metadata Editor. Unrelated title edits preserve the raw non-numeric text and totals.
 
 Individual components preserve a positive total when the number is cleared, serialized as `/total`; whole-pair clearing still removes both components. The package owner should document the accepted grammar or add non-numeric number-text round trips. AudioMator does not bypass the package with a speculative semantic-to-raw mapping.
+
+## Raw Value Arrays
+
+`RawMetadataValueMap` is `[String: [String]]`; the app treats each list as ordered data and preserves duplicates, empty elements and line breaks embedded inside one element. The published package exposes no per-key raw capability API, so a raw patch is accepted by the deterministic projection and the container then either round-trips the exact array or fails its own post-write verification. AudioMator reports that failure and does not retry with a semantic or different raw write. Blank, duplicate and multiline element acceptance is format- and container-dependent; fixture coverage is limited to the committed MP3/M4A/FLAC files (see [Testing](../Development/TESTING.md#fixtures)). The app preserves an existing empty array but does not emit `valuesToSet[key] = []` from normal editing; changing it requires an explicit value or the Delete Field command.
 
 ## Artwork
 

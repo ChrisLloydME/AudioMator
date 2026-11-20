@@ -4,7 +4,7 @@ import TagLibAudioMetadata
 
 /// Positive contract probes against the released package, without app repair
 /// patches. A failure is an integration blocker, not an expected failure.
-final class MappingPackageConformanceTests: XCTestCase {
+nonisolated final class MappingPackageConformanceTests: XCTestCase {
     private func fixture(_ ext: String) throws -> URL {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile", withExtension: ext, subdirectory: "Fixtures/Audio")
@@ -15,6 +15,7 @@ final class MappingPackageConformanceTests: XCTestCase {
         return url
     }
 
+    @MainActor
     func testPackageYearMustPreserveIndependentXiphDate() throws {
         let url = try fixture("flac")
         try TagLibMetadataManager.applyMetadataPatch(.init(fields: [
@@ -24,6 +25,7 @@ final class MappingPackageConformanceTests: XCTestCase {
         XCTAssertEqual(try TagLibMetadataManager.readSnapshot(from: url).basic.date, "2008-03-04")
     }
 
+    @MainActor
     func testPackageMP4DateMustNotRequireYearCompanion() throws {
         let url = try fixture("m4a")
         try TagLibMetadataManager.applyMetadataPatch(.init(fields: [.year: .text("2004")]), to: url)
@@ -33,6 +35,7 @@ final class MappingPackageConformanceTests: XCTestCase {
         XCTAssertEqual(snapshot.basic.date, "2008-03-04")
     }
 
+    @MainActor
     func testAppWritesOnlyYearAndPreservesIndependentDate() throws {
         let url = try fixture("flac")
         try TagLibMetadataManager.applyMetadataPatch(.init(fields: [
@@ -51,6 +54,7 @@ final class MappingPackageConformanceTests: XCTestCase {
         XCTAssertEqual(after.date, "2008-03-04")
     }
 
+    @MainActor
     func testPackageMP4LyricsPreservesAbsentYearWithStandaloneDate() throws {
         let url = try fixture("m4a")
         try TagLibMetadataManager.applyMetadataPatch(.init(fields: [

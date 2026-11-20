@@ -149,6 +149,8 @@ Quick Import loads with `min(max(activeProcessorCount × 2, 6), min(12, count))`
 
 `AudioViewModel.setSelectedAudioIDs` filters requested IDs against the visible collection and rebuilds the draft in the same main-actor operation. One selected file creates a `SingleFileEditModel`; multiple selected files create a `MultiFileEditModel`. The draft's source snapshots are retained separately from the live list so a background refresh cannot silently change the save baseline.
 
+The draft carries its own session identity, captured target baselines and monotonic edit/artwork command generations. Passive refresh never replaces a dirty draft or its original expected revision; only a named explicit transition, a clean refresh or an own-save completion changes the model. A successful save advances baselines per field from the accepted readback and reapplies newer edits. If a dirty draft's captured files become unavailable, the selection is still pruned but the payload and baselines are kept as a detached pending review; Save stays suspended until the files return and the user resumes, or the user discards it.
+
 ### Save
 
 ```mermaid
@@ -180,19 +182,18 @@ A synchronous TagLib commit cannot be interrupted once it starts. Cancellation i
 
 ### Rename
 
-Rename is a two-phase transaction under one multi-path reservation:
+Rename is a durable two-phase transaction plus a bounded readback:
 
-1. Validate each source fingerprint.
-2. Move every source to a unique temporary name in the same directory.
-3. Move each temporary name to its destination.
-4. On failure, roll back finalized and staged files in reverse order.
-5. Report structured recovery items if rollback is incomplete.
+1. `RenameTransactionService` records one versioned `prepared` journal manifest (absolute original/temporary/intended URLs and captured entry identity evidence) durably, stages every source to a deterministic hidden same-directory name with `renameatx_np(RENAME_EXCL)` on held directory descriptors, then finalizes destinations after every source is staged. Each move is verified against the captured directory-entry identity; unsupported volumes are rejected before staging. Failures roll back finalized then staged files in reverse order; an incomplete rollback retains the prepared record. After all identities verify and audio directories are flushed, the record is rewritten as `committed` before it is removed. Throughout, one union reservation and a stable cross-process journal lock serialize app-owned work.
+2. After the move reservation is released, each destination is reacquired under its own reservation for a bounded (60 second) full read. The entry identity must still match before the read and after it; only that coherent observation restores write authority and clears the pending decision.
 
-Metadata reload after rename recovers the fingerprint and metadata revision independently. If either cannot be recovered, the snapshot is marked refresh-required and version-checked writes fail closed.
+Startup loads journal records read-only, installs path-keyed mutation blocks, classifies in the background and never moves files automatically. **Settings > Folders > Rename Recovery** offers explicit, identity-checked restore of original names (no overwrite, idempotent across interruption) for prepared records, and explicit removal of verified committed/no-move records.
+
+A failed or timed-out readback leaves the moved file as an authority-free display projection with metadata editing paused. Stat-only or version-only probes never restore a writable revision, and an external program can still change the path between the two phases; that external-writer race limit is documented in [Rename and Renumbering](RENAME_AND_RENUMBERING.md).
 
 ### Online Metadata
 
-Provider stores own their search tasks and cancellation. Applying results constructs a write plan with the source snapshot's expected fingerprint; the same `AudioViewModel` write path performs the mutation. LRCLIB lyrics are applied as a raw `LYRICS` patch rather than a full property-map rewrite.
+Provider stores own their search tasks and cancellation. Applying results constructs a write plan with the source snapshot's expected fingerprint; the same `AudioViewModel` write path performs the mutation. LRCLIB lyrics are applied as a raw `LYRICS` patch rather than a full property-map rewrite. The LRCLIB store also owns one browser session generation and one search-to-write operation: the reviewed target (fingerprint and package version) is captured with each seed query, writes go through the shared strict reviewed-write route, and close/Back/reseed cancel outstanding lookups and unstarted writes while an admitted commit still reports its real outcome.
 
 ## State Ownership
 
@@ -200,11 +201,13 @@ Provider stores own their search tasks and cancellation. Applying results constr
 | --- | --- | --- |
 | Loaded files and watched-folder lists | `AudioViewModel` | Session |
 | Selection | `AudioViewModel` | Session |
-| Inspector/Metadata Editor drafts | `AudioViewModel`, `MetadataEditorStore` | Session |
+| Inspector drafts (payload + session/baselines/ledger + detached pending review) | `AudioViewModel` (`InspectorDraftSession`) | Session |
+| Metadata Editor draft (raw editor sessions/apply) | `MetadataEditorStore` | Session/window presentation |
 | Sidebar choice, sort, column/toolbar/inspector-field visibility | `SharedState` | Session, with `UserDefaults` persistence |
 | Watched folders and file-access grants | `WatchedFolderStore`, `FileAccessGrantStore` | Persisted bookmarks in `UserDefaults` |
 | Conflict policy | `MetadataConflictPolicy.load` from `metadata.conflictPolicy` | Persisted |
 | Save issue log | `SaveIssueLogStore` | `Application Support/AudioMator/SaveIssueLog.json`, capped at 200 entries |
+| Rename recovery journal | `RenameTransactionService`, `RenameJournalStore`; presentation/path blocks in `AudioViewModel` | Versioned manifests + stable lock in `Application Support/AudioMator/RenameJournal/`, retained until restore, acknowledgement, or verified completion |
 | Provider search state | Provider stores | Feature/window lifetime |
 
 No view owns authoritative file state. Views bind to observable owners and send explicit intents.
@@ -224,7 +227,7 @@ Errors are converted to structured outcomes close to the operation:
 
 - `MetadataFileMutationResult`: success (with optional reload warning), failure, cancelled.
 - `AudioMetadataCommitStatus`: durable, or durability uncertain after commit.
-- `FileRenameExecutionResult`: completed operations or failure with recovery items.
+- `RenameExecutionOutcome`: committed receipts, verified rollback, unresolved with a read-only classification, rejected, or busy. A prepared or committed journal record survives process termination for explicit restart recovery.
 - Provider errors: typed client errors mapped to user-facing messages.
 - Batch results: per-file success, warning, or failure; never a group transaction.
 
@@ -232,7 +235,9 @@ Recovery rules:
 
 - A failed write leaves the snapshot and draft unchanged.
 - A successful write with a failed reload reports persisted-with-warning; the app does not invent a new snapshot.
-- A rename with incomplete rollback reports every observed candidate location.
+- A rename with incomplete rollback retains a prepared journal record and reports every observed candidate location; it is never repaired automatically.
+- A committed journal record left by termination keeps the new names and only offers explicit acknowledgement; a prepared record only offers explicit, identity-checked restore.
+- A blocked journal path rejects metadata writes and rename planning until the recorded operation is restored or acknowledged.
 - A replaced or unreadable file stops version-checked writes rather than guessing at a replacement.
 
 ## Extension Points
@@ -241,7 +246,8 @@ The code is extended by conforming to existing protocols and injecting at the co
 
 - `AudioMetadataPipeline` — alternative metadata backends and test fakes.
 - `MusicBrainzBrowserClient`, `iTunesBrowserClient`, `LRCLIBLyricsSearching`, `iTunesArtworkServicing` — provider clients and test doubles.
-- `FileRenameFileSystem` — rename filesystem seam.
+- `RenameFileSystem` — exclusive same-directory move, held-directory and durability seam.
+- `RenameJournalStoring` — versioned durable journal and stable lock seam.
 - `UpdateReleaseProviding` — update source.
 - `DirectoryMonitor` and the bookmark stores — filesystem integration.
 

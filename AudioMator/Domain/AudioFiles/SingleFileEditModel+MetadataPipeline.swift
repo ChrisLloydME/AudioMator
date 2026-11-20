@@ -1,7 +1,7 @@
 import Foundation
 import TagLibAudioMetadata
 
-extension MetadataEditPayload {
+nonisolated extension MetadataEditPayload {
     init(_ edit: SingleFileEditModel) {
         var changedFields = Set(Self.textFieldMappings.map(\.key))
         if edit.year.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -150,7 +150,7 @@ extension MetadataEditPayload {
         return patch
     }
 
-    private static let textFieldMappings: [(key: MetadataFieldKey, value: (SingleFileEditModel) -> String)] = [
+    private static let textFieldMappings: [(key: MetadataFieldKey, value: @Sendable (SingleFileEditModel) -> String)] = [
         (.title, { $0.title }),
         (.artist, { $0.artist }),
         (.album, { $0.album }),

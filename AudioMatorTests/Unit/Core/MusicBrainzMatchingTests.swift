@@ -1,7 +1,8 @@
 import XCTest
 @testable import AudioMator
 
-final class MusicBrainzMatchingTests: XCTestCase {
+nonisolated final class MusicBrainzMatchingTests: XCTestCase {
+    @MainActor
     func testOptimalAssignmentsAvoidGreedyTrackConflict() {
         let fileA = makeFile(id: "a")
         let fileB = makeFile(id: "b")
@@ -20,6 +21,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         XCTAssertEqual(assignments.map(\.score).reduce(0, +), 1.65, accuracy: 0.000_001)
     }
 
+    @MainActor
     func testRepresentativeLookupPrefersStrongIdentifiersAndCompleteMetadata() {
         let sparse = MusicBrainzFileSearchInput(
             id: "sparse",
@@ -50,6 +52,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         XCTAssertEqual(representatives.first?.id, "identified")
     }
 
+    @MainActor
     func testRepresentativeLookupAvoidsTitleThatDuplicatesAlbumName() {
         let titleTrack = MusicBrainzFileSearchInput(
             id: "title-track",
@@ -81,6 +84,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         XCTAssertEqual(representatives.first?.id, "distinctive-track")
     }
 
+    @MainActor
     func testReleaseDetailVerificationStopsOnlyForClearHighConfidenceLead() {
         let file = makeFile(id: "a")
         let track = makeTrack(id: "x")
@@ -150,6 +154,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         XCTAssertFalse(MusicBrainzResultRanker.hasCredibleReleaseCandidate([noise], query: query))
     }
 
+    @MainActor
     func testMultiMediumReleaseIgnoresUnselectedVideoMedium() {
         let files = (1...6).map { trackNumber in
             MusicBrainzFileSearchInput(
@@ -243,6 +248,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeDetailTrack(
         id: String,
         number: String,
@@ -259,6 +265,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeReleaseDetail(
         media: [MusicBrainzReleaseDetail.Medium]
     ) -> MusicBrainzReleaseDetail {
@@ -288,6 +295,7 @@ final class MusicBrainzMatchingTests: XCTestCase {
         )
     }
 
+    @MainActor
     private func makeAssignment(
         file: MusicBrainzFileSearchInput,
         track: MusicBrainzReleaseMatchTrack,

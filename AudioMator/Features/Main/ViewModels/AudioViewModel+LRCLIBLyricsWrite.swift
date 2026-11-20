@@ -1,245 +1,296 @@
 import Foundation
 import TagLibAudioMetadata
 
+/// LRCLIB lyrics application. Both entry points accept only the frozen intents
+/// built by `LRCLIBLyricsWriteIntentBuilder`; there is deliberately no
+/// `apply…(_ lyrics: String, to id: AudioFile.ID)` surface left.
+///
+/// Every disk mutation flows through `executeReviewedMetadataWrite`, i.e. the
+/// shared strict route with its reservation, live-target recheck and commit
+/// permit. The permit's first transition is the single ordering point between
+/// cancellation and accepted work: a pending write is cancelled, and an admitted
+/// one is never interrupted and reports its real outcome.
 extension AudioViewModel {
-    func applyLRCLIBSyncedLyrics(_ syncedLyrics: String, to fileID: AudioFile.ID) async -> Bool {
-        guard metadataSaveProgress == nil else { return false }
-        let normalizedLyrics = syncedLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedLyrics.isEmpty else { return false }
-        guard canStartExternalFileMutation() else { return false }
+    private var unreviewedLyricsEntryMessage: String {
+        String(localized: "This lyrics result wasn’t built from a reviewed copy of this file. Close and reopen LRCLIB, then review the current lyrics before applying them.")
+    }
 
-        guard let file = files.first(where: { $0.id == fileID }) else {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Lyrics Couldn’t Be Applied"),
-                subtitle: String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
+    private var anotherSaveInProgressMessage: String {
+        String(localized: "Another save is still in progress. Wait for it to finish, then try applying lyrics again.")
+    }
+
+    // MARK: - Manual (single file)
+
+    func applyLRCLIBLyrics(_ intent: LRCLIBLyricsManualWriteIntent) async -> LRCLIBLyricsManualWriteOutcome {
+        guard !Task.isCancelled else { return .cancelled }
+
+        guard let write = intent.write else {
+            let message = intent.rejection?.message ?? unreviewedLyricsEntryMessage
+            presentMetadataWriteFailure(
+                for: intent.fileName,
+                reason: message,
+                title: String(localized: "Lyrics Couldn’t Be Applied")
             )
-            return false
+            return .rejected(message)
+        }
+        guard intent.rejection == nil else {
+            let message = intent.rejection?.message ?? unreviewedLyricsEntryMessage
+            presentMetadataWriteFailure(
+                for: intent.fileName,
+                reason: message,
+                title: String(localized: "Lyrics Couldn’t Be Applied")
+            )
+            return .rejected(message)
         }
 
-        guard !file.requiresMetadataRefreshBeforeWriting else {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Lyrics Couldn’t Be Applied"),
-                subtitle: String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before applying lyrics.")
-            )
-            return false
+        guard canStartExternalFileMutation() else {
+            return .rejected(String(localized: "Save or discard the pending inspector edits before changing files from another tool."))
         }
-
-        guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Lyrics Couldn’t Be Applied"),
-                subtitle: String(localized: "AudioMator doesn't support saving metadata to this file format.")
-            )
-            return false
-        }
-        guard unsupportedMetadataWriteFields(
-            [.lyrics],
-            forFileExtension: file.url.pathExtension
-        ).isEmpty else {
-            presentMetadataWriteHUD(
-                style: .failure,
-                title: String(localized: "Lyrics Couldn’t Be Applied"),
-                subtitle: String(localized: "This file format doesn't support saving lyrics in AudioMator. No changes were saved.")
-            )
-            return false
-        }
-
-        beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Applying LRCLIB Lyrics",
-            subtitle: file.url.lastPathComponent,
+            subtitle: intent.fileName,
             totalUnitCount: 1
-        )
-
-        let result = await executeMetadataFileMutation(
-            at: file.url,
-            id: file.id,
-            expectedFileFingerprint: file.fileFingerprint,
-            syncInspectorAfterReload: true
-        ) { metadataPipeline, url in
-            try metadataPipeline.writeRawMetadataPatch(
-                RawMetadataPatch(valuesToSet: ["LYRICS": [normalizedLyrics]]),
-                to: url,
-                expectedVersion: file.metadataFileVersion
+        ) else {
+            presentMetadataWriteHUD(
+                style: .warning,
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
+                subtitle: anotherSaveInProgressMessage
             )
+            return .rejected(anotherSaveInProgressMessage)
         }
+        defer { endMetadataSaveProgress(token: progressToken) }
+
+        let result = await executeReviewedMetadataWrite(write, publication: .immediate)
+        updateMetadataSaveProgress(
+            token: progressToken,
+            subtitle: intent.fileName,
+            completedUnitCount: 1
+        )
+        endMetadataSaveProgress(token: progressToken)
 
         switch result {
         case .success(let success):
-            updateMetadataSaveProgress(
-                subtitle: file.url.lastPathComponent,
-                completedUnitCount: 1
-            )
-            endMetadataSaveProgress()
-
             if success.warnings.isEmpty {
                 presentMetadataWriteHUD(
                     style: .success,
-                    title: "LRCLIB Lyrics Applied",
-                    subtitle: file.url.lastPathComponent,
-                    summary: file.url.lastPathComponent,
+                    title: String(localized: "LRCLIB Lyrics Applied"),
+                    subtitle: intent.fileName,
+                    summary: intent.fileName,
                     details: ""
                 )
             } else {
                 presentMetadataWriteWarning(
                     title: String(localized: "Lyrics Saved with Warnings"),
-                    fileName: file.url.lastPathComponent,
+                    fileName: intent.fileName,
                     warnings: success.warnings
                 )
             }
-
-            return true
+            presentPostCommitInspectorRefreshIfClean(
+                targetID: intent.fileID,
+                refreshedFileModel: success.didRefreshFileModel
+            )
+            return .applied(warnings: success.warnings, refreshedFileModel: success.didRefreshFileModel)
 
         case .failure(let reason):
-            updateMetadataSaveProgress(
-                subtitle: file.url.lastPathComponent,
-                completedUnitCount: 1
-            )
-            endMetadataSaveProgress()
             presentMetadataWriteFailure(
-                for: file.url.lastPathComponent, reason: reason,
+                for: intent.fileName,
+                reason: reason,
                 title: String(localized: "Lyrics Couldn’t Be Applied")
             )
-            return false
+            return .rejected(reason)
+
+        case .cancelled:
+            // The session ended before this write crossed the commit boundary.
+            // A started commit returns success/failure above, never this case.
+            return .cancelled
         }
     }
 
-    func applyLRCLIBSyncedLyricsAutoMatches(_ matches: [LRCLIBSyncedLyricsAutoMatch]) async -> Set<AudioFile.ID> {
-        guard metadataSaveProgress == nil else { return [] }
-        guard !matches.isEmpty else {
+    // MARK: - Bulk (auto-apply)
+
+    func applyLRCLIBLyricsAutoMatches(
+        _ intent: LRCLIBLyricsAutoWriteIntent
+    ) async -> LRCLIBLyricsAutoWriteOutcome {
+        let entries = intent.entries
+        var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
+        var appliedEntries: [LRCLIBLyricsAppliedEntry] = []
+        var succeededCount = 0
+        var didCancel = false
+
+        func outcome(cancelledBeforeAnyStart: Bool) -> LRCLIBLyricsAutoWriteOutcome {
+            LRCLIBLyricsAutoWriteOutcome(
+                appliedEntries: appliedEntries,
+                summary: summary,
+                succeededCount: succeededCount,
+                didCancel: didCancel,
+                cancelledBeforeAnyStart: cancelledBeforeAnyStart
+            )
+        }
+
+        guard !Task.isCancelled else {
+            didCancel = true
+            summary.recordCancelledFiles(entries.map(\.fileName))
+            return outcome(cancelledBeforeAnyStart: true)
+        }
+
+        guard !entries.isEmpty else {
             presentMetadataWriteHUD(
                 style: .warning,
                 title: String(localized: "No Synced Lyrics Available"),
                 subtitle: String(localized: "LRCLIB didn't find synced lyrics for these files. Try different search details or choose another result.")
             )
-            return []
+            return outcome(cancelledBeforeAnyStart: false)
         }
-        guard canStartExternalFileMutation() else { return [] }
 
-        let filesByID = Dictionary(uniqueKeysWithValues: files.map { ($0.id, $0) })
-        let targetURLs = matches.compactMap { filesByID[$0.fileID]?.url }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return [] }
-        var summary = BatchMetadataOperationSummary(totalTargets: matches.count)
-        var appliedFileIDs = Set<AudioFile.ID>()
-
-        beginMetadataSaveProgress(
+        guard canStartExternalFileMutation() else {
+            return outcome(cancelledBeforeAnyStart: false)
+        }
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Applying LRCLIB Lyrics",
-            subtitle: "Preparing \(matches.count) files...",
-            totalUnitCount: matches.count
-        )
-
-        for (index, match) in matches.enumerated() {
-            updateMetadataSaveProgress(
-                subtitle: match.fileName,
-                completedUnitCount: index
+            subtitle: "Preparing \(entries.count) files...",
+            totalUnitCount: entries.count
+        ) else {
+            presentMetadataWriteHUD(
+                style: .warning,
+                title: String(localized: "Lyrics Couldn’t Be Applied"),
+                subtitle: anotherSaveInProgressMessage
             )
+            return outcome(cancelledBeforeAnyStart: false)
+        }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
-            let normalizedLyrics = match.syncedLyrics.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !normalizedLyrics.isEmpty else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: match.fileName,
-                        messages: [String(localized: "This lyrics result is empty. Choose another result.")]
-                    )
-                )
-                continue
+        // Pre-authorize the captured target folders once, only for currently
+        // eligible executable writes, and only after a cancellation checkpoint
+        // so a session that ended before the handoff never asks for folder access.
+        let reviewedWrites = entries.compactMap { $0.write }
+        if !reviewedWrites.isEmpty {
+            if Task.isCancelled {
+                didCancel = true
+                summary.recordCancelledFiles(entries.map(\.fileName))
+                endMetadataSaveProgress(token: progressToken)
+                return outcome(cancelledBeforeAnyStart: true)
             }
-
-            guard let file = filesByID[match.fileID] else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: match.fileName,
-                        messages: [String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")]
-                    )
-                )
-                continue
-            }
-
-            guard !file.requiresMetadataRefreshBeforeWriting else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
-                        messages: [String(localized: "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before applying lyrics.")]
-                    )
-                )
-                continue
-            }
-
-            guard isTagWriteSupportedExtension(file.url.pathExtension) else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
-                        messages: [String(localized: "AudioMator doesn't support saving metadata to this file format.")]
-                    )
-                )
-                continue
-            }
-            guard unsupportedMetadataWriteFields(
-                [.lyrics],
-                forFileExtension: file.url.pathExtension
-            ).isEmpty else {
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
-                        messages: [String(localized: "This file format doesn't support saving lyrics in AudioMator. No changes were saved.")]
-                    )
-                )
-                continue
-            }
-
-            let result = await executeMetadataFileMutation(
-                at: file.url,
-                id: file.id,
-                expectedFileFingerprint: file.fileFingerprint,
-                syncInspectorAfterReload: false
-            ) { metadataPipeline, url in
-                try metadataPipeline.writeRawMetadataPatch(
-                    RawMetadataPatch(valuesToSet: ["LYRICS": [normalizedLyrics]]),
-                    to: url,
-                    expectedVersion: file.metadataFileVersion
-                )
-            }
-
-            switch result {
-            case .success(let success):
-                if !success.didRefreshFileModel {
-                    summary.allSuccessfulFilesRefreshed = false
-                }
-
-                summary.succeeded += 1
-                appliedFileIDs.insert(file.id)
-
-                if !success.warnings.isEmpty {
-                    summary.warningIssues.append(
+            if !prepareMetadataMutationDirectoryAccess(for: reviewedWrites) {
+                for entry in entries {
+                    let message: String
+                    if let rejection = entry.rejection {
+                        message = rejection.message
+                    } else if let write = entry.write,
+                              let eligibilityFailure = reviewedWriteEligibilityFailure(
+                                for: write.target,
+                                allowsChangedRevision: false
+                              ) {
+                        message = eligibilityFailure
+                    } else if entry.write == nil {
+                        message = unreviewedLyricsEntryMessage
+                    } else {
+                        message = String(localized: "Access to the file’s folder wasn’t granted, so this file wasn’t changed.")
+                    }
+                    summary.failureIssues.append(
                         BatchMetadataWriteIssue(
-                            fileName: file.url.lastPathComponent,
-                            messages: success.warnings
+                            fileName: entry.fileName,
+                            messages: [message]
                         )
                     )
                 }
-
-            case .failure(let reason):
-                summary.failureIssues.append(
-                    BatchMetadataWriteIssue(
-                        fileName: file.url.lastPathComponent,
-                        messages: [reason]
-                    )
-                )
+                endMetadataSaveProgress(token: progressToken)
+                presentBatchMetadataOperationSummary(summary)
+                return outcome(cancelledBeforeAnyStart: false)
             }
         }
 
-        updateMetadataSaveProgress(
-            subtitle: "Finishing...",
-            completedUnitCount: matches.count
-        )
-        endMetadataSaveProgress()
+        var index = 0
+        while index < entries.count {
+            if Task.isCancelled {
+                summary.recordCancelledFiles(entries[index...].map(\.fileName))
+                didCancel = true
+                break
+            }
 
-        if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
-            updateEditForSelection()
+            let entry = entries[index]
+            updateMetadataSaveProgress(token: progressToken, subtitle: entry.fileName, completedUnitCount: index)
+
+            guard let write = entry.write else {
+                let message = entry.rejection?.message ?? unreviewedLyricsEntryMessage
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(fileName: entry.fileName, messages: [message])
+                )
+                index += 1
+                continue
+            }
+
+            let result = await executeReviewedMetadataWrite(write, publication: .batched)
+            switch result {
+            case .success(let success):
+                succeededCount += 1
+                summary.succeeded += 1
+                appliedEntries.append(
+                    LRCLIBLyricsAppliedEntry(fileID: entry.fileID, candidateID: entry.candidateID)
+                )
+                if !success.didRefreshFileModel {
+                    summary.allSuccessfulFilesRefreshed = false
+                }
+                if !success.warnings.isEmpty {
+                    summary.warningIssues.append(
+                        BatchMetadataWriteIssue(fileName: entry.fileName, messages: success.warnings)
+                    )
+                }
+            case .failure(let reason):
+                summary.failureIssues.append(
+                    BatchMetadataWriteIssue(fileName: entry.fileName, messages: [reason])
+                )
+            case .cancelled:
+                // This file never crossed admission. It and everything after it
+                // are recorded cancelled exactly once.
+                summary.recordCancelledFiles([entry.fileName])
+                summary.recordCancelledFiles(entries[(index + 1)...].map(\.fileName))
+                didCancel = true
+                index = entries.count
+                continue
+            }
+            index += 1
         }
 
-        presentBatchMetadataOperationSummary(summary)
-        return appliedFileIDs
+        updateMetadataSaveProgress(
+            token: progressToken,
+            subtitle: "Finishing...",
+            completedUnitCount: didCancel ? max(index, 0) : entries.count
+        )
+        endMetadataSaveProgress(token: progressToken)
+
+        // Report the real outcome whenever anything committed or genuinely failed.
+        // A session that ended before any write started stays silent: the user has
+        // left the tool and there is no started commit to report.
+        let outcomeValue = outcome(
+            cancelledBeforeAnyStart: didCancel && succeededCount == 0 && summary.failureIssues.isEmpty
+        )
+        if shouldPresentBulkOutcome(outcomeValue) {
+            presentBatchMetadataOperationSummary(summary)
+        }
+
+        if !appliedEntries.isEmpty,
+           selectedAudioIDs.contains(where: { id in appliedEntries.contains { $0.fileID == id } }) {
+            refreshInspectorDraftAfterAcceptedPublication()
+        }
+
+        return outcomeValue
+    }
+
+    private func shouldPresentBulkOutcome(_ outcome: LRCLIBLyricsAutoWriteOutcome) -> Bool {
+        if outcome.didCommitAnything || outcome.realFailureCount > 0 {
+            return true
+        }
+        return !outcome.didCancel
+    }
+
+    private func presentPostCommitInspectorRefreshIfClean(
+        targetID: AudioFile.ID,
+        refreshedFileModel: Bool
+    ) {
+        guard refreshedFileModel,
+              selectedAudioIDs.contains(targetID) else {
+            return
+        }
+        refreshInspectorDraftAfterAcceptedPublication()
     }
 }

@@ -23,6 +23,7 @@ struct InspectorPane: View {
     @State private var inspectorQuickBinding: Binding<String>? = nil
     @State private var isInspectorQuickPresented: Bool = false
     @State private var photoLibraryArtworkTarget: ArtworkImportTarget?
+    @State private var photoLibraryArtworkIntent: ArtworkTransferIntent?
     @State private var isPhotoLibraryArtworkPickerPresented: Bool = false
     @State private var selectedPhotoLibraryArtworkItem: PhotosPickerItem?
 
@@ -194,7 +195,9 @@ struct InspectorPane: View {
     var body: some View {
         let selectedFiles = self.selectedFiles
         Group {
-            if selectedFiles.count == 1, let file = selectedFiles.first {
+            if let pendingReview = viewModel.inspectorPendingReview {
+                pendingReviewSection(pendingReview)
+            } else if selectedFiles.count == 1, let file = selectedFiles.first {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         fileSection(file)
@@ -230,12 +233,16 @@ struct InspectorPane: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 if state.visibleToolbarButtons.contains(.cancelEdits) {
                     Button("Cancel", action: viewModel.cancelEditing)
-                        .disabled(viewModel.selectedAudioIDs.isEmpty)
+                        .disabled(viewModel.selectedAudioIDs.isEmpty && !viewModel.hasInspectorPendingReview)
                 }
 
                 if state.visibleToolbarButtons.contains(.saveEdits) {
                     Button("Save", action: viewModel.saveInspectorEdits)
-                        .disabled(viewModel.selectedAudioIDs.isEmpty || viewModel.metadataSaveProgress != nil)
+                        .disabled(
+                            viewModel.selectedAudioIDs.isEmpty
+                                || viewModel.metadataSaveProgress != nil
+                                || viewModel.isInspectorSaveSuspended
+                        )
                 }
 
                 Button(action: onHideInspector) {
@@ -323,7 +330,38 @@ struct InspectorPane: View {
     }
 
     private func presentPhotoLibraryArtworkPicker(for target: ArtworkImportTarget) {
+        // Validate artwork write support upfront (matching Finder/Clipboard)
+        // before opening PhotosPicker or normalizing image bytes.
+        switch target {
+        case .file(let file):
+            guard viewModel.validateArtworkEditingSupport(for: file) else { return }
+        case .files(let files):
+            guard viewModel.validateArtworkEditingSupport(for: files) else { return }
+        }
+
+        // The destination draft is authorized before the picker is presented;
+        // the intent crosses the PhotosPicker/loadTransferable suspension
+        // untouched and is revalidated at commit.
+        let intent: ArtworkTransferIntent?
+        switch target {
+        case .file(let file):
+            intent = viewModel.beginPhotoLibraryArtworkImport(for: file)
+        case .files(let files):
+            intent = viewModel.beginPhotoLibraryArtworkImport(for: files)
+        }
+
+        guard let intent else {
+            switch target {
+            case .file(let file):
+                viewModel.presentArtworkTransferNoDestination(for: [file])
+            case .files(let files):
+                viewModel.presentArtworkTransferNoDestination(for: files)
+            }
+            return
+        }
+
         photoLibraryArtworkTarget = target
+        photoLibraryArtworkIntent = intent
 
         Task { @MainActor in
             await Task.yield()
@@ -408,21 +446,75 @@ struct InspectorPane: View {
     }
 
     private func importSelectedPhotoLibraryArtwork(_ item: PhotosPickerItem?) {
-        guard let item, let target = photoLibraryArtworkTarget else { return }
+        guard let item, let intent = photoLibraryArtworkIntent else { return }
         selectedPhotoLibraryArtworkItem = nil
         photoLibraryArtworkTarget = nil
+        photoLibraryArtworkIntent = nil
 
         Task {
             let data = try? await item.loadTransferable(type: Data.self)
             await MainActor.run {
-                switch target {
-                case .file(let file):
-                    viewModel.importArtworkFromPhotoLibrary(data, for: file)
-                case .files(let files):
-                    viewModel.importArtworkFromPhotoLibrary(data, for: files)
-                }
+                // Only the newest captured intent may stage; an older
+                // completion is inert because the view model revalidates it.
+                viewModel.finishPhotoLibraryArtworkImport(data: data, intent: intent)
             }
         }
+    }
+
+    // MARK: - Pending review (F3-b)
+
+    @ViewBuilder
+    private func pendingReviewSection(_ review: InspectorPendingReview) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Unsaved Edits Need Review")
+                    .font(.headline)
+
+                Text(String(localized: "This draft captured files that are no longer available. The captured values are kept; Save is suspended until every file is available again and you resume editing, or you discard the edits."))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                ForEach(Array(viewModel.inspectorPendingReviewCapturedSummaries().enumerated()), id: \.offset) { _, summary in
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(summary.fileName)
+                                .font(.subheadline.weight(.semibold))
+                            if summary.values.isEmpty {
+                                Text(String(localized: "No inspectable field changes."))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(summary.values, id: \.self) { value in
+                                    Text(value)
+                                        .font(.caption)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button(String(localized: "Resume Editing")) {
+                        _ = viewModel.resumeInspectorPendingReview()
+                    }
+                    .disabled(!viewModel.isInspectorPendingReviewResumable)
+
+                    Button(String(localized: "Discard Edits"), role: .destructive) {
+                        viewModel.discardInspectorPendingReview()
+                    }
+                }
+
+                if !viewModel.isInspectorPendingReviewResumable {
+                    Text(String(localized: "Re-import or restore every captured file, then resume editing. Values are not transferred to other files."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+        }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     @ViewBuilder

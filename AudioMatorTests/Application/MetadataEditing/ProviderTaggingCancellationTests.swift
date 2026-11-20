@@ -34,7 +34,10 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         let gate = PlanCompletionGate()
         let names = (0..<7).map { "\($0).flac" }
         let task = Task {
-            await viewModel.executeBoundedMetadataPlan(fileNames: names) { index in
+            await viewModel.executeBoundedMetadataPlan(
+                fileNames: names,
+                progressToken: UUID()
+            ) { index in
                 await gate.wait(index)
                 return (names[index], .failure("failure \(index)"))
             }
@@ -102,13 +105,11 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
             switch workflow {
             case "filename":
                 _ = await viewModel.applyFilenameMetadataPlan(files.map {
-                    FilenameMetadataWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    makeCancellationFilenameEntry(file: $0)
                 })
             case "csv":
                 _ = await viewModel.applyMetadataExchangeWriteEntries(files.map {
-                    MetadataExchangeWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    makeCancellationExchangeEntry(file: $0)
                 })
             case "raw":
                 let maps = Dictionary(uniqueKeysWithValues: files.enumerated().map { index, file in
@@ -118,8 +119,13 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
                 })
                 _ = await viewModel.applyRawMetadataPropertyMaps(maps, to: files.map(MetadataEditorTarget.init(file:)))
             case "renumber":
-                let result = await viewModel.renumberTrackNumbers(orderedIDs: files.map(\.id), selectedIDs: [],
-                    options: TrackRenumberOptions(startNumber: 7, padWithZeros: false))
+                let plan = viewModel.makeTrackRenumberPlan(
+                    orderedFiles: files,
+                    selectedIDs: [],
+                    direction: .ascending,
+                    startNumberText: "7"
+                )
+                let result = await viewModel.renumberTrackNumbers(using: plan)
                 XCTAssertEqual(result.succeeded, queued ? 0 : 1)
                 XCTAssertEqual(result.failed, 0)
                 XCTAssertEqual(result.cancelled.count, queued ? 2 : 1)
@@ -127,13 +133,11 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
                 XCTAssertTrue(result.cancelled.allSatisfy { $0.reason.localizedCaseInsensitiveContains("cancel") })
             case "musicbrainz":
                 await viewModel.applyMusicBrainzTaggingPlan(files.map {
-                    MusicBrainzTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    MusicBrainzTaggingWriteEntry(file: $0, values: [.title: "Applied"])
                 })
             default:
                 await viewModel.applyiTunesTaggingPlan(files.map {
-                    iTunesTaggingWriteEntry(fileID: $0.id, fileName: $0.url.lastPathComponent,
-                        values: [.title: "Applied"], expectedFileFingerprint: $0.fileFingerprint)
+                    iTunesTaggingWriteEntry(file: $0, values: [.title: "Applied"])
                 })
             }
         }
@@ -183,6 +187,44 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
     }
 }
 
+@MainActor
+private func makeCancellationExchangeEntry(file: AudioFile) -> MetadataExchangeWriteEntry {
+    var edit = SingleFileEditModel(from: file)
+    edit.title = "Applied"
+    let payload = MetadataEditPayload(edit, comparedTo: file)
+    let target = ReviewedMetadataTarget(verified: file)!
+    let projection = MetadataWriteProjection(
+        requestedFields: payload.requestedFields,
+        effectiveFields: payload.requestedFields,
+        validation: .executable,
+        isEncoderNoOp: false
+    )
+    return MetadataExchangeWriteEntry(
+        fileName: file.url.lastPathComponent,
+        write: ReviewedMetadataWrite(target: target, intent: .semantic(payload), projection: projection),
+        resolvedIntent: nil
+    )
+}
+
+@MainActor
+private func makeCancellationFilenameEntry(file: AudioFile) -> FilenameMetadataWriteEntry {
+    var edit = SingleFileEditModel(from: file)
+    edit.title = "Applied"
+    let payload = MetadataEditPayload(edit, comparedTo: file)
+    let target = ReviewedMetadataTarget(verified: file)!
+    let projection = MetadataWriteProjection(
+        requestedFields: payload.requestedFields,
+        effectiveFields: payload.requestedFields,
+        validation: .executable,
+        isEncoderNoOp: false
+    )
+    return FilenameMetadataWriteEntry(
+        fileName: file.url.lastPathComponent,
+        write: ReviewedMetadataWrite(target: target, intent: .semantic(payload), projection: projection),
+        previewValues: [.title: "Applied"]
+    )
+}
+
 private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipeline, @unchecked Sendable {
     private let base = TagLibAudioMetadataPipeline()
     private let lock = NSLock()
@@ -217,6 +259,16 @@ private nonisolated final class PausedProviderReloadPipeline: AudioMetadataPipel
     nonisolated func eraseAllMetadata(at url: URL, expectedVersion: MetadataFileVersion?) throws -> AudioMetadataWriteResult {
         try base.eraseAllMetadata(at: url, expectedVersion: expectedVersion)
     }
+
+    // Plan-time projection is adapter-owned; the reviewed renumber planner asks
+    // the injected pipeline for it. Delegate to the real adapter so this test
+    // double exercises the same deterministic encoder as production.
+    nonisolated func projectMetadataWrite(
+        _ intent: ReviewedMetadataWrite.Intent,
+        fileExtension: String
+    ) throws -> MetadataWriteProjection {
+        try TagLibAudioMetadataPipeline().projectMetadataWrite(intent, fileExtension: fileExtension)
+    }
 }
 
 nonisolated final class ProviderSemanticWriteTests: XCTestCase {
@@ -232,13 +284,13 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
                 switch writer {
                 case "itunes":
                     await viewModel.applyiTunesTaggingPlan([
-                        iTunesTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent,
-                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"], expectedFileFingerprint: file.fileFingerprint)
+                        iTunesTaggingWriteEntry(file: file,
+                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"])
                     ])
                 case "musicbrainz":
                     await viewModel.applyMusicBrainzTaggingPlan([
-                        MusicBrainzTaggingWriteEntry(fileID: file.id, fileName: file.url.lastPathComponent,
-                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"], expectedFileFingerprint: file.fileFingerprint)
+                        MusicBrainzTaggingWriteEntry(file: file,
+                            values: disc ? [.discTotal: "3"] : [.trackTotal: "12"])
                     ])
                 default:
                     let plan = MetadataExchangePlanner.makeCSVImportPlan(
@@ -271,7 +323,7 @@ nonisolated final class ProviderSemanticWriteTests: XCTestCase {
         expectedMap["TITLE"] = ["Changed title"]
         var edit = SingleFileEditModel(from: file)
         edit.title = "Changed title"
-        let result = await viewModel.persistMetadataEdit(edit, to: file, comparedTo: file)
+        let result = await viewModel.persistReviewedEditForTest(edit, to: file, comparedTo: file)
         guard case .success = result else { return XCTFail("An unchanged total-only pair must not reject a title edit: \(result)") }
         XCTAssertEqual(pipeline.writeCount, 1)
         XCTAssertEqual(try base.rawMetadataValueMap(for: file.url), expectedMap)

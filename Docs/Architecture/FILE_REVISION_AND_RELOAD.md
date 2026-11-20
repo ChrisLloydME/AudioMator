@@ -30,6 +30,13 @@ A conflict therefore does not prove that tags changed. It proves that the app ca
 
 ## Where Revision Checks Happen
 
+There is no optional expected-revision write path. The mixed helper that could
+forward `expectedVersion: nil` or default to the model loaded at Apply has been
+removed; every production metadata write is a reviewed write (captured target,
+fingerprint and nonoptional package revision) or a draft-aware Inspector/Raw
+Editor write with its captured baseline. A file without both captured tokens is
+read-only for metadata editing until a coherent reread produces an observation.
+
 ```mermaid
 flowchart LR
     A[Snapshot loaded] --> B[Expected fingerprint + version stored]
@@ -44,7 +51,7 @@ flowchart LR
     J --> K[Write with fresh version or stop]
 ```
 
-Strict paths (preview-based imports, online plans, renumbering, lyrics, erase) require an unchanged revision and do not rebase. Inspector and Metadata Editor drafts support the configurable policies below.
+Strict paths (preview-based imports, online plans, renumbering, lyrics, erase) require an unchanged revision and do not rebase. LRCLIB lyrics additionally bind the app fingerprint **and** the package metadata version captured when the browser queue was seeded; applying after a same-ID/same-path reload or replacement is refused until the queue is reseeded (close/reopen LRCLIB or rerun the Online Metadata command). The strict raw `LYRICS` write never falls back to the current model's version or to `expectedVersion: nil`. Inspector and Metadata Editor drafts support the configurable policies below.
 
 ## Conflict Policies
 
@@ -76,7 +83,7 @@ Raw editor saves compare edited property keys and the native structures mapped t
 | App activation | Currently selected files | Clean drafts follow; dirty drafts keep their baseline |
 | **Reload from Disk** | Selected files | Asks before discarding a dirty inspector draft |
 | Post-write reload | The written file | Applied while the mutation reservation is held |
-| Rename completion | Moved files | Fingerprint and version recovered independently |
+| Rename completion | Moved files | Bounded full readback per verified move receipt; failure keeps the last labels read-only |
 
 Selected-file reload reads are serialized with writes via `FileMutationCoordinator` and have a 60-second deadline. Watched-folder scans use tokens and mutation epochs instead of reserving the whole folder, and their per-file loads have no independent deadline. A reload result is applied only if the file still has the same ID, URL, and snapshot identity; stale results are discarded.
 
@@ -128,7 +135,7 @@ Tests use temporary copies of committed fixtures. They do not establish behavior
 
 ## Refresh-Required Acceptance
 
-Automatic activation and folder observations retain refresh-required state. Explicit Reload from Disk may clear it only with a successfully read fingerprint and package revision; it means the user accepts the file currently at that URL, not that the original recording has been located automatically.
+Automatic activation and folder observations retain recovery decisions; they never clear them. A move whose bounded full readback fails stays read-only even when lightweight stat/version probes succeed, and a readback that observed a different directory entry is not accepted. Explicit Reload from Disk may clear a pending move decision or a resolved-path failure only when its full read observes the same entry identity (same device and inode); observing a successor requires explicit review before any new draft is authorized. Journal decisions (F2) survive normal reload until the journal identifies a verified location or the user resolves the operation. When Reload from Disk surfaces a replacement, the entry remains blocked until the user chooses **Accept Replacement** and the re-read matches the displayed review. A revision change on the same device and inode requires a new review.
 
 ## Related Documents
 

@@ -2,7 +2,7 @@
 
 AudioMator is a local-first metadata editor. It reads and writes the audio files you choose on your Mac and uses the network only when you explicitly start an online feature.
 
-This disclosure describes the current implementation, verified by source inspection on 2026-11-18. The in-app Privacy sheet (Settings → About → Privacy…) is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
+This disclosure describes the current implementation, verified by source inspection on 2026-11-20. The in-app Privacy sheet (Settings → About → Privacy…) is generated from `NetworkServiceDisclosure`; both should be updated together when network behavior changes.
 
 ## Third-Party Foundations
 
@@ -135,7 +135,7 @@ Network requests occur only for features you explicitly invoke. Opening the Onli
 
 - Host: `lrclib.net`
 - Purpose: search and preview synced lyrics for a selected track.
-- Data sent: the `track_name`, `artist_name`, `album_name`, and, when known, `duration` query parameters. Values come from tags when present; missing values can be derived from the file name (title/track number) and from parent or grandparent folder names (artist and album, including an “Artist - Album” folder split). No full file path or audio bytes are sent.
+- Data sent: the `track_name`, `artist_name`, `album_name`, and, when known, `duration` query parameters. Values come from tags when present; missing values can be derived from the file name (title) and from parent or grandparent (or higher ancestor) folder names (artist and album, including an “Artist - Album” folder split and skipping disc folders such as “CD1”). No full file path or audio bytes are sent.
 - Data received: candidate track/artist/album/duration, synced/plain lyrics availability, and lyrics text selected for preview or application.
 
 ### Release notes and updates

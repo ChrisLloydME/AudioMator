@@ -32,7 +32,7 @@ flowchart TB
 - The shared window shell and source picker live in `Features/OnlineMetadataBrowser`.
 - Provider-specific UI and main-actor stores live in `Features/MusicBrainzBrowser`, `Features/iTunesBrowser`, and `Features/LRCLIBLyricsBrowser`.
 - URL construction, decoding, throttling, caching, and error translation live in `Infrastructure`.
-- Apply actions construct a write plan with the source snapshot's expected fingerprint and go through the normal metadata mutation path.
+- Apply actions construct a reviewed write plan carrying the captured source observation's fingerprint and nonoptional package version (`ReviewedMetadataTarget`) and go through the reviewed metadata mutation path.
 
 ### Activation and request triggers
 

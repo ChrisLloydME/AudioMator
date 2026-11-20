@@ -117,7 +117,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 1010 test functions and 115 `XCTestCase` classes in 122 Swift files, plus fixtures and test-support files.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 1042 test functions and 115 `XCTestCase` classes across 115 test files plus 7 `TestSupport` files (122 Swift files total), alongside fixtures.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -150,6 +150,7 @@ SensitiveLoggingPolicyTests.swift
 | `check-doc-links.py` | Checks relative links and heading anchors in tracked Markdown documentation |
 | `tests/test_test_evidence.py` | Policy tests for the evidence gates |
 | `tests/test_codex_build_policy.py` | Shell policy tests for the build helper: disposable trees, Git/Xcode/`tee` stubs, call counts, exit statuses, markers and artifact preservation |
+| `tests/test_rename_crash_recovery.py` | Real child-process `SIGKILL` crash-gate recovery tests compiling production rename journal and exclusive-move sources across 7 crash gates |
 | `validate-macos-artifact.sh` | Checks bundle minimum OS and every Mach-O platform/minimum |
 | `build-taglib-bridge-smoke.sh` | Builds the bridge smoke executable from package/bridge sources (maintainer-run; agents must not run it) |
 | `taglib_bridge_smoke.mm` | Smoke tool source |

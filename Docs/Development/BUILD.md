@@ -9,7 +9,7 @@ This document describes how to build AudioMator from this repository and what th
 - Network access the first time the `TagLibAudioMetadata` package is resolved.
 - No sibling checkout of `TagLibAudioMetadata` is required.
 
-Environment and project values verified by source inspection on 2026-11-18 (no build was run for this audit):
+Environment and project values verified on 2026-11-20:
 
 | Item | Value |
 | --- | --- |
@@ -45,7 +45,7 @@ There is one shared scheme, `AudioMator`. It builds the app and includes the app
 
 Both configurations target macOS 15.0, use Swift 5 language mode with complete strict concurrency and MainActor default isolation, and enable App Sandbox and Hardened Runtime. Debug and Release use different bundle identifiers, so they have separate sandbox containers, bookmarks, and preferences.
 
-For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-18.
+For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-20.
 
 ## Swift Package (Core Logic Tests)
 
@@ -135,7 +135,7 @@ The app-hosted test target launches the app as its test host. Always keep the se
 bash scripts/validate-release.sh
 ```
 
-This is the normal release gate. It runs the policy tests, the 94 Foundation-only tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
+This is the normal release gate. It runs the policy and crash-recovery tests, the 97 Foundation-only core tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
 
 The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate). The test-only form is `bash scripts/validate-release.sh --tests-only`, which skips the Release build and artifact phases.
 
@@ -227,7 +227,7 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Recorded Verification
 
-Current published 0.8.1 adoption results are recorded in [Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency. The most recent full repository gate with the published 0.8.1 pin is the 2026-11-18 cleanup acceptance; see [Testing](TESTING.md#release-gate-evidence) for the enforced phases and evidence location.
+Current published 0.8.1 adoption results are recorded in [Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency. The latest full repository gates with the published 0.8.1 pin are recorded in the [audit remediation acceptance record](../Engineering/AUDIOMATOR_REMEDIATION_ACCEPTANCE_2026-11-19.md) (including its 2026-11-20 follow-up addendum) and the 2026-11-18 cleanup acceptance; see [Testing](TESTING.md#release-gate-evidence) for the enforced phases and evidence location.
 
 ## Related Documents
 

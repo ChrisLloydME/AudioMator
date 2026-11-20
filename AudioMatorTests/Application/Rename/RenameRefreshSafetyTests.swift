@@ -582,10 +582,10 @@ nonisolated final class RenameRefreshSafetyTests: XCTestCase {
         let review = try XCTUnwrap(viewModel.pendingReplacementFileReviews.first)
         XCTAssertEqual(review.fileID, original.id)
         XCTAssertEqual(review.title, "Replacement Track")
-        XCTAssertEqual(review.observedIdentity, replacementIdentity)
+        XCTAssertEqual(EntryIdentityKey(fingerprint: review.target.fingerprint), replacementIdentity)
 
         // Explicit acceptance verifies the replacement identity on disk and restores editing.
-        await viewModel.acceptPendingReplacementFiles()
+        await viewModel.acceptPendingReplacementFiles(viewModel.pendingReplacementFileReviews)
         XCTAssertTrue(viewModel.pendingReplacementFileReviews.isEmpty)
         XCTAssertFalse(viewModel.hasRecoveryDecision(for: original.id))
         let accepted = try XCTUnwrap(viewModel.files.first)
@@ -638,7 +638,7 @@ nonisolated final class RenameRefreshSafetyTests: XCTestCase {
         try FileManager.default.removeItem(at: environment.destinationURL)
         try FileManager.default.moveItem(at: replacementThreeURL, to: environment.destinationURL)
 
-        await viewModel.acceptPendingReplacementFiles()
+        await viewModel.acceptPendingReplacementFiles(viewModel.pendingReplacementFileReviews)
         XCTAssertTrue(
             viewModel.hasRecoveryDecision(for: original.id),
             "A third replacement before acceptance must keep editing paused"
@@ -655,18 +655,80 @@ nonisolated final class RenameRefreshSafetyTests: XCTestCase {
         )
 
         let freshThree = try await pipeline.loadAudioFile(at: environment.destinationURL, id: original.id)
-        let identityThree = EntryIdentityKey(fingerprint: freshThree.fileFingerprint)
+        let targetThree = try XCTUnwrap(ReviewedMetadataTarget(verified: freshThree))
         viewModel.replaceLoadedFile(
             freshThree,
             refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
-            clearing: .explicitReplacementAcceptance(
-                url: environment.destinationURL,
-                observedIdentity: identityThree
-            )
+            clearing: .explicitReplacementAcceptance(targetThree)
         )
         XCTAssertTrue(viewModel.hasJournalRecoveryDecision(for: original.id))
         XCTAssertTrue(viewModel.hasRecoveryDecision(for: original.id))
         XCTAssertTrue(try XCTUnwrap(viewModel.files.first).requiresMetadataRefreshBeforeWriting)
+    }
+
+    @MainActor
+    func testReplacementAcceptanceRejectsNewRevisionAndSupersededReview() async throws {
+        let environment = try makeEnvironment()
+        defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        let original = try await pipeline.loadAudioFile(at: environment.sourceURL, id: UUID())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        let receipt = try makeReceipt(for: original, from: environment.sourceURL, to: environment.destinationURL)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.publishMovePlaceholders([receipt])
+        viewModel.setSelectedAudioIDs([original.id])
+
+        // Keep the moved entry alive to make reuse of its node number impossible.
+        let movedAside = environment.destinationURL.appendingPathExtension("previous")
+        try FileManager.default.moveItem(at: environment.destinationURL, to: movedAside)
+        try FileManager.default.copyItem(at: environment.sourceURL, to: environment.destinationURL)
+        await viewModel.reloadSelectedFilesFromDisk()
+        let review = try XCTUnwrap(viewModel.pendingReplacementFileReviews.first)
+        XCTAssertTrue(viewModel.hasRecoveryDecision(for: original.id))
+        let before = try await pipeline.loadAudioFile(at: environment.destinationURL, id: original.id)
+        XCTAssertEqual(before.title, review.title)
+        XCTAssertFalse(EntryIdentityKey(receipt.entryIdentity).matches(EntryIdentityKey(fingerprint: review.target.fingerprint)))
+
+        let changedCopy = environment.destinationURL.deletingLastPathComponent().appendingPathComponent("updated-replacement.flac")
+        try FileManager.default.copyItem(at: environment.sourceURL, to: changedCopy)
+        _ = try pipeline.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["TITLE": ["Changed after the review was displayed"]]),
+            to: changedCopy, expectedVersion: nil
+        )
+        let newBytes = try Data(contentsOf: changedCopy)
+        do {
+            let handle = try FileHandle(forWritingTo: environment.destinationURL)
+            defer { try? handle.close() }
+            try handle.truncate(atOffset: 0)
+            try handle.write(contentsOf: newBytes)
+        }
+
+        let changed = try await pipeline.loadAudioFile(at: environment.destinationURL, id: original.id)
+        XCTAssertEqual(changed.title, "Changed after the review was displayed")
+        XCTAssertTrue(EntryIdentityKey(fingerprint: review.target.fingerprint).matches(EntryIdentityKey(fingerprint: changed.fileFingerprint)))
+        XCTAssertNotEqual(before.metadataFileVersion, changed.metadataFileVersion)
+
+        await viewModel.acceptPendingReplacementFiles([review])
+        XCTAssertTrue(viewModel.hasRecoveryDecision(for: original.id), "Acceptance must not clear protection for a revision that the dialog never displayed")
+        let presented = try XCTUnwrap(viewModel.files.first)
+        XCTAssertNil(ReviewedMetadataTarget(verified: presented), "The unreviewed revision must stay ineligible for writes")
+        XCTAssertEqual(try Data(contentsOf: environment.destinationURL), newBytes)
+
+        await viewModel.reloadSelectedFilesFromDisk()
+        let revisedReview = try XCTUnwrap(viewModel.pendingReplacementFileReviews.first)
+        XCTAssertEqual(revisedReview.title, changed.title)
+        XCTAssertNotEqual(revisedReview.target.version, review.target.version)
+
+        await viewModel.acceptPendingReplacementFiles([review])
+        XCTAssertTrue(viewModel.hasRecoveryDecision(for: original.id))
+        XCTAssertEqual(viewModel.pendingReplacementFileReviews, [revisedReview])
+
+        await viewModel.acceptPendingReplacementFiles([revisedReview])
+        XCTAssertFalse(viewModel.hasRecoveryDecision(for: original.id))
+        let confirmed = try XCTUnwrap(viewModel.committedFile(withID: original.id))
+        XCTAssertEqual(confirmed.metadataFileVersion, changed.metadataFileVersion)
+        XCTAssertEqual(try Data(contentsOf: environment.destinationURL), newBytes)
     }
 
     // MARK: - Planner and preflight

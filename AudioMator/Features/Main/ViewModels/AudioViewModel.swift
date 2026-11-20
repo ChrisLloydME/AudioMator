@@ -1189,31 +1189,16 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         } ?? false
     }
 
-    func hasPendingNonJournalReplacementBlock(for id: AudioFile.ID) -> Bool {
-        guard let decisions = recoveryDecisionsByID[id], !decisions.isEmpty else { return false }
-        guard !hasJournalRecoveryDecision(for: id) else { return false }
-        return decisions.contains { decision in
-            switch decision {
-            case .moveReadbackPending, .recoveryLocationUnresolved:
-                return true
-            case .journalPending:
-                return false
-            }
-        }
-    }
-
-    func makePendingReplacementFileReviewIfNeeded(
-        for file: AudioFile,
-        observation: AudioFile.Observation
-    ) -> PendingReplacementFileReview? {
-        guard hasPendingNonJournalReplacementBlock(for: file.id) else { return nil }
-        let observedIdentity = EntryIdentityKey(fingerprint: observation.fingerprint)
-        guard observedIdentity.device != nil, observedIdentity.inode != nil else { return nil }
+    func makePendingReplacementFileReviewIfNeeded(for file: AudioFile) -> PendingReplacementFileReview? {
+        guard let decisions = recoveryDecisionsByID[file.id],
+              !decisions.isEmpty,
+              !hasJournalRecoveryDecision(for: file.id),
+              let target = ReviewedMetadataTarget(verified: file),
+              target.fingerprint.fileNumber != nil,
+              target.fingerprint.fileSystemNumber != nil else { return nil }
         return PendingReplacementFileReview(
-            fileID: file.id,
-            url: observation.url,
-            fileName: observation.url.lastPathComponent,
-            observedIdentity: observedIdentity,
+            target: target,
+            recoveryDecisions: decisions,
             title: file.title,
             artist: file.artist,
             album: file.album
@@ -1224,8 +1209,17 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         pendingReplacementFileReviews = reviews
     }
 
-    func dismissPendingReplacementFileReviews() {
-        pendingReplacementFileReviews = []
+    func dismissPendingReplacementFileReviews(_ reviews: [PendingReplacementFileReview]) {
+        guard pendingReplacementFileReviews == reviews else { return }
+        setPendingReplacementFileReviews([])
+    }
+
+    func isReplacementFileReviewCurrent(_ review: PendingReplacementFileReview) -> Bool {
+        guard let current = committedFile(withID: review.fileID),
+              review.target.associates(with: current),
+              recoveryDecisionsByID[review.fileID] == review.recoveryDecisions,
+              !isRenameJournalBlocked(url: review.url) else { return false }
+        return true
     }
 
     func prunePendingReplacementFileReviews(removingIDs ids: Set<AudioFile.ID>) {
@@ -2598,11 +2592,13 @@ extension AudioViewModel {
         case .verifiedJournalLocation(let operationID):
             decisions.remove(.journalPending(operationID))
 
-        case .explicitReplacementAcceptance(let url, let expectedObservedIdentity):
-            let targetPathKey = FileSystemPathSemantics.key(for: url)
+        case .explicitReplacementAcceptance(let target):
+            let targetPathKey = FileSystemPathSemantics.key(for: target.url)
             let observedPathKey = FileSystemPathSemantics.key(for: observation.url)
-            guard targetPathKey == observedPathKey,
-                  expectedObservedIdentity.matches(observedIdentity) else {
+            guard target.id == id,
+                  targetPathKey == observedPathKey,
+                  target.fingerprint == observation.fingerprint,
+                  target.version == observation.version else {
                 return
             }
             decisions = decisions.filter { decision in

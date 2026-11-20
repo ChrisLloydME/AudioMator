@@ -4,14 +4,14 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-20. The current integrated remediation candidate declares **1054 app-hosted tests across 115 `XCTestCase` classes**, **97 SwiftPM core tests across 6 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`; the final validation gate confirms these exact counts. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-20. The current source declares **1055 app-hosted tests across 115 `XCTestCase` classes**, **97 SwiftPM core tests across 6 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 97 | 6 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1054 | 115 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1055 | 115 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 121 `XCTestCase` classes across both targets (115 app-hosted, 6 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
@@ -87,7 +87,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | --- | ---: | ---: | --- |
 | `Application/MetadataEditing` | 26 | 298 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
 | `Application/MetadataExchange` | 6 | 112 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 10 | 79 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
+| `Application/Rename` | 10 | 80 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
 | `Application/WatchedFolders` | 6 | 53 | identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 4 | 52 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 115 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
@@ -97,12 +97,12 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Unit/Presentation` | 15 | 81 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **122** | **1054** | |
+| **Total** | **122** | **1055** | |
 
 Notable coverage:
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
-- Real TagLib writes use temporary copies of the six committed audio fixtures.
+- Real TagLib writes use temporary copies of the six committed audio fixtures. Rename tests verify that a replacement changed in place and a superseded confirmation both keep the file protected.
 - Metadata Editor raw value arrays (`MetadataEditorRawValueArrayTests`, `MetadataFieldValueDraftTests`, `MetadataRawValuePresentationTests`, `MetadataEditorRawValueArrayPersistenceTests`) use the real store with an array-backed pipeline fake for per-element utility preview/apply (whole-value, prefix/suffix, case/trim, empty/duplicate/multiline elements, missing keys, reordering), stale-preview rejection, ordered field-entry add/remove/duplicate identity, no-op confirmations with zero writes, and captured Done before/after arrays. The persistence lane seeds temporary FLAC copies and asserts exact multiline/duplicate array readback with unrelated keys preserved, or an atomic failure with unchanged bytes.
 
 - Conflict-strategy tests drive the real adapter on a temporary FLAC copy, including rejection of changed revisions and replacements when original inode identity is absent.

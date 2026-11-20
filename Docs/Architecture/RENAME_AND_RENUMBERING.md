@@ -85,10 +85,10 @@ Successful moves are published in two reservation phases:
    Disk; no lightweight fingerprint/version probe can restore write authority. When
    Reload from Disk decodes a different valid file at a non-journal recovery path,
    the move/unresolved decision remains blocked and AudioMator presents an explicit
-   **Accept Replacement** confirmation (`PendingReplacementFileReview`); accepting
-   re-reads the file under reservation, verifies that its device/inode still matches
-   the reviewed replacement, and clears matching-path move/unresolved decisions via
-   `.explicitReplacementAcceptance` without ever clearing `.journalPending`.
+   **Accept Replacement** confirmation. Accepting re-reads the displayed replacement
+   under reservation. The reviewed fingerprint and metadata revision must still
+   match, even when the device and inode are unchanged. If either changed, reload
+   and review it again. This action never clears `.journalPending`.
 
 The coordinator serializes app-owned operations only. An external program can change
 the destination between the move and the readback; the before/after entry-identity

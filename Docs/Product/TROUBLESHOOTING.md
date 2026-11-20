@@ -59,7 +59,7 @@ The file changed since the draft baseline. Automatic refresh keeps unsaved draft
 
 ### The file could not be checked for changes
 
-The file is missing, unreadable, replaced, or on a volume that cannot provide the needed attributes. Restore access and reload. If a rename left the snapshot refresh-required, reload before editing.
+The file is missing, unreadable, replaced, or on a volume that cannot provide the needed attributes. Restore access and reload. If a rename left the file read-only, choose **Reload from Disk**. For a replacement, review the displayed file and choose **Accept Replacement**. If it changes before acceptance, reload and review it again.
 
 ### Changes cannot be saved in this file format
 

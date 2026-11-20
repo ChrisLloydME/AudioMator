@@ -23,6 +23,8 @@ struct ContentPane: View {
     @State private var isReloadDiscardConfirmPresented: Bool = false
     @State private var reloadDiscardToken: InspectorDiscardConfirmationToken?
     @State private var clearListDiscardToken: InspectorDiscardConfirmationToken?
+    @State private var isReplacementFileAcceptConfirmPresented = false
+    @State private var presentedReplacementReviews: [PendingReplacementFileReview] = []
 
     private var isEraseAllTagsConfirmPresented: Binding<Bool> {
         Binding(
@@ -38,15 +40,7 @@ struct ContentPane: View {
         )
     }
 
-    private var isReplacementFileAcceptConfirmPresented: Binding<Bool> {
-        Binding(
-            get: { !viewModel.pendingReplacementFileReviews.isEmpty },
-            set: { if !$0 { viewModel.dismissPendingReplacementFileReviews() } }
-        )
-    }
-
-    private var replacementFileReviewMessage: String {
-        let reviews = viewModel.pendingReplacementFileReviews
+    private func replacementFileReviewMessage(_ reviews: [PendingReplacementFileReview]) -> String {
         if reviews.count == 1, let review = reviews.first {
             let details = [review.title, review.artist]
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -185,20 +179,29 @@ struct ContentPane: View {
                 }
             }
             .confirmationDialog(
-                viewModel.pendingReplacementFileReviews.count == 1
+                presentedReplacementReviews.count == 1
                     ? String(localized: "Accept replacement file?")
                     : String(localized: "Accept replacement files?"),
-                isPresented: isReplacementFileAcceptConfirmPresented,
-                titleVisibility: .visible
-            ) {
+                isPresented: $isReplacementFileAcceptConfirmPresented,
+                titleVisibility: .visible,
+                presenting: presentedReplacementReviews
+            ) { reviews in
                 Button(String(localized: "Accept Replacement")) {
-                    Task { await viewModel.acceptPendingReplacementFiles() }
+                    Task { await viewModel.acceptPendingReplacementFiles(reviews) }
                 }
                 Button(String(localized: "Keep Editing Paused"), role: .cancel) {
-                    viewModel.dismissPendingReplacementFileReviews()
+                    viewModel.dismissPendingReplacementFileReviews(reviews)
                 }
-            } message: {
-                Text(replacementFileReviewMessage)
+            } message: { reviews in
+                Text(replacementFileReviewMessage(reviews))
+            }
+            .onChange(of: viewModel.pendingReplacementFileReviews, initial: true) { _, reviews in
+                if reviews.isEmpty {
+                    isReplacementFileAcceptConfirmPresented = false
+                } else if !isReplacementFileAcceptConfirmPresented {
+                    presentedReplacementReviews = reviews
+                    isReplacementFileAcceptConfirmPresented = true
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }

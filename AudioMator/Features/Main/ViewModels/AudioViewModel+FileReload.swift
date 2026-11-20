@@ -82,15 +82,8 @@ extension AudioViewModel {
                             refreshed, refreshGeneration: self.makeFileModelRefreshGeneration(),
                             clearing: forceReload ? .explicitAuthorizedReload : nil
                         )
-                        guard forceReload,
-                              accepted,
-                              let observation = refreshed.observation else {
-                            return nil
-                        }
-                        return self.makePendingReplacementFileReviewIfNeeded(
-                            for: refreshed,
-                            observation: observation
-                        )
+                        guard forceReload, accepted else { return nil }
+                        return self.makePendingReplacementFileReviewIfNeeded(for: refreshed)
                     }
                 }
                 if let pendingReview {
@@ -104,8 +97,8 @@ extension AudioViewModel {
             }
         }
 
-        if forceReload, !Task.isCancelled, !replacementReviews.isEmpty {
-            setPendingReplacementFileReviews(replacementReviews)
+        if forceReload, !Task.isCancelled {
+            setPendingReplacementFileReviews(replacementReviews.filter { isReplacementFileReviewCurrent($0) })
         }
 
         guard !Task.isCancelled, Set(targets.map(\.id)) == selectedAudioIDs else { return }
@@ -125,9 +118,9 @@ extension AudioViewModel {
 
     /// Completes explicit user acceptance of replacement files surfaced by
     /// Reload from Disk. Each file is re-read under its path reservation and
-    /// accepted only if its directory entry still matches the reviewed identity;
+    /// accepted only if its entry and revision still match the displayed review;
     /// `.journalPending` decisions are never cleared here.
-    func acceptPendingReplacementFiles() async {
+    func acceptPendingReplacementFiles(_ reviews: [PendingReplacementFileReview]) async {
         guard !hasUnsavedInspectorChanges else {
             presentMetadataWriteHUD(
                 style: .warning,
@@ -137,14 +130,13 @@ extension AudioViewModel {
             return
         }
         guard !isReloadingSelectedFiles else { return }
-        let reviews = pendingReplacementFileReviews
-        guard !reviews.isEmpty else { return }
+        guard !reviews.isEmpty, pendingReplacementFileReviews == reviews else { return }
         guard let progressToken = tryBeginMetadataSaveProgress(
             title: String(localized: "Accepting Replacement Files"),
             subtitle: String(localized: "Verifying on disk…"),
             totalUnitCount: reviews.count
         ) else { return }
-        dismissPendingReplacementFileReviews()
+        dismissPendingReplacementFileReviews(reviews)
 
         isReloadingSelectedFiles = true
         defer {
@@ -161,15 +153,11 @@ extension AudioViewModel {
                 subtitle: review.fileName,
                 completedUnitCount: index
             )
-            guard let current = committedFile(withID: review.fileID),
-                  FileSystemPathSemantics.key(for: current.url) == FileSystemPathSemantics.key(for: review.url) else {
-                failures.append(String(localized: "“\(review.fileName)” is no longer at that location. Choose Reload from Disk and review it again."))
+            guard isReplacementFileReviewCurrent(review) else {
+                failures.append(String(localized: "“\(review.fileName)” couldn’t be accepted because its state changed. Choose Reload from Disk to review it again."))
                 continue
             }
-            guard !hasJournalRecoveryDecision(for: review.fileID) else {
-                failures.append(String(localized: "“\(review.fileName)” still requires Rename Recovery before it can be edited."))
-                continue
-            }
+            let generation = fileModelRefreshGeneration(for: review.fileID)
             do {
                 let failureMessage = try await fileMutationCoordinator.withExclusiveAccess(to: [review.url]) { () async throws -> String? in
                     let fresh = try await withAsyncTimeout(
@@ -179,27 +167,20 @@ extension AudioViewModel {
                     ) {
                         try await pipeline.loadAudioFile(at: review.url, id: review.fileID)
                     }
-                    guard let observation = fresh.observation else {
-                        return String(localized: "“\(review.fileName)” couldn’t be verified on disk. Editing remains paused.")
-                    }
-                    let liveIdentity = EntryIdentityKey(fingerprint: observation.fingerprint)
-                    guard FileSystemPathSemantics.key(for: observation.url) == FileSystemPathSemantics.key(for: review.url),
-                          review.observedIdentity.matches(liveIdentity) else {
+                    guard review.target.matches(observation: fresh) else {
                         return String(localized: "“\(review.fileName)” changed again before it was accepted. Choose Reload from Disk to review the current file.")
                     }
                     return await MainActor.run {
-                        guard let committed = self.committedFile(withID: review.fileID),
-                              FileSystemPathSemantics.key(for: committed.url) == FileSystemPathSemantics.key(for: review.url),
-                              !self.hasJournalRecoveryDecision(for: review.fileID) else {
+                        guard !Task.isCancelled,
+                              !self.hasUnsavedInspectorChanges,
+                              self.isReplacementFileReviewCurrent(review),
+                              self.fileModelRefreshGeneration(for: review.fileID) == generation else {
                             return String(localized: "“\(review.fileName)” couldn’t be accepted because its state changed. Choose Reload from Disk to review it again.")
                         }
                         self.replaceLoadedFile(
                             fresh,
                             refreshGeneration: self.makeFileModelRefreshGeneration(),
-                            clearing: .explicitReplacementAcceptance(
-                                url: review.url,
-                                observedIdentity: review.observedIdentity
-                            )
+                            clearing: .explicitReplacementAcceptance(review.target)
                         )
                         return nil
                     }

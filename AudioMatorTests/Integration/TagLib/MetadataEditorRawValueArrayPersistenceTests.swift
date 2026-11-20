@@ -169,6 +169,112 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         }
     }
 
+    @MainActor
+    func testRetainedRawDraftEditedDuringApplyCanBeSavedAgainOnRealFLAC() async throws {
+        let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+
+        try seed(
+            [
+                "TITLE": ["Initial Title"],
+                "ARTIST": ["Initial Artist"]
+            ],
+            at: url
+        )
+
+        let file = try await MetadataTestTokens.makeVerifiedAudioFile(at: url)
+        let store = MetadataEditorStore(metadataPipeline: pipeline)
+        store.present(targetFiles: [file])
+        try await waitUntilLoaded(store)
+        store.windowDidAppear()
+
+        // First edit captured into Apply 1.
+        store.upsertField(key: "TITLE", values: ["First Apply Title"])
+        let firstRequest = try XCTUnwrap(store.startApply())
+
+        // Newer edit staged while Apply 1 is in flight (retained-draft path).
+        store.upsertField(key: "COMMENT", values: ["Second Apply Comment"])
+
+        let mediaPipeline = TagLibAudioMetadataPipeline()
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline)
+        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+        viewModel.mergeQuickImportFiles([file])
+
+        let firstOutcome = await viewModel.applyRawMetadataApplyRequest(firstRequest)
+        XCTAssertTrue(firstOutcome.didApplyAllChanges)
+        XCTAssertNotNil(firstOutcome.refreshedTargetsByID[file.id])
+        XCTAssertEqual(store.completeApply(firstOutcome), .remainReady)
+
+        let retainedTarget = try XCTUnwrap(store.targets.first)
+        XCTAssertEqual(retainedTarget.id, file.id)
+        XCTAssertFalse(retainedTarget.requiresMetadataRefresh)
+        XCTAssertNotEqual(
+            retainedTarget.expectedMetadataVersion,
+            file.metadataFileVersion,
+            "Retained target must refresh its expected metadata version to the post-write observation"
+        )
+        XCTAssertEqual(
+            store.originalPropertyMaps[file.id],
+            retainedTarget.metadataConflictBaseline?.values,
+            "Retained original map must match the refreshed target conflict baseline"
+        )
+        XCTAssertEqual(store.draftPropertyMaps[file.id]?["COMMENT"], ["Second Apply Comment"])
+
+        // Follow-up Apply 2 must succeed cleanly and persist only the new COMMENT delta.
+        let secondRequest = try XCTUnwrap(store.startApply())
+        XCTAssertEqual(secondRequest.pendingChanges.map(\.key), ["COMMENT"])
+        let secondOutcome = await viewModel.applyRawMetadataApplyRequest(secondRequest)
+        XCTAssertTrue(
+            secondOutcome.failedTargetIDs.isEmpty,
+            "Second Apply on a retained draft must not fail baseline/revision verification"
+        )
+        XCTAssertTrue(secondOutcome.didApplyAllChanges)
+        XCTAssertEqual(store.completeApply(secondOutcome), .dismiss)
+
+        let persisted = try mediaPipeline.rawMetadataValueMap(for: url)
+        XCTAssertEqual(persisted["TITLE"], ["First Apply Title"])
+        XCTAssertEqual(persisted["COMMENT"], ["Second Apply Comment"])
+        XCTAssertEqual(persisted["ARTIST"], ["Initial Artist"])
+    }
+
+    @MainActor
+    func testRetainedRawDraftWithoutPostWriteReloadFailsClosedOnSecondApply() async throws {
+        let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+
+        let file = try await MetadataTestTokens.makeVerifiedAudioFile(at: url)
+        let store = MetadataEditorStore(metadataPipeline: pipeline)
+        store.present(targetFiles: [file])
+        try await waitUntilLoaded(store)
+        store.windowDidAppear()
+
+        store.upsertField(key: "TITLE", values: ["First Apply Title"])
+        let firstRequest = try XCTUnwrap(store.startApply())
+        store.upsertField(key: "COMMENT", values: ["Second Apply Comment"])
+
+        // Simulate a write whose post-write reload failed (no refreshed target returned).
+        let unrefreshedOutcome = MetadataEditorApplyOutcome(
+            presentationID: firstRequest.presentationID,
+            applyID: firstRequest.applyID,
+            succeededTargetIDs: [file.id],
+            failedTargetIDs: [],
+            didApplyAllChanges: true,
+            refreshedTargetsByID: [:]
+        )
+        XCTAssertEqual(store.completeApply(unrefreshedOutcome), .remainReady)
+        let retainedTarget = try XCTUnwrap(store.targets.first)
+        XCTAssertTrue(retainedTarget.requiresMetadataRefresh)
+        XCTAssertNil(retainedTarget.reviewedTarget)
+
+        let secondRequest = try XCTUnwrap(store.startApply())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+        viewModel.mergeQuickImportFiles([file])
+        let secondOutcome = await viewModel.applyRawMetadataApplyRequest(secondRequest)
+        XCTAssertEqual(secondOutcome.failedTargetIDs, [file.id])
+        XCTAssertFalse(secondOutcome.didApplyAllChanges)
+    }
+
     // MARK: - Helpers
 
     @MainActor

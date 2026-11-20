@@ -86,6 +86,7 @@ extension AudioViewModel {
         var summary = BatchMetadataOperationSummary(totalTargets: plans.count)
         var succeededTargetIDs = Set<AudioFile.ID>()
         var failedTargetIDs = Set<AudioFile.ID>()
+        var refreshedTargetsByID: [AudioFile.ID: MetadataEditorTarget] = [:]
         var didCancelUnprocessed = false
 
         for (index, plan) in plans.enumerated() {
@@ -115,7 +116,12 @@ extension AudioViewModel {
             case .success(let success):
                 summary.succeeded += 1
                 succeededTargetIDs.insert(plan.targetID)
-                if !success.didRefreshFileModel {
+                if success.didRefreshFileModel {
+                    if let refreshed = loadedFile(withID: plan.targetID),
+                       refreshed.observation != nil {
+                        refreshedTargetsByID[plan.targetID] = MetadataEditorTarget(file: refreshed)
+                    }
+                } else {
                     summary.allSuccessfulFilesRefreshed = false
                 }
                 if !success.warnings.isEmpty {
@@ -154,7 +160,8 @@ extension AudioViewModel {
             succeededTargetIDs: succeededTargetIDs,
             failedTargetIDs: failedTargetIDs,
             didApplyAllChanges: failedTargetIDs.isEmpty,
-            wasCancelled: didCancelUnprocessed
+            wasCancelled: didCancelUnprocessed,
+            refreshedTargetsByID: refreshedTargetsByID
         )
     }
 

@@ -150,6 +150,10 @@ struct MetadataEditorApplyOutcome {
     let didApplyAllChanges: Bool
     /// True when cancellation stopped unprocessed targets before any commit.
     let wasCancelled: Bool
+    /// Freshly reloaded post-write targets for succeeded files whose readback
+    /// produced a coherent observation. Used to rebase retained drafts that
+    /// received newer edits while Apply was in flight.
+    let refreshedTargetsByID: [AudioFile.ID: MetadataEditorTarget]
 
     init(
         presentationID: MetadataEditorPresentationID,
@@ -157,7 +161,8 @@ struct MetadataEditorApplyOutcome {
         succeededTargetIDs: Set<AudioFile.ID>,
         failedTargetIDs: Set<AudioFile.ID>,
         didApplyAllChanges: Bool,
-        wasCancelled: Bool = false
+        wasCancelled: Bool = false,
+        refreshedTargetsByID: [AudioFile.ID: MetadataEditorTarget] = [:]
     ) {
         self.presentationID = presentationID
         self.applyID = applyID
@@ -165,6 +170,7 @@ struct MetadataEditorApplyOutcome {
         self.failedTargetIDs = failedTargetIDs
         self.didApplyAllChanges = didApplyAllChanges
         self.wasCancelled = wasCancelled
+        self.refreshedTargetsByID = refreshedTargetsByID
     }
 }
 

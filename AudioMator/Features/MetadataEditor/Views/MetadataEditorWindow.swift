@@ -30,6 +30,33 @@ struct MetadataEditorTarget: Identifiable, Hashable {
         requiresMetadataRefresh = false
     }
 
+    private nonisolated init(
+        id: AudioFile.ID,
+        url: URL,
+        expectedFileFingerprint: AudioFileFingerprint?,
+        expectedMetadataVersion: MetadataFileVersion?,
+        metadataConflictBaseline: MetadataConflictBaseline?,
+        requiresMetadataRefresh: Bool
+    ) {
+        self.id = id
+        self.url = url
+        self.expectedFileFingerprint = expectedFileFingerprint
+        self.expectedMetadataVersion = expectedMetadataVersion
+        self.metadataConflictBaseline = metadataConflictBaseline
+        self.requiresMetadataRefresh = requiresMetadataRefresh
+    }
+
+    nonisolated func requiringMetadataRefresh() -> MetadataEditorTarget {
+        MetadataEditorTarget(
+            id: id,
+            url: url,
+            expectedFileFingerprint: nil,
+            expectedMetadataVersion: nil,
+            metadataConflictBaseline: nil,
+            requiresMetadataRefresh: true
+        )
+    }
+
     nonisolated var fileName: String {
         url.lastPathComponent
     }
@@ -483,7 +510,8 @@ final class MetadataEditorStore: ObservableObject {
         removeCapturedSuccessfulTargets(
             outcome.succeededTargetIDs,
             capturedTargets: request.pendingTargets,
-            submittedDraftPropertyMaps: request.submittedPropertyMaps
+            submittedDraftPropertyMaps: request.submittedPropertyMaps,
+            refreshedTargetsByID: outcome.refreshedTargetsByID
         )
         let hasNewerDraftEdits = draftGeneration != request.draftGeneration
         currentApplyID = nil
@@ -500,7 +528,8 @@ final class MetadataEditorStore: ObservableObject {
     private func removeCapturedSuccessfulTargets(
         _ succeededTargetIDs: Set<AudioFile.ID>,
         capturedTargets: [MetadataEditorTarget],
-        submittedDraftPropertyMaps: [AudioFile.ID: RawMetadataValueMap]
+        submittedDraftPropertyMaps: [AudioFile.ID: RawMetadataValueMap],
+        refreshedTargetsByID: [AudioFile.ID: MetadataEditorTarget]
     ) {
         var capturedByID: [AudioFile.ID: MetadataEditorTarget] = [:]
         for target in capturedTargets where capturedByID[target.id] == nil {
@@ -513,10 +542,30 @@ final class MetadataEditorStore: ObservableObject {
                   let index = targets.firstIndex(where: { $0.id == targetID }),
                   targets[index] == capturedTarget else { continue }
             if let submittedMap = submittedDraftPropertyMaps[targetID],
-               draftPropertyMaps[targetID] != submittedMap {
+               let liveDraft = draftPropertyMaps[targetID],
+               liveDraft != submittedMap {
                 // Newer draft edits were staged after capture: preserve the target
-                // and live draft, advancing only the baseline for what was written.
-                originalPropertyMaps[targetID] = submittedMap
+                // and live draft, rebasing both the baseline map and reviewed disk
+                // tokens onto the freshly reloaded post-write observation so a
+                // follow-up Apply passes baseline/revision verification.
+                if let refreshedTarget = refreshedTargetsByID[targetID],
+                   let refreshedBaseline = refreshedTarget.metadataConflictBaseline?.values {
+                    targets[index] = refreshedTarget
+                    originalPropertyMaps[targetID] = refreshedBaseline
+                    draftPropertyMaps[targetID] = Self.rebasedRetainedDraftMap(
+                        liveDraft: liveDraft,
+                        submittedMap: submittedMap,
+                        refreshedBaseline: refreshedBaseline
+                    )
+                } else if capturedTarget.reviewedTarget != nil {
+                    // Real observed target succeeded without a fresh post-write
+                    // reload: clear stale write authority so follow-up saves fail
+                    // closed with reload guidance instead of reusing pre-write tokens.
+                    targets[index] = capturedTarget.requiringMetadataRefresh()
+                    originalPropertyMaps[targetID] = submittedMap
+                } else {
+                    originalPropertyMaps[targetID] = submittedMap
+                }
                 continue
             }
             targets.remove(at: index)
@@ -527,6 +576,23 @@ final class MetadataEditorStore: ObservableObject {
         if removedAny {
             realignSelection(preferred: selectedFieldKey)
         }
+    }
+
+    private nonisolated static func rebasedRetainedDraftMap(
+        liveDraft: RawMetadataValueMap,
+        submittedMap: RawMetadataValueMap,
+        refreshedBaseline: RawMetadataValueMap
+    ) -> RawMetadataValueMap {
+        var rebased = refreshedBaseline
+        let allKeys = Set(liveDraft.keys).union(submittedMap.keys)
+        for key in allKeys {
+            let liveValue = liveDraft[key]
+            let submittedValue = submittedMap[key]
+            if liveValue != submittedValue {
+                rebased[key] = liveValue
+            }
+        }
+        return rebased
     }
 
     func makeAddFieldContext() -> MetadataFieldEditorContext? {

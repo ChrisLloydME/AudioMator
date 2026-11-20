@@ -25,10 +25,7 @@ extension AudioViewModel {
         ) else { return nil }
         defer { endMetadataSaveProgress(token: progressToken) }
 
-        let targetURLs = prePromptDirectoryAccessURLs(for: entries.map(\.write))
-        if !targetURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        }
+        guard prepareMetadataMutationDirectoryAccess(for: entries.map(\.write)) else { return nil }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
         // Each entry carries the frozen reviewed write captured from the reviewed
@@ -117,10 +114,7 @@ extension AudioViewModel {
         ) else { return nil }
         defer { endMetadataSaveProgress(token: progressToken) }
 
-        let targetURLs = prePromptDirectoryAccessURLs(for: entries.map(\.write))
-        if !targetURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
-        }
+        guard prepareMetadataMutationDirectoryAccess(for: entries.map(\.write)) else { return nil }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
         // Exchange text/CSV and field-transfer entries both carry a frozen

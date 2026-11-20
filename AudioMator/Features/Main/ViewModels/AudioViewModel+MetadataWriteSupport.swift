@@ -68,10 +68,13 @@ extension AudioViewModel {
 
 extension AudioViewModel {
     func prepareMetadataMutationDirectoryAccess(
-        for urls: [URL],
+        for writes: [ReviewedMetadataWrite],
+        conflictAwareWrites: [ReviewedMetadataWrite] = [],
         failureTitle: String = String(localized: "Allow Folder Access")
     ) -> Bool {
-        guard let failure = ensureMetadataMutationDirectoryAccess(for: urls) else { return true }
+        guard let failure = ensureReviewedMetadataDirectoryAccess(
+            for: writes, conflictAwareWrites: conflictAwareWrites
+        ) else { return true }
 
         presentMetadataWriteHUD(
             style: .warning,

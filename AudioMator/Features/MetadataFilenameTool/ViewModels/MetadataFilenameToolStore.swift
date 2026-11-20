@@ -63,7 +63,7 @@ final class MetadataFilenameToolStore: ObservableObject {
     private let worker: any MetadataFilenamePlanWorking
     private let clock: any MetadataFilenameDebounceClock
     private let debounceInterval: Duration
-    private var scopeRequester: (([URL]) -> String?)?
+    private var scopeRequester: ((MetadataFilenameConverterResult, () -> Bool) -> String?)?
 
     // MARK: – Planning ownership
 
@@ -110,7 +110,7 @@ final class MetadataFilenameToolStore: ObservableObject {
 
     /// Production wiring for the one write-scope request the converter is
     /// allowed to make: executable captured targets at Apply.
-    func setScopeRequester(_ requester: (([URL]) -> String?)?) {
+    func setScopeRequester(_ requester: ((MetadataFilenameConverterResult, () -> Bool) -> String?)?) {
         scopeRequester = requester
     }
 
@@ -555,30 +555,26 @@ final class MetadataFilenameToolStore: ObservableObject {
         }
         let capturedPresentationID = presentationID
         let capturedInputID = currentInputID
+        func inputIsCurrent() -> Bool {
+            presentationID == capturedPresentationID
+                && currentInputID == capturedInputID
+                && selectedMode == mode
+                && !isApplying
+        }
 
         if initialResult.requiresWriteScope, let scopeRequester {
-            let urls = initialResult.executableTargetURLs
-            guard !urls.isEmpty else { return nil }
             isRequestingScope = true
-            let scopeError = scopeRequester(urls)
+            let scopeError = scopeRequester(initialResult, inputIsCurrent)
             isRequestingScope = false
 
-            guard presentationID == capturedPresentationID,
-                  currentInputID == capturedInputID,
-                  selectedMode == mode,
-                  !isApplying else {
-                return nil
-            }
+            guard inputIsCurrent() else { return nil }
             if let scopeError {
                 lastScopeRequestError = scopeError
                 return nil
             }
         }
 
-        guard presentationID == capturedPresentationID,
-              currentInputID == capturedInputID,
-              selectedMode == mode,
-              !isApplying,
+        guard inputIsCurrent(),
               let currentResult = readyResult(for: mode),
               currentResult.isDispatchable else {
             return nil

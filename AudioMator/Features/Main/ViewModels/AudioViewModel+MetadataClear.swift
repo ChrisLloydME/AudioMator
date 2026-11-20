@@ -77,12 +77,9 @@ extension AudioViewModel {
             totalUnitCount: targetFiles.count
         ) else { return }
 
-        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedTargets.compactMap { $0 })
-        if !prePromptURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else {
-                endMetadataSaveProgress(token: progressToken)
-                return
-            }
+        guard prepareMetadataMutationDirectoryAccess(for: plannedTargets.compactMap { $0 }) else {
+            endMetadataSaveProgress(token: progressToken)
+            return
         }
 
         Task(priority: .userInitiated) {

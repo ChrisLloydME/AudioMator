@@ -468,8 +468,15 @@ struct MetadataFilenameWindowView: View {
             // targets captured by an Apply; opening, previewing and exporting
             // never prompt.
             let viewModel = self.viewModel
-            store.setScopeRequester { urls in
-                viewModel.ensureMutationDirectoryAccess(for: urls)
+            store.setScopeRequester { result, isCurrent in
+                if result.renamePlan != nil {
+                    return viewModel.ensureMutationDirectoryAccess(
+                        for: result.executableTargetURLs, whileCurrent: isCurrent
+                    )
+                }
+                return viewModel.ensureReviewedMetadataDirectoryAccess(
+                    for: result.executableMetadataWrites, whileCurrent: isCurrent
+                )
             }
             refreshConversionInput()
         }

@@ -162,15 +162,15 @@ extension AudioViewModel {
         // Pre-authorize the captured target folders once, only for currently
         // eligible executable writes, and only after a cancellation checkpoint
         // so a session that ended before the handoff never asks for folder access.
-        let targetURLs = prePromptDirectoryAccessURLs(for: entries.compactMap { $0.write })
-        if !targetURLs.isEmpty {
+        let reviewedWrites = entries.compactMap { $0.write }
+        if !reviewedWrites.isEmpty {
             if Task.isCancelled {
                 didCancel = true
                 summary.recordCancelledFiles(entries.map(\.fileName))
                 endMetadataSaveProgress(token: progressToken)
                 return outcome(cancelledBeforeAnyStart: true)
             }
-            if !prepareMetadataMutationDirectoryAccess(for: targetURLs) {
+            if !prepareMetadataMutationDirectoryAccess(for: reviewedWrites) {
                 for entry in entries {
                     let message: String
                     if let rejection = entry.rejection {

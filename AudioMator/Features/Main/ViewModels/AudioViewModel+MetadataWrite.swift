@@ -223,21 +223,18 @@ extension AudioViewModel {
             subtitle: "Preparing \(plans.count) files…",
             totalUnitCount: plans.count
         ) else { return }
-        let executableURLs = plans.flatMap { plan -> [URL] in
+        var strictWrites: [ReviewedMetadataWrite] = []
+        var conflictAwareWrites: [ReviewedMetadataWrite] = []
+        for plan in plans {
             switch plan.route {
-            case .draft(let draft):
-                return prePromptDirectoryAccessURLs(for: [draft.write], allowsChangedRevision: true)
-            case .strict(let write):
-                return prePromptDirectoryAccessURLs(for: [write], allowsChangedRevision: false)
-            case .rejected:
-                return []
+            case .draft(let draft): conflictAwareWrites.append(draft.write)
+            case .strict(let write): strictWrites.append(write)
+            case .rejected: break
             }
         }
-        if !executableURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: executableURLs) else {
-                endMetadataSaveProgress(token: progressToken)
-                return
-            }
+        guard prepareMetadataMutationDirectoryAccess(for: strictWrites, conflictAwareWrites: conflictAwareWrites) else {
+            endMetadataSaveProgress(token: progressToken)
+            return
         }
         didStartSaveTask = true
 

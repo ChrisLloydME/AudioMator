@@ -508,6 +508,45 @@ nonisolated final class ReviewedMetadataWriteExecutionTests: XCTestCase {
     }
 
     @MainActor
+    func testRenumberSkipsLaterFolderInvalidatedDuringFirstPrompt() async throws {
+        let urlA = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        defer { MetadataTestTokens.removeFixtureCopy(at: urlA) }
+        let urlB = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        defer { MetadataTestTokens.removeFixtureCopy(at: urlB) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        let files = try await [pipeline.loadAudioFile(at: urlA, id: UUID()), pipeline.loadAudioFile(at: urlB, id: UUID())]
+        let vm = makeUnscopedViewModel(metadataPipeline: pipeline)
+        vm.mergeQuickImportFiles(files)
+        let plan = vm.makeTrackRenumberPlan(orderedFiles: files, selectedIDs: Set(files.map(\.id)),
+                                            direction: .ascending, startNumberText: "8")
+        XCTAssertEqual(plan.executableRows.count, 2)
+        let snapshots = try files.map { try Data(contentsOf: $0.url) }
+        var prompted: [String] = []
+        var blockedFolder: String?
+        var blockedID: AudioFile.ID?
+        vm.mutationDirectoryAccessRequester = { directory in
+            let directoryKey = FileSystemPathSemantics.key(for: directory)
+            prompted.append(directoryKey)
+            if prompted.count == 1 {
+                if let other = files.first(where: { FileSystemPathSemantics.key(for: $0.url.deletingLastPathComponent()) != directoryKey }) {
+                    blockedFolder = FileSystemPathSemantics.key(for: other.url.deletingLastPathComponent())
+                    blockedID = other.id
+                    vm.markFileRequiresRefresh(id: other.id)
+                }
+                return nil
+            }
+            return "Stop after capturing the next request."
+        }
+        let result = await vm.renumberTrackNumbers(using: plan)
+        let unapprovedFolder = try XCTUnwrap(blockedFolder)
+        XCTAssertFalse(prompted.contains(unapprovedFolder), "A second folder must not be requested after its only row became recovery-blocked during the first request")
+        let ineligibleID = try XCTUnwrap(blockedID)
+        XCTAssertTrue(vm.hasRecoveryDecision(for: ineligibleID))
+        XCTAssertEqual(result.succeeded, 0)
+        XCTAssertEqual(try files.map { try Data(contentsOf: $0.url) }, snapshots)
+    }
+
+    @MainActor
     private func makeUnscopedViewModel(metadataPipeline: any AudioMetadataPipeline) -> AudioViewModel {
         let suiteName = "AudioMatorUnscopedTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

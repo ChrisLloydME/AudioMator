@@ -1605,23 +1605,26 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         return try await body()
     }
 
-    func ensureMutationDirectoryAccess(for urls: [URL]) -> String? {
-        let directoryURLs = FileMutationDirectoryAccessPlan.missingDirectories(
-            for: urls,
-            activeDirectoryURLs: activeMutationDirectoryURLs
-        )
-        for directoryURL in directoryURLs {
+    func ensureMutationDirectoryAccess(
+        for urls: [URL],
+        whileCurrent: () -> Bool = { true },
+        needsDirectory: (URL) -> Bool = { _ in true }
+    ) -> String? {
+        guard !urls.isEmpty else { return nil }
+        var activeDirectories = activeMutationDirectoryURLs
+        for directoryURL in FileMutationDirectoryAccessPlan.directories(for: urls) {
+            guard !Task.isCancelled, whileCurrent() else { return nil }
+            guard !activeDirectories.contains(where: {
+                FileSystemPathSemantics.isSameOrDescendant(directoryURL, of: $0)
+            }), needsDirectory(directoryURL) else { continue }
             if let failure = requestMutationDirectoryAccess(for: directoryURL) {
                 return failure
             }
+            // Each native prompt can re-enter the app and change live grants.
+            activeDirectories = activeMutationDirectoryURLs
         }
 
         return nil
-    }
-
-    func ensureMetadataMutationDirectoryAccess(for urls: [URL]) -> String? {
-        guard metadataPipeline.requiresTransactionalDirectoryAccess else { return nil }
-        return ensureMutationDirectoryAccess(for: urls)
     }
 
     var primaryFileAccessGrantPath: String? {

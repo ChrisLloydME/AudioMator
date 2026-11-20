@@ -67,24 +67,21 @@ extension AudioViewModel {
             )
         }
 
-        let writableURLs = plans.flatMap { plan -> [URL] in
+        var strictWrites: [ReviewedMetadataWrite] = []
+        var conflictAwareWrites: [ReviewedMetadataWrite] = []
+        for plan in plans {
             switch plan.route {
-            case .unchanged, .rejected:
-                return []
-            case .strict(let write):
-                return prePromptDirectoryAccessURLs(for: [write], allowsChangedRevision: false)
-            case .draft(let draft):
-                return prePromptDirectoryAccessURLs(for: [draft.write], allowsChangedRevision: true)
+            case .unchanged, .rejected: break
+            case .strict(let write): strictWrites.append(write)
+            case .draft(let draft): conflictAwareWrites.append(draft.write)
             }
         }
-        if !writableURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: writableURLs) else {
-                return Self.rawApplyOutcome(
-                    request,
-                    failed: Set(targets.map(\.id)),
-                    succeeded: []
-                )
-            }
+        guard prepareMetadataMutationDirectoryAccess(for: strictWrites, conflictAwareWrites: conflictAwareWrites) else {
+            return Self.rawApplyOutcome(
+                request,
+                failed: Set(targets.map(\.id)),
+                succeeded: []
+            )
         }
 
         var summary = BatchMetadataOperationSummary(totalTargets: plans.count)

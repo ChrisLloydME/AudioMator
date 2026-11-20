@@ -55,11 +55,9 @@ extension AudioViewModel {
         // Ask for the required directory access once, before the first write, using
         // only currently eligible reviewed URLs. Precondition failures and rows
         // already rejected by current eligibility never prompt.
-        let prePromptURLs = prePromptDirectoryAccessURLs(
+        if let accessFailure = ensureReviewedMetadataDirectoryAccess(
             for: executableRows.compactMap { $0.executableWrite?.reviewedWrite }
-        )
-        if !prePromptURLs.isEmpty,
-           let accessFailure = ensureMetadataMutationDirectoryAccess(for: prePromptURLs) {
+        ) {
             for row in executableRows {
                 let reason: String
                 if let write = row.executableWrite?.reviewedWrite,

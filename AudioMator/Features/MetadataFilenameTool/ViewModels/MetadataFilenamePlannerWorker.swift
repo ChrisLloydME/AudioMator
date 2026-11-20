@@ -106,14 +106,19 @@ nonisolated enum MetadataFilenameConverterResult: Sendable {
     /// for exports and for plans with no executable target (which are refused
     /// before any scope request).
     nonisolated var executableTargetURLs: [URL] {
-        switch self {
-        case .rename(let plan):
+        if case .rename(let plan) = self {
             return plan.operations.flatMap { [$0.sourceURL, $0.destinationURL] }
+        }
+        return executableMetadataWrites.map { $0.target.url }
+    }
+
+    nonisolated var executableMetadataWrites: [ReviewedMetadataWrite] {
+        switch self {
         case .filenameMetadata(let plan):
-            return plan.writeEntries.map { $0.write.target.url }
+            return plan.writeEntries.map(\.write)
         case .textImport(let plan), .csvImport(let plan), .fieldTransfer(let plan):
-            return plan.writeEntries.map { $0.write.target.url }
-        case .textExport, .csvExport:
+            return plan.writeEntries.map(\.write)
+        case .rename, .textExport, .csvExport:
             return []
         }
     }

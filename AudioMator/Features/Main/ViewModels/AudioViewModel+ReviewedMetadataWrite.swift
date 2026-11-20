@@ -62,7 +62,10 @@ extension AudioViewModel {
         if let failure = reviewedWriteEligibilityFailure(for: target, allowsChangedRevision: draft != nil) {
             return .failure(failure)
         }
-        if let accessFailure = ensureMetadataMutationDirectoryAccess(for: [target.url]) {
+        if let accessFailure = ensureReviewedMetadataDirectoryAccess(
+            for: draft == nil ? [write] : [],
+            conflictAwareWrites: draft == nil ? [] : [write]
+        ) {
             return .failure(accessFailure)
         }
 
@@ -166,23 +169,31 @@ extension AudioViewModel {
         return nil
     }
 
-    /// Returns only the URLs of reviewed writes that are executable, non-no-op,
-    /// and currently eligible so ineligible/rejected rows never trigger folder
-    /// authorization prompts.
-    func prePromptDirectoryAccessURLs(
+    /// Keeps the reviewed rows attached to their directory through authorization
+    /// so an earlier modal prompt cannot leave a later prompt using stale eligibility.
+    func ensureReviewedMetadataDirectoryAccess(
         for writes: [ReviewedMetadataWrite],
-        allowsChangedRevision: Bool = false
-    ) -> [URL] {
-        writes.compactMap { write in
-            guard write.projection.isExecutable,
-                  !write.isNoOp,
-                  reviewedWriteEligibilityFailure(
-                    for: write.target,
-                    allowsChangedRevision: allowsChangedRevision
-                  ) == nil else {
-                return nil
-            }
-            return write.target.url
+        conflictAwareWrites: [ReviewedMetadataWrite] = [],
+        whileCurrent: () -> Bool = { true }
+    ) -> String? {
+        guard metadataPipeline.requiresTransactionalDirectoryAccess else { return nil }
+        let candidates = writes.map { ($0, false) } + conflictAwareWrites.map { ($0, true) }
+        var urls: [URL] = []
+        var targetsByDirectory: [String: [(target: ReviewedMetadataTarget, allowsChangedRevision: Bool)]] = [:]
+        for (write, allowsChangedRevision) in candidates where write.projection.isExecutable && !write.isNoOp {
+            let url = write.target.url
+            let directory = url.standardizedFileURL.deletingLastPathComponent()
+            targetsByDirectory[FileSystemPathSemantics.key(for: directory), default: []].append(
+                (write.target, allowsChangedRevision)
+            )
+            urls.append(url)
+        }
+        return ensureMutationDirectoryAccess(for: urls, whileCurrent: whileCurrent) { directory in
+            targetsByDirectory[FileSystemPathSemantics.key(for: directory)]?.contains {
+                reviewedWriteEligibilityFailure(
+                    for: $0.target, allowsChangedRevision: $0.allowsChangedRevision
+                ) == nil
+            } == true
         }
     }
 

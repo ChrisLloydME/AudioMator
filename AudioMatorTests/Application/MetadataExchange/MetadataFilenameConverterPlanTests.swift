@@ -281,8 +281,8 @@ private func makeStore(
 ) -> MetadataFilenameToolStore {
     let store = MetadataFilenameToolStore(worker: worker, clock: clock)
     if let scopeRecorder {
-        store.setScopeRequester { urls in
-            scopeRecorder.request(urls)
+        store.setScopeRequester { result, _ in
+            scopeRecorder.request(result.executableTargetURLs)
         }
     }
     return store
@@ -850,7 +850,7 @@ nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
         let fixture = ConverterTestFixture(fileCount: 1)
         let worker = ConverterTestPlannerWorker()
         let store = makeStore(worker: worker)
-        store.setScopeRequester { _ in "Folder access denied by test." }
+        store.setScopeRequester { _, _ in "Folder access denied by test." }
         present(fixture, in: store)
         store.updateTemplate("{{fileName}},{{title}}", for: .csvToMetadata)
         store.setExternalSource("Original Alpha.mp3,Captured Title", for: .csvToMetadata)
@@ -874,10 +874,12 @@ nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
         await settle(store)
 
         var requestedCount = 0
-        store.setScopeRequester { _ in
+        store.setScopeRequester { _, isCurrent in
             requestedCount += 1
+            XCTAssertTrue(isCurrent())
             // Simulate closing the converter window while the modal folder panel runs.
             store.cancelPresentation()
+            XCTAssertFalse(isCurrent(), "The scope requester must be able to stop before a second prompt")
             return nil
         }
 
@@ -901,7 +903,7 @@ nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
         await settle(store)
 
         // Mutating the template during scope authorization invalidates the ready input.
-        store.setScopeRequester { _ in
+        store.setScopeRequester { _, _ in
             store.updateTemplate("{{fileName}},{{artist}}", for: .csvToMetadata)
             return nil
         }
@@ -912,7 +914,7 @@ nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
 
         // Re-entrant beginDispatch inside scopeRequester must be ignored while outer succeeds once.
         var reentrantDispatch: MetadataFilenameConverterDispatch?
-        store.setScopeRequester { _ in
+        store.setScopeRequester { _, _ in
             reentrantDispatch = store.beginDispatch(for: .csvToMetadata)
             return nil
         }

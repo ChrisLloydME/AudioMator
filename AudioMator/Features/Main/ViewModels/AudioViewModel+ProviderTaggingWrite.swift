@@ -12,9 +12,8 @@ extension AudioViewModel {
         ) else { return }
         defer { endMetadataSaveProgress(token: progressToken) }
 
-        let prePromptURLs = prePromptDirectoryAccessURLs(for: entries.compactMap { $0.reviewedWrite })
-        if !prePromptURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: entries.compactMap { $0.reviewedWrite }) else {
+            return
         }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
@@ -84,9 +83,8 @@ extension AudioViewModel {
         ) else { return }
         defer { endMetadataSaveProgress(token: progressToken) }
 
-        let prePromptURLs = prePromptDirectoryAccessURLs(for: entries.compactMap { $0.reviewedWrite })
-        if !prePromptURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
+        guard prepareMetadataMutationDirectoryAccess(for: entries.compactMap { $0.reviewedWrite }) else {
+            return
         }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 

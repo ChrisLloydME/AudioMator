@@ -9,6 +9,18 @@ struct MetadataConflictBaseline: Hashable, Sendable {
     let structured: StructuredMetadata
     let audioContentIdentity: MetadataAudioContentIdentity?
 
+    nonisolated init(
+        values: RawMetadataValueMap = [:],
+        yearText: String = "",
+        structured: StructuredMetadata = StructuredMetadata(),
+        audioContentIdentity: MetadataAudioContentIdentity? = nil
+    ) {
+        self.values = values
+        self.yearText = yearText
+        self.structured = structured
+        self.audioContentIdentity = audioContentIdentity
+    }
+
     nonisolated init(_ snapshot: MetadataSnapshot) {
         yearText = snapshot.basic.year
         values = snapshot.raw.properties.reduce(into: [:]) { result, entry in

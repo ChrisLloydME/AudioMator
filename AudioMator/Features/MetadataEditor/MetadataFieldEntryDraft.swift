@@ -41,6 +41,9 @@ struct MetadataFieldEditorContext: Identifiable {
     let draftGeneration: UInt64
     var displayName: String = ""
     var emptyStartReason: MetadataFieldEmptyStartReason?
+    /// Captured editor targets at sheet open, used to evaluate exact date/time
+    /// picker eligibility without consulting live selection state.
+    var targets: [MetadataEditorTarget] = []
 
     var id: String {
         switch mode {

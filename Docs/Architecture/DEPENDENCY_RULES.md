@@ -45,7 +45,7 @@ Domain reuses stable semantic types from `TagLibAudioMetadata`:
 
 This keeps one contract for field capabilities, revisions, and raw edits across the boundary. It is a controlled package-contract dependency, not a claim that Domain is package-independent.
 
-`Core/Audio/AudioFormatSupport.swift` builds the app's capability snapshot from `TagLibMetadataManager` extensions/capabilities and `MetadataFieldKey`. It is excluded from the SwiftPM fast target, which compiles the Foundation-only `AudioFormatSupportCore`.
+`Core/Audio/AudioFormatSupport.swift` builds the app's capability snapshot from `TagLibMetadataManager` extensions/capabilities and `MetadataFieldKey`. It is excluded from the SwiftPM fast target; the Foundation-only `AudioFormatSupportCore` and `MetadataDateTimeCore` remain part of its compilable surface, while `Domain/MetadataEditing/MetadataDatePickerEligibility.swift` maps verified writable field identities and raw keys under the Domain `MetadataFieldKey` exception.
 
 Still forbidden in Domain:
 

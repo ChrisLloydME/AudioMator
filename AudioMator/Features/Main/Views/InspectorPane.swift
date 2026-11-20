@@ -26,6 +26,8 @@ struct InspectorPane: View {
     @State private var photoLibraryArtworkIntent: ArtworkTransferIntent?
     @State private var isPhotoLibraryArtworkPickerPresented: Bool = false
     @State private var selectedPhotoLibraryArtworkItem: PhotosPickerItem?
+    @State private var activeDatePickerField: InspectorMetadataField?
+    @State private var activeDatePickerSession: MetadataDateTimePickerSession?
 
     private var artworkLookupSessionBinding: Binding<ArtworkLookupSession?> {
         Binding<ArtworkLookupSession?>(
@@ -318,6 +320,26 @@ struct InspectorPane: View {
         .onChange(of: selectedPhotoLibraryArtworkItem) { _, newItem in
             importSelectedPhotoLibraryArtwork(newItem)
         }
+        .onChange(of: viewModel.selectedAudioIDs) { _, _ in
+            dismissInspectorDatePicker()
+        }
+        .onChange(of: viewModel.editSourceFileID) { _, _ in
+            dismissInspectorDatePicker()
+        }
+        .onChange(of: viewModel.hasInspectorPendingReview) { _, _ in
+            dismissInspectorDatePicker()
+        }
+        .onChange(of: viewModel.filesRevision) { _, _ in
+            if let field = activeDatePickerField,
+               MetadataDatePickerEligibilityResolver.inspectorEligibility(for: field, files: selectedFiles) == nil {
+                dismissInspectorDatePicker()
+            }
+        }
+    }
+
+    private func dismissInspectorDatePicker() {
+        activeDatePickerField = nil
+        activeDatePickerSession = nil
     }
 
     private func pickArtworkFromFinder(for target: ArtworkImportTarget) {
@@ -749,7 +771,7 @@ struct InspectorPane: View {
                             Divider()
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            multiMetadataFieldRow(field, merged: merged)
+                            multiMetadataFieldRow(field, files: files, merged: merged)
                             if let reason = viewModel.metadataFieldUnsupportedReason(field, in: files) {
                                 Text(reason)
                                     .font(.caption)
@@ -784,13 +806,45 @@ struct InspectorPane: View {
         case .genre:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.genre))
         case .year:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.year))
+            editableRow(
+                label: field.displayName,
+                text: binding(for: file, keyPath: \.year),
+                datePickerField: .year,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .year,
+                    files: [file]
+                )
+            )
         case .date:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.date))
+            editableRow(
+                label: field.displayName,
+                text: binding(for: file, keyPath: \.date),
+                datePickerField: .date,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .date,
+                    files: [file]
+                )
+            )
         case .releaseDate:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.releaseDate))
+            editableRow(
+                label: field.displayName,
+                text: binding(for: file, keyPath: \.releaseDate),
+                datePickerField: .releaseDate,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .releaseDate,
+                    files: [file]
+                )
+            )
         case .originalReleaseDate:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.originalReleaseDate))
+            editableRow(
+                label: field.displayName,
+                text: binding(for: file, keyPath: \.originalReleaseDate),
+                datePickerField: .originalReleaseDate,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .originalReleaseDate,
+                    files: [file]
+                )
+            )
         case .trackNumber:
             editableRow(label: field.displayName, text: trackNumberFieldBinding(for: file))
         case .totalTracks:
@@ -825,7 +879,11 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
-    private func multiMetadataFieldRow(_ field: InspectorMetadataField, merged: MergedAudioFile) -> some View {
+    private func multiMetadataFieldRow(
+        _ field: InspectorMetadataField,
+        files: [AudioFile],
+        merged: MergedAudioFile
+    ) -> some View {
         switch field {
         case .title:
             editableRow(
@@ -861,25 +919,49 @@ struct InspectorPane: View {
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .year),
-                placeholder: viewModel.multiEdit?.placeholder(for: .year)
+                placeholder: viewModel.multiEdit?.placeholder(for: .year),
+                datePickerField: .year,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .year,
+                    files: files
+                ),
+                isMixed: isUnmodifiedMixedMultiField(.year)
             )
         case .date:
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .date),
-                placeholder: viewModel.multiEdit?.placeholder(for: .date)
+                placeholder: viewModel.multiEdit?.placeholder(for: .date),
+                datePickerField: .date,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .date,
+                    files: files
+                ),
+                isMixed: isUnmodifiedMixedMultiField(.date)
             )
         case .releaseDate:
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .releaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
+                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate),
+                datePickerField: .releaseDate,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .releaseDate,
+                    files: files
+                ),
+                isMixed: isUnmodifiedMixedMultiField(.releaseDate)
             )
         case .originalReleaseDate:
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .originalReleaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .originalReleaseDate)
+                placeholder: viewModel.multiEdit?.placeholder(for: .originalReleaseDate),
+                datePickerField: .originalReleaseDate,
+                datePickerEligibility: MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                    for: .originalReleaseDate,
+                    files: files
+                ),
+                isMixed: isUnmodifiedMixedMultiField(.originalReleaseDate)
             )
         case .trackNumber:
             editableRow(
@@ -1014,17 +1096,32 @@ struct InspectorPane: View {
         .padding(.vertical, inspectorRowVerticalPadding)
     }
 
+    private func isUnmodifiedMixedMultiField(_ field: MultiFileEditableTextField) -> Bool {
+        guard let multiEdit = viewModel.multiEdit else { return false }
+        return multiEdit.mixedTextFields.contains(field) && !multiEdit.modifiedTextFields.contains(field)
+    }
+
     @ViewBuilder
     private func editableRow(
         label: String,
         text: Binding<String>,
-        placeholder: String? = nil
+        placeholder: String? = nil,
+        datePickerField: InspectorMetadataField? = nil,
+        datePickerEligibility: MetadataDatePickerEligibility? = nil,
+        isMixed: Bool = false
     ) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 8) {
             Text(label)
                 .font(.headline)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    inspectorQuickLabel = label
+                    inspectorQuickText = text.wrappedValue
+                    inspectorQuickBinding = text
+                    isInspectorQuickPresented = true
+                }
             InspectorEditableValueField(text: text, placeholder: placeholder) {
                 inspectorQuickLabel = label
                 inspectorQuickText = text.wrappedValue
@@ -1032,13 +1129,52 @@ struct InspectorPane: View {
                 isInspectorQuickPresented = true
             }
             .frame(maxWidth: .infinity, minHeight: inspectorRowContentHeight, alignment: .trailing)
-        }
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            inspectorQuickLabel = label
-            inspectorQuickText = text.wrappedValue
-            inspectorQuickBinding = text
-            isInspectorQuickPresented = true
+
+            if let datePickerField, let datePickerEligibility {
+                Button {
+                    activeDatePickerSession = MetadataDateTimePickerSession(
+                        initialText: isMixed ? nil : text.wrappedValue,
+                        isMixed: isMixed,
+                        destinationFormat: datePickerEligibility.destinationFormat
+                    )
+                    activeDatePickerField = datePickerField
+                } label: {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: inspectorRowContentHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .help(String(localized: "Choose \(label)"))
+                .accessibilityLabel(String(localized: "Choose \(label)"))
+                .popover(
+                    isPresented: Binding(
+                        get: { activeDatePickerField == datePickerField && activeDatePickerSession != nil },
+                        set: { isPresented in
+                            if !isPresented, activeDatePickerField == datePickerField {
+                                dismissInspectorDatePicker()
+                            }
+                        }
+                    ),
+                    arrowEdge: .leading
+                ) {
+                    if let sessionBinding = Binding($activeDatePickerSession) {
+                        MetadataDateTimePickerView(
+                            fieldTitle: label,
+                            presentation: .popover,
+                            session: sessionBinding,
+                            onApply: { formatted in
+                                text.wrappedValue = formatted
+                                dismissInspectorDatePicker()
+                            },
+                            onCancel: {
+                                dismissInspectorDatePicker()
+                            }
+                        )
+                    }
+                }
+            }
         }
         .padding(.vertical, inspectorRowVerticalPadding)
     }

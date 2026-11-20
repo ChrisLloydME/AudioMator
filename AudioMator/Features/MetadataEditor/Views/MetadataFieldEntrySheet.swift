@@ -13,6 +13,8 @@ struct MetadataFieldEntrySheet: View {
     @State private var selectedMappingKey: String?
     @State private var draft: MetadataFieldValueDraft
     @State private var commitError: String?
+    @State private var activeDatePickerSession: MetadataDateTimePickerSession?
+    @State private var isDatePickerPresented: Bool = false
 
     init(
         context: MetadataFieldEditorContext,
@@ -26,6 +28,40 @@ struct MetadataFieldEntrySheet: View {
 
     private var trimmedFieldKey: String {
         fieldKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var effectiveRawKey: String {
+        switch context.mode {
+        case .edit:
+            return context.key ?? ""
+        case .add:
+            return selectedMappingKey ?? MetadataFieldSuggestion.resolvedKey(for: trimmedFieldKey)
+        }
+    }
+
+    private var pickerEligibility: MetadataDatePickerEligibility? {
+        guard !effectiveRawKey.isEmpty, !context.targets.isEmpty else { return nil }
+        return MetadataDatePickerEligibilityResolver.metadataEditorEligibility(
+            rawKey: effectiveRawKey,
+            targets: context.targets
+        )
+    }
+
+    private var pickerFieldTitle: String {
+        switch context.mode {
+        case .edit:
+            return context.displayName.isEmpty ? effectiveRawKey : context.displayName
+        case .add:
+            return MetadataFieldGuide.displayName(
+                forRawKey: effectiveRawKey,
+                fileExtensions: context.targets.map { $0.url.pathExtension }
+            )
+        }
+    }
+
+    private func dismissDatePicker() {
+        isDatePickerPresented = false
+        activeDatePickerSession = nil
     }
 
     private var canSave: Bool {
@@ -144,6 +180,12 @@ struct MetadataFieldEntrySheet: View {
         .padding(20)
         .frame(width: 860)
         .frame(minHeight: 540)
+        .onChange(of: effectiveRawKey) { _, _ in
+            dismissDatePicker()
+        }
+        .onChange(of: draft.selectedElementID) { _, _ in
+            dismissDatePicker()
+        }
     }
 
     private var valueEditorArea: some View {
@@ -157,6 +199,53 @@ struct MetadataFieldEntrySheet: View {
                 }
 
                 Spacer(minLength: 12)
+
+                if let pickerEligibility {
+                    Button {
+                        let startsWithoutElement = draft.selectedElementID == nil
+                        activeDatePickerSession = MetadataDateTimePickerSession(
+                            initialText: startsWithoutElement ? nil : selectedTextBinding.wrappedValue,
+                            isMixed: startsWithoutElement && context.isMixed,
+                            destinationFormat: pickerEligibility.destinationFormat
+                        )
+                        isDatePickerPresented = true
+                    } label: {
+                        Label(
+                            pickerEligibility.destinationFormat.supportsTime
+                                ? String(localized: "Choose Date & Time…")
+                                : String(localized: "Choose Date…"),
+                            systemImage: "calendar"
+                        )
+                    }
+                    .help(String(localized: "Choose \(pickerFieldTitle)"))
+                    .accessibilityLabel(String(localized: "Choose \(pickerFieldTitle)"))
+                    .popover(
+                        isPresented: Binding(
+                            get: { isDatePickerPresented && activeDatePickerSession != nil },
+                            set: { presented in
+                                if !presented {
+                                    dismissDatePicker()
+                                }
+                            }
+                        ),
+                        arrowEdge: .bottom
+                    ) {
+                        if let sessionBinding = Binding($activeDatePickerSession) {
+                            MetadataDateTimePickerView(
+                                fieldTitle: pickerFieldTitle,
+                                presentation: .popover,
+                                session: sessionBinding,
+                                onApply: { formatted in
+                                    selectedTextBinding.wrappedValue = formatted
+                                    dismissDatePicker()
+                                },
+                                onCancel: {
+                                    dismissDatePicker()
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Button("Add Value") {
                     draft.addValue()

@@ -46,7 +46,7 @@ Shared, mostly UI-independent support.
 
 | Folder | Responsibility |
 | --- | --- |
-| `Audio/` | Tag-number parsing/text, numeric conversion, and format-support core |
+| `Audio/` | Tag-number parsing/text, numeric conversion, format-support core, date/time codec, DST/timezone resolution, and picker session state |
 | `Artwork/` | Artwork image validation and PNG normalization |
 | `Concurrency/` | `withAsyncTimeout` deadline wrapper |
 | `FileSystem/` | Normalized path semantics |
@@ -66,7 +66,7 @@ Business rules and value models that do not own UI or concrete file transactions
 | --- | --- |
 | `AudioFiles/` | `AudioFile`, fingerprint, edit models, metadata model core, container field identities |
 | `FileSources/` | Source modes, bookmark records, mutation directory access plan |
-| `MetadataEditing/` | Pipeline contract, conflict policy/baseline, text pipeline, mutation coordinator |
+| `MetadataEditing/` | Pipeline contract, conflict policy/baseline, date picker eligibility resolver, text pipeline, mutation coordinator |
 | `MetadataExchange/` | Converter modes/fields, exchange profile, template syntax, CSV, import/export planning, field transfer |
 | `MuseAmp/` | Deterministic MuseAmp ID generation |
 | `Rename/` | Filename templates, extraction, rename plan, collision policy |
@@ -81,6 +81,7 @@ Feature-owned views, view models, and presentation models.
 | Folder | Responsibility |
 | --- | --- |
 | `Main/` | Main window, sidebar, middle list, Inspector, artwork lookup, track renumber sheet, `AudioViewModel` and write extensions, batch executor, save issue log, operation-result HUD |
+| `DateTimePicker/` | Native macOS `NSDatePicker` wrappers and shared Inspector/Metadata Editor date and time picker view |
 | `MetadataEditor/` | Raw metadata value-map editor window, table, field entry, text utilities |
 | `MetadataFilenameTool/` | Filename & Metadata window, converter modes, previews, templates, field transfer |
 | `OnlineMetadataBrowser/` | Shared online metadata window shell, source picker, embedded web view, virtualized list |
@@ -117,7 +118,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 1056 test functions and 115 `XCTestCase` classes across 115 test files plus 7 `TestSupport` files (122 Swift files total), alongside fixtures.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 1068 test functions and 117 `XCTestCase` classes across 117 test files plus 7 `TestSupport` files (124 Swift files total), alongside fixtures.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -135,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 97 test functions in six `XCTestCase` classes across five source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 32-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 110 test functions in seven `XCTestCase` classes across six source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 

@@ -294,6 +294,108 @@ nonisolated final class RenameTransactionServiceTests: XCTestCase {
         XCTAssertEqual(store.loadManifests().manifests.first?.phase, .prepared)
     }
 
+    func testStagePostMoveIdentityMismatchStopsImmediatelyPreservesManifestAndSkipsRollback() throws {
+        let first = rootURL.appendingPathComponent("first.wav")
+        let firstIntended = rootURL.appendingPathComponent("first-renamed.wav")
+        let second = rootURL.appendingPathComponent("second.wav")
+        let secondIntended = rootURL.appendingPathComponent("second-renamed.wav")
+        try Data("first-bytes".utf8).write(to: first)
+        try Data("second-bytes".utf8).write(to: second)
+
+        let prepared = try makePrepared(entries: [
+            (source: first, intended: firstIntended),
+            (source: second, intended: secondIntended)
+        ])
+        let faultFS = PostMoveMismatchRenameFileSystem(
+            base: fileSystem,
+            corruptDestinationName: prepared.entries[0].temporaryURL.lastPathComponent
+        )
+        let service = RenameTransactionService(fileSystem: faultFS, journal: store)
+
+        let outcome = service.execute(prepared)
+        guard case .unresolved(let operationID, _, let reason) = outcome else {
+            return XCTFail("Expected .unresolved on post-move stage identity mismatch, got \(outcome)")
+        }
+        XCTAssertEqual(operationID, prepared.operationID)
+        XCTAssertEqual(reason, .entryIdentityMismatch(index: 0))
+        // Exactly ONE move occurred (first -> stage); zero rollback moves and
+        // zero moves on entry 1.
+        XCTAssertEqual(faultFS.recordedMoves.count, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.path), "Entry 1 must remain untouched at its original path")
+        XCTAssertEqual(
+            try journalFileNames(),
+            [RenameJournalFormat.manifestFileName(operationID: prepared.operationID)],
+            "Prepared manifest must be preserved on disk after post-move mismatch"
+        )
+    }
+
+    func testFinalizePostMoveIdentityMismatchStopsImmediatelyPreservesManifestAndSkipsRollback() throws {
+        let first = rootURL.appendingPathComponent("fin-a.wav")
+        let firstIntended = rootURL.appendingPathComponent("fin-a-new.wav")
+        let second = rootURL.appendingPathComponent("fin-b.wav")
+        let secondIntended = rootURL.appendingPathComponent("fin-b-new.wav")
+        try Data("fin-a".utf8).write(to: first)
+        try Data("fin-b".utf8).write(to: second)
+
+        let prepared = try makePrepared(entries: [
+            (source: first, intended: firstIntended),
+            (source: second, intended: secondIntended)
+        ])
+        let faultFS = PostMoveMismatchRenameFileSystem(
+            base: fileSystem,
+            corruptDestinationName: firstIntended.lastPathComponent
+        )
+        let service = RenameTransactionService(fileSystem: faultFS, journal: store)
+
+        let outcome = service.execute(prepared)
+        guard case .unresolved(let operationID, _, let reason) = outcome else {
+            return XCTFail("Expected .unresolved on post-move finalize mismatch, got \(outcome)")
+        }
+        XCTAssertEqual(operationID, prepared.operationID)
+        XCTAssertEqual(reason, .entryIdentityMismatch(index: 0))
+        // 2 stage moves + 1 finalize move = 3 moves total; zero rollback moves.
+        XCTAssertEqual(faultFS.recordedMoves.count, 3)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: prepared.entries[1].temporaryURL.path),
+            "Second staged file must not be touched after mismatch stops execution"
+        )
+        XCTAssertEqual(
+            try journalFileNames(),
+            [RenameJournalFormat.manifestFileName(operationID: prepared.operationID)]
+        )
+    }
+
+    func testRollbackManifestRemovalFailureAfterAudioMovesReturnsUnresolved() throws {
+        let first = rootURL.appendingPathComponent("rb-a.wav")
+        let firstIntended = rootURL.appendingPathComponent("rb-a-new.wav")
+        let second = rootURL.appendingPathComponent("rb-b.wav")
+        let secondIntended = rootURL.appendingPathComponent("rb-b-new.wav")
+        try Data("rb-a".utf8).write(to: first)
+        try Data("rb-b".utf8).write(to: second)
+
+        let prepared = try makePrepared(entries: [
+            (source: first, intended: firstIntended),
+            (source: second, intended: secondIntended)
+        ])
+        let faultFS = PostMoveMismatchRenameFileSystem(
+            base: fileSystem,
+            failMoveDestinationName: prepared.entries[1].temporaryURL.lastPathComponent
+        )
+        let faultJournal = FaultInjectingJournalStore(base: store)
+        faultJournal.failRemoveManifest = true
+        let service = RenameTransactionService(fileSystem: faultFS, journal: faultJournal)
+
+        let outcome = service.execute(prepared)
+        guard case .unresolved(let operationID, _, _) = outcome else {
+            return XCTFail("Expected .unresolved when rollback fails to remove the manifest after moving files, got \(outcome)")
+        }
+        XCTAssertEqual(operationID, prepared.operationID)
+        XCTAssertEqual(
+            try journalFileNames(),
+            [RenameJournalFormat.manifestFileName(operationID: prepared.operationID)]
+        )
+    }
+
     // MARK: - Helpers
 
     private func makePrepared(
@@ -452,9 +554,25 @@ private nonisolated struct ExclusiveRenameUnsupportedFileSystem: RenameFileSyste
 /// other operations to the real store.
 private nonisolated final class FaultInjectingJournalStore: RenameJournalStoring, @unchecked Sendable {
     let base: LocalRenameJournalStore
-    var failWritePrepared = false
-    var failMarkCommitted = false
-    var failRemoveManifest = false
+    private let lock = NSLock()
+    private var _failWritePrepared = false
+    private var _failMarkCommitted = false
+    private var _failRemoveManifest = false
+
+    var failWritePrepared: Bool {
+        get { lock.withLock { _failWritePrepared } }
+        set { lock.withLock { _failWritePrepared = newValue } }
+    }
+
+    var failMarkCommitted: Bool {
+        get { lock.withLock { _failMarkCommitted } }
+        set { lock.withLock { _failMarkCommitted = newValue } }
+    }
+
+    var failRemoveManifest: Bool {
+        get { lock.withLock { _failRemoveManifest } }
+        set { lock.withLock { _failRemoveManifest = newValue } }
+    }
 
     init(base: LocalRenameJournalStore) {
         self.base = base
@@ -486,5 +604,90 @@ private nonisolated final class FaultInjectingJournalStore: RenameJournalStoring
             throw RenameJournalStoreError.removalFailed(code: 5)
         }
         try base.removeManifest(operationID: operationID)
+    }
+}
+
+/// Filesystem double that records moves and can either corrupt the observed
+/// identity right after a target move or fail a specific move before staging.
+private nonisolated final class PostMoveMismatchRenameFileSystem: RenameFileSystem, @unchecked Sendable {
+    let base: LocalRenameFileSystem
+    let corruptDestinationName: String?
+    let failMoveDestinationName: String?
+    private let lock = NSLock()
+    private var moves: [(String, String)] = []
+    private var corrupted = false
+
+    init(
+        base: LocalRenameFileSystem,
+        corruptDestinationName: String? = nil,
+        failMoveDestinationName: String? = nil
+    ) {
+        self.base = base
+        self.corruptDestinationName = corruptDestinationName
+        self.failMoveDestinationName = failMoveDestinationName
+    }
+
+    var recordedMoves: [(String, String)] { lock.withLock { moves } }
+
+    func fileExists(at url: URL) -> Bool { base.fileExists(at: url) }
+    func fingerprint(at url: URL) throws -> AudioFileFingerprint { try base.fingerprint(at: url) }
+    func entryIdentity(at url: URL) throws -> RenameEntryIdentity { try base.entryIdentity(at: url) }
+    func entryIdentityIfPresent(at url: URL) throws -> RenameEntryIdentity? {
+        try base.entryIdentityIfPresent(at: url)
+    }
+    func linkTarget(at url: URL) -> String? { base.linkTarget(at: url) }
+    func volumeIdentifier(forDirectoryAt url: URL) -> String? {
+        base.volumeIdentifier(forDirectoryAt: url)
+    }
+    func volumeSupportsExclusiveRename(forDirectoryAt url: URL) throws -> Bool {
+        try base.volumeSupportsExclusiveRename(forDirectoryAt: url)
+    }
+    func openDirectory(at url: URL) throws -> RenameDirectoryHandle {
+        try base.openDirectory(at: url)
+    }
+    func directoryIdentity(_ handle: RenameDirectoryHandle) throws -> RenameDirectoryIdentity {
+        try base.directoryIdentity(handle)
+    }
+    func authorizedPathStillIdentifiesDirectory(_ handle: RenameDirectoryHandle) -> Bool {
+        base.authorizedPathStillIdentifiesDirectory(handle)
+    }
+    func entryIdentity(named name: String, in handle: RenameDirectoryHandle) throws -> RenameEntryIdentity? {
+        let shouldCorrupt = lock.withLock { corrupted && name == corruptDestinationName }
+        guard let identity = try base.entryIdentity(named: name, in: handle) else { return nil }
+        if shouldCorrupt {
+            return RenameEntryIdentity(
+                device: identity.device,
+                inode: (identity.inode ?? 1) &+ 999_999,
+                kind: identity.kind,
+                size: identity.size + 1,
+                modificationDate: identity.modificationDate,
+                creationDate: identity.creationDate,
+                volumeIdentifier: identity.volumeIdentifier,
+                linkTarget: identity.linkTarget
+            )
+        }
+        return identity
+    }
+    func actualEntryName(inDirectoryAt url: URL, matching name: String) throws -> String? {
+        try base.actualEntryName(inDirectoryAt: url, matching: name)
+    }
+    func exclusiveMove(
+        named sourceName: String,
+        to destinationName: String,
+        in handle: RenameDirectoryHandle
+    ) throws {
+        if destinationName == failMoveDestinationName {
+            throw RenameFileSystemError.io(code: EIO)
+        }
+        try base.exclusiveMove(named: sourceName, to: destinationName, in: handle)
+        lock.withLock {
+            moves.append((sourceName, destinationName))
+            if destinationName == corruptDestinationName {
+                corrupted = true
+            }
+        }
+    }
+    func syncDirectory(_ handle: RenameDirectoryHandle) throws {
+        try base.syncDirectory(handle)
     }
 }

@@ -129,6 +129,37 @@ nonisolated final class RenameJournalManifestTests: XCTestCase {
         ))
     }
 
+    func testValidateRejectsUnchangedOriginalAndIntendedURL() {
+        let unchanged = makeManifest(intendedURL: rootURL.appendingPathComponent("a.wav"))
+        XCTAssertThrowsError(try unchanged.validate()) { error in
+            XCTAssertEqual(error as? RenameJournalValidationError, .roleCollision)
+        }
+    }
+
+    func testRenameEntryIdentityWithUnknownDeviceAndInodeNeverMatches() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = RenameEntryIdentity(
+            device: nil,
+            inode: nil,
+            kind: .regular,
+            size: 128,
+            modificationDate: now,
+            creationDate: nil
+        )
+        let second = RenameEntryIdentity(
+            device: nil,
+            inode: nil,
+            kind: .regular,
+            size: 128,
+            modificationDate: now,
+            creationDate: nil
+        )
+        XCTAssertFalse(
+            first.isSameDirectoryEntry(as: second),
+            "Unknown device/inode must never count as a physical directory-entry match"
+        )
+    }
+
     private func makeManifest(
         intendedURL: URL? = nil
     ) -> RenameJournalManifest {

@@ -48,17 +48,17 @@ enum FileSystemPathSemantics {
     }
 
     /// Identity of the directory entry formed by resolving only the parent path
-    /// and folding the basename using the parent volume's filename semantics.
+    /// and folding parent and basename using the parent volume's filename semantics.
     nonisolated static func directoryEntryKey(for url: URL) -> String {
         let standardizedURL = url.standardizedFileURL
         let parentURL = standardizedURL.deletingLastPathComponent().resolvingSymlinksInPath()
-        let basename = standardizedURL.lastPathComponent.precomposedStringWithCanonicalMapping
+        let basename = standardizedURL.lastPathComponent
         let isCaseSensitive = volumeSupportsCaseSensitiveNames(for: parentURL) ?? true
-        let foldedBasename = isCaseSensitive
-            ? basename
-            : basename.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-        let parentPath = parentURL.path.precomposedStringWithCanonicalMapping
-        return "entry:" + parentPath + "/" + foldedBasename
+        return directoryEntryKey(
+            lexicalBasename: basename,
+            parentCanonicalPath: parentURL.path,
+            parentIsCaseSensitive: isCaseSensitive
+        )
     }
 
     nonisolated static func isSameOrDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
@@ -83,19 +83,34 @@ enum FileSystemPathSemantics {
     }
 
     /// Directory-entry location identity computed from evidence that was already
-    /// resolved. `quickImport` uses it for rename-journal matching so an accepted
-    /// observation does not resolve the same path again.
+    /// resolved. Preserves the lexical basename (even when the entry is a symlink)
+    /// and folds parent + basename according to the parent volume's case rules.
+    nonisolated static func directoryEntryKey(
+        lexicalBasename: String,
+        parentCanonicalPath: String,
+        parentIsCaseSensitive: Bool
+    ) -> String {
+        let normalizedParent = comparisonKey(
+            forCanonicalPath: parentCanonicalPath,
+            isCaseSensitive: parentIsCaseSensitive
+        )
+        let normalizedBasename = lexicalBasename.precomposedStringWithCanonicalMapping
+        let foldedBasename = parentIsCaseSensitive
+            ? normalizedBasename
+            : normalizedBasename.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        return "entry:" + normalizedParent + "/" + foldedBasename
+    }
+
     nonisolated static func directoryEntryKey(
         canonicalPath: String,
         parentCanonicalPath: String,
         parentIsCaseSensitive: Bool
     ) -> String {
-        let basename = URL(fileURLWithPath: canonicalPath).lastPathComponent
-            .precomposedStringWithCanonicalMapping
-        let foldedBasename = parentIsCaseSensitive
-            ? basename
-            : basename.folding(options: [.caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
-        return "entry:" + parentCanonicalPath.precomposedStringWithCanonicalMapping + "/" + foldedBasename
+        directoryEntryKey(
+            lexicalBasename: URL(fileURLWithPath: canonicalPath).lastPathComponent,
+            parentCanonicalPath: parentCanonicalPath,
+            parentIsCaseSensitive: parentIsCaseSensitive
+        )
     }
 
     nonisolated private static func canonicalURL(for url: URL) -> URL {

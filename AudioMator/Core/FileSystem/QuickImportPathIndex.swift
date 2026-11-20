@@ -374,7 +374,7 @@ nonisolated struct FileSystemQuickImportPathIdentityProvider: QuickImportPathIde
         let fileResolution = FileSystemPathSemantics.identityResolution(for: standardizedURL)
         let parentEvidence = parent ?? prepareParentEvidence(forStandardizedFileURL: standardizedURL)
         let directoryEntryKey = FileSystemPathSemantics.directoryEntryKey(
-            canonicalPath: fileResolution.canonicalPath,
+            lexicalBasename: standardizedURL.lastPathComponent,
             parentCanonicalPath: parentEvidence.parentCanonicalPath,
             parentIsCaseSensitive: parentEvidence.parentIsCaseSensitive
         )

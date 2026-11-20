@@ -130,6 +130,7 @@ nonisolated enum RenameEntryRole: String, Equatable, Sendable {
 
 nonisolated enum RenameClassificationIssueCode: String, Equatable, Sendable {
     case busy
+    case journalLockUnavailable
     case foreignEntry
     case missingEntry
     case ambiguousEntry

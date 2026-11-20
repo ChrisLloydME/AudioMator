@@ -144,6 +144,25 @@ nonisolated final class RenameJournalStoreTests: XCTestCase {
         }
     }
 
+    func testLoadManifestsRejectsFilenameOperationIDMismatch() throws {
+        try store.ensureDirectory()
+        let bodyID = UUID()
+        let fileID = UUID()
+        let manifest = makeManifest(operationID: bodyID, phase: .prepared)
+        let data = try JSONEncoder().encode(manifest)
+        let mismatchedURL = store.directoryURL.appendingPathComponent(
+            RenameJournalFormat.manifestFileName(operationID: fileID)
+        )
+        try data.write(to: mismatchedURL, options: .atomic)
+
+        let load = store.loadManifests()
+        XCTAssertTrue(load.manifests.isEmpty, "Manifest whose filename UUID differs from body operationID must be rejected")
+        XCTAssertEqual(load.issues.count, 1)
+        XCTAssertEqual(load.issues.first?.category, .invalidManifest)
+        XCTAssertEqual(load.issues.first?.detailCode, "filename-id-mismatch")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: mismatchedURL.path))
+    }
+
     private func makeManifest(
         operationID: UUID,
         phase: RenameJournalPhase,

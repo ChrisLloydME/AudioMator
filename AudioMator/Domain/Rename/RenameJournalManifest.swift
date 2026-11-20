@@ -112,8 +112,10 @@ nonisolated struct RenameJournalEntryIdentity: Codable, Hashable, Sendable {
         )
     }
 
-    /// Exact evidence comparison. A missing volume identity on either side is not
-    /// a match: the record cannot prove the same volume/entry after a remount.
+    /// Exact evidence comparison. If either side has a volume identity and the
+    /// other is missing or different, the match fails so a remounted volume
+    /// cannot alias an old device/inode pair. Volumes that do not expose a
+    /// stable volume UUID report `nil` on both sides and compare full stat fields.
     func matchesEntryIdentity(_ observed: RenameEntryIdentity) -> Bool {
         guard
             let observedDevice = observed.device,
@@ -186,7 +188,7 @@ nonisolated struct RenameJournalManifest: Codable, Hashable, Sendable {
 
         var originalKeys: Set<String> = []
         var intendedKeys: Set<String> = []
-        var temporaryURLStrings: Set<String> = []
+        var temporaryKeys: Set<String> = []
 
         for entry in entries {
             guard
@@ -214,22 +216,24 @@ nonisolated struct RenameJournalManifest: Codable, Hashable, Sendable {
                 throw RenameJournalValidationError.invalidTemporaryName
             }
             guard temporaryURL.absoluteString != originalURL.absoluteString,
-                  temporaryURL.absoluteString != intendedURL.absoluteString
+                  temporaryURL.absoluteString != intendedURL.absoluteString,
+                  originalURL.absoluteString != intendedURL.absoluteString
             else {
                 throw RenameJournalValidationError.roleCollision
             }
             guard originalURL.pathExtension == intendedURL.pathExtension else {
                 throw RenameJournalValidationError.invalidExtension
             }
-            guard temporaryURLStrings.insert(entry.temporaryURL).inserted else {
+            let temporaryKey = FileSystemPathSemantics.directoryEntryKey(for: temporaryURL)
+            guard temporaryKeys.insert(temporaryKey).inserted else {
                 throw RenameJournalValidationError.duplicateTemporaryName
             }
 
-            let originalKey = FileSystemPathSemantics.key(for: originalURL)
+            let originalKey = FileSystemPathSemantics.directoryEntryKey(for: originalURL)
             guard originalKeys.insert(originalKey).inserted else {
                 throw RenameJournalValidationError.duplicateSource
             }
-            let intendedKey = FileSystemPathSemantics.key(for: intendedURL)
+            let intendedKey = FileSystemPathSemantics.directoryEntryKey(for: intendedURL)
             guard intendedKeys.insert(intendedKey).inserted else {
                 throw RenameJournalValidationError.duplicateTarget
             }
@@ -249,6 +253,10 @@ nonisolated struct RenameJournalManifest: Codable, Hashable, Sendable {
             guard entry.sourceIdentity.volumeIdentifier?.utf8.count ?? 0 <= 128 else {
                 throw RenameJournalValidationError.invalidVolumeIdentity
             }
+        }
+        guard temporaryKeys.isDisjoint(with: originalKeys),
+              temporaryKeys.isDisjoint(with: intendedKeys) else {
+            throw RenameJournalValidationError.roleCollision
         }
     }
 

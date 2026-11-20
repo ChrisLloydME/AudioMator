@@ -59,7 +59,7 @@ nonisolated struct RenameEntryIdentity: Hashable, Sendable {
     nonisolated func isSameDirectoryEntry(as other: RenameEntryIdentity) -> Bool {
         guard let device, let inode,
               let otherDevice = other.device, let otherInode = other.inode else {
-            return self == other
+            return false
         }
         return device == otherDevice && inode == otherInode && kind == other.kind
     }

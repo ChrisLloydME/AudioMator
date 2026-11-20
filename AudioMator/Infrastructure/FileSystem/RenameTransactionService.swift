@@ -131,6 +131,11 @@ nonisolated struct RenameTransactionService: Sendable {
         case .success(let indices):
             stagedIndices = indices
         case .failure(let failure):
+            if case .entryIdentityMismatch = failure.reason {
+                // Stop immediately on post-move identity mismatch: perform no
+                // further moves and preserve the prepared manifest for inspection.
+                return unresolvedOutcome(reason: failure.reason, manifest: manifest)
+            }
             return rollback(
                 reason: failure.reason,
                 manifest: manifest,
@@ -152,6 +157,11 @@ nonisolated struct RenameTransactionService: Sendable {
         case .success(let indices):
             finalizedIndices = indices
         case .failure(let failure):
+            if case .entryIdentityMismatch = failure.reason {
+                // Stop immediately on post-move identity mismatch: perform no
+                // further moves and preserve the prepared manifest for inspection.
+                return unresolvedOutcome(reason: failure.reason, manifest: manifest)
+            }
             return rollback(
                 reason: failure.reason,
                 manifest: manifest,
@@ -240,15 +250,27 @@ nonisolated struct RenameTransactionService: Sendable {
 
     func classify(_ manifests: [RenameJournalManifest]) -> [RenameJournalClassification] {
         let lock: RenameJournalLock?
+        let lockFailedWithError: Bool
         do {
             lock = try journal.tryAcquireLock()
+            lockFailedWithError = false
         } catch {
             lock = nil
+            lockFailedWithError = true
         }
         defer { lock?.release() }
-        let busy = lock == nil
+        let busy = lock == nil && !lockFailedWithError
 
         return manifests.map { manifest in
+            if lockFailedWithError, manifest.phase == .prepared {
+                return RenameJournalClassification(
+                    operationID: manifest.operationID,
+                    phase: manifest.phase,
+                    status: .preparedUnresolved,
+                    entries: [],
+                    issueCodes: [.journalLockUnavailable]
+                )
+            }
             if busy, manifest.phase == .prepared {
                 return RenameJournalClassification(
                     operationID: manifest.operationID,
@@ -339,6 +361,12 @@ nonisolated struct RenameTransactionService: Sendable {
                 return .unresolved(operationID: current.operationID, classification: classification, reason: .parentUnavailable(index: move.index))
             }
             do {
+                try verifyEntryIdentity(
+                    at: intendedURL.lastPathComponent,
+                    in: handle,
+                    expected: entry.sourceIdentity,
+                    expectedLinkTarget: entry.linkTarget
+                )
                 try fileSystem.exclusiveMove(
                     named: intendedURL.lastPathComponent,
                     to: temporaryURL.lastPathComponent,
@@ -360,7 +388,7 @@ nonisolated struct RenameTransactionService: Sendable {
                 return .unresolved(
                     operationID: current.operationID,
                     classification: classifyManifest(current),
-                    reason: .moveFailed(index: move.index, code: "unknown")
+                    reason: .entryIdentityMismatch(index: move.index)
                 )
             }
         }
@@ -377,6 +405,12 @@ nonisolated struct RenameTransactionService: Sendable {
                 return .unresolved(operationID: current.operationID, classification: classification, reason: .parentUnavailable(index: move.index))
             }
             do {
+                try verifyEntryIdentity(
+                    at: temporaryURL.lastPathComponent,
+                    in: handle,
+                    expected: entry.sourceIdentity,
+                    expectedLinkTarget: entry.linkTarget
+                )
                 try fileSystem.exclusiveMove(
                     named: temporaryURL.lastPathComponent,
                     to: originalURL.lastPathComponent,
@@ -398,13 +432,18 @@ nonisolated struct RenameTransactionService: Sendable {
                 return .unresolved(
                     operationID: current.operationID,
                     classification: classifyManifest(current),
-                    reason: .moveFailed(index: move.index, code: "unknown")
+                    reason: .entryIdentityMismatch(index: move.index)
                 )
             }
         }
 
-        for handle in handles.values {
-            try? fileSystem.syncDirectory(handle)
+        let restoreFlush = flushAudioDirectories(handles: handles)
+        if let flushFailure = restoreFlush.failure {
+            return .unresolved(
+                operationID: current.operationID,
+                classification: classifyManifest(current),
+                reason: flushFailure
+            )
         }
 
         var retainedRecord = false
@@ -510,21 +549,27 @@ nonisolated struct RenameTransactionService: Sendable {
 
             guard entry.originalURL.absoluteString != entry.temporaryURL.absoluteString,
                   entry.temporaryURL.absoluteString != entry.intendedURL.absoluteString,
-                  entry.originalURL.pathExtension == entry.intendedURL.pathExtension
+                  entry.originalURL.absoluteString != entry.intendedURL.absoluteString
             else { return .unchangedEntry }
-
-            guard originalURLs.insert(entry.originalURL.absoluteString).inserted else {
-                return .duplicateSource
-            }
-            guard temporaryURLs.insert(entry.temporaryURL.absoluteString).inserted else {
-                return .temporaryNameMismatch
-            }
-            let intendedKey = FileSystemPathSemantics.key(for: entry.intendedURL)
-            guard intendedKeys.insert(intendedKey).inserted else { return .duplicateTarget }
 
             guard entry.originalURL.pathExtension == entry.intendedURL.pathExtension else {
                 return .invalidExtension
             }
+
+            let originalKey = FileSystemPathSemantics.directoryEntryKey(for: entry.originalURL)
+            guard originalURLs.insert(originalKey).inserted else {
+                return .duplicateSource
+            }
+            let temporaryKey = FileSystemPathSemantics.directoryEntryKey(for: entry.temporaryURL)
+            guard temporaryURLs.insert(temporaryKey).inserted else {
+                return .temporaryNameMismatch
+            }
+            let intendedKey = FileSystemPathSemantics.directoryEntryKey(for: entry.intendedURL)
+            guard intendedKeys.insert(intendedKey).inserted else { return .duplicateTarget }
+        }
+        guard temporaryURLs.isDisjoint(with: originalURLs),
+              temporaryURLs.isDisjoint(with: intendedKeys) else {
+            return .temporaryNameMismatch
         }
         _ = parentURLs
         return nil
@@ -535,20 +580,24 @@ nonisolated struct RenameTransactionService: Sendable {
         in manifests: [RenameJournalManifest]
     ) -> UUID? {
         let requestedKeys = Set(prepared.entries.flatMap { entry in
-            [
-                FileSystemPathSemantics.key(for: entry.originalURL),
-                FileSystemPathSemantics.key(for: entry.temporaryURL),
-                FileSystemPathSemantics.key(for: entry.intendedURL)
-            ]
+            FileSystemPathSemantics.reservationKeys(for: entry.originalURL)
+                .union(FileSystemPathSemantics.reservationKeys(for: entry.temporaryURL))
+                .union(FileSystemPathSemantics.reservationKeys(for: entry.intendedURL))
         })
 
         for manifest in manifests where manifest.phase == .prepared {
-            let recordedKeys = Set(manifest.entries.flatMap { entry -> [String] in
-                var urls: [URL] = []
-                if let original = URL(string: entry.originalURL) { urls.append(original) }
-                if let temporary = URL(string: entry.temporaryURL) { urls.append(temporary) }
-                if let intended = URL(string: entry.intendedURL) { urls.append(intended) }
-                return urls.map(FileSystemPathSemantics.key(for:))
+            let recordedKeys = Set(manifest.entries.flatMap { entry -> Set<String> in
+                var keys: Set<String> = []
+                if let original = URL(string: entry.originalURL) {
+                    keys.formUnion(FileSystemPathSemantics.reservationKeys(for: original))
+                }
+                if let temporary = URL(string: entry.temporaryURL) {
+                    keys.formUnion(FileSystemPathSemantics.reservationKeys(for: temporary))
+                }
+                if let intended = URL(string: entry.intendedURL) {
+                    keys.formUnion(FileSystemPathSemantics.reservationKeys(for: intended))
+                }
+                return keys
             })
             if !requestedKeys.isDisjoint(with: recordedKeys) {
                 return manifest.operationID
@@ -956,10 +1005,22 @@ nonisolated struct RenameTransactionService: Sendable {
             }
         }
 
-        for handle in handles.values {
-            try? fileSystem.syncDirectory(handle)
+        let hadAudioMoves = !finalized.isEmpty || !staged.isEmpty
+        if hadAudioMoves {
+            let flushResult = flushAudioDirectories(handles: handles)
+            if let flushFailure = flushResult.failure {
+                return unresolvedOutcome(reason: flushFailure, manifest: manifest)
+            }
         }
-        try? journal.removeManifest(operationID: manifest.operationID)
+        do {
+            try journal.removeManifest(operationID: manifest.operationID)
+        } catch {
+            if hadAudioMoves {
+                // A journal metadata error after audio moves is an uncertain
+                // outcome with retained recovery evidence, not a clean rollback.
+                return unresolvedOutcome(reason: reason, manifest: manifest)
+            }
+        }
         return .rolledBack(operationID: manifest.operationID, reason: reason)
     }
 
@@ -1125,8 +1186,9 @@ nonisolated struct RenameTransactionService: Sendable {
                     continue
                 }
                 let enriched = try enrich(observed, at: candidate.1)
-                if entry.sourceIdentity.matchesEntryIdentity(enriched) {
-                    let key = FileSystemPathSemantics.key(for: candidate.1)
+                let linkTargetMatches = entry.sourceIdentity.kind != .symlink || enriched.linkTarget == entry.linkTarget
+                if entry.sourceIdentity.matchesEntryIdentity(enriched), linkTargetMatches {
+                    let key = FileSystemPathSemantics.directoryEntryKey(for: candidate.1)
                     if matchedKeys.insert(key).inserted {
                         matches.append((candidate.0, candidate.1, enriched))
                     }
@@ -1153,18 +1215,20 @@ nonisolated struct RenameTransactionService: Sendable {
 
         if let match = matches.first {
             var role = match.role
+            var observedURL = match.url
             if role == .original, aliasResolvesToIntendedName(
                 originalURL: originalURL,
                 intendedURL: intendedURL
             ) {
                 role = .intended
+                observedURL = intendedURL
             }
             return EntryClassificationResult(
                 classification: RenameEntryClassification(
                     index: entry.index,
                     role: role,
                     expectedIdentity: entry.sourceIdentity,
-                    observedURL: match.url,
+                    observedURL: observedURL,
                     observedIdentity: match.identity
                 ),
                 issueCodes: []

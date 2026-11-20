@@ -190,6 +190,15 @@ nonisolated final class LocalRenameJournalStore: RenameJournalStoring {
                 continue
             }
 
+            guard RenameJournalFormat.operationID(fromManifestFileName: name) == manifest.operationID else {
+                issues.append(RenameJournalLoadIssue(
+                    manifestFileName: name,
+                    category: .invalidManifest,
+                    detailCode: "filename-id-mismatch"
+                ))
+                continue
+            }
+
             guard seenOperationIDs.insert(manifest.operationID).inserted else {
                 issues.append(RenameJournalLoadIssue(
                     manifestFileName: name,

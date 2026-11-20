@@ -511,12 +511,32 @@ extension AudioViewModel {
                     owner: .membership(record.id)
                 )
                 quickImportBookkeeping.leases.release(key: fileLeaseKey, owner: .job(requestID))
-                if let previousRecord,
-                   previousRecord.identity.parentKey != candidate.identity.parentKey {
-                    quickImportBookkeeping.leases.release(
-                        key: previousRecord.identity.parentKey,
-                        owner: .membership(record.id)
+                if let previousRecord {
+                    let previousFileLeaseKey = Self.quickImportIntakeLeaseKey(
+                        for: previousRecord.identity.operationalURL
                     )
+                    if previousFileLeaseKey != fileLeaseKey {
+                        quickImportBookkeeping.leases.release(
+                            key: previousFileLeaseKey,
+                            owner: .membership(previousRecord.id)
+                        )
+                    }
+                    if previousRecord.identity.parentKey != candidate.identity.parentKey {
+                        quickImportBookkeeping.leases.release(
+                            key: previousRecord.identity.parentKey,
+                            owner: .membership(previousRecord.id)
+                        )
+                    }
+                    if previousRecord.id != record.id {
+                        quickImportBookkeeping.leases.release(
+                            key: fileLeaseKey,
+                            owner: .membership(previousRecord.id)
+                        )
+                        quickImportBookkeeping.leases.release(
+                            key: candidate.identity.parentKey,
+                            owner: .membership(previousRecord.id)
+                        )
+                    }
                 }
 
                 quickImportBookkeeping.metrics.acceptedCount += 1
@@ -755,19 +775,10 @@ extension AudioViewModel {
             )
             let mutation = quickImportBookkeeping.index.insertOrReplace(record)
             applyQuickImportIndexChange(mutation.change, file: accepted)
-            if let previousRecord = mutation.previousRecord, previousRecord.id != record.id {
-                quickImportFilesByID[previousRecord.id] = nil
-            }
-            if let previousRecord = mutation.previousRecord,
-               previousRecord.identity.parentKey != identity.parentKey {
-                quickImportBookkeeping.leases.release(
-                    key: previousRecord.identity.parentKey,
-                    owner: .membership(accepted.id)
-                )
-            }
+            let newFileLeaseKey = Self.quickImportIntakeLeaseKey(for: identity.operationalURL)
             quickImportBookkeeping.leases.acquire(
                 url: identity.operationalURL,
-                key: Self.quickImportIntakeLeaseKey(for: identity.operationalURL),
+                key: newFileLeaseKey,
                 owner: .membership(accepted.id)
             )
             quickImportBookkeeping.leases.acquire(
@@ -775,6 +786,36 @@ extension AudioViewModel {
                 key: identity.parentKey,
                 owner: .membership(accepted.id)
             )
+            if let previousRecord = mutation.previousRecord {
+                let previousFileLeaseKey = Self.quickImportIntakeLeaseKey(
+                    for: previousRecord.identity.operationalURL
+                )
+                if previousRecord.id != record.id {
+                    quickImportFilesByID[previousRecord.id] = nil
+                    quickImportBookkeeping.leases.release(
+                        key: previousFileLeaseKey,
+                        owner: .membership(previousRecord.id)
+                    )
+                    quickImportBookkeeping.leases.release(
+                        key: previousRecord.identity.parentKey,
+                        owner: .membership(previousRecord.id)
+                    )
+                    revokeCommitPermitsForRemovedSourceFiles([previousRecord.id])
+                } else {
+                    if previousFileLeaseKey != newFileLeaseKey {
+                        quickImportBookkeeping.leases.release(
+                            key: previousFileLeaseKey,
+                            owner: .membership(accepted.id)
+                        )
+                    }
+                    if previousRecord.identity.parentKey != identity.parentKey {
+                        quickImportBookkeeping.leases.release(
+                            key: previousRecord.identity.parentKey,
+                            owner: .membership(accepted.id)
+                        )
+                    }
+                }
+            }
             publishedAnything = true
         }
 
@@ -1109,6 +1150,19 @@ extension AudioViewModel {
             fileIDsByKey.removeValue(forKey: oldKey)
         }
 
+        // Pass 1: capture destination identities and tombstone every old key
+        // before writing any new destination tokens, so swap renames (A <-> B)
+        // never let the second receipt tombstone the first receipt's new key.
+        struct PreparedReceiptMigration {
+            let receipt: FileRenameMoveReceipt
+            let destinationURL: URL
+            let destinationIdentity: QuickImportPathIdentity
+            let existingRecord: QuickImportMembershipRecord?
+        }
+
+        var migrations: [PreparedReceiptMigration] = []
+        migrations.reserveCapacity(receipts.count)
+
         for receipt in receipts {
             let destinationURL = receipt.destinationURL.standardizedFileURL
             let destinationParentPath = destinationURL.deletingLastPathComponent().path
@@ -1117,10 +1171,32 @@ extension AudioViewModel {
                 parent: parentEvidenceByPath[destinationParentPath]
             )
             parentEvidenceByPath[destinationParentPath] = destinationIdentity.parentEvidence
+            let existingRecord = quickImportBookkeeping.index.record(forID: receipt.fileID)
+            if let existingRecord {
+                quickImportBookkeeping.tombstone(fileKey: existingRecord.identity.fileKey)
+            } else {
+                quickImportBookkeeping.tombstone(fileKey: Self.urlKey(for: receipt.sourceURL))
+            }
+            migrations.append(
+                PreparedReceiptMigration(
+                    receipt: receipt,
+                    destinationURL: destinationURL,
+                    destinationIdentity: destinationIdentity,
+                    existingRecord: existingRecord
+                )
+            )
+        }
+
+        // Pass 2: install destination keys, migrate index/leases, and record
+        // pending readback decisions (revoking any pending commit permits).
+        for migration in migrations {
+            let receipt = migration.receipt
+            let destinationURL = migration.destinationURL
+            let destinationIdentity = migration.destinationIdentity
+
             fileIDsByKey[destinationIdentity.fileKey] = receipt.fileID
 
-            if let record = quickImportBookkeeping.index.record(forID: receipt.fileID) {
-                quickImportBookkeeping.tombstone(fileKey: record.identity.fileKey)
+            if let record = migration.existingRecord {
                 let destinationToken = UUID()
                 quickImportBookkeeping.tokensByFileKey[destinationIdentity.fileKey] = destinationToken
                 quickImportBookkeeping.admittedSequenceByFileKey[destinationIdentity.fileKey] =
@@ -1157,10 +1233,6 @@ extension AudioViewModel {
                     quickImportBookkeeping.metrics.moveMigrationIdentityMismatchCount += 1
                 }
             } else {
-                // Cold fallback for a moved file outside Quick Import: tombstone
-                // both locations so an in-flight import cannot resurrect the old
-                // path or publish past the move.
-                quickImportBookkeeping.tombstone(fileKey: Self.urlKey(for: receipt.sourceURL))
                 quickImportBookkeeping.tokensByFileKey[destinationIdentity.fileKey] = UUID()
                 quickImportBookkeeping.admittedSequenceByFileKey[destinationIdentity.fileKey] =
                     quickImportBookkeeping.allocateSequence()
@@ -1173,6 +1245,7 @@ extension AudioViewModel {
                     entryIdentity: EntryIdentityKey(receipt.entryIdentity)
                 )
             )
+            revokeCommitPermitsForRecoveryDecision(receipt.fileID)
             pendingMetadataReloadsByID.removeValue(forKey: receipt.fileID)
             appliedFileModelRefreshGenerations[receipt.fileID] = makeFileModelRefreshGeneration()
             if let current = committedFile(withID: receipt.fileID) {
@@ -1195,6 +1268,15 @@ extension AudioViewModel {
             fileIDsByKey.removeValue(forKey: oldKey)
         }
         var parentEvidenceByPath: [String: QuickImportParentEvidence] = [:]
+        struct PreparedMove {
+            let id: UUID
+            let destinationURL: URL
+            let identity: QuickImportPathIdentity
+            let existingRecord: QuickImportMembershipRecord?
+        }
+        var preparedMoves: [PreparedMove] = []
+        preparedMoves.reserveCapacity(changes.count)
+
         for change in changes {
             let destinationURL = change.newURL.standardizedFileURL
             let parentPath = destinationURL.deletingLastPathComponent().path
@@ -1203,29 +1285,43 @@ extension AudioViewModel {
                 parent: parentEvidenceByPath[parentPath]
             )
             parentEvidenceByPath[parentPath] = identity.parentEvidence
-            fileIDsByKey[identity.fileKey] = change.id
-            guard let record = quickImportBookkeeping.index.record(forID: change.id) else {
+            let existingRecord = quickImportBookkeeping.index.record(forID: change.id)
+            if let existingRecord {
+                quickImportBookkeeping.tombstone(fileKey: existingRecord.identity.fileKey)
+            }
+            preparedMoves.append(
+                PreparedMove(
+                    id: change.id,
+                    destinationURL: destinationURL,
+                    identity: identity,
+                    existingRecord: existingRecord
+                )
+            )
+        }
+
+        for move in preparedMoves {
+            fileIDsByKey[move.identity.fileKey] = move.id
+            guard let record = move.existingRecord else {
                 continue
             }
-            quickImportBookkeeping.tombstone(fileKey: record.identity.fileKey)
             let destinationToken = UUID()
-            quickImportBookkeeping.tokensByFileKey[identity.fileKey] = destinationToken
-            quickImportBookkeeping.admittedSequenceByFileKey[identity.fileKey] =
+            quickImportBookkeeping.tokensByFileKey[move.identity.fileKey] = destinationToken
+            quickImportBookkeeping.admittedSequenceByFileKey[move.identity.fileKey] =
                 quickImportBookkeeping.allocateSequence()
-            _ = quickImportBookkeeping.index.migrate(id: change.id, to: identity)
-            quickImportBookkeeping.index.updateRequestToken(id: change.id, token: destinationToken)
+            _ = quickImportBookkeeping.index.migrate(id: move.id, to: move.identity)
+            quickImportBookkeeping.index.updateRequestToken(id: move.id, token: destinationToken)
             quickImportBookkeeping.leases.migrateKey(
                 from: Self.quickImportIntakeLeaseKey(for: record.identity.operationalURL),
-                to: Self.quickImportIntakeLeaseKey(for: destinationURL),
-                url: destinationURL,
-                owner: .membership(change.id)
+                to: Self.quickImportIntakeLeaseKey(for: move.destinationURL),
+                url: move.destinationURL,
+                owner: .membership(move.id)
             )
-            if record.identity.parentKey != identity.parentKey {
+            if record.identity.parentKey != move.identity.parentKey {
                 quickImportBookkeeping.leases.migrateKey(
                     from: record.identity.parentKey,
-                    to: identity.parentKey,
-                    url: identity.parentURL,
-                    owner: .membership(change.id)
+                    to: move.identity.parentKey,
+                    url: move.identity.parentURL,
+                    owner: .membership(move.id)
                 )
             }
         }
@@ -1242,7 +1338,15 @@ extension AudioViewModel {
     ) {
         guard !restoredFileIDs.isEmpty else { return }
         var parentEvidenceByPath: [String: QuickImportParentEvidence] = [:]
-        var migratedCount = 0
+
+        struct PreparedRestoreMigration {
+            let fileID: AudioFile.ID
+            let record: QuickImportMembershipRecord
+            let originalURL: URL
+            let identity: QuickImportPathIdentity
+        }
+
+        var migrations: [PreparedRestoreMigration] = []
 
         for fileID in restoredFileIDs {
             guard let record = quickImportBookkeeping.index.record(forID: fileID),
@@ -1256,7 +1360,13 @@ extension AudioViewModel {
             guard matchingEntries.count == 1, let entry = matchingEntries.first else {
                 continue
             }
-            let originalURL = URL(fileURLWithPath: entry.originalURL).standardizedFileURL
+            // RenameJournalEntry stores file:// URL strings (validated by
+            // RenameJournalManifest). Reject non-file URLs instead of feeding
+            // URL strings into URL(fileURLWithPath:).
+            guard let parsedURL = URL(string: entry.originalURL), parsedURL.isFileURL else {
+                continue
+            }
+            let originalURL = parsedURL.standardizedFileURL
             let parentPath = originalURL.deletingLastPathComponent().path
             let identity = quickImportEnvironment.identityProvider.prepareIdentity(
                 forFileURL: originalURL,
@@ -1267,8 +1377,33 @@ extension AudioViewModel {
                   restoredEvidence == captured else {
                 continue
             }
+            migrations.append(
+                PreparedRestoreMigration(
+                    fileID: fileID,
+                    record: record,
+                    originalURL: originalURL,
+                    identity: identity
+                )
+            )
+        }
 
-            quickImportBookkeeping.tombstone(fileKey: record.identity.fileKey)
+        guard !migrations.isEmpty else { return }
+
+        // Pass 1: remove old keys and tombstone old file keys before installing
+        // restored destination keys (preserves swap atomicity).
+        for migration in migrations {
+            fileIDsByKey.removeValue(forKey: migration.record.identity.fileKey)
+            quickImportBookkeeping.tombstone(fileKey: migration.record.identity.fileKey)
+        }
+
+        // Pass 2: install restored tokens, index identities, leases and display
+        // projections.
+        for migration in migrations {
+            let fileID = migration.fileID
+            let record = migration.record
+            let originalURL = migration.originalURL
+            let identity = migration.identity
+
             let restoredToken = UUID()
             quickImportBookkeeping.tokensByFileKey[identity.fileKey] = restoredToken
             quickImportBookkeeping.admittedSequenceByFileKey[identity.fileKey] =
@@ -1293,12 +1428,9 @@ extension AudioViewModel {
             if let current = committedFile(withID: fileID) {
                 replaceSourceMembershipEntry(current.projectingDisplay(to: originalURL))
             }
-            migratedCount += 1
         }
 
-        if migratedCount > 0 {
-            quickImportBookkeeping.metrics.restoredMembershipMigrationCount += migratedCount
-            rebuildVisibleFiles()
-        }
+        quickImportBookkeeping.metrics.restoredMembershipMigrationCount += migrations.count
+        rebuildVisibleFiles()
     }
 }

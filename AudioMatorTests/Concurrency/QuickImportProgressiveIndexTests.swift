@@ -1090,6 +1090,120 @@ nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testSwapRenamePreservesQuickImportBookkeepingTokens() throws {
+        let root = try makeTemporaryDirectory(prefix: "swap-rename")
+        let urlA = root.appendingPathComponent("a.mp3")
+        let urlB = root.appendingPathComponent("b.mp3")
+        try Data("a".utf8).write(to: urlA)
+        try Data("b".utf8).write(to: urlB)
+
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: TagLibAudioMetadataPipeline(),
+            provider: FileSystemQuickImportPathIdentityProvider(),
+            access: access,
+            policy: .forced24
+        )
+        defer { harness.tearDown() }
+        let vm = harness.viewModel
+        let fileA = AudioFileTestFactory.make(url: urlA, title: "A")
+        let fileB = AudioFileTestFactory.make(url: urlB, title: "B")
+        vm.mergeQuickImportFiles([fileA, fileB])
+
+        let idA = fileA.id
+        let idB = fileB.id
+        let identityA = try FileEntryIdentityCapture.capture(at: urlA)
+        let identityB = try FileEntryIdentityCapture.capture(at: urlB)
+
+        // Swap on disk: A <-> B
+        let tmp = root.appendingPathComponent("tmp.mp3")
+        try FileManager.default.moveItem(at: urlA, to: tmp)
+        try FileManager.default.moveItem(at: urlB, to: urlA)
+        try FileManager.default.moveItem(at: tmp, to: urlB)
+
+        let receipts = [
+            FileRenameMoveReceipt(
+                moveID: FileMoveID(),
+                fileID: idA,
+                sourceURL: urlA,
+                destinationURL: urlB,
+                entryIdentity: identityA
+            ),
+            FileRenameMoveReceipt(
+                moveID: FileMoveID(),
+                fileID: idB,
+                sourceURL: urlB,
+                destinationURL: urlA,
+                entryIdentity: identityB
+            )
+        ]
+        vm.publishMovePlaceholders(receipts)
+
+        let diagnostics = vm.quickImportDiagnostics()
+        XCTAssertTrue(
+            diagnostics.consistencyIssues.isEmpty,
+            "Swap rename must keep Quick Import bookkeeping tokens consistent: \(diagnostics.consistencyIssues)"
+        )
+        XCTAssertEqual(vm.committedFile(withID: idA)?.url.standardizedFileURL, urlB.standardizedFileURL)
+        XCTAssertEqual(vm.committedFile(withID: idB)?.url.standardizedFileURL, urlA.standardizedFileURL)
+    }
+
+    @MainActor
+    func testAliasReimportReleasesPreviousOperationalFileLease() throws {
+        let root = try makeTemporaryDirectory(prefix: "alias-lease")
+        let realDir = root.appendingPathComponent("real", isDirectory: true)
+        try FileManager.default.createDirectory(at: realDir, withIntermediateDirectories: true)
+        let realURL = realDir.appendingPathComponent("track.mp3")
+        try Data("audio".utf8).write(to: realURL)
+        let aliasURL = root.appendingPathComponent("alias-track.mp3")
+        try FileManager.default.createSymbolicLink(at: aliasURL, withDestinationURL: realURL)
+
+        let access = CountingQuickImportScopeAccess()
+        let harness = try makeHarness(
+            pipeline: TagLibAudioMetadataPipeline(),
+            provider: FileSystemQuickImportPathIdentityProvider(),
+            access: access,
+            policy: .forced24
+        )
+        defer { harness.tearDown() }
+        let vm = harness.viewModel
+
+        let first = AudioFileTestFactory.make(url: realURL, title: "First")
+        vm.mergeQuickImportFiles([first])
+        let second = AudioFileTestFactory.make(id: first.id, url: aliasURL, title: "Via Alias")
+        vm.mergeQuickImportFiles([second])
+
+        vm.removeQuickImportFile(id: first.id)
+        let snapshot = access.snapshot
+        XCTAssertEqual(
+            snapshot.startCount,
+            snapshot.stopCount,
+            "Removing a file after alias reimport must release both old and new operational URL leases"
+        )
+    }
+
+    @MainActor
+    func testSymlinkDirectoryEntryKeyPreservesLexicalBasename() throws {
+        let root = try makeTemporaryDirectory(prefix: "symlink-entry-key")
+        let targetURL = root.appendingPathComponent("canonical-target.flac")
+        try Data("audio".utf8).write(to: targetURL)
+        let linkURL = root.appendingPathComponent("lexical-link.flac")
+        try FileManager.default.createSymbolicLink(at: linkURL, withDestinationURL: targetURL)
+
+        let provider = FileSystemQuickImportPathIdentityProvider()
+        let prepared = provider.prepareIdentity(forFileURL: linkURL, parent: nil)
+        XCTAssertEqual(
+            prepared.directoryEntryKey,
+            FileSystemPathSemantics.directoryEntryKey(for: linkURL),
+            "QuickImportPathIdentity must preserve the symlink's own lexical basename"
+        )
+        XCTAssertTrue(
+            prepared.directoryEntryKey.lowercased().hasSuffix("/lexical-link.flac"),
+            "Expected lexical basename in directoryEntryKey, got \(prepared.directoryEntryKey)"
+        )
+    }
+
     private final class PublicationRecorder {
         var batches: [[AudioFile]] = []
         /// Provider file-key counter sampled at each publication callback. It must
@@ -1204,6 +1318,7 @@ nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
         intendedURL: URL,
         sourceIdentity: QuickImportEntryIdentity
     ) throws -> RenameJournalManifest {
+        let operationID = UUID()
         let identity = RenameEntryIdentity(
             device: sourceIdentity.device,
             inode: sourceIdentity.inode,
@@ -1212,18 +1327,22 @@ nonisolated final class QuickImportProgressiveIndexTests: XCTestCase {
             modificationDate: Date(timeIntervalSince1970: 1_700_000_000),
             creationDate: nil
         )
+        let stagingURL = RenameStagingName.url(
+            for: originalURL.standardizedFileURL,
+            operationID: operationID,
+            index: 0
+        )
         let entry = RenameJournalEntry(
             index: 0,
-            originalURL: originalURL.standardizedFileURL.path,
-            temporaryURL: originalURL.standardizedFileURL.deletingLastPathComponent()
-                .appendingPathComponent(".audiomator-rename-stage").path,
-            intendedURL: intendedURL.standardizedFileURL.path,
+            originalURL: originalURL.standardizedFileURL.absoluteString,
+            temporaryURL: stagingURL.standardizedFileURL.absoluteString,
+            intendedURL: intendedURL.standardizedFileURL.absoluteString,
             sourceIdentity: try RenameJournalEntryIdentity(identity),
             linkTarget: nil
         )
         return RenameJournalManifest(
             formatVersion: RenameJournalFormat.currentVersion,
-            operationID: UUID(),
+            operationID: operationID,
             phase: .committed,
             createdAt: 1_700_000_000,
             committedAt: 1_700_000_100,

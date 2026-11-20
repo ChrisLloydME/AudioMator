@@ -4,14 +4,14 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-20 (after porting native macOS date and time picker support onto `main`). The current source declares **1068 app-hosted tests across 117 `XCTestCase` classes**, **113 SwiftPM core tests across 7 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-20 (after porting native macOS date and time picker support onto `main`). The current source declares **1069 app-hosted tests across 117 `XCTestCase` classes**, **113 SwiftPM core tests across 7 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 113 | 7 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1068 | 117 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1069 | 117 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 124 `XCTestCase` classes across both targets (117 app-hosted, 7 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
@@ -94,10 +94,10 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Integration/TagLib` | 14 | 129 | real TagLib reads/writes on temporary fixture copies, date state matrices, native date/time picker round-trips, provider save journeys, staged-artwork save/readback |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 16 | 88 | artwork preview cache, editor rows, date picker eligibility/mixed selection/multi-value draft/writer rejection, status text, list selection, comparison builders, folder selection |
+| `Unit/Presentation` | 16 | 89 | artwork preview cache, editor rows, date picker eligibility/mixed selection/multi-value draft/writer rejection, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **124** | **1068** | |
+| **Total** | **124** | **1069** | |
 
 Notable coverage:
 

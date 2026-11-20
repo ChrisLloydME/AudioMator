@@ -314,6 +314,15 @@ nonisolated final class MetadataDatePickerEligibilityTests: XCTestCase {
         XCTAssertTrue(InspectorMetadataField.configurableFields.contains(.originalReleaseDate))
     }
 
+    func testWriterFailureAnnotationMatchesCompleteFieldNames() {
+        for reason in ["Could not update the tag.", "Unable to validate the tag.", "The tag is outdated."] {
+            XCTAssertTrue(annotatingWriteFailureWithFields(reason, fieldLabels: ["Date"]).contains("Affected field: Date"))
+        }
+        let named = "The Date value was rejected."
+        XCTAssertEqual(annotatingWriteFailureWithFields(named, fieldLabels: ["Date"]), named)
+        XCTAssertTrue(annotatingWriteFailureWithFields(named, fieldLabels: ["Date", "Year"]).contains("Year"))
+    }
+
     @MainActor
     func testWriterRejectionIdentifiesFileAndFieldAndRetainsInspectorAndEditorEdits() async throws {
         let bundle = Bundle(for: Self.self)

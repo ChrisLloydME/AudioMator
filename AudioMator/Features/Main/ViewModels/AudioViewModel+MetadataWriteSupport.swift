@@ -206,9 +206,12 @@ nonisolated func annotatingWriteFailureWithFields(
         $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
     }
     guard !uniqueLabels.isEmpty else { return reason }
-    guard !uniqueLabels.contains(where: { reason.localizedCaseInsensitiveContains($0) }) else {
-        return reason
+    let namesEveryField = uniqueLabels.allSatisfy { label in
+        let escapedLabel = NSRegularExpression.escapedPattern(for: label)
+        let pattern = #"(?<![\p{L}\p{M}\p{N}_])\#(escapedLabel)(?![\p{L}\p{M}\p{N}_])"#
+        return reason.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
+    guard !namesEveryField else { return reason }
     let fileLevelMarkers = [
         "Reload from Disk",
         "changed since",

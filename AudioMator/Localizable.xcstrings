@@ -13487,6 +13487,398 @@
     },
     "The Inspector selection no longer matches %@, so the artwork wasn’t applied. Nothing was written. Select the intended files again and choose the artwork again." : {
 
+    },
+    "Africa" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        }
+      }
+    },
+    "Americas" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        }
+      }
+    },
+    "Antarctica" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南极洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南極洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南極洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南極洲"
+          }
+        }
+      }
+    },
+    "Arctic" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北极地区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北極地區"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北極地區"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北極地區"
+          }
+        }
+      }
+    },
+    "Asia" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亚洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亞洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亞洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亞洲"
+          }
+        }
+      }
+    },
+    "Atlantic" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        }
+      }
+    },
+    "Australia" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳大利亚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳洲"
+          }
+        }
+      }
+    },
+    "Enter a year from 1 to 9999." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入 1 到 9999 之间的年份。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 9999 之間的年份。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 9999 之間的年份。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 9999 之間的年份。"
+          }
+        }
+      }
+    },
+    "Europe" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "欧洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歐洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歐洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歐洲"
+          }
+        }
+      }
+    },
+    "Indian Ocean" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        }
+      }
+    },
+    "Local Time" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当地时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當地時間"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當地時間"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當地時間"
+          }
+        }
+      }
+    },
+    "Other" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        }
+      }
+    },
+    "Pacific" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        }
+      }
+    },
+    "The converted UTC year must be from 1 to 9999." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "转换后的 UTC 年份必须在 1 到 9999 之间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉換後的 UTC 年份必須在 1 到 9999 之間。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉換後的 UTC 年份必須在 1 到 9999 之間。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉換後的 UTC 年份必須在 1 到 9999 之間。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

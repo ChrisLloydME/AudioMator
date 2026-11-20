@@ -136,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 110 test functions in seven `XCTestCase` classes across six source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 113 test functions in seven `XCTestCase` classes across six source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 

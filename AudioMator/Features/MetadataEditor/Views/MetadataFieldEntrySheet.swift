@@ -233,7 +233,6 @@ struct MetadataFieldEntrySheet: View {
                         if let sessionBinding = Binding($activeDatePickerSession) {
                             MetadataDateTimePickerView(
                                 fieldTitle: pickerFieldTitle,
-                                presentation: .popover,
                                 session: sessionBinding,
                                 onApply: { formatted in
                                     selectedTextBinding.wrappedValue = formatted

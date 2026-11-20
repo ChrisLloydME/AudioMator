@@ -1,23 +1,14 @@
 import SwiftUI
 import AppKit
 
-/// Presentation mode for the shared native macOS date & time picker.
-enum MetadataDateTimePickerPresentation {
-    /// Compact anchored popover used by the right-hand Inspector.
-    case popover
-    /// Inline side panel beside the value input in Metadata Editor.
-    case inlinePanel
-}
-
 /// Native macOS date and time picker supporting precision selection, optional
 /// time/seconds, regional time zones with automatic UTC conversion, and
 /// explicit DST transition resolution.
 struct MetadataDateTimePickerView: View {
     let fieldTitle: String
-    let presentation: MetadataDateTimePickerPresentation
     @Binding var session: MetadataDateTimePickerSession
     let onApply: (String) -> Void
-    var onCancel: (() -> Void)? = nil
+    let onCancel: () -> Void
 
     @State private var yearInputText: String = ""
 
@@ -28,7 +19,12 @@ struct MetadataDateTimePickerView: View {
     private var precisionBinding: Binding<MetadataDatePrecision> {
         Binding(
             get: { session.datePrecision },
-            set: { session.setDatePrecision($0) }
+            set: { precision in
+                if session.datePrecision == .date {
+                    syncYearInputText()
+                }
+                session.setDatePrecision(precision)
+            }
         )
     }
 
@@ -51,6 +47,26 @@ struct MetadataDateTimePickerView: View {
             get: { session.localComponents.month },
             set: { session.setMonth($0) }
         )
+    }
+
+    private var yearInputBinding: Binding<String> {
+        Binding(
+            get: { yearInputText },
+            set: { text in
+                yearInputText = text
+                if let year = MetadataDateTimeCodec.pickerYear(from: text) {
+                    session.setYear(year)
+                }
+            }
+        )
+    }
+
+    private var formattedValue: String? {
+        guard session.datePrecision == .date ||
+                MetadataDateTimeCodec.pickerYear(from: yearInputText) == session.localComponents.year else {
+            return nil
+        }
+        return session.formattedValue
     }
 
     private var yearStepperBinding: Binding<Int> {
@@ -85,27 +101,29 @@ struct MetadataDateTimePickerView: View {
                 timeInputSection
             }
 
-            if let formatted = session.formattedValue {
+            if let formatted = formattedValue {
                 Divider()
                 previewSection(formatted)
             }
 
             actionButtonsSection
         }
-        .padding(presentation == .popover ? 14 : 12)
-        .frame(width: presentation == .popover ? 304 : 296)
+        .padding(14)
+        .frame(width: 304)
         .onAppear {
             syncYearInputText()
         }
-        .onChange(of: session.localComponents.year) { _, _ in
-            syncYearInputText()
+        .onChange(of: session.localComponents.year) { _, year in
+            if MetadataDateTimeCodec.pickerYear(from: yearInputText) != year {
+                syncYearInputText()
+            }
         }
     }
 
     @ViewBuilder
     private var headerSection: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(presentation == .popover ? fieldTitle : (destinationFormat.supportsTime ? String(localized: "Date & Time") : String(localized: "Date")))
+            Text(fieldTitle)
                 .font(.headline)
                 .lineLimit(1)
 
@@ -200,32 +218,29 @@ struct MetadataDateTimePickerView: View {
     }
 
     private var yearRow: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Text(String(localized: "Year"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(String(localized: "Year"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            HStack(spacing: 4) {
-                TextField(String(localized: "Year"), text: $yearInputText)
+                TextField(String(localized: "Year"), text: yearInputBinding)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 76)
                     .accessibilityLabel(String(localized: "Year"))
-                    .onChange(of: yearInputText) { _, newText in
-                        let digitsOnly = newText.filter(\.isNumber)
-                        if let parsed = Int(digitsOnly), (1...9999).contains(parsed) {
-                            session.setYear(parsed)
-                        }
-                    }
-                    .onSubmit {
-                        syncYearInputText()
-                    }
 
                 Stepper(String(localized: "Year"), value: yearStepperBinding, in: 1...9999)
                     .labelsHidden()
                     .accessibilityLabel(String(localized: "Adjust Year"))
+            }
+
+            if MetadataDateTimeCodec.pickerYear(from: yearInputText) == nil {
+                Text(String(localized: "Enter a year from 1 to 9999."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -278,7 +293,9 @@ struct MetadataDateTimePickerView: View {
 
     private var precisionWarning: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: "This tag can’t store the selected time at this precision."))
+            Text(session.isUTCYearOutOfRange
+                ? String(localized: "The converted UTC year must be from 1 to 9999.")
+                : String(localized: "This tag can’t store the selected time at this precision."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let precision = session.finerTimePrecision {
@@ -294,7 +311,7 @@ struct MetadataDateTimePickerView: View {
     private var timeZonePickerRow: some View {
         let referenceDate = session.resolvedInstant
             ?? session.localComponents.calendarAnchorDate(in: session.timeZone)
-        let currentEntry = currentTimeZoneDisplayLabel(referenceDate: referenceDate)
+        let currentEntry = RegionalTimeZoneCatalog.entry(for: session.timeZone, at: referenceDate).title
 
         return HStack(alignment: .center, spacing: 8) {
             Text(String(localized: "Time Zone"))
@@ -325,26 +342,26 @@ struct MetadataDateTimePickerView: View {
         Button {
             session.setTimeZone(identifier: catalog.systemEntry.identifier)
         } label: {
-            Text(String(localized: "System — \(catalog.systemEntry.displayLabel)"))
+            Text(String(localized: "System — \(catalog.systemEntry.title)"))
         }
 
-        if let utcEntry = catalog.utcEntry, utcEntry.identifier != catalog.systemEntry.identifier {
+        if catalog.utcEntry.identifier != catalog.systemEntry.identifier {
             Button {
-                session.setTimeZone(identifier: utcEntry.identifier)
+                session.setTimeZone(identifier: catalog.utcEntry.identifier)
             } label: {
-                Text(utcEntry.displayLabel)
+                Text(catalog.utcEntry.title)
             }
         }
 
         Divider()
 
-        ForEach(catalog.regionGroups, id: \.region) { group in
-            Menu(group.region) {
+        ForEach(catalog.regionGroups, id: \.id) { group in
+            Menu(group.title) {
                 ForEach(group.entries) { entry in
                     Button {
                         session.setTimeZone(identifier: entry.identifier)
                     } label: {
-                        Text("\(entry.cityName) (\(entry.gmtOffsetText))")
+                        Text(entry.title)
                     }
                 }
             }
@@ -385,42 +402,26 @@ struct MetadataDateTimePickerView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(options) { option in
-                    let isSelected = session.selectedDSTOptionID == option.id
-                    Button {
-                        session.selectDSTResolution(optionID: option.id)
-                    } label: {
-                        HStack(alignment: .top, spacing: 6) {
-                            Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                                .accessibilityHidden(true)
-
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(dstOptionPrimaryLabel(option))
-                                    .font(.caption.weight(isSelected ? .semibold : .regular))
-                                    .foregroundStyle(.primary)
-                                if let utcDetail = dstOptionUTCDetail(option) {
-                                    Text(utcDetail)
-                                        .font(.caption2.monospaced())
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer(minLength: 0)
+            Picker(
+                String(localized: "Local Time"),
+                selection: Binding(
+                    get: { session.selectedDSTOptionID },
+                    set: { optionID in
+                        if let optionID {
+                            session.selectDSTResolution(optionID: optionID)
                         }
-                        .padding(.vertical, 3)
-                        .padding(.horizontal, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
-                        )
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(dstOptionPrimaryLabel(option))
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                )
+            ) {
+                ForEach(options) { option in
+                    let primary = dstOptionPrimaryLabel(option)
+                    let label = dstOptionUTCDetail(option).map { "\(primary)\n\($0)" } ?? primary
+                    Text(label)
+                        .tag(Optional(option.id))
                 }
             }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
         }
         .padding(8)
         .background(
@@ -458,33 +459,19 @@ struct MetadataDateTimePickerView: View {
 
     private var actionButtonsSection: some View {
         HStack(spacing: 8) {
-            if presentation == .popover, let onCancel {
-                Button(String(localized: "Cancel"), role: .cancel) {
-                    onCancel()
-                }
+            Button(String(localized: "Cancel"), role: .cancel, action: onCancel)
                 .keyboardShortcut(.cancelAction)
-            }
 
             Spacer(minLength: 0)
 
-            if presentation == .popover {
-                Button(String(localized: "Apply")) {
-                    if let formatted = session.formattedValue {
-                        onApply(formatted)
-                    }
+            Button(String(localized: "Apply")) {
+                if let formattedValue {
+                    onApply(formattedValue)
                 }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
-                .disabled(!session.canApply)
-            } else {
-                Button(String(localized: "Apply")) {
-                    if let formatted = session.formattedValue {
-                        onApply(formatted)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!session.canApply)
             }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+            .disabled(formattedValue == nil)
         }
     }
 
@@ -504,18 +491,6 @@ struct MetadataDateTimePickerView: View {
         case .date:
             return String(localized: "Full Date")
         }
-    }
-
-    private func currentTimeZoneDisplayLabel(referenceDate: Date) -> String {
-        let tz = session.timeZone
-        let offset = MetadataDSTResolutionOption.formatGMTOffset(seconds: tz.secondsFromGMT(for: referenceDate))
-        if tz.identifier == "UTC" || tz.identifier == "GMT" {
-            return "UTC (\(offset))"
-        }
-        let city = tz.identifier.split(separator: "/").last.map {
-            String($0).replacingOccurrences(of: "_", with: " ")
-        } ?? tz.identifier
-        return "\(city) (\(offset))"
     }
 
     private func dstOptionPrimaryLabel(_ option: MetadataDSTResolutionOption) -> String {
@@ -556,83 +531,92 @@ struct MetadataDateTimePickerView: View {
         ) else {
             return nil
         }
-        return "UTC: \(formatted)"
+        return String(localized: "UTC: \(formatted)")
     }
 }
 
 private struct RegionalTimeZoneCatalog {
-    struct RegionGroup {
-        let region: String
-        let entries: [MetadataTimeZoneEntry]
+    struct Entry: Identifiable {
+        let identifier: String
+        let title: String
+
+        var id: String { identifier }
     }
 
-    private static let groupedIdentifiersByRegion: [(region: String, identifiers: [(id: String, city: String)])] = {
-        var buckets: [String: [(id: String, city: String)]] = [:]
-        for identifier in TimeZone.knownTimeZoneIdentifiers where identifier != "UTC" && identifier != "GMT" {
-            let parts = identifier.split(separator: "/").map {
-                String($0).replacingOccurrences(of: "_", with: " ")
-            }
-            let topRegion = parts.count > 1 ? parts[0] : "Other"
-            let city = parts.last ?? identifier
-            buckets[topRegion, default: []].append((id: identifier, city: city))
-        }
-        return buckets.keys.sorted {
-            $0.localizedStandardCompare($1) == .orderedAscending
-        }.map { region in
-            let sorted = (buckets[region] ?? []).sorted {
-                $0.city.localizedStandardCompare($1.city) == .orderedAscending
-            }
-            return (region: region, identifiers: sorted)
-        }
-    }()
+    struct RegionGroup {
+        let id: String
+        let title: String
+        let entries: [Entry]
+    }
 
-    let systemEntry: MetadataTimeZoneEntry
-    let utcEntry: MetadataTimeZoneEntry?
+    private static let regionalZones = Dictionary(grouping: TimeZone.knownTimeZoneIdentifiers.compactMap {
+        TimeZone(identifier: $0)
+    }.filter { !["UTC", "GMT"].contains($0.identifier) }) { zone in
+        if zone.identifier.contains("/"), !zone.identifier.hasPrefix("Etc/") {
+            return String(zone.identifier.prefix { $0 != "/" })
+        }
+        return "Other"
+    }
+
+    let systemEntry: Entry
+    let utcEntry: Entry
     let regionGroups: [RegionGroup]
 
     static func grouped(referenceDate: Date) -> RegionalTimeZoneCatalog {
-        let systemTZ = TimeZone.autoupdatingCurrent
-        let systemParts = systemTZ.identifier.split(separator: "/").map {
-            String($0).replacingOccurrences(of: "_", with: " ")
-        }
-        let system = MetadataTimeZoneEntry(
-            identifier: systemTZ.identifier,
-            cityName: systemParts.last ?? systemTZ.identifier,
-            regionName: systemParts.count > 1 ? systemParts.dropLast().joined(separator: " / ") : "",
-            gmtOffsetText: MetadataDSTResolutionOption.formatGMTOffset(
-                seconds: systemTZ.secondsFromGMT(for: referenceDate)
-            ),
-            isSystemDefault: true
-        )
-        let utc = MetadataTimeZoneEntry(
-            identifier: "UTC",
-            cityName: "UTC",
-            regionName: "",
-            gmtOffsetText: "UTC+00:00",
-            isSystemDefault: systemTZ.identifier == "UTC"
-        )
-
-        let groups = groupedIdentifiersByRegion.map { bucket in
-            let entries = bucket.identifiers.compactMap { item -> MetadataTimeZoneEntry? in
-                guard let tz = TimeZone(identifier: item.id) else { return nil }
-                let offset = MetadataDSTResolutionOption.formatGMTOffset(
-                    seconds: tz.secondsFromGMT(for: referenceDate)
-                )
-                return MetadataTimeZoneEntry(
-                    identifier: item.id,
-                    cityName: item.city,
-                    regionName: bucket.region,
-                    gmtOffsetText: offset,
-                    isSystemDefault: item.id == systemTZ.identifier
-                )
-            }
-            return RegionGroup(region: bucket.region, entries: entries)
-        }
+        let formatter = cityFormatter()
+        let groups = regionalZones.map { region, zones in
+            let entries = zones.map { entry(for: $0, at: referenceDate, formatter: formatter) }
+                .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            return RegionGroup(id: region, title: regionTitle(region), entries: entries)
+        }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
 
         return RegionalTimeZoneCatalog(
-            systemEntry: system,
-            utcEntry: utc,
+            systemEntry: entry(for: .autoupdatingCurrent, at: referenceDate, formatter: formatter),
+            utcEntry: Entry(identifier: "UTC", title: "UTC"),
             regionGroups: groups
         )
+    }
+
+    static func entry(for zone: TimeZone, at date: Date) -> Entry {
+        entry(for: zone, at: date, formatter: cityFormatter())
+    }
+
+    private static func cityFormatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        // Unicode date pattern VVV requests the localized exemplar city.
+        formatter.dateFormat = "VVV"
+        return formatter
+    }
+
+    private static func entry(for zone: TimeZone, at date: Date, formatter: DateFormatter) -> Entry {
+        if ["UTC", "GMT"].contains(zone.identifier) {
+            return Entry(identifier: zone.identifier, title: "UTC")
+        }
+        let offset = MetadataDSTResolutionOption.formatGMTOffset(seconds: zone.secondsFromGMT(for: date))
+        guard zone.identifier.contains("/"), !zone.identifier.hasPrefix("Etc/") else {
+            let label = zone.localizedName(for: .generic, locale: .autoupdatingCurrent) ?? zone.identifier
+            return Entry(identifier: zone.identifier, title: "\(label) (\(offset))")
+        }
+        formatter.timeZone = zone
+        let city = formatter.string(from: date)
+        return Entry(identifier: zone.identifier, title: "\(city) (\(offset))")
+    }
+
+    private static func regionTitle(_ region: String) -> String {
+        switch region {
+        case "Africa": return String(localized: "Africa")
+        case "America": return String(localized: "Americas")
+        case "Antarctica": return String(localized: "Antarctica")
+        case "Arctic": return String(localized: "Arctic")
+        case "Asia": return String(localized: "Asia")
+        case "Atlantic": return String(localized: "Atlantic")
+        case "Australia": return String(localized: "Australia")
+        case "Europe": return String(localized: "Europe")
+        case "Indian": return String(localized: "Indian Ocean")
+        case "Pacific": return String(localized: "Pacific")
+        case "Other": return String(localized: "Other")
+        default: return region
+        }
     }
 }

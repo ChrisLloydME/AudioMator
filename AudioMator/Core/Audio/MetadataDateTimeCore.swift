@@ -519,6 +519,22 @@ nonisolated enum MetadataDateTimeCodec {
         }
     }
 
+    /// Parse the year field in the picker without discarding invalid input.
+    static func pickerYear(from text: String) -> Int? {
+        guard (1...4).contains(text.count),
+              text.unicodeScalars.allSatisfy({ $0.properties.numericType == .decimal }) else {
+            return nil
+        }
+        let digits = text.compactMap(\.wholeNumberValue)
+        guard digits.count == text.count else { return nil }
+        let year = digits.reduce(0) { $0 * 10 + $1 }
+        return year > 0 ? year : nil
+    }
+
+    static func isSupportedUTCYear(for instant: Date) -> Bool {
+        components(for: instant, in: utcCalendar.timeZone) != nil
+    }
+
     static func components(for instant: Date, in timeZone: TimeZone) -> MetadataLocalDateTimeComponents? {
         let parts = gregorianCalendar(in: timeZone).dateComponents(
             [.era, .year, .month, .day, .hour, .minute, .second],
@@ -952,6 +968,11 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
         )
     }
 
+    var isUTCYearOutOfRange: Bool {
+        guard destinationFormat.requiresUTC, let resolvedInstant else { return false }
+        return !MetadataDateTimeCodec.isSupportedUTCYear(for: resolvedInstant)
+    }
+
     var finerTimePrecision: MetadataTimePrecision? {
         guard timePrecision.includesTime, !requiresDSTResolution, formattedValue == nil else { return nil }
         if timePrecision == .hour, formattedValue(at: .minute) != nil { return .minute }
@@ -1022,17 +1043,24 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
     }
 
     mutating func setSecondsEnabled(_ enabled: Bool) {
-        guard destinationFormat.supportsTime,
-              destinationFormat.supportsSeconds,
-              timePrecision.includesTime else {
+        guard destinationFormat.supportsTime, destinationFormat.supportsSeconds,
+              timePrecision.includesTime, enabled != isSecondsEnabled else {
             return
         }
         if enabled {
             timePrecision = .second
         } else if destinationFormat.supportsMinuteTime {
+            // Changing precision is explicit. Keep an already exact minute
+            // (including historical offsets with local seconds); otherwise
+            // discard the seconds the user chose to hide.
+            if formattedValue(at: .minute) == nil {
+                localComponents.second = 0
+            }
             timePrecision = .minute
         }
-        revalidateDSTSelection()
+        if selectedDSTOption == nil {
+            selectedDSTOptionID = nil
+        }
     }
 
     mutating func setTime(hour: Int, minute: Int, second: Int? = nil) {
@@ -1108,69 +1136,6 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
         case .ambiguous, .nonexistent:
             // Any edit to date/time while in a DST transition requires fresh confirmation.
             selectedDSTOptionID = nil
-        }
-    }
-}
-
-/// Regional time-zone catalog helper for locale-aware picker menus.
-nonisolated struct MetadataTimeZoneEntry: Equatable, Hashable, Identifiable, Sendable {
-    let identifier: String
-    let cityName: String
-    let regionName: String
-    let gmtOffsetText: String
-    let isSystemDefault: Bool
-
-    var id: String { identifier }
-
-    var displayLabel: String {
-        if identifier == "UTC" || identifier == "GMT" {
-            return "UTC (\(gmtOffsetText))"
-        }
-        if regionName.isEmpty {
-            return "\(cityName) (\(gmtOffsetText))"
-        }
-        return "\(cityName) — \(regionName) (\(gmtOffsetText))"
-    }
-
-    static func entries(
-        referenceDate: Date,
-        systemTimeZone: TimeZone = .autoupdatingCurrent,
-        locale: Locale = .autoupdatingCurrent
-    ) -> [MetadataTimeZoneEntry] {
-        var identifiers: [String] = []
-        var seen = Set<String>()
-
-        func appendIdentifier(_ identifier: String) {
-            guard seen.insert(identifier).inserted else { return }
-            identifiers.append(identifier)
-        }
-
-        appendIdentifier(systemTimeZone.identifier)
-        appendIdentifier("UTC")
-
-        let sortedKnown = TimeZone.knownTimeZoneIdentifiers.sorted { lhs, rhs in
-            lhs.localizedStandardCompare(rhs) == .orderedAscending
-        }
-        for identifier in sortedKnown {
-            appendIdentifier(identifier)
-        }
-
-        return identifiers.compactMap { identifier in
-            guard let tz = TimeZone(identifier: identifier) else { return nil }
-            let seconds = tz.secondsFromGMT(for: referenceDate)
-            let offsetText = MetadataDSTResolutionOption.formatGMTOffset(seconds: seconds)
-            let components = identifier.split(separator: "/").map {
-                String($0).replacingOccurrences(of: "_", with: " ")
-            }
-            let city = components.last ?? identifier
-            let region = components.count > 1 ? components.dropLast().joined(separator: " / ") : ""
-            return MetadataTimeZoneEntry(
-                identifier: identifier,
-                cityName: city,
-                regionName: region,
-                gmtOffsetText: offsetText,
-                isSystemDefault: identifier == systemTimeZone.identifier
-            )
         }
     }
 }

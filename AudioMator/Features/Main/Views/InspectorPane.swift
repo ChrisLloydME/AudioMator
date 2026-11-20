@@ -1162,7 +1162,6 @@ struct InspectorPane: View {
                     if let sessionBinding = Binding($activeDatePickerSession) {
                         MetadataDateTimePickerView(
                             fieldTitle: label,
-                            presentation: .popover,
                             session: sessionBinding,
                             onApply: { formatted in
                                 text.wrappedValue = formatted

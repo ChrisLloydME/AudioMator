@@ -202,6 +202,54 @@ final class MetadataDateTimeCoreTests: XCTestCase {
         XCTAssertEqual(session.formattedValue, "2024-06-01T16:30")
     }
 
+    func testDisablingSecondsAllowsMinuteEditsAndKeepsExactlyRepresentableHistoricalInstants() throws {
+        let utc = try XCTUnwrap(TimeZone(identifier: "UTC"))
+        var session = MetadataDateTimePickerSession(
+            initialText: "2024-06-01T16:30:45",
+            destinationFormat: .id3v24Timestamp,
+            systemTimeZone: utc
+        )
+        session.setSecondsEnabled(false)
+        XCTAssertEqual(session.formattedValue, "2024-06-01T16:30")
+        session.setTime(hour: 12, minute: 0)
+        XCTAssertEqual(session.formattedValue, "2024-06-01T12:00")
+
+        let kolkata = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
+        var historical = MetadataDateTimePickerSession(
+            initialText: "1900-06-02T14:30:00",
+            destinationFormat: .id3v24Timestamp,
+            systemTimeZone: kolkata
+        )
+        historical.setSecondsEnabled(false)
+        XCTAssertEqual(historical.localComponents.second, 10)
+        XCTAssertEqual(historical.formattedValue, "1900-06-02T14:30")
+    }
+
+    func testPrecisionToggleRetainsSelectedDSTOccurrence() throws {
+        let newYork = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+        var session = MetadataDateTimePickerSession(
+            initialText: "2024-11-03T05:30:00",
+            destinationFormat: .id3v24Timestamp,
+            systemTimeZone: newYork
+        )
+        let selectedOption = try XCTUnwrap(session.selectedDSTOptionID)
+        session.setSecondsEnabled(false)
+        XCTAssertEqual(session.selectedDSTOptionID, selectedOption)
+        XCTAssertEqual(session.formattedValue, "2024-11-03T05:30")
+        session.setSecondsEnabled(true)
+        XCTAssertEqual(session.selectedDSTOptionID, selectedOption)
+        XCTAssertEqual(session.formattedValue, "2024-11-03T05:30:00")
+    }
+
+    func testPickerYearAcceptsEditingPrefixesAndRejectsInvalidText() {
+        for (text, year) in [("1", 1), ("98", 98), ("1998", 1998), ("9999", 9999), ("٢٠٢٤", 2024)] {
+            XCTAssertEqual(MetadataDateTimeCodec.pickerYear(from: text), year)
+        }
+        for text in ["", "0", "0000", "10000", "01998", "19x98", " 1998", "⑴"] {
+            XCTAssertNil(MetadataDateTimeCodec.pickerYear(from: text), text)
+        }
+    }
+
     func testHistoricalSubMinuteOffsetsPreserveExistingUTCTimestamp() throws {
         let kolkata = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
         for value in ["1900-06-02T14", "1900-06-02T14:30"] {
@@ -247,6 +295,7 @@ final class MetadataDateTimeCoreTests: XCTestCase {
         session.setTimeEnabled(true)
         session.setTime(hour: 23, minute: 0)
         XCTAssertFalse(session.canApply)
+        XCTAssertTrue(session.isUTCYearOutOfRange)
         XCTAssertNil(session.finerTimePrecision)
 
         let shanghai = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))

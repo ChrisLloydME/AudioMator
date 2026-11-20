@@ -14,7 +14,9 @@ struct NativeMacGraphicalCalendarPicker: NSViewRepresentable {
     private static let utcTimeZone = TimeZone(secondsFromGMT: 0)!
     private static var utcGregorianCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = .autoupdatingCurrent
         calendar.timeZone = utcTimeZone
+        calendar.firstWeekday = Calendar.autoupdatingCurrent.firstWeekday
         return calendar
     }
 
@@ -45,6 +47,7 @@ struct NativeMacGraphicalCalendarPicker: NSViewRepresentable {
     }
 
     func updateNSView(_ picker: NSDatePicker, context: Context) {
+        picker.calendar = Self.utcGregorianCalendar
         context.coordinator.onDateSelected = onDateSelected
         picker.locale = .autoupdatingCurrent
         picker.setAccessibilityLabel(accessibilityLabel)

@@ -4,13 +4,13 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-20 (after porting native macOS date and time picker support onto `main`). The current source declares **1068 app-hosted tests across 117 `XCTestCase` classes**, **110 SwiftPM core tests across 7 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-20 (after porting native macOS date and time picker support onto `main`). The current source declares **1068 app-hosted tests across 117 `XCTestCase` classes**, **113 SwiftPM core tests across 7 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 110 | 7 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 113 | 7 |
 | `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1068 | 117 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
@@ -101,7 +101,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 Notable coverage:
 
-- Date picker tests verify native ID3 frames and MP4 atoms for supported raw routes, and check that ambiguous aliases and projection keys remain text-only. SwiftPM tests cover historical sub-minute offsets, precision loss across sub-hour DST transitions, and UTC year limits.
+- Date picker tests verify native ID3 frames and MP4 atoms for supported raw routes, and check that ambiguous aliases and projection keys remain text-only. SwiftPM tests cover year input, switching to minute precision, preserving an explicitly selected DST occurrence, historical sub-minute offsets, precision loss across sub-hour DST transitions, and UTC year limits.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
 - Real TagLib writes use temporary copies of the six committed audio fixtures. Rename tests verify that a replacement changed in place and a superseded confirmation both keep the file protected. Reviewed-write tests also invalidate a later target during the first folder request and verify that no request is made for the blocked target’s folder.
@@ -172,7 +172,7 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the policy and crash-recovery tests with `python3 -m unittest discover -s scripts/tests` (currently 32: 13 evidence-gate tests, 16 build-helper shell policy tests, and 3 real child-process `SIGKILL` rename crash-recovery tests covering 7 crash gates),
-2. runs all 97 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+2. runs the full core suite and checks complete named execution with `scripts/check-core-evidence.py`,
 3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the inventory at the 2026-11-19 `878e2fc6` gate was 949 app-hosted and 70 core tests; the F5 wave reached 1010 app-hosted and 97 core tests; the 2026-11-20 independent-review remediation wave brings the named inventory to 1042 app-hosted, 97 core, and 32 policy/crash-gate tests),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.

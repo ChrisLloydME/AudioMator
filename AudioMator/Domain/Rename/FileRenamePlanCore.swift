@@ -93,6 +93,7 @@ nonisolated enum FileRenameCollisionPolicy {
         var didChange = true
 
         while didChange {
+            if Task.isCancelled { return [] }
             didChange = false
 
             let readySourceKeys = Set(
@@ -102,6 +103,7 @@ nonisolated enum FileRenameCollisionPolicy {
             )
 
             for draft in renamableDrafts {
+                if Task.isCancelled { return [] }
                 guard activeReadyIDs.contains(draft.id) else { continue }
                 guard let sourceKey = draft.sourceKey, let destinationKey = draft.destinationKey else { continue }
 

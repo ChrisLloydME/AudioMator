@@ -26,8 +26,28 @@ nonisolated struct MetadataCSVExportPlan: Sendable {
     let rows: [[String]]
     let includeHeaderRow: Bool
     let delimiter: Character
+    let preencodedOutputText: String?
+
+    init(
+        validationMessage: String?,
+        columns: [MetadataExchangeField],
+        rows: [[String]],
+        includeHeaderRow: Bool,
+        delimiter: Character,
+        preencodedOutputText: String? = nil
+    ) {
+        self.validationMessage = validationMessage
+        self.columns = columns
+        self.rows = rows
+        self.includeHeaderRow = includeHeaderRow
+        self.delimiter = delimiter
+        self.preencodedOutputText = preencodedOutputText
+    }
 
     var outputText: String {
+        if let preencodedOutputText {
+            return preencodedOutputText
+        }
         var outputRows: [[String]] = []
         if includeHeaderRow {
             outputRows.append(columns.map(\.displayName))
@@ -101,10 +121,12 @@ nonisolated struct MetadataExchangeFieldChange: Identifiable, Sendable {
     var id: String { field.placeholderName }
 
     /// Preview text for an explicit removal, distinct from a literal value.
+    /// A literal value (even one matching the retired sentinel string) is never
+    /// interpreted or displayed as `<remove>`.
     var displayImportedValue: String {
         isExplicitRemoval
             ? MetadataExchangeProfile.removalToken
-            : MetadataExchangeProfile.displayValue(importedValue)
+            : importedValue
     }
 }
 
@@ -259,6 +281,14 @@ nonisolated enum MetadataExchangePlanner {
             maximumUTF8ByteCount: MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount,
             recordSeparatorUTF8ByteCount: 1
         )
+        // Include the profile marker line in the 32 MB export budget so any
+        // budgeted export fits within the import byte cap.
+        guard outputBudget.append(recordUTF8ByteCount: MetadataExchangeProfile.markerLine().utf8.count) else {
+            return MetadataTextExportPlan(
+                validationMessage: L10n.string("This export would exceed 32 MB. Select fewer files."),
+                rows: []
+            )
+        }
         var containsMultilineRecord = false
 
         for (index, file) in uniqueFiles.enumerated() {
@@ -344,6 +374,19 @@ nonisolated enum MetadataExchangePlanner {
             maximumUTF8ByteCount: MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount,
             recordSeparatorUTF8ByteCount: 2
         )
+        let markerLine = MetadataExchangeProfile.markerLine()
+        guard outputBudget.append(recordUTF8ByteCount: markerLine.utf8.count) else {
+            return MetadataCSVExportPlan(
+                validationMessage: L10n.string("This export would exceed 32 MB. Select fewer files."),
+                columns: result.columns,
+                rows: [],
+                includeHeaderRow: includeHeaderRow,
+                delimiter: result.delimiter
+            )
+        }
+
+        var serializedLines: [String] = [markerLine]
+        serializedLines.reserveCapacity(uniqueFiles.count + (includeHeaderRow ? 2 : 1))
 
         if includeHeaderRow {
             let header = result.columns.map(\.displayName)
@@ -357,6 +400,7 @@ nonisolated enum MetadataExchangePlanner {
                     delimiter: result.delimiter
                 )
             }
+            serializedLines.append(serializedHeader)
         }
 
         for (index, file) in uniqueFiles.enumerated() {
@@ -397,6 +441,7 @@ nonisolated enum MetadataExchangePlanner {
                     delimiter: result.delimiter
                 )
             }
+            serializedLines.append(serializedRow)
             rows.append(row)
         }
 
@@ -405,7 +450,8 @@ nonisolated enum MetadataExchangePlanner {
             columns: result.columns,
             rows: rows,
             includeHeaderRow: includeHeaderRow,
-            delimiter: result.delimiter
+            delimiter: result.delimiter,
+            preencodedOutputText: serializedLines.joined(separator: "\r\n")
         )
     }
 
@@ -1467,6 +1513,11 @@ nonisolated enum MetadataExchangePlanner {
             guard field != .ignore else { continue }
             let cell = cells[index]
             let importedValue = codec.importedValue(cell)
+            if importedValue.unicodeScalars.contains(where: { $0.value == 0 }) {
+                return .failure(
+                    String(localized: "\(field.displayName) contains a hidden character that can’t be saved. Remove it before importing.\nDetails: null character (U+0000).")
+                )
+            }
             let trimmedCell = importedValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
             if field.isLocatorField {
@@ -1830,7 +1881,7 @@ nonisolated private struct MetadataExchangeTextMatcher {
                     String(localized: "A removal token can’t identify a file. Enter the file’s name, path, or index, or escape the token as literal text.")
                 )
             }
-            if let escaped = unescapeRemovalToken(trimmed) {
+            if profileAllowsRemoval, let escaped = unescapeRemovalToken(trimmed) {
                 capture = .locator(escaped)
             } else {
                 capture = .locator(trimmed)
@@ -1842,7 +1893,7 @@ nonisolated private struct MetadataExchangeTextMatcher {
             } else if trimmed.isEmpty {
                 capture = .blank
             } else {
-                let literal = unescapeRemovalToken(trimmed) ?? trimmed
+                let literal = (profileAllowsRemoval ? unescapeRemovalToken(trimmed) : nil) ?? trimmed
                 if let validationMessage = field.importedValueValidationMessage(literal) {
                     return .failure(validationMessage)
                 }

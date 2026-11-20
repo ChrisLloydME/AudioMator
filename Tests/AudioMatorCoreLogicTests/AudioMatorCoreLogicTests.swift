@@ -390,12 +390,9 @@ final class AudioMatorCoreLogicTests: XCTestCase {
                 var rows: [[String]] = []
                 for _ in 0..<rowCount {
                     var row: [String] = []
-                    for fieldIndex in 0..<fieldCount {
+                    for _ in 0..<fieldCount {
                         let length = generator.int(in: 0...24)
-                        var value = String((0..<length).map { _ in alphabet[generator.int(in: 0...(alphabet.count - 1))] })
-                        if fieldIndex == 0, value.isEmpty {
-                            value = "seed"
-                        }
+                        let value = String((0..<length).map { _ in alphabet[generator.int(in: 0...(alphabet.count - 1))] })
                         row.append(value)
                     }
                     rows.append(row)

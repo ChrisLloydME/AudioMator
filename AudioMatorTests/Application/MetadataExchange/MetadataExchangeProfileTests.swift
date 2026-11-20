@@ -267,9 +267,13 @@ nonisolated final class MetadataExchangeProfileTests: XCTestCase {
 
     @MainActor
     func testUnknownAdvisoryRemovalRequestsExplicitUnset() throws {
+        // Seed a genuine unknown advisory raw value (170) whose semantic
+        // contentAdvisory projection is nil so the test exercises
+        // clearsUnknownAdvisory rather than a known .explicit value.
         let target = AudioFileTestFactory.make(
             url: URL(fileURLWithPath: "/tmp/advisory.m4a"),
-            contentAdvisory: .explicit
+            contentAdvisory: nil,
+            advisoryRawValue: "170"
         )
         let csv = """
         \(MetadataExchangeProfile.markerLine())
@@ -285,8 +289,77 @@ nonisolated final class MetadataExchangeProfileTests: XCTestCase {
         let entry = try XCTUnwrap(plan.writeEntries.first)
         XCTAssertEqual(entry.previewValues[.contentAdvisory], "")
         XCTAssertEqual(entry.resolvedIntent?.operations, [.removeText(.contentAdvisory)])
+        XCTAssertEqual(entry.frozenPayload?.contentAdvisoryChanged, true)
+        XCTAssertNil(entry.frozenPayload?.contentAdvisory)
         XCTAssertEqual(entry.frozenPayload?.requestedFields, [.explicitContent])
         XCTAssertEqual(plan.rows.first?.changes.first?.displayImportedValue, "<remove>")
+    }
+
+    @MainActor
+    func testLiteralMatchingRetiredRemovalSentinelDisplaysLiterally() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/sentinel.flac"),
+            title: "Before"
+        )
+        let sentinelLiteral = MetadataExchangeProfile.removalSentinel
+        let csv = """
+        \(MetadataExchangeProfile.markerLine())
+        "\(sentinelLiteral)"
+        """
+        let plan = MetadataExchangePlanner.makeCSVImportPlan(
+            template: "{{title}}",
+            sourceText: csv,
+            firstRowIsHeader: false,
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        let change = try XCTUnwrap(plan.rows.first?.changes.first)
+        XCTAssertFalse(change.isExplicitRemoval)
+        XCTAssertEqual(change.displayImportedValue, sentinelLiteral)
+        XCTAssertNotEqual(change.displayImportedValue, MetadataExchangeProfile.removalToken)
+    }
+
+    @MainActor
+    func testLegacyUnmarkedTextDoesNotUnescapeBackslashRemovalToken() throws {
+        let target = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/legacy.flac"),
+            title: "Before"
+        )
+        let plan = MetadataExchangePlanner.makeTextImportPlan(
+            template: "{{title}}",
+            sourceText: "\\<remove>",
+            targetFiles: [target],
+            clearBlankImportedValues: false
+        )
+        let entry = try XCTUnwrap(plan.writeEntries.first)
+        XCTAssertEqual(entry.previewValues[.title], "\\<remove>")
+        XCTAssertEqual(entry.frozenPayload?.title, "\\<remove>")
+    }
+
+    @MainActor
+    func testExportBudgetsAccountForProfileMarkerBytes() {
+        // Every budgeted text or CSV export must produce outputText within the
+        // 32 MB import document limit, including the prepended profile marker.
+        let file = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/budget.flac"),
+            title: "Track"
+        )
+        let textPlan = MetadataExchangePlanner.makeTextExportPlan(template: "{{title}}", targetFiles: [file])
+        XCTAssertNil(textPlan.validationMessage)
+        XCTAssertLessThanOrEqual(
+            textPlan.outputText.utf8.count,
+            MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
+        )
+        let csvPlan = MetadataExchangePlanner.makeCSVExportPlan(
+            template: "{{title}}",
+            includeHeaderRow: true,
+            targetFiles: [file]
+        )
+        XCTAssertNil(csvPlan.validationMessage)
+        XCTAssertLessThanOrEqual(
+            csvPlan.outputText.utf8.count,
+            MetadataExchangeResourceLimits.maximumDocumentUTF8ByteCount
+        )
     }
 
     @MainActor

@@ -452,6 +452,50 @@ nonisolated final class TrackRenumberExecutionTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelAfterFirstCommitPreservesFirstAndCancelsRemainingWithPerFileMessage() async throws {
+        let first = try makeReviewedFixture("cancel-after-first", track: 0)
+        let second = try makeReviewedFixture("cancel-after-second", track: 0)
+        let pipeline = RenumberRecordingMetadataPipeline()
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([first.file, second.file])
+        let plan = makePlan(viewModel, files: [first.file, second.file], startNumberText: "1")
+
+        // Block only the second file's reservation so file 1 commits while file 2
+        // waits on the coordinator, then cancel.
+        let entered = RenumberTestGate()
+        let release = RenumberTestGate()
+        let holder = Task {
+            try? await viewModel.fileMutationCoordinator.withExclusiveAccess(to: [second.url]) {
+                await entered.open()
+                await release.wait()
+            }
+        }
+        await entered.wait()
+
+        let renumberTask = Task {
+            await viewModel.renumberTrackNumbers(using: plan)
+        }
+        try await waitUntil {
+            guard pipeline.writes.count == 1 else { return false }
+            let queued = await viewModel.fileMutationCoordinator.queuedMutationCount
+            return queued >= 1
+        }
+        renumberTask.cancel()
+        await release.open()
+        await holder.value
+
+        let result = await renumberTask.value
+        XCTAssertEqual(pipeline.writes.count, 1)
+        XCTAssertEqual(result.succeeded, 1)
+        XCTAssertEqual(result.cancelled.count, 1)
+        XCTAssertEqual(result.cancelled.first?.fileName, second.url.lastPathComponent)
+        XCTAssertFalse(
+            result.cancelled.first?.reason.contains("No track numbers were changed") == true,
+            "After an earlier file committed, trailing cancellation must not claim no track numbers changed"
+        )
+    }
+
+    @MainActor
     private func alternativeFileVersion() async throws -> MetadataFileVersion {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(

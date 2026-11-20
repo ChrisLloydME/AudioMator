@@ -298,8 +298,11 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var previewStatusSymbolName: String {
-        if previewPhaseMessage != nil {
+        if store.isPlanning {
             return "info.circle.fill"
+        }
+        if previewPhaseMessage != nil {
+            return "exclamationmark.triangle.fill"
         }
 
         if previewHasIssues {
@@ -314,8 +317,11 @@ struct MetadataFilenameWindowView: View {
     }
 
     private var previewStatusTint: Color {
-        if previewPhaseMessage != nil {
+        if store.isPlanning {
             return .secondary
+        }
+        if previewPhaseMessage != nil {
+            return .orange
         }
 
         if previewHasIssues {
@@ -467,6 +473,9 @@ struct MetadataFilenameWindowView: View {
             }
             refreshConversionInput()
         }
+        .onDisappear {
+            store.cancelPresentation()
+        }
         .alert(
             String(localized: "Files Couldn’t Be Renamed"),
             isPresented: Binding(
@@ -493,6 +502,7 @@ struct MetadataFilenameWindowView: View {
             MetadataFieldTransferDetailView(
                 store: fieldTransferStore,
                 plan: fieldTransferPlan,
+                isPlanning: store.isPlanning,
                 phaseMessage: previewPhaseMessage,
                 targetCount: store.targetCount,
                 selectionSummaryText: selectionSummaryText,
@@ -699,6 +709,7 @@ struct MetadataFilenameWindowView: View {
             targetCount: store.targetCount,
             selectionSummaryText: selectionSummaryText,
             isApplying: isApplying,
+            isPlanning: store.isPlanning,
             phaseMessage: previewPhaseMessage,
             template: metadataExchangeTemplateBinding(for: selectedMode),
             pendingInsertion: $pendingExchangeFieldInsertion,
@@ -755,6 +766,7 @@ struct MetadataFilenameWindowView: View {
             Spacer()
 
             Button("Close") {
+                store.cancelPresentation()
                 dismiss()
             }
             .keyboardShortcut(.cancelAction)
@@ -810,7 +822,16 @@ struct MetadataFilenameWindowView: View {
         guard let selectedConverterMode, canApply else { return }
         // Capture the exact displayed plan once. A pending or superseded plan
         // cannot dispatch, and completion is scoped to this presentation.
-        guard let dispatch = store.beginDispatch(for: selectedConverterMode) else { return }
+        guard let dispatch = store.beginDispatch(for: selectedConverterMode) else {
+            if let scopeError = store.lastScopeRequestError {
+                viewModel.presentMetadataWriteHUD(
+                    style: .warning,
+                    title: String(localized: "Allow Folder Access"),
+                    subtitle: scopeError
+                )
+            }
+            return
+        }
 
         switch selectedConverterMode {
         case .metadataToFilename:

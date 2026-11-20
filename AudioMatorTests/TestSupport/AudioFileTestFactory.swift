@@ -18,8 +18,21 @@ enum AudioFileTestFactory {
         return try? TagLibMetadataManager.readSnapshot(from: url, includingAudioContent: true)
     }()
 
+    private static let secondaryFixtureSnapshot: MetadataSnapshot? = {
+        let bundle = Bundle(for: AudioFileTestFactoryBundleAnchor.self)
+        let url = bundle.url(forResource: "testAudioFile.m4a", withExtension: nil,
+                             subdirectory: "Fixtures/Audio")
+            ?? bundle.url(forResource: "testAudioFile.m4a", withExtension: nil)
+        guard let url else { return nil }
+        return try? TagLibMetadataManager.readSnapshot(from: url, includingAudioContent: true)
+    }()
+
     static var fixtureFileVersion: MetadataFileVersion? {
         fixtureSnapshot?.fileVersion
+    }
+
+    static var secondaryFixtureFileVersion: MetadataFileVersion? {
+        secondaryFixtureSnapshot?.fileVersion
     }
 
     static var fixtureConflictBaseline: MetadataConflictBaseline? {
@@ -97,6 +110,7 @@ enum AudioFileTestFactory {
         releaseDate: String = "",
         originalReleaseDate: String = "",
         contentAdvisory: ContentAdvisory? = nil,
+        advisoryRawValue: String? = nil,
         duration: Double = 0,
         artworkData: Data? = nil,
         fileFingerprint: AudioFileFingerprint? = nil,
@@ -127,8 +141,8 @@ enum AudioFileTestFactory {
             trackNumberText: trackNumberText, discNumberText: discNumberText,
             year: year, date: date, albumArtist: albumArtist,
             releaseDate: releaseDate, originalReleaseDate: originalReleaseDate,
-            contentAdvisory: contentAdvisory, duration: duration,
-            artworkData: artworkData, observation: observation
+            contentAdvisory: contentAdvisory, advisoryRawValue: advisoryRawValue,
+            duration: duration, artworkData: artworkData, observation: observation
         )
     }
 
@@ -153,6 +167,7 @@ enum AudioFileTestFactory {
         releaseDate: String = "",
         originalReleaseDate: String = "",
         contentAdvisory: ContentAdvisory? = nil,
+        advisoryRawValue: String? = nil,
         duration: Double = 0,
         artworkData: Data? = nil,
         observation: AudioFile.Observation?
@@ -205,6 +220,7 @@ enum AudioFileTestFactory {
             artworkData: artworkData,
             date: date,
             originalReleaseDate: originalReleaseDate,
+            advisoryRawValue: advisoryRawValue,
             observation: observation
         )
     }

@@ -240,6 +240,43 @@ nonisolated final class ExchangeReviewedWriteAcceptanceTests: XCTestCase {
         XCTAssertTrue(overflow.writeEntries.isEmpty)
         XCTAssertEqual(overflow.rows.first?.status, .parseError)
         XCTAssertEqual(try Data(contentsOf: mp4URL), mp4Bytes)
+
+        // Boundary control: 65535 is the maximum valid UInt16 MP4 track number.
+        let maxPlan = try makeCSVPlan(template: "{{trackNumber}}", source: "65535", targets: [mp4File])
+        XCTAssertEqual(maxPlan.writeEntries.count, 1)
+        let maxSummary = await applyExchange(maxPlan, files: [mp4File])
+        XCTAssertEqual(maxSummary?.succeeded, 1)
+        let persistedMax = try await load(mp4URL)
+        XCTAssertEqual(persistedMax.track, 65535)
+        XCTAssertEqual(persistedMax.trackTotal, 12, "Max UInt16 track write must preserve sibling total")
+    }
+
+    @MainActor
+    func testM4AUnknownAdvisory170ExplicitRemovalPersistsOnDisk() async throws {
+        let mp4URL = try fixtureCopy("m4a")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: mp4URL) }
+        _ = try TagLibMetadataManager.applyRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["ITUNESADVISORY": ["170"]]),
+            to: mp4URL
+        )
+        let seeded = try await load(mp4URL)
+        XCTAssertNil(seeded.contentAdvisory)
+        XCTAssertEqual(seeded.advisoryRawValue, "170")
+
+        let plan = try makeCSVPlan(
+            template: "{{contentAdvisory}}",
+            source: "\(MetadataExchangeProfile.markerLine())\n<remove>",
+            targets: [seeded]
+        )
+        XCTAssertEqual(plan.writeEntries.count, 1)
+        XCTAssertEqual(plan.writeEntries.first?.frozenPayload?.contentAdvisoryChanged, true)
+        XCTAssertNil(plan.writeEntries.first?.frozenPayload?.contentAdvisory)
+        let summary = await applyExchange(plan, files: [seeded])
+        XCTAssertEqual(summary?.succeeded, 1)
+
+        let persisted = try await load(mp4URL)
+        XCTAssertNil(persisted.contentAdvisory)
+        XCTAssertNil(persisted.advisoryRawValue, "Explicit v2 removal must clear unknown advisory raw value 170 on disk")
     }
 
     @MainActor

@@ -50,13 +50,20 @@ nonisolated enum MetadataFieldTransferPlanner {
         }
 
         var seenIDs: Set<AudioFile.ID> = []
-        let rows = targetFiles.filter { seenIDs.insert($0.id).inserted }.map { file in
-            makeRow(
-                file: file,
-                source: source,
-                destination: destination,
-                operation: operation,
-                projector: projector
+        var rows: [MetadataExchangeImportPreviewRow] = []
+        rows.reserveCapacity(targetFiles.count)
+        for file in targetFiles where seenIDs.insert(file.id).inserted {
+            if Task.isCancelled {
+                return MetadataExchangeImportPlan(validationMessage: nil, rows: [])
+            }
+            rows.append(
+                makeRow(
+                    file: file,
+                    source: source,
+                    destination: destination,
+                    operation: operation,
+                    projector: projector
+                )
             )
         }
         return MetadataExchangeImportPlan(validationMessage: nil, rows: rows)

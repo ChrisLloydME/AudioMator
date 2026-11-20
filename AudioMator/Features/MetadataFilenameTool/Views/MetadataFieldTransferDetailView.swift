@@ -4,6 +4,7 @@ import AppKit
 struct MetadataFieldTransferDetailView: View {
     @ObservedObject var store: MetadataFieldTransferStore
     let plan: MetadataExchangeImportPlan
+    let isPlanning: Bool
     /// Non-nil while the active plan is pending or rejected; the status label
     /// then shows the phase instead of plan counts.
     let phaseMessage: String?
@@ -123,10 +124,17 @@ struct MetadataFieldTransferDetailView: View {
                 .font(.subheadline)
                 .foregroundStyle(previewStatusTint)
 
-                if phaseMessage != nil {
+                if isPlanning {
                     ProgressView()
                         .controlSize(.small)
                         .frame(maxWidth: .infinity, minHeight: 280)
+                } else if let rejectionMessage = phaseMessage {
+                    ContentUnavailableView(
+                        String(localized: "Preview Unavailable"),
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(rejectionMessage)
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 280)
                 } else {
                     MetadataExchangeImportPreviewList(plan: plan, isFieldTransfer: true)
                         .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
@@ -142,13 +150,15 @@ struct MetadataFieldTransferDetailView: View {
     }
 
     private var previewStatusSymbol: String {
-        if phaseMessage != nil { return "info.circle.fill" }
+        if isPlanning { return "info.circle.fill" }
+        if phaseMessage != nil { return "exclamationmark.triangle.fill" }
         if plan.issueCount > 0 { return "exclamationmark.triangle.fill" }
         return plan.readyCount > 0 ? "checkmark.circle.fill" : "info.circle.fill"
     }
 
     private var previewStatusTint: Color {
-        if phaseMessage != nil { return .secondary }
+        if isPlanning { return .secondary }
+        if phaseMessage != nil { return .orange }
         if plan.issueCount > 0 { return .orange }
         return plan.readyCount > 0 ? .green : .secondary
     }

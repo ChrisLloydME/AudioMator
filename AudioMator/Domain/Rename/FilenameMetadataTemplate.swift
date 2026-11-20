@@ -400,8 +400,12 @@ nonisolated private struct FilenameMetadataPlanBuilder: Sendable {
             case .unchanged:
                 status = .unchanged
                 writeEntry = nil
-            case .rejected(let message), .unavailable(let message):
+            case .rejected(let message):
                 status = .unsupported
+                issueMessage = message
+                writeEntry = nil
+            case .unavailable(let message):
+                status = .sourceUnavailable
                 issueMessage = message
                 writeEntry = nil
             }

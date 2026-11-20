@@ -35,6 +35,7 @@ final class MetadataFilenameToolStore: ObservableObject {
     @Published private(set) var isTargetResolutionComplete = true
     @Published private(set) var planState: MetadataFilenamePlanState = .idle
     @Published private(set) var isApplying = false
+    @Published private(set) var lastScopeRequestError: String?
 
     @Published private(set) var selectedMode: MetadataConverterMode?
     @Published private(set) var metadataToFilenameTemplate = ""
@@ -124,9 +125,31 @@ final class MetadataFilenameToolStore: ObservableObject {
         resetPresentationState()
     }
 
+    /// Cancels the current presentation (for example when closing the converter
+    /// window), cancelling any in-flight planning or external file loads and
+    /// releasing large retained plans and indexes.
+    func cancelPresentation() {
+        presentationID = UUID()
+        cancelAllPlanning()
+        cancelExternalLoads()
+        lastScopeRequestError = nil
+        targetFiles = []
+        filesIndex = [:]
+        duplicateFileIDs = []
+        cachedFilesRevision = nil
+        cachedTargetPresentationID = nil
+        cachedTargetRevision = nil
+        cachedTargetIDs = []
+        resolvedTargetsAreCached = false
+        activeDispatch = nil
+        isApplying = false
+        notifySettlementIfQuiescent()
+    }
+
     private func resetPresentationState() {
         cancelAllPlanning()
         cancelExternalLoads()
+        lastScopeRequestError = nil
         selectedMode = nil
         textImportSource = ""
         csvImportSource = ""
@@ -518,12 +541,17 @@ final class MetadataFilenameToolStore: ObservableObject {
     /// Captures the exact currently ready plan for dispatch. An applying,
     /// pending, superseded or non-dispatchable plan returns nil.
     func beginDispatch(for mode: MetadataConverterMode) -> MetadataFilenameConverterDispatch? {
+        lastScopeRequestError = nil
         guard !isApplying, let result = readyResult(for: mode), result.isDispatchable else {
             return nil
         }
         if result.requiresWriteScope, let scopeRequester {
             let urls = result.executableTargetURLs
-            guard !urls.isEmpty, scopeRequester(urls) == nil else { return nil }
+            guard !urls.isEmpty else { return nil }
+            if let error = scopeRequester(urls) {
+                lastScopeRequestError = error
+                return nil
+            }
         }
         let dispatch = MetadataFilenameConverterDispatch(
             id: UUID(),
@@ -603,23 +631,30 @@ final class MetadataFilenameToolStore: ObservableObject {
     }
 
     private func makeSignature(mode: MetadataConverterMode) -> MetadataFilenamePlanInputSignature {
+        // Scope every mode-specific option to the active mode so mutating an
+        // inactive mode's defaults or draft never invalidates or replans the
+        // currently displayed mode.
         MetadataFilenamePlanInputSignature(
             presentationID: presentationID,
             mode: mode,
             targets: targetFiles.map {
                 MetadataFilenamePlanInputSignature.Target(id: $0.id, snapshotID: $0.snapshotID)
             },
-            template: template(for: mode),
-            replaceUnderscoresWithSpaces: replaceUnderscoresWithSpaces,
-            includeCSVHeaderRow: includeCSVHeaderRow,
-            firstCSVRowIsHeader: firstCSVRowIsHeader,
-            clearBlankImportedValues: clearBlankImportedValues(for: mode),
-            sourceRevision: sourceRevision,
-            transferSource: fieldTransferSource,
-            transferDestination: fieldTransferDestination,
-            transferOperation: fieldTransferOperation
+            template: mode == .metadataFieldTransfer ? "" : template(for: mode),
+            replaceUnderscoresWithSpaces: mode == .filenameToMetadata ? replaceUnderscoresWithSpaces : false,
+            includeCSVHeaderRow: mode == .metadataToCSV ? includeCSVHeaderRow : false,
+            firstCSVRowIsHeader: mode == .csvToMetadata ? firstCSVRowIsHeader : false,
+            clearBlankImportedValues: (mode == .textToMetadata || mode == .csvToMetadata)
+                ? clearBlankImportedValues(for: mode) : false,
+            sourceRevision: (mode == .textToMetadata || mode == .csvToMetadata)
+                ? sourceRevision : Self.inactiveSourceRevision,
+            transferSource: mode == .metadataFieldTransfer ? fieldTransferSource : .title,
+            transferDestination: mode == .metadataFieldTransfer ? fieldTransferDestination : .artist,
+            transferOperation: mode == .metadataFieldTransfer ? fieldTransferOperation : .copy
         )
     }
+
+    private static let inactiveSourceRevision = UUID(uuidString: "00000000-0000-0000-0000-000000000000") ?? UUID()
 
     private func beginDebounce(for input: MetadataFilenamePlannerInput) {
         debounceToken = input.inputID

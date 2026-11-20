@@ -270,8 +270,14 @@ struct MetadataFieldEntrySheet: View {
                 return draft.text(for: selectedElementID) ?? ""
             },
             set: { newValue in
-                guard let selectedElementID = draft.selectedElementID else { return }
-                draft.setText(newValue, for: selectedElementID)
+                if let selectedElementID = draft.selectedElementID {
+                    draft.setText(newValue, for: selectedElementID)
+                } else if !newValue.isEmpty {
+                    // Mixed selections and existing empty arrays start with no
+                    // selected element so an unchanged confirmation stays a no-op;
+                    // typing directly creates the first replacement value.
+                    draft.addValue(text: newValue)
+                }
             }
         )
     }

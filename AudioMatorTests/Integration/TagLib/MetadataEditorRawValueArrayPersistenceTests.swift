@@ -114,24 +114,18 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         viewModel.mergeQuickImportFiles([file])
         let outcome = await viewModel.applyRawMetadataApplyRequest(request)
 
-        if outcome.didApplyAllChanges {
-            XCTAssertEqual(store.completeApply(outcome), .dismiss)
-            let saved = try mediaPipeline.rawMetadataValueMap(for: url)
-            XCTAssertEqual(
-                saved["LYRICS"],
-                [editedValue],
-                "An explicitly edited multiline element must round-trip on the writable FLAC fixture"
-            )
-        } else {
-            XCTAssertFalse(outcome.failedTargetIDs.isEmpty)
-            XCTAssertEqual(
-                try Data(contentsOf: url),
-                beforeBytes,
-                "A rejected multiline write must leave the file byte-identical"
-            )
-            XCTAssertEqual(store.completeApply(outcome), .remainReady)
-            XCTAssertEqual(store.draftPropertyMaps[file.id]?["LYRICS"], [editedValue])
-        }
+        XCTAssertTrue(
+            outcome.didApplyAllChanges,
+            "FLAC supports multiline LYRICS writes; permissive fallback must not hide a persistence regression"
+        )
+        XCTAssertEqual(store.completeApply(outcome), .dismiss)
+        let saved = try mediaPipeline.rawMetadataValueMap(for: url)
+        XCTAssertEqual(
+            saved["LYRICS"],
+            [editedValue],
+            "An explicitly edited multiline element must round-trip on the writable FLAC fixture"
+        )
+        XCTAssertNotEqual(try Data(contentsOf: url), beforeBytes)
     }
 
     @MainActor

@@ -7,6 +7,7 @@ struct MetadataExchangeDetailView: View {
     let targetCount: Int
     let selectionSummaryText: String
     let isApplying: Bool
+    let isPlanning: Bool
     /// Non-nil while the active plan is pending or rejected; the status label
     /// then shows the phase instead of plan counts.
     let phaseMessage: String?
@@ -209,10 +210,17 @@ struct MetadataExchangeDetailView: View {
 
     @ViewBuilder
     private var previewContent: some View {
-        if phaseMessage != nil {
+        if isPlanning {
             ProgressView()
                 .controlSize(.small)
                 .frame(maxWidth: .infinity, minHeight: 280)
+        } else if let rejectionMessage = phaseMessage {
+            ContentUnavailableView(
+                String(localized: "Preview Unavailable"),
+                systemImage: "exclamationmark.triangle",
+                description: Text(rejectionMessage)
+            )
+            .frame(maxWidth: .infinity, minHeight: 280)
         } else {
             switch selectedMode {
             case .metadataToText:
@@ -329,7 +337,8 @@ struct MetadataExchangeDetailView: View {
     }
 
     private var statusSymbol: String {
-        if phaseMessage != nil { return "info.circle.fill" }
+        if isPlanning { return "info.circle.fill" }
+        if phaseMessage != nil { return "exclamationmark.triangle.fill" }
         switch selectedMode {
         case .metadataToText:
             return result.textExportPlan?.canExport == true ? "checkmark.circle.fill" : "info.circle.fill"
@@ -345,7 +354,8 @@ struct MetadataExchangeDetailView: View {
     }
 
     private var statusTint: Color {
-        if phaseMessage != nil { return .secondary }
+        if isPlanning { return .secondary }
+        if phaseMessage != nil { return .orange }
         switch selectedMode {
         case .metadataToText:
             return result.textExportPlan?.canExport == true ? .green : .secondary

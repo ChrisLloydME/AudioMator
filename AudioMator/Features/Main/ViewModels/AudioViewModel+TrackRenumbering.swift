@@ -98,12 +98,17 @@ extension AudioViewModel {
                     TrackRenumberFailure(fileName: row.fileName, reason: reason)
                 )
             case .cancelled:
-                result.cancelled.append(
-                    TrackRenumberFailure(
-                        fileName: row.fileName,
-                        reason: String(localized: "Track numbering was cancelled before it began. No track numbers were changed.")
-                    )
-                )
+                let remaining = executableRows.dropFirst(index)
+                let message = (result.succeeded == 0 && result.failed == 0)
+                    ? String(localized: "Track numbering was cancelled before it began. No track numbers were changed.")
+                    : String(localized: "Cancelled before this file was processed. This file wasn't changed.")
+                result.cancelled.append(contentsOf: remaining.map {
+                    TrackRenumberFailure(fileName: $0.fileName, reason: message)
+                })
+                break
+            }
+            if !result.cancelled.isEmpty {
+                break
             }
         }
 

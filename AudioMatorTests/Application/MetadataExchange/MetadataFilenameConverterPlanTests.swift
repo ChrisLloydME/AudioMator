@@ -815,6 +815,76 @@ nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelPresentationCancelsInFlightWorkAndClearsRetainedState() async {
+        let fixture = ConverterTestFixture()
+        let worker = ConverterTestPlannerWorker()
+        let store = makeStore(worker: worker)
+        present(fixture, in: store)
+
+        worker.holdInvocations()
+        store.updateTemplate("{{title}}", for: .metadataToFilename)
+        store.selectMode(.metadataToFilename)
+        await worker.waitForInvocationCount(1)
+
+        let priorPresentationID = store.presentationID
+        store.cancelPresentation()
+        XCTAssertNotEqual(store.presentationID, priorPresentationID)
+        if case .idle = store.planState {
+            // Expected idle state after cancellation.
+        } else {
+            XCTFail("Expected .idle planState after cancelPresentation, got \(store.planState)")
+        }
+        XCTAssertTrue(store.targetFiles.isEmpty)
+
+        worker.releaseNextHeldInvocation()
+        await settle(store)
+        if case .idle = store.planState {
+            // Worker returning after cancelPresentation must not repopulate planState.
+        } else {
+            XCTFail("Expected .idle planState after stale worker return, got \(store.planState)")
+        }
+    }
+
+    @MainActor
+    func testBeginDispatchRecordsScopeRequestErrorWhenAccessDenied() async {
+        let fixture = ConverterTestFixture(fileCount: 1)
+        let worker = ConverterTestPlannerWorker()
+        let store = makeStore(worker: worker)
+        store.setScopeRequester { _ in "Folder access denied by test." }
+        present(fixture, in: store)
+        store.updateTemplate("{{fileName}},{{title}}", for: .csvToMetadata)
+        store.setExternalSource("Original Alpha.mp3,Captured Title", for: .csvToMetadata)
+        store.setFirstCSVRowIsHeader(false)
+        store.selectMode(.csvToMetadata)
+        await settle(store)
+
+        XCTAssertNil(store.beginDispatch(for: .csvToMetadata))
+        XCTAssertEqual(store.lastScopeRequestError, "Folder access denied by test.")
+        XCTAssertFalse(store.isApplying)
+    }
+
+    @MainActor
+    func testInactiveModeOptionChangeDoesNotReplanActiveMode() async {
+        let fixture = ConverterTestFixture(fileCount: 1)
+        let worker = ConverterTestPlannerWorker()
+        let store = makeStore(worker: worker)
+        present(fixture, in: store)
+        store.updateTemplate("{{title}}", for: .metadataToFilename)
+        store.selectMode(.metadataToFilename)
+        await settle(store)
+        let settledInvocations = worker.invocationCount
+
+        // Mutating CSV and field-transfer options while rename mode is active
+        // must not trigger replanning of the active mode.
+        store.setIncludeCSVHeaderRow(false)
+        store.setFirstCSVRowIsHeader(false)
+        store.setFieldTransferOptions(source: .album, destination: .comment, operation: .cut)
+        await settle(store)
+
+        XCTAssertEqual(worker.invocationCount, settledInvocations)
+    }
+
+    @MainActor
     func testPresentationResetClearsDraftAndApplyOwnership() {
         let fixture = ConverterTestFixture()
         let store = makeStore()

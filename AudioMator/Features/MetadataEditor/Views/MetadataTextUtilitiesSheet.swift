@@ -294,9 +294,11 @@ struct MetadataTextUtilitiesSheet: View {
                         .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
                 )
             } else {
-                Text(preview == nil
-                    ? "The selected fields cannot be previewed in the current editor session."
-                    : "No metadata values are available for the selected fields.")
+                Text(pipeline == nil
+                    ? String(localized: "Enter text above to preview changes.")
+                    : (preview == nil
+                        ? String(localized: "The selected fields cannot be previewed in the current editor session.")
+                        : String(localized: "No metadata values are available for the selected fields.")))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

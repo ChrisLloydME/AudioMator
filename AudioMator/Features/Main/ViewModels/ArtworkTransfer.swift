@@ -30,6 +30,7 @@ struct ArtworkTransferIntent: Equatable, Sendable {
     let id: UUID
     let command: ArtworkCommandToken
     let source: ArtworkTransferSource
+    let fileSourceContext: SidebarSelection
     let selectionTitle: String
     let targetNames: [AudioFile.ID: String]
 
@@ -41,12 +42,14 @@ struct ArtworkTransferIntent: Equatable, Sendable {
         id: UUID = UUID(),
         command: ArtworkCommandToken,
         source: ArtworkTransferSource,
+        fileSourceContext: SidebarSelection = .quickImport,
         selectionTitle: String,
         targetNames: [AudioFile.ID: String]
     ) {
         self.id = id
         self.command = command
         self.source = source
+        self.fileSourceContext = fileSourceContext
         self.selectionTitle = selectionTitle
         self.targetNames = targetNames
     }
@@ -145,17 +148,21 @@ extension AudioViewModel {
         return ArtworkTransferIntent(
             command: command,
             source: source,
+            fileSourceContext: normalizedSidebarSelection(activeSidebarSelection),
             selectionTitle: selectionTitle,
             targetNames: names
         )
     }
 
-    /// True while the captured command still belongs to the live draft session
-    /// with the same ordered target set. Used to silence stale failures and to
-    /// skip work whose destination is already gone; the full eligibility check
-    /// still runs inside `commitArtworkTransfer`.
+    /// True while the captured command still belongs to the live draft session,
+    /// file-source context, and ordered target set. Used to silence stale
+    /// failures and to skip work whose destination is already gone; the full
+    /// eligibility check still runs inside `commitArtworkTransfer`.
     func isArtworkTransferCurrent(_ intent: ArtworkTransferIntent) -> Bool {
         guard isCurrentArtworkCommand(intent.command) else { return false }
+        guard normalizedSidebarSelection(activeSidebarSelection) == intent.fileSourceContext else {
+            return false
+        }
         guard let session = inspectorDraft, session.targetIDs == intent.command.targetIDs else {
             return false
         }
@@ -172,6 +179,10 @@ extension AudioViewModel {
     ) -> ArtworkTransferOutcome {
         guard isCurrentArtworkCommand(intent.command) else {
             return .rejected(artworkTransferStaleRejection(for: intent))
+        }
+
+        guard normalizedSidebarSelection(activeSidebarSelection) == intent.fileSourceContext else {
+            return .rejected(artworkTransferSelectionChangedRejection(for: intent))
         }
 
         guard let session = inspectorDraft,

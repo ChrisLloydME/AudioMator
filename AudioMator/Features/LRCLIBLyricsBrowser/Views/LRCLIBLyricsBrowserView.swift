@@ -39,7 +39,6 @@ struct LRCLIBLyricsBrowserView: View {
                     Button("Search") {
                         store.searchCurrentFile()
                     }
-                    .keyboardShortcut(.defaultAction)
                     .disabled(!store.hasFiles || store.isOperationActive)
                 }
             }

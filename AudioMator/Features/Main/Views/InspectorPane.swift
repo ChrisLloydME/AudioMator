@@ -330,6 +330,15 @@ struct InspectorPane: View {
     }
 
     private func presentPhotoLibraryArtworkPicker(for target: ArtworkImportTarget) {
+        // Validate artwork write support upfront (matching Finder/Clipboard)
+        // before opening PhotosPicker or normalizing image bytes.
+        switch target {
+        case .file(let file):
+            guard viewModel.validateArtworkEditingSupport(for: file) else { return }
+        case .files(let files):
+            guard viewModel.validateArtworkEditingSupport(for: files) else { return }
+        }
+
         // The destination draft is authorized before the picker is presented;
         // the intent crosses the PhotosPicker/loadTransferable suspension
         // untouched and is revalidated at commit.

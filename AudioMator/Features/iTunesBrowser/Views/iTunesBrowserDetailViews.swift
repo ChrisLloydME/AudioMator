@@ -114,6 +114,8 @@ struct iTunesTrackDetailView: View {
                 detail = fallbackDetail
             }
 
+            guard !Task.isCancelled else { return }
+
             let resolvedTrack = detail.tracks.first(where: { $0.trackID == track.trackID }) ?? track
             let preview = iTunesAlbumMatchPreview(
                 totalSelectedFiles: 1,

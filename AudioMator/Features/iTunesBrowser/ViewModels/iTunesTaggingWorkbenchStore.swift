@@ -428,14 +428,16 @@ final class iTunesTaggingWorkbenchStore: ObservableObject, Identifiable {
         let file = loadedFilesByInputID[assignment.fileInput.id]
 
         let issueMessage: String?
-        if file == nil {
-            issueMessage = String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
-        } else if file?.fileFingerprint == nil {
-            issueMessage = String(localized: "This file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying metadata.")
-        } else if selectedTrack == nil {
-            issueMessage = "No iTunes track is assigned."
+        if let file {
+            if ReviewedMetadataTarget(verified: file) == nil {
+                issueMessage = String(localized: "This file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying metadata.")
+            } else if selectedTrack == nil {
+                issueMessage = "No iTunes track is assigned."
+            } else {
+                issueMessage = nil
+            }
         } else {
-            issueMessage = nil
+            issueMessage = String(localized: "This file is no longer loaded in AudioMator. Import it again before applying changes.")
         }
 
         let changes: [iTunesTaggingFieldChange] = selectedFields.compactMap { field in

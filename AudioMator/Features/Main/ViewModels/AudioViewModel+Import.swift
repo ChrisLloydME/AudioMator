@@ -36,6 +36,7 @@ extension AudioViewModel {
 
         MacDocumentPicker.pickImage { [weak self] url in
             guard let self, let url else { return }
+            guard self.isArtworkTransferCurrent(intent) else { return }
             self.artworkImportTask?.cancel()
             self.artworkImportTask = Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -53,6 +54,7 @@ extension AudioViewModel {
 
         MacDocumentPicker.pickImage { [weak self] url in
             guard let self, let url else { return }
+            guard self.isArtworkTransferCurrent(intent) else { return }
             self.artworkImportTask?.cancel()
             self.artworkImportTask = Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -154,7 +156,7 @@ extension AudioViewModel {
 
     // MARK: - Validation
 
-    private func validateArtworkEditingSupport(for file: AudioFile) -> Bool {
+    func validateArtworkEditingSupport(for file: AudioFile) -> Bool {
         guard isArtworkWriteSupportedExtension(file.url.pathExtension) else {
             presentArtworkPreparationFailure(
                 for: file.url.lastPathComponent,
@@ -166,7 +168,7 @@ extension AudioViewModel {
         return true
     }
 
-    private func validateArtworkEditingSupport(for files: [AudioFile]) -> Bool {
+    func validateArtworkEditingSupport(for files: [AudioFile]) -> Bool {
         let unsupportedFiles = files.filter { !isArtworkWriteSupportedExtension($0.url.pathExtension) }
         guard unsupportedFiles.isEmpty else {
             let fileNames = unsupportedFiles.prefix(3).map(\.url.lastPathComponent)

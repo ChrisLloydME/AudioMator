@@ -353,6 +353,88 @@ nonisolated final class ArtworkHandoffOwnershipTests: XCTestCase {
     )!
 
     @MainActor
+    func testCrossSourceSidebarSwitchRejectsPendingArtworkHandoffEvenWithSharedUUID() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ArtworkCrossSource-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let audioURL = directory.appendingPathComponent("track.mp3")
+        let audioBytes = Data([0x49, 0x44, 0x33, 0x03, 0x00, 0x00, 0x00, 0x00])
+        try audioBytes.write(to: audioURL)
+
+        let suiteName = "AudioMator.ArtworkCrossSource.\(UUID().uuidString)"
+        let userDefaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+        let watchedStore = WatchedFolderStore(userDefaults: userDefaults)
+        let folder = try watchedStore.makeFolder(from: directory)
+        watchedStore.saveFolders([folder])
+
+        let recorder = ArtworkHandoffWriteRecorder()
+        let file = AudioFileTestFactory.make(url: audioURL, title: "Shared Track", album: "Shared Album")
+        let viewModel = AudioViewModel(
+            watchedFolderStore: watchedStore,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: userDefaults),
+            metadataPipeline: ArtworkHandoffMetadataPipeline(recorder: recorder, fileOverride: file),
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: userDefaults
+        )
+
+        // Wait for the watched folder scan to load the same file path, then also
+        // place the file in Quick Import so both sources share one logical UUID.
+        let deadline = Date().addingTimeInterval(5)
+        while viewModel.watchedFolders.isEmpty || viewModel.committedSourceFileIDs().isEmpty,
+              Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let sharedID = try XCTUnwrap(viewModel.committedSourceFileIDs().first)
+        let sharedFile = try XCTUnwrap(viewModel.committedFile(withID: sharedID))
+        viewModel.mergeQuickImportFiles([sharedFile])
+        viewModel.setSidebarSelection(.quickImport)
+        viewModel.setSelectedAudioIDs([sharedID])
+
+        let intent = try XCTUnwrap(
+            viewModel.beginArtworkImport(for: sharedFile, source: .clipboard)
+        )
+        XCTAssertEqual(intent.fileSourceContext, .quickImport)
+
+        // Switching to the Watched Folder containing the exact same file/UUID
+        // keeps the selection non-empty and preserves the same UUID, yet the
+        // file-source context changed so the pending handoff must be rejected.
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        XCTAssertEqual(viewModel.selectedAudioIDs, [sharedID])
+
+        let outcome = viewModel.commitArtworkTransfer(
+            intent,
+            action: .replace(PendingArtwork(data: try expectedNormalizedPNG(), mimeType: "image/png"))
+        )
+        guard case .rejected(.targetUnavailable) = outcome else {
+            return XCTFail("Expected cross-source handoff to reject with selection-changed .targetUnavailable, got \(outcome)")
+        }
+        XCTAssertEqual(viewModel.edit?.artworkEditAction, .unchanged)
+        XCTAssertEqual(try Data(contentsOf: audioURL), audioBytes)
+    }
+
+    @MainActor
+    func testPhotoLibraryValidationRejectsUnsupportedFormatUpfront() throws {
+        let harness = try makeSingleHarness(createDraft: false)
+        defer { harness.removeTemporaryDirectory() }
+
+        let unsupportedURL = harness.temporaryDirectory.appendingPathComponent("unsupported.xm")
+        try Data([0x45, 0x78, 0x74, 0x65]).write(to: unsupportedURL)
+        let unsupportedFile = AudioFileTestFactory.make(url: unsupportedURL, title: "XM Track")
+
+        XCTAssertFalse(
+            harness.viewModel.validateArtworkEditingSupport(for: unsupportedFile),
+            "Unsupported artwork format must be rejected upfront before opening PhotosPicker"
+        )
+        XCTAssertFalse(
+            harness.viewModel.validateArtworkEditingSupport(for: [harness.file, unsupportedFile])
+        )
+    }
+
+    @MainActor
     private func expectedNormalizedPNG() throws -> Data {
         try ArtworkImageNormalizer.normalizedPNGData(from: Self.tinyPNGData)
     }

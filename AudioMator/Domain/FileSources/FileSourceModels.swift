@@ -1,11 +1,11 @@
 import Foundation
 
-enum FileSourceMode {
+nonisolated enum FileSourceMode: Hashable, Sendable {
     case quickImport
     case watchedFolders
 }
 
-enum SidebarSelection: Hashable {
+nonisolated enum SidebarSelection: Hashable, Sendable {
     case quickImport
     case watchedLibrary
     case watchedFolder(UUID)

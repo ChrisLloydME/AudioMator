@@ -64,7 +64,7 @@ enum NetworkServiceDisclosure {
             host
         ]
 
-        static let sentDataSummary = "LRCLIB search sends the track name, artist name, album name, and, when known, duration as the track_name, artist_name, album_name, and duration query parameters. Values come from the selected file’s tags when present; missing values can be derived from the file name (title/track number) and from parent or grandparent folder names (artist and album, including an “Artist - Album” folder split). No full file path, file contents, or audio bytes are sent."
+        static let sentDataSummary = "LRCLIB search sends the track name, artist name, album name, and, when known, duration as the track_name, artist_name, album_name, and duration query parameters. Values come from the selected file’s tags when present; missing values can be derived from the file name (title) and from parent or ancestor folder names (artist and album, including an “Artist - Album” folder split and skipping disc folders such as “CD1”). No full file path, file contents, or audio bytes are sent."
     }
 
     enum ProviderWebPages {

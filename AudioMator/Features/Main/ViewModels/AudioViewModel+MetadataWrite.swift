@@ -116,11 +116,14 @@ extension AudioViewModel {
             return
         }
 
-        let progressToken = beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Saving Metadata",
             subtitle: plan.fileName,
             totalUnitCount: 1
-        )
+        ) else {
+            finishInspectorSave()
+            return
+        }
 
         Task(priority: .userInitiated) {
             let result = await self.executeInspectorWritePlan(plan, publication: .immediate)
@@ -215,27 +218,27 @@ extension AudioViewModel {
             )
         }
         guard !plans.isEmpty else { return }
-        let executableURLs = plans.compactMap { plan -> URL? in
-            switch plan.route {
-            case .draft(let draft):
-                guard draft.write.projection.isExecutable, !draft.write.isNoOp else { return nil }
-                return plan.url
-            case .strict(let write):
-                guard write.projection.isExecutable, !write.isNoOp else { return nil }
-                return plan.url
-            case .rejected:
-                return nil
-            }
-        }
-        if !executableURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: executableURLs) else { return }
-        }
-
-        let progressToken = beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Saving Metadata",
             subtitle: "Preparing \(plans.count) files…",
             totalUnitCount: plans.count
-        )
+        ) else { return }
+        let executableURLs = plans.flatMap { plan -> [URL] in
+            switch plan.route {
+            case .draft(let draft):
+                return prePromptDirectoryAccessURLs(for: [draft.write], allowsChangedRevision: true)
+            case .strict(let write):
+                return prePromptDirectoryAccessURLs(for: [write], allowsChangedRevision: false)
+            case .rejected:
+                return []
+            }
+        }
+        if !executableURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: executableURLs) else {
+                endMetadataSaveProgress(token: progressToken)
+                return
+            }
+        }
         didStartSaveTask = true
 
         Task(priority: .userInitiated) {

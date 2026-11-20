@@ -29,16 +29,19 @@ extension AudioViewModel {
                 write: ReviewedMetadataWriteFactory.semanticWrite(edit: edit, comparedTo: file)
             )
         }
-        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedWrites.compactMap { $0.write })
-        if !prePromptURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
-        }
-
-        let progressToken = beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Creating MuseAmp IDs",
             subtitle: "Preparing \(plannedWrites.count) files...",
             totalUnitCount: plannedWrites.count
-        )
+        ) else { return }
+
+        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedWrites.compactMap { $0.write })
+        if !prePromptURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else {
+                endMetadataSaveProgress(token: progressToken)
+                return
+            }
+        }
 
         Task(priority: .userInitiated) {
             var summary = BatchMetadataOperationSummary(totalTargets: plannedWrites.count)

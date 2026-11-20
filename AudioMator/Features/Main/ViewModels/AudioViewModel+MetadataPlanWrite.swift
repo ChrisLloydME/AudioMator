@@ -18,23 +18,26 @@ extension AudioViewModel {
             return nil
         }
 
+        guard let progressToken = tryBeginMetadataSaveProgress(
+            title: String(localized: "Writing Filename Metadata"),
+            subtitle: String(localized: "Preparing \(entries.count) files..."),
+            totalUnitCount: entries.count
+        ) else { return nil }
+        defer { endMetadataSaveProgress(token: progressToken) }
+
         let targetURLs = prePromptDirectoryAccessURLs(for: entries.map(\.write))
         if !targetURLs.isEmpty {
             guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
         }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
-        let progressToken = beginMetadataSaveProgress(
-            title: String(localized: "Writing Filename Metadata"),
-            subtitle: String(localized: "Preparing \(entries.count) files..."),
-            totalUnitCount: entries.count
-        )
-        defer { endMetadataSaveProgress(token: progressToken) }
-
         // Each entry carries the frozen reviewed write captured from the reviewed
         // file. The strict executor revalidates the captured target/revision inside
         // the reservation; no draft field is read at Apply.
-        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+        let outcomes = await executeBoundedMetadataPlan(
+            fileNames: entries.map(\.fileName),
+            progressToken: progressToken
+        ) { index in
             let entry = entries[index]
             let result = await self.executeReviewedMetadataWrite(
                 entry.write,
@@ -107,23 +110,26 @@ extension AudioViewModel {
             return nil
         }
 
+        guard let progressToken = tryBeginMetadataSaveProgress(
+            title: progressTitle,
+            subtitle: String(localized: "Preparing \(entries.count) files..."),
+            totalUnitCount: entries.count
+        ) else { return nil }
+        defer { endMetadataSaveProgress(token: progressToken) }
+
         let targetURLs = prePromptDirectoryAccessURLs(for: entries.map(\.write))
         if !targetURLs.isEmpty {
             guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
         }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
-        let progressToken = beginMetadataSaveProgress(
-            title: progressTitle,
-            subtitle: String(localized: "Preparing \(entries.count) files..."),
-            totalUnitCount: entries.count
-        )
-        defer { endMetadataSaveProgress(token: progressToken) }
-
         // Exchange text/CSV and field-transfer entries both carry a frozen
         // ReviewedMetadataWrite. The strict executor validates the captured target
         // and revision inside the coordinator and reports per-row outcomes.
-        let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
+        let outcomes = await executeBoundedMetadataPlan(
+            fileNames: entries.map(\.fileName),
+            progressToken: progressToken
+        ) { index in
             let entry = entries[index]
             let result = await self.executeReviewedMetadataWrite(
                 entry.write,

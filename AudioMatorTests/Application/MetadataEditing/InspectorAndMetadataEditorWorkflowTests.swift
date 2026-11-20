@@ -1190,7 +1190,7 @@ nonisolated final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         let pipeline = RecordingMetadataPipeline()
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
         viewModel.mergeQuickImportFiles([original])
-        viewModel.beginMetadataSaveProgress(
+        let token = viewModel.beginMetadataSaveProgress(
             title: "Existing Save",
             subtitle: "Busy",
             totalUnitCount: 3
@@ -1208,7 +1208,7 @@ nonisolated final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
         XCTAssertNil(exchangeSummary)
         XCTAssertTrue(pipeline.metadataWrites.isEmpty)
         XCTAssertEqual(viewModel.metadataSaveProgress, existingProgress)
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
     }
 
     @MainActor

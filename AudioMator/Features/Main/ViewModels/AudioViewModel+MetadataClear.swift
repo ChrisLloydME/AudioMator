@@ -3,22 +3,21 @@ import Foundation
 extension AudioViewModel {
     /// Attempts to erase all metadata from a file through the reviewed strict route.
     func eraseAllMetadata(_ file: AudioFile) {
-        guard metadataSaveProgress == nil else { return }
         guard canStartExternalFileMutation() else { return }
-
-        beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Clearing Metadata",
             subtitle: file.url.lastPathComponent,
             totalUnitCount: 1
-        )
+        ) else { return }
 
         Task(priority: .userInitiated) {
             let result = await self.persistMetadataErase(file, syncInspectorAfterReload: true)
             self.updateMetadataSaveProgress(
+                token: progressToken,
                 subtitle: file.url.lastPathComponent,
                 completedUnitCount: 1
             )
-            self.endMetadataSaveProgress()
+            self.endMetadataSaveProgress(token: progressToken)
 
             switch result {
             case .success(let success):
@@ -72,16 +71,19 @@ extension AudioViewModel {
         let plannedTargets = targetFiles.map {
             ReviewedMetadataWriteFactory.eraseAllWrite(for: $0)
         }
-        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedTargets.compactMap { $0 })
-        if !prePromptURLs.isEmpty {
-            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
-        }
-
-        let progressToken = beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: "Clearing Metadata",
             subtitle: "Preparing \(targetFiles.count) files...",
             totalUnitCount: targetFiles.count
-        )
+        ) else { return }
+
+        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedTargets.compactMap { $0 })
+        if !prePromptURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else {
+                endMetadataSaveProgress(token: progressToken)
+                return
+            }
+        }
 
         Task(priority: .userInitiated) {
             var summary = BatchMetadataOperationSummary(totalTargets: targetFiles.count, operation: .clear)

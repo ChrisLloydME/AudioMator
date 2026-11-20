@@ -67,20 +67,24 @@ extension AudioViewModel {
             )
         }
 
-        let writableURLs = plans.compactMap { plan -> URL? in
+        let writableURLs = plans.flatMap { plan -> [URL] in
             switch plan.route {
             case .unchanged, .rejected:
-                return nil
-            case .draft, .strict:
-                return plan.url
+                return []
+            case .strict(let write):
+                return prePromptDirectoryAccessURLs(for: [write], allowsChangedRevision: false)
+            case .draft(let draft):
+                return prePromptDirectoryAccessURLs(for: [draft.write], allowsChangedRevision: true)
             }
         }
-        guard prepareMetadataMutationDirectoryAccess(for: writableURLs) else {
-            return Self.rawApplyOutcome(
-                request,
-                failed: Set(targets.map(\.id)),
-                succeeded: []
-            )
+        if !writableURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: writableURLs) else {
+                return Self.rawApplyOutcome(
+                    request,
+                    failed: Set(targets.map(\.id)),
+                    succeeded: []
+                )
+            }
         }
 
         var summary = BatchMetadataOperationSummary(totalTargets: plans.count)

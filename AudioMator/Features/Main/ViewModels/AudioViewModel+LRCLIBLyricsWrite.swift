@@ -46,7 +46,11 @@ extension AudioViewModel {
         guard canStartExternalFileMutation() else {
             return .rejected(String(localized: "Save or discard the pending inspector edits before changing files from another tool."))
         }
-        guard metadataSaveProgress == nil else {
+        guard let progressToken = tryBeginMetadataSaveProgress(
+            title: "Applying LRCLIB Lyrics",
+            subtitle: intent.fileName,
+            totalUnitCount: 1
+        ) else {
             presentMetadataWriteHUD(
                 style: .warning,
                 title: String(localized: "Lyrics Couldn’t Be Applied"),
@@ -54,15 +58,15 @@ extension AudioViewModel {
             )
             return .rejected(anotherSaveInProgressMessage)
         }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
-        beginMetadataSaveProgress(
-            title: "Applying LRCLIB Lyrics",
-            subtitle: intent.fileName,
-            totalUnitCount: 1
-        )
         let result = await executeReviewedMetadataWrite(write, publication: .immediate)
-        updateMetadataSaveProgress(subtitle: intent.fileName, completedUnitCount: 1)
-        endMetadataSaveProgress()
+        updateMetadataSaveProgress(
+            token: progressToken,
+            subtitle: intent.fileName,
+            completedUnitCount: 1
+        )
+        endMetadataSaveProgress(token: progressToken)
 
         switch result {
         case .success(let success):
@@ -141,7 +145,11 @@ extension AudioViewModel {
         guard canStartExternalFileMutation() else {
             return outcome(cancelledBeforeAnyStart: false)
         }
-        guard metadataSaveProgress == nil else {
+        guard let progressToken = tryBeginMetadataSaveProgress(
+            title: "Applying LRCLIB Lyrics",
+            subtitle: "Preparing \(entries.count) files...",
+            totalUnitCount: entries.count
+        ) else {
             presentMetadataWriteHUD(
                 style: .warning,
                 title: String(localized: "Lyrics Couldn’t Be Applied"),
@@ -149,12 +157,7 @@ extension AudioViewModel {
             )
             return outcome(cancelledBeforeAnyStart: false)
         }
-
-        let progressToken = beginMetadataSaveProgress(
-            title: "Applying LRCLIB Lyrics",
-            subtitle: "Preparing \(entries.count) files...",
-            totalUnitCount: entries.count
-        )
+        defer { endMetadataSaveProgress(token: progressToken) }
 
         // Pre-authorize the captured target folders once, only for currently
         // eligible executable writes, and only after a cancellation checkpoint

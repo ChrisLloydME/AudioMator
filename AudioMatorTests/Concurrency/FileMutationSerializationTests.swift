@@ -28,12 +28,12 @@ nonisolated final class FileMutationSerializationTests: XCTestCase {
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([original.id])
         viewModel.edit?.title = "New draft typed while saving"
-        viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
+        let token = viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
         XCTAssertTrue(viewModel.replaceLoadedFile(
             refreshed, refreshGeneration: viewModel.makeFileModelRefreshGeneration(), deferVisibleRefresh: true
         ))
         XCTAssertEqual(viewModel.loadedFile(withID: original.id)?.snapshotID, refreshed.snapshotID)
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
         XCTAssertEqual(viewModel.files.first?.snapshotID, refreshed.snapshotID)
         XCTAssertEqual(viewModel.edit?.title, "New draft typed while saving")
         XCTAssertEqual(viewModel.inspectorEditSourceFilesByID[original.id]?.snapshotID, original.snapshotID)
@@ -45,7 +45,7 @@ nonisolated final class FileMutationSerializationTests: XCTestCase {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         viewModel.mergeQuickImportFiles([original])
-        viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
+        let token = viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
         let older = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Older")
         let newer = AudioFileTestFactory.make(id: original.id, url: original.url, title: "Newer")
         XCTAssertTrue(viewModel.replaceLoadedFile(
@@ -54,7 +54,7 @@ nonisolated final class FileMutationSerializationTests: XCTestCase {
         XCTAssertTrue(viewModel.replaceLoadedFile(
             newer, refreshGeneration: viewModel.makeFileModelRefreshGeneration()
         ))
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
         XCTAssertEqual(viewModel.files.first?.snapshotID, newer.snapshotID)
     }
 
@@ -63,13 +63,13 @@ nonisolated final class FileMutationSerializationTests: XCTestCase {
         let viewModel = AudioViewModelTestFactory.make(metadataPipeline: ReloadFailingMutationPipeline())
         let original = AudioFileTestFactory.make(title: "Original")
         viewModel.mergeQuickImportFiles([original])
-        viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
+        let token = viewModel.beginMetadataSaveProgress(title: "Saving", subtitle: "", totalUnitCount: 2)
         XCTAssertTrue(viewModel.replaceLoadedFile(
             AudioFileTestFactory.make(id: original.id, url: original.url, title: "Saved"),
             refreshGeneration: viewModel.makeFileModelRefreshGeneration(), deferVisibleRefresh: true
         ))
         viewModel.removeQuickImportFile(id: original.id)
-        viewModel.endMetadataSaveProgress()
+        viewModel.endMetadataSaveProgress(token: token)
         XCTAssertTrue(viewModel.files.isEmpty)
     }
 

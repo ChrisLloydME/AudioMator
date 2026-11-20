@@ -24,14 +24,18 @@ extension AudioViewModel {
         guard !isReloadingSelectedFiles, metadataSaveProgress == nil else { return }
         let targets = selectedFiles
         guard !targets.isEmpty else { return }
-        isReloadingSelectedFiles = true
-        let progressToken: UUID? = forceReload
-            ? beginMetadataSaveProgress(
+        let progressToken: UUID?
+        if forceReload {
+            guard let claimed = tryBeginMetadataSaveProgress(
                 title: String(localized: "Reloading Files"),
                 subtitle: String(localized: "Reading from disk…"),
                 totalUnitCount: targets.count
-            )
-            : nil
+            ) else { return }
+            progressToken = claimed
+        } else {
+            progressToken = nil
+        }
+        isReloadingSelectedFiles = true
         defer {
             isReloadingSelectedFiles = false
             if let progressToken { endMetadataSaveProgress(token: progressToken) }
@@ -132,17 +136,17 @@ extension AudioViewModel {
             )
             return
         }
-        guard !isReloadingSelectedFiles, metadataSaveProgress == nil else { return }
+        guard !isReloadingSelectedFiles else { return }
         let reviews = pendingReplacementFileReviews
         guard !reviews.isEmpty else { return }
-        dismissPendingReplacementFileReviews()
-
-        isReloadingSelectedFiles = true
-        let progressToken = beginMetadataSaveProgress(
+        guard let progressToken = tryBeginMetadataSaveProgress(
             title: String(localized: "Accepting Replacement Files"),
             subtitle: String(localized: "Verifying on disk…"),
             totalUnitCount: reviews.count
-        )
+        ) else { return }
+        dismissPendingReplacementFileReviews()
+
+        isReloadingSelectedFiles = true
         defer {
             isReloadingSelectedFiles = false
             endMetadataSaveProgress(token: progressToken)

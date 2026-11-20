@@ -405,6 +405,132 @@ nonisolated final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertEqual(cancelledOnly.hudTitle, "Operation Cancelled")
     }
 
+    @MainActor
+    func testBatchOperationClaimsProgressBeforeModalFolderPromptAndBlocksOverlap() async throws {
+        let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+        let viewModel = makeUnscopedViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+
+        var promptCount = 0
+        var sawActiveProgressInsidePrompt = false
+        var progressTitleInsidePrompt: String?
+        viewModel.mutationDirectoryAccessRequester = { _ in
+            promptCount += 1
+            sawActiveProgressInsidePrompt = viewModel.metadataSaveProgress != nil
+            progressTitleInsidePrompt = viewModel.metadataSaveProgress?.title
+            if promptCount == 1 {
+                // Attempt an overlapping batch operation while the modal prompt is open.
+                viewModel.eraseAllMetadata([file])
+            }
+            return "Access denied for test."
+        }
+
+        viewModel.createMuseAmpIDs(for: [file])
+
+        XCTAssertEqual(promptCount, 1, "Overlapping command must not re-enter folder access prompt")
+        XCTAssertTrue(
+            sawActiveProgressInsidePrompt,
+            "Batch operation must claim progress ownership before the modal folder prompt"
+        )
+        XCTAssertEqual(progressTitleInsidePrompt, "Creating MuseAmp IDs")
+        XCTAssertNil(
+            viewModel.metadataSaveProgress,
+            "Denied folder access must release progress cleanly using the owner token"
+        )
+    }
+
+    @MainActor
+    func testRawEditorAndTrackRenumberSkipFolderPromptForIneligibleTargets() async throws {
+        let url = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        addTeardownBlock { MetadataTestTokens.removeFixtureCopy(at: url) }
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+        let viewModel = makeUnscopedViewModel(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([file])
+
+        // Prepare valid Raw Editor and Track Renumber plans while the file is still eligible.
+        let rawTarget = MetadataEditorTarget(file: file)
+        let originalMap = try XCTUnwrap(rawTarget.metadataConflictBaseline?.values)
+        var editedMap = originalMap
+        editedMap["TITLE"] = ["Should Not Prompt"]
+        let rawRequest = MetadataEditorApplyRequest(
+            presentationID: MetadataEditorPresentationID(),
+            applyID: MetadataEditorApplyID(),
+            targets: [rawTarget],
+            pendingTargets: [rawTarget],
+            submittedOriginalPropertyMaps: [file.id: originalMap],
+            submittedPropertyMaps: [file.id: editedMap],
+            pendingChanges: [
+                RawFieldValueChange(
+                    targetID: file.id,
+                    key: "TITLE",
+                    beforeValues: originalMap["TITLE"],
+                    afterValues: ["Should Not Prompt"]
+                )
+            ],
+            draftGeneration: 1
+        )
+        let renumberPlan = viewModel.makeTrackRenumberPlan(
+            orderedFiles: [file],
+            selectedIDs: [file.id],
+            direction: .ascending,
+            startNumberText: "1"
+        )
+        XCTAssertEqual(renumberPlan.executableRows.count, 1)
+
+        var promptCount = 0
+        viewModel.mutationDirectoryAccessRequester = { _ in
+            promptCount += 1
+            return "Denied for test"
+        }
+
+        // Positive control: while eligible, folder access IS requested once.
+        let eligibleOutcome = await viewModel.applyRawMetadataApplyRequest(rawRequest)
+        XCTAssertEqual(promptCount, 1, "Positive control: eligible target must trigger folder access prompt")
+        XCTAssertEqual(eligibleOutcome.failedTargetIDs, [file.id])
+
+        // Now make the file ineligible before execution (recovery-blocked).
+        viewModel.markFileRequiresRefresh(id: file.id)
+
+        let rawOutcome = await viewModel.applyRawMetadataApplyRequest(rawRequest)
+        XCTAssertEqual(promptCount, 1, "Raw Editor must not prompt for folder access on ineligible targets")
+        XCTAssertEqual(rawOutcome.failedTargetIDs, [file.id])
+
+        let renumberResult = await viewModel.renumberTrackNumbers(using: renumberPlan)
+        XCTAssertEqual(promptCount, 1, "Track Renumber must not prompt for folder access on ineligible targets")
+        XCTAssertEqual(renumberResult.failed, 1)
+        XCTAssertEqual(renumberResult.succeeded, 0)
+    }
+
+    @MainActor
+    private func makeUnscopedViewModel(metadataPipeline: any AudioMetadataPipeline) -> AudioViewModel {
+        let suiteName = "AudioMatorUnscopedTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let journalStore = LocalRenameJournalStore(
+            directoryURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("AudioMatorUnscopedJournal-\(UUID().uuidString)", isDirectory: true)
+        )
+        return AudioViewModel(
+            watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: metadataPipeline,
+            saveIssueLogStore: AudioViewModelTestFactory.makeIssueLogStore(),
+            conflictPolicyDefaults: defaults,
+            renameJournalStore: journalStore,
+            renameJournalAutoClassification: false,
+            quickImportEnvironment: QuickImportEnvironment(
+                identityProvider: QuickImportEnvironment.production.identityProvider,
+                scopeAccess: UnscopedTestQuickImportScopeAccess(),
+                loadPolicy: .production
+            )
+        )
+    }
+
     // MARK: - Helpers
 
     @MainActor
@@ -523,4 +649,9 @@ private nonisolated final class RecordingReviewedPipeline: AudioMetadataPipeline
         lock.withLock { eraseRecordedVersions.append(expectedVersion) }
         return AudioMetadataWriteResult(warnings: [])
     }
+}
+
+private nonisolated struct UnscopedTestQuickImportScopeAccess: QuickImportScopeAccessing {
+    nonisolated func startAccessingScope(for url: URL) -> Bool { false }
+    nonisolated func stopAccessingScope(for url: URL) {}
 }

@@ -34,7 +34,10 @@ nonisolated final class ProviderTaggingCancellationTests: XCTestCase {
         let gate = PlanCompletionGate()
         let names = (0..<7).map { "\($0).flac" }
         let task = Task {
-            await viewModel.executeBoundedMetadataPlan(fileNames: names) { index in
+            await viewModel.executeBoundedMetadataPlan(
+                fileNames: names,
+                progressToken: UUID()
+            ) { index in
                 await gate.wait(index)
                 return (names[index], .failure("failure \(index)"))
             }

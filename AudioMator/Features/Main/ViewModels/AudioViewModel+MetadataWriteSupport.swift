@@ -92,6 +92,19 @@ extension AudioViewModel {
         return false
     }
 
+    func tryBeginMetadataSaveProgress(
+        title: String,
+        subtitle: String,
+        totalUnitCount: Int
+    ) -> UUID? {
+        guard metadataSaveProgress == nil else { return nil }
+        return beginMetadataSaveProgress(
+            title: title,
+            subtitle: subtitle,
+            totalUnitCount: totalUnitCount
+        )
+    }
+
     @discardableResult
     func beginMetadataSaveProgress(
         title: String,
@@ -112,11 +125,11 @@ extension AudioViewModel {
     }
 
     func updateMetadataSaveProgress(
-        token: UUID? = nil,
+        token: UUID,
         subtitle: String,
         completedUnitCount: Int
     ) {
-        if let token, metadataSaveProgressToken != token { return }
+        guard metadataSaveProgressToken == token else { return }
         guard let current = metadataSaveProgress else { return }
         // Each progress publication invalidates the window. Bound that work for
         // fast batch writes while always publishing the final completed count.
@@ -131,8 +144,8 @@ extension AudioViewModel {
         )
     }
 
-    func endMetadataSaveProgress(token: UUID? = nil) {
-        if let token, metadataSaveProgressToken != token { return }
+    func endMetadataSaveProgress(token: UUID) {
+        guard metadataSaveProgressToken == token else { return }
         // Publish every accepted reload before reporting batch completion,
         // including partial failures and cancellation.
         flushPendingMetadataReloads()
@@ -147,6 +160,7 @@ extension AudioViewModel {
     /// bound. Results remain in plan order; nil means cancelled before entry.
     func executeBoundedMetadataPlan(
         fileNames: [String],
+        progressToken: UUID,
         operation: @escaping @MainActor @Sendable (Int) async -> (fileName: String, result: MetadataWriteExecutionResult)
     ) async -> [(fileName: String, result: MetadataWriteExecutionResult)?] {
         var results = Array<(fileName: String, result: MetadataWriteExecutionResult)?>(repeating: nil, count: fileNames.count)
@@ -157,7 +171,11 @@ extension AudioViewModel {
         } onCompletion: { index, result in
             results[index] = result
             completed += 1
-            self.updateMetadataSaveProgress(subtitle: fileNames[index], completedUnitCount: completed)
+            self.updateMetadataSaveProgress(
+                token: progressToken,
+                subtitle: fileNames[index],
+                completedUnitCount: completed
+            )
         }
         return results
     }

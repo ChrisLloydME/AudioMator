@@ -53,16 +53,27 @@ extension AudioViewModel {
         guard canStartExternalFileMutation() else { return .empty }
 
         // Ask for the required directory access once, before the first write, using
-        // the captured reviewed URLs. Precondition failures (refresh-required,
-        // unsupported, duplicate) were reported by the result baseline and never
-        // prompt.
-        if let accessFailure = ensureMetadataMutationDirectoryAccess(
-            for: executableRows.compactMap { $0.executableWrite?.target.url }
-        ) {
+        // only currently eligible reviewed URLs. Precondition failures and rows
+        // already rejected by current eligibility never prompt.
+        let prePromptURLs = prePromptDirectoryAccessURLs(
+            for: executableRows.compactMap { $0.executableWrite?.reviewedWrite }
+        )
+        if !prePromptURLs.isEmpty,
+           let accessFailure = ensureMetadataMutationDirectoryAccess(for: prePromptURLs) {
             for row in executableRows {
+                let reason: String
+                if let write = row.executableWrite?.reviewedWrite,
+                   let eligibilityFailure = reviewedWriteEligibilityFailure(
+                    for: write.target,
+                    allowsChangedRevision: false
+                   ) {
+                    reason = eligibilityFailure
+                } else {
+                    reason = accessFailure
+                }
                 result.failed += 1
                 result.failures.append(
-                    TrackRenumberFailure(fileName: row.fileName, reason: accessFailure)
+                    TrackRenumberFailure(fileName: row.fileName, reason: reason)
                 )
             }
             return result

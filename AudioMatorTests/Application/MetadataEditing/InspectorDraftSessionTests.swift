@@ -453,6 +453,44 @@ nonisolated final class InspectorDraftSessionTests: XCTestCase {
     }
 
     @MainActor
+    func testCleanDiscardConfirmationTokenRejectsDraftDirtiedBeforeAffirmation() {
+        let track = fullFile(id: UUID(), title: "Original")
+        let vm = makeViewModel()
+        vm.mergeQuickImportFiles([track])
+        vm.setSelectedAudioIDs([track.id])
+        XCTAssertFalse(vm.hasUnsavedInspectorChanges)
+
+        // Confirmation opens while Inspector is clean (e.g., Clear List).
+        let cleanToken = vm.captureInspectorDiscardConfirmationToken()
+        XCTAssertFalse(cleanToken.hadUnsavedChanges)
+        XCTAssertTrue(vm.isInspectorDiscardConfirmationCurrent(cleanToken))
+
+        // An async artwork handoff or edit stages a change before the user affirms.
+        let artworkToken = try? XCTUnwrap(vm.beginArtworkCommand(for: [track.id]))
+        XCTAssertNotNil(artworkToken)
+        if let artworkToken {
+            let stagedArtwork = PendingArtwork(
+                data: Data([0x89, 0x50, 0x4E, 0x47]),
+                mimeType: "image/png"
+            )
+            XCTAssertTrue(vm.completeArtworkHandoff(artworkToken, action: .replace(stagedArtwork)))
+        }
+        XCTAssertTrue(vm.hasUnsavedInspectorChanges)
+        XCTAssertFalse(
+            vm.isInspectorDiscardConfirmationCurrent(cleanToken),
+            "A confirmation opened while clean must fail closed if an edit was staged before affirmation"
+        )
+
+        // Detached pending-review drafts also capture a non-nil token bound to the review session.
+        vm.removeQuickImportFile(id: track.id)
+        XCTAssertTrue(vm.hasInspectorPendingReview)
+        let pendingToken = vm.captureInspectorDiscardConfirmationToken()
+        XCTAssertTrue(pendingToken.hadUnsavedChanges)
+        XCTAssertNotNil(pendingToken.pendingReviewSessionID)
+        XCTAssertTrue(vm.isInspectorDiscardConfirmationCurrent(pendingToken))
+    }
+
+    @MainActor
     func testPartialBatchLedgerOnlyExcludesCompletedTargets() {
         let firstID = UUID()
         let secondID = UUID()

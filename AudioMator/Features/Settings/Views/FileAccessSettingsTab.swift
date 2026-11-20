@@ -469,7 +469,7 @@ struct FileAccessSettingsTab: View {
         if alert.suppressionButton?.state == .on {
             suppressesUnsavedInspectorDiscardWarning = true
         }
-        if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
+        guard viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) else {
             confirmAndRemoveWatchedFolders(ids: ids, afterRemoval: afterRemoval)
             return
         }

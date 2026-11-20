@@ -339,6 +339,52 @@ nonisolated final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         XCTAssertEqual(pipeline.eraseVersions.first, fixture.file.metadataFileVersion)
     }
 
+    @MainActor
+    func testConfirmedEraseAndMuseAmpCapturesRejectNewerRevisionAndUnapprovedSelection() async throws {
+        let first = try makeObservedFixture()
+        defer { removeDirectory(first.directory) }
+        let second = try makeObservedFixture()
+        defer { removeDirectory(second.directory) }
+        let v2 = try XCTUnwrap(AudioFileTestFactory.secondaryFixtureFileVersion)
+        XCTAssertNotEqual(first.file.metadataFileVersion, v2)
+
+        let pipeline = RecordingReviewedPipeline(reloadFile: first.file)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([first.file, second.file])
+        viewModel.setSelectedAudioIDs([first.file.id])
+
+        // Capture both confirmation snapshots when only `first` (at V1) is selected.
+        let eraseCapture = viewModel.captureConfirmedSelectionAction()
+        let museAmpCapture = viewModel.captureConfirmedSelectionAction()
+        XCTAssertEqual(eraseCapture.files.map(\.id), [first.file.id])
+
+        // While the confirmation dialog is open, a refresh replaces `first` with V2
+        // AND the selection switches to `second`.
+        let refreshedFirst = AudioFileTestFactory.makeObserved(
+            id: first.file.id,
+            url: first.file.url,
+            title: "Updated On Disk",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: first.file.url, fileSize: 999),
+            metadataFileVersion: v2
+        )
+        _ = viewModel.replaceLoadedFile(
+            refreshedFirst,
+            refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+            deferVisibleRefresh: false
+        )
+        viewModel.setSelectedAudioIDs([second.file.id])
+
+        // Affirming Erase must neither erase `first` (stale V1) nor touch `second` (unapproved).
+        viewModel.executeConfirmedEraseAllMetadata(eraseCapture)
+        try await waitUntil { viewModel.metadataSaveProgress == nil }
+        XCTAssertTrue(pipeline.eraseVersions.isEmpty, "Confirmed Erase must reject newer V2 observation and never touch unapproved selection")
+
+        // Affirming Create MuseAmp IDs must likewise reject stale V1 and never write to `second`.
+        viewModel.executeConfirmedCreateMuseAmpIDs(museAmpCapture)
+        try await waitUntil { viewModel.metadataSaveProgress == nil }
+        XCTAssertTrue(pipeline.semanticWrites.isEmpty, "Confirmed MuseAmp must reject newer V2 observation and never touch unapproved selection")
+    }
+
     // MARK: - S5 structural cancellation classification
 
     @MainActor

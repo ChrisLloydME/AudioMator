@@ -106,6 +106,14 @@ struct MetadataSaveProgress: Equatable {
     }
 }
 
+struct ConfirmedSelectionActionCapture: Sendable {
+    let files: [AudioFile]
+    let capturedSelectionIDs: Set<AudioFile.ID>
+    let capturedSidebarSelection: SidebarSelection
+
+    var isEmpty: Bool { files.isEmpty }
+}
+
 @MainActor
 final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     nonisolated private static let readableAudioExtensions = AudioFormatSupport.readableExtensions
@@ -587,13 +595,45 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         return true
     }
 
-    func captureInspectorDiscardConfirmationToken() -> InspectorDiscardConfirmationToken? {
-        guard let identity = inspectorDraft?.identity else { return nil }
-        return InspectorDiscardConfirmationToken(identity: identity)
+    func captureInspectorDiscardConfirmationToken() -> InspectorDiscardConfirmationToken {
+        InspectorDiscardConfirmationToken(
+            hadUnsavedChanges: hasUnsavedInspectorChanges,
+            draftIdentity: inspectorDraft?.identity,
+            pendingReviewSessionID: inspectorPendingReview?.identity.sessionID
+        )
     }
 
     func isInspectorDiscardConfirmationCurrent(_ token: InspectorDiscardConfirmationToken) -> Bool {
-        inspectorDraft?.identity == token.identity
+        if !token.hadUnsavedChanges {
+            // The confirmation opened while the Inspector was clean: any edit or
+            // async artwork handoff that made the draft dirty since then was
+            // never approved for discard.
+            return !hasUnsavedInspectorChanges
+        }
+        guard hasUnsavedInspectorChanges else { return true }
+        return inspectorDraft?.identity == token.draftIdentity
+            && inspectorPendingReview?.identity.sessionID == token.pendingReviewSessionID
+    }
+
+    /// Frozen selection snapshot captured when a destructive confirmation dialog
+    /// (Erase All Tags or Create MuseAmp IDs) opens so affirmation acts only on
+    /// the exact reviewed file observations the user approved.
+    func captureConfirmedSelectionAction() -> ConfirmedSelectionActionCapture {
+        ConfirmedSelectionActionCapture(
+            files: selectedFiles,
+            capturedSelectionIDs: selectedAudioIDs,
+            capturedSidebarSelection: normalizedSidebarSelection(activeSidebarSelection)
+        )
+    }
+
+    func executeConfirmedEraseAllMetadata(_ capture: ConfirmedSelectionActionCapture) {
+        guard !capture.isEmpty else { return }
+        eraseAllMetadata(capture.files)
+    }
+
+    func executeConfirmedCreateMuseAmpIDs(_ capture: ConfirmedSelectionActionCapture) {
+        guard !capture.isEmpty else { return }
+        createMuseAmpIDs(for: capture.files)
     }
 
     func removingWatchedFoldersAffectsUnsavedInspectorEdits(ids: Set<UUID>) -> Bool {

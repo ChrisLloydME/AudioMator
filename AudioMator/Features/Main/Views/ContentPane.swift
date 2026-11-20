@@ -17,12 +17,26 @@ struct ContentPane: View {
 
     @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
 
-    @State private var isEraseAllTagsConfirmPresented: Bool = false
-    @State private var isMuseAmpIDConfirmPresented: Bool = false
+    @State private var pendingEraseAllCapture: ConfirmedSelectionActionCapture?
+    @State private var pendingMuseAmpIDCapture: ConfirmedSelectionActionCapture?
     @State private var isClearListConfirmPresented: Bool = false
     @State private var isReloadDiscardConfirmPresented: Bool = false
     @State private var reloadDiscardToken: InspectorDiscardConfirmationToken?
     @State private var clearListDiscardToken: InspectorDiscardConfirmationToken?
+
+    private var isEraseAllTagsConfirmPresented: Binding<Bool> {
+        Binding(
+            get: { pendingEraseAllCapture != nil },
+            set: { if !$0 { pendingEraseAllCapture = nil } }
+        )
+    }
+
+    private var isMuseAmpIDConfirmPresented: Binding<Bool> {
+        Binding(
+            get: { pendingMuseAmpIDCapture != nil },
+            set: { if !$0 { pendingMuseAmpIDCapture = nil } }
+        )
+    }
 
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
@@ -103,7 +117,7 @@ struct ContentPane: View {
                 Button(String(localized: "Discard and Reload"), role: .destructive) {
                     let capturedToken = reloadDiscardToken
                     reloadDiscardToken = nil
-                    if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
+                    guard let capturedToken, viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) else {
                         if viewModel.hasUnsavedInspectorChanges {
                             reloadDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                             isReloadDiscardConfirmPresented = true
@@ -127,11 +141,9 @@ struct ContentPane: View {
                 Button("Clear List", role: .destructive) {
                     let capturedToken = clearListDiscardToken
                     clearListDiscardToken = nil
-                    if let capturedToken, !viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) {
-                        if viewModel.hasUnsavedInspectorChanges {
-                            clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
-                            isClearListConfirmPresented = true
-                        }
+                    guard let capturedToken, viewModel.isInspectorDiscardConfirmationCurrent(capturedToken) else {
+                        clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
+                        isClearListConfirmPresented = true
                         return
                     }
                     if viewModel.hasUnsavedInspectorChanges {
@@ -151,9 +163,7 @@ struct ContentPane: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }
-                clearListDiscardToken = viewModel.hasUnsavedInspectorChanges
-                    ? viewModel.captureInspectorDiscardConfirmationToken()
-                    : nil
+                clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                 isClearListConfirmPresented = true
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestMetadataFilenameRename)) { _ in
@@ -189,8 +199,16 @@ struct ContentPane: View {
                     onCopySelectedFilePaths: copySelectedFilePaths,
                     onCopySelectedFileNames: copySelectedFileNames,
                     onFindSelectedFileInMusicBrainz: onFindSelectedFileInMusicBrainz,
-                    onRequestCreateMuseAmpIDs: { isMuseAmpIDConfirmPresented = true },
-                    onRequestEraseAllTags: { isEraseAllTagsConfirmPresented = true },
+                    onRequestCreateMuseAmpIDs: {
+                        let capture = viewModel.captureConfirmedSelectionAction()
+                        guard !capture.isEmpty else { return }
+                        pendingMuseAmpIDCapture = capture
+                    },
+                    onRequestEraseAllTags: {
+                        let capture = viewModel.captureConfirmedSelectionAction()
+                        guard !capture.isEmpty else { return }
+                        pendingEraseAllCapture = capture
+                    },
                     onReloadSelectedFiles: {
                         if viewModel.hasUnsavedInspectorChanges {
                             reloadDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
@@ -211,25 +229,33 @@ struct ContentPane: View {
                 }
                 .confirmationDialog(
                     "Create MuseAmp IDs?",
-                    isPresented: $isMuseAmpIDConfirmPresented,
+                    isPresented: isMuseAmpIDConfirmPresented,
                     titleVisibility: .visible
                 ) {
                     Button("Create IDs", role: .destructive) {
-                        createMuseAmpIDsForSelectedFiles()
+                        guard let capture = pendingMuseAmpIDCapture else { return }
+                        pendingMuseAmpIDCapture = nil
+                        viewModel.executeConfirmedCreateMuseAmpIDs(capture)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button("Cancel", role: .cancel) {
+                        pendingMuseAmpIDCapture = nil
+                    }
                 } message: {
                     Text("This replaces the Comment field on the selected files with MuseAmp ID data, then saves the files.")
                 }
                 .confirmationDialog(
                     "Erase all metadata tags?",
-                    isPresented: $isEraseAllTagsConfirmPresented,
+                    isPresented: isEraseAllTagsConfirmPresented,
                     titleVisibility: .visible
                 ) {
                     Button("Erase", role: .destructive) {
-                        clearAllMetadataForSelectedFiles()
+                        guard let capture = pendingEraseAllCapture else { return }
+                        pendingEraseAllCapture = nil
+                        viewModel.executeConfirmedEraseAllMetadata(capture)
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button("Cancel", role: .cancel) {
+                        pendingEraseAllCapture = nil
+                    }
                 } message: {
                     Text("Removes metadata from the selected files. This can't be undone.")
                 }
@@ -249,9 +275,7 @@ struct ContentPane: View {
 
             if visibleToolbarButtons.contains(.clearList) {
                 Button(role: .destructive) {
-                    clearListDiscardToken = viewModel.hasUnsavedInspectorChanges
-                        ? viewModel.captureInspectorDiscardConfirmationToken()
-                        : nil
+                    clearListDiscardToken = viewModel.captureInspectorDiscardConfirmationToken()
                     isClearListConfirmPresented = true
                 } label: {
                     toolbarIconLabel(ToolbarButtonOption.clearList.displayName, systemImage: ToolbarButtonOption.clearList.systemImage)
@@ -420,14 +444,6 @@ struct ContentPane: View {
     private func copySelectedFileNames() {
         let text = selectedFiles.map { $0.url.lastPathComponent }.joined(separator: "\n")
         MacPasteboard.copy(text)
-    }
-
-    private func clearAllMetadataForSelectedFiles() {
-        viewModel.eraseAllMetadata(selectedFiles)
-    }
-
-    private func createMuseAmpIDsForSelectedFiles() {
-        viewModel.createMuseAmpIDs(for: selectedFiles)
     }
 
     private func clearFileList() {

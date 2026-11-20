@@ -87,14 +87,23 @@ nonisolated struct InspectorPendingReview: Hashable, Sendable {
     nonisolated var canResume: Bool { unavailableTargetIDs.isEmpty }
 }
 
-/// Captured when an unsaved-discard confirmation is shown. The response is
-/// applied only if the draft identity is still current; otherwise the decision
-/// is repeated or aborted instead of discarding a newer draft.
+/// Captured when a discard-capable confirmation is shown. Always non-optional
+/// so a confirmation opened while clean cannot silently discard edits staged
+/// asynchronously before affirmation, and a detached pending-review draft is
+/// still validated against its captured session.
 nonisolated struct InspectorDiscardConfirmationToken: Hashable, Sendable {
-    let identity: InspectorDraftIdentity
+    let hadUnsavedChanges: Bool
+    let draftIdentity: InspectorDraftIdentity?
+    let pendingReviewSessionID: InspectorDraftSessionID?
 
-    nonisolated init(identity: InspectorDraftIdentity) {
-        self.identity = identity
+    nonisolated init(
+        hadUnsavedChanges: Bool,
+        draftIdentity: InspectorDraftIdentity?,
+        pendingReviewSessionID: InspectorDraftSessionID?
+    ) {
+        self.hadUnsavedChanges = hadUnsavedChanges
+        self.draftIdentity = draftIdentity
+        self.pendingReviewSessionID = pendingReviewSessionID
     }
 }
 

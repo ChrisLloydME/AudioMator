@@ -189,7 +189,7 @@ nonisolated final class MetadataDatePickerEligibilityTests: XCTestCase {
         let ogg = MetadataEditorTarget(file: makeFile(path: "/tmp/track.ogg"))
         let xm = MetadataEditorTarget(file: makeFile(path: "/tmp/module.xm"))
 
-        // Raw DATE key: literal `.standaloneDate` on Vorbis/APE; Year-slot / ambiguous on MP4 & ID3.
+        // Raw DATE reaches a standalone date on Vorbis and can project Year on other tag families.
         let flacDate = MetadataDatePickerEligibilityResolver.metadataEditorEligibility(rawKey: "DATE", targets: [flac])
         XCTAssertEqual(flacDate?.fieldKey, .standaloneDate)
         XCTAssertEqual(flacDate?.destinationFormat, .isoDateOnly)
@@ -204,6 +204,12 @@ nonisolated final class MetadataDatePickerEligibilityTests: XCTestCase {
         XCTAssertNil(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(rawKey: "DATE", targets: [mp3v23]))
         XCTAssertNil(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(rawKey: "DATE", targets: [flac, mp3v24]))
         XCTAssertNil(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(rawKey: "DATE", targets: [flac, m4a]))
+
+        for ext in ["ape", "wv", "mpc"] {
+            let target = MetadataEditorTarget(file: makeFile(path: "/tmp/track.\(ext)"))
+            XCTAssertNil(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(rawKey: "DATE", targets: [target]))
+            XCTAssertNil(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(rawKey: "DATE", targets: [flac, target]))
+        }
 
         // Ambiguous aliases, custom keys, Copyright, durations, and other fields stay text-only.
         for rejectedKey in [

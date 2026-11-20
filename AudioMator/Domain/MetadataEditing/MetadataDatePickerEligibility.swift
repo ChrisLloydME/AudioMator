@@ -140,7 +140,8 @@ nonisolated enum MetadataDatePickerEligibilityResolver {
         // evidence of raw routing (e.g. YEAR in ID3 writes a user text frame).
         let fieldKey: MetadataFieldKey
         switch (normalizedRawKey, family) {
-        case ("DATE", .vorbisComment), ("DATE", .apev2):
+        case ("DATE", .vorbisComment):
+            // APEv2's raw PropertyMap DATE can address its YEAR item.
             fieldKey = .standaloneDate
         case ("RELEASEDATE", .id3v24), ("RELEASEDATE", .mp4),
              ("RELEASEDATE", .vorbisComment), ("RELEASEDATE", .apev2):
